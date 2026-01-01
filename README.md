@@ -16,7 +16,7 @@
 
 <p align="center">
   <a href="https://tonnet.resistance.dog"><img src="https://img.shields.io/badge/website-tonnet.resistance.dog-blue" alt="Website"></a>
-  <img src="https://img.shields.io/badge/version-1.0.1-blue" alt="Version">
+  <img src="https://img.shields.io/badge/version-1.0.0-blue" alt="Version">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
   <img src="https://img.shields.io/badge/platform-Linux%20%7C%20Windows%20%7C%20macOS-lightgrey" alt="Platform">
 </p>
@@ -24,24 +24,24 @@
 <h3 align="center">Download</h3>
 
 <p align="center">
-  <a href="https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON.Browser.Setup.1.0.1.exe">
+  <a href="https://github.com/TONresistor/tonnet-browser/releases/latest/download/TON.Browser.Setup.1.0.0.exe">
     <img src="https://img.shields.io/badge/Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white" alt="Windows">
   </a>
   &nbsp;
-  <a href="https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON.Browser-1.0.1-universal.dmg">
+  <a href="https://github.com/TONresistor/tonnet-browser/releases/latest/download/TON.Browser-1.0.0-universal.dmg">
     <img src="https://img.shields.io/badge/macOS-000000?style=for-the-badge&logo=apple&logoColor=white" alt="macOS">
   </a>
   &nbsp;
-  <a href="https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON.Browser-1.0.1.AppImage">
+  <a href="https://github.com/TONresistor/tonnet-browser/releases/latest/download/TON.Browser-1.0.0.AppImage">
     <img src="https://img.shields.io/badge/Linux-FCC624?style=for-the-badge&logo=linux&logoColor=black" alt="Linux">
   </a>
 </p>
 
 <p align="center">
   <sub>
-    <a href="https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/ton-browser_1.0.1_amd64.deb">Linux .deb</a> ·
-    <a href="https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON.Browser.1.0.1.exe">Windows Portable</a> ·
-    <a href="https://github.com/TONresistor/Tonnet-Browser/releases">All releases</a>
+    <a href="https://github.com/TONresistor/tonnet-browser/releases/latest/download/ton-browser_1.0.0_amd64.deb">Linux .deb</a> ·
+    <a href="https://github.com/TONresistor/tonnet-browser/releases/latest/download/TON.Browser.1.0.0.exe">Windows Portable</a> ·
+    <a href="https://github.com/TONresistor/tonnet-browser/releases">All releases</a>
   </sub>
 </p>
 
