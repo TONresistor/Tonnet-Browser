@@ -1,0 +1,217 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root, [data-theme="resistance-dog"] {
+    /* Resistance Dog Theme (Default) */
+    --background: 210 26% 13%;          /* #17212b */
+    --background-secondary: 210 32% 9%; /* #0e1621 */
+    --foreground: 0 0% 96%;             /* #f5f5f5 */
+    --card: 210 24% 18%;                /* #232e3c */
+    --card-foreground: 0 0% 96%;
+    --popover: 210 24% 18%;             /* #232e3c */
+    --popover-foreground: 0 0% 96%;
+    --primary: 210 44% 53%;             /* #5288c1 */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 24% 18%;           /* #232e3c */
+    --secondary-foreground: 0 0% 96%;
+    --muted: 210 22% 15%;               /* #1b2734 */
+    --muted-foreground: 210 18% 52%;    /* #708499 */
+    --accent: 207 83% 68%;              /* #6ab2f2 */
+    --accent-foreground: 0 0% 100%;
+    --destructive: 356 82% 58%;         /* #ec3942 */
+    --destructive-foreground: 0 0% 100%;
+    --border: 210 22% 22%;              /* #2b3d4f */
+    --input: 210 24% 18%;               /* #232e3c */
+    --ring: 207 83% 68%;                /* #6ab2f2 */
+    --radius: 0.5rem;
+    /* Status colors */
+    --success: 142 76% 36%;             /* #22c55e */
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;              /* #f59e0b */
+    --warning-foreground: 0 0% 0%;
+    --info: 199 89% 48%;                /* #0ea5e9 */
+    --info-foreground: 0 0% 100%;
+
+    /* Surface variants (white with opacity for dark theme) */
+    --surface: 0 0% 100% / 0.06;
+    --surface-hover: 0 0% 100% / 0.08;
+    --surface-active: 0 0% 100% / 0.12;
+
+    /* Border opacity variants */
+    --border-subtle: 0 0% 100% / 0.1;
+    --border-medium: 0 0% 100% / 0.15;
+    --border-strong: 0 0% 100% / 0.25;
+
+    /* Text opacity variants */
+    --foreground-secondary: 0 0% 100% / 0.8;
+    --foreground-muted: 0 0% 100% / 0.6;
+
+    /* Shadow base */
+    --shadow-color: 0 0% 0%;
+
+    /* Glow colors for shadows */
+    --primary-glow: rgba(82, 136, 193, 0.4);
+    --destructive-glow: rgba(236, 57, 66, 0.3);
+
+    /* Button highlight (inset white for buttons) */
+    --button-highlight: rgba(255, 255, 255, 0.2);
+  }
+
+  [data-theme="utya-duck"] {
+    /* Utya Duck Theme - Bright Yellow with Telegram Blue buttons */
+    --background: 50 100% 60%;          /* #FFE600 - Jaune vif */
+    --background-secondary: 48 100% 55%; /* #FFD900 - Jaune légèrement plus foncé */
+    --foreground: 0 0% 8%;              /* #141414 - Texte noir */
+    --card: 52 100% 65%;                /* #FFEB33 - Jaune clair pour cards */
+    --card-foreground: 0 0% 8%;
+    --popover: 50 100% 60%;             /* #FFE600 */
+    --popover-foreground: 0 0% 8%;
+    --primary: 200 85% 55%;             /* #2AABEE - Bleu Telegram */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 48 90% 55%;            /* #F0D000 - Jaune doré */
+    --secondary-foreground: 0 0% 8%;
+    --muted: 48 80% 65%;                /* #F0DC4D - Jaune moyen */
+    --muted-foreground: 0 0% 15%;       /* #262626 - Gris très foncé */
+    --accent: 200 80% 45%;              /* #1E96D1 - Bleu Telegram foncé */
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 80% 45%;           /* #CC2929 - Rouge */
+    --destructive-foreground: 0 0% 100%;
+    --border: 40 70% 35%;               /* #998219 - Bordure marron-or */
+    --input: 52 100% 62%;               /* #FFE84D */
+    --ring: 200 85% 55%;                /* #2AABEE - Bleu Telegram */
+    --radius: 0.5rem;
+    /* Status colors */
+    --success: 142 80% 30%;             /* #0F8C3D - Vert foncé */
+    --success-foreground: 0 0% 100%;
+    --warning: 15 90% 40%;              /* #C24D0A - Rouge-orange */
+    --warning-foreground: 0 0% 100%;
+    --info: 210 90% 35%;                /* #0959A6 - Bleu foncé */
+    --info-foreground: 0 0% 100%;
+
+    /* Surface variants (black with opacity for light theme) */
+    --surface: 0 0% 0% / 0.06;
+    --surface-hover: 0 0% 0% / 0.08;
+    --surface-active: 0 0% 0% / 0.12;
+
+    /* Border opacity variants */
+    --border-subtle: 0 0% 0% / 0.1;
+    --border-medium: 0 0% 0% / 0.15;
+    --border-strong: 0 0% 0% / 0.25;
+
+    /* Text opacity variants */
+    --foreground-secondary: 0 0% 0% / 0.8;
+    --foreground-muted: 0 0% 0% / 0.6;
+
+    /* Shadow base */
+    --shadow-color: 0 0% 0%;
+
+    /* Glow colors for shadows */
+    --primary-glow: rgba(42, 171, 238, 0.4);
+    --destructive-glow: rgba(204, 41, 41, 0.3);
+
+    /* Button highlight (inset white for buttons) */
+    --button-highlight: rgba(255, 255, 255, 0.2);
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+  }
+
+  /* Only disable text selection on specific UI elements, not globally */
+  .no-select {
+    user-select: none;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: hsl(var(--background));
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--muted));
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground));
+  }
+}
+
+/* Drag region for custom title bar */
+.drag-region {
+  -webkit-app-region: drag;
+}
+
+.no-drag {
+  -webkit-app-region: no-drag;
+}
+
+/* Tab transitions */
+.tab-enter {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
+.tab-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 150ms ease-out, transform 150ms ease-out;
+}
+
+.tab-exit {
+  opacity: 1;
+}
+
+.tab-exit-active {
+  opacity: 0;
+  transition: opacity 100ms ease-in;
+}
+
+/* Theme gradient utilities */
+.gradient-primary {
+  background: linear-gradient(to right, hsl(var(--primary)), hsl(var(--accent)));
+}
+
+.gradient-primary-hover {
+  background: linear-gradient(to right, hsl(var(--primary) / 0.8), hsl(var(--accent) / 0.8));
+}
+
+.gradient-muted {
+  background: linear-gradient(to right, hsl(var(--muted)), hsl(var(--background)));
+}
+
+.gradient-connecting {
+  background: linear-gradient(to right, hsl(var(--muted)), hsl(var(--card)));
+}
+
+.gradient-card {
+  background: linear-gradient(to bottom, hsl(var(--card)), hsl(var(--background)));
+}
+
+/* Theme-specific scrollbar for Utya Duck theme */
+[data-theme="utya-duck"] ::-webkit-scrollbar-track {
+  background: hsl(50 100% 60%);
+}
+
+[data-theme="utya-duck"] ::-webkit-scrollbar-thumb {
+  background: hsl(40 70% 35%);
+}
+
+[data-theme="utya-duck"] ::-webkit-scrollbar-thumb:hover {
+  background: hsl(40 70% 25%);
+}

@@ -1,0 +1,51 @@
+appId: com.tonbrowser.app
+productName: TON Browser
+directories:
+  output: release
+
+files:
+  - "out/**/*"
+  - "package.json"
+
+extraResources:
+  - from: "resources/config"
+    to: "config"
+    filter:
+      - "**/*"
+
+linux:
+  extraResources:
+    - from: "resources/bin/linux"
+      to: "bin"
+      filter:
+        - "**/*"
+  target:
+    - AppImage
+    - deb
+  category: Network
+  icon: resources/icons/icon.png
+
+win:
+  extraResources:
+    - from: "resources/bin/win"
+      to: "bin"
+      filter:
+        - "**/*"
+  target:
+    - nsis
+    - portable
+  icon: resources/icons/icon.ico
+
+mac:
+  extraResources:
+    - from: "resources/bin/mac"
+      to: "bin"
+      filter:
+        - "**/*"
+  target:
+    - target: dmg
+      arch: universal
+  icon: resources/icons/icon.icns
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  x64ArchFiles: "Contents/Resources/bin/*"
