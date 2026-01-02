@@ -25,7 +25,7 @@ export function createTonSession(proxyPort: number) {
   // Set uniform User-Agent
   ses.setUserAgent(USER_AGENT)
 
-  // Privacy: Normalize headers, strip referer
+  // Privacy: Normalize headers, strip referer and cache headers
   ses.webRequest.onBeforeSendHeaders((details, callback) => {
     const headers = { ...details.requestHeaders }
     headers['User-Agent'] = USER_AGENT
@@ -33,6 +33,11 @@ export function createTonSession(proxyPort: number) {
     // Strip referer to prevent navigation history leaks
     delete headers['Referer']
     delete headers['Referrer']
+    // TEST: Force no-cache to debug 304 issue
+    delete headers['If-None-Match']
+    delete headers['If-Modified-Since']
+    headers['Cache-Control'] = 'no-cache'
+    headers['Pragma'] = 'no-cache'
     callback({ requestHeaders: headers })
   })
 

@@ -123,7 +123,7 @@ function App() {
         e.preventDefault()
         window.electron.zoomReset()
       }
-      // F12: Toggle DevTools
+      // F12: Toggle DevTools (Ctrl+Shift+I is handled in main process)
       else if (e.key === 'F12') {
         e.preventDefault()
         window.electron.toggleDevTools()

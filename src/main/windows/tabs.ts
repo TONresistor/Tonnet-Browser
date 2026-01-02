@@ -84,10 +84,18 @@ function setupViewEvents(view: BrowserView, tabId: string): void {
     mainWindow?.webContents.send('page:title', title, tabId)
   })
 
-  // Security: Intercept navigation to validate URLs (blocks javascript:, data:, file:, etc.)
+  // Security: Intercept navigation to validate URLs (blocks javascript:, data:, file:, https:, etc.)
   view.webContents.on('will-navigate', (event, url) => {
     try {
       const parsed = new URL(url)
+      // Convert tonsite:// to http:// (TON sites use this custom protocol)
+      if (parsed.protocol === 'tonsite:') {
+        event.preventDefault()
+        const httpUrl = url.replace('tonsite://', 'http://')
+        console.log(`[Tabs] Converting tonsite:// to http://: ${httpUrl}`)
+        view.webContents.loadURL(httpUrl)
+        return
+      }
       if (!ALLOWED_SCHEMES.includes(parsed.protocol)) {
         console.warn(`[Tabs] Blocked navigation to unsafe URL: ${url}`)
         event.preventDefault()
@@ -101,10 +109,16 @@ function setupViewEvents(view: BrowserView, tabId: string): void {
   // Security: Control popup windows (window.open) - open in new tab instead
   view.webContents.setWindowOpenHandler(({ url }) => {
     try {
+      let targetUrl = url
       const parsed = new URL(url)
-      if (ALLOWED_SCHEMES.includes(parsed.protocol)) {
-        // Open valid http/https URLs in new tab (goes through proxy)
-        mainWindow?.webContents.send('context:open-link', url)
+      // Convert tonsite:// to http://
+      if (parsed.protocol === 'tonsite:') {
+        targetUrl = url.replace('tonsite://', 'http://')
+        console.log(`[Tabs] Converting tonsite:// popup to http://: ${targetUrl}`)
+        mainWindow?.webContents.send('context:open-link', targetUrl)
+      } else if (ALLOWED_SCHEMES.includes(parsed.protocol)) {
+        // Open valid http:// URLs in new tab
+        mainWindow?.webContents.send('context:open-link', targetUrl)
       } else {
         console.warn(`[Tabs] Blocked popup to unsafe URL: ${url}`)
       }
@@ -252,7 +266,9 @@ export function showActiveView(): void {
 }
 
 // Allowed URL schemes for security
-const ALLOWED_SCHEMES = ['http:', 'https:']
+// Only http: is allowed - TON proxy doesn't support HTTPS tunneling
+// Security is handled by the TON network itself
+const ALLOWED_SCHEMES = ['http:']
 
 export function navigateInTab(tabId: string, url: string): boolean {
   const view = views.get(tabId)
@@ -260,12 +276,17 @@ export function navigateInTab(tabId: string, url: string): boolean {
 
   let navigateUrl = url
 
+  // Convert tonsite:// to http://
+  if (url.startsWith('tonsite://')) {
+    navigateUrl = url.replace('tonsite://', 'http://')
+    console.log(`[Tabs] Converting tonsite:// to http://: ${navigateUrl}`)
+  }
   // Auto-add http:// if no scheme provided
-  if (!url.startsWith('http://') && !url.startsWith('https://') && !url.startsWith('ton://')) {
+  else if (!url.startsWith('http://') && !url.startsWith('https://') && !url.startsWith('ton://')) {
     navigateUrl = `http://${url}`
   }
 
-  // Validate URL scheme for security (block data:, file:, javascript:, etc.)
+  // Validate URL scheme for security (block data:, file:, javascript:, https:, etc.)
   try {
     const parsed = new URL(navigateUrl)
     if (!ALLOWED_SCHEMES.includes(parsed.protocol)) {

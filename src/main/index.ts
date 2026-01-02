@@ -9,6 +9,7 @@ import { existsSync, readFileSync, writeFileSync } from 'fs'
 import { EventEmitter } from 'events'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { registerIpcHandlers } from './ipc/handlers'
+import { getActiveView } from './windows/tabs'
 import { proxyManager } from './proxy/manager'
 import { storageManager } from './storage/daemon'
 import { setMainWindow } from './windows/main'
@@ -286,6 +287,30 @@ app.whenReady().then(() => {
 
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)
+
+    // Intercept Ctrl+Shift+I to open DevTools for active BrowserView (not main window)
+    // This prevents DevTools from appearing under the BrowserView overlay
+    window.webContents.on('before-input-event', (event, input) => {
+      if (input.control && input.shift && input.key.toLowerCase() === 'i') {
+        event.preventDefault()
+        const view = getActiveView()
+        if (view) {
+          // Toggle DevTools for the website's BrowserView
+          if (view.webContents.isDevToolsOpened()) {
+            view.webContents.closeDevTools()
+          } else {
+            view.webContents.openDevTools({ mode: 'detach' })
+          }
+        } else {
+          // No active BrowserView, open DevTools for main window (system pages)
+          if (window.webContents.isDevToolsOpened()) {
+            window.webContents.closeDevTools()
+          } else {
+            window.webContents.openDevTools({ mode: 'detach' })
+          }
+        }
+      }
+    })
   })
 
   registerIpcHandlers()
