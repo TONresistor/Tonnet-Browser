@@ -55,7 +55,7 @@ export class ProxyManager extends EventEmitter {
       console.log(`[ProxyManager] Starting anonymous proxy from: ${binPath}`)
       console.log(`[ProxyManager] Port: ${safePort}, Mode: 3-hop circuit`)
 
-      const args = ['--auto', '--listen', `:${safePort}`]
+      const args = ['--auto', '--listen', `127.0.0.1:${safePort}`]
 
       // Add circuit rotation if enabled
       if (network.circuitRotation && network.rotateInterval) {
@@ -72,7 +72,7 @@ export class ProxyManager extends EventEmitter {
 
       this.process = spawn(binPath, [
         '--direct',
-        '--listen', `:${safePort}`,
+        '--listen', `127.0.0.1:${safePort}`,
       ])
     }
 
