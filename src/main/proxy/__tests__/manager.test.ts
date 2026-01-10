@@ -124,7 +124,7 @@ describe('ProxyManager', () => {
         '/mock/bin/tonnet-proxy',
         expect.arrayContaining([
           '--direct',
-          '--listen', ':8080',
+          '--listen', '127.0.0.1:8080',
         ])
       )
 
@@ -169,7 +169,7 @@ describe('ProxyManager', () => {
 
       expect(spawn).toHaveBeenCalledWith(
         expect.any(String),
-        expect.arrayContaining(['--listen', ':8080'])
+        expect.arrayContaining(['--listen', '127.0.0.1:8080'])
       )
 
       newManager.stop()
@@ -374,7 +374,7 @@ describe('Port Validation', () => {
     const listenIndex = args.indexOf('--listen')
     const addr = args[listenIndex + 1]
 
-    expect(addr).toBe(`:${expected}`)
+    expect(addr).toBe(`127.0.0.1:${expected}`)
 
     manager.stop()
 
