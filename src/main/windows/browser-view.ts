@@ -445,7 +445,9 @@ export function createBrowserView(ses: Electron.Session): BrowserView {
 
         console.log('[Privacy] Anti-fingerprinting protections enabled (viewport spoofing)');
       })();
-    `, true).catch(() => {});
+    `, true).catch((error) => {
+      console.error('[Privacy] Failed to inject anti-fingerprinting code:', error)
+    });
   })
 
   return view

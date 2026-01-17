@@ -6,7 +6,8 @@
 import { BrowserView, BrowserWindow, Menu, clipboard } from 'electron'
 import { createTonSession, createBrowserView } from './browser-view'
 import { DEFAULT_PROXY_PORT } from '../../shared/constants'
-import { getSetting } from '../settings'
+import { getSetting, type PrivacySettings } from '../settings'
+import { logger } from '../../shared/logger'
 
 const CHROME_HEIGHT = 136 // tabbar (44) + navbar (44) + bookmarks (40) + buffer (8)
 const STATUSBAR_HEIGHT = 24
@@ -66,7 +67,7 @@ async function checkInactiveDomains(): Promise<void> {
     if (now - lastActivity > inactiveThreshold) {
       const session = domainSessions.get(domain)
       if (session) {
-        console.log(`[Tabs] Auto-deleting cookies for inactive domain: ${domain}`)
+        logger.info('Tabs', `Auto-deleting cookies for inactive domain: ${domain}`)
         try {
           await session.clearStorageData({
             storages: ['cookies', 'localstorage', 'indexdb', 'websql', 'serviceworkers'],
@@ -74,7 +75,7 @@ async function checkInactiveDomains(): Promise<void> {
           domainActivity.delete(domain)
           domainSessions.delete(domain)
         } catch (error) {
-          console.error(`[Tabs] Failed to clear storage for ${domain}:`, error)
+          logger.error('Tabs', `Failed to clear storage for ${domain}:`, error)
         }
       }
     }
@@ -87,15 +88,15 @@ function startCookieAutoDeleteTimer(): void {
     clearInterval(cookieAutoDeleteTimer)
   }
 
-  const privacy = getSetting('privacy')
-  const cookieAutoDelete = (privacy as any).cookieAutoDelete ?? false
+  const privacy: PrivacySettings = getSetting('privacy')
+  const cookieAutoDelete = privacy.cookieAutoDelete ?? false
 
   if (!cookieAutoDelete) return
 
   // Check every minute
   cookieAutoDeleteTimer = setInterval(() => {
     checkInactiveDomains().catch((error) => {
-      console.error('[Tabs] Cookie auto-delete check failed:', error)
+      logger.error('Tabs', 'Cookie auto-delete check failed:', error)
     })
   }, 60000)
 }
@@ -131,7 +132,7 @@ function getSessionForDomain(domain: string): Electron.Session {
   domainSessions.set(domain, session)
   updateDomainActivity(domain)
 
-  console.log(`[Tabs] Created isolated session for domain: ${domain}`)
+  logger.debug('Tabs', `Created isolated session for domain: ${domain}`)
   return session
 }
 
