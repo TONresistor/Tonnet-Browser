@@ -36,6 +36,7 @@ import {
   getActiveTabId,
   onPrivacySettingsChanged
 } from '../windows/tabs'
+import { historyManager, HistoryMode } from '../history/manager'
 
 // Guard to prevent multiple listener registrations
 let handlersRegistered = false
@@ -538,5 +539,94 @@ export function registerIpcHandlers(): void {
     // Restart cookie auto-delete timer with default settings
     onPrivacySettingsChanged()
     return { success: true }
+  })
+
+  // ===== History Handlers =====
+  ipcMain.handle('history:change-mode', async (_event, mode: HistoryMode) => {
+    try {
+      const result = await historyManager.changeMode(mode)
+      return result
+    } catch (error) {
+      return { success: false, error: (error as Error).message }
+    }
+  })
+
+  ipcMain.handle('history:search', (_event, query: string, limit?: number) => {
+    try {
+      return historyManager.search(query, limit)
+    } catch (error) {
+      return []
+    }
+  })
+
+  ipcMain.handle('history:get-recent', (_event, limit?: number) => {
+    try {
+      return historyManager.getRecent(limit)
+    } catch (error) {
+      return []
+    }
+  })
+
+  ipcMain.handle('history:get-top', (_event, limit?: number) => {
+    try {
+      return historyManager.getTopVisited(limit)
+    } catch (error) {
+      return []
+    }
+  })
+
+  ipcMain.handle('history:get-by-date', (_event, startDate: number, endDate: number) => {
+    try {
+      return historyManager.getByDateRange(startDate, endDate)
+    } catch (error) {
+      return []
+    }
+  })
+
+  ipcMain.handle('history:delete', (_event, id: string) => {
+    try {
+      const success = historyManager.deleteEntry(id)
+      return { success }
+    } catch (error) {
+      return { success: false, error: (error as Error).message }
+    }
+  })
+
+  ipcMain.handle('history:delete-pattern', (_event, pattern: string) => {
+    try {
+      const count = historyManager.deleteByPattern(pattern)
+      return { success: true, count }
+    } catch (error) {
+      return { success: false, error: (error as Error).message, count: 0 }
+    }
+  })
+
+  ipcMain.handle('history:clear', () => {
+    try {
+      historyManager.clear()
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: (error as Error).message }
+    }
+  })
+
+  ipcMain.handle('history:get-stats', () => {
+    try {
+      return historyManager.getStats()
+    } catch (error) {
+      return {
+        total: 0,
+        mode: 'memory' as HistoryMode,
+        isLocked: false
+      }
+    }
+  })
+
+  ipcMain.handle('history:has-persistent-file', () => {
+    try {
+      return historyManager.hasPersistentFile()
+    } catch (error) {
+      return false
+    }
   })
 }

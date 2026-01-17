@@ -82,6 +82,20 @@ const electronAPI = {
     reset: () => ipcRenderer.invoke('settings:reset'),
   },
 
+  // History
+  history: {
+    changeMode: (mode: string) => ipcRenderer.invoke('history:change-mode', mode),
+    search: (query: string, limit?: number) => ipcRenderer.invoke('history:search', query, limit),
+    getRecent: (limit?: number) => ipcRenderer.invoke('history:get-recent', limit),
+    getTop: (limit?: number) => ipcRenderer.invoke('history:get-top', limit),
+    getByDate: (startDate: number, endDate: number) => ipcRenderer.invoke('history:get-by-date', startDate, endDate),
+    delete: (id: string) => ipcRenderer.invoke('history:delete', id),
+    deletePattern: (pattern: string) => ipcRenderer.invoke('history:delete-pattern', pattern),
+    clear: () => ipcRenderer.invoke('history:clear'),
+    getStats: () => ipcRenderer.invoke('history:get-stats'),
+    hasPersistentFile: () => ipcRenderer.invoke('history:has-persistent-file'),
+  },
+
   // Event listeners - returns unsubscribe function for proper cleanup
   on: (channel: string, callback: (...args: unknown[]) => void): (() => void) => {
     const validChannels = [

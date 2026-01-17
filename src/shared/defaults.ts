@@ -46,6 +46,8 @@ export const DEFAULT_SETTINGS = {
   firstPartyIsolation: true, // Isolate cookies/localStorage per domain (Tier S)
   cookieAutoDelete: false, // Auto-delete cookies after inactivity (Tier A)
   cookieAutoDeleteMinutes: 30, // Minutes of inactivity before auto-delete
+  historyMode: 'memory' as const, // History mode: 'memory' (RAM only) | 'persistent' (auto-encrypted disk)
+  historyMaxEntries: 1000, // Maximum history entries
 
   // Advanced
   proxyVerbosity: 2,

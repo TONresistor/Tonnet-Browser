@@ -42,6 +42,8 @@ export interface AppPreferences {
   firstPartyIsolation: boolean
   cookieAutoDelete: boolean
   cookieAutoDeleteMinutes: number
+  historyMode: 'memory' | 'persistent'
+  historyMaxEntries: number
 
   // Advanced
   proxyVerbosity: number
@@ -98,6 +100,8 @@ export const defaultPreferences: AppPreferences = {
   clearOnExit: DEFAULT_SETTINGS.clearOnExit,
   disableCache: DEFAULT_SETTINGS.disableCache,
   firstPartyIsolation: DEFAULT_SETTINGS.firstPartyIsolation,
+  historyMode: DEFAULT_SETTINGS.historyMode,
+  historyMaxEntries: DEFAULT_SETTINGS.historyMaxEntries,
   cookieAutoDelete: DEFAULT_SETTINGS.cookieAutoDelete,
   cookieAutoDeleteMinutes: DEFAULT_SETTINGS.cookieAutoDeleteMinutes,
 
@@ -132,6 +136,8 @@ const prefToCategory: Record<keyof AppPreferences, { category: string; field: st
   firstPartyIsolation: { category: 'privacy', field: 'firstPartyIsolation' },
   cookieAutoDelete: { category: 'privacy', field: 'cookieAutoDelete' },
   cookieAutoDeleteMinutes: { category: 'privacy', field: 'cookieAutoDeleteMinutes' },
+  historyMode: { category: 'privacy', field: 'historyMode' },
+  historyMaxEntries: { category: 'privacy', field: 'historyMaxEntries' },
   proxyVerbosity: { category: 'advanced', field: 'proxyVerbosity' },
   storageVerbosity: { category: 'advanced', field: 'storageVerbosity' },
   syncTestDomain: { category: 'advanced', field: 'syncTestDomain' },
@@ -159,6 +165,8 @@ function mainSettingsToPrefs(settings: any): AppPreferences {
     showBookmarksBar: settings.appearance?.showBookmarksBar ?? defaultPreferences.showBookmarksBar,
     showStatusBar: settings.appearance?.showStatusBar ?? defaultPreferences.showStatusBar,
     clearOnExit: settings.privacy?.clearOnExit ?? defaultPreferences.clearOnExit,
+    historyMode: settings.privacy?.historyMode ?? defaultPreferences.historyMode,
+    historyMaxEntries: settings.privacy?.historyMaxEntries ?? defaultPreferences.historyMaxEntries,
     disableCache: settings.privacy?.disableCache ?? defaultPreferences.disableCache,
     firstPartyIsolation: settings.privacy?.firstPartyIsolation ?? defaultPreferences.firstPartyIsolation,
     cookieAutoDelete: settings.privacy?.cookieAutoDelete ?? defaultPreferences.cookieAutoDelete,

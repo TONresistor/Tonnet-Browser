@@ -99,6 +99,53 @@ declare global {
                 success: boolean;
                 error?: string;
             }>;
+            history: {
+                unlock: (password: string) => Promise<{ success: boolean; error?: string }>;
+                lock: () => Promise<{ success: boolean }>;
+                changeMode: (mode: string, password?: string) => Promise<{ success: boolean; error?: string }>;
+                search: (query: string, limit?: number) => Promise<Array<{
+                    id: string;
+                    url: string;
+                    title: string;
+                    visitedAt: number;
+                    visitCount: number;
+                    favicon?: string;
+                }>>;
+                getRecent: (limit?: number) => Promise<Array<{
+                    id: string;
+                    url: string;
+                    title: string;
+                    visitedAt: number;
+                    visitCount: number;
+                    favicon?: string;
+                }>>;
+                getTop: (limit?: number) => Promise<Array<{
+                    id: string;
+                    url: string;
+                    title: string;
+                    visitedAt: number;
+                    visitCount: number;
+                    favicon?: string;
+                }>>;
+                getByDate: (startDate: number, endDate: number) => Promise<Array<{
+                    id: string;
+                    url: string;
+                    title: string;
+                    visitedAt: number;
+                    visitCount: number;
+                    favicon?: string;
+                }>>;
+                delete: (id: string) => Promise<{ success: boolean; error?: string }>;
+                deletePattern: (pattern: string) => Promise<{ success: boolean; count: number; error?: string }>;
+                clear: () => Promise<{ success: boolean; error?: string }>;
+                getStats: () => Promise<{
+                    total: number;
+                    mode: string;
+                    oldestEntry?: number;
+                    newestEntry?: number;
+                    isLocked: boolean;
+                }>;
+            };
             on: (channel: string, callback: (...args: unknown[]) => void) => () => void;
             off: (channel: string) => void;
         };

@@ -23,11 +23,15 @@ import {
   X,
   Plus,
   Upload,
+  History as HistoryIcon,
+  Lock,
+  Eye,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { usePreferencesStore, defaultPreferences } from '@/stores/preferences'
 import { useBookmarksStore } from '@/stores/bookmarks'
 import { useThemeStore } from '@/stores/themes'
+import { useTabsStore } from '@/stores/tabs'
 import { APP_NAME, APP_VERSION, DEFAULT_BOOKMARKS } from '@shared/constants'
 import { ThemeEditor, ThemeList, ImportDialog, ExportDialog } from '@/components/theme-editor'
 import type { BuiltInTheme } from '@shared/defaults'
@@ -39,6 +43,7 @@ type SettingsSection =
   | 'storage'
   | 'appearance'
   | 'privacy'
+  | 'history'
   | 'shortcuts'
   | 'bookmarks'
   | 'advanced'
@@ -50,6 +55,7 @@ const SECTIONS: { id: SettingsSection; label: string; icon: React.ElementType }[
   { id: 'storage', label: 'Storage', icon: HardDrive },
   { id: 'appearance', label: 'Appearance', icon: Palette },
   { id: 'privacy', label: 'Privacy', icon: Trash2 },
+  { id: 'history', label: 'History', icon: HistoryIcon },
   { id: 'shortcuts', label: 'Shortcuts', icon: Keyboard },
   { id: 'bookmarks', label: 'Bookmarks', icon: Bookmark },
   { id: 'advanced', label: 'Advanced', icon: Wrench },
@@ -74,6 +80,7 @@ export function SettingsPage() {
   const [activeSection, setActiveSection] = useState<SettingsSection>('general')
   const [clearing, setClearing] = useState(false)
   const [cleared, setCleared] = useState(false)
+  const [changingHistoryMode, setChangingHistoryMode] = useState(false)
 
   // Ref for timeout cleanup to prevent memory leaks on unmount
   const clearTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -149,6 +156,22 @@ export function SettingsPage() {
     discard()
   }
 
+  const handleHistoryModeChange = async (newMode: string) => {
+    setChangingHistoryMode(true)
+    try {
+      const result = await window.electron.history.changeMode(newMode)
+      if (result.success) {
+        setDraft('historyMode', newMode as 'memory' | 'persistent')
+      } else {
+        alert(`Failed to change history mode: ${result.error}`)
+      }
+    } catch (error) {
+      alert(`Error changing history mode: ${(error as Error).message}`)
+    } finally {
+      setChangingHistoryMode(false)
+    }
+  }
+
   const renderContent = () => {
     switch (activeSection) {
       case 'general':
@@ -174,6 +197,15 @@ export function SettingsPage() {
             clearing={clearing}
             cleared={cleared}
             onClearData={handleClearData}
+          />
+        )
+      case 'history':
+        return (
+          <HistorySection
+            draft={draft}
+            setDraft={setDraft}
+            changingHistoryMode={changingHistoryMode}
+            onHistoryModeChange={handleHistoryModeChange}
           />
         )
       case 'shortcuts':
@@ -331,6 +363,41 @@ function Toggle({
         )}
       />
     </button>
+  )
+}
+
+function ToggleGroup<T extends string>({
+  value,
+  onChange,
+  options,
+  disabled,
+}: {
+  value: T
+  onChange: (value: T) => void
+  options: { value: T; label: string; icon?: React.ReactNode }[]
+  disabled?: boolean
+}) {
+  return (
+    <div className="inline-flex rounded-full border border-border-medium bg-surface-hover p-0.5">
+      {options.map((option, index) => (
+        <button
+          key={option.value}
+          onClick={() => !disabled && onChange(option.value)}
+          disabled={disabled}
+          className={cn(
+            'flex items-center gap-1.5 px-3 py-1 text-sm font-medium transition-all duration-200 disabled:opacity-50',
+            index === 0 && 'rounded-l-full',
+            index === options.length - 1 && 'rounded-r-full',
+            value === option.value
+              ? 'bg-primary text-primary-foreground rounded-full shadow-sm'
+              : 'text-muted-foreground hover:text-foreground'
+          )}
+        >
+          {option.icon}
+          {option.label}
+        </button>
+      ))}
+    </div>
   )
 }
 
@@ -921,6 +988,77 @@ function PrivacySection({
             />
           </SettingRow>
         )}
+      </div>
+    </div>
+  )
+}
+
+function HistorySection({
+  draft,
+  setDraft,
+  changingHistoryMode,
+  onHistoryModeChange,
+}: SectionProps & {
+  changingHistoryMode: boolean
+  onHistoryModeChange: (mode: string) => void
+}) {
+  const addTab = useTabsStore((state) => state.addTab)
+
+  const historyModeOptions: { value: 'memory' | 'persistent'; label: string; icon: React.ReactNode }[] = [
+    { value: 'memory', label: 'Live', icon: <HistoryIcon className="h-3.5 w-3.5" /> },
+    { value: 'persistent', label: 'Persistent', icon: <Lock className="h-3.5 w-3.5" /> },
+  ]
+
+  const getModeDescription = (mode: string) => {
+    switch (mode) {
+      case 'memory': return 'RAM only, cleared on exit'
+      case 'persistent': return 'Auto-encrypted on disk via OS keychain'
+      default: return ''
+    }
+  }
+
+  return (
+    <div>
+      <SectionHeader
+        title="History"
+        description="Configure browsing history storage"
+      />
+      <div className="bg-card rounded-xl border border-border px-4">
+        <SettingRow
+          label="History mode"
+          description={getModeDescription(draft.historyMode)}
+        >
+          <ToggleGroup
+            value={draft.historyMode}
+            onChange={(v) => !changingHistoryMode && onHistoryModeChange(v)}
+            options={historyModeOptions}
+            disabled={changingHistoryMode}
+          />
+        </SettingRow>
+        <SettingRow
+          label="Maximum entries"
+          description="Limit stored history entries"
+        >
+          <NumberInput
+            value={draft.historyMaxEntries}
+            onChange={(v) => setDraft('historyMaxEntries', v)}
+            min={100}
+            max={10000}
+            step={100}
+          />
+        </SettingRow>
+        <SettingRow
+          label="View history"
+          description="Open browsing history page"
+        >
+          <button
+            onClick={() => addTab('ton://history')}
+            className="flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-200 bg-surface-hover border border-border-medium text-foreground hover:bg-surface-active"
+          >
+            <HistoryIcon className="h-4 w-4" />
+            Open
+          </button>
+        </SettingRow>
       </div>
     </div>
   )
