@@ -38,6 +38,7 @@ export interface AppPreferences {
 
   // Privacy
   clearOnExit: boolean
+  disableCache: boolean
 
   // Advanced
   proxyVerbosity: number
@@ -92,6 +93,7 @@ export const defaultPreferences: AppPreferences = {
 
   // Privacy
   clearOnExit: DEFAULT_SETTINGS.clearOnExit,
+  disableCache: DEFAULT_SETTINGS.disableCache,
 
   // Advanced
   proxyVerbosity: DEFAULT_SETTINGS.proxyVerbosity,
@@ -120,6 +122,7 @@ const prefToCategory: Record<keyof AppPreferences, { category: string; field: st
   showBookmarksBar: { category: 'appearance', field: 'showBookmarksBar' },
   showStatusBar: { category: 'appearance', field: 'showStatusBar' },
   clearOnExit: { category: 'privacy', field: 'clearOnExit' },
+  disableCache: { category: 'privacy', field: 'disableCache' },
   proxyVerbosity: { category: 'advanced', field: 'proxyVerbosity' },
   storageVerbosity: { category: 'advanced', field: 'storageVerbosity' },
   syncTestDomain: { category: 'advanced', field: 'syncTestDomain' },
@@ -147,6 +150,7 @@ function mainSettingsToPrefs(settings: any): AppPreferences {
     showBookmarksBar: settings.appearance?.showBookmarksBar ?? defaultPreferences.showBookmarksBar,
     showStatusBar: settings.appearance?.showStatusBar ?? defaultPreferences.showStatusBar,
     clearOnExit: settings.privacy?.clearOnExit ?? defaultPreferences.clearOnExit,
+    disableCache: settings.privacy?.disableCache ?? defaultPreferences.disableCache,
     proxyVerbosity: settings.advanced?.proxyVerbosity ?? defaultPreferences.proxyVerbosity,
     storageVerbosity: settings.advanced?.storageVerbosity ?? defaultPreferences.storageVerbosity,
     syncTestDomain: settings.advanced?.syncTestDomain ?? defaultPreferences.syncTestDomain,

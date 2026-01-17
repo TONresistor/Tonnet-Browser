@@ -876,6 +876,16 @@ function PrivacySection({
             label="Clear data when closing browser"
           />
         </SettingRow>
+        <SettingRow
+          label="Disable cache"
+          description="Force reload all resources (slower but more private)"
+        >
+          <Toggle
+            checked={draft.disableCache}
+            onChange={(v) => setDraft('disableCache', v)}
+            label="Disable HTTP cache"
+          />
+        </SettingRow>
       </div>
     </div>
   )
@@ -1347,13 +1357,6 @@ function AboutSection() {
         >
           <ExternalLink className="h-4 w-4" />
           GitHub
-        </button>
-        <button
-          className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium text-muted-foreground transition-all duration-200 hover:text-foreground bg-surface-hover border border-border-medium"
-          onClick={() => window.electron.navigate('http://documentations.ton')}
-        >
-          <ExternalLink className="h-4 w-4" />
-          TON Docs
         </button>
       </div>
     </div>

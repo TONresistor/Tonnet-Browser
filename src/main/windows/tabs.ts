@@ -128,6 +128,27 @@ function setupViewEvents(view: BrowserView, tabId: string): void {
     return { action: 'deny' }  // Never create popup windows
   })
 
+  // Fallback: Close any window that somehow gets created (shouldn't happen with setWindowOpenHandler)
+  view.webContents.on('did-create-window', (childWindow, { url }) => {
+    console.warn(`[Tabs] Unexpected child window created, closing and redirecting: ${url}`)
+    childWindow.close()
+    // Open in new tab instead
+    if (url && url !== 'about:blank') {
+      try {
+        const parsed = new URL(url)
+        let targetUrl = url
+        if (parsed.protocol === 'tonsite:') {
+          targetUrl = url.replace('tonsite://', 'http://')
+        }
+        if (parsed.protocol === 'http:' || parsed.protocol === 'tonsite:') {
+          mainWindow?.webContents.send('context:open-link', targetUrl)
+        }
+      } catch {
+        // Invalid URL, ignore
+      }
+    }
+  })
+
   // Context menu for web pages
   view.webContents.on('context-menu', (_e, params) => {
     const menuItems: Electron.MenuItemConstructorOptions[] = []

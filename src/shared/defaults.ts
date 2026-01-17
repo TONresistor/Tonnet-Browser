@@ -42,6 +42,7 @@ export const DEFAULT_SETTINGS = {
 
   // Privacy
   clearOnExit: true, // Privacy-first: clear data on exit by default
+  disableCache: false, // Disable HTTP cache for maximum privacy (slower)
 
   // Advanced
   proxyVerbosity: 2,
