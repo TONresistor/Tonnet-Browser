@@ -166,6 +166,7 @@ function updateViewBounds(view: BrowserView): void {
 
   if (letterboxing) {
     // Letterboxing: Round viewport to multiples of 200x100 (Tor Browser approach)
+    // Note: We round dimensions but don't create visible margins to avoid UI artifacts
     viewWidth = Math.floor(viewWidth / 200) * 200
     viewHeight = Math.floor(viewHeight / 100) * 100
 
@@ -174,19 +175,15 @@ function updateViewBounds(view: BrowserView): void {
     if (viewHeight < 600) viewHeight = 600
   }
 
-  // Center the view if letterboxing creates smaller dimensions
-  const xOffset = Math.floor((bounds.width - viewWidth) / 2)
-  const yOffset = 0 // Keep aligned to top (chrome area)
-
   view.setBounds({
-    x: xOffset,
+    x: 0,
     y: CHROME_HEIGHT,
     width: viewWidth,
     height: viewHeight,
   })
 
-  // Set background color to gray for letterboxing margins
-  view.setBackgroundColor('#808080')
+  // Set background to white (transparent would show Electron's default)
+  view.setBackgroundColor('#FFFFFF')
 }
 
 function setupViewEvents(view: BrowserView, tabId: string): void {
