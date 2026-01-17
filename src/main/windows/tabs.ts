@@ -158,32 +158,14 @@ function updateViewBounds(view: BrowserView): void {
   if (!mainWindow) return
   const bounds = mainWindow.getContentBounds()
 
-  const privacy = getSetting('privacy')
-  const letterboxing = (privacy as any).letterboxing ?? true // Default: enabled
-
-  let viewWidth = bounds.width
-  let viewHeight = bounds.height - CHROME_HEIGHT - STATUSBAR_HEIGHT
-
-  if (letterboxing) {
-    // Letterboxing: Round viewport to multiples of 200x100 (Tor Browser approach)
-    // Note: We round dimensions but don't create visible margins to avoid UI artifacts
-    viewWidth = Math.floor(viewWidth / 200) * 200
-    viewHeight = Math.floor(viewHeight / 100) * 100
-
-    // Ensure minimum size
-    if (viewWidth < 800) viewWidth = 800
-    if (viewHeight < 600) viewHeight = 600
-  }
-
+  // Use full available space - no letterboxing viewport changes
+  // Anti-fingerprinting is handled by JavaScript injection only (spoofs window dimensions)
   view.setBounds({
     x: 0,
     y: CHROME_HEIGHT,
-    width: viewWidth,
-    height: viewHeight,
+    width: bounds.width,
+    height: bounds.height - CHROME_HEIGHT - STATUSBAR_HEIGHT,
   })
-
-  // Set background to white (transparent would show Electron's default)
-  view.setBackgroundColor('#FFFFFF')
 }
 
 function setupViewEvents(view: BrowserView, tabId: string): void {
