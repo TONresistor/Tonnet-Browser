@@ -46,6 +46,7 @@ export interface AppearanceSettings {
 
 export interface PrivacySettings {
   clearOnExit: boolean
+  disableCache: boolean
 }
 
 export interface AdvancedSettings {
@@ -155,6 +156,7 @@ export function getDefaultSettings(): AppSettings {
     },
     privacy: {
       clearOnExit: DEFAULT_SETTINGS.clearOnExit,
+      disableCache: DEFAULT_SETTINGS.disableCache,
     },
     advanced: {
       proxyVerbosity: DEFAULT_SETTINGS.proxyVerbosity,
