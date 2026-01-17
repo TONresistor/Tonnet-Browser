@@ -9,8 +9,8 @@ import { getSetting } from '../settings'
 
 const SESSION_PARTITION = 'persist:ton-browser'
 
-export function createTonSession(proxyPort: number) {
-  const ses = session.fromPartition(SESSION_PARTITION)
+export function createTonSession(proxyPort: number, partitionName: string = SESSION_PARTITION) {
+  const ses = session.fromPartition(partitionName)
 
   // Configure proxy - route ALL requests through proxy (no bypass)
   ses.setProxy({
@@ -393,7 +393,57 @@ export function createBrowserView(ses: Electron.Session): BrowserView {
           });
         }
 
-        console.log('[Privacy] Anti-fingerprinting protections enabled');
+        // === LETTERBOXING (VIEWPORT DIMENSIONS) ===
+        // Override window dimensions to match letterboxed viewport
+        // This prevents websites from detecting real window size
+        const originalInnerWidth = Object.getOwnPropertyDescriptor(Window.prototype, 'innerWidth');
+        const originalInnerHeight = Object.getOwnPropertyDescriptor(Window.prototype, 'innerHeight');
+        const originalOuterWidth = Object.getOwnPropertyDescriptor(Window.prototype, 'outerWidth');
+        const originalOuterHeight = Object.getOwnPropertyDescriptor(Window.prototype, 'outerHeight');
+
+        if (originalInnerWidth && originalInnerHeight) {
+          Object.defineProperty(window, 'innerWidth', {
+            get: function() {
+              const realWidth = originalInnerWidth.get?.call(this) || 1024;
+              // Round to multiple of 200
+              return Math.floor(realWidth / 200) * 200;
+            },
+            enumerable: true,
+            configurable: true
+          });
+
+          Object.defineProperty(window, 'innerHeight', {
+            get: function() {
+              const realHeight = originalInnerHeight.get?.call(this) || 768;
+              // Round to multiple of 100
+              return Math.floor(realHeight / 100) * 100;
+            },
+            enumerable: true,
+            configurable: true
+          });
+        }
+
+        if (originalOuterWidth && originalOuterHeight) {
+          Object.defineProperty(window, 'outerWidth', {
+            get: function() {
+              const realWidth = originalOuterWidth.get?.call(this) || 1024;
+              return Math.floor(realWidth / 200) * 200;
+            },
+            enumerable: true,
+            configurable: true
+          });
+
+          Object.defineProperty(window, 'outerHeight', {
+            get: function() {
+              const realHeight = originalOuterHeight.get?.call(this) || 768;
+              return Math.floor(realHeight / 100) * 100;
+            },
+            enumerable: true,
+            configurable: true
+          });
+        }
+
+        console.log('[Privacy] Anti-fingerprinting protections enabled (including letterboxing)');
       })();
     `, true).catch(() => {});
   })

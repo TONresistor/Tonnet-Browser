@@ -39,6 +39,10 @@ export interface AppPreferences {
   // Privacy
   clearOnExit: boolean
   disableCache: boolean
+  firstPartyIsolation: boolean
+  cookieAutoDelete: boolean
+  cookieAutoDeleteMinutes: number
+  letterboxing: boolean
 
   // Advanced
   proxyVerbosity: number
@@ -94,6 +98,10 @@ export const defaultPreferences: AppPreferences = {
   // Privacy
   clearOnExit: DEFAULT_SETTINGS.clearOnExit,
   disableCache: DEFAULT_SETTINGS.disableCache,
+  firstPartyIsolation: DEFAULT_SETTINGS.firstPartyIsolation,
+  cookieAutoDelete: DEFAULT_SETTINGS.cookieAutoDelete,
+  cookieAutoDeleteMinutes: DEFAULT_SETTINGS.cookieAutoDeleteMinutes,
+  letterboxing: DEFAULT_SETTINGS.letterboxing,
 
   // Advanced
   proxyVerbosity: DEFAULT_SETTINGS.proxyVerbosity,
@@ -123,6 +131,10 @@ const prefToCategory: Record<keyof AppPreferences, { category: string; field: st
   showStatusBar: { category: 'appearance', field: 'showStatusBar' },
   clearOnExit: { category: 'privacy', field: 'clearOnExit' },
   disableCache: { category: 'privacy', field: 'disableCache' },
+  firstPartyIsolation: { category: 'privacy', field: 'firstPartyIsolation' },
+  cookieAutoDelete: { category: 'privacy', field: 'cookieAutoDelete' },
+  cookieAutoDeleteMinutes: { category: 'privacy', field: 'cookieAutoDeleteMinutes' },
+  letterboxing: { category: 'privacy', field: 'letterboxing' },
   proxyVerbosity: { category: 'advanced', field: 'proxyVerbosity' },
   storageVerbosity: { category: 'advanced', field: 'storageVerbosity' },
   syncTestDomain: { category: 'advanced', field: 'syncTestDomain' },
@@ -151,6 +163,10 @@ function mainSettingsToPrefs(settings: any): AppPreferences {
     showStatusBar: settings.appearance?.showStatusBar ?? defaultPreferences.showStatusBar,
     clearOnExit: settings.privacy?.clearOnExit ?? defaultPreferences.clearOnExit,
     disableCache: settings.privacy?.disableCache ?? defaultPreferences.disableCache,
+    firstPartyIsolation: settings.privacy?.firstPartyIsolation ?? defaultPreferences.firstPartyIsolation,
+    cookieAutoDelete: settings.privacy?.cookieAutoDelete ?? defaultPreferences.cookieAutoDelete,
+    cookieAutoDeleteMinutes: settings.privacy?.cookieAutoDeleteMinutes ?? defaultPreferences.cookieAutoDeleteMinutes,
+    letterboxing: settings.privacy?.letterboxing ?? defaultPreferences.letterboxing,
     proxyVerbosity: settings.advanced?.proxyVerbosity ?? defaultPreferences.proxyVerbosity,
     storageVerbosity: settings.advanced?.storageVerbosity ?? defaultPreferences.storageVerbosity,
     syncTestDomain: settings.advanced?.syncTestDomain ?? defaultPreferences.syncTestDomain,

@@ -332,12 +332,17 @@ app.on('window-all-closed', async () => {
   if (clearOnExit) {
     console.log('[App] Clearing browsing data on exit...')
     try {
-      const ses = session.fromPartition('persist:ton-browser')
-      await ses.clearCache()
-      await ses.clearStorageData({
-        storages: ['cookies', 'localstorage', 'indexdb', 'websql', 'serviceworkers', 'cachestorage'],
-      })
-      console.log('[App] Browsing data cleared')
+      const { getAllSessions } = await import('./windows/tabs')
+      const sessions = getAllSessions()
+
+      for (const ses of sessions) {
+        await ses.clearCache()
+        await ses.clearStorageData({
+          storages: ['cookies', 'localstorage', 'indexdb', 'websql', 'serviceworkers', 'cachestorage'],
+        })
+      }
+
+      console.log(`[App] Cleared browsing data for ${sessions.length} session(s)`)
     } catch (error) {
       console.error('[App] Failed to clear browsing data:', error)
     }

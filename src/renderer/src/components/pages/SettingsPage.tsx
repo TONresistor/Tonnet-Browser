@@ -886,6 +886,51 @@ function PrivacySection({
             label="Disable HTTP cache"
           />
         </SettingRow>
+        <SettingRow
+          label="First-party isolation"
+          description="Isolate cookies and localStorage per domain (Tier S)"
+        >
+          <Toggle
+            checked={draft.firstPartyIsolation}
+            onChange={(v) => setDraft('firstPartyIsolation', v)}
+            label="Enable first-party isolation"
+          />
+        </SettingRow>
+        <SettingRow
+          label="Letterboxing"
+          description="Normalize viewport dimensions to prevent fingerprinting (Tier S)"
+        >
+          <Toggle
+            checked={draft.letterboxing}
+            onChange={(v) => setDraft('letterboxing', v)}
+            label="Enable letterboxing"
+          />
+        </SettingRow>
+        <SettingRow
+          label="Cookie auto-delete"
+          description="Automatically delete cookies after inactivity (Tier A)"
+        >
+          <Toggle
+            checked={draft.cookieAutoDelete}
+            onChange={(v) => setDraft('cookieAutoDelete', v)}
+            label="Enable cookie auto-delete"
+          />
+        </SettingRow>
+        {draft.cookieAutoDelete && (
+          <SettingRow
+            label="Auto-delete timeout"
+            description="Minutes of inactivity before deleting cookies"
+          >
+            <input
+              type="number"
+              min={1}
+              max={1440}
+              value={draft.cookieAutoDeleteMinutes}
+              onChange={(e) => setDraft('cookieAutoDeleteMinutes', parseInt(e.target.value) || 30)}
+              className="w-20 px-3 py-1.5 rounded-lg border border-border bg-background text-foreground"
+            />
+          </SettingRow>
+        )}
       </div>
     </div>
   )

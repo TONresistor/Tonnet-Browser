@@ -43,6 +43,10 @@ export const DEFAULT_SETTINGS = {
   // Privacy
   clearOnExit: true, // Privacy-first: clear data on exit by default
   disableCache: false, // Disable HTTP cache for maximum privacy (slower)
+  firstPartyIsolation: true, // Isolate cookies/localStorage per domain (Tier S)
+  cookieAutoDelete: false, // Auto-delete cookies after inactivity (Tier A)
+  cookieAutoDeleteMinutes: 30, // Minutes of inactivity before auto-delete
+  letterboxing: true, // Normalize viewport dimensions (Tier S)
 
   // Advanced
   proxyVerbosity: 2,

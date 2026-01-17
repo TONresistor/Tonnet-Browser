@@ -47,6 +47,10 @@ export interface AppearanceSettings {
 export interface PrivacySettings {
   clearOnExit: boolean
   disableCache: boolean
+  firstPartyIsolation: boolean
+  cookieAutoDelete: boolean
+  cookieAutoDeleteMinutes: number
+  letterboxing: boolean
 }
 
 export interface AdvancedSettings {
@@ -105,6 +109,11 @@ function isValidSettingsObject(obj: unknown): obj is Partial<AppSettings> {
   const privacy = settings.privacy as Record<string, unknown> | undefined
   if (privacy) {
     if (privacy.clearOnExit !== undefined && typeof privacy.clearOnExit !== 'boolean') return false
+    if (privacy.disableCache !== undefined && typeof privacy.disableCache !== 'boolean') return false
+    if (privacy.firstPartyIsolation !== undefined && typeof privacy.firstPartyIsolation !== 'boolean') return false
+    if (privacy.cookieAutoDelete !== undefined && typeof privacy.cookieAutoDelete !== 'boolean') return false
+    if (privacy.cookieAutoDeleteMinutes !== undefined && typeof privacy.cookieAutoDeleteMinutes !== 'number') return false
+    if (privacy.letterboxing !== undefined && typeof privacy.letterboxing !== 'boolean') return false
   }
 
   const appearance = settings.appearance as Record<string, unknown> | undefined
@@ -157,6 +166,10 @@ export function getDefaultSettings(): AppSettings {
     privacy: {
       clearOnExit: DEFAULT_SETTINGS.clearOnExit,
       disableCache: DEFAULT_SETTINGS.disableCache,
+      firstPartyIsolation: DEFAULT_SETTINGS.firstPartyIsolation,
+      cookieAutoDelete: DEFAULT_SETTINGS.cookieAutoDelete,
+      cookieAutoDeleteMinutes: DEFAULT_SETTINGS.cookieAutoDeleteMinutes,
+      letterboxing: DEFAULT_SETTINGS.letterboxing,
     },
     advanced: {
       proxyVerbosity: DEFAULT_SETTINGS.proxyVerbosity,
