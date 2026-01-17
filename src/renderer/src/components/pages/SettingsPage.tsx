@@ -897,16 +897,6 @@ function PrivacySection({
           />
         </SettingRow>
         <SettingRow
-          label="Letterboxing"
-          description="Normalize viewport dimensions to prevent fingerprinting (Tier S)"
-        >
-          <Toggle
-            checked={draft.letterboxing}
-            onChange={(v) => setDraft('letterboxing', v)}
-            label="Enable letterboxing"
-          />
-        </SettingRow>
-        <SettingRow
           label="Cookie auto-delete"
           description="Automatically delete cookies after inactivity (Tier A)"
         >

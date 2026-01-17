@@ -100,6 +100,11 @@ function startCookieAutoDeleteTimer(): void {
   }, 60000)
 }
 
+// Restart timer when settings change (called from IPC handlers)
+export function onPrivacySettingsChanged(): void {
+  startCookieAutoDeleteTimer()
+}
+
 // Get or create session for a domain (First-Party Isolation)
 function getSessionForDomain(domain: string): Electron.Session {
   const privacy = getSetting('privacy')
@@ -158,8 +163,8 @@ function updateViewBounds(view: BrowserView): void {
   if (!mainWindow) return
   const bounds = mainWindow.getContentBounds()
 
-  // Use full available space - no letterboxing viewport changes
-  // Anti-fingerprinting is handled by JavaScript injection only (spoofs window dimensions)
+  // Use full available space
+  // Anti-fingerprinting is handled by JavaScript injection (spoofs window dimensions)
   view.setBounds({
     x: 0,
     y: CHROME_HEIGHT,

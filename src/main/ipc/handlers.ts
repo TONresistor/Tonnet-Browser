@@ -33,7 +33,8 @@ import {
   hideAllViews,
   showActiveView,
   navigateInTab,
-  getActiveTabId
+  getActiveTabId,
+  onPrivacySettingsChanged
 } from '../windows/tabs'
 
 // Guard to prevent multiple listener registrations
@@ -521,6 +522,10 @@ export function registerIpcHandlers(): void {
     if (category === 'network' && proxyManager.isRunning()) {
       await proxyManager.applySettingsChange()
     }
+    // If privacy settings changed, restart cookie auto-delete timer
+    if (category === 'privacy') {
+      onPrivacySettingsChanged()
+    }
     return { success: true }
   })
 
@@ -530,6 +535,8 @@ export function registerIpcHandlers(): void {
     if (win) {
       win.webContents.send('settings:changed', { reset: true })
     }
+    // Restart cookie auto-delete timer with default settings
+    onPrivacySettingsChanged()
     return { success: true }
   })
 }

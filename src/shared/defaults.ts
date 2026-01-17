@@ -46,7 +46,6 @@ export const DEFAULT_SETTINGS = {
   firstPartyIsolation: true, // Isolate cookies/localStorage per domain (Tier S)
   cookieAutoDelete: false, // Auto-delete cookies after inactivity (Tier A)
   cookieAutoDeleteMinutes: 30, // Minutes of inactivity before auto-delete
-  letterboxing: true, // Normalize viewport dimensions (Tier S)
 
   // Advanced
   proxyVerbosity: 2,

@@ -393,9 +393,9 @@ export function createBrowserView(ses: Electron.Session): BrowserView {
           });
         }
 
-        // === LETTERBOXING (VIEWPORT DIMENSIONS) ===
-        // Override window dimensions to match letterboxed viewport
-        // This prevents websites from detecting real window size
+        // === VIEWPORT DIMENSION SPOOFING ===
+        // Override window dimensions to prevent fingerprinting
+        // Rounds dimensions to common multiples (200x100)
         const originalInnerWidth = Object.getOwnPropertyDescriptor(Window.prototype, 'innerWidth');
         const originalInnerHeight = Object.getOwnPropertyDescriptor(Window.prototype, 'innerHeight');
         const originalOuterWidth = Object.getOwnPropertyDescriptor(Window.prototype, 'outerWidth');
@@ -443,7 +443,7 @@ export function createBrowserView(ses: Electron.Session): BrowserView {
           });
         }
 
-        console.log('[Privacy] Anti-fingerprinting protections enabled (including letterboxing)');
+        console.log('[Privacy] Anti-fingerprinting protections enabled (viewport spoofing)');
       })();
     `, true).catch(() => {});
   })
