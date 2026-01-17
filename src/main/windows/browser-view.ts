@@ -343,6 +343,56 @@ export function createBrowserView(ses: Electron.Session): BrowserView {
           return new OrigDateTimeFormat(args[0], options);
         };
 
+        // === FONT FINGERPRINTING PROTECTION ===
+        // Limit fonts to standard system fonts only (Safari/Tor approach)
+        // This prevents enumeration of installed fonts which reveals unique info
+        const ALLOWED_FONTS = [
+          'Arial', 'Arial Black', 'Comic Sans MS', 'Courier New', 'Georgia',
+          'Impact', 'Times New Roman', 'Trebuchet MS', 'Verdana',
+          'Helvetica', 'Helvetica Neue', 'Lucida Console', 'Lucida Sans Unicode',
+          'Palatino Linotype', 'Tahoma', 'serif', 'sans-serif', 'monospace',
+          'cursive', 'fantasy', 'system-ui', '-apple-system', 'BlinkMacSystemFont'
+        ];
+
+        // Override document.fonts API
+        if (document.fonts) {
+          const originalCheck = document.fonts.check.bind(document.fonts);
+          document.fonts.check = function(font, text) {
+            // Only return true for allowed standard fonts
+            const fontFamily = font.split(' ').pop().replace(/['"]/g, '');
+            if (ALLOWED_FONTS.some(f => fontFamily.toLowerCase().includes(f.toLowerCase()))) {
+              return originalCheck(font, text);
+            }
+            return false; // Non-standard font - pretend it doesn't exist
+          };
+
+          // Block font loading for non-standard fonts
+          const originalLoad = document.fonts.load.bind(document.fonts);
+          document.fonts.load = function(font, text) {
+            const fontFamily = font.split(' ').pop().replace(/['"]/g, '');
+            if (ALLOWED_FONTS.some(f => fontFamily.toLowerCase().includes(f.toLowerCase()))) {
+              return originalLoad(font, text);
+            }
+            return Promise.resolve([]); // Non-standard font - return empty
+          };
+
+          // Override forEach to only iterate standard fonts
+          const originalForEach = document.fonts.forEach.bind(document.fonts);
+          document.fonts.forEach = function(callback, thisArg) {
+            originalForEach(function(fontFace, index, set) {
+              if (ALLOWED_FONTS.some(f => fontFace.family.toLowerCase().includes(f.toLowerCase()))) {
+                callback.call(thisArg, fontFace, index, set);
+              }
+            }, thisArg);
+          };
+
+          // Override size to return limited count
+          Object.defineProperty(document.fonts, 'size', {
+            get: () => ALLOWED_FONTS.length,
+            enumerable: true
+          });
+        }
+
         console.log('[Privacy] Anti-fingerprinting protections enabled');
       })();
     `, true).catch(() => {});
