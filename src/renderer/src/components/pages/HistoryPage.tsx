@@ -4,11 +4,10 @@
  */
 
 import { useState, useEffect } from 'react'
-import { Search, Trash2, Clock, ExternalLink, Filter, History, Lock, Zap } from 'lucide-react'
+import { Search, Trash2, Clock, ExternalLink, Filter, History } from 'lucide-react'
 import { useTabsStore } from '../../stores/tabs'
 import Lottie from 'lottie-react'
 import explorerAnimation from '@/assets/explorer.json'
-import { usePreferences } from '@/stores/preferences'
 
 interface HistoryEntry {
   id: string
@@ -37,7 +36,6 @@ export function HistoryPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const addTab = useTabsStore(state => state.addTab)
-  const { theme } = usePreferences()
 
   useEffect(() => {
     // Debounce search
@@ -174,22 +172,6 @@ export function HistoryPage() {
 
     // Different year
     return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
-  }
-
-  const getModeLabel = (mode: string) => {
-    switch (mode) {
-      case 'memory': return 'Live'
-      case 'persistent': return 'Persistent (Encrypted)'
-      default: return mode
-    }
-  }
-
-  const getModeColor = (mode: string) => {
-    switch (mode) {
-      case 'memory': return 'text-primary'
-      case 'persistent': return 'text-green-600'
-      default: return 'text-muted-foreground'
-    }
   }
 
   // Group entries by date
