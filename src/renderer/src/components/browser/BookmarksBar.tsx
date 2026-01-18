@@ -1,12 +1,13 @@
 /**
  * Bookmarks toolbar.
- * Displays and manages saved bookmarks.
+ * Displays and manages saved bookmarks with folder support.
  */
 
 import { useState, useEffect, useRef } from 'react'
 import { useBookmarksStore, Bookmark } from '@/stores/bookmarks'
 import { useSettingsStore } from '@/stores/settings'
 import { useTabsStore } from '@/stores/tabs'
+import { ChevronDown } from 'lucide-react'
 
 interface EditModal {
   bookmark: Bookmark
@@ -15,7 +16,7 @@ interface EditModal {
 }
 
 export function BookmarksBar() {
-  const { bookmarks, updateBookmark, removeBookmark } = useBookmarksStore()
+  const { bookmarks, folders, getBookmarksByFolder, getSubfolders, updateBookmark, removeBookmark } = useBookmarksStore()
   const { proxyConnected } = useSettingsStore()
   const { navigateActiveTab, addTab } = useTabsStore()
   const [editModal, setEditModal] = useState<EditModal | null>(null)
@@ -39,7 +40,7 @@ export function BookmarksBar() {
     }
   }, [editModal])
 
-  // Listen for context menu actions from main process - only once
+  // Listen for IPC events from main process - only once
   useEffect(() => {
     const unsubOpenNewTab = window.electron.on('bookmark:open-new-tab', (...args: unknown[]) => {
       const url = args[0] as string
@@ -65,13 +66,28 @@ export function BookmarksBar() {
       unsubEdit()
       unsubDelete()
     }
-  }, []) // Empty deps - only register once
+  }, []) // Empty deps - all callbacks use refs or state setters
 
-  if (!proxyConnected || bookmarks.length === 0) return null
+  if (!proxyConnected || (bookmarks.length === 0 && folders.length === 0)) return null
+
+  // Get top-level items (bookmarks without folder + top-level folders)
+  const topLevelBookmarks = getBookmarksByFolder(null)
+  const topLevelFolders = getSubfolders(null)
 
   const handleContextMenu = (e: React.MouseEvent, bookmark: Bookmark) => {
     e.preventDefault()
     window.electron.showBookmarkMenu(bookmark.id, bookmark.title, bookmark.url)
+  }
+
+  const handleFolderClick = (folderId: string) => {
+    const folderBookmarks = getBookmarksByFolder(folderId)
+    // Convert to simple objects for IPC
+    const bookmarksData = folderBookmarks.map(b => ({
+      id: b.id,
+      title: b.title,
+      url: b.url
+    }))
+    window.electron.showFolderMenu(folderId, bookmarksData)
   }
 
   const closeEditModal = () => {
@@ -91,7 +107,8 @@ export function BookmarksBar() {
   return (
     <>
       <div className="flex items-center gap-1.5 px-2 py-1 overflow-x-auto">
-        {bookmarks.map((bookmark) => (
+        {/* Top-level bookmarks (no folder) */}
+        {topLevelBookmarks.map((bookmark) => (
           <button
             key={bookmark.id}
             className="px-3 py-1.5 rounded-full text-sm transition-all duration-200 shrink-0 bg-surface text-foreground-muted hover:bg-surface-active hover:text-foreground"
@@ -99,6 +116,18 @@ export function BookmarksBar() {
             onContextMenu={(e) => handleContextMenu(e, bookmark)}
           >
             {bookmark.title}
+          </button>
+        ))}
+
+        {/* Top-level folders with native menu */}
+        {topLevelFolders.map((folder) => (
+          <button
+            key={folder.id}
+            className="px-3 py-1.5 rounded-full text-sm transition-all duration-200 shrink-0 bg-surface text-foreground-muted hover:bg-surface-active hover:text-foreground flex items-center gap-1"
+            onClick={() => handleFolderClick(folder.id)}
+          >
+            {folder.name}
+            <ChevronDown className="w-3 h-3" />
           </button>
         ))}
       </div>

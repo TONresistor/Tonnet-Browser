@@ -419,6 +419,38 @@ export function registerIpcHandlers(): void {
     menu.popup({ window: win })
   })
 
+  // ===== Folder Dropdown Menu =====
+  ipcMain.handle(
+    'folder:show-menu',
+    (_event, folderId: string, bookmarks: Array<{ id: string; title: string; url: string }>) => {
+      const win = getMainWindow()
+      if (!win) return
+
+      // Build menu items from bookmarks
+      const menuItems = bookmarks.map((bookmark) => ({
+        label: bookmark.title,
+        click: () => {
+          // Navigate directly in the active tab (main process handles it)
+          const activeTabId = getActiveTabId()
+          if (activeTabId) {
+            navigateInTab(activeTabId, bookmark.url)
+          }
+        }
+      }))
+
+      // Show "Empty folder" if no bookmarks
+      if (menuItems.length === 0) {
+        menuItems.push({
+          label: 'Empty folder',
+          enabled: false
+        })
+      }
+
+      const menu = Menu.buildFromTemplate(menuItems)
+      menu.popup({ window: win })
+    }
+  )
+
   // ===== Window Handlers =====
   ipcMain.handle(IPC_CHANNELS.WINDOW_MINIMIZE, () => {
     const win = getMainWindow()

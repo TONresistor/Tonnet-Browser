@@ -38,6 +38,12 @@ const electronAPI = {
   showBookmarkMenu: (id: string, title: string, url: string) =>
     ipcRenderer.invoke('bookmark:show-menu', id, title, url),
 
+  // Folder dropdown menu
+  showFolderMenu: (
+    folderId: string,
+    bookmarks: Array<{ id: string; title: string; url: string }>
+  ) => ipcRenderer.invoke('folder:show-menu', folderId, bookmarks),
+
   // Navigation
   navigate: (url: string, tabId?: string) => ipcRenderer.invoke('navigate', url, tabId),
   goBack: () => ipcRenderer.invoke('go-back'),
