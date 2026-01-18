@@ -14,6 +14,7 @@ import { LandingPage } from '@/components/pages/LandingPage'
 import { StartPage } from '@/components/pages/StartPage'
 import { StoragePage } from '@/components/pages/StoragePage'
 import { SettingsPage } from '@/components/pages/SettingsPage'
+import { HistoryPage } from '@/components/pages/HistoryPage'
 import { useSettingsStore } from '@/stores/settings'
 import { useTabsStore } from '@/stores/tabs'
 import { usePreferences, usePreferencesStore } from '@/stores/preferences'
@@ -73,6 +74,11 @@ function App() {
       if (e.ctrlKey && e.key === 't') {
         e.preventDefault()
         addTab()
+      }
+      // Ctrl+H: History
+      else if (e.ctrlKey && e.key === 'h') {
+        e.preventDefault()
+        openOrSwitchToTab('ton://history')
       }
       // Ctrl+W: Close tab
       else if (e.ctrlKey && e.key === 'w') {
@@ -212,6 +218,8 @@ function App() {
       case 'settings':
         // Key forces remount when navigating to settings
         return <SettingsPage key={`settings-${activeTabId}`} />
+      case 'history':
+        return <HistoryPage />
       case 'loading':
         return (
           <div className="w-full h-full flex flex-col items-center justify-center bg-background-secondary">

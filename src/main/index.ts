@@ -15,6 +15,7 @@ import { storageManager } from './storage/daemon'
 import { setMainWindow } from './windows/main'
 import { getSetting } from './settings'
 import { initTabManager } from './windows/tabs'
+import { historyManager } from './history/manager'
 
 // Memory leak prevention: increase limit slightly and log warnings
 EventEmitter.defaultMaxListeners = 15
@@ -353,7 +354,10 @@ app.on('window-all-closed', async () => {
   }
 })
 
-app.on('before-quit', () => {
+app.on('before-quit', async () => {
+  // Cleanup history before quit
+  await historyManager.onAppExit()
+
   proxyManager.stop()
   storageManager.stop()
 })

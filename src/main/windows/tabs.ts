@@ -8,6 +8,7 @@ import { createTonSession, createBrowserView } from './browser-view'
 import { DEFAULT_PROXY_PORT } from '../../shared/constants'
 import { getSetting, type PrivacySettings } from '../settings'
 import { logger } from '../../shared/logger'
+import { historyManager } from '../history/manager'
 
 const CHROME_HEIGHT = 136 // tabbar (44) + navbar (44) + bookmarks (40) + buffer (8)
 const STATUSBAR_HEIGHT = 24
@@ -190,6 +191,10 @@ function setupViewEvents(view: BrowserView, tabId: string): void {
       canGoBack: view.webContents.navigationHistory.canGoBack(),
       canGoForward: view.webContents.navigationHistory.canGoForward(),
     })
+
+    // Add to history
+    const title = view.webContents.getTitle()
+    historyManager.addEntry(url, title)
   })
 
   view.webContents.on('did-navigate-in-page', (_e, url) => {
@@ -199,10 +204,18 @@ function setupViewEvents(view: BrowserView, tabId: string): void {
       canGoBack: view.webContents.navigationHistory.canGoBack(),
       canGoForward: view.webContents.navigationHistory.canGoForward(),
     })
+
+    // Update history for in-page navigation
+    const title = view.webContents.getTitle()
+    historyManager.addEntry(url, title)
   })
 
   view.webContents.on('page-title-updated', (_e, title) => {
     mainWindow?.webContents.send('page:title', title, tabId)
+
+    // Update history with new title
+    const url = view.webContents.getURL()
+    historyManager.addEntry(url, title)
   })
 
   // Security: Intercept navigation to validate URLs (blocks javascript:, data:, file:, https:, etc.)
