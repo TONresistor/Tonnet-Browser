@@ -52,7 +52,11 @@ interface TabsState {
   closeOtherTabs: (id: string) => Promise<void>
 }
 
-const generateId = () => Math.random().toString(36).substring(2, 9)
+// Generate cryptographically secure random ID
+const generateId = () => {
+  // Use crypto.randomUUID() for secure IDs, extract first 7 chars for compatibility
+  return crypto.randomUUID().replace(/-/g, '').substring(0, 7)
+}
 
 // Get homepage from main process settings
 async function getHomepage(): Promise<string> {

@@ -7,6 +7,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useBookmarksStore, Bookmark } from '@/stores/bookmarks'
 import { useSettingsStore } from '@/stores/settings'
 import { useTabsStore } from '@/stores/tabs'
+import { ErrorBoundary } from '../ErrorBoundary'
 import { ChevronDown } from 'lucide-react'
 
 interface EditModal {
@@ -58,11 +59,21 @@ export function BookmarksBar() {
     })
 
     const unsubEdit = window.electron.on('bookmark:edit', (...args: unknown[]) => {
-      const data = args[0] as { id: string; title: string; url: string }
+      const data = args[0]
+      // Runtime validation
+      if (!data || typeof data !== 'object') {
+        console.error('[BookmarksBar] Invalid bookmark:edit data:', data)
+        return
+      }
+      const bookmark = data as { id: string; title: string; url: string }
+      if (!bookmark.id || !bookmark.title || !bookmark.url) {
+        console.error('[BookmarksBar] Missing required fields in bookmark:edit')
+        return
+      }
       setEditModal({
-        bookmark: { id: data.id, title: data.title, url: data.url, createdAt: Date.now() },
-        name: data.title,
-        url: data.url
+        bookmark: { id: bookmark.id, title: bookmark.title, url: bookmark.url, createdAt: Date.now() },
+        name: bookmark.title,
+        url: bookmark.url
       })
     })
 
@@ -142,7 +153,7 @@ export function BookmarksBar() {
   }
 
   return (
-    <>
+    <ErrorBoundary>
       <div className="flex items-center gap-1.5 px-2 py-1 overflow-x-auto">
         {/* Top-level bookmarks (no folder) */}
         {topLevelBookmarks.map((bookmark) => (
@@ -273,6 +284,6 @@ export function BookmarksBar() {
           </div>
         </div>
       )}
-    </>
+    </ErrorBoundary>
   )
 }

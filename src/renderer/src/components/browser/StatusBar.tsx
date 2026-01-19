@@ -49,21 +49,43 @@ export function StatusBar() {
   useEffect(() => {
     // Listen for proxy status updates from main process
     const unsubProxyStatus = window.electron.on('proxy:status', (...args: unknown[]) => {
-      const data = args[0] as { status: string; anonymousMode?: boolean; circuitRelays?: string[] }
+      const data = args[0]
+      // Runtime validation
+      if (!data || typeof data !== 'object') {
+        console.error('[StatusBar] Invalid proxy:status data:', data)
+        return
+      }
+      const status = data as { status: string; anonymousMode?: boolean; circuitRelays?: string[] }
+      if (typeof status.status !== 'string') {
+        console.error('[StatusBar] Invalid status field type')
+        return
+      }
       setProxyStatus(
-        data.status === 'connected',
-        data.status === 'syncing',
+        status.status === 'connected',
+        status.status === 'syncing',
         undefined,
-        data.anonymousMode,
-        data.circuitRelays
+        status.anonymousMode,
+        status.circuitRelays
       )
     })
 
     // Listen for bandwidth updates
     const unsubBandwidth = window.electron.on('proxy:bandwidth', (...args: unknown[]) => {
-      const data = args[0] as { down: number; up: number; latency?: number }
-      setBandwidth({ down: data.down, up: data.up })
-      if (data.latency) setLatency(data.latency)
+      const data = args[0]
+      // Runtime validation
+      if (!data || typeof data !== 'object') {
+        console.error('[StatusBar] Invalid proxy:bandwidth data:', data)
+        return
+      }
+      const bandwidth = data as { down: number; up: number; latency?: number }
+      if (typeof bandwidth.down !== 'number' || typeof bandwidth.up !== 'number') {
+        console.error('[StatusBar] Invalid bandwidth field types')
+        return
+      }
+      setBandwidth({ down: bandwidth.down, up: bandwidth.up })
+      if (bandwidth.latency && typeof bandwidth.latency === 'number') {
+        setLatency(bandwidth.latency)
+      }
     })
 
     // Listen for storage bags updates

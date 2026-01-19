@@ -3,9 +3,10 @@
  * Display and manage browsing history with 2 privacy modes.
  */
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Search, Trash2, Clock, ExternalLink, Filter, History } from 'lucide-react'
 import { useTabsStore } from '../../stores/tabs'
+import { ErrorBoundary } from '../ErrorBoundary'
 import Lottie from 'lottie-react'
 import explorerAnimation from '@/assets/explorer.json'
 
@@ -174,21 +175,24 @@ export function HistoryPage() {
     return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
   }
 
-  // Group entries by date
-  const groupedEntries = entries.reduce((groups, entry) => {
-    const date = new Date(entry.visitedAt)
-    const dateKey = date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+  // Group entries by date (memoized to avoid recalculation on every render)
+  const groupedEntries = useMemo(() => {
+    return entries.reduce((groups, entry) => {
+      const date = new Date(entry.visitedAt)
+      const dateKey = date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
 
-    if (!groups[dateKey]) {
-      groups[dateKey] = []
-    }
-    groups[dateKey].push(entry)
+      if (!groups[dateKey]) {
+        groups[dateKey] = []
+      }
+      groups[dateKey].push(entry)
 
-    return groups
-  }, {} as Record<string, HistoryEntry[]>)
+      return groups
+    }, {} as Record<string, HistoryEntry[]>)
+  }, [entries])
 
   return (
-    <div className="p-8 max-w-6xl mx-auto">
+    <ErrorBoundary>
+      <div className="p-8 max-w-6xl mx-auto">
       {/* Header */}
       <div className="mb-8">
         <div className="flex items-center gap-3">
@@ -358,6 +362,7 @@ export function HistoryPage() {
           ))}
         </div>
       )}
-    </div>
+      </div>
+    </ErrorBoundary>
   )
 }

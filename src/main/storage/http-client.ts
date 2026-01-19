@@ -82,7 +82,9 @@ export class StorageHTTPClient {
 
     if (!response.ok) {
       const text = await response.text()
-      throw new Error(`HTTP ${response.status}: ${text}`)
+      // Truncate error message to prevent sensitive data leakage
+      const truncated = text.length > 200 ? text.substring(0, 200) + '...' : text
+      throw new Error(`HTTP ${response.status}: ${truncated}`)
     }
 
     const text = await response.text()

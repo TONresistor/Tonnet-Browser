@@ -3,7 +3,7 @@
  * Configure general, network, storage, and privacy settings.
  */
 
-import { useState, useEffect, useRef, memo } from 'react'
+import { useState, useEffect, useRef, memo, useMemo } from 'react'
 import {
   Settings,
   Globe,
@@ -1140,13 +1140,15 @@ const BookmarksSection = memo(function BookmarksSection({
   const [editingFolder, setEditingFolder] = useState<{ id: string; name: string } | null>(null)
   const [creatingFolder, setCreatingFolder] = useState<{ parentId: string | null; name: string } | null>(null)
 
-  // Get bookmarks to display
+  // Get bookmarks to display (memoized to avoid recalculation on every render)
   // When selectedFolderId is null, show ALL bookmarks (like Chrome's "All Bookmarks")
-  const displayBookmarks = query
-    ? searchBookmarks(query)
-    : selectedFolderId === null
-      ? bookmarks
-      : getBookmarksByFolder(selectedFolderId)
+  const displayBookmarks = useMemo(() => {
+    return query
+      ? searchBookmarks(query)
+      : selectedFolderId === null
+        ? bookmarks
+        : getBookmarksByFolder(selectedFolderId)
+  }, [query, selectedFolderId, bookmarks, searchBookmarks, getBookmarksByFolder])
 
   const handleEdit = (bookmark: typeof bookmarks[0]) => {
     setEditingBookmark({

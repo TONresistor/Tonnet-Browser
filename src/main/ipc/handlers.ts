@@ -383,12 +383,24 @@ export function registerIpcHandlers(): void {
     if (!isValidBagId(bagId)) {
       return { success: false, error: 'Invalid bag ID' }
     }
+
+    // Validate fileName to prevent path traversal
+    if (!fileName || fileName.includes('/') || fileName.includes('\\') || fileName.includes('..')) {
+      return { success: false, error: 'Invalid file name: path separators not allowed' }
+    }
+
+    // Sanitize fileName using path.basename to ensure it's just a filename
+    const sanitizedFileName = path.basename(fileName)
+    if (sanitizedFileName !== fileName) {
+      return { success: false, error: 'Invalid file name format' }
+    }
+
     try {
       const details = await getBagDetails(bagId)
       if (!details?.path) {
         return { success: false, error: 'Bag path not found' }
       }
-      shell.showItemInFolder(path.join(details.path, fileName))
+      shell.showItemInFolder(path.join(details.path, sanitizedFileName))
       return { success: true }
     } catch (error) {
       return { success: false, error: (error as Error).message }
