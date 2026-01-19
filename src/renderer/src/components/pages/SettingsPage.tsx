@@ -3,7 +3,7 @@
  * Configure general, network, storage, and privacy settings.
  */
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, memo } from 'react'
 import {
   Settings,
   Globe,
@@ -475,7 +475,7 @@ interface SectionProps {
 
 // ============ Sections ============
 
-function GeneralSection({ draft, setDraft }: SectionProps) {
+const GeneralSection = memo(function GeneralSection({ draft, setDraft }: SectionProps) {
   return (
     <div>
       <SectionHeader
@@ -566,9 +566,9 @@ function GeneralSection({ draft, setDraft }: SectionProps) {
       </div>
     </div>
   )
-}
+})
 
-function NetworkSection({ draft, setDraft }: SectionProps) {
+const NetworkSection = memo(function NetworkSection({ draft, setDraft }: SectionProps) {
   return (
     <div>
       <SectionHeader
@@ -621,9 +621,9 @@ function NetworkSection({ draft, setDraft }: SectionProps) {
       </div>
     </div>
   )
-}
+})
 
-function StorageSection({
+const StorageSection = memo(function StorageSection({
   draft,
   setDraft,
   isLoaded,
@@ -665,9 +665,9 @@ function StorageSection({
       </div>
     </div>
   )
-}
+})
 
-function AppearanceSection({ draft, setDraft }: SectionProps) {
+const AppearanceSection = memo(function AppearanceSection({ draft, setDraft }: SectionProps) {
   const builtInThemes = [
     { value: 'resistance-dog', label: 'Resistance Dog', description: 'Dark blue theme (default)', color: 'bg-[#5288c1]' },
     { value: 'utya-duck', label: 'Utya Duck', description: 'Bright yellow theme', color: 'bg-[#FFE600]' },
@@ -899,9 +899,9 @@ function AppearanceSection({ draft, setDraft }: SectionProps) {
       )}
     </div>
   )
-}
+})
 
-function PrivacySection({
+const PrivacySection = memo(function PrivacySection({
   draft,
   setDraft,
   clearing,
@@ -999,9 +999,9 @@ function PrivacySection({
       </div>
     </div>
   )
-}
+})
 
-function HistorySection({
+const HistorySection = memo(function HistorySection({
   draft,
   setDraft,
   changingHistoryMode,
@@ -1070,9 +1070,9 @@ function HistorySection({
       </div>
     </div>
   )
-}
+})
 
-function ShortcutsSection() {
+const ShortcutsSection = memo(function ShortcutsSection() {
   return (
     <div>
       <SectionHeader
@@ -1110,9 +1110,9 @@ function ShortcutsSection() {
       </div>
     </div>
   )
-}
+})
 
-function BookmarksSection({
+const BookmarksSection = memo(function BookmarksSection({
   bookmarksCount,
   onExport,
   onReset,
@@ -1511,9 +1511,9 @@ function BookmarksSection({
       )}
     </div>
   )
-}
+})
 
-function AdvancedSection({ draft, setDraft, onResetAll }: SectionProps & { onResetAll: () => void }) {
+const AdvancedSection = memo(function AdvancedSection({ draft, setDraft, onResetAll }: SectionProps & { onResetAll: () => void }) {
   return (
     <div>
       <SectionHeader
@@ -1566,7 +1566,7 @@ function AdvancedSection({ draft, setDraft, onResetAll }: SectionProps & { onRes
       </div>
     </div>
   )
-}
+})
 
 // Simple colors for the diagram - using CSS custom property for theme support
 const DIAGRAM_COLOR = 'rgba(255, 255, 255, 0.5)'
@@ -1848,7 +1848,7 @@ function GarlicRoutingDiagram() {
   )
 }
 
-function AboutSection() {
+const AboutSection = memo(function AboutSection() {
   return (
     <div>
       <SectionHeader title="About" />
@@ -1892,4 +1892,4 @@ function AboutSection() {
       </div>
     </div>
   )
-}
+})

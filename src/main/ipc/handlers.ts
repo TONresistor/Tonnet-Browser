@@ -587,6 +587,7 @@ export function registerIpcHandlers(): void {
     try {
       return historyManager.search(query, limit)
     } catch (error) {
+      console.error('[History] Search failed:', error)
       return []
     }
   })
@@ -595,6 +596,7 @@ export function registerIpcHandlers(): void {
     try {
       return historyManager.getRecent(limit)
     } catch (error) {
+      console.error('[History] Get recent failed:', error)
       return []
     }
   })
@@ -603,6 +605,7 @@ export function registerIpcHandlers(): void {
     try {
       return historyManager.getTopVisited(limit)
     } catch (error) {
+      console.error('[History] Get top visited failed:', error)
       return []
     }
   })
@@ -611,6 +614,7 @@ export function registerIpcHandlers(): void {
     try {
       return historyManager.getByDateRange(startDate, endDate)
     } catch (error) {
+      console.error('[History] Get by date range failed:', error)
       return []
     }
   })

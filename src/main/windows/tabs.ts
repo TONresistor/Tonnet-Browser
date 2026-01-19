@@ -227,7 +227,9 @@ function setupViewEvents(view: BrowserView, tabId: string): void {
         event.preventDefault()
         const httpUrl = url.replace('tonsite://', 'http://')
         console.log(`[Tabs] Converting tonsite:// to http://: ${httpUrl}`)
-        view.webContents.loadURL(httpUrl)
+        view.webContents.loadURL(httpUrl).catch(err => {
+          console.error('[Tabs] loadURL failed (tonsite conversion):', err)
+        })
         return
       }
       if (!ALLOWED_SCHEMES.includes(parsed.protocol)) {
@@ -491,12 +493,16 @@ export function navigateInTab(tabId: string, url: string): boolean {
     }
 
     // Navigate in new view
-    newView.webContents.loadURL(navigateUrl)
+    newView.webContents.loadURL(navigateUrl).catch(err => {
+      console.error('[Tabs] loadURL failed (new view):', err)
+    })
   } else {
     // Same domain or first navigation, just load URL
     tabDomains.set(tabId, domain)
     updateDomainActivity(domain)
-    view.webContents.loadURL(navigateUrl)
+    view.webContents.loadURL(navigateUrl).catch(err => {
+      console.error('[Tabs] loadURL failed:', err)
+    })
   }
 
   return true

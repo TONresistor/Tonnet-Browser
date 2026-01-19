@@ -84,21 +84,25 @@ export const useTabsStore = create<TabsState>((set, get) => ({
       historyIndex: 0,
     }
 
-    // Create tab in main process
-    await window.electron.tabs.create(id)
+    try {
+      // Create tab in main process
+      await window.electron.tabs.create(id)
 
-    set((state) => ({
-      tabs: [...state.tabs, newTab],
-      activeTabId: id,
-    }))
+      set((state) => ({
+        tabs: [...state.tabs, newTab],
+        activeTabId: id,
+      }))
 
-    // Sync settings store with new tab's state
-    useSettingsStore.getState().setNavigation(targetUrl, false, false)
-    useSettingsStore.getState().setTitle(title)
+      // Sync settings store with new tab's state
+      useSettingsStore.getState().setNavigation(targetUrl, false, false)
+      useSettingsStore.getState().setTitle(title)
 
-    // Always call navigate - it handles hiding views for internal pages
-    // and loading URLs for external pages
-    await window.electron.navigate(targetUrl, id)
+      // Always call navigate - it handles hiding views for internal pages
+      // and loading URLs for external pages
+      await window.electron.navigate(targetUrl, id)
+    } catch (error) {
+      console.error('[Tabs] Failed to create tab:', error)
+    }
   },
 
   closeTab: async (id: string) => {
@@ -106,37 +110,41 @@ export const useTabsStore = create<TabsState>((set, get) => ({
     const index = tabs.findIndex((t) => t.id === id)
     const newTabs = tabs.filter((t) => t.id !== id)
 
-    // Close tab in main process
-    await window.electron.tabs.close(id)
+    try {
+      // Close tab in main process
+      await window.electron.tabs.close(id)
 
-    let newActiveId = activeTabId
-    if (activeTabId === id && newTabs.length > 0) {
-      // Select adjacent tab
-      newActiveId = newTabs[Math.min(index, newTabs.length - 1)]?.id ?? null
-      if (newActiveId) {
-        await window.electron.tabs.switch(newActiveId)
-        // Sync settings store with new active tab
-        const newActiveTab = newTabs.find((t) => t.id === newActiveId)
-        if (newActiveTab) {
-          useSettingsStore.getState().setNavigation(
-            newActiveTab.url,
-            newActiveTab.canGoBack,
-            newActiveTab.canGoForward
-          )
-          // Hide views for internal pages
-          if (newActiveTab.url.startsWith('ton://')) {
-            window.electron.navigate(newActiveTab.url, newActiveId)
+      let newActiveId = activeTabId
+      if (activeTabId === id && newTabs.length > 0) {
+        // Select adjacent tab
+        newActiveId = newTabs[Math.min(index, newTabs.length - 1)]?.id ?? null
+        if (newActiveId) {
+          await window.electron.tabs.switch(newActiveId)
+          // Sync settings store with new active tab
+          const newActiveTab = newTabs.find((t) => t.id === newActiveId)
+          if (newActiveTab) {
+            useSettingsStore.getState().setNavigation(
+              newActiveTab.url,
+              newActiveTab.canGoBack,
+              newActiveTab.canGoForward
+            )
+            // Hide views for internal pages
+            if (newActiveTab.url.startsWith('ton://')) {
+              window.electron.navigate(newActiveTab.url, newActiveId)
+            }
           }
         }
+      } else if (newTabs.length === 0) {
+        // Last tab closed - create a new default tab with homepage
+        set({ tabs: newTabs, activeTabId: null })
+        await get().addTab() // Uses homepage from settings
+        return
       }
-    } else if (newTabs.length === 0) {
-      // Last tab closed - create a new default tab with homepage
-      set({ tabs: newTabs, activeTabId: null })
-      await get().addTab() // Uses homepage from settings
-      return
-    }
 
-    set({ tabs: newTabs, activeTabId: newActiveId })
+      set({ tabs: newTabs, activeTabId: newActiveId })
+    } catch (error) {
+      console.error('[Tabs] Failed to close tab:', error)
+    }
   },
 
   setActiveTab: async (id: string) => {
@@ -146,17 +154,21 @@ export const useTabsStore = create<TabsState>((set, get) => ({
     const tab = tabs.find((t) => t.id === id)
     if (!tab) return
 
-    // Switch tab in main process (shows/hides BrowserViews)
-    await window.electron.tabs.switch(id)
-    set({ activeTabId: id })
+    try {
+      // Switch tab in main process (shows/hides BrowserViews)
+      await window.electron.tabs.switch(id)
+      set({ activeTabId: id })
 
-    // Sync settings store with this tab's state
-    useSettingsStore.getState().setNavigation(tab.url, tab.canGoBack, tab.canGoForward)
-    useSettingsStore.getState().setTitle(tab.title)
+      // Sync settings store with this tab's state
+      useSettingsStore.getState().setNavigation(tab.url, tab.canGoBack, tab.canGoForward)
+      useSettingsStore.getState().setTitle(tab.title)
 
-    // For internal pages, hide BrowserViews so React content is visible
-    if (tab.url.startsWith('ton://')) {
-      await window.electron.view.hide()
+      // For internal pages, hide BrowserViews so React content is visible
+      if (tab.url.startsWith('ton://')) {
+        await window.electron.view.hide()
+      }
+    } catch (error) {
+      console.error('[Tabs] Failed to switch tab:', error)
     }
   },
 
@@ -220,7 +232,11 @@ export const useTabsStore = create<TabsState>((set, get) => ({
     }
 
     // Navigate (handles hide/show BrowserView)
-    await window.electron.navigate(url, currentActiveTabId)
+    try {
+      await window.electron.navigate(url, currentActiveTabId)
+    } catch (error) {
+      console.error('[Tabs] Failed to navigate:', error)
+    }
   },
 
   openOrSwitchToTab: async (url: string) => {
@@ -284,7 +300,11 @@ export const useTabsStore = create<TabsState>((set, get) => ({
     }
 
     // Navigate
-    await window.electron.navigate(newUrl, activeTabId)
+    try {
+      await window.electron.navigate(newUrl, activeTabId)
+    } catch (error) {
+      console.error('[Tabs] Failed to go back:', error)
+    }
   },
 
   goForward: async () => {
@@ -319,7 +339,11 @@ export const useTabsStore = create<TabsState>((set, get) => ({
     }
 
     // Navigate
-    await window.electron.navigate(newUrl, activeTabId)
+    try {
+      await window.electron.navigate(newUrl, activeTabId)
+    } catch (error) {
+      console.error('[Tabs] Failed to go forward:', error)
+    }
   },
 
   duplicateTab: async (id: string) => {

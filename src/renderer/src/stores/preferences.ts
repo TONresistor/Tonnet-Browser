@@ -236,11 +236,13 @@ export const usePreferencesStore = create<PreferencesState>()((set, get) => ({
       }
     }
 
-    // Sync each changed category to main process
+    // Sync all changed categories to main process in parallel
     try {
-      for (const [category, values] of Object.entries(categoryUpdates)) {
-        await window.electron.settings.set(category, values)
-      }
+      await Promise.all(
+        Object.entries(categoryUpdates).map(([category, values]) =>
+          window.electron.settings.set(category, values)
+        )
+      )
       set({ saved: { ...draft }, hasChanges: false, isSaving: false })
     } catch (error) {
       console.error('[Preferences] Failed to save:', error)

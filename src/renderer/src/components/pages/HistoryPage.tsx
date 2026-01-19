@@ -125,9 +125,9 @@ export function HistoryPage() {
       return
     }
 
-    for (const entry of entriesToDelete) {
-      await window.electron.history.delete(entry.id)
-    }
+    await Promise.all(
+      entriesToDelete.map(entry => window.electron.history.delete(entry.id))
+    )
 
     loadHistory()
     loadStats()
