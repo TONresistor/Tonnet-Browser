@@ -39,6 +39,7 @@ export function getInternalPageTitle(url: string): string | null {
 interface TabsState {
   tabs: Tab[]
   activeTabId: string | null
+  closedTabs: Array<{ url: string; title: string }> // Last 10 closed tabs for Ctrl+Shift+T
   addTab: (url?: string) => Promise<void>
   closeTab: (id: string) => Promise<void>
   setActiveTab: (id: string) => Promise<void>
@@ -50,6 +51,10 @@ interface TabsState {
   goForward: () => Promise<void>
   duplicateTab: (id: string) => Promise<void>
   closeOtherTabs: (id: string) => Promise<void>
+  reopenLastClosedTab: () => Promise<void>
+  nextTab: () => Promise<void>
+  previousTab: () => Promise<void>
+  goToTabByIndex: (index: number) => Promise<void>
 }
 
 // Generate cryptographically secure random ID
@@ -71,6 +76,7 @@ async function getHomepage(): Promise<string> {
 export const useTabsStore = create<TabsState>((set, get) => ({
   tabs: [],
   activeTabId: null,
+  closedTabs: [],
 
   addTab: async (url?: string) => {
     // Use homepage if no URL provided
@@ -110,9 +116,19 @@ export const useTabsStore = create<TabsState>((set, get) => ({
   },
 
   closeTab: async (id: string) => {
-    const { tabs, activeTabId } = get()
+    const { tabs, activeTabId, closedTabs } = get()
     const index = tabs.findIndex((t) => t.id === id)
+    const closedTab = tabs.find((t) => t.id === id)
     const newTabs = tabs.filter((t) => t.id !== id)
+
+    // Save closed tab for Ctrl+Shift+T (skip ton://start and ton://loading)
+    if (closedTab && !closedTab.url.startsWith('ton://start') && !closedTab.url.startsWith('ton://loading')) {
+      const newClosedTabs = [
+        { url: closedTab.url, title: closedTab.title },
+        ...closedTabs
+      ].slice(0, 10) // Keep last 10
+      set({ closedTabs: newClosedTabs })
+    }
 
     try {
       // Close tab in main process
@@ -366,6 +382,45 @@ export const useTabsStore = create<TabsState>((set, get) => ({
     // Close all other tabs
     for (const tab of otherTabs) {
       await closeTab(tab.id)
+    }
+  },
+
+  reopenLastClosedTab: async () => {
+    const { closedTabs, addTab } = get()
+    if (closedTabs.length === 0) return
+
+    // Get and remove the last closed tab
+    const lastClosed = closedTabs[0]
+    set({ closedTabs: closedTabs.slice(1) })
+
+    // Reopen it
+    await addTab(lastClosed.url)
+  },
+
+  nextTab: async () => {
+    const { tabs, activeTabId, setActiveTab } = get()
+    if (tabs.length <= 1) return
+
+    const currentIndex = tabs.findIndex((t) => t.id === activeTabId)
+    const nextIndex = (currentIndex + 1) % tabs.length
+    await setActiveTab(tabs[nextIndex].id)
+  },
+
+  previousTab: async () => {
+    const { tabs, activeTabId, setActiveTab } = get()
+    if (tabs.length <= 1) return
+
+    const currentIndex = tabs.findIndex((t) => t.id === activeTabId)
+    const prevIndex = currentIndex === 0 ? tabs.length - 1 : currentIndex - 1
+    await setActiveTab(tabs[prevIndex].id)
+  },
+
+  goToTabByIndex: async (index: number) => {
+    const { tabs, setActiveTab } = get()
+    // Index is 1-based (Ctrl+1 to Ctrl+9)
+    const tabIndex = index - 1
+    if (tabIndex >= 0 && tabIndex < tabs.length) {
+      await setActiveTab(tabs[tabIndex].id)
     }
   },
 }))

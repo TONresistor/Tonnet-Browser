@@ -67,13 +67,33 @@ function App() {
 
   // Keyboard shortcuts
   useEffect(() => {
-    const { addTab, closeTab, activeTabId, goBack, goForward } = useTabsStore.getState()
+    const { addTab, closeTab, activeTabId, goBack, goForward, reopenLastClosedTab, nextTab, previousTab, goToTabByIndex } = useTabsStore.getState()
 
     const handleKeyDown = (e: KeyboardEvent) => {
       // Ctrl+T: New tab
-      if (e.ctrlKey && e.key === 't') {
+      if (e.ctrlKey && !e.shiftKey && e.key === 't') {
         e.preventDefault()
         addTab()
+      }
+      // Ctrl+Shift+T: Reopen last closed tab
+      else if (e.ctrlKey && e.shiftKey && e.key === 'T') {
+        e.preventDefault()
+        useTabsStore.getState().reopenLastClosedTab()
+      }
+      // Ctrl+Tab: Next tab
+      else if (e.ctrlKey && !e.shiftKey && e.key === 'Tab') {
+        e.preventDefault()
+        useTabsStore.getState().nextTab()
+      }
+      // Ctrl+Shift+Tab: Previous tab
+      else if (e.ctrlKey && e.shiftKey && e.key === 'Tab') {
+        e.preventDefault()
+        useTabsStore.getState().previousTab()
+      }
+      // Ctrl+1-9: Go to tab N
+      else if (e.ctrlKey && !e.shiftKey && /^[1-9]$/.test(e.key)) {
+        e.preventDefault()
+        useTabsStore.getState().goToTabByIndex(parseInt(e.key, 10))
       }
       // Ctrl+H: History
       else if (e.ctrlKey && e.key === 'h') {

@@ -9,6 +9,7 @@ import { DEFAULT_PROXY_PORT } from '../../shared/constants'
 import { getSetting, type PrivacySettings } from '../settings'
 import { logger } from '../../shared/logger'
 import { historyManager } from '../history/manager'
+import { normalizeUrl } from '../../shared/utils/url'
 
 const CHROME_HEIGHT = 136 // tabbar (44) + navbar (44) + bookmarks (40) + buffer (8)
 const STATUSBAR_HEIGHT = 24
@@ -218,20 +219,22 @@ function setupViewEvents(view: BrowserView, tabId: string): void {
     historyManager.addEntry(url, title)
   })
 
-  // Security: Intercept navigation to validate URLs (blocks javascript:, data:, file:, https:, etc.)
+  // Security: Intercept navigation to validate URLs (blocks javascript:, data:, file:, etc.)
   view.webContents.on('will-navigate', (event, url) => {
     try {
-      const parsed = new URL(url)
-      // Convert tonsite:// to http:// (TON sites use this custom protocol)
-      if (parsed.protocol === 'tonsite:') {
+      const normalized = normalizeUrl(url)
+      const parsed = new URL(normalized)
+
+      // If URL was normalized, redirect to normalized version
+      if (normalized !== url) {
         event.preventDefault()
-        const httpUrl = url.replace('tonsite://', 'http://')
-        console.log(`[Tabs] Converting tonsite:// to http://: ${httpUrl}`)
-        view.webContents.loadURL(httpUrl).catch(err => {
-          console.error('[Tabs] loadURL failed (tonsite conversion):', err)
+        logger.debug('Tabs', `Normalizing URL: ${url} → ${normalized}`)
+        view.webContents.loadURL(normalized).catch(err => {
+          logger.error('Tabs', 'loadURL failed (normalization):', err)
         })
         return
       }
+
       if (!ALLOWED_SCHEMES.includes(parsed.protocol)) {
         console.warn(`[Tabs] Blocked navigation to unsafe URL: ${url}`)
         event.preventDefault()
@@ -245,15 +248,14 @@ function setupViewEvents(view: BrowserView, tabId: string): void {
   // Security: Control popup windows (window.open) - open in new tab instead
   view.webContents.setWindowOpenHandler(({ url }) => {
     try {
-      let targetUrl = url
-      const parsed = new URL(url)
-      // Convert tonsite:// to http://
-      if (parsed.protocol === 'tonsite:') {
-        targetUrl = url.replace('tonsite://', 'http://')
-        console.log(`[Tabs] Converting tonsite:// popup to http://: ${targetUrl}`)
-        mainWindow?.webContents.send('context:open-link', targetUrl)
-      } else if (ALLOWED_SCHEMES.includes(parsed.protocol)) {
+      const targetUrl = normalizeUrl(url)
+      const parsed = new URL(targetUrl)
+
+      if (ALLOWED_SCHEMES.includes(parsed.protocol)) {
         // Open valid http:// URLs in new tab
+        if (targetUrl !== url) {
+          logger.debug('Tabs', `Normalizing popup URL: ${url} → ${targetUrl}`)
+        }
         mainWindow?.webContents.send('context:open-link', targetUrl)
       } else {
         console.warn(`[Tabs] Blocked popup to unsafe URL: ${url}`)
@@ -271,12 +273,10 @@ function setupViewEvents(view: BrowserView, tabId: string): void {
     // Open in new tab instead
     if (url && url !== 'about:blank') {
       try {
-        const parsed = new URL(url)
-        let targetUrl = url
-        if (parsed.protocol === 'tonsite:') {
-          targetUrl = url.replace('tonsite://', 'http://')
-        }
-        if (parsed.protocol === 'http:' || parsed.protocol === 'tonsite:') {
+        const targetUrl = normalizeUrl(url)
+        const parsed = new URL(targetUrl)
+
+        if (parsed.protocol === 'http:') {
           mainWindow?.webContents.send('context:open-link', targetUrl)
         }
       } catch {
@@ -437,19 +437,16 @@ export function navigateInTab(tabId: string, url: string): boolean {
   const view = views.get(tabId)
   if (!view) return false
 
-  let navigateUrl = url
-
-  // Convert tonsite:// to http://
-  if (url.startsWith('tonsite://')) {
-    navigateUrl = url.replace('tonsite://', 'http://')
-    console.log(`[Tabs] Converting tonsite:// to http://: ${navigateUrl}`)
-  }
   // Auto-add http:// if no scheme provided
-  else if (!url.startsWith('http://') && !url.startsWith('https://') && !url.startsWith('ton://')) {
+  let navigateUrl = url
+  if (!url.startsWith('http://') && !url.startsWith('https://') && !url.startsWith('ton://') && !url.startsWith('tonsite://')) {
     navigateUrl = `http://${url}`
   }
 
-  // Validate URL scheme for security (block data:, file:, javascript:, https:, etc.)
+  // Normalize URL (tonsite:// → http://, https:// → http://)
+  navigateUrl = normalizeUrl(navigateUrl)
+
+  // Validate URL scheme for security (block data:, file:, javascript:, etc.)
   try {
     const parsed = new URL(navigateUrl)
     if (!ALLOWED_SCHEMES.includes(parsed.protocol)) {

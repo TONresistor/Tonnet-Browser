@@ -73,6 +73,11 @@ const SECTIONS: { id: SettingsSection; label: string; icon: React.ElementType }[
 const SHORTCUTS = [
   { action: 'New tab', shortcut: 'Ctrl+T' },
   { action: 'Close tab', shortcut: 'Ctrl+W' },
+  { action: 'Reopen closed tab', shortcut: 'Ctrl+Shift+T' },
+  { action: 'Next tab', shortcut: 'Ctrl+Tab' },
+  { action: 'Previous tab', shortcut: 'Ctrl+Shift+Tab' },
+  { action: 'Go to tab 1-9', shortcut: 'Ctrl+1-9' },
+  { action: 'History', shortcut: 'Ctrl+H' },
   { action: 'Focus address bar', shortcut: 'Ctrl+L' },
   { action: 'Reload', shortcut: 'Ctrl+R / F5' },
   { action: 'Back', shortcut: 'Alt+←' },
