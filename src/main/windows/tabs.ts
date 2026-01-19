@@ -219,6 +219,24 @@ function setupViewEvents(view: BrowserView, tabId: string): void {
     historyManager.addEntry(url, title)
   })
 
+  // Handle load failures (timeouts, DNS errors, connection refused, etc.)
+  view.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
+    // Ignore aborted loads (user navigated away) and cached errors
+    // -3 = ERR_ABORTED (user cancelled navigation)
+    // -2 = ERR_FAILED (generic, often from cache)
+    if (errorCode === -3 || errorCode === -2 || errorCode === 0) {
+      return
+    }
+
+    // Don't show error page for data: or file: URLs (prevents infinite loops)
+    if (validatedURL.startsWith('data:') || validatedURL.startsWith('file:')) {
+      return
+    }
+
+    logger.warn('Tabs', `Page load failed: ${errorDescription} (code: ${errorCode}) for ${validatedURL}`)
+    loadErrorPage(view, `${errorDescription} (${errorCode})`, validatedURL)
+  })
+
   // Security: Intercept navigation to validate URLs (blocks javascript:, data:, file:, etc.)
   view.webContents.on('will-navigate', (event, url) => {
     try {
@@ -231,6 +249,7 @@ function setupViewEvents(view: BrowserView, tabId: string): void {
         logger.debug('Tabs', `Normalizing URL: ${url} → ${normalized}`)
         view.webContents.loadURL(normalized).catch(err => {
           logger.error('Tabs', 'loadURL failed (normalization):', err)
+          loadErrorPage(view, err.message, normalized)
         })
         return
       }
@@ -433,6 +452,81 @@ export function showActiveView(): void {
 // Security is handled by the TON network itself
 const ALLOWED_SCHEMES = ['http:']
 
+/**
+ * Loads error page in BrowserView when navigation fails.
+ * Uses inline data URL to avoid file path issues and infinite loops.
+ */
+function loadErrorPage(view: BrowserView, errorMessage: string, failedUrl: string): void {
+  // Use data URL with inline HTML to avoid file path issues
+  const errorHtml = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Page Load Error</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+      background: linear-gradient(135deg, #1a1f2e 0%, #252b3d 100%);
+      color: #e4e7eb;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .error-container { max-width: 600px; text-align: center; }
+    .error-icon {
+      width: 120px; height: 120px; margin: 0 auto 32px;
+      background: rgba(239, 68, 68, 0.1);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 60px;
+    }
+    h1 { font-size: 32px; font-weight: 600; margin-bottom: 16px; color: #f9fafb; }
+    .error-message { font-size: 16px; line-height: 1.6; color: #9ca3af; margin-bottom: 24px; }
+    .error-details {
+      background: rgba(0, 0, 0, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px; padding: 16px; margin-bottom: 32px; text-align: left;
+    }
+    .error-code { font-family: monospace; font-size: 14px; color: #ef4444; word-break: break-all; }
+    .url { font-family: monospace; font-size: 13px; color: #6b7280; margin-top: 8px; word-break: break-all; }
+    .actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+    button {
+      padding: 12px 24px; font-size: 15px; font-weight: 500;
+      border: none; border-radius: 6px; cursor: pointer; transition: all 0.2s;
+    }
+    .btn-primary { background: #0ea5e9; color: white; }
+    .btn-primary:hover { background: #0284c7; }
+    .btn-secondary { background: rgba(255, 255, 255, 0.1); color: #e4e7eb; border: 1px solid rgba(255, 255, 255, 0.2); }
+    .btn-secondary:hover { background: rgba(255, 255, 255, 0.15); }
+  </style>
+</head>
+<body>
+  <div class="error-container">
+    <div class="error-icon">⚠️</div>
+    <h1>Unable to Load Page</h1>
+    <p class="error-message">The page could not be loaded. Check your connection to the TON network.</p>
+    <div class="error-details">
+      <div class="error-code">Error: ${errorMessage.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
+      <div class="url">URL: ${failedUrl.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
+    </div>
+    <div class="actions">
+      <button class="btn-primary" onclick="location.href='${failedUrl.replace(/'/g, "\\'")}'">\u{1F504} Retry</button>
+      <button class="btn-secondary" onclick="history.back()">← Go Back</button>
+    </div>
+  </div>
+</body>
+</html>`
+
+  view.webContents.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(errorHtml)}`).catch(err => {
+    logger.error('Tabs', 'Failed to load error page:', err)
+  })
+}
+
 export function navigateInTab(tabId: string, url: string): boolean {
   const view = views.get(tabId)
   if (!view) return false
@@ -491,14 +585,16 @@ export function navigateInTab(tabId: string, url: string): boolean {
 
     // Navigate in new view
     newView.webContents.loadURL(navigateUrl).catch(err => {
-      console.error('[Tabs] loadURL failed (new view):', err)
+      logger.error('Tabs', 'loadURL failed (new view):', err)
+      loadErrorPage(newView, err.message, navigateUrl)
     })
   } else {
     // Same domain or first navigation, just load URL
     tabDomains.set(tabId, domain)
     updateDomainActivity(domain)
     view.webContents.loadURL(navigateUrl).catch(err => {
-      console.error('[Tabs] loadURL failed:', err)
+      logger.error('Tabs', 'loadURL failed:', err)
+      loadErrorPage(view, err.message, navigateUrl)
     })
   }
 

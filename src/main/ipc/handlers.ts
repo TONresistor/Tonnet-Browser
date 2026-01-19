@@ -7,6 +7,7 @@ import { ipcMain, BrowserWindow, session, dialog, Menu, shell } from 'electron'
 import path from 'path'
 import { IPC_CHANNELS } from '../../shared/types'
 import { isValidNavigationUrl, isValidBagId, isValidDownloadPath, RateLimiter } from './validation'
+import { handleWithErrors, ipcErrorHandler } from './error-handler'
 
 // Lenient limits: 30 nav/sec, 10 storage ops/sec
 const navLimiter = new RateLimiter(30, 1000)
@@ -93,7 +94,7 @@ export function registerIpcHandlers(): void {
   })
 
   // ===== Proxy Handlers =====
-  ipcMain.handle(IPC_CHANNELS.PROXY_CONNECT, async () => {
+  handleWithErrors(IPC_CHANNELS.PROXY_CONNECT, async () => {
     const win = getMainWindow()
 
     // Helper to send progress updates
@@ -103,43 +104,40 @@ export function registerIpcHandlers(): void {
       }
     }
 
-    try {
-      // Step 0: Starting proxy
-      sendProgress(0, 'Starting proxy...')
-      await proxyManager.start()
+    // Step 0: Starting proxy
+    sendProgress(0, 'Starting proxy...')
+    await proxyManager.start()
 
-      // Step 1: Loading configuration
-      sendProgress(1, 'Loading configuration...')
-      await new Promise(r => setTimeout(r, 300)) // Small delay for visual feedback
+    // Step 1: Loading configuration
+    sendProgress(1, 'Loading configuration...')
+    await new Promise(r => setTimeout(r, 300)) // Small delay for visual feedback
 
-      // Step 2: Starting DHT
-      sendProgress(2, 'Starting DHT...')
-      await new Promise(r => setTimeout(r, 400))
+    // Step 2: Starting DHT
+    sendProgress(2, 'Starting DHT...')
+    await new Promise(r => setTimeout(r, 400))
 
-      // Step 3: Connecting to network
-      sendProgress(3, 'Connecting to network...')
-      await new Promise(r => setTimeout(r, 400))
+    // Step 3: Connecting to network
+    sendProgress(3, 'Connecting to network...')
+    await new Promise(r => setTimeout(r, 400))
 
-      // Initialize TabManager with proxy
-      if (win) {
-        initTabManager(win, proxyManager.getStatus().port)
-      }
-
-      // Also start storage daemon
-      try {
-        await storageManager.start()
-        console.log('[IPC] Storage daemon started')
-      } catch (storageError) {
-        console.error('[IPC] Failed to start storage:', storageError)
-      }
-
-      // Step 4: Ready
-      sendProgress(4, 'Ready!')
-
-      return { success: true, ...proxyManager.getStatus() }
-    } catch (error) {
-      return { success: false, error: (error as Error).message }
+    // Initialize TabManager with proxy
+    if (win) {
+      initTabManager(win, proxyManager.getStatus().port)
     }
+
+    // Also start storage daemon
+    try {
+      await storageManager.start()
+      console.log('[IPC] Storage daemon started')
+    } catch (storageError) {
+      console.error('[IPC] Failed to start storage:', storageError)
+      // Non-critical: continue even if storage fails
+    }
+
+    // Step 4: Ready
+    sendProgress(4, 'Ready!')
+
+    return { success: true, ...proxyManager.getStatus() }
   })
 
   ipcMain.handle(IPC_CHANNELS.PROXY_DISCONNECT, async () => {
@@ -302,7 +300,7 @@ export function registerIpcHandlers(): void {
   })
 
   // ===== Storage Handlers =====
-  ipcMain.handle(IPC_CHANNELS.STORAGE_ADD_BAG, async (_event, bagId: string, name?: string) => {
+  handleWithErrors(IPC_CHANNELS.STORAGE_ADD_BAG, async (_event, bagId: string, name?: string) => {
     // Rate limit storage operations
     if (!storageLimiter.check()) {
       return { success: false, error: 'Rate limited' }
@@ -314,12 +312,8 @@ export function registerIpcHandlers(): void {
       return { success: false, error: 'Invalid bag ID format (must be 64 hex characters)' }
     }
 
-    try {
-      const bag = await addBag(bagId, name)
-      return { success: true, bag }
-    } catch (error) {
-      return { success: false, error: (error as Error).message }
-    }
+    const bag = await addBag(bagId, name)
+    return { success: true, bag }
   })
 
   ipcMain.handle(IPC_CHANNELS.STORAGE_REMOVE_BAG, async (_event, bagId: string) => {
@@ -508,19 +502,14 @@ export function registerIpcHandlers(): void {
   })
 
   // ===== Settings Handlers =====
-  ipcMain.handle(IPC_CHANNELS.CLEAR_BROWSING_DATA, async () => {
-    try {
-      const ses = session.fromPartition('persist:ton-browser')
-      await ses.clearCache()
-      await ses.clearStorageData({
-        storages: ['cookies', 'localstorage', 'indexdb', 'websql', 'serviceworkers', 'cachestorage'],
-      })
-      console.log('[Settings] Browsing data cleared')
-      return { success: true }
-    } catch (error) {
-      console.error('[Settings] Failed to clear data:', error)
-      return { success: false, error: (error as Error).message }
-    }
+  handleWithErrors(IPC_CHANNELS.CLEAR_BROWSING_DATA, async () => {
+    const ses = session.fromPartition('persist:ton-browser')
+    await ses.clearCache()
+    await ses.clearStorageData({
+      storages: ['cookies', 'localstorage', 'indexdb', 'websql', 'serviceworkers', 'cachestorage'],
+    })
+    console.log('[Settings] Browsing data cleared')
+    return { success: true }
   })
 
   // ===== Storage Settings Handlers =====
@@ -700,5 +689,15 @@ export function registerIpcHandlers(): void {
     } catch (error) {
       return false
     }
+  })
+
+  // ===== Error Logging Handlers (for debugging) =====
+  ipcMain.handle('errors:get-recent', (_event, limit?: number) => {
+    return ipcErrorHandler.getRecentErrors(limit)
+  })
+
+  ipcMain.handle('errors:clear', () => {
+    ipcErrorHandler.clearLogs()
+    return { success: true }
   })
 }
