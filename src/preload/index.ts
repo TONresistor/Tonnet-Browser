@@ -44,6 +44,10 @@ const electronAPI = {
     bookmarks: Array<{ id: string; title: string; url: string }>
   ) => ipcRenderer.invoke('folder:show-menu', folderId, bookmarks),
 
+  // Folder context menu
+  showFolderContextMenu: (folderId: string, folderName: string) =>
+    ipcRenderer.invoke('folder:show-context-menu', folderId, folderName),
+
   // Navigation
   navigate: (url: string, tabId?: string) => ipcRenderer.invoke('navigate', url, tabId),
   goBack: () => ipcRenderer.invoke('go-back'),
@@ -118,6 +122,9 @@ const electronAPI = {
       'bookmark:open-new-tab',
       'bookmark:edit',
       'bookmark:delete',
+      'folder:rename',
+      'folder:delete',
+      'folder:open-all',
     ]
     if (validChannels.includes(channel)) {
       const listener = (_event: Electron.IpcRendererEvent, ...args: unknown[]) => callback(...args)

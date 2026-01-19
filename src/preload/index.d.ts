@@ -95,6 +95,19 @@ declare global {
                 maximize: () => void;
                 close: () => void;
             };
+            showBookmarkMenu: (id: string, title: string, url: string) => Promise<void>;
+            showFolderMenu: (folderId: string, bookmarks: Array<{ id: string; title: string; url: string }>) => Promise<void>;
+            showFolderContextMenu: (folderId: string, folderName: string) => Promise<void>;
+            view: {
+                hide: () => Promise<void>;
+                show: () => Promise<void>;
+            };
+            settings: {
+                getAll: () => Promise<unknown>;
+                get: (category: string) => Promise<unknown>;
+                set: (category: string, values: object) => Promise<{ success: boolean; error?: string }>;
+                reset: () => Promise<{ success: boolean; error?: string }>;
+            };
             clearBrowsingData: () => Promise<{
                 success: boolean;
                 error?: string;

@@ -451,6 +451,30 @@ export function registerIpcHandlers(): void {
     }
   )
 
+  // ===== Folder Context Menu =====
+  ipcMain.handle('folder:show-context-menu', (_event, folderId: string, folderName: string) => {
+    const win = getMainWindow()
+    if (!win) return
+
+    const menu = Menu.buildFromTemplate([
+      {
+        label: 'Rename',
+        click: () => win.webContents.send('folder:rename', { folderId, folderName })
+      },
+      {
+        label: 'Open all bookmarks',
+        click: () => win.webContents.send('folder:open-all', folderId)
+      },
+      { type: 'separator' },
+      {
+        label: 'Delete',
+        click: () => win.webContents.send('folder:delete', folderId)
+      }
+    ])
+
+    menu.popup({ window: win })
+  })
+
   // ===== Window Handlers =====
   ipcMain.handle(IPC_CHANNELS.WINDOW_MINIMIZE, () => {
     const win = getMainWindow()
