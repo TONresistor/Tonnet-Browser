@@ -1,11 +1,28 @@
 /**
  * Tab bar for multi-tab browsing.
- * Create, switch, and close tabs.
+ * Create, switch, and close tabs with drag & drop support.
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Plus, X, Globe } from 'lucide-react'
+import {
+  DndContext,
+  DragEndEvent,
+  DragOverlay,
+  DragStartEvent,
+  closestCenter,
+  PointerSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  horizontalListSortingStrategy,
+  sortableKeyboardCoordinates,
+} from '@dnd-kit/sortable'
+import { Plus, Globe } from 'lucide-react'
 import { useTabs } from '@/hooks/useTabs'
+import { SortableTab } from './SortableTab'
 
 interface ContextMenuState {
   tabId: string
@@ -14,8 +31,9 @@ interface ContextMenuState {
 }
 
 export function TabBar() {
-  const { tabs, activeTabId, addTab, closeTab, setActiveTab, duplicateTab, closeOtherTabs } = useTabs()
+  const { tabs, activeTabId, addTab, closeTab, setActiveTab, duplicateTab, closeOtherTabs, reorderTabs } = useTabs()
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
+  const [activeId, setActiveId] = useState<string | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
   const tabRefs = useRef<Map<string, HTMLDivElement>>(new Map())
 
@@ -54,6 +72,37 @@ export function TabBar() {
     setContextMenu(null)
   }
 
+  // Configure drag & drop sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8, // 8px of movement before drag starts (prevents accidental drags)
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  )
+
+  // Drag & drop handlers
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(event.active.id as string)
+  }
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event
+    setActiveId(null)
+
+    if (!over || active.id === over.id) return
+
+    const oldIndex = tabs.findIndex((t) => t.id === active.id)
+    const newIndex = tabs.findIndex((t) => t.id === over.id)
+
+    if (oldIndex !== -1 && newIndex !== -1) {
+      reorderTabs(active.id as string, newIndex)
+    }
+  }
+
   const handleTabKeyDown = useCallback(
     (e: React.KeyboardEvent, tabId: string) => {
       const currentIndex = tabs.findIndex((t) => t.id === tabId)
@@ -87,55 +136,70 @@ export function TabBar() {
 
   return (
     <div className="flex items-center gap-1.5 px-2 py-1.5" role="tablist" aria-label="Browser tabs">
-      {tabs.map((tab) => (
-        <div
-          key={tab.id}
-          ref={(el) => {
-            if (el) tabRefs.current.set(tab.id, el)
-            else tabRefs.current.delete(tab.id)
-          }}
-          role="tab"
-          aria-selected={tab.id === activeTabId}
-          tabIndex={tab.id === activeTabId ? 0 : -1}
-          className={`no-drag group flex items-center gap-2 px-2.5 py-1.5 rounded-full cursor-pointer transition-all duration-200 max-w-[200px] border ${
-            tab.id === activeTabId
-              ? 'bg-surface-active border-border-medium text-foreground'
-              : 'bg-surface border-transparent text-foreground-muted hover:bg-surface-hover hover:text-foreground'
-          }`}
-          onClick={() => setActiveTab(tab.id)}
-          onKeyDown={(e) => handleTabKeyDown(e, tab.id)}
-          onContextMenu={(e) => handleContextMenu(e, tab.id)}
-        >
-          {/* Favicon */}
-          {tab.favicon ? (
-            <img
-              src={tab.favicon}
-              alt=""
-              className="w-5 h-5 flex-shrink-0 object-contain"
-              onError={(e) => {
-                // Fallback to Globe icon if favicon fails to load
-                e.currentTarget.style.display = 'none'
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+        accessibility={{
+          announcements: {
+            onDragStart({ active }) {
+              const tab = tabs.find((t) => t.id === active.id)
+              return `Picked up tab: ${tab?.title || 'New Tab'}`
+            },
+            onDragOver({ active, over }) {
+              if (!over) return ''
+              const activeTab = tabs.find((t) => t.id === active.id)
+              const overTab = tabs.find((t) => t.id === over.id)
+              return `Tab ${activeTab?.title} is over ${overTab?.title}`
+            },
+            onDragEnd({ active, over }) {
+              if (!over) return 'Dragging cancelled'
+              const tab = tabs.find((t) => t.id === active.id)
+              return `Tab ${tab?.title} reordered`
+            },
+            onDragCancel({ active }) {
+              const tab = tabs.find((t) => t.id === active.id)
+              return `Dragging cancelled. Tab ${tab?.title} returned to original position.`
+            },
+          },
+        }}
+      >
+        <SortableContext items={tabs.map((t) => t.id)} strategy={horizontalListSortingStrategy}>
+          {tabs.map((tab) => (
+            <SortableTab
+              key={tab.id}
+              tab={tab}
+              isActive={tab.id === activeTabId}
+              onActivate={() => setActiveTab(tab.id)}
+              onClose={(e) => {
+                e.stopPropagation()
+                closeTab(tab.id)
               }}
+              onContextMenu={(e) => handleContextMenu(e, tab.id)}
+              onKeyDown={(e) => handleTabKeyDown(e, tab.id)}
             />
-          ) : (
-            <Globe className="w-5 h-5 flex-shrink-0 text-foreground-muted" />
-          )}
+          ))}
+        </SortableContext>
 
-          <span className="truncate text-sm flex-1">{tab.title || 'New Tab'}</span>
-
-          <button
-            className="opacity-0 group-hover:opacity-100 focus:opacity-100 hover:bg-surface-active rounded-full p-0.5 transition-opacity"
-            aria-label={`Close ${tab.title || 'tab'}`}
-            tabIndex={0}
-            onClick={(e) => {
-              e.stopPropagation()
-              closeTab(tab.id)
-            }}
-          >
-            <X className="h-3.5 w-3.5" />
-          </button>
-        </div>
-      ))}
+        {/* Drag Overlay */}
+        <DragOverlay>
+          {activeId &&
+            (() => {
+              const activeTab = tabs.find((t) => t.id === activeId)
+              return activeTab ? (
+                <div className="px-2.5 py-1.5 rounded-full text-sm bg-surface text-foreground shadow-2xl opacity-90 border border-border-medium flex items-center gap-2 max-w-[200px]">
+                  {activeTab.favicon ? (
+                    <img src={activeTab.favicon} alt="" className="w-5 h-5 flex-shrink-0 object-contain" />
+                  ) : (
+                    <Globe className="w-5 h-5 flex-shrink-0" />
+                  )}
+                  <span className="truncate">{activeTab.title || 'New Tab'}</span>
+                </div>
+              ) : null
+            })()}
+        </DragOverlay>
+      </DndContext>
 
       <button
         className="h-7 w-7 rounded-full no-drag flex items-center justify-center transition-all duration-200 bg-surface text-foreground-muted hover:bg-surface-active hover:text-foreground"

@@ -56,6 +56,7 @@ interface TabsState {
   nextTab: () => Promise<void>
   previousTab: () => Promise<void>
   goToTabByIndex: (index: number) => Promise<void>
+  reorderTabs: (tabId: string, newIndex: number) => void
 }
 
 // Generate cryptographically secure random ID
@@ -423,5 +424,22 @@ export const useTabsStore = create<TabsState>((set, get) => ({
     if (tabIndex >= 0 && tabIndex < tabs.length) {
       await setActiveTab(tabs[tabIndex].id)
     }
+  },
+
+  reorderTabs: (tabId, newIndex) => {
+    set((state) => {
+      const { tabs } = state
+
+      // Find the tab to move
+      const oldIndex = tabs.findIndex((t) => t.id === tabId)
+      if (oldIndex === -1 || oldIndex === newIndex) return state
+
+      // Create new array with reordered tabs
+      const newTabs = [...tabs]
+      const [movedTab] = newTabs.splice(oldIndex, 1)
+      newTabs.splice(newIndex, 0, movedTab)
+
+      return { tabs: newTabs }
+    })
   },
 }))

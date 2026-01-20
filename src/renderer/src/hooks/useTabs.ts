@@ -6,7 +6,7 @@
 import { useTabsStore } from '../stores/tabs'
 
 export function useTabs() {
-  const { tabs, activeTabId, addTab, closeTab, setActiveTab, updateTab, duplicateTab, closeOtherTabs } = useTabsStore()
+  const { tabs, activeTabId, addTab, closeTab, setActiveTab, updateTab, duplicateTab, closeOtherTabs, reorderTabs } = useTabsStore()
 
   const activeTab = tabs.find((t) => t.id === activeTabId)
 
@@ -22,5 +22,6 @@ export function useTabs() {
     updateTab,
     duplicateTab,
     closeOtherTabs,
+    reorderTabs,
   }
 }
