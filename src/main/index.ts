@@ -18,8 +18,9 @@ import { initTabManager } from './windows/tabs'
 import { historyManager } from './history/manager'
 import { logger } from '../shared/logger'
 
-// Memory leak prevention: increase limit slightly and log warnings
-EventEmitter.defaultMaxListeners = 15
+// Memory leak prevention: increase limit for BrowserView tab switches
+// Each addBrowserView() adds a 'closed' listener to BrowserWindow
+EventEmitter.defaultMaxListeners = 50
 
 // Global error handlers - must be registered early to catch all errors
 process.on('uncaughtException', (error: Error) => {
