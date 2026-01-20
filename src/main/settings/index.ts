@@ -9,6 +9,7 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync, renameSync } from '
 import { DEFAULT_SETTINGS } from '../../shared/defaults'
 import type { ThemeType } from '../../shared/defaults'
 import type { CustomTheme } from '../../shared/types'
+import { logger } from '../../shared/logger'
 
 // Settings interfaces
 export interface GeneralSettings {
@@ -84,12 +85,12 @@ function isValidSettingsObject(obj: unknown): obj is Partial<AppSettings> {
   for (const key of Object.keys(settings)) {
     // Only allow known categories
     if (!categories.includes(key)) {
-      console.warn(`[Settings] Unknown category: ${key}`)
+      logger.warn('Settings', `Unknown category: ${key}`)
       continue
     }
     // Each category must be an object
     if (typeof settings[key] !== 'object' || settings[key] === null || Array.isArray(settings[key])) {
-      console.warn(`[Settings] Invalid category format: ${key}`)
+      logger.warn('Settings', `Invalid category format: ${key}`)
       return false
     }
   }
@@ -200,7 +201,7 @@ export function loadSettings(): AppSettings {
 
     // Security: Validate parsed data structure
     if (!isValidSettingsObject(parsed)) {
-      console.warn('[Settings] Invalid settings file format, using defaults')
+      logger.warn('Settings', 'Invalid settings file format, using defaults')
       settingsCache = defaults
       saveSettings(defaults)
       return defaults
@@ -229,7 +230,7 @@ export function loadSettings(): AppSettings {
 
     return settingsCache
   } catch (error) {
-    console.error('[Settings] Failed to load settings:', error)
+    logger.error('Settings', `Failed to load settings: ${String(error)}`)
     settingsCache = defaults
     return defaults
   }
@@ -251,7 +252,7 @@ export function saveSettings(settings: AppSettings): void {
     renameSync(tempFile, settingsFile)
     settingsCache = settings
   } catch (error) {
-    console.error('[Settings] Failed to save settings:', error)
+    logger.error('Settings', `Failed to save settings: ${String(error)}`)
   }
 }
 

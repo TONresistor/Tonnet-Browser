@@ -129,7 +129,7 @@ export function registerIpcHandlers(): void {
     // Also start storage daemon
     try {
       await storageManager.start()
-      console.log('[IPC] Storage daemon started')
+      logger.info('IPC', 'Storage daemon started')
     } catch (storageError) {
       logger.error('IPC', `Failed to start storage: ${String(storageError)}`)
       // Non-critical: continue even if storage fails
@@ -153,19 +153,19 @@ export function registerIpcHandlers(): void {
 
   // ===== Tab Handlers =====
   ipcMain.handle(IPC_CHANNELS.TAB_CREATE, (_event, tabId: string) => {
-    console.log('[IPC] Tab create:', tabId)
+    logger.debug('IPC', `Tab create: ${tabId}`)
     const success = createTab(tabId)
     return { success }
   })
 
   ipcMain.handle(IPC_CHANNELS.TAB_CLOSE, (_event, tabId: string) => {
-    console.log('[IPC] Tab close:', tabId)
+    logger.debug('IPC', `Tab close: ${tabId}`)
     const success = closeTab(tabId)
     return { success }
   })
 
   ipcMain.handle(IPC_CHANNELS.TAB_SWITCH, (_event, tabId: string) => {
-    console.log('[IPC] Tab switch:', tabId)
+    logger.debug('IPC', `Tab switch: ${tabId}`)
     const success = switchTab(tabId)
     return { success }
   })
@@ -188,7 +188,7 @@ export function registerIpcHandlers(): void {
       return { success: false, error: 'Rate limited' }
     }
 
-    console.log('[IPC] Navigate called with URL:', url, 'tabId:', tabId)
+    logger.debug('IPC', `Navigate called with URL: ${url}, tabId: ${tabId || 'none'}`)
 
     // Security: Validate URL before navigation
     const validation = isValidNavigationUrl(url)
@@ -199,7 +199,7 @@ export function registerIpcHandlers(): void {
 
     // Don't load internal ton:// URLs in BrowserView
     if (url.startsWith('ton://')) {
-      console.log('[IPC] Internal URL, hiding views')
+      logger.debug('IPC', 'Internal URL, hiding views')
       hideAllViews()
       return { success: true, internal: true }
     }
@@ -213,7 +213,7 @@ export function registerIpcHandlers(): void {
       return { success }
     }
 
-    console.log('[IPC] No active tab')
+    logger.warn('IPC', 'No active tab')
     return { success: false, error: 'No active tab' }
   })
 
@@ -501,7 +501,7 @@ export function registerIpcHandlers(): void {
     await ses.clearStorageData({
       storages: ['cookies', 'localstorage', 'indexdb', 'websql', 'serviceworkers', 'cachestorage'],
     })
-    console.log('[Settings] Browsing data cleared')
+    logger.info('Settings', 'Browsing data cleared')
     return { success: true }
   })
 
@@ -514,7 +514,7 @@ export function registerIpcHandlers(): void {
     // Security: Validate path before setting
     const validation = isValidDownloadPath(inputPath)
     if (!validation.valid) {
-      console.warn('[Settings] Invalid download path:', inputPath, validation.error)
+      logger.warn('Settings', `Invalid download path: ${inputPath} - ${validation.error}`)
       return { success: false, error: validation.error }
     }
 
@@ -522,7 +522,7 @@ export function registerIpcHandlers(): void {
       setDownloadPath(inputPath)
       // Update the storage manager with new path
       storageManager.setStoragePath(inputPath)
-      console.log('[Settings] Download path set to:', inputPath)
+      logger.info('Settings', `Download path set to: ${inputPath}`)
       return { success: true }
     } catch (error) {
       logger.error('Settings', `Failed to set download path: ${String(error)}`)
@@ -549,7 +549,7 @@ export function registerIpcHandlers(): void {
     const selectedPath = result.filePaths[0]
     setDownloadPath(selectedPath)
     storageManager.setStoragePath(selectedPath)
-    console.log('[Settings] Download folder selected:', selectedPath)
+    logger.info('Settings', `Download folder selected: ${selectedPath}`)
     return { success: true, path: selectedPath }
   })
 

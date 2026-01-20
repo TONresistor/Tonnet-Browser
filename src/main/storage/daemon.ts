@@ -10,6 +10,7 @@ import { validatePort, validateVerbosity } from '../utils/validators'
 import { StorageHTTPClient, BagInfo } from './http-client'
 import type { StorageBag } from '../../shared/types'
 import { getSetting, getDownloadPath } from '../settings'
+import { logger } from '../../shared/logger'
 import fs from 'fs'
 import path from 'path'
 
@@ -39,7 +40,7 @@ export class StorageManager extends EventEmitter {
 
   setStoragePath(newPath: string): void {
     this.storagePath = newPath
-    console.log('[StorageManager] Storage path updated to:', newPath)
+    logger.info('StorageManager', `Storage path updated to: ${newPath}`)
   }
 
   async start(): Promise<void> {
@@ -65,11 +66,11 @@ export class StorageManager extends EventEmitter {
     const safeVerbosity = validateVerbosity(advanced.storageVerbosity)
     this.port = safePort
 
-    console.log(`[StorageManager] Starting tonutils-storage from: ${binPath}`)
-    console.log(`[StorageManager] Config: ${configPath}`)
-    console.log(`[StorageManager] DB: ${this.dbPath}`)
-    console.log(`[StorageManager] API port: ${safePort}`)
-    console.log(`[StorageManager] Verbosity: ${safeVerbosity}`)
+    logger.info('StorageManager', `Starting tonutils-storage from: ${binPath}`)
+    logger.debug('StorageManager', `Config: ${configPath}`)
+    logger.debug('StorageManager', `DB: ${this.dbPath}`)
+    logger.debug('StorageManager', `API port: ${safePort}`)
+    logger.debug('StorageManager', `Verbosity: ${safeVerbosity}`)
 
     // Start tonutils-storage in daemon mode with HTTP API
     this.process = spawn(binPath, [
@@ -83,7 +84,7 @@ export class StorageManager extends EventEmitter {
     this.process.stdout?.on('data', (data: Buffer) => {
       const message = data.toString().trim()
       if (message) {
-        console.log(`[storage] ${message}`)
+        logger.debug('storage', message)
         this.emit('log', message)
       }
     })
@@ -91,13 +92,13 @@ export class StorageManager extends EventEmitter {
     this.process.stderr?.on('data', (data: Buffer) => {
       const message = data.toString().trim()
       if (message) {
-        console.log(`[storage] ${message}`)
+        logger.warn('storage', message)
         this.emit('error', message)
       }
     })
 
     this.process.on('exit', (code) => {
-      console.log(`[StorageManager] Storage daemon exited with code: ${code}`)
+      logger.info('StorageManager', `Storage daemon exited with code: ${code}`)
       this.isRunning = false
       this.process = null
       this.client = null
@@ -106,7 +107,7 @@ export class StorageManager extends EventEmitter {
     })
 
     this.process.on('error', (err) => {
-      console.error(`[StorageManager] Failed to start storage daemon:`, err)
+      logger.error('StorageManager', `Failed to start storage daemon: ${err.message}`)
       this.emit('error', err.message)
     })
 
@@ -127,7 +128,7 @@ export class StorageManager extends EventEmitter {
     for (let i = 0; i < maxAttempts; i++) {
       if (!this.client) break
       if (await this.client.ping()) {
-        console.log(`[StorageManager] API ready after ${i + 1} attempts`)
+        logger.info('StorageManager', `API ready after ${i + 1} attempts`)
         return
       }
       await new Promise((resolve) => setTimeout(resolve, 500))
@@ -145,7 +146,7 @@ export class StorageManager extends EventEmitter {
         const bags = await this.client.listBags()
         this.emit('bags-updated', bags.map(this.mapBagInfo))
       } catch (err) {
-        console.error('[StorageManager] Poll error:', err)
+        logger.error('StorageManager', `Poll error: ${String(err)}`)
       }
     }, interval)
   }
@@ -183,7 +184,7 @@ export class StorageManager extends EventEmitter {
   stop(): void {
     this.stopPolling()
     if (this.process) {
-      console.log('[StorageManager] Stopping storage daemon...')
+      logger.info('StorageManager', 'Stopping storage daemon...')
       // Clean up all listeners before killing to prevent memory leaks
       this.process.stdout?.removeAllListeners()
       this.process.stderr?.removeAllListeners()
