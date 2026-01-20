@@ -36,6 +36,7 @@ interface BookmarksState {
   removeFolder: (id: string) => void
   getFolderDepth: (folderId: string | null) => number
   getSubfolders: (parentId: string | null) => BookmarkFolder[]
+  reorderFolders: (folderId: string, newIndex: number, parentId: string | null) => void
 
   // Bookmark operations
   addBookmark: (url: string, title: string, folderId?: string | null, favicon?: string) => void
@@ -45,6 +46,7 @@ interface BookmarksState {
   getBookmarksByFolder: (folderId: string | null) => Bookmark[]
   isBookmarked: (url: string) => boolean
   searchBookmarks: (query: string) => Bookmark[]
+  reorderBookmarks: (bookmarkId: string, targetFolderId: string | null, newIndex: number) => void
 
   // Reset
   resetBookmarks: () => void
@@ -197,6 +199,85 @@ export const useBookmarksStore = create<BookmarksState>()(
             order: idx,
           })),
           folders: [],
+        })
+      },
+
+      // Drag & drop operations
+      reorderBookmarks: (bookmarkId, targetFolderId, newIndex) => {
+        set((state) => {
+          // Find the bookmark being moved
+          const bookmark = state.bookmarks.find(b => b.id === bookmarkId)
+          if (!bookmark) return state
+
+          const sourceFolderId = bookmark.folderId
+          const isSameFolder = sourceFolderId === targetFolderId
+
+          // Get all bookmarks in the target folder
+          let targetBookmarks = state.bookmarks
+            .filter(b => b.folderId === targetFolderId)
+            .sort((a, b) => a.order - b.order)
+
+          // If same folder, remove the bookmark from its current position
+          if (isSameFolder) {
+            targetBookmarks = targetBookmarks.filter(b => b.id !== bookmarkId)
+          }
+
+          // Insert at the new position
+          targetBookmarks.splice(newIndex, 0, bookmark)
+
+          // Recalculate order values (0, 1, 2, 3...)
+          const updatedBookmarks = targetBookmarks.map((b, idx) => ({
+            ...b,
+            order: idx,
+            folderId: targetFolderId
+          }))
+
+          // Update the global state
+          return {
+            bookmarks: state.bookmarks.map(b => {
+              const updated = updatedBookmarks.find(ub => ub.id === b.id)
+              return updated || b
+            })
+          }
+        })
+      },
+
+      reorderFolders: (folderId, newIndex, parentId) => {
+        set((state) => {
+          // Find the folder being moved
+          const folder = state.folders.find(f => f.id === folderId)
+          if (!folder) return state
+
+          const sourceParentId = folder.parentId
+          const isSameParent = sourceParentId === parentId
+
+          // Get all folders with the target parent
+          let targetFolders = state.folders
+            .filter(f => f.parentId === parentId)
+            .sort((a, b) => a.order - b.order)
+
+          // If same parent, remove the folder from its current position
+          if (isSameParent) {
+            targetFolders = targetFolders.filter(f => f.id !== folderId)
+          }
+
+          // Insert at the new position
+          targetFolders.splice(newIndex, 0, folder)
+
+          // Recalculate order values
+          const updatedFolders = targetFolders.map((f, idx) => ({
+            ...f,
+            order: idx,
+            parentId: parentId
+          }))
+
+          // Update the global state
+          return {
+            folders: state.folders.map(f => {
+              const updated = updatedFolders.find(uf => uf.id === f.id)
+              return updated || f
+            })
+          }
         })
       },
     }),

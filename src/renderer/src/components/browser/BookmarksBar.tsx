@@ -1,14 +1,32 @@
 /**
  * Bookmarks toolbar.
  * Displays and manages saved bookmarks with folder support.
+ * Includes drag & drop functionality for reordering.
  */
 
 import { useState, useEffect, useRef } from 'react'
+import {
+  DndContext,
+  DragEndEvent,
+  DragOverlay,
+  DragStartEvent,
+  closestCenter,
+  PointerSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  horizontalListSortingStrategy,
+  sortableKeyboardCoordinates,
+} from '@dnd-kit/sortable'
 import { useBookmarksStore, Bookmark } from '@/stores/bookmarks'
 import { useSettingsStore } from '@/stores/settings'
 import { useTabsStore } from '@/stores/tabs'
 import { ErrorBoundary } from '../ErrorBoundary'
-import { ChevronDown, Globe } from 'lucide-react'
+import { SortableBookmarkItem } from './SortableBookmarkItem'
+import { DroppableFolder } from './DroppableFolder'
 
 interface EditModal {
   bookmark: Bookmark
@@ -22,11 +40,23 @@ interface RenameModal {
 }
 
 export function BookmarksBar() {
-  const { bookmarks, folders, getBookmarksByFolder, getSubfolders, updateBookmark, removeBookmark, updateFolder, removeFolder } = useBookmarksStore()
+  const {
+    bookmarks,
+    folders,
+    getBookmarksByFolder,
+    getSubfolders,
+    updateBookmark,
+    removeBookmark,
+    updateFolder,
+    removeFolder,
+    reorderBookmarks,
+    reorderFolders,
+  } = useBookmarksStore()
   const { proxyConnected } = useSettingsStore()
   const { navigateActiveTab, addTab } = useTabsStore()
   const [editModal, setEditModal] = useState<EditModal | null>(null)
   const [renameModal, setRenameModal] = useState<RenameModal | null>(null)
+  const [activeId, setActiveId] = useState<string | null>(null)
 
   // Use refs to avoid re-registering listeners
   const addTabRef = useRef(addTab)
@@ -41,6 +71,18 @@ export function BookmarksBar() {
     removeFolderRef.current = removeFolder
     getBookmarksByFolderRef.current = getBookmarksByFolder
   }, [addTab, removeBookmark, removeFolder, getBookmarksByFolder])
+
+  // Configure drag & drop sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8, // 8px of movement before drag starts (prevents accidental drags)
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  )
 
   // Hide/show BrowserView when modals open/close
   useEffect(() => {
@@ -152,47 +194,177 @@ export function BookmarksBar() {
     }
   }
 
+  // Drag & drop handlers
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(event.active.id as string)
+  }
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event
+    setActiveId(null)
+
+    if (!over) return
+
+    const activeId = active.id as string
+    const overId = over.id as string
+
+    // Check if dragging a folder
+    const isActiveFolder = activeId.startsWith('folder-')
+    const isOverFolder = overId.startsWith('folder-') || overId.startsWith('droppable-')
+
+    // Case 1: Reordering folders
+    if (isActiveFolder && isOverFolder && activeId !== overId) {
+      const actualOverId = overId.startsWith('droppable-') ? overId.replace('droppable-', '') : overId
+
+      if (activeId === actualOverId) return
+
+      const oldIndex = topLevelFolders.findIndex(f => f.id === activeId)
+      const newIndex = topLevelFolders.findIndex(f => f.id === actualOverId)
+
+      if (oldIndex !== -1 && newIndex !== -1) {
+        reorderFolders(activeId, newIndex, null)
+      }
+      return
+    }
+
+    // Case 2: Dropping bookmark on a folder
+    if (!isActiveFolder && over.data.current?.type === 'folder') {
+      const targetFolderId = over.data.current.folderId
+      reorderBookmarks(activeId, targetFolderId, 0)
+      return
+    }
+
+    // Case 3: Reordering bookmarks in the bar
+    if (!isActiveFolder && !isOverFolder && activeId !== overId) {
+      const oldIndex = topLevelBookmarks.findIndex(b => b.id === activeId)
+      const newIndex = topLevelBookmarks.findIndex(b => b.id === overId)
+
+      if (oldIndex !== -1 && newIndex !== -1) {
+        reorderBookmarks(activeId, null, newIndex)
+      }
+    }
+  }
+
+  // Get active item for drag overlay
+  const getActiveItem = () => {
+    if (!activeId) return null
+
+    const bookmark = topLevelBookmarks.find(b => b.id === activeId)
+    if (bookmark) return { type: 'bookmark', item: bookmark }
+
+    const folder = topLevelFolders.find(f => f.id === activeId)
+    if (folder) return { type: 'folder', item: folder }
+
+    return null
+  }
+
+  const activeItem = getActiveItem()
+
   return (
     <ErrorBoundary>
-      <div className="flex items-center gap-1.5 px-2 py-1 overflow-x-auto">
-        {/* Top-level bookmarks (no folder) */}
-        {topLevelBookmarks.map((bookmark) => (
-          <button
-            key={bookmark.id}
-            className="px-2.5 py-1.5 rounded-full text-sm transition-all duration-200 shrink-0 bg-surface text-foreground-muted hover:bg-surface-active hover:text-foreground flex items-center gap-2"
-            onClick={() => navigateActiveTab(bookmark.url)}
-            onContextMenu={(e) => handleContextMenu(e, bookmark)}
-          >
-            {/* Favicon */}
-            {bookmark.favicon ? (
-              <img
-                src={bookmark.favicon}
-                alt=""
-                className="w-4 h-4 flex-shrink-0 object-contain"
-                onError={(e) => {
-                  e.currentTarget.style.display = 'none'
-                }}
-              />
-            ) : (
-              <Globe className="w-4 h-4 flex-shrink-0" />
-            )}
-            <span>{bookmark.title}</span>
-          </button>
-        ))}
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+        accessibility={{
+          announcements: {
+            onDragStart({ active }) {
+              const bookmark = topLevelBookmarks.find(b => b.id === active.id)
+              if (bookmark) return `Picked up bookmark: ${bookmark.title}`
 
-        {/* Top-level folders with native menu */}
-        {topLevelFolders.map((folder) => (
-          <button
-            key={folder.id}
-            className="px-3 py-1.5 rounded-full text-sm transition-all duration-200 shrink-0 bg-surface text-foreground-muted hover:bg-surface-active hover:text-foreground flex items-center gap-1"
-            onClick={() => handleFolderClick(folder.id)}
-            onContextMenu={(e) => handleFolderContextMenu(e, folder.id, folder.name)}
+              const folder = topLevelFolders.find(f => f.id === active.id)
+              if (folder) return `Picked up folder: ${folder.name}`
+
+              return 'Picked up draggable item'
+            },
+            onDragOver({ active, over }) {
+              if (!over) return ''
+
+              const activeBookmark = topLevelBookmarks.find(b => b.id === active.id)
+              const overBookmark = topLevelBookmarks.find(b => b.id === over.id)
+              const overFolder = topLevelFolders.find(f => f.id === over.id || `droppable-${f.id}` === over.id)
+
+              if (activeBookmark && overBookmark) {
+                return `Bookmark ${activeBookmark.title} is over ${overBookmark.title}`
+              }
+              if (activeBookmark && overFolder) {
+                return `Bookmark ${activeBookmark.title} is over folder ${overFolder.name}`
+              }
+              return ''
+            },
+            onDragEnd({ active, over }) {
+              if (!over) return 'Dragging cancelled'
+
+              const activeBookmark = topLevelBookmarks.find(b => b.id === active.id)
+              const overFolder = topLevelFolders.find(f => f.id === over.id || `droppable-${f.id}` === over.id)
+
+              if (activeBookmark && overFolder) {
+                return `Bookmark ${activeBookmark.title} moved to folder ${overFolder.name}`
+              }
+              if (activeBookmark) {
+                return `Bookmark ${activeBookmark.title} reordered`
+              }
+              return 'Item dropped'
+            },
+            onDragCancel({ active }) {
+              const bookmark = topLevelBookmarks.find(b => b.id === active.id)
+              if (bookmark) return `Dragging cancelled. Bookmark ${bookmark.title} returned to original position.`
+
+              const folder = topLevelFolders.find(f => f.id === active.id)
+              if (folder) return `Dragging cancelled. Folder ${folder.name} returned to original position.`
+
+              return 'Dragging cancelled'
+            },
+          },
+        }}
+      >
+        <div className="flex items-center gap-1.5 px-2 py-1 overflow-x-auto">
+          {/* Sortable bookmarks context */}
+          <SortableContext
+            items={topLevelBookmarks.map(b => b.id)}
+            strategy={horizontalListSortingStrategy}
           >
-            {folder.name}
-            <ChevronDown className="w-3 h-3" />
-          </button>
-        ))}
-      </div>
+            {topLevelBookmarks.map((bookmark) => (
+              <SortableBookmarkItem
+                key={bookmark.id}
+                bookmark={bookmark}
+                onNavigate={navigateActiveTab}
+                onContextMenu={handleContextMenu}
+              />
+            ))}
+          </SortableContext>
+
+          {/* Sortable folders context */}
+          <SortableContext
+            items={topLevelFolders.map(f => f.id)}
+            strategy={horizontalListSortingStrategy}
+          >
+            {topLevelFolders.map((folder) => (
+              <DroppableFolder
+                key={folder.id}
+                folder={folder}
+                onClick={() => handleFolderClick(folder.id)}
+                onContextMenu={(e) => handleFolderContextMenu(e, folder.id, folder.name)}
+              />
+            ))}
+          </SortableContext>
+        </div>
+
+        {/* Drag Overlay */}
+        <DragOverlay>
+          {activeItem && activeItem.type === 'bookmark' && (
+            <div className="px-2.5 py-1.5 rounded-full text-sm bg-surface text-foreground shadow-2xl opacity-90 flex items-center gap-2 border border-border-medium">
+              <span>{activeItem.item.title}</span>
+            </div>
+          )}
+          {activeItem && activeItem.type === 'folder' && (
+            <div className="px-3 py-1.5 rounded-full text-sm bg-surface text-foreground shadow-2xl opacity-90 border border-border-medium">
+              {activeItem.item.name}
+            </div>
+          )}
+        </DragOverlay>
+      </DndContext>
 
       {/* Edit Modal */}
       {editModal && (
