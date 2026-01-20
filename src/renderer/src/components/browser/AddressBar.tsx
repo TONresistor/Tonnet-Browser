@@ -189,7 +189,7 @@ export function AddressBar() {
         >
           {/* TON site badge */}
           {isTonSite && !isLoading ? (
-            <div className="absolute left-1.5 top-1/2 -translate-y-1/2 z-10 flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-primary text-primary-foreground" aria-hidden="true">
+            <div className="absolute left-1.5 top-1/2 -translate-y-1/2 z-10 flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-tonsite text-white" aria-hidden="true">
               <Lock className="h-3 w-3" />
               <span>tonsite://</span>
             </div>

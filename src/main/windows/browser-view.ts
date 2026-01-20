@@ -452,3 +452,69 @@ export function createBrowserView(ses: Electron.Session): BrowserView {
 
   return view
 }
+
+/**
+ * Extract favicon from a page.
+ * Returns favicon data URL (base64) or null if not found.
+ */
+export async function extractFavicon(view: BrowserView): Promise<string | null> {
+  try {
+    // Try multiple methods to find favicon
+    const faviconDataUrl = await view.webContents.executeJavaScript(`
+      (function() {
+        // Method 1: Look for link rel="icon" or rel="shortcut icon"
+        const iconLinks = Array.from(document.querySelectorAll('link[rel*="icon"]'));
+
+        for (const link of iconLinks) {
+          const href = link.getAttribute('href');
+          if (href) {
+            // Convert relative URLs to absolute
+            try {
+              const url = new URL(href, window.location.href);
+              return url.href;
+            } catch {
+              continue;
+            }
+          }
+        }
+
+        // Method 2: Default /favicon.ico
+        try {
+          const defaultFavicon = new URL('/favicon.ico', window.location.origin);
+          return defaultFavicon.href;
+        } catch {
+          return null;
+        }
+      })();
+    `)
+
+    if (!faviconDataUrl) return null
+
+    // Fetch the favicon and convert to base64 data URL
+    const faviconBase64 = await view.webContents.executeJavaScript(`
+      (async function() {
+        const url = ${JSON.stringify(faviconDataUrl)};
+        try {
+          const response = await fetch(url);
+          if (!response.ok) return null;
+
+          const blob = await response.blob();
+          const reader = new FileReader();
+
+          return new Promise((resolve) => {
+            reader.onloadend = () => resolve(reader.result);
+            reader.onerror = () => resolve(null);
+            reader.readAsDataURL(blob);
+          });
+        } catch (error) {
+          return null;
+        }
+      })();
+    `)
+
+    return faviconBase64 as string | null
+  } catch (error) {
+    // Silently fail - favicon is optional
+    return null
+  }
+}

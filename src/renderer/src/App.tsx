@@ -191,6 +191,14 @@ function App() {
       }
     })
 
+    const unsubFavicon = window.electron.on('page:favicon', (...args: unknown[]) => {
+      const favicon = args[0] as string
+      const tabId = args[1] as string | undefined
+      if (tabId) {
+        updateTab(tabId, { favicon })
+      }
+    })
+
     // Handle "Open Link in New Tab" from context menu
     const unsubOpenLink = window.electron.on('context:open-link', (...args: unknown[]) => {
       const url = args[0] as string
@@ -201,6 +209,7 @@ function App() {
       unsubNavigate()
       unsubLoading()
       unsubTitle()
+      unsubFavicon()
       unsubOpenLink()
     }
   }, [updateTab])

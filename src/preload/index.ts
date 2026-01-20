@@ -111,6 +111,7 @@ const electronAPI = {
       'page:loading',
       'page:navigate',
       'page:title',
+      'page:favicon',
       'proxy:status',
       'proxy:progress',
       'proxy:bandwidth',

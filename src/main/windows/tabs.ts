@@ -4,7 +4,7 @@
  */
 
 import { BrowserView, BrowserWindow, Menu, clipboard } from 'electron'
-import { createTonSession, createBrowserView } from './browser-view'
+import { createTonSession, createBrowserView, extractFavicon } from './browser-view'
 import { DEFAULT_PROXY_PORT } from '../../shared/constants'
 import { getSetting, type PrivacySettings } from '../settings'
 import { logger } from '../../shared/logger'
@@ -217,6 +217,18 @@ function setupViewEvents(view: BrowserView, tabId: string): void {
     // Update history with new title
     const url = view.webContents.getURL()
     historyManager.addEntry(url, title)
+  })
+
+  // Extract and send favicon when page finishes loading
+  view.webContents.on('did-finish-load', async () => {
+    try {
+      const favicon = await extractFavicon(view)
+      if (favicon) {
+        mainWindow?.webContents.send('page:favicon', favicon, tabId)
+      }
+    } catch (error) {
+      logger.debug('Tabs', `Failed to extract favicon for tab ${tabId}:`, error)
+    }
   })
 
   // Handle load failures (timeouts, DNS errors, connection refused, etc.)

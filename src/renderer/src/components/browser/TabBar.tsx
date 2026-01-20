@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Plus, X } from 'lucide-react'
+import { Plus, X, Globe } from 'lucide-react'
 import { useTabs } from '@/hooks/useTabs'
 
 interface ContextMenuState {
@@ -97,7 +97,7 @@ export function TabBar() {
           role="tab"
           aria-selected={tab.id === activeTabId}
           tabIndex={tab.id === activeTabId ? 0 : -1}
-          className={`no-drag group flex items-center gap-2 px-3 py-1.5 rounded-full cursor-pointer transition-all duration-200 max-w-[200px] border ${
+          className={`no-drag group flex items-center gap-2 px-2.5 py-1.5 rounded-full cursor-pointer transition-all duration-200 max-w-[200px] border ${
             tab.id === activeTabId
               ? 'bg-surface-active border-border-medium text-foreground'
               : 'bg-surface border-transparent text-foreground-muted hover:bg-surface-hover hover:text-foreground'
@@ -106,6 +106,21 @@ export function TabBar() {
           onKeyDown={(e) => handleTabKeyDown(e, tab.id)}
           onContextMenu={(e) => handleContextMenu(e, tab.id)}
         >
+          {/* Favicon */}
+          {tab.favicon ? (
+            <img
+              src={tab.favicon}
+              alt=""
+              className="w-5 h-5 flex-shrink-0 object-contain"
+              onError={(e) => {
+                // Fallback to Globe icon if favicon fails to load
+                e.currentTarget.style.display = 'none'
+              }}
+            />
+          ) : (
+            <Globe className="w-5 h-5 flex-shrink-0 text-foreground-muted" />
+          )}
+
           <span className="truncate text-sm flex-1">{tab.title || 'New Tab'}</span>
 
           <button
