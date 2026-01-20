@@ -8,7 +8,7 @@ import { useBookmarksStore, Bookmark } from '@/stores/bookmarks'
 import { useSettingsStore } from '@/stores/settings'
 import { useTabsStore } from '@/stores/tabs'
 import { ErrorBoundary } from '../ErrorBoundary'
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown, Globe } from 'lucide-react'
 
 interface EditModal {
   bookmark: Bookmark
@@ -159,11 +159,24 @@ export function BookmarksBar() {
         {topLevelBookmarks.map((bookmark) => (
           <button
             key={bookmark.id}
-            className="px-3 py-1.5 rounded-full text-sm transition-all duration-200 shrink-0 bg-surface text-foreground-muted hover:bg-surface-active hover:text-foreground"
+            className="px-2.5 py-1.5 rounded-full text-sm transition-all duration-200 shrink-0 bg-surface text-foreground-muted hover:bg-surface-active hover:text-foreground flex items-center gap-2"
             onClick={() => navigateActiveTab(bookmark.url)}
             onContextMenu={(e) => handleContextMenu(e, bookmark)}
           >
-            {bookmark.title}
+            {/* Favicon */}
+            {bookmark.favicon ? (
+              <img
+                src={bookmark.favicon}
+                alt=""
+                className="w-4 h-4 flex-shrink-0 object-contain"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none'
+                }}
+              />
+            ) : (
+              <Globe className="w-4 h-4 flex-shrink-0" />
+            )}
+            <span>{bookmark.title}</span>
           </button>
         ))}
 

@@ -11,6 +11,7 @@ import {
   Edit,
   Trash2,
   Bookmark,
+  Globe,
 } from 'lucide-react'
 import { SectionHeader } from '../shared/SectionHeader'
 import { SettingRow } from '../shared/SettingRow'
@@ -202,9 +203,16 @@ export const BookmarksSection = memo(function BookmarksSection({
                 >
                   <div className="flex items-center gap-3">
                     {bookmark.favicon ? (
-                      <img src={bookmark.favicon} alt="" className="w-4 h-4 flex-shrink-0" />
+                      <img
+                        src={bookmark.favicon}
+                        alt=""
+                        className="w-4 h-4 flex-shrink-0 object-contain"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none'
+                        }}
+                      />
                     ) : (
-                      <Bookmark className="w-4 h-4 text-primary flex-shrink-0" />
+                      <Globe className="w-4 h-4 text-foreground-muted flex-shrink-0" />
                     )}
 
                     <div className="flex-1 min-w-0">

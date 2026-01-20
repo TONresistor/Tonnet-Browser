@@ -39,7 +39,7 @@ const getHostname = (url: string): string => {
 export function AddressBar() {
   const { currentUrl, isLoading } = useSettingsStore()
   const { bookmarks, addBookmark, removeBookmark } = useBookmarksStore()
-  const { navigateActiveTab } = useTabsStore()
+  const { navigateActiveTab, tabs, activeTabId } = useTabsStore()
   const [input, setInput] = useState('')
   const [suggestions, setSuggestions] = useState<HistorySuggestion[]>([])
   const [showSuggestions, setShowSuggestions] = useState(false)
@@ -176,8 +176,12 @@ export function AddressBar() {
         removeBookmark(bookmark.id)
       }
     } else {
+      // Get favicon from active tab
+      const activeTab = tabs.find((t) => t.id === activeTabId)
+      const favicon = activeTab?.favicon
+
       // Use hostname as bookmark name (e.g., "example.ton")
-      addBookmark(currentUrl, getHostname(currentUrl))
+      addBookmark(currentUrl, getHostname(currentUrl), null, favicon)
     }
   }
 

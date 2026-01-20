@@ -38,8 +38,8 @@ interface BookmarksState {
   getSubfolders: (parentId: string | null) => BookmarkFolder[]
 
   // Bookmark operations
-  addBookmark: (url: string, title: string, folderId?: string | null) => void
-  updateBookmark: (id: string, data: { url?: string; title?: string; folderId?: string | null }) => void
+  addBookmark: (url: string, title: string, folderId?: string | null, favicon?: string) => void
+  updateBookmark: (id: string, data: { url?: string; title?: string; folderId?: string | null; favicon?: string }) => void
   removeBookmark: (id: string) => void
   moveBookmark: (bookmarkId: string, folderId: string | null) => void
   getBookmarksByFolder: (folderId: string | null) => Bookmark[]
@@ -131,13 +131,14 @@ export const useBookmarksStore = create<BookmarksState>()(
       },
 
       // Bookmark operations
-      addBookmark: (url, title, folderId = null) => {
+      addBookmark: (url, title, folderId = null, favicon) => {
         if (get().isBookmarked(url)) return
 
         const bookmark: Bookmark = {
           id: generateId(),
           url,
           title,
+          favicon,
           folderId,
           createdAt: Date.now(),
           order: get().getBookmarksByFolder(folderId).length,
