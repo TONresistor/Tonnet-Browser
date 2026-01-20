@@ -403,16 +403,9 @@ export function switchTab(tabId: string): boolean {
   const view = views.get(tabId)
   if (!view) return false
 
-  // Hide current view
-  if (activeViewId && activeViewId !== tabId) {
-    const currentView = views.get(activeViewId)
-    if (currentView) {
-      mainWindow.removeBrowserView(currentView)
-    }
-  }
-
-  // Show new view
-  mainWindow.addBrowserView(view)
+  // Use setBrowserView instead of remove+add to avoid accumulating listeners
+  // setBrowserView automatically removes other views before adding the new one
+  mainWindow.setBrowserView(view)
   updateViewBounds(view)
   activeViewId = tabId
 
@@ -431,18 +424,16 @@ export function getActiveTabId(): string | null {
 export function hideAllViews(): void {
   if (!mainWindow) return
 
-  // Remove all views from window so they don't capture mouse events
-  views.forEach((view) => {
-    mainWindow!.removeBrowserView(view)
-  })
+  // Set null to remove all views (no mouse event capture)
+  mainWindow.setBrowserView(null)
 }
 
 export function showActiveView(): void {
   if (!mainWindow) return
   const view = getActiveView()
   if (view) {
-    // Re-add view to window and update bounds
-    mainWindow.addBrowserView(view)
+    // Use setBrowserView to avoid listener accumulation
+    mainWindow.setBrowserView(view)
     updateViewBounds(view)
   }
 }
@@ -568,7 +559,8 @@ export function navigateInTab(tabId: string, url: string): boolean {
     if (mainWindow) {
       mainWindow.removeBrowserView(view)
     }
-    ;(view.webContents as any).destroy()
+    // Destroy the entire BrowserView, not just webContents
+    ;(view as any).destroy()
 
     // Create new view with new domain's session
     const newSession = getSessionForDomain(domain)
@@ -579,7 +571,7 @@ export function navigateInTab(tabId: string, url: string): boolean {
 
     // Restore active state
     if (isActive && mainWindow) {
-      mainWindow.addBrowserView(newView)
+      mainWindow.setBrowserView(newView)
       updateViewBounds(newView)
     }
 
