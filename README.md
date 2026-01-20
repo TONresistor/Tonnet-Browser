@@ -10,7 +10,6 @@
   <a href="#installation">Installation</a> •
   <a href="#usage">Usage</a> •
   <a href="#settings">Settings</a> •
-  <a href="#contributing">Contributing</a> •
   <a href="#contact">Contact</a>
 </p>
 
@@ -211,23 +210,11 @@ npm test
 | TON Storage | [tonutils-storage](https://github.com/xssnick/tonutils-storage) |
 | Transport | RLDP over ADNL over UDP |
 
-## Contributing
-
-Contributions are welcome! Here's how to get started:
-
-1. **Open an issue first**:Discuss your idea before writing code
-2. **Fork the repository**:Create your own copy
-3. **Create a feature branch**:`git checkout -b feature/your-feature`
-4. **Make your changes**:Follow existing code style
-5. **Submit a pull request**:Reference the related issue
-
-Looking for something to work on? Check issues labeled [`good first issue`](https://github.com/TONresistor/Tonnet-Browser/labels/good%20first%20issue).
-
 ## Contact
 
-- **Website**:[tonnet.resistance.dog](https://tonnet.resistance.dog)
-- **Telegram**:[@zkproof](https://t.me/zkproof)
-- **Issues**:[Report bugs or request features](https://github.com/TONresistor/Tonnet-Browser/issues)
+- **Website**: [tonnet.resistance.dog](https://tonnet.resistance.dog)
+- **Telegram**: [@zkproof](https://t.me/zkproof)
+- **Issues**: [Report bugs or request features](https://github.com/TONresistor/Tonnet-Browser/issues)
 
 ## License
 
