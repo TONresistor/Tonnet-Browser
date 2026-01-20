@@ -9,7 +9,7 @@
   <a href="#features">Features</a> •
   <a href="#installation">Installation</a> •
   <a href="#usage">Usage</a> •
-  <a href="#faq">FAQ</a> •
+  <a href="#settings">Settings</a> •
   <a href="#contributing">Contributing</a> •
   <a href="#contact">Contact</a>
 </p>
@@ -63,10 +63,6 @@
 Tonnet Browser is the first native cross-platform desktop browser for the TON Network with built-in anonymous garlic routing. It connects to `.ton` sites through the decentralized TON DNS and RLDP protocol - no centralized gateways, no third-party proxies.
 
 It also includes a built-in TON Storage client for downloading and seeding bags on TON's decentralized storage network.
-
-### Why TON?
-
-TON combines the anonymity concepts of Tor, the P2P file sharing of BitTorrent, and adds a blockchain layer for decentralized DNS and payments - all in one protocol stack.
 
 ## Features
 
@@ -160,35 +156,11 @@ Access settings via the gear icon or navigate to `ton://settings`.
 | **General** | Homepage, Restore tabs, Anonymous mode, Circuit rotation |
 | **Network** | Proxy port, Storage port, Auto-connect, Connection timeout |
 | **Storage** | Download path, Update interval, Auto-seed |
-| **Appearance** | Zoom levels, Bookmarks bar, Status bar |
-| **Privacy** | Clear browsing data, Clear on exit |
+| **Appearance** | Zoom levels, Bookmarks bar, Status bar, Themes |
+| **Privacy** | Clear browsing data, Clear on exit, Cookie settings |
+| **History** | History mode, Maximum entries, View history |
+| **Bookmarks** | Manage bookmarks, Folders, Import/Export |
 | **Advanced** | Verbosity levels, Sync test domain |
-
-## FAQ
-
-<details>
-<summary><strong>What is garlic routing?</strong></summary>
-
-Garlic routing encrypts your traffic in multiple layers and routes it through 3 independent relays. Each relay only knows its immediate neighbors, never the full path or your identity.
-</details>
-
-<details>
-<summary><strong>How is it different from Tor?</strong></summary>
-
-Both use multi-hop encrypted circuits. Tonnet operates on the TON Network with native support for .ton domains, decentralized DNS, and built-in file storage. Tor operates on the traditional internet.
-</details>
-
-<details>
-<summary><strong>What .ton sites can I visit?</strong></summary>
-
-Try `foundation.ton`, `ton.ton`, or `dns.ton`. More sites are listed on [ton.app](https://ton.app).
-</details>
-
-<details>
-<summary><strong>Is my traffic anonymous by default?</strong></summary>
-
-No. By default, Tonnet connects directly for faster browsing. Enable Anonymous Mode in General settings to route traffic through the garlic circuit.
-</details>
 
 ## Building
 
@@ -235,45 +207,27 @@ npm test
 | Frontend | React 19, TypeScript |
 | Styling | Tailwind CSS |
 | State | Zustand |
-| TON Proxy | [tonutils-proxy](https://github.com/xssnick/tonutils-proxy) |
+| TON Proxy | [tonnet-proxy](https://github.com/xssnick/tonutils-proxy) |
 | TON Storage | [tonutils-storage](https://github.com/xssnick/tonutils-storage) |
 | Transport | RLDP over ADNL over UDP |
-
-## Roadmap
-
-### Phase 1: Core (Current)
-
-- [x] Cross-platform Electron app
-- [x] Direct P2P browsing (.ton, .adnl)
-- [x] TON DNS resolution
-- [x] TON Storage client (download, seed, pause)
-- [x] Multi-tab browser with bookmarks
-- [x] Real-time status indicators
-
-### Phase 2: Enhanced Privacy
-
-- [x] Garlic routing (multi-hop circuits)
-- [x] Circuit rotation
-- [ ] Relay node mode
-- [ ] TON payments for relays
 
 ## Contributing
 
 Contributions are welcome! Here's how to get started:
 
-1. **Open an issue first** — Discuss your idea before writing code
-2. **Fork the repository** — Create your own copy
-3. **Create a feature branch** — `git checkout -b feature/your-feature`
-4. **Make your changes** — Follow existing code style
-5. **Submit a pull request** — Reference the related issue
+1. **Open an issue first**:Discuss your idea before writing code
+2. **Fork the repository**:Create your own copy
+3. **Create a feature branch**:`git checkout -b feature/your-feature`
+4. **Make your changes**:Follow existing code style
+5. **Submit a pull request**:Reference the related issue
 
 Looking for something to work on? Check issues labeled [`good first issue`](https://github.com/TONresistor/Tonnet-Browser/labels/good%20first%20issue).
 
 ## Contact
 
-- **Website** — [tonnet.resistance.dog](https://tonnet.resistance.dog)
-- **Telegram** — [@zkproof](https://t.me/zkproof)
-- **Issues** — [Report bugs or request features](https://github.com/TONresistor/Tonnet-Browser/issues)
+- **Website**:[tonnet.resistance.dog](https://tonnet.resistance.dog)
+- **Telegram**:[@zkproof](https://t.me/zkproof)
+- **Issues**:[Report bugs or request features](https://github.com/TONresistor/Tonnet-Browser/issues)
 
 ## License
 
