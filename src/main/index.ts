@@ -16,14 +16,15 @@ import { setMainWindow } from './windows/main'
 import { getSetting } from './settings'
 import { initTabManager } from './windows/tabs'
 import { historyManager } from './history/manager'
+import { logger } from '../shared/logger'
 
 // Memory leak prevention: increase limit slightly and log warnings
 EventEmitter.defaultMaxListeners = 15
 
 // Global error handlers - must be registered early to catch all errors
 process.on('uncaughtException', (error: Error) => {
-  console.error('[CRITICAL] Uncaught Exception:', error.message)
-  console.error('[CRITICAL] Stack:', error.stack)
+  logger.error('App', `Uncaught Exception: ${error.message}`)
+  logger.error('App', `Stack: ${error.stack}`)
 
   // Attempt graceful shutdown of services
   try {
@@ -38,16 +39,17 @@ process.on('uncaughtException', (error: Error) => {
 })
 
 process.on('unhandledRejection', (reason: unknown) => {
-  console.error('[ERROR] Unhandled Promise Rejection')
-  console.error('[ERROR] Reason:', reason)
+  logger.error('App', `Unhandled Promise Rejection: ${String(reason)}`)
   // Don't exit - just log for debugging, app can continue
 })
 
 // Log MaxListenersExceededWarning to help detect memory leaks during development
 process.on('warning', (warning) => {
   if (warning.name === 'MaxListenersExceededWarning') {
-    console.error('[Memory] Potential listener leak detected:', warning.message)
-    console.error('[Memory] Stack:', warning.stack)
+    logger.warn('Memory', `Potential listener leak detected: ${warning.message}`)
+    if (warning.stack) {
+      logger.warn('Memory', `Stack: ${warning.stack}`)
+    }
   }
 })
 
@@ -88,7 +90,7 @@ function loadWindowBounds(): Partial<WindowBounds> {
       }
     }
   } catch (err) {
-    console.error('[Window] Failed to load bounds:', err)
+    logger.error('Window', `Failed to load bounds: ${String(err)}`)
   }
   return {}
 }
@@ -101,7 +103,7 @@ function saveWindowBounds(win: BrowserWindow): void {
     }
     writeFileSync(boundsFile, JSON.stringify(bounds))
   } catch (err) {
-    console.error('[Window] Failed to save bounds:', err)
+    logger.error('Window', `Failed to save bounds: ${String(err)}`)
   }
 }
 
@@ -158,16 +160,16 @@ function createWindow(): void {
     // Auto-connect if enabled
     const { autoConnect } = getSetting('network')
     if (autoConnect) {
-      console.log('[App] Auto-connect enabled, starting proxy...')
+      logger.info('App', 'Auto-connect enabled, starting proxy...')
       try {
         await proxyManager.start()
         initTabManager(mainWindow, proxyManager.getStatus().port)
         await storageManager.start()
-        console.log('[App] Auto-connect complete')
+        logger.info('App', 'Auto-connect complete')
         // Notify renderer of connection status
         mainWindow.webContents.send('proxy:status', { status: 'connected', ...proxyManager.getStatus() })
       } catch (error) {
-        console.error('[App] Auto-connect failed:', error)
+        logger.error('App', `Auto-connect failed: ${String(error)}`)
       }
     }
   })
@@ -331,7 +333,7 @@ app.on('window-all-closed', async () => {
   // Clear browsing data on exit if enabled
   const { clearOnExit } = getSetting('privacy')
   if (clearOnExit) {
-    console.log('[App] Clearing browsing data on exit...')
+    logger.info('App', 'Clearing browsing data on exit...')
     try {
       const { getAllSessions } = await import('./windows/tabs')
       const sessions = getAllSessions()
@@ -343,9 +345,9 @@ app.on('window-all-closed', async () => {
         })
       }
 
-      console.log(`[App] Cleared browsing data for ${sessions.length} session(s)`)
+      logger.info('App', `Cleared browsing data for ${sessions.length} session(s)`)
     } catch (error) {
-      console.error('[App] Failed to clear browsing data:', error)
+      logger.error('App', `Failed to clear browsing data: ${String(error)}`)
     }
   }
 

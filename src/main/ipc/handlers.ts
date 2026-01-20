@@ -8,13 +8,14 @@ import path from 'path'
 import { IPC_CHANNELS } from '../../shared/types'
 import { isValidNavigationUrl, isValidBagId, isValidDownloadPath, RateLimiter } from './validation'
 import { handleWithErrors, ipcErrorHandler } from './error-handler'
+import { logger } from '../../shared/logger'
 
 // Lenient limits: 30 nav/sec, 10 storage ops/sec
 const navLimiter = new RateLimiter(30, 1000)
 const storageLimiter = new RateLimiter(10, 1000)
 import { proxyManager } from '../proxy/manager'
 import { storageManager } from '../storage/daemon'
-import { addBag, removeBag, listBags, pauseBag, resumeBag, getBagDetails } from '../storage/bags'
+import { addBag, removeBag, listBags, pauseBag, getBagDetails } from '../storage/bags'
 import {
   loadSettings,
   getSetting,
@@ -50,7 +51,7 @@ export function _resetHandlersForTesting(): void {
 export function registerIpcHandlers(): void {
   // Prevent duplicate listener registration (causes memory leaks)
   if (handlersRegistered) {
-    console.warn('[IPC] Handlers already registered, skipping duplicate registration')
+    logger.warn('IPC', 'Handlers already registered, skipping duplicate registration')
     return
   }
   handlersRegistered = true
@@ -64,7 +65,7 @@ export function registerIpcHandlers(): void {
   })
 
   proxyManager.on('error', (message) => {
-    console.error('[ProxyManager] Error:', message)
+    logger.error('ProxyManager', `Error: ${message}`)
   })
 
   // ===== Storage Events =====
@@ -90,7 +91,7 @@ export function registerIpcHandlers(): void {
   })
 
   storageManager.on('error', (message) => {
-    console.error('[StorageManager] Error:', message)
+    logger.error('StorageManager', `Error: ${message}`)
   })
 
   // ===== Proxy Handlers =====
@@ -130,7 +131,7 @@ export function registerIpcHandlers(): void {
       await storageManager.start()
       console.log('[IPC] Storage daemon started')
     } catch (storageError) {
-      console.error('[IPC] Failed to start storage:', storageError)
+      logger.error('IPC', `Failed to start storage: ${String(storageError)}`)
       // Non-critical: continue even if storage fails
     }
 
@@ -192,7 +193,7 @@ export function registerIpcHandlers(): void {
     // Security: Validate URL before navigation
     const validation = isValidNavigationUrl(url)
     if (!validation.valid) {
-      console.warn('[IPC] Blocked invalid URL:', url, validation.error)
+      logger.warn('IPC', `Blocked invalid URL: ${url} (${validation.error})`)
       return { success: false, error: validation.error }
     }
 
@@ -308,7 +309,7 @@ export function registerIpcHandlers(): void {
 
     // Security: Validate bag ID format
     if (!isValidBagId(bagId)) {
-      console.warn('[IPC] Invalid bag ID format:', bagId)
+      logger.warn('IPC', `Invalid bag ID format: ${bagId}`)
       return { success: false, error: 'Invalid bag ID format (must be 64 hex characters)' }
     }
 
@@ -334,14 +335,6 @@ export function registerIpcHandlers(): void {
       return { success: false, error: 'Invalid bag ID format' }
     }
     const result = await pauseBag(bagId)
-    return { success: result }
-  })
-
-  ipcMain.handle(IPC_CHANNELS.STORAGE_RESUME_BAG, async (_event, bagId: string) => {
-    if (!isValidBagId(bagId)) {
-      return { success: false, error: 'Invalid bag ID format' }
-    }
-    const result = await resumeBag(bagId)
     return { success: result }
   })
 
@@ -532,7 +525,7 @@ export function registerIpcHandlers(): void {
       console.log('[Settings] Download path set to:', inputPath)
       return { success: true }
     } catch (error) {
-      console.error('[Settings] Failed to set download path:', error)
+      logger.error('Settings', `Failed to set download path: ${String(error)}`)
       return { success: false, error: (error as Error).message }
     }
   })
@@ -612,7 +605,7 @@ export function registerIpcHandlers(): void {
     try {
       return historyManager.search(query, limit)
     } catch (error) {
-      console.error('[History] Search failed:', error)
+      logger.error('History', `Search failed: ${String(error)}`)
       return []
     }
   })
@@ -621,7 +614,7 @@ export function registerIpcHandlers(): void {
     try {
       return historyManager.getRecent(limit)
     } catch (error) {
-      console.error('[History] Get recent failed:', error)
+      logger.error('History', `Get recent failed: ${String(error)}`)
       return []
     }
   })
@@ -630,7 +623,7 @@ export function registerIpcHandlers(): void {
     try {
       return historyManager.getTopVisited(limit)
     } catch (error) {
-      console.error('[History] Get top visited failed:', error)
+      logger.error('History', `Get top visited failed: ${String(error)}`)
       return []
     }
   })
@@ -639,7 +632,7 @@ export function registerIpcHandlers(): void {
     try {
       return historyManager.getByDateRange(startDate, endDate)
     } catch (error) {
-      console.error('[History] Get by date range failed:', error)
+      logger.error('History', `Get by date range failed: ${String(error)}`)
       return []
     }
   })

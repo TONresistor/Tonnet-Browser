@@ -65,7 +65,6 @@ const electronAPI = {
     removeBag: (bagId: string) => ipcRenderer.invoke('storage:remove-bag', bagId),
     listBags: () => ipcRenderer.invoke('storage:list-bags'),
     pauseBag: (bagId: string) => ipcRenderer.invoke('storage:pause-bag', bagId),
-    resumeBag: (bagId: string) => ipcRenderer.invoke('storage:resume-bag', bagId),
     getBagDetails: (bagId: string) => ipcRenderer.invoke('storage:get-details', bagId),
     getDownloadPath: () => ipcRenderer.invoke('storage:get-download-path'),
     setDownloadPath: (path: string) => ipcRenderer.invoke('storage:set-download-path', path),

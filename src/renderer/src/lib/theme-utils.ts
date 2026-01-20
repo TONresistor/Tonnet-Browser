@@ -296,7 +296,7 @@ export function validateTheme(theme: unknown): theme is CustomTheme {
  * Generate a unique theme ID
  */
 export function generateThemeId(): string {
-  return `theme_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+  return `theme_${crypto.randomUUID()}`
 }
 
 /**

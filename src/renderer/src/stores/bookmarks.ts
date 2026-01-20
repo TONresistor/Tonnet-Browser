@@ -50,7 +50,7 @@ interface BookmarksState {
   resetBookmarks: () => void
 }
 
-const generateId = () => Math.random().toString(36).substring(2, 9)
+const generateId = () => crypto.randomUUID()
 
 export const useBookmarksStore = create<BookmarksState>()(
   persist(

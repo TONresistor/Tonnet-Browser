@@ -79,7 +79,7 @@ export function createBrowserView(ses: Electron.Session): BrowserView {
 
         // === CANVAS FINGERPRINT PROTECTION ===
         // Inject deterministic noise to canvas readouts (stable per session)
-        const sessionSeed = Math.random();
+        const sessionSeed = crypto.getRandomValues(new Uint32Array(1))[0] / 0xFFFFFFFF;
 
         const noisifyCanvasData = (original, width, height) => {
           const data = new Uint8ClampedArray(original);

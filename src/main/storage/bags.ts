@@ -22,13 +22,6 @@ export async function pauseBag(bagId: string): Promise<boolean> {
   return storageManager.pauseBag(bagId)
 }
 
-export async function resumeBag(bagId: string): Promise<boolean> {
-  // tonutils-storage doesn't have a resume - need to re-add
-  // For now, just return false as it's not easily supported
-  console.warn('[bags] Resume not supported in tonutils-storage')
-  return false
-}
-
 export async function getBagDetails(bagId: string) {
   return storageManager.getBagDetails(bagId)
 }

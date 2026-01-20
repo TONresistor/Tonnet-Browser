@@ -264,12 +264,41 @@ export class HistoryManager extends EventEmitter {
    * Delete entries by URL pattern
    */
   deleteByPattern(pattern: string): number {
-    const regex = new RegExp(pattern, 'i')
+    // Anti-ReDoS protection: validate pattern complexity
+    if (!pattern || pattern.length > 200) {
+      throw new Error('Pattern must be between 1-200 characters')
+    }
+
+    // Detect potentially dangerous patterns (catastrophic backtracking)
+    const dangerousPatterns = [
+      /(\*|\+|\{[0-9,]+\}){3,}/, // Multiple quantifiers in a row
+      /(\(.*\+.*\))\1/,          // Nested repeating groups
+      /(.+\*){2,}/               // Multiple greedy quantifiers
+    ]
+
+    for (const dangerous of dangerousPatterns) {
+      if (dangerous.test(pattern)) {
+        throw new Error('Pattern contains potentially dangerous constructs')
+      }
+    }
+
+    let regex: RegExp
+    try {
+      regex = new RegExp(pattern, 'i')
+    } catch (err) {
+      throw new Error(`Invalid regex pattern: ${err instanceof Error ? err.message : String(err)}`)
+    }
+
     const toDelete: string[] = []
 
     for (const [id, entry] of this.entries) {
-      if (regex.test(entry.url) || regex.test(entry.title)) {
-        toDelete.push(id)
+      try {
+        if (regex.test(entry.url) || regex.test(entry.title)) {
+          toDelete.push(id)
+        }
+      } catch (err) {
+        // Skip entry if regex test fails (protection against edge cases)
+        logger.error('HistoryManager', `Regex test failed for entry ${id}:`, err)
       }
     }
 

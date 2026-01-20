@@ -62,15 +62,6 @@ export function useStorage() {
     }
   }, [refresh])
 
-  const resumeBag = useCallback(async (bagId: string) => {
-    try {
-      await window.electron.storage.resumeBag(bagId)
-      await refresh()
-    } catch (err) {
-      setError((err as Error).message)
-    }
-  }, [refresh])
-
   // Initial load
   useEffect(() => {
     refresh()
@@ -83,7 +74,6 @@ export function useStorage() {
     addBag,
     removeBag,
     pauseBag,
-    resumeBag,
     refresh,
   }
 }

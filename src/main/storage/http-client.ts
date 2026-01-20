@@ -78,6 +78,7 @@ export class StorageHTTPClient {
     const response = await fetch(url, {
       ...options,
       headers,
+      signal: AbortSignal.timeout(10000), // 10s timeout to prevent indefinite blocking
     })
 
     if (!response.ok) {

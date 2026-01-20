@@ -70,9 +70,6 @@ declare global {
                 pauseBag: (bagId: string) => Promise<{
                     success: boolean;
                 }>;
-                resumeBag: (bagId: string) => Promise<{
-                    success: boolean;
-                }>;
                 getDownloadPath: () => Promise<{
                     success: boolean;
                     path: string;
