@@ -81,8 +81,8 @@ Tonnet Browser matches Tor Browser's anti-fingerprinting capabilities while offe
 <td width="50%">
 
 ### Anonymous Browsing
-- **3-hop garlic routing** (Entry → Middle → Exit)
-- **Auto circuit rotation** (configurable intervals)
+- **3-hop garlic routing**
+- **Auto circuit rotation**
 - **Direct mode** for speed without anonymity
 
 ### Anti-Fingerprinting
