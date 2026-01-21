@@ -76,10 +76,6 @@ It also includes a built-in TON Storage client for downloading and seeding bags 
 
 Tonnet Browser matches Tor Browser's anti-fingerprinting capabilities while offering a superior decentralized infrastructure through TON Network. Built with a privacy-first architecture, it combines proven anonymity techniques with the resilience and censorship-resistance of blockchain-based routing.
 
-<table>
-<tr>
-<td width="50%">
-
 ### Anonymous Browsing
 - **3-hop garlic routing**
 - **Auto circuit rotation**
@@ -91,9 +87,6 @@ Tonnet Browser matches Tor Browser's anti-fingerprinting capabilities while offe
 - **Hardware enumeration** disabled
 - **Font, timezone, screen** spoofing
 - **Generic User-Agent** (no browser ID)
-
-</td>
-<td width="50%">
 
 ### Data Isolation
 - **First-party isolation** (per-domain sessions)
@@ -107,12 +100,7 @@ Tonnet Browser matches Tor Browser's anti-fingerprinting capabilities while offe
 - **Input validation** (URL, paths, ports)
 - **No telemetry** or tracking
 
-</td>
-</tr>
-</table>
-
 ### Transparency
-
 - Open Source: Full codebase available for audit
 - MIT License: Freedom to inspect, modify, and verify
 - No telemetry or data collection
