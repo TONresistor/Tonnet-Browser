@@ -49,6 +49,18 @@ export const DEFAULT_SETTINGS = {
   historyMode: 'memory' as const, // History mode: 'memory' (RAM only) | 'persistent' (auto-encrypted disk)
   historyMaxEntries: 1000, // Maximum history entries
 
+  // Content Filtering
+  contentFiltering: {
+    enabled: true, // Master toggle
+    blockAds: true,
+    blockTrackers: true,
+    blockMiners: true,
+    blockMalware: true,
+    blockAnnoyances: true,
+    whitelistedDomains: [] as string[], // Bypass filter for these domains
+    showBlockCount: true, // Show count in UI (future)
+  },
+
   // Advanced
   proxyVerbosity: 2,
   storageVerbosity: 2,

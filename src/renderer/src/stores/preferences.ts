@@ -45,6 +45,15 @@ export interface AppPreferences {
   historyMode: 'memory' | 'persistent'
   historyMaxEntries: number
 
+  // Content Filtering
+  contentFilteringEnabled: boolean
+  blockAds: boolean
+  blockTrackers: boolean
+  blockMiners: boolean
+  blockMalware: boolean
+  blockAnnoyances: boolean
+  whitelistedDomains: string[]
+
   // Advanced
   proxyVerbosity: number
   storageVerbosity: number
@@ -105,6 +114,15 @@ export const defaultPreferences: AppPreferences = {
   cookieAutoDelete: DEFAULT_SETTINGS.cookieAutoDelete,
   cookieAutoDeleteMinutes: DEFAULT_SETTINGS.cookieAutoDeleteMinutes,
 
+  // Content Filtering
+  contentFilteringEnabled: DEFAULT_SETTINGS.contentFiltering.enabled,
+  blockAds: DEFAULT_SETTINGS.contentFiltering.blockAds,
+  blockTrackers: DEFAULT_SETTINGS.contentFiltering.blockTrackers,
+  blockMiners: DEFAULT_SETTINGS.contentFiltering.blockMiners,
+  blockMalware: DEFAULT_SETTINGS.contentFiltering.blockMalware,
+  blockAnnoyances: DEFAULT_SETTINGS.contentFiltering.blockAnnoyances,
+  whitelistedDomains: DEFAULT_SETTINGS.contentFiltering.whitelistedDomains,
+
   // Advanced
   proxyVerbosity: DEFAULT_SETTINGS.proxyVerbosity,
   storageVerbosity: DEFAULT_SETTINGS.storageVerbosity,
@@ -138,6 +156,13 @@ const prefToCategory: Record<keyof AppPreferences, { category: string; field: st
   cookieAutoDeleteMinutes: { category: 'privacy', field: 'cookieAutoDeleteMinutes' },
   historyMode: { category: 'privacy', field: 'historyMode' },
   historyMaxEntries: { category: 'privacy', field: 'historyMaxEntries' },
+  contentFilteringEnabled: { category: 'contentFiltering', field: 'enabled' },
+  blockAds: { category: 'contentFiltering', field: 'blockAds' },
+  blockTrackers: { category: 'contentFiltering', field: 'blockTrackers' },
+  blockMiners: { category: 'contentFiltering', field: 'blockMiners' },
+  blockMalware: { category: 'contentFiltering', field: 'blockMalware' },
+  blockAnnoyances: { category: 'contentFiltering', field: 'blockAnnoyances' },
+  whitelistedDomains: { category: 'contentFiltering', field: 'whitelistedDomains' },
   proxyVerbosity: { category: 'advanced', field: 'proxyVerbosity' },
   storageVerbosity: { category: 'advanced', field: 'storageVerbosity' },
   syncTestDomain: { category: 'advanced', field: 'syncTestDomain' },
@@ -171,6 +196,13 @@ function mainSettingsToPrefs(settings: any): AppPreferences {
     firstPartyIsolation: settings.privacy?.firstPartyIsolation ?? defaultPreferences.firstPartyIsolation,
     cookieAutoDelete: settings.privacy?.cookieAutoDelete ?? defaultPreferences.cookieAutoDelete,
     cookieAutoDeleteMinutes: settings.privacy?.cookieAutoDeleteMinutes ?? defaultPreferences.cookieAutoDeleteMinutes,
+    contentFilteringEnabled: settings.contentFiltering?.enabled ?? defaultPreferences.contentFilteringEnabled,
+    blockAds: settings.contentFiltering?.blockAds ?? defaultPreferences.blockAds,
+    blockTrackers: settings.contentFiltering?.blockTrackers ?? defaultPreferences.blockTrackers,
+    blockMiners: settings.contentFiltering?.blockMiners ?? defaultPreferences.blockMiners,
+    blockMalware: settings.contentFiltering?.blockMalware ?? defaultPreferences.blockMalware,
+    blockAnnoyances: settings.contentFiltering?.blockAnnoyances ?? defaultPreferences.blockAnnoyances,
+    whitelistedDomains: settings.contentFiltering?.whitelistedDomains ?? defaultPreferences.whitelistedDomains,
     proxyVerbosity: settings.advanced?.proxyVerbosity ?? defaultPreferences.proxyVerbosity,
     storageVerbosity: settings.advanced?.storageVerbosity ?? defaultPreferences.storageVerbosity,
     syncTestDomain: settings.advanced?.syncTestDomain ?? defaultPreferences.syncTestDomain,

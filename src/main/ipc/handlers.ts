@@ -16,6 +16,7 @@ const storageLimiter = new RateLimiter(10, 1000)
 import { proxyManager } from '../proxy/manager'
 import { storageManager } from '../storage/daemon'
 import { addBag, removeBag, listBags, pauseBag, getBagDetails } from '../storage/bags'
+import { contentFilterManager } from '../content-filter/filter-manager'
 import {
   loadSettings,
   getSetting,
@@ -576,6 +577,17 @@ export function registerIpcHandlers(): void {
     // If privacy settings changed, restart cookie auto-delete timer
     if (category === 'privacy') {
       onPrivacySettingsChanged()
+    }
+    // If content filtering settings changed, apply immediately to filter manager
+    if (category === 'contentFiltering') {
+      const filterSettings = getSetting('contentFiltering')
+      contentFilterManager.setEnabled(filterSettings.enabled)
+      contentFilterManager.setWhitelist(filterSettings.whitelistedDomains)
+      contentFilterManager.setCategoryEnabled('ads', filterSettings.blockAds)
+      contentFilterManager.setCategoryEnabled('trackers', filterSettings.blockTrackers)
+      contentFilterManager.setCategoryEnabled('miners', filterSettings.blockMiners)
+      contentFilterManager.setCategoryEnabled('malware', filterSettings.blockMalware)
+      contentFilterManager.setCategoryEnabled('annoyances', filterSettings.blockAnnoyances)
     }
     return { success: true }
   })

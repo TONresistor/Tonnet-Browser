@@ -8,7 +8,7 @@ import { join } from 'path'
 import { existsSync, readFileSync, writeFileSync, mkdirSync, renameSync } from 'fs'
 import { DEFAULT_SETTINGS } from '../../shared/defaults'
 import type { ThemeType } from '../../shared/defaults'
-import type { CustomTheme } from '../../shared/types'
+import type { CustomTheme, ContentFilteringSettings } from '../../shared/types'
 import { logger } from '../../shared/logger'
 
 // Settings interfaces
@@ -65,6 +65,7 @@ export interface AppSettings {
   storage: StorageSettings
   appearance: AppearanceSettings
   privacy: PrivacySettings
+  contentFiltering: ContentFilteringSettings
   advanced: AdvancedSettings
 }
 
@@ -169,6 +170,16 @@ export function getDefaultSettings(): AppSettings {
       cookieAutoDelete: DEFAULT_SETTINGS.cookieAutoDelete,
       cookieAutoDeleteMinutes: DEFAULT_SETTINGS.cookieAutoDeleteMinutes,
     },
+    contentFiltering: {
+      enabled: DEFAULT_SETTINGS.contentFiltering.enabled,
+      blockAds: DEFAULT_SETTINGS.contentFiltering.blockAds,
+      blockTrackers: DEFAULT_SETTINGS.contentFiltering.blockTrackers,
+      blockMiners: DEFAULT_SETTINGS.contentFiltering.blockMiners,
+      blockMalware: DEFAULT_SETTINGS.contentFiltering.blockMalware,
+      blockAnnoyances: DEFAULT_SETTINGS.contentFiltering.blockAnnoyances,
+      whitelistedDomains: DEFAULT_SETTINGS.contentFiltering.whitelistedDomains,
+      showBlockCount: DEFAULT_SETTINGS.contentFiltering.showBlockCount,
+    },
     advanced: {
       proxyVerbosity: DEFAULT_SETTINGS.proxyVerbosity,
       storageVerbosity: DEFAULT_SETTINGS.storageVerbosity,
@@ -216,6 +227,7 @@ export function loadSettings(): AppSettings {
       storage: { ...defaults.storage, ...loaded.storage },
       appearance: { ...defaults.appearance, ...loaded.appearance },
       privacy: { ...defaults.privacy, ...loaded.privacy },
+      contentFiltering: { ...defaults.contentFiltering, ...loaded.contentFiltering },
       advanced: { ...defaults.advanced, ...loaded.advanced },
     }
 

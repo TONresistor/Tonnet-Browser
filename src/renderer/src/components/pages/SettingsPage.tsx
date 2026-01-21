@@ -18,6 +18,7 @@ import { NetworkSection } from '@/components/settings/sections/NetworkSection'
 import { StorageSection } from '@/components/settings/sections/StorageSection'
 import { AppearanceSection } from '@/components/settings/sections/AppearanceSection'
 import { PrivacySection } from '@/components/settings/sections/PrivacySection'
+import { ContentFilteringSection } from '@/components/settings/sections/ContentFilteringSection'
 import { HistorySection } from '@/components/settings/sections/HistorySection'
 import { ShortcutsSection } from '@/components/settings/sections/ShortcutsSection'
 import { BookmarksSection } from '@/components/settings/sections/BookmarksSection'
@@ -163,6 +164,9 @@ export function SettingsPage() {
             onClearData={handleClearData}
           />
         )
+
+      case 'content-filtering':
+        return <ContentFilteringSection draft={draft} setDraft={setDraft} />
 
       case 'history':
         return (

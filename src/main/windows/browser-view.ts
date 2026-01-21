@@ -6,6 +6,7 @@
 import { BrowserView, session } from 'electron'
 import { USER_AGENT } from '../../shared/constants'
 import { getSetting } from '../settings'
+import { contentFilterManager } from '../content-filter/filter-manager'
 
 const SESSION_PARTITION = 'persist:ton-browser'
 
@@ -24,6 +25,29 @@ export function createTonSession(proxyPort: number, partitionName: string = SESS
 
   // Set uniform User-Agent
   ses.setUserAgent(USER_AGENT)
+
+  // Sync content filter settings from user preferences
+  const filterSettings = getSetting('contentFiltering')
+  contentFilterManager.setEnabled(filterSettings.enabled)
+  contentFilterManager.setWhitelist(filterSettings.whitelistedDomains)
+  contentFilterManager.setCategoryEnabled('ads', filterSettings.blockAds)
+  contentFilterManager.setCategoryEnabled('trackers', filterSettings.blockTrackers)
+  contentFilterManager.setCategoryEnabled('miners', filterSettings.blockMiners)
+  contentFilterManager.setCategoryEnabled('malware', filterSettings.blockMalware)
+  contentFilterManager.setCategoryEnabled('annoyances', filterSettings.blockAnnoyances)
+
+  // Content Filtering: Block ads, trackers, miners, and malicious content
+  ses.webRequest.onBeforeRequest({ urls: ['http://*/*'] }, (details, callback) => {
+    const { url, resourceType } = details
+
+    // Check if request should be blocked
+    if (contentFilterManager.isBlocked(url, resourceType)) {
+      callback({ cancel: true })
+      return
+    }
+
+    callback({})
+  })
 
   // Privacy: Normalize headers, strip referer and ETag tracking headers
   ses.webRequest.onBeforeSendHeaders((details, callback) => {

@@ -13,6 +13,7 @@ export type SettingsSection =
   | 'storage'
   | 'appearance'
   | 'privacy'
+  | 'content-filtering'
   | 'history'
   | 'shortcuts'
   | 'bookmarks'

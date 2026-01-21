@@ -86,6 +86,39 @@ export interface CustomTheme {
   updatedAt: number
 }
 
+// Content Filtering
+export interface ContentFilteringSettings {
+  enabled: boolean
+  blockAds: boolean
+  blockTrackers: boolean
+  blockMiners: boolean
+  blockMalware: boolean
+  blockAnnoyances: boolean
+  whitelistedDomains: string[]
+  showBlockCount: boolean
+}
+
+export interface ContentFilterStats {
+  totalBlocked: number
+  totalAllowed: number
+  blockedByCategory: {
+    ads: number
+    trackers: number
+    miners: number
+    malware: number
+    annoyances: number
+  }
+  sessionStarted: number
+}
+
+export interface ContentFilterEvent {
+  url: string
+  resourceType: string
+  category: 'ads' | 'trackers' | 'miners' | 'malware' | 'annoyances'
+  description: string
+  timestamp: number
+}
+
 // IPC Channel names
 export const IPC_CHANNELS = {
   // Proxy
