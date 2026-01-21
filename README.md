@@ -7,6 +7,7 @@
 <p align="center">
   <a href="#about">About</a> •
   <a href="#features">Features</a> •
+  <a href="#-privacy--security">Privacy & Security</a> •
   <a href="#installation">Installation</a> •
   <a href="#usage">Usage</a> •
   <a href="#settings">Settings</a> •
@@ -66,12 +67,120 @@ It also includes a built-in TON Storage client for downloading and seeding bags 
 ## Features
 
 - Native `.ton`, `.adnl` and `.t.me` domain browsing
-- Anonymous mode: 3-hop garlic circuit with rotation
 - Decentralized DNS resolution via TON blockchain
 - Built-in TON Storage client (download, seed, pause)
 - Standard browser features
-- Privacy focused & Security hardened
 - Cross-platform: Linux, Windows, macOS
+
+## Privacy & Security
+
+Tonnet Browser matches Tor Browser's anti-fingerprinting capabilities while offering a superior decentralized infrastructure through TON Network. Built with a privacy-first architecture, it combines proven anonymity techniques with the resilience and censorship-resistance of blockchain-based routing.
+
+### Anonymous Browsing
+
+**3-Hop Garlic Routing**
+- Entry → Middle → Exit relays through TON nodes
+- Automatic circuit rotation (configurable intervals, default: 10 minutes)
+- Relay visibility in status bar
+- Direct mode option for faster browsing without anonymity
+
+### Anti-Fingerprinting Protection
+
+**Canvas Fingerprinting**
+- Deterministic noise injection to pixel readout
+- Protects `getImageData()`, `toDataURL()`, `toBlob()`
+- Imperceptible changes that alter fingerprint hash
+
+**WebGL Fingerprinting**
+- Spoofed vendor/renderer to generic values
+- Noise injection to `readPixels()` output
+
+**Audio Fingerprinting**
+- Frequency data perturbation in AudioContext
+- Subtle oscillator frequency shifts
+
+**WebRTC IP Leak Protection**
+- Blocks local IP candidates (192.168.x.x, 10.x.x.x, 172.16-31.x.x)
+- Disables mDNS candidate gathering
+
+**Hardware Enumeration Blocking**
+- Battery API disabled
+- Device sensors blocked (accelerometer, gyroscope)
+- Generic hardware specs: 4 cores, 8GB RAM
+- Empty plugin/mimetype lists
+- WebUSB, WebBluetooth, Gamepad APIs blocked
+
+**Additional Protections**
+- Screen resolution: Fixed 1920×1080 reporting
+- Timezone: Forced UTC (offset 0)
+- Font fingerprinting: Limited to 24 standard system fonts
+- Viewport dimensions: Rounded to common multiples
+
+### Cookie & Data Management
+
+**First-Party Isolation**
+- Per-domain sessions: Separate cookie/storage containers per site
+- Format: `persist:ton-domain-{hostname}`
+- Prevents cross-site tracking
+- Auto-cleanup of inactive domain sessions
+
+**Cookie Auto-Delete**
+- Inactivity-based deletion (default: 30 minutes)
+- Smart detection: Only deletes domains without active tabs
+- Comprehensive cleanup: Cookies + localStorage + IndexedDB + Service Workers
+
+**Clear on Exit**
+- Automatic data deletion on browser close (enabled by default)
+- Covers: Cache, cookies, localStorage, session data
+
+### History Management
+
+**Memory Mode (Default)**
+- RAM-only storage, never written to disk
+- Auto-cleared on exit
+- Zero forensic footprint
+
+**Persistent Mode (Encrypted)**
+- OS Keychain encryption (macOS Keychain, Windows DPAPI, Linux libsecret)
+- Automatic encryption, no password required
+- Configurable limit: 100-10,000 entries (default: 1,000)
+- Secure wrapper: SafeStorage API with atomic writes
+
+### Network Privacy
+
+- Generic User-Agent: Chrome 130 (no TON Browser identification)
+- Referer stripping: Complete removal of navigation history leaks
+- ETag removal: Request & response tracking headers stripped
+- Accept-Language normalization: `en-US,en;q=0.9`
+- Referrer-Policy enforcement: Forced to `no-referrer`
+- Cache control: Optional `no-cache` mode
+
+### Security Architecture
+
+**Process Isolation**
+- Main process: Privileged backend (Node.js/Electron)
+- Renderer process: Sandboxed UI (no Node.js access)
+- BrowserView sandbox: Isolated web content per tab
+- Preload bridge: Secure IPC with context isolation
+
+**Input Validation & Rate Limiting**
+- URL validation: Protocol whitelist, path sanitization
+- Navigation rate limiting: 30 requests/second
+- Storage rate limiting: 10 operations/second
+- Anti-ReDoS protection: Regex complexity validation
+- Port validation: Range enforcement (1024-65535)
+
+**Permission Model**
+- Deny by default: All permissions (camera, microphone, geolocation)
+- Content Security Policy: Enforced in production builds
+- No running insecure content: WebSecurity enabled
+
+### Transparency
+
+- Open Source: Full codebase available for audit
+- MIT License: Freedom to inspect, modify, and verify
+- No telemetry or data collection
+- No third-party trackers
 
 ## Installation
 
