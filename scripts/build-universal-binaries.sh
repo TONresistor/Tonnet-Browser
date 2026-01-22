@@ -25,7 +25,6 @@ BIN_DIR="$PROJECT_ROOT/resources/bin/mac"
 TEMP_DIR="/tmp/tonnet-build-$$"
 
 # Repository URLs
-TONUTILS_PROXY_REPO="https://github.com/xssnick/tonutils-proxy.git"
 TONUTILS_STORAGE_REPO="https://github.com/xssnick/tonutils-storage.git"
 TONNET_PROXY_REPO="https://github.com/TONresistor/tonnet-proxy.git"
 
@@ -212,9 +211,8 @@ main() {
     setup_directories
 
     # Build each component
-    build_universal "tonutils-proxy" "$TONUTILS_PROXY_REPO" "."
-    build_universal "tonutils-storage" "$TONUTILS_STORAGE_REPO" "./cmd/tonutils-storage"
     build_universal "tonnet-proxy" "$TONNET_PROXY_REPO" "./cmd/"
+    build_universal "tonutils-storage" "$TONUTILS_STORAGE_REPO" "./cmd/tonutils-storage"
 
     if [ "$VERIFY" = true ]; then
         verify_binaries

@@ -239,7 +239,7 @@ npm test
 | Frontend | React 19, TypeScript |
 | Styling | Tailwind CSS |
 | State | Zustand |
-| TON Proxy | [tonnet-proxy](https://github.com/xssnick/tonutils-proxy) |
+| TON Proxy | [tonnet-proxy](https://github.com/TONresistor/tonnet-proxy) |
 | TON Storage | [tonutils-storage](https://github.com/xssnick/tonutils-storage) |
 | Transport | RLDP over ADNL over UDP |
 
@@ -258,5 +258,5 @@ MIT License. See [LICENSE](LICENSE) for details.
 - [Tor Project](https://www.torproject.org/) - Inspiration for anonymous browsing
 - [BitTorrent](https://www.bittorrent.org/) - Inspiration for P2P file sharing
 - [tonutils-go](https://github.com/xssnick/tonutils-go) - TON protocol implementation
-- [tonutils-proxy](https://github.com/xssnick/tonutils-proxy) - HTTP proxy for TON sites
+- [tonnet-proxy](https://github.com/TONresistor/tonnet-proxy) - HTTP proxy with garlic routing for TON sites
 - [tonutils-storage](https://github.com/xssnick/tonutils-storage) - TON Storage daemon

@@ -4,11 +4,10 @@ This document describes how to build the platform binaries used by Tonnet Browse
 
 ## Overview
 
-Tonnet Browser requires three binary components:
+Tonnet Browser requires two binary components:
 
-1. **tonutils-proxy** - TON network proxy (from xssnick/tonutils-proxy)
+1. **tonnet-proxy** - HTTP proxy with garlic routing for TON sites (from TONresistor/tonnet-proxy)
 2. **tonutils-storage** - TON storage daemon (from xssnick/tonutils-storage)
-3. **tonnet-proxy** - Custom proxy wrapper (from TONresistor/tonnet-proxy)
 
 ## Supported Platforms
 
@@ -95,36 +94,17 @@ After building, binaries should be placed in:
 resources/
   bin/
     mac/
-      tonutils-proxy      # Universal binary
-      tonutils-storage    # Universal binary
       tonnet-proxy        # Universal binary
+      tonutils-storage    # Universal binary
     linux/
-      tonutils-proxy
-      tonutils-storage
       tonnet-proxy
+      tonutils-storage
     win/
-      tonutils-proxy.exe
-      tonutils-storage.exe
       tonnet-proxy.exe
+      tonutils-storage.exe
 ```
 
 ## Building Individual Components
-
-### tonutils-proxy
-
-```bash
-git clone https://github.com/xssnick/tonutils-proxy.git
-cd tonutils-proxy
-go build -ldflags="-s -w" -o tonutils-proxy .
-```
-
-### tonutils-storage
-
-```bash
-git clone https://github.com/xssnick/tonutils-storage.git
-cd tonutils-storage
-go build -ldflags="-s -w" -o tonutils-storage ./cmd/tonutils-storage
-```
 
 ### tonnet-proxy
 
@@ -138,18 +118,26 @@ make build-universal    # Build macOS universal binary
 make build-all          # Build for all platforms
 ```
 
+### tonutils-storage
+
+```bash
+git clone https://github.com/xssnick/tonutils-storage.git
+cd tonutils-storage
+go build -ldflags="-s -w" -o tonutils-storage ./cmd/tonutils-storage
+```
+
 ## Verifying Universal Binaries
 
 On macOS, verify that a binary is truly universal:
 
 ```bash
 # Check architectures
-lipo -info resources/bin/mac/tonutils-proxy
-# Output: Architectures in the fat file: resources/bin/mac/tonutils-proxy are: x86_64 arm64
+lipo -info resources/bin/mac/tonnet-proxy
+# Output: Architectures in the fat file: resources/bin/mac/tonnet-proxy are: x86_64 arm64
 
 # Detailed info
-file resources/bin/mac/tonutils-proxy
-# Output: resources/bin/mac/tonutils-proxy: Mach-O universal binary with 2 architectures:
+file resources/bin/mac/tonnet-proxy
+# Output: resources/bin/mac/tonnet-proxy: Mach-O universal binary with 2 architectures:
 #         [x86_64:Mach-O 64-bit executable x86_64] [arm64:Mach-O 64-bit executable arm64]
 ```
 
