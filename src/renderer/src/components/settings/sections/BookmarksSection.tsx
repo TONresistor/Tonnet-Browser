@@ -165,17 +165,17 @@ export const BookmarksSection = memo(function BookmarksSection({
       <div className="flex gap-4">
         {/* Left sidebar: Folder tree */}
         <div className="w-64 flex-shrink-0">
+          <div className="flex items-center justify-between mb-3">
+            <h4 className="text-sm font-semibold text-foreground">Folders</h4>
+            <button
+              onClick={() => handleNewFolder(selectedFolderId)}
+              className="w-6 h-6 flex items-center justify-center rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+              title="New Folder"
+            >
+              <Plus className="w-4 h-4" />
+            </button>
+          </div>
           <div className="bg-card rounded-2xl border border-border p-3">
-            <div className="flex items-center justify-between mb-3 px-2">
-              <h4 className="text-sm font-semibold text-foreground">Folders</h4>
-              <button
-                onClick={() => handleNewFolder(selectedFolderId)}
-                className="w-6 h-6 flex items-center justify-center rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-                title="New Folder"
-              >
-                <Plus className="w-4 h-4" />
-              </button>
-            </div>
             <FolderTree
               selectedFolderId={selectedFolderId}
               onSelectFolder={setSelectedFolderId}
