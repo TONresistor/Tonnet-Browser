@@ -1,0 +1,15 @@
+{
+  "title": "TON Browser",
+  "subtitle": "Explore the decentralized TON Network.",
+  "connectionSteps": {
+    "startingProxy": "Starting proxy...",
+    "loadingConfig": "Loading configuration...",
+    "syncingDHT": "Syncing with DHT...",
+    "connectingNetwork": "Connecting to network...",
+    "ready": "Ready!"
+  },
+  "footer": {
+    "peerToPeer": "Peer-to-peer - Censorship Resistant - No Tracking",
+    "version": "v{{version}}"
+  }
+}

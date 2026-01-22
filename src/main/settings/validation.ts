@@ -22,6 +22,7 @@ export interface StorageSettings {
 }
 
 export interface AppearanceSettings {
+  language: string
   defaultZoom: number
   zoomMin: number
   zoomMax: number
@@ -88,6 +89,7 @@ export function isValidSettingsObject(obj: unknown): obj is Partial<AppSettings>
 
   const appearance = settings.appearance as Record<string, unknown> | undefined
   if (appearance) {
+    if (appearance.language !== undefined && typeof appearance.language !== 'string') return false
     if (appearance.defaultZoom !== undefined && typeof appearance.defaultZoom !== 'number') return false
   }
 
@@ -116,6 +118,7 @@ export function getDefaultSettingsBase(): AppSettings {
       pollingInterval: 2000,
     },
     appearance: {
+      language: 'en',
       defaultZoom: 100,
       zoomMin: 30,
       zoomMax: 300,

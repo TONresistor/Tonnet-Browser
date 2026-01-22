@@ -30,6 +30,7 @@ export interface AppPreferences {
 
   // Appearance
   theme: ThemeType
+  language: string
   defaultZoom: number
   zoomMin: number
   zoomMax: number
@@ -99,6 +100,7 @@ export const defaultPreferences: AppPreferences = {
 
   // Appearance
   theme: DEFAULT_SETTINGS.theme,
+  language: DEFAULT_SETTINGS.language,
   defaultZoom: DEFAULT_SETTINGS.defaultZoom,
   zoomMin: DEFAULT_SETTINGS.zoomMin,
   zoomMax: DEFAULT_SETTINGS.zoomMax,
@@ -144,6 +146,7 @@ const prefToCategory: Record<keyof AppPreferences, { category: string; field: st
   downloadPath: { category: 'storage', field: 'downloadPath' },
   storagePollingInterval: { category: 'storage', field: 'pollingInterval' },
   theme: { category: 'appearance', field: 'theme' },
+  language: { category: 'appearance', field: 'language' },
   defaultZoom: { category: 'appearance', field: 'defaultZoom' },
   zoomMin: { category: 'appearance', field: 'zoomMin' },
   zoomMax: { category: 'appearance', field: 'zoomMax' },
@@ -184,6 +187,7 @@ function mainSettingsToPrefs(settings: any): AppPreferences {
     downloadPath: settings.storage?.downloadPath ?? defaultPreferences.downloadPath,
     storagePollingInterval: settings.storage?.pollingInterval ?? defaultPreferences.storagePollingInterval,
     theme: settings.appearance?.theme ?? defaultPreferences.theme,
+    language: settings.appearance?.language ?? defaultPreferences.language,
     defaultZoom: settings.appearance?.defaultZoom ?? defaultPreferences.defaultZoom,
     zoomMin: settings.appearance?.zoomMin ?? defaultPreferences.zoomMin,
     zoomMax: settings.appearance?.zoomMax ?? defaultPreferences.zoomMax,

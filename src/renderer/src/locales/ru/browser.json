@@ -1,0 +1,24 @@
+{
+  "addressBar": {
+    "placeholder": "Введите .ton адрес...",
+    "ariaLabel": "Введите URL или TON адрес",
+    "addBookmarkAria": "Добавить в закладки",
+    "removeBookmarkAria": "Удалить из закладок",
+    "addBookmarkTitle": "Добавить закладку",
+    "removeBookmarkTitle": "Удалить закладку"
+  },
+  "navigation": {
+    "back": "Назад",
+    "forward": "Вперёд",
+    "home": "Домой",
+    "reload": "Обновить",
+    "stop": "Остановить загрузку"
+  },
+  "tabs": {
+    "newTab": "Новая вкладка",
+    "closeTab": "Закрыть вкладку"
+  },
+  "bookmarksBar": {
+    "title": "Закладки"
+  }
+}

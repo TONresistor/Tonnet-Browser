@@ -38,6 +38,7 @@ export type { ThemeType }
 export interface AppearanceSettings {
   theme: ThemeType
   customThemes: CustomTheme[]
+  language: string
   defaultZoom: number
   zoomMin: number
   zoomMax: number

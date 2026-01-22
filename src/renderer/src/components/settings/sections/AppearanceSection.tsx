@@ -9,15 +9,19 @@ import { SectionHeader } from '../shared/SectionHeader'
 import { SettingRow } from '../shared/SettingRow'
 import { Toggle } from '../shared/Toggle'
 import { NumberInput } from '../shared/NumberInput'
+import { SelectInput } from '../shared/SelectInput'
 import { ThemeEditor, ThemeList, ImportDialog, ExportDialog } from '@/components/theme-editor'
 import { useThemeStore } from '@/stores/themes'
 import type { SectionProps } from '../types'
 import type { BuiltInTheme } from '@shared/defaults'
+import { useTranslation } from 'react-i18next'
 
 export const AppearanceSection = memo(function AppearanceSection({
   draft,
   setDraft,
 }: SectionProps) {
+  const { t } = useTranslation('settings')
+
   const builtInThemes = [
     {
       value: 'resistance-dog',
@@ -84,13 +88,29 @@ export const AppearanceSection = memo(function AppearanceSection({
     setEditingThemeId(null)
   }
 
+  const languageOptions = [
+    { value: 'en', label: t('appearance.language.english') },
+    { value: 'ru', label: t('appearance.language.russian') },
+  ]
+
   return (
     <div>
-      <SectionHeader title="Appearance" description="Customize how the browser looks" />
+      <SectionHeader title={t('appearance.title')} description={t('appearance.description')} />
+
+      {/* Language selector */}
+      <div className="bg-card rounded-xl border border-border px-4">
+        <SettingRow label={t('appearance.language.label')} description={t('appearance.language.description')}>
+          <SelectInput
+            value={draft.language}
+            onChange={(v) => setDraft('language', v)}
+            options={languageOptions}
+          />
+        </SettingRow>
+      </div>
 
       {/* Built-in themes */}
-      <div className="bg-card rounded-xl border border-border px-4">
-        <SettingRow label="Theme" description="Choose color scheme">
+      <div className="mt-6 bg-card rounded-xl border border-border px-4">
+        <SettingRow label={t('appearance.theme.label')} description={t('appearance.theme.description')}>
           <div className="flex gap-2">
             {builtInThemes.map((theme) => (
               <button
@@ -115,9 +135,9 @@ export const AppearanceSection = memo(function AppearanceSection({
       <div className="mt-6 bg-card rounded-xl border border-border p-4">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h4 className="text-sm font-semibold text-foreground">Custom Themes</h4>
+            <h4 className="text-sm font-semibold text-foreground">{t('appearance.customThemes.title')}</h4>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Create and manage your own themes
+              {t('appearance.customThemes.description')}
             </p>
           </div>
           <div className="flex gap-2">
@@ -126,7 +146,7 @@ export const AppearanceSection = memo(function AppearanceSection({
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-muted-foreground hover:text-foreground transition-colors bg-surface hover:bg-surface-hover"
             >
               <Upload className="w-4 h-4" />
-              Import
+              {t('../../common:buttons.import')}
             </button>
             <div className="relative">
               <button
@@ -134,7 +154,7 @@ export const AppearanceSection = memo(function AppearanceSection({
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm bg-primary text-primary-foreground hover:opacity-90 transition-opacity"
               >
                 <Plus className="w-4 h-4" />
-                Create
+                {t('../../common:buttons.create')}
               </button>
               {showCreateMenu && (
                 <>
@@ -144,13 +164,13 @@ export const AppearanceSection = memo(function AppearanceSection({
                       onClick={() => handleCreateTheme('resistance-dog')}
                       className="w-full px-3 py-2 text-left text-sm text-foreground hover:bg-surface-hover transition-colors"
                     >
-                      Based on Dark theme
+                      {t('appearance.customThemes.basedOnDark')}
                     </button>
                     <button
                       onClick={() => handleCreateTheme('utya-duck')}
                       className="w-full px-3 py-2 text-left text-sm text-foreground hover:bg-surface-hover transition-colors"
                     >
-                      Based on Light theme
+                      {t('appearance.customThemes.basedOnLight')}
                     </button>
                   </div>
                 </>
@@ -172,7 +192,7 @@ export const AppearanceSection = memo(function AppearanceSection({
 
       {/* Other appearance settings */}
       <div className="mt-6 bg-card rounded-xl border border-border px-4">
-        <SettingRow label="Default zoom" description="Initial zoom level for pages">
+        <SettingRow label={t('appearance.zoom.default')} description={t('appearance.zoom.defaultDesc')}>
           <NumberInput
             value={draft.defaultZoom}
             onChange={(v) => setDraft('defaultZoom', v)}
@@ -182,7 +202,7 @@ export const AppearanceSection = memo(function AppearanceSection({
             suffix="%"
           />
         </SettingRow>
-        <SettingRow label="Minimum zoom" description="Lowest allowed zoom level">
+        <SettingRow label={t('appearance.zoom.min')} description={t('appearance.zoom.minDesc')}>
           <NumberInput
             value={draft.zoomMin}
             onChange={(v) => setDraft('zoomMin', v)}
@@ -192,7 +212,7 @@ export const AppearanceSection = memo(function AppearanceSection({
             suffix="%"
           />
         </SettingRow>
-        <SettingRow label="Maximum zoom" description="Highest allowed zoom level">
+        <SettingRow label={t('appearance.zoom.max')} description={t('appearance.zoom.maxDesc')}>
           <NumberInput
             value={draft.zoomMax}
             onChange={(v) => setDraft('zoomMax', v)}
@@ -202,14 +222,14 @@ export const AppearanceSection = memo(function AppearanceSection({
             suffix="%"
           />
         </SettingRow>
-        <SettingRow label="Show bookmarks bar" description="Display quick access bookmarks">
+        <SettingRow label={t('appearance.ui.showBookmarksBar')} description={t('appearance.ui.showBookmarksBarDesc')}>
           <Toggle
             checked={draft.showBookmarksBar}
             onChange={(v) => setDraft('showBookmarksBar', v)}
             label="Show bookmarks bar"
           />
         </SettingRow>
-        <SettingRow label="Show status bar" description="Display connection status at bottom">
+        <SettingRow label={t('appearance.ui.showStatusBar')} description={t('appearance.ui.showStatusBarDesc')}>
           <Toggle
             checked={draft.showStatusBar}
             onChange={(v) => setDraft('showStatusBar', v)}

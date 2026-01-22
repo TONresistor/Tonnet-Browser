@@ -1,0 +1,25 @@
+{
+  "appName": "TON Браузер",
+  "buttons": {
+    "connect": "Подключиться к сети TON",
+    "connecting": "Подключение...",
+    "create": "Создать",
+    "import": "Импорт",
+    "export": "Экспорт",
+    "delete": "Удалить",
+    "save": "Сохранить",
+    "cancel": "Отмена",
+    "close": "Закрыть",
+    "ok": "ОК"
+  },
+  "actions": {
+    "addBookmark": "Добавить закладку",
+    "removeBookmark": "Удалить закладку",
+    "newTab": "Новая вкладка"
+  },
+  "status": {
+    "peerToPeer": "Peer-to-peer",
+    "censorshipResistant": "Устойчивость к цензуре",
+    "noTracking": "Без отслеживания"
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "title": "TON Хранилище",
+  "description": "Управление пакетами TON Storage",
+  "addBag": "Добавить пакет",
+  "invalidBagId": "Неверный ID пакета",
+  "noBags": "Пакеты ещё не добавлены"
+}

@@ -1,0 +1,25 @@
+{
+  "appName": "TON Browser",
+  "buttons": {
+    "connect": "Connect to TON Network",
+    "connecting": "Connecting...",
+    "create": "Create",
+    "import": "Import",
+    "export": "Export",
+    "delete": "Delete",
+    "save": "Save",
+    "cancel": "Cancel",
+    "close": "Close",
+    "ok": "OK"
+  },
+  "actions": {
+    "addBookmark": "Add bookmark",
+    "removeBookmark": "Remove bookmark",
+    "newTab": "New Tab"
+  },
+  "status": {
+    "peerToPeer": "Peer-to-peer",
+    "censorshipResistant": "Censorship Resistant",
+    "noTracking": "No Tracking"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "title": "TON Браузер",
+  "subtitle": "Исследуйте децентрализованную сеть TON.",
+  "connectionSteps": {
+    "startingProxy": "Запуск прокси...",
+    "loadingConfig": "Загрузка конфигурации...",
+    "syncingDHT": "Синхронизация с DHT...",
+    "connectingNetwork": "Подключение к сети...",
+    "ready": "Готово!"
+  },
+  "footer": {
+    "peerToPeer": "Peer-to-peer - Устойчивость к цензуре - Без отслеживания",
+    "version": "v{{version}}"
+  }
+}

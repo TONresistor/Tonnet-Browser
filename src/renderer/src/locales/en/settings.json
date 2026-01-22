@@ -1,0 +1,77 @@
+{
+  "title": "Settings",
+  "sections": {
+    "general": "General",
+    "network": "Network",
+    "storage": "Storage",
+    "appearance": "Appearance",
+    "privacy": "Privacy",
+    "contentFiltering": "Content Filtering",
+    "history": "History",
+    "shortcuts": "Shortcuts",
+    "bookmarks": "Bookmarks",
+    "advanced": "Advanced",
+    "about": "About"
+  },
+  "appearance": {
+    "title": "Appearance",
+    "description": "Customize how the browser looks",
+    "theme": {
+      "label": "Theme",
+      "description": "Choose color scheme",
+      "resistanceDog": "Resistance Dog",
+      "resistanceDogDesc": "Dark blue theme (default)",
+      "utyaDuck": "Utya Duck",
+      "utyaDuckDesc": "Bright yellow theme"
+    },
+    "customThemes": {
+      "title": "Custom Themes",
+      "description": "Create and manage your own themes",
+      "basedOnDark": "Based on Dark theme",
+      "basedOnLight": "Based on Light theme",
+      "deleteConfirm": "Delete \"{{name}}\"?"
+    },
+    "zoom": {
+      "default": "Default zoom",
+      "defaultDesc": "Initial zoom level for pages",
+      "min": "Minimum zoom",
+      "minDesc": "Lowest allowed zoom level",
+      "max": "Maximum zoom",
+      "maxDesc": "Highest allowed zoom level"
+    },
+    "ui": {
+      "showBookmarksBar": "Show bookmarks bar",
+      "showBookmarksBarDesc": "Display quick access bookmarks",
+      "showStatusBar": "Show status bar",
+      "showStatusBarDesc": "Display connection status at bottom"
+    },
+    "language": {
+      "label": "Language",
+      "description": "Choose interface language",
+      "english": "English",
+      "russian": "Русский (Russian)"
+    }
+  },
+  "shortcuts": {
+    "title": "Shortcuts",
+    "description": "Keyboard shortcuts reference",
+    "actions": {
+      "newTab": "New tab",
+      "closeTab": "Close tab",
+      "reopenClosedTab": "Reopen closed tab",
+      "nextTab": "Next tab",
+      "previousTab": "Previous tab",
+      "goToTab": "Go to tab 1-9",
+      "history": "History",
+      "focusAddressBar": "Focus address bar",
+      "reload": "Reload",
+      "back": "Back",
+      "forward": "Forward",
+      "stopLoading": "Stop loading",
+      "zoomIn": "Zoom in",
+      "zoomOut": "Zoom out",
+      "resetZoom": "Reset zoom",
+      "devTools": "Developer tools"
+    }
+  }
+}

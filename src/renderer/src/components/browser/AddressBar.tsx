@@ -13,6 +13,7 @@ import { useBookmarksStore } from '@/stores/bookmarks'
 import { useTabsStore } from '@/stores/tabs'
 import { cn } from '@/lib/utils'
 import tonIcon from '@/assets/ton.png'
+import { useTranslation } from 'react-i18next'
 
 interface HistorySuggestion {
   id: string
@@ -37,6 +38,7 @@ const getHostname = (url: string): string => {
 }
 
 export function AddressBar() {
+  const { t } = useTranslation('browser')
   const { currentUrl, isLoading } = useSettingsStore()
   const { bookmarks, addBookmark, removeBookmark } = useBookmarksStore()
   const { navigateActiveTab, tabs, activeTabId } = useTabsStore()
@@ -224,8 +226,8 @@ export function AddressBar() {
               'pr-10 h-8 bg-transparent border-0 rounded-full focus:ring-0 focus:outline-none',
               isTonSite && !isLoading ? 'pl-24' : 'pl-10'
             )}
-            placeholder="Enter .ton address..."
-            aria-label="Enter URL or TON address"
+            placeholder={t('addressBar.placeholder')}
+            aria-label={t('addressBar.ariaLabel')}
             aria-autocomplete="list"
             aria-controls={showSuggestions ? 'history-suggestions' : undefined}
             aria-expanded={showSuggestions}
@@ -238,8 +240,8 @@ export function AddressBar() {
             className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full"
             onClick={toggleBookmark}
             disabled={!currentUrl || isInternalPage}
-            title={isBookmarked ? 'Remove bookmark' : 'Add bookmark'}
-            aria-label={isBookmarked ? 'Remove from bookmarks' : 'Add to bookmarks'}
+            title={isBookmarked ? t('addressBar.removeBookmarkTitle') : t('addressBar.addBookmarkTitle')}
+            aria-label={isBookmarked ? t('addressBar.removeBookmarkAria') : t('addressBar.addBookmarkAria')}
             aria-pressed={isBookmarked}
           >
             <Star

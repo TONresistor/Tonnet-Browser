@@ -34,6 +34,7 @@ export const DEFAULT_SETTINGS = {
   // Appearance
   theme: 'resistance-dog' as ThemeType,
   customThemes: [] as CustomTheme[],
+  language: 'en',
   defaultZoom: 100,
   zoomMin: 30,
   zoomMax: 300,

@@ -1,0 +1,77 @@
+{
+  "title": "Настройки",
+  "sections": {
+    "general": "Общие",
+    "network": "Сеть",
+    "storage": "Хранилище",
+    "appearance": "Внешний вид",
+    "privacy": "Приватность",
+    "contentFiltering": "Фильтрация контента",
+    "history": "История",
+    "shortcuts": "Горячие клавиши",
+    "bookmarks": "Закладки",
+    "advanced": "Дополнительно",
+    "about": "О программе"
+  },
+  "appearance": {
+    "title": "Внешний вид",
+    "description": "Настройте внешний вид браузера",
+    "theme": {
+      "label": "Тема",
+      "description": "Выберите цветовую схему",
+      "resistanceDog": "Resistance Dog",
+      "resistanceDogDesc": "Тёмно-синяя тема (по умолчанию)",
+      "utyaDuck": "Utya Duck",
+      "utyaDuckDesc": "Ярко-жёлтая тема"
+    },
+    "customThemes": {
+      "title": "Пользовательские темы",
+      "description": "Создавайте и управляйте своими темами",
+      "basedOnDark": "На основе тёмной темы",
+      "basedOnLight": "На основе светлой темы",
+      "deleteConfirm": "Удалить \"{{name}}\"?"
+    },
+    "zoom": {
+      "default": "Масштаб по умолчанию",
+      "defaultDesc": "Начальный уровень масштаба для страниц",
+      "min": "Минимальный масштаб",
+      "minDesc": "Минимально допустимый уровень масштаба",
+      "max": "Максимальный масштаб",
+      "maxDesc": "Максимально допустимый уровень масштаба"
+    },
+    "ui": {
+      "showBookmarksBar": "Показывать панель закладок",
+      "showBookmarksBarDesc": "Отображать быстрый доступ к закладкам",
+      "showStatusBar": "Показывать строку состояния",
+      "showStatusBarDesc": "Отображать статус подключения внизу"
+    },
+    "language": {
+      "label": "Язык",
+      "description": "Выберите язык интерфейса",
+      "english": "English (Английский)",
+      "russian": "Русский"
+    }
+  },
+  "shortcuts": {
+    "title": "Горячие клавиши",
+    "description": "Справочник клавиатурных сокращений",
+    "actions": {
+      "newTab": "Новая вкладка",
+      "closeTab": "Закрыть вкладку",
+      "reopenClosedTab": "Открыть закрытую вкладку",
+      "nextTab": "Следующая вкладка",
+      "previousTab": "Предыдущая вкладка",
+      "goToTab": "Перейти к вкладке 1-9",
+      "history": "История",
+      "focusAddressBar": "Фокус на адресной строке",
+      "reload": "Обновить",
+      "back": "Назад",
+      "forward": "Вперёд",
+      "stopLoading": "Остановить загрузку",
+      "zoomIn": "Увеличить",
+      "zoomOut": "Уменьшить",
+      "resetZoom": "Сбросить масштаб",
+      "devTools": "Инструменты разработчика"
+    }
+  }
+}

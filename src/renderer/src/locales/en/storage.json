@@ -1,0 +1,7 @@
+{
+  "title": "TON Storage",
+  "description": "Manage TON Storage bags",
+  "addBag": "Add Bag",
+  "invalidBagId": "Invalid Bag ID",
+  "noBags": "No bags added yet"
+}

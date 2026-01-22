@@ -1,0 +1,24 @@
+{
+  "addressBar": {
+    "placeholder": "Enter .ton address...",
+    "ariaLabel": "Enter URL or TON address",
+    "addBookmarkAria": "Add to bookmarks",
+    "removeBookmarkAria": "Remove from bookmarks",
+    "addBookmarkTitle": "Add bookmark",
+    "removeBookmarkTitle": "Remove bookmark"
+  },
+  "navigation": {
+    "back": "Back",
+    "forward": "Forward",
+    "home": "Home",
+    "reload": "Reload",
+    "stop": "Stop loading"
+  },
+  "tabs": {
+    "newTab": "New Tab",
+    "closeTab": "Close tab"
+  },
+  "bookmarksBar": {
+    "title": "Bookmarks"
+  }
+}

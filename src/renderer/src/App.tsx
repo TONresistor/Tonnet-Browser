@@ -25,11 +25,12 @@ import Lottie from 'lottie-react'
 import loadingAnimation from '@/assets/loading.json'
 import loadingYellowAnimation from '@/assets/loading-yellow.json'
 import { Button } from '@/components/ui/button'
+import i18n from '@/i18n'
 
 function App() {
   const { currentUrl, proxyConnected } = useSettingsStore()
   const { activeTabId, updateTab, openOrSwitchToTab, ensureDefaultTab } = useTabsStore()
-  const { showBookmarksBar, showStatusBar, theme } = usePreferences()
+  const { showBookmarksBar, showStatusBar, theme, language } = usePreferences()
   const customThemes = useThemeStore((state) => state.customThemes)
 
   // Load preferences from main process on startup
@@ -37,6 +38,13 @@ function App() {
     usePreferencesStore.getState().loadFromMain()
     useThemeStore.getState().loadFromSettings()
   }, [])
+
+  // Update i18n language when preference changes
+  useEffect(() => {
+    if (language && i18n.language !== language) {
+      i18n.changeLanguage(language)
+    }
+  }, [language])
 
   // Apply theme to document
   useEffect(() => {

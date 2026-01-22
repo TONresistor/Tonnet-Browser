@@ -12,21 +12,23 @@ import loadingAnimation from '@/assets/loading.json'
 import loadingYellowAnimation from '@/assets/loading-yellow.json'
 import { APP_VERSION } from '@shared/constants'
 import { usePreferences } from '@/stores/preferences'
-
-const CONNECTION_STEPS = [
-  'Starting proxy...',
-  'Loading configuration...',
-  'Syncing with DHT...',
-  'Connecting to network...',
-  'Ready!'
-]
+import { useTranslation } from 'react-i18next'
 
 export function LandingPage() {
+  const { t } = useTranslation('landing')
   const { isConnecting, error, connect } = useProxy()
   const [currentStep, setCurrentStep] = useState(-1)
   const [stepMessage, setStepMessage] = useState('')
   const { theme } = usePreferences()
   const isYellow = theme === 'utya-duck'
+
+  const CONNECTION_STEPS = [
+    t('connectionSteps.startingProxy'),
+    t('connectionSteps.loadingConfig'),
+    t('connectionSteps.syncingDHT'),
+    t('connectionSteps.connectingNetwork'),
+    t('connectionSteps.ready'),
+  ]
 
   const currentWelcomeAnimation = isYellow ? welcomeYellowAnimation : welcomeAnimation
   const currentLoadingAnimation = isYellow ? loadingYellowAnimation : loadingAnimation
@@ -64,9 +66,9 @@ export function LandingPage() {
         autoplay
       />
 
-      <h1 className="text-[42px] font-bold text-foreground mb-3">TON Browser</h1>
+      <h1 className="text-[42px] font-bold text-foreground mb-3">{t('title')}</h1>
 
-      <p className="text-muted-foreground text-xl mb-8">Explore the decentralized TON Network.</p>
+      <p className="text-muted-foreground text-xl mb-8">{t('subtitle')}</p>
 
       {/* Connect Button */}
       <button
@@ -80,10 +82,10 @@ export function LandingPage() {
         {isConnecting ? (
           <div className="flex items-center justify-center gap-3">
             <div className="w-6 h-6 border-2 border-primary-foreground/20 border-t-primary-foreground rounded-full animate-spin" />
-            <span>{stepMessage || 'Connecting...'}</span>
+            <span>{stepMessage || t('../common:buttons.connecting')}</span>
           </div>
         ) : (
-          'Connect to TON Network'
+          t('../common:buttons.connect')
         )}
       </button>
 
@@ -105,8 +107,8 @@ export function LandingPage() {
 
       {/* Footer - hide when connecting */}
       <div className={`absolute bottom-8 text-center transition-opacity duration-300 ${isConnecting ? 'opacity-0' : 'opacity-100'}`}>
-        <p className="text-muted-foreground text-sm">Peer-to-peer - Censorship Resistant - No Tracking</p>
-        <p className="text-muted-foreground/50 text-xs mt-1">v{APP_VERSION}</p>
+        <p className="text-muted-foreground text-sm">{t('footer.peerToPeer')}</p>
+        <p className="text-muted-foreground/50 text-xs mt-1">{t('footer.version', { version: APP_VERSION })}</p>
       </div>
     </div>
   )

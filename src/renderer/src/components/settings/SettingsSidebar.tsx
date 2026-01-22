@@ -6,6 +6,7 @@ import { Settings } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { SECTIONS } from './constants'
 import type { SettingsSection } from './types'
+import { useTranslation } from 'react-i18next'
 
 interface SettingsSidebarProps {
   activeSection: SettingsSection
@@ -13,11 +14,19 @@ interface SettingsSidebarProps {
 }
 
 export function SettingsSidebar({ activeSection, onSectionChange }: SettingsSidebarProps) {
+  const { t } = useTranslation('settings')
+
+  const getSectionLabel = (sectionId: string): string => {
+    // Convert kebab-case to camelCase (e.g. 'content-filtering' -> 'contentFiltering')
+    const sectionKey = sectionId.replace(/-([a-z])/g, (g) => g[1].toUpperCase())
+    return t(`sections.${sectionKey}`)
+  }
+
   return (
     <div className="w-56 border-r border-border p-4 flex flex-col">
       <div className="flex items-center gap-2 mb-6">
         <Settings className="h-6 w-6 text-primary" />
-        <h2 className="text-foreground text-xl font-bold">Settings</h2>
+        <h2 className="text-foreground text-xl font-bold">{t('title')}</h2>
       </div>
 
       <nav className="space-y-2">
@@ -36,7 +45,7 @@ export function SettingsSidebar({ activeSection, onSectionChange }: SettingsSide
               )}
             >
               <Icon className={cn('h-4 w-4', !isActive && 'text-muted-foreground')} />
-              <span className={!isActive ? 'text-muted-foreground' : ''}>{section.label}</span>
+              <span className={!isActive ? 'text-muted-foreground' : ''}>{getSectionLabel(section.id)}</span>
             </button>
           )
         })}
