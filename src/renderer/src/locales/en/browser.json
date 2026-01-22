@@ -12,13 +12,41 @@
     "forward": "Forward",
     "home": "Home",
     "reload": "Reload",
-    "stop": "Stop loading"
+    "stop": "Stop loading",
+    "pageNavigation": "Page navigation",
+    "goBackAria": "Go back to previous page",
+    "goForwardAria": "Go forward to next page",
+    "stopLoadingAria": "Stop loading page",
+    "reloadAria": "Reload current page",
+    "goHomeAria": "Go to homepage"
   },
   "tabs": {
     "newTab": "New Tab",
-    "closeTab": "Close tab"
+    "closeTab": "Close tab",
+    "browserTabs": "Browser tabs",
+    "openNewTab": "Open new tab",
+    "duplicateTab": "Duplicate Tab",
+    "closeOtherTabs": "Close Other Tabs",
+    "pickedUp": "Picked up tab: {{title}}",
+    "dragOver": "Tab {{activeTitle}} is over {{overTitle}}",
+    "reordered": "Tab {{title}} reordered",
+    "dragCancelled": "Dragging cancelled",
+    "dragCancelledFull": "Dragging cancelled. Tab {{title}} returned to original position."
   },
   "bookmarksBar": {
     "title": "Bookmarks"
+  },
+  "statusBar": {
+    "connected": "Connected to TON Network",
+    "disconnected": "Disconnected",
+    "syncing": "Syncing...",
+    "syncingMultiHop": "Syncing with multi-hop circuit...",
+    "garlicRouting": "Garlic Routing (3-hop)",
+    "buildingCircuit": "Building circuit...",
+    "storage": "Storage:",
+    "bag": "bag",
+    "bags": "bags",
+    "session": "Session:",
+    "networkStatus": "Network status: {{status}}"
   }
 }

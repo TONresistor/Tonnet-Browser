@@ -12,12 +12,14 @@ import landingEn from './locales/en/landing.json'
 import browserEn from './locales/en/browser.json'
 import settingsEn from './locales/en/settings.json'
 import storageEn from './locales/en/storage.json'
+import pagesEn from './locales/en/pages.json'
 
 import commonRu from './locales/ru/common.json'
 import landingRu from './locales/ru/landing.json'
 import browserRu from './locales/ru/browser.json'
 import settingsRu from './locales/ru/settings.json'
 import storageRu from './locales/ru/storage.json'
+import pagesRu from './locales/ru/pages.json'
 
 // Initialize i18next
 i18n
@@ -30,6 +32,7 @@ i18n
         browser: browserEn,
         settings: settingsEn,
         storage: storageEn,
+        pages: pagesEn,
       },
       ru: {
         common: commonRu,
@@ -37,12 +40,13 @@ i18n
         browser: browserRu,
         settings: settingsRu,
         storage: storageRu,
+        pages: pagesRu,
       },
     },
     lng: 'en', // Default language (will be overridden by settings)
     fallbackLng: 'en',
     defaultNS: 'common',
-    ns: ['common', 'landing', 'browser', 'settings', 'storage'],
+    ns: ['common', 'landing', 'browser', 'settings', 'storage', 'pages'],
     interpolation: {
       escapeValue: false, // React already escapes
     },

@@ -8,6 +8,7 @@ import { Wifi, WifiOff, Loader2, ArrowDown, ArrowUp, Zap } from 'lucide-react'
 import { useSettingsStore } from '@/stores/settings'
 import { APP_VERSION } from '@shared/constants'
 import type { StorageBag } from '@shared/types'
+import { useTranslation } from 'react-i18next'
 
 function formatSpeed(bytesPerSecond: number): string {
   if (bytesPerSecond === 0) return '0 B/s'
@@ -35,6 +36,7 @@ function Separator() {
 }
 
 export function StatusBar() {
+  const { t } = useTranslation('browser')
   const { proxyConnected, proxySyncing, anonymousMode, circuitRelays, storageStats, setProxyStatus, setStorageStats } = useSettingsStore()
   const [currentTime, setCurrentTime] = useState(new Date())
   const [bandwidth, setBandwidth] = useState({ down: 0, up: 0 })
@@ -112,7 +114,7 @@ export function StatusBar() {
       return (
         <>
           <Wifi className="h-3 w-3 text-success" aria-hidden="true" />
-          <span className="text-success">Connected to TON Network</span>
+          <span className="text-success">{t('statusBar.connected')}</span>
         </>
       )
     }
@@ -121,7 +123,7 @@ export function StatusBar() {
         <>
           <Loader2 className="h-3 w-3 text-warning animate-spin" aria-hidden="true" />
           <span className="text-warning">
-            {anonymousMode ? 'Syncing with multi-hop circuit...' : 'Syncing...'}
+            {anonymousMode ? t('statusBar.syncingMultiHop') : t('statusBar.syncing')}
           </span>
         </>
       )
@@ -129,7 +131,7 @@ export function StatusBar() {
     return (
       <>
         <WifiOff className="h-3 w-3 text-destructive" aria-hidden="true" />
-        <span className="text-destructive">Disconnected</span>
+        <span className="text-destructive">{t('statusBar.disconnected')}</span>
       </>
     )
   }
@@ -141,18 +143,18 @@ export function StatusBar() {
 
     return (
       <span className="text-primary">
-        {isReady ? 'Garlic Routing (3-hop)' : 'Building circuit...'}
+        {isReady ? t('statusBar.garlicRouting') : t('statusBar.buildingCircuit')}
       </span>
     )
   }
 
-  const statusText = proxyConnected ? 'Connected' : proxySyncing ? 'Syncing' : 'Disconnected'
+  const statusText = proxyConnected ? t('statusBar.connected') : proxySyncing ? t('statusBar.syncing') : t('statusBar.disconnected')
 
   return (
     <footer className="flex items-center justify-between px-3 py-1 bg-background-secondary border-t border-border text-xs text-muted-foreground" role="contentinfo">
       <div className="flex items-center gap-3">
         {/* Network Status */}
-        <div className="flex items-center gap-1.5" role="status" aria-live="polite" aria-label={`Network status: ${statusText}`}>
+        <div className="flex items-center gap-1.5" role="status" aria-live="polite" aria-label={t('statusBar.networkStatus', { status: statusText })}>
           {getNetworkStatus()}
         </div>
 
@@ -168,9 +170,9 @@ export function StatusBar() {
 
         {/* Storage Bags */}
         <Separator />
-        <div className="flex items-center gap-1.5 text-muted-foreground" aria-label={`${storageStats.bagsCount} storage bags`}>
-          <span>Storage:</span>
-          <span>{storageStats.bagsCount} bag{storageStats.bagsCount !== 1 ? 's' : ''}</span>
+        <div className="flex items-center gap-1.5 text-muted-foreground" aria-label={`${storageStats.bagsCount} ${storageStats.bagsCount === 1 ? t('statusBar.bag') : t('statusBar.bags')}`}>
+          <span>{t('statusBar.storage')}</span>
+          <span>{storageStats.bagsCount} {storageStats.bagsCount === 1 ? t('statusBar.bag') : t('statusBar.bags')}</span>
         </div>
 
         {/* Transfer Speeds */}
@@ -204,7 +206,7 @@ export function StatusBar() {
           <>
             <Separator />
             <div className="flex items-center gap-1.5">
-              <span className="text-muted-foreground">Session:</span>
+              <span className="text-muted-foreground">{t('statusBar.session')}</span>
               <ArrowDown className="h-3 w-3 text-info" aria-hidden="true" />
               <span>{formatBytes(bandwidth.down)}</span>
               <ArrowUp className="h-3 w-3 text-success" aria-hidden="true" />

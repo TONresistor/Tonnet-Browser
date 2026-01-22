@@ -10,8 +10,10 @@ import explorerYellowAnimation from '@/assets/explorer-yellow.json'
 import tonIcon from '@/assets/ton.png'
 import { APP_VERSION } from '@shared/constants'
 import { usePreferences } from '@/stores/preferences'
+import { useTranslation } from 'react-i18next'
 
 export function StartPage() {
+  const { t } = useTranslation('pages')
   const [searchInput, setSearchInput] = useState('')
   const { theme } = usePreferences()
   const currentExplorerAnimation = theme === 'utya-duck' ? explorerYellowAnimation : explorerAnimation
@@ -40,7 +42,7 @@ export function StartPage() {
     <div className="relative flex flex-col items-center justify-center h-full w-full bg-background-secondary">
       <Lottie animationData={currentExplorerAnimation} className="w-[200px] h-[200px] mb-8" loop autoplay />
 
-      <p className="text-muted-foreground text-xl mb-8">Explore the decentralized TON Network. Privately.</p>
+      <p className="text-muted-foreground text-xl mb-8">{t('start.subtitle')}</p>
 
       <form onSubmit={handleSearch} className="w-full max-w-[700px] px-5">
         <div
@@ -57,7 +59,7 @@ export function StartPage() {
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             className="flex-1 bg-transparent border-none text-foreground text-lg py-4 pr-5 outline-none placeholder:text-muted-foreground/50"
-            placeholder="Enter a .ton address"
+            placeholder={t('start.searchPlaceholder')}
             autoFocus
           />
           <button
@@ -67,7 +69,7 @@ export function StartPage() {
               boxShadow: '0 4px 16px rgba(0, 136, 204, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2)',
             }}
           >
-            Go
+            {t('start.searchButton')}
           </button>
         </div>
       </form>

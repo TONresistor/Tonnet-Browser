@@ -12,13 +12,41 @@
     "forward": "Вперёд",
     "home": "Домой",
     "reload": "Обновить",
-    "stop": "Остановить загрузку"
+    "stop": "Остановить загрузку",
+    "pageNavigation": "Навигация по страницам",
+    "goBackAria": "Вернуться на предыдущую страницу",
+    "goForwardAria": "Перейти на следующую страницу",
+    "stopLoadingAria": "Остановить загрузку страницы",
+    "reloadAria": "Обновить текущую страницу",
+    "goHomeAria": "Перейти на домашнюю страницу"
   },
   "tabs": {
     "newTab": "Новая вкладка",
-    "closeTab": "Закрыть вкладку"
+    "closeTab": "Закрыть вкладку",
+    "browserTabs": "Вкладки браузера",
+    "openNewTab": "Открыть новую вкладку",
+    "duplicateTab": "Дублировать вкладку",
+    "closeOtherTabs": "Закрыть другие вкладки",
+    "pickedUp": "Взята вкладка: {{title}}",
+    "dragOver": "Вкладка {{activeTitle}} над {{overTitle}}",
+    "reordered": "Вкладка {{title}} перемещена",
+    "dragCancelled": "Перемещение отменено",
+    "dragCancelledFull": "Перемещение отменено. Вкладка {{title}} возвращена на исходное место."
   },
   "bookmarksBar": {
     "title": "Закладки"
+  },
+  "statusBar": {
+    "connected": "Подключено к сети TON",
+    "disconnected": "Отключено",
+    "syncing": "Синхронизация...",
+    "syncingMultiHop": "Синхронизация с многоузловым контуром...",
+    "garlicRouting": "Garlic Routing (3 узла)",
+    "buildingCircuit": "Создание контура...",
+    "storage": "Хранилище:",
+    "bag": "пакет",
+    "bags": "пакетов",
+    "session": "Сессия:",
+    "networkStatus": "Статус сети: {{status}}"
   }
 }

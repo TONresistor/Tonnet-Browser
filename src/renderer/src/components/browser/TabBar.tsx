@@ -23,6 +23,7 @@ import {
 import { Plus, Globe } from 'lucide-react'
 import { useTabs } from '@/hooks/useTabs'
 import { SortableTab } from './SortableTab'
+import { useTranslation } from 'react-i18next'
 
 interface ContextMenuState {
   tabId: string
@@ -31,6 +32,7 @@ interface ContextMenuState {
 }
 
 export function TabBar() {
+  const { t } = useTranslation('browser')
   const { tabs, activeTabId, addTab, closeTab, setActiveTab, duplicateTab, closeOtherTabs, reorderTabs } = useTabs()
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
   const [activeId, setActiveId] = useState<string | null>(null)
@@ -135,7 +137,7 @@ export function TabBar() {
   )
 
   return (
-    <div className="flex items-center gap-1.5 px-2 py-1.5" role="tablist" aria-label="Browser tabs">
+    <div className="flex items-center gap-1.5 px-2 py-1.5" role="tablist" aria-label={t('tabs.browserTabs')}>
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
@@ -145,22 +147,22 @@ export function TabBar() {
           announcements: {
             onDragStart({ active }) {
               const tab = tabs.find((t) => t.id === active.id)
-              return `Picked up tab: ${tab?.title || 'New Tab'}`
+              return t('tabs.pickedUp', { title: tab?.title || t('tabs.newTab') })
             },
             onDragOver({ active, over }) {
               if (!over) return ''
               const activeTab = tabs.find((t) => t.id === active.id)
               const overTab = tabs.find((t) => t.id === over.id)
-              return `Tab ${activeTab?.title} is over ${overTab?.title}`
+              return t('tabs.dragOver', { activeTitle: activeTab?.title, overTitle: overTab?.title })
             },
             onDragEnd({ active, over }) {
-              if (!over) return 'Dragging cancelled'
+              if (!over) return t('tabs.dragCancelled')
               const tab = tabs.find((t) => t.id === active.id)
-              return `Tab ${tab?.title} reordered`
+              return t('tabs.reordered', { title: tab?.title })
             },
             onDragCancel({ active }) {
               const tab = tabs.find((t) => t.id === active.id)
-              return `Dragging cancelled. Tab ${tab?.title} returned to original position.`
+              return t('tabs.dragCancelledFull', { title: tab?.title })
             },
           },
         }}
@@ -194,7 +196,7 @@ export function TabBar() {
                   ) : (
                     <Globe className="w-5 h-5 flex-shrink-0" />
                   )}
-                  <span className="truncate">{activeTab.title || 'New Tab'}</span>
+                  <span className="truncate">{activeTab.title || t('tabs.newTab')}</span>
                 </div>
               ) : null
             })()}
@@ -204,8 +206,8 @@ export function TabBar() {
       <button
         className="h-7 w-7 rounded-full no-drag flex items-center justify-center transition-all duration-200 bg-surface text-foreground-muted hover:bg-surface-active hover:text-foreground"
         onClick={() => addTab()}
-        title="New Tab"
-        aria-label="Open new tab"
+        title={t('tabs.newTab')}
+        aria-label={t('tabs.openNewTab')}
       >
         <Plus className="h-4 w-4" />
       </button>
@@ -224,7 +226,7 @@ export function TabBar() {
             className="w-full px-3 py-1.5 text-left text-sm transition-colors text-foreground-secondary hover:bg-surface-hover hover:text-foreground"
             onClick={() => handleMenuAction('duplicate')}
           >
-            Duplicate Tab
+            {t('tabs.duplicateTab')}
           </button>
           <div className="my-1 mx-2 border-t border-surface-hover" />
           <button
@@ -232,13 +234,13 @@ export function TabBar() {
             onClick={() => handleMenuAction('closeOthers')}
             disabled={tabs.length <= 1}
           >
-            Close Other Tabs
+            {t('tabs.closeOtherTabs')}
           </button>
           <button
             className="w-full px-3 py-1.5 text-left text-sm transition-colors text-destructive hover:bg-destructive/15"
             onClick={() => handleMenuAction('close')}
           >
-            Close Tab
+            {t('tabs.closeTab')}
           </button>
         </div>
       )}
