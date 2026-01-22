@@ -1,25 +1,36 @@
 {
-  "appName": "TON Браузер",
+  "appName": "Tonnet",
   "buttons": {
     "connect": "Подключиться к сети TON",
+    "disconnect": "Отключиться",
     "connecting": "Подключение...",
-    "create": "Создать",
-    "import": "Импорт",
-    "export": "Экспорт",
-    "delete": "Удалить",
-    "save": "Сохранить",
     "cancel": "Отмена",
+    "save": "Сохранить",
+    "delete": "Удалить",
+    "edit": "Редактировать",
     "close": "Закрыть",
-    "ok": "ОК"
-  },
-  "actions": {
-    "addBookmark": "Добавить закладку",
-    "removeBookmark": "Удалить закладку",
-    "newTab": "Новая вкладка"
+    "back": "Назад",
+    "next": "Далее",
+    "done": "Готово",
+    "retry": "Повторить",
+    "ok": "ОК",
+    "create": "Создать",
+    "import": "Импортировать",
+    "export": "Экспортировать"
   },
   "status": {
-    "peerToPeer": "Peer-to-peer",
-    "censorshipResistant": "Устойчивость к цензуре",
-    "noTracking": "Без отслеживания"
+    "connected": "Подключено",
+    "disconnected": "Отключено",
+    "connecting": "Подключение",
+    "error": "Ошибка",
+    "syncing": "Синхронизация",
+    "synced": "Синхронизировано"
+  },
+  "errors": {
+    "generic": "Произошла ошибка",
+    "network": "Ошибка сети",
+    "timeout": "Превышено время ожидания",
+    "notFound": "Не найдено",
+    "unauthorized": "Не авторизовано"
   }
 }

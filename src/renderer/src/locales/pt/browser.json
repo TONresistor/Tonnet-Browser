@@ -1,0 +1,52 @@
+{
+  "addressBar": {
+    "placeholder": "Digite o endereço .ton...",
+    "ariaLabel": "Digite URL ou endereço TON",
+    "addBookmarkAria": "Adicionar aos favoritos",
+    "removeBookmarkAria": "Remover dos favoritos",
+    "addBookmarkTitle": "Adicionar favorito",
+    "removeBookmarkTitle": "Remover favorito"
+  },
+  "navigation": {
+    "back": "Voltar",
+    "forward": "Avançar",
+    "home": "Início",
+    "reload": "Recarregar",
+    "stop": "Parar carregamento",
+    "pageNavigation": "Navegação de página",
+    "goBackAria": "Voltar para a página anterior",
+    "goForwardAria": "Avançar para a próxima página",
+    "stopLoadingAria": "Parar o carregamento da página",
+    "reloadAria": "Recarregar página atual",
+    "goHomeAria": "Ir para a página inicial"
+  },
+  "tabs": {
+    "newTab": "Nova Aba",
+    "closeTab": "Fechar aba",
+    "browserTabs": "Abas do navegador",
+    "openNewTab": "Abrir nova aba",
+    "duplicateTab": "Duplicar Aba",
+    "closeOtherTabs": "Fechar Outras Abas",
+    "pickedUp": "Aba selecionada: {{title}}",
+    "dragOver": "Aba {{activeTitle}} está sobre {{overTitle}}",
+    "reordered": "Aba {{title}} reordenada",
+    "dragCancelled": "Arrasto cancelado",
+    "dragCancelledFull": "Arrasto cancelado. Aba {{title}} retornou à posição original."
+  },
+  "bookmarksBar": {
+    "title": "Favoritos"
+  },
+  "statusBar": {
+    "connected": "Conectado à Rede TON",
+    "disconnected": "Desconectado",
+    "syncing": "Sincronizando...",
+    "syncingMultiHop": "Sincronizando com circuito multi-hop...",
+    "garlicRouting": "Roteamento Garlic (3 saltos)",
+    "buildingCircuit": "Construindo circuito...",
+    "storage": "Armazenamento:",
+    "bag": "bolsa",
+    "bags": "bolsas",
+    "session": "Sessão:",
+    "networkStatus": "Status da rede: {{status}}"
+  }
+}

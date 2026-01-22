@@ -1,0 +1,52 @@
+{
+  "addressBar": {
+    "placeholder": "Ingrese dirección .ton...",
+    "ariaLabel": "Ingrese URL o dirección TON",
+    "addBookmarkAria": "Agregar a marcadores",
+    "removeBookmarkAria": "Eliminar de marcadores",
+    "addBookmarkTitle": "Agregar marcador",
+    "removeBookmarkTitle": "Eliminar marcador"
+  },
+  "navigation": {
+    "back": "Atrás",
+    "forward": "Adelante",
+    "home": "Inicio",
+    "reload": "Recargar",
+    "stop": "Detener carga",
+    "pageNavigation": "Navegación de página",
+    "goBackAria": "Volver a la página anterior",
+    "goForwardAria": "Avanzar a la página siguiente",
+    "stopLoadingAria": "Detener la carga de la página",
+    "reloadAria": "Recargar página actual",
+    "goHomeAria": "Ir a la página de inicio"
+  },
+  "tabs": {
+    "newTab": "Nueva Pestaña",
+    "closeTab": "Cerrar pestaña",
+    "browserTabs": "Pestañas del navegador",
+    "openNewTab": "Abrir nueva pestaña",
+    "duplicateTab": "Duplicar Pestaña",
+    "closeOtherTabs": "Cerrar Otras Pestañas",
+    "pickedUp": "Pestaña seleccionada: {{title}}",
+    "dragOver": "La pestaña {{activeTitle}} está sobre {{overTitle}}",
+    "reordered": "Pestaña {{title}} reordenada",
+    "dragCancelled": "Arrastre cancelado",
+    "dragCancelledFull": "Arrastre cancelado. La pestaña {{title}} volvió a su posición original."
+  },
+  "bookmarksBar": {
+    "title": "Marcadores"
+  },
+  "statusBar": {
+    "connected": "Conectado a la Red TON",
+    "disconnected": "Desconectado",
+    "syncing": "Sincronizando...",
+    "syncingMultiHop": "Sincronizando con circuito multi-salto...",
+    "garlicRouting": "Enrutamiento Garlic (3 saltos)",
+    "buildingCircuit": "Construyendo circuito...",
+    "storage": "Almacenamiento:",
+    "bag": "bolsa",
+    "bags": "bolsas",
+    "session": "Sesión:",
+    "networkStatus": "Estado de la red: {{status}}"
+  }
+}

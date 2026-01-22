@@ -1,0 +1,138 @@
+{
+  "start": {
+    "title": "ยินดีต้อนรับสู่ Tonnet",
+    "subtitle": "ประตูสู่เว็บแบบกระจายอำนาจ",
+    "searchPlaceholder": "ค้นหาหรือป้อนที่อยู่ .ton",
+    "searchButton": "ไป",
+    "quickLinks": "ลิงก์ด่วน",
+    "recentlyVisited": "เข้าชมเมื่อเร็วๆ นี้",
+    "noRecent": "ยังไม่มีเว็บไซต์ที่เข้าชมเมื่อเร็วๆ นี้"
+  },
+  "storage": {
+    "title": "พื้นที่จัดเก็บ TON",
+    "description": "การจัดเก็บและดึงข้อมูลไฟล์แบบกระจายอำนาจ",
+    "tabs": {
+      "active": "ใช้งานอยู่",
+      "completed": "เสร็จสิ้น",
+      "info": "ข้อมูล"
+    },
+    "filters": {
+      "all": "ทั้งหมด",
+      "downloading": "กำลังดาวน์โหลด",
+      "seeding": "กำลังแชร์",
+      "paused": "หยุดชั่วคราว"
+    },
+    "actions": {
+      "addTorrent": "เพิ่มทอร์เรนต์",
+      "pause": "หยุดชั่วคราว",
+      "resume": "ดำเนินการต่อ",
+      "remove": "ลบ",
+      "openFolder": "เปิดโฟลเดอร์",
+      "copyBagId": "คัดลอกรหัส Bag",
+      "details": "รายละเอียด"
+    },
+    "table": {
+      "name": "ชื่อ",
+      "size": "ขนาด",
+      "progress": "ความคืบหน้า",
+      "download": "ดาวน์โหลด",
+      "upload": "อัปโหลด",
+      "peers": "เพียร์",
+      "status": "สถานะ",
+      "added": "เพิ่มแล้ว"
+    },
+    "status": {
+      "downloading": "กำลังดาวน์โหลด",
+      "seeding": "กำลังแชร์",
+      "paused": "หยุดชั่วคราว",
+      "completed": "เสร็จสิ้น",
+      "error": "ข้อผิดพลาด",
+      "checking": "กำลังตรวจสอบ",
+      "queued": "อยู่ในคิว"
+    },
+    "addModal": {
+      "title": "เพิ่มทอร์เรนต์พื้นที่จัดเก็บ TON",
+      "bagIdLabel": "รหัส Bag",
+      "bagIdPlaceholder": "ป้อนรหัส Bag หรือลากไฟล์ทอร์เรนต์...",
+      "downloadPathLabel": "เส้นทางดาวน์โหลด",
+      "autoStartLabel": "เริ่มดาวน์โหลดอัตโนมัติ",
+      "cancel": "ยกเลิก",
+      "add": "เพิ่ม",
+      "browse": "เรียกดู"
+    },
+    "info": {
+      "title": "สถิติพื้นที่จัดเก็บ",
+      "totalDownload": "ดาวน์โหลดทั้งหมด",
+      "totalUpload": "อัปโหลดทั้งหมด",
+      "activeTorrents": "ทอร์เรนต์ที่ใช้งานอยู่",
+      "downloadSpeed": "ความเร็วดาวน์โหลด",
+      "uploadSpeed": "ความเร็วอัปโหลด",
+      "ratio": "อัตราส่วน",
+      "connectedPeers": "เพียร์ที่เชื่อมต่อ",
+      "diskSpace": "พื้นที่ดิสก์"
+    },
+    "empty": {
+      "title": "ไม่มีการดาวน์โหลดที่ใช้งานอยู่",
+      "description": "เพิ่มเนื้อหาโดยรหัส Bag หรือไฟล์ทอร์เรนต์เพื่อเริ่มต้น",
+      "action": "เพิ่มทอร์เรนต์"
+    },
+    "errors": {
+      "invalidBagId": "รหัส Bag ไม่ถูกต้อง",
+      "downloadFailed": "ดาวน์โหลดล้มเหลว",
+      "addFailed": "เพิ่มทอร์เรนต์ล้มเหลว",
+      "removeFailed": "ลบล้มเหลว",
+      "noSpace": "พื้นที่ดิสก์ไม่เพียงพอ"
+    }
+  },
+  "history": {
+    "title": "ประวัติการท่องเว็บ",
+    "description": "ประวัติการท่องเว็บและบันทึกการเข้าชมของคุณ",
+    "search": "ค้นหาประวัติ...",
+    "filters": {
+      "all": "ทั้งหมด",
+      "today": "วันนี้",
+      "yesterday": "เมื่อวาน",
+      "thisWeek": "สัปดาห์นี้",
+      "thisMonth": "เดือนนี้",
+      "older": "เก่ากว่า"
+    },
+    "actions": {
+      "clearAll": "ล้างประวัติทั้งหมด",
+      "clearToday": "ล้างวันนี้",
+      "clearSelected": "ล้างที่เลือก",
+      "export": "ส่งออกประวัติ"
+    },
+    "table": {
+      "title": "ชื่อ",
+      "url": "URL",
+      "visits": "การเข้าชม",
+      "lastVisit": "เข้าชมล่าสุด"
+    },
+    "empty": {
+      "title": "ไม่มีประวัติ",
+      "description": "เว็บไซต์ที่คุณเข้าชมจะปรากฏที่นี่",
+      "allCleared": "ประวัติทั้งหมดถูกล้างแล้ว"
+    },
+    "clearConfirm": {
+      "title": "ล้างประวัติหรือไม่",
+      "message": "การกระทำนี้ไม่สามารถยกเลิกได้",
+      "clearAll": "การดำเนินการนี้จะลบประวัติการท่องเว็บทั้งหมดของคุณ",
+      "clearSelected": "การดำเนินการนี้จะลบ {{count}} รายการที่เลือก",
+      "cancel": "ยกเลิก",
+      "confirm": "ล้าง"
+    },
+    "stats": {
+      "totalVisits": "การเข้าชมทั้งหมด",
+      "uniqueSites": "เว็บไซต์ที่ไม่ซ้ำ",
+      "todayVisits": "การเข้าชมวันนี้",
+      "averageDaily": "เฉลี่ยต่อวัน"
+    },
+    "timeFormat": {
+      "justNow": "เมื่อสักครู่",
+      "minutesAgo": "{{count}} นาทีที่แล้ว",
+      "hoursAgo": "{{count}} ชั่วโมงที่แล้ว",
+      "yesterday": "เมื่อวาน",
+      "daysAgo": "{{count}} วันที่แล้ว"
+    }
+  }
+}

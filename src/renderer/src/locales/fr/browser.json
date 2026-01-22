@@ -1,0 +1,52 @@
+{
+  "addressBar": {
+    "placeholder": "Entrez l'adresse .ton...",
+    "ariaLabel": "Entrez l'URL ou l'adresse TON",
+    "addBookmarkAria": "Ajouter aux favoris",
+    "removeBookmarkAria": "Retirer des favoris",
+    "addBookmarkTitle": "Ajouter un favori",
+    "removeBookmarkTitle": "Retirer le favori"
+  },
+  "navigation": {
+    "back": "Précédent",
+    "forward": "Suivant",
+    "home": "Accueil",
+    "reload": "Actualiser",
+    "stop": "Arrêter le chargement",
+    "pageNavigation": "Navigation de la page",
+    "goBackAria": "Revenir à la page précédente",
+    "goForwardAria": "Aller à la page suivante",
+    "stopLoadingAria": "Arrêter le chargement de la page",
+    "reloadAria": "Actualiser la page actuelle",
+    "goHomeAria": "Aller à la page d'accueil"
+  },
+  "tabs": {
+    "newTab": "Nouvel Onglet",
+    "closeTab": "Fermer l'onglet",
+    "browserTabs": "Onglets du navigateur",
+    "openNewTab": "Ouvrir un nouvel onglet",
+    "duplicateTab": "Dupliquer l'Onglet",
+    "closeOtherTabs": "Fermer les Autres Onglets",
+    "pickedUp": "Onglet sélectionné : {{title}}",
+    "dragOver": "L'onglet {{activeTitle}} est au-dessus de {{overTitle}}",
+    "reordered": "Onglet {{title}} réorganisé",
+    "dragCancelled": "Glissement annulé",
+    "dragCancelledFull": "Glissement annulé. L'onglet {{title}} est revenu à sa position d'origine."
+  },
+  "bookmarksBar": {
+    "title": "Favoris"
+  },
+  "statusBar": {
+    "connected": "Connecté au Réseau TON",
+    "disconnected": "Déconnecté",
+    "syncing": "Synchronisation...",
+    "syncingMultiHop": "Synchronisation avec circuit multi-sauts...",
+    "garlicRouting": "Routage Garlic (3 sauts)",
+    "buildingCircuit": "Construction du circuit...",
+    "storage": "Stockage :",
+    "bag": "sac",
+    "bags": "sacs",
+    "session": "Session :",
+    "networkStatus": "État du réseau : {{status}}"
+  }
+}

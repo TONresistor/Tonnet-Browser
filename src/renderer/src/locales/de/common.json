@@ -1,0 +1,36 @@
+{
+  "appName": "Tonnet",
+  "buttons": {
+    "connect": "Mit TON-Netzwerk verbinden",
+    "disconnect": "Trennen",
+    "connecting": "Verbindung wird hergestellt...",
+    "cancel": "Abbrechen",
+    "save": "Speichern",
+    "delete": "Löschen",
+    "edit": "Bearbeiten",
+    "close": "Schließen",
+    "back": "Zurück",
+    "next": "Weiter",
+    "done": "Fertig",
+    "retry": "Wiederholen",
+    "ok": "OK",
+    "create": "Erstellen",
+    "import": "Importieren",
+    "export": "Exportieren"
+  },
+  "status": {
+    "connected": "Verbunden",
+    "disconnected": "Getrennt",
+    "connecting": "Verbindung wird hergestellt",
+    "error": "Fehler",
+    "syncing": "Synchronisierung läuft",
+    "synced": "Synchronisiert"
+  },
+  "errors": {
+    "generic": "Ein Fehler ist aufgetreten",
+    "network": "Netzwerkfehler",
+    "timeout": "Zeitüberschreitung",
+    "notFound": "Nicht gefunden",
+    "unauthorized": "Nicht autorisiert"
+  }
+}

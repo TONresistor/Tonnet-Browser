@@ -8,11 +8,13 @@ import { SectionHeader } from '../shared/SectionHeader'
 import { SettingRow } from '../shared/SettingRow'
 import { Toggle } from '../shared/Toggle'
 import type { SectionProps } from '../types'
+import { useTranslation } from 'react-i18next'
 
 export const ContentFilteringSection = memo(function ContentFilteringSection({
   draft,
   setDraft,
 }: SectionProps) {
+  const { t } = useTranslation('settings')
   const [newDomain, setNewDomain] = useState('')
 
   const handleAddDomain = () => {
@@ -37,81 +39,81 @@ export const ContentFilteringSection = memo(function ContentFilteringSection({
   return (
     <div>
       <SectionHeader
-        title="Content Filtering"
-        description="Block ads, trackers, miners, and malicious content on .ton sites"
+        title={t('contentFiltering.title')}
+        description={t('contentFiltering.description')}
       />
       <div className="bg-card rounded-xl border border-border px-4">
         <SettingRow
-          label="Enable content filtering"
-          description="Master toggle for all content filtering categories"
+          label={t('contentFiltering.enableFiltering')}
+          description={t('contentFiltering.enableFilteringDesc')}
         >
           <Toggle
             checked={draft.contentFilteringEnabled}
             onChange={(v) => setDraft('contentFilteringEnabled', v)}
-            label="Enable content filtering"
+            label={t('contentFiltering.enableFilteringLabel')}
           />
         </SettingRow>
 
         {draft.contentFilteringEnabled && (
           <>
             <SettingRow
-              label="Block ads"
-              description="Block advertisement resources and banners"
+              label={t('contentFiltering.blockAds')}
+              description={t('contentFiltering.blockAdsDesc')}
             >
               <Toggle
                 checked={draft.blockAds}
                 onChange={(v) => setDraft('blockAds', v)}
-                label="Block ads"
+                label={t('contentFiltering.blockAdsLabel')}
               />
             </SettingRow>
 
             <SettingRow
-              label="Block trackers"
-              description="Block tracking scripts, analytics, and pixels"
+              label={t('contentFiltering.blockTrackers')}
+              description={t('contentFiltering.blockTrackersDesc')}
             >
               <Toggle
                 checked={draft.blockTrackers}
                 onChange={(v) => setDraft('blockTrackers', v)}
-                label="Block trackers"
+                label={t('contentFiltering.blockTrackersLabel')}
               />
             </SettingRow>
 
             <SettingRow
-              label="Block miners"
-              description="Block cryptocurrency mining scripts"
+              label={t('contentFiltering.blockMiners')}
+              description={t('contentFiltering.blockMinersDesc')}
             >
               <Toggle
                 checked={draft.blockMiners}
                 onChange={(v) => setDraft('blockMiners', v)}
-                label="Block miners"
+                label={t('contentFiltering.blockMinersLabel')}
               />
             </SettingRow>
 
             <SettingRow
-              label="Block malware"
-              description="Block malicious scripts and executables"
+              label={t('contentFiltering.blockMalware')}
+              description={t('contentFiltering.blockMalwareDesc')}
             >
               <Toggle
                 checked={draft.blockMalware}
                 onChange={(v) => setDraft('blockMalware', v)}
-                label="Block malware"
+                label={t('contentFiltering.blockMalwareLabel')}
               />
             </SettingRow>
 
             <SettingRow
-              label="Block annoyances"
-              description="Block intrusive overlays and popups"
+              label={t('contentFiltering.blockAnnoyances')}
+              description={t('contentFiltering.blockAnnoyancesDesc')}
             >
               <Toggle
                 checked={draft.blockAnnoyances}
                 onChange={(v) => setDraft('blockAnnoyances', v)}
-                label="Block annoyances"
+                label={t('contentFiltering.blockAnnoyancesLabel')}
               />
             </SettingRow>
 
             <SettingRow
-              label="Whitelisted domains"
-              description="Domains that bypass all content filtering"
+              label={t('contentFiltering.whitelistedDomains')}
+              description={t('contentFiltering.whitelistedDomainsDesc')}
             >
               <div className="flex flex-col gap-2 w-full max-w-md">
                 <div className="flex gap-2">
@@ -120,7 +122,7 @@ export const ContentFilteringSection = memo(function ContentFilteringSection({
                     value={newDomain}
                     onChange={(e) => setNewDomain(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    placeholder="example.ton"
+                    placeholder={t('contentFiltering.domainPlaceholder')}
                     className="flex-1 px-3 py-1.5 rounded-lg border border-border bg-background text-foreground text-sm"
                   />
                   <button
@@ -129,7 +131,7 @@ export const ContentFilteringSection = memo(function ContentFilteringSection({
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed bg-primary text-primary-foreground hover:bg-primary/90"
                   >
                     <Plus className="h-4 w-4" />
-                    Add
+                    {t('contentFiltering.add')}
                   </button>
                 </div>
                 {draft.whitelistedDomains.length > 0 && (

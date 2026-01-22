@@ -1,0 +1,52 @@
+{
+  "addressBar": {
+    "placeholder": "输入 .ton 地址...",
+    "ariaLabel": "输入 URL 或 TON 地址",
+    "addBookmarkAria": "添加到书签",
+    "removeBookmarkAria": "从书签中删除",
+    "addBookmarkTitle": "添加书签",
+    "removeBookmarkTitle": "删除书签"
+  },
+  "navigation": {
+    "back": "后退",
+    "forward": "前进",
+    "home": "主页",
+    "reload": "刷新",
+    "stop": "停止加载",
+    "pageNavigation": "页面导航",
+    "goBackAria": "返回上一页",
+    "goForwardAria": "前进到下一页",
+    "stopLoadingAria": "停止加载页面",
+    "reloadAria": "刷新当前页面",
+    "goHomeAria": "前往主页"
+  },
+  "tabs": {
+    "newTab": "新标签页",
+    "closeTab": "关闭标签页",
+    "browserTabs": "浏览器标签页",
+    "openNewTab": "打开新标签页",
+    "duplicateTab": "复制标签页",
+    "closeOtherTabs": "关闭其他标签页",
+    "pickedUp": "已选中标签页：{{title}}",
+    "dragOver": "标签页 {{activeTitle}} 移至 {{overTitle}} 上方",
+    "reordered": "标签页 {{title}} 已重新排序",
+    "dragCancelled": "拖动已取消",
+    "dragCancelledFull": "拖动已取消。标签页 {{title}} 已返回原位置。"
+  },
+  "bookmarksBar": {
+    "title": "书签"
+  },
+  "statusBar": {
+    "connected": "已连接到 TON 网络",
+    "disconnected": "已断开连接",
+    "syncing": "同步中...",
+    "syncingMultiHop": "使用多跳电路同步中...",
+    "garlicRouting": "大蒜路由（3跳）",
+    "buildingCircuit": "构建电路中...",
+    "storage": "存储：",
+    "bag": "包",
+    "bags": "包",
+    "session": "会话：",
+    "networkStatus": "网络状态：{{status}}"
+  }
+}

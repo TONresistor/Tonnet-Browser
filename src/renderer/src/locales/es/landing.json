@@ -1,0 +1,24 @@
+{
+  "title": "Navegador TON",
+  "subtitle": "Explora la red descentralizada TON.",
+  "description": "Tonnet es un navegador centrado en la privacidad para acceder de forma segura a sitios .ton a través de la red descentralizada.",
+  "connectionSteps": {
+    "startingProxy": "Iniciando proxy...",
+    "loadingConfig": "Cargando configuración...",
+    "syncingDHT": "Sincronizando con DHT...",
+    "connectingNetwork": "Conectando a la red...",
+    "ready": "¡Listo!"
+  },
+  "features": {
+    "privacy": "Privacidad primero",
+    "privacyDesc": "Tu tráfico se enruta a través de circuitos cifrados de múltiples saltos",
+    "decentralized": "Descentralizado",
+    "decentralizedDesc": "Accede al contenido a través de la red TON",
+    "secure": "Seguro",
+    "secureDesc": "Cifrado de extremo a extremo y navegación segura"
+  },
+  "footer": {
+    "peerToPeer": "Peer-to-peer - Resistente a la censura - Sin rastreo",
+    "version": "v{{version}}"
+  }
+}

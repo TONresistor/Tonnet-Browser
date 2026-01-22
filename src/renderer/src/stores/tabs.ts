@@ -5,6 +5,7 @@
 
 import { create } from 'zustand'
 import { useSettingsStore } from './settings'
+import i18n from '@/i18n'
 
 export interface Tab {
   id: string
@@ -27,13 +28,13 @@ export function getInternalPageTitle(url: string): string | null {
   const page = url.replace('ton://', '')
   switch (page) {
     case 'start':
-      return 'New Tab'
+      return i18n.t('tabs.newTab', { ns: 'browser' })
     case 'storage':
-      return 'TON Storage'
+      return i18n.t('storage.title', { ns: 'settings' })
     case 'settings':
-      return 'Settings'
+      return i18n.t('title', { ns: 'settings' })
     default:
-      return 'TON Browser'
+      return i18n.t('appName', { ns: 'common' })
   }
 }
 
@@ -84,7 +85,7 @@ export const useTabsStore = create<TabsState>((set, get) => ({
     // Use homepage if no URL provided
     const targetUrl = url ?? await getHomepage()
     const id = generateId()
-    const title = getInternalPageTitle(targetUrl) || 'New Tab'
+    const title = getInternalPageTitle(targetUrl) || i18n.t('tabs.newTab', { ns: 'browser' })
     const newTab: Tab = {
       id,
       url: targetUrl,

@@ -9,11 +9,14 @@ import { Toggle } from '../shared/Toggle'
 import { SelectInput } from '../shared/SelectInput'
 import { GarlicRoutingDiagram } from '../shared/GarlicRoutingDiagram'
 import type { SectionProps } from '../types'
+import { useTranslation } from 'react-i18next'
 
 export const GeneralSection = memo(function GeneralSection({ draft, setDraft }: SectionProps) {
+  const { t } = useTranslation('settings')
+
   return (
     <div>
-      <SectionHeader title="General" description="Basic browser settings" />
+      <SectionHeader title={t('general.title')} description={t('general.description')} />
 
       {/* Anonymous Mode Section */}
       <div className="bg-card rounded-xl border border-border px-4">
@@ -21,15 +24,15 @@ export const GeneralSection = memo(function GeneralSection({ draft, setDraft }: 
         <div className="py-4 border-b border-border">
           <div className="flex items-center justify-between">
             <div className="flex-1 pr-4">
-              <p className="text-foreground font-medium">Anonymous mode</p>
+              <p className="text-foreground font-medium">{t('general.anonymousMode')}</p>
               <p className="text-muted-foreground text-sm mt-0.5">
-                Route traffic through 3-hop garlic circuit
+                {t('general.anonymousModeDesc')}
               </p>
             </div>
             <Toggle
               checked={draft.anonymousMode}
               onChange={(v) => setDraft('anonymousMode', v)}
-              label="Enable anonymous mode"
+              label={t('general.enableAnonymousMode')}
             />
           </div>
         </div>
@@ -40,15 +43,15 @@ export const GeneralSection = memo(function GeneralSection({ draft, setDraft }: 
             <div className="py-4 border-b border-border">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-foreground font-medium">Circuit rotation</p>
+                  <p className="text-foreground font-medium">{t('general.circuitRotation')}</p>
                   <p className="text-muted-foreground text-sm mt-0.5">
-                    Automatically change circuit for better privacy
+                    {t('general.circuitRotationDesc')}
                   </p>
                 </div>
                 <Toggle
                   checked={draft.circuitRotation}
                   onChange={(v) => setDraft('circuitRotation', v)}
-                  label="Enable circuit rotation"
+                  label={t('general.enableCircuitRotation')}
                 />
               </div>
             </div>
@@ -57,9 +60,9 @@ export const GeneralSection = memo(function GeneralSection({ draft, setDraft }: 
               <div className="py-4 border-b border-border">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-foreground font-medium">Rotation interval</p>
+                    <p className="text-foreground font-medium">{t('general.rotationInterval')}</p>
                     <p className="text-muted-foreground text-sm mt-0.5">
-                      How often to build a new circuit
+                      {t('general.rotationIntervalDesc')}
                     </p>
                   </div>
                   <select
@@ -68,16 +71,16 @@ export const GeneralSection = memo(function GeneralSection({ draft, setDraft }: 
                     className="pl-4 pr-8 py-1.5 rounded-full text-sm text-foreground outline-none cursor-pointer bg-surface-hover border border-border-medium"
                   >
                     <option value="5m" className="bg-background text-foreground">
-                      5 minutes
+                      {t('general.5minutes')}
                     </option>
                     <option value="10m" className="bg-background text-foreground">
-                      10 minutes
+                      {t('general.10minutes')}
                     </option>
                     <option value="15m" className="bg-background text-foreground">
-                      15 minutes
+                      {t('general.15minutes')}
                     </option>
                     <option value="30m" className="bg-background text-foreground">
-                      30 minutes
+                      {t('general.30minutes')}
                     </option>
                   </select>
                 </div>
@@ -92,21 +95,21 @@ export const GeneralSection = memo(function GeneralSection({ draft, setDraft }: 
 
       {/* Other General Settings */}
       <div className="mt-6 bg-card rounded-xl border border-border px-4">
-        <SettingRow label="Homepage" description="Page to show when opening a new tab">
+        <SettingRow label={t('general.homepage')} description={t('general.homepageDesc')}>
           <SelectInput
             value={draft.homepage}
             onChange={(v) => setDraft('homepage', v)}
             options={[
-              { value: 'ton://start', label: 'Start Page' },
-              { value: 'ton://storage', label: 'TON Storage' },
+              { value: 'ton://start', label: t('general.startPage') },
+              { value: 'ton://storage', label: t('general.tonStorage') },
             ]}
           />
         </SettingRow>
-        <SettingRow label="Restore tabs" description="Reopen previous tabs on startup">
+        <SettingRow label={t('general.restoreTabs')} description={t('general.restoreTabsDesc')}>
           <Toggle
             checked={draft.restoreTabs}
             onChange={(v) => setDraft('restoreTabs', v)}
-            label="Restore tabs on startup"
+            label={t('general.restoreTabsLabel')}
           />
         </SettingRow>
       </div>

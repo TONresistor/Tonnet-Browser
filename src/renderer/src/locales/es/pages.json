@@ -1,0 +1,138 @@
+{
+  "start": {
+    "title": "Bienvenido a Tonnet",
+    "subtitle": "Tu puerta de entrada a la web descentralizada",
+    "searchPlaceholder": "Buscar o introducir dirección .ton",
+    "searchButton": "Ir",
+    "quickLinks": "Enlaces rápidos",
+    "recentlyVisited": "Visitado recientemente",
+    "noRecent": "Aún no hay sitios visitados recientemente"
+  },
+  "storage": {
+    "title": "Almacenamiento TON",
+    "description": "Almacenamiento y recuperación de archivos descentralizado",
+    "tabs": {
+      "active": "Activo",
+      "completed": "Completado",
+      "info": "Información"
+    },
+    "filters": {
+      "all": "Todo",
+      "downloading": "Descargando",
+      "seeding": "Compartiendo",
+      "paused": "Pausado"
+    },
+    "actions": {
+      "addTorrent": "Añadir torrent",
+      "pause": "Pausar",
+      "resume": "Reanudar",
+      "remove": "Eliminar",
+      "openFolder": "Abrir carpeta",
+      "copyBagId": "Copiar ID de bolsa",
+      "details": "Detalles"
+    },
+    "table": {
+      "name": "Nombre",
+      "size": "Tamaño",
+      "progress": "Progreso",
+      "download": "Descarga",
+      "upload": "Subida",
+      "peers": "Pares",
+      "status": "Estado",
+      "added": "Añadido"
+    },
+    "status": {
+      "downloading": "Descargando",
+      "seeding": "Compartiendo",
+      "paused": "Pausado",
+      "completed": "Completado",
+      "error": "Error",
+      "checking": "Verificando",
+      "queued": "En cola"
+    },
+    "addModal": {
+      "title": "Añadir torrent de almacenamiento TON",
+      "bagIdLabel": "ID de bolsa",
+      "bagIdPlaceholder": "Introduce ID de bolsa o arrastra archivo torrent...",
+      "downloadPathLabel": "Ruta de descarga",
+      "autoStartLabel": "Iniciar descarga automáticamente",
+      "cancel": "Cancelar",
+      "add": "Añadir",
+      "browse": "Examinar"
+    },
+    "info": {
+      "title": "Estadísticas de almacenamiento",
+      "totalDownload": "Descarga total",
+      "totalUpload": "Subida total",
+      "activeTorrents": "Torrents activos",
+      "downloadSpeed": "Velocidad de descarga",
+      "uploadSpeed": "Velocidad de subida",
+      "ratio": "Ratio",
+      "connectedPeers": "Pares conectados",
+      "diskSpace": "Espacio en disco"
+    },
+    "empty": {
+      "title": "No hay descargas activas",
+      "description": "Añade contenido por ID de bolsa o archivo torrent para comenzar",
+      "action": "Añadir torrent"
+    },
+    "errors": {
+      "invalidBagId": "ID de bolsa no válido",
+      "downloadFailed": "Descarga fallida",
+      "addFailed": "Error al añadir torrent",
+      "removeFailed": "Error al eliminar",
+      "noSpace": "Espacio en disco insuficiente"
+    }
+  },
+  "history": {
+    "title": "Historial de navegación",
+    "description": "Tu historial de navegación y registros de visitas",
+    "search": "Buscar en historial...",
+    "filters": {
+      "all": "Todo el tiempo",
+      "today": "Hoy",
+      "yesterday": "Ayer",
+      "thisWeek": "Esta semana",
+      "thisMonth": "Este mes",
+      "older": "Más antiguo"
+    },
+    "actions": {
+      "clearAll": "Borrar todo el historial",
+      "clearToday": "Borrar hoy",
+      "clearSelected": "Borrar seleccionados",
+      "export": "Exportar historial"
+    },
+    "table": {
+      "title": "Título",
+      "url": "URL",
+      "visits": "Visitas",
+      "lastVisit": "Última visita"
+    },
+    "empty": {
+      "title": "Sin historial",
+      "description": "Los sitios web que visites aparecerán aquí",
+      "allCleared": "Todo el historial ha sido borrado"
+    },
+    "clearConfirm": {
+      "title": "¿Borrar historial?",
+      "message": "Esta acción no se puede deshacer.",
+      "clearAll": "Esto eliminará todo tu historial de navegación.",
+      "clearSelected": "Esto eliminará {{count}} elementos seleccionados.",
+      "cancel": "Cancelar",
+      "confirm": "Borrar"
+    },
+    "stats": {
+      "totalVisits": "Visitas totales",
+      "uniqueSites": "Sitios únicos",
+      "todayVisits": "Visitas de hoy",
+      "averageDaily": "Promedio diario"
+    },
+    "timeFormat": {
+      "justNow": "Justo ahora",
+      "minutesAgo": "hace {{count}} minutos",
+      "hoursAgo": "hace {{count}} horas",
+      "yesterday": "Ayer",
+      "daysAgo": "hace {{count}} días"
+    }
+  }
+}

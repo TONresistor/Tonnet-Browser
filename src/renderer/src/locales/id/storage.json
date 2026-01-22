@@ -1,0 +1,60 @@
+{
+  "title": "Penyimpanan TON",
+  "description": "Penyimpanan dan pengambilan file terdesentralisasi",
+  "tabs": {
+    "active": "Aktif",
+    "completed": "Selesai",
+    "info": "Informasi"
+  },
+  "filters": {
+    "all": "Semua",
+    "downloading": "Mengunduh",
+    "seeding": "Menyebarkan",
+    "paused": "Dijeda"
+  },
+  "actions": {
+    "addTorrent": "Tambah torrent",
+    "pause": "Jeda",
+    "resume": "Lanjutkan",
+    "remove": "Hapus",
+    "openFolder": "Buka folder"
+  },
+  "table": {
+    "name": "Nama",
+    "size": "Ukuran",
+    "progress": "Progres",
+    "download": "Unduh",
+    "upload": "Unggah",
+    "peers": "Rekan",
+    "status": "Status"
+  },
+  "status": {
+    "downloading": "Mengunduh",
+    "seeding": "Menyebarkan",
+    "paused": "Dijeda",
+    "completed": "Selesai",
+    "error": "Kesalahan",
+    "checking": "Memeriksa"
+  },
+  "addModal": {
+    "title": "Tambah torrent penyimpanan TON",
+    "bagIdLabel": "ID bag",
+    "bagIdPlaceholder": "Masukkan ID bag...",
+    "downloadPathLabel": "Jalur unduhan",
+    "autoStartLabel": "Mulai unduhan secara otomatis",
+    "cancel": "Batal",
+    "add": "Tambah"
+  },
+  "info": {
+    "totalDownload": "Total unduhan",
+    "totalUpload": "Total unggahan",
+    "activeTorrents": "Torrent aktif",
+    "downloadSpeed": "Kecepatan unduh",
+    "uploadSpeed": "Kecepatan unggah"
+  },
+  "empty": {
+    "title": "Tidak ada unduhan aktif",
+    "description": "Tambahkan torrent berdasarkan ID bag untuk memulai",
+    "action": "Tambah torrent"
+  }
+}

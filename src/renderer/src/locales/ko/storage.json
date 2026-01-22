@@ -1,0 +1,60 @@
+{
+  "title": "TON 저장소",
+  "description": "탈중앙화 파일 저장 및 검색",
+  "tabs": {
+    "active": "활성",
+    "completed": "완료됨",
+    "info": "정보"
+  },
+  "filters": {
+    "all": "전체",
+    "downloading": "다운로드 중",
+    "seeding": "시딩 중",
+    "paused": "일시 중지됨"
+  },
+  "actions": {
+    "addTorrent": "토렌트 추가",
+    "pause": "일시 중지",
+    "resume": "재개",
+    "remove": "제거",
+    "openFolder": "폴더 열기"
+  },
+  "table": {
+    "name": "이름",
+    "size": "크기",
+    "progress": "진행률",
+    "download": "다운로드",
+    "upload": "업로드",
+    "peers": "피어",
+    "status": "상태"
+  },
+  "status": {
+    "downloading": "다운로드 중",
+    "seeding": "시딩 중",
+    "paused": "일시 중지됨",
+    "completed": "완료됨",
+    "error": "오류",
+    "checking": "확인 중"
+  },
+  "addModal": {
+    "title": "TON 저장소 토렌트 추가",
+    "bagIdLabel": "백 ID",
+    "bagIdPlaceholder": "백 ID 입력...",
+    "downloadPathLabel": "다운로드 경로",
+    "autoStartLabel": "다운로드 자동 시작",
+    "cancel": "취소",
+    "add": "추가"
+  },
+  "info": {
+    "totalDownload": "총 다운로드",
+    "totalUpload": "총 업로드",
+    "activeTorrents": "활성 토렌트",
+    "downloadSpeed": "다운로드 속도",
+    "uploadSpeed": "업로드 속도"
+  },
+  "empty": {
+    "title": "활성 다운로드 없음",
+    "description": "백 ID로 토렌트를 추가하여 시작하세요",
+    "action": "토렌트 추가"
+  }
+}

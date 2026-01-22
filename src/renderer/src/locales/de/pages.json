@@ -1,0 +1,138 @@
+{
+  "start": {
+    "title": "Willkommen bei Tonnet",
+    "subtitle": "Dein Zugang zum dezentralen Web",
+    "searchPlaceholder": "Suchen oder .ton-Adresse eingeben",
+    "searchButton": "Los",
+    "quickLinks": "Schnellzugriffe",
+    "recentlyVisited": "Kürzlich besucht",
+    "noRecent": "Noch keine kürzlich besuchten Websites"
+  },
+  "storage": {
+    "title": "TON-Speicher",
+    "description": "Dezentrales Speichern und Abrufen von Dateien",
+    "tabs": {
+      "active": "Aktiv",
+      "completed": "Abgeschlossen",
+      "info": "Information"
+    },
+    "filters": {
+      "all": "Alle",
+      "downloading": "Download läuft",
+      "seeding": "Seeding",
+      "paused": "Pausiert"
+    },
+    "actions": {
+      "addTorrent": "Torrent hinzufügen",
+      "pause": "Pausieren",
+      "resume": "Fortsetzen",
+      "remove": "Entfernen",
+      "openFolder": "Ordner öffnen",
+      "copyBagId": "Bag-ID kopieren",
+      "details": "Details"
+    },
+    "table": {
+      "name": "Name",
+      "size": "Größe",
+      "progress": "Fortschritt",
+      "download": "Download",
+      "upload": "Upload",
+      "peers": "Peers",
+      "status": "Status",
+      "added": "Hinzugefügt"
+    },
+    "status": {
+      "downloading": "Download läuft",
+      "seeding": "Seeding",
+      "paused": "Pausiert",
+      "completed": "Abgeschlossen",
+      "error": "Fehler",
+      "checking": "Überprüfung läuft",
+      "queued": "In Warteschlange"
+    },
+    "addModal": {
+      "title": "TON-Speicher-Torrent hinzufügen",
+      "bagIdLabel": "Bag-ID",
+      "bagIdPlaceholder": "Bag-ID eingeben oder Torrent-Datei ziehen...",
+      "downloadPathLabel": "Download-Pfad",
+      "autoStartLabel": "Download automatisch starten",
+      "cancel": "Abbrechen",
+      "add": "Hinzufügen",
+      "browse": "Durchsuchen"
+    },
+    "info": {
+      "title": "Speicherstatistiken",
+      "totalDownload": "Gesamt-Download",
+      "totalUpload": "Gesamt-Upload",
+      "activeTorrents": "Aktive Torrents",
+      "downloadSpeed": "Download-Geschwindigkeit",
+      "uploadSpeed": "Upload-Geschwindigkeit",
+      "ratio": "Verhältnis",
+      "connectedPeers": "Verbundene Peers",
+      "diskSpace": "Festplattenspeicher"
+    },
+    "empty": {
+      "title": "Keine aktiven Downloads",
+      "description": "Füge Inhalte per Bag-ID oder Torrent-Datei hinzu, um zu beginnen",
+      "action": "Torrent hinzufügen"
+    },
+    "errors": {
+      "invalidBagId": "Ungültige Bag-ID",
+      "downloadFailed": "Download fehlgeschlagen",
+      "addFailed": "Hinzufügen des Torrents fehlgeschlagen",
+      "removeFailed": "Entfernen fehlgeschlagen",
+      "noSpace": "Nicht genügend Festplattenspeicher"
+    }
+  },
+  "history": {
+    "title": "Browserverlauf",
+    "description": "Dein Browserverlauf und Besuchsprotokoll",
+    "search": "Verlauf durchsuchen...",
+    "filters": {
+      "all": "Gesamte Zeit",
+      "today": "Heute",
+      "yesterday": "Gestern",
+      "thisWeek": "Diese Woche",
+      "thisMonth": "Diesen Monat",
+      "older": "Älter"
+    },
+    "actions": {
+      "clearAll": "Gesamten Verlauf löschen",
+      "clearToday": "Heute löschen",
+      "clearSelected": "Ausgewählte löschen",
+      "export": "Verlauf exportieren"
+    },
+    "table": {
+      "title": "Titel",
+      "url": "URL",
+      "visits": "Besuche",
+      "lastVisit": "Letzter Besuch"
+    },
+    "empty": {
+      "title": "Kein Verlauf",
+      "description": "Besuchte Websites werden hier angezeigt",
+      "allCleared": "Der gesamte Verlauf wurde gelöscht"
+    },
+    "clearConfirm": {
+      "title": "Verlauf löschen?",
+      "message": "Diese Aktion kann nicht rückgängig gemacht werden.",
+      "clearAll": "Dies wird deinen gesamten Browserverlauf löschen.",
+      "clearSelected": "Dies wird {{count}} ausgewählte Elemente löschen.",
+      "cancel": "Abbrechen",
+      "confirm": "Löschen"
+    },
+    "stats": {
+      "totalVisits": "Besuche insgesamt",
+      "uniqueSites": "Eindeutige Websites",
+      "todayVisits": "Besuche heute",
+      "averageDaily": "Durchschnitt täglich"
+    },
+    "timeFormat": {
+      "justNow": "Gerade eben",
+      "minutesAgo": "vor {{count}} Minuten",
+      "hoursAgo": "vor {{count}} Stunden",
+      "yesterday": "Gestern",
+      "daysAgo": "vor {{count}} Tagen"
+    }
+  }
+}

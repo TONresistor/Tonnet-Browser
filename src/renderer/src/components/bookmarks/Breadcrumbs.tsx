@@ -5,6 +5,7 @@
 
 import { ChevronRight } from 'lucide-react'
 import { useBookmarksStore } from '@/stores/bookmarks'
+import { useTranslation } from 'react-i18next'
 
 interface BreadcrumbsProps {
   currentFolderId: string | null
@@ -12,11 +13,12 @@ interface BreadcrumbsProps {
 }
 
 export function Breadcrumbs({ currentFolderId, onNavigate }: BreadcrumbsProps) {
+  const { t } = useTranslation('settings')
   const { folders } = useBookmarksStore()
 
   // Build breadcrumb path
   const buildPath = (): { id: string | null; name: string }[] => {
-    const path: { id: string | null; name: string }[] = [{ id: null, name: 'All Bookmarks' }]
+    const path: { id: string | null; name: string }[] = [{ id: null, name: t('bookmarks.allBookmarks') }]
 
     if (!currentFolderId) return path
 

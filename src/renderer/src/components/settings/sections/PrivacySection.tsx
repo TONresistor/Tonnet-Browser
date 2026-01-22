@@ -8,6 +8,7 @@ import { SectionHeader } from '../shared/SectionHeader'
 import { SettingRow } from '../shared/SettingRow'
 import { Toggle } from '../shared/Toggle'
 import type { SectionProps } from '../types'
+import { useTranslation } from 'react-i18next'
 
 interface PrivacySectionProps extends SectionProps {
   clearing: boolean
@@ -22,76 +23,69 @@ export const PrivacySection = memo(function PrivacySection({
   cleared,
   onClearData,
 }: PrivacySectionProps) {
+  const { t } = useTranslation('settings')
+
   return (
     <div>
-      <SectionHeader title="Privacy" description="Privacy and data settings" />
+      <SectionHeader title={t('privacy.title')} description={t('privacy.description')} />
       <div className="bg-card rounded-xl border border-border px-4">
-        <SettingRow
-          label="Clear browsing data"
-          description="Delete cache, cookies, and local storage"
-        >
+        <SettingRow label={t('privacy.clearData')} description={t('privacy.clearDataDesc')}>
           <button
             onClick={onClearData}
             disabled={clearing}
             className="flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-200 disabled:opacity-50 bg-destructive/90 shadow-[0_4px_16px_var(--destructive-glow)] text-white"
           >
             {clearing ? (
-              'Clearing...'
+              t('privacy.clearing')
             ) : cleared ? (
               <>
-                <CheckCircle className="h-4 w-4" /> Done
+                <CheckCircle className="h-4 w-4" /> {t('privacy.done')}
               </>
             ) : (
               <>
-                <Trash2 className="h-4 w-4" /> Clear
+                <Trash2 className="h-4 w-4" /> {t('privacy.clear')}
               </>
             )}
           </button>
         </SettingRow>
-        <SettingRow
-          label="Clear on exit"
-          description="Automatically clear data when closing browser"
-        >
+        <SettingRow label={t('privacy.clearOnExit')} description={t('privacy.clearOnExitDesc')}>
           <Toggle
             checked={draft.clearOnExit}
             onChange={(v) => setDraft('clearOnExit', v)}
-            label="Clear data when closing browser"
+            label={t('privacy.clearOnExitLabel')}
           />
         </SettingRow>
-        <SettingRow
-          label="Disable cache"
-          description="Force reload all resources (slower but more private)"
-        >
+        <SettingRow label={t('privacy.disableCache')} description={t('privacy.disableCacheDesc')}>
           <Toggle
             checked={draft.disableCache}
             onChange={(v) => setDraft('disableCache', v)}
-            label="Disable HTTP cache"
+            label={t('privacy.disableCacheLabel')}
           />
         </SettingRow>
         <SettingRow
-          label="First-party isolation"
-          description="Isolate cookies and localStorage per domain (Tier S)"
+          label={t('privacy.firstPartyIsolation')}
+          description={t('privacy.firstPartyIsolationDesc')}
         >
           <Toggle
             checked={draft.firstPartyIsolation}
             onChange={(v) => setDraft('firstPartyIsolation', v)}
-            label="Enable first-party isolation"
+            label={t('privacy.firstPartyIsolationLabel')}
           />
         </SettingRow>
         <SettingRow
-          label="Cookie auto-delete"
-          description="Automatically delete cookies after inactivity (Tier A)"
+          label={t('privacy.cookieAutoDelete')}
+          description={t('privacy.cookieAutoDeleteDesc')}
         >
           <Toggle
             checked={draft.cookieAutoDelete}
             onChange={(v) => setDraft('cookieAutoDelete', v)}
-            label="Enable cookie auto-delete"
+            label={t('privacy.cookieAutoDeleteLabel')}
           />
         </SettingRow>
         {draft.cookieAutoDelete && (
           <SettingRow
-            label="Auto-delete timeout"
-            description="Minutes of inactivity before deleting cookies"
+            label={t('privacy.autoDeleteTimeout')}
+            description={t('privacy.autoDeleteTimeoutDesc')}
           >
             <input
               type="number"

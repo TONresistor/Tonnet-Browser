@@ -8,6 +8,7 @@ import { SectionHeader } from '../shared/SectionHeader'
 import { SettingRow } from '../shared/SettingRow'
 import { NumberInput } from '../shared/NumberInput'
 import type { SectionProps } from '../types'
+import { useTranslation } from 'react-i18next'
 
 interface StorageSectionProps extends SectionProps {
   isLoaded: boolean
@@ -20,17 +21,16 @@ export const StorageSection = memo(function StorageSection({
   isLoaded,
   onSelectFolder,
 }: StorageSectionProps) {
+  const { t } = useTranslation('settings')
+
   return (
     <div>
-      <SectionHeader
-        title="TON Storage"
-        description="Configure decentralized storage settings"
-      />
+      <SectionHeader title={t('storage.title')} description={t('storage.description')} />
       <div className="bg-card rounded-xl border border-border px-4">
-        <SettingRow label="Download folder" description="Where TON Storage files are saved">
+        <SettingRow label={t('storage.downloadFolder')} description={t('storage.downloadFolderDesc')}>
           <div className="flex items-center gap-2">
             <div className="max-w-[200px] px-3 py-1.5 rounded-full text-sm text-muted-foreground truncate bg-surface-hover border border-border-medium">
-              {!isLoaded ? 'Loading...' : draft.downloadPath || 'Not set'}
+              {!isLoaded ? t('storage.loading') : draft.downloadPath || t('storage.notSet')}
             </div>
             <button
               onClick={onSelectFolder}
@@ -40,7 +40,7 @@ export const StorageSection = memo(function StorageSection({
             </button>
           </div>
         </SettingRow>
-        <SettingRow label="Update interval" description="How often to refresh download stats">
+        <SettingRow label={t('storage.updateInterval')} description={t('storage.updateIntervalDesc')}>
           <NumberInput
             value={draft.storagePollingInterval}
             onChange={(v) => setDraft('storagePollingInterval', v)}

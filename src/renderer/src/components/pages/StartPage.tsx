@@ -64,12 +64,13 @@ export function StartPage() {
           />
           <button
             type="submit"
-            className="w-14 h-14 rounded-full text-base font-medium transition-all duration-200 hover:scale-105 bg-primary text-primary-foreground backdrop-blur-[10px]"
+            className="w-14 h-14 flex items-center justify-center rounded-full text-2xl font-medium transition-all duration-200 hover:scale-105 bg-primary text-primary-foreground backdrop-blur-[10px]"
             style={{
               boxShadow: '0 4px 16px rgba(0, 136, 204, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2)',
             }}
+            aria-label={t('start.searchButton')}
           >
-            {t('start.searchButton')}
+            →
           </button>
         </div>
       </form>

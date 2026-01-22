@@ -1,0 +1,60 @@
+{
+  "title": "Stockage TON",
+  "description": "Stockage et récupération de fichiers décentralisés",
+  "tabs": {
+    "active": "Actif",
+    "completed": "Terminé",
+    "info": "Informations"
+  },
+  "filters": {
+    "all": "Tout",
+    "downloading": "Téléchargement",
+    "seeding": "Partage",
+    "paused": "En pause"
+  },
+  "actions": {
+    "addTorrent": "Ajouter un torrent",
+    "pause": "Pause",
+    "resume": "Reprendre",
+    "remove": "Supprimer",
+    "openFolder": "Ouvrir le dossier"
+  },
+  "table": {
+    "name": "Nom",
+    "size": "Taille",
+    "progress": "Progression",
+    "download": "Téléchargement",
+    "upload": "Envoi",
+    "peers": "Pairs",
+    "status": "État"
+  },
+  "status": {
+    "downloading": "Téléchargement",
+    "seeding": "Partage",
+    "paused": "En pause",
+    "completed": "Terminé",
+    "error": "Erreur",
+    "checking": "Vérification"
+  },
+  "addModal": {
+    "title": "Ajouter un torrent de stockage TON",
+    "bagIdLabel": "ID de sac",
+    "bagIdPlaceholder": "Entrez l'ID de sac...",
+    "downloadPathLabel": "Chemin de téléchargement",
+    "autoStartLabel": "Démarrer le téléchargement automatiquement",
+    "cancel": "Annuler",
+    "add": "Ajouter"
+  },
+  "info": {
+    "totalDownload": "Téléchargement total",
+    "totalUpload": "Envoi total",
+    "activeTorrents": "Torrents actifs",
+    "downloadSpeed": "Vitesse de téléchargement",
+    "uploadSpeed": "Vitesse d'envoi"
+  },
+  "empty": {
+    "title": "Aucun téléchargement actif",
+    "description": "Ajoutez un torrent par ID de sac pour commencer",
+    "action": "Ajouter un torrent"
+  }
+}

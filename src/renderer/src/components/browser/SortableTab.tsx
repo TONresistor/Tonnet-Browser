@@ -7,6 +7,7 @@ import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { Tab } from '@/stores/tabs'
 import { X, Globe } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 interface SortableTabProps {
   tab: Tab
@@ -25,6 +26,7 @@ export function SortableTab({
   onContextMenu,
   onKeyDown,
 }: SortableTabProps) {
+  const { t } = useTranslation('browser')
   const {
     attributes,
     listeners,
@@ -63,7 +65,7 @@ export function SortableTab({
       }}
       onKeyDown={onKeyDown}
       onContextMenu={onContextMenu}
-      aria-label={`Tab: ${tab.title || 'New Tab'}. Press space to start dragging.`}
+      aria-label={`Tab: ${tab.title || t('tabs.newTab')}. Press space to start dragging.`}
     >
       {/* Favicon */}
       {tab.favicon ? (
@@ -79,11 +81,11 @@ export function SortableTab({
         <Globe className="w-5 h-5 flex-shrink-0 text-foreground-muted" />
       )}
 
-      <span className="truncate text-sm flex-1">{tab.title || 'New Tab'}</span>
+      <span className="truncate text-sm flex-1">{tab.title || t('tabs.newTab')}</span>
 
       <button
         className="opacity-0 group-hover:opacity-100 focus:opacity-100 hover:bg-surface-active rounded-full p-0.5 transition-opacity"
-        aria-label={`Close ${tab.title || 'tab'}`}
+        aria-label={`Close ${tab.title || t('tabs.closeTab')}`}
         tabIndex={0}
         onClick={onClose}
       >

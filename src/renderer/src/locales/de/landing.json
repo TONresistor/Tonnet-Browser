@@ -1,0 +1,24 @@
+{
+  "title": "TON Browser",
+  "subtitle": "Erkunden Sie das dezentrale TON-Netzwerk.",
+  "description": "Tonnet ist ein datenschutzorientierter Browser für den sicheren Zugriff auf .ton-Websites über das dezentrale Netzwerk.",
+  "connectionSteps": {
+    "startingProxy": "Proxy wird gestartet...",
+    "loadingConfig": "Konfiguration wird geladen...",
+    "syncingDHT": "Synchronisierung mit DHT...",
+    "connectingNetwork": "Verbindung zum Netzwerk...",
+    "ready": "Bereit!"
+  },
+  "features": {
+    "privacy": "Datenschutz zuerst",
+    "privacyDesc": "Dein Datenverkehr wird durch verschlüsselte Multi-Hop-Schaltkreise geleitet",
+    "decentralized": "Dezentralisiert",
+    "decentralizedDesc": "Zugriff auf Inhalte über das TON-Netzwerk",
+    "secure": "Sicher",
+    "secureDesc": "Ende-zu-Ende-Verschlüsselung und sicheres Surfen"
+  },
+  "footer": {
+    "peerToPeer": "Peer-to-peer - Zensurresistent - Keine Verfolgung",
+    "version": "v{{version}}"
+  }
+}

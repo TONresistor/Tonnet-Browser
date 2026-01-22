@@ -1,0 +1,24 @@
+{
+  "title": "TON 浏览器",
+  "subtitle": "探索去中心化的 TON 网络。",
+  "description": "Tonnet 是一个专注于隐私的浏览器，通过去中心化网络安全访问 .ton 网站。",
+  "connectionSteps": {
+    "startingProxy": "正在启动代理...",
+    "loadingConfig": "正在加载配置...",
+    "syncingDHT": "正在与 DHT 同步...",
+    "connectingNetwork": "正在连接网络...",
+    "ready": "准备就绪！"
+  },
+  "features": {
+    "privacy": "隐私优先",
+    "privacyDesc": "通过加密的多跳回路路由您的流量",
+    "decentralized": "去中心化",
+    "decentralizedDesc": "通过 TON 网络访问内容",
+    "secure": "安全",
+    "secureDesc": "端到端加密和安全浏览"
+  },
+  "footer": {
+    "peerToPeer": "点对点 - 抗审查 - 无跟踪",
+    "version": "v{{version}}"
+  }
+}

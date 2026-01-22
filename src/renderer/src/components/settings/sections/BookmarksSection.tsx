@@ -19,6 +19,7 @@ import { FolderTree } from '@/components/bookmarks/FolderTree'
 import { Breadcrumbs } from '@/components/bookmarks/Breadcrumbs'
 import { useBookmarksStore } from '@/stores/bookmarks'
 import { useTabsStore } from '@/stores/tabs'
+import { useTranslation } from 'react-i18next'
 
 interface BookmarksSectionProps {
   bookmarksCount: number
@@ -31,6 +32,7 @@ export const BookmarksSection = memo(function BookmarksSection({
   onExport,
   onReset,
 }: BookmarksSectionProps) {
+  const { t } = useTranslation('settings')
   const {
     bookmarks,
     folders,
@@ -86,7 +88,7 @@ export const BookmarksSection = memo(function BookmarksSection({
   }
 
   const handleDelete = (id: string, title: string) => {
-    if (confirm(`Delete "${title}"?`)) {
+    if (confirm(t('bookmarks.deleteConfirm', { name: title }))) {
       removeBookmark(id)
     }
   }
@@ -94,7 +96,7 @@ export const BookmarksSection = memo(function BookmarksSection({
   const handleNewFolder = (parentId: string | null) => {
     const depth = getFolderDepth(parentId)
     if (depth >= 3) {
-      alert('Maximum folder depth (3 levels) reached.')
+      alert(t('bookmarks.maxDepthReached'))
       return
     }
     setCreatingFolder({ parentId, name: '' })
@@ -120,29 +122,29 @@ export const BookmarksSection = memo(function BookmarksSection({
 
   return (
     <div>
-      <SectionHeader title="Bookmarks" description="Manage your saved sites with folders" />
+      <SectionHeader title={t('bookmarks.title')} description={t('bookmarks.description')} />
 
       {/* Settings Row */}
       <div className="bg-card rounded-xl border border-border px-4 mb-6">
-        <SettingRow label="Saved bookmarks" description="Number of bookmarks in your library">
+        <SettingRow label={t('bookmarks.savedBookmarks')} description={t('bookmarks.savedBookmarksDesc')}>
           <span className="text-foreground font-medium">{bookmarksCount}</span>
         </SettingRow>
-        <SettingRow label="Export bookmarks" description="Download bookmarks as JSON file">
+        <SettingRow label={t('bookmarks.exportBookmarks')} description={t('bookmarks.exportBookmarksDesc')}>
           <button
             onClick={onExport}
             className="flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium text-muted-foreground transition-all duration-200 hover:text-foreground bg-surface-hover border border-border-medium"
           >
             <ExternalLink className="h-4 w-4" />
-            Export
+            {t('bookmarks.export')}
           </button>
         </SettingRow>
-        <SettingRow label="Reset bookmarks" description="Restore default bookmarks and folders">
+        <SettingRow label={t('bookmarks.resetBookmarks')} description={t('bookmarks.resetBookmarksDesc')}>
           <button
             onClick={onReset}
             className="flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-200 bg-neutral-500/15 border border-neutral-500/30 text-neutral-400 hover:text-neutral-300"
           >
             <RotateCcw className="h-4 w-4" />
-            Reset
+            {t('bookmarks.reset')}
           </button>
         </SettingRow>
       </div>
@@ -153,7 +155,7 @@ export const BookmarksSection = memo(function BookmarksSection({
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <input
             type="text"
-            placeholder="Search bookmarks..."
+            placeholder={t('bookmarks.searchPlaceholder')}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className="w-full pl-10 pr-4 py-2 border border-border rounded-full focus:ring-2 focus:ring-primary focus:border-transparent bg-background text-foreground"
@@ -166,11 +168,11 @@ export const BookmarksSection = memo(function BookmarksSection({
         {/* Left sidebar: Folder tree */}
         <div className="w-64 flex-shrink-0">
           <div className="flex items-center justify-between mb-3">
-            <h4 className="text-sm font-semibold text-foreground">Folders</h4>
+            <h4 className="text-sm font-semibold text-foreground">{t('bookmarks.folders')}</h4>
             <button
               onClick={() => handleNewFolder(selectedFolderId)}
               className="w-6 h-6 flex items-center justify-center rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-              title="New Folder"
+              title={t('bookmarks.newFolder')}
             >
               <Plus className="w-4 h-4" />
             </button>
@@ -190,7 +192,7 @@ export const BookmarksSection = memo(function BookmarksSection({
 
           {displayBookmarks.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
-              {query ? 'No bookmarks match your search' : 'No bookmarks in this folder'}
+              {query ? t('bookmarks.noMatch') : t('bookmarks.noBookmarks')}
             </div>
           ) : (
             <div className="bg-card rounded-2xl border border-border divide-y divide-border overflow-hidden">
@@ -232,21 +234,21 @@ export const BookmarksSection = memo(function BookmarksSection({
                       <button
                         onClick={() => addTab(bookmark.url)}
                         className="p-2 hover:bg-surface-active rounded transition-colors"
-                        title="Open in new tab"
+                        title={t('bookmarks.openInNewTab')}
                       >
                         <ExternalLink className="w-4 h-4 text-foreground" />
                       </button>
                       <button
                         onClick={() => handleEdit(bookmark)}
                         className="p-2 hover:bg-surface-active rounded transition-colors"
-                        title="Edit"
+                        title={t('bookmarks.edit')}
                       >
                         <Edit className="w-4 h-4 text-foreground" />
                       </button>
                       <button
                         onClick={() => handleDelete(bookmark.id, bookmark.title)}
                         className="p-2 hover:bg-destructive/10 rounded transition-colors"
-                        title="Delete"
+                        title={t('bookmarks.delete')}
                       >
                         <Trash2 className="w-4 h-4 text-destructive" />
                       </button>
@@ -269,10 +271,10 @@ export const BookmarksSection = memo(function BookmarksSection({
             className="rounded-2xl p-6 w-full max-w-md mx-4 bg-background border border-border shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-lg font-bold mb-4">Edit Bookmark</h3>
+            <h3 className="text-lg font-bold mb-4">{t('bookmarks.editBookmark')}</h3>
             <div className="space-y-4">
               <div>
-                <label className="text-sm text-muted-foreground block mb-2">Title</label>
+                <label className="text-sm text-muted-foreground block mb-2">{t('bookmarks.bookmarkTitle')}</label>
                 <input
                   value={editingBookmark.title}
                   onChange={(e) => setEditingBookmark({ ...editingBookmark, title: e.target.value })}
@@ -281,7 +283,7 @@ export const BookmarksSection = memo(function BookmarksSection({
                 />
               </div>
               <div>
-                <label className="text-sm text-muted-foreground block mb-2">URL</label>
+                <label className="text-sm text-muted-foreground block mb-2">{t('bookmarks.url')}</label>
                 <input
                   value={editingBookmark.url}
                   onChange={(e) => setEditingBookmark({ ...editingBookmark, url: e.target.value })}
@@ -289,7 +291,7 @@ export const BookmarksSection = memo(function BookmarksSection({
                 />
               </div>
               <div>
-                <label className="text-sm text-muted-foreground block mb-2">Folder</label>
+                <label className="text-sm text-muted-foreground block mb-2">{t('bookmarks.folder')}</label>
                 <select
                   value={editingBookmark.folderId ?? ''}
                   onChange={(e) =>
@@ -297,7 +299,7 @@ export const BookmarksSection = memo(function BookmarksSection({
                   }
                   className="w-full px-4 py-2 rounded-full border border-border bg-background text-foreground focus:ring-2 focus:ring-primary focus:outline-none"
                 >
-                  <option value="">Unfiled Bookmarks</option>
+                  <option value="">{t('bookmarks.unfiledBookmarks')}</option>
                   {folders.map((folder) => (
                     <option key={folder.id} value={folder.id}>
                       {folder.name}
@@ -311,13 +313,13 @@ export const BookmarksSection = memo(function BookmarksSection({
                 className="flex-1 py-2.5 rounded-full text-sm font-medium border border-border hover:bg-surface-hover transition-colors"
                 onClick={() => setEditingBookmark(null)}
               >
-                Cancel
+                {t('bookmarks.cancel')}
               </button>
               <button
                 className="flex-1 py-2.5 rounded-full text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
                 onClick={handleSaveEdit}
               >
-                Save
+                {t('bookmarks.save')}
               </button>
             </div>
           </div>
@@ -334,10 +336,10 @@ export const BookmarksSection = memo(function BookmarksSection({
             className="rounded-2xl p-6 w-full max-w-md mx-4 bg-background border border-border shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-lg font-bold mb-4">New Folder</h3>
+            <h3 className="text-lg font-bold mb-4">{t('bookmarks.newFolderTitle')}</h3>
             <div className="space-y-4">
               <div>
-                <label className="text-sm text-muted-foreground block mb-2">Name</label>
+                <label className="text-sm text-muted-foreground block mb-2">{t('bookmarks.name')}</label>
                 <input
                   value={creatingFolder.name}
                   onChange={(e) => setCreatingFolder({ ...creatingFolder, name: e.target.value })}
@@ -347,7 +349,7 @@ export const BookmarksSection = memo(function BookmarksSection({
                     }
                   }}
                   className="w-full px-4 py-2 rounded-full border border-border bg-background text-foreground focus:ring-2 focus:ring-primary focus:outline-none"
-                  placeholder="Enter folder name..."
+                  placeholder={t('bookmarks.folderPlaceholder')}
                   autoFocus
                 />
               </div>
@@ -357,14 +359,14 @@ export const BookmarksSection = memo(function BookmarksSection({
                 className="flex-1 py-2.5 rounded-full text-sm font-medium border border-border hover:bg-surface-hover transition-colors"
                 onClick={() => setCreatingFolder(null)}
               >
-                Cancel
+                {t('bookmarks.cancel')}
               </button>
               <button
                 className="flex-1 py-2.5 rounded-full text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 onClick={handleSaveNewFolder}
                 disabled={!creatingFolder.name.trim()}
               >
-                Create
+                {t('bookmarks.create')}
               </button>
             </div>
           </div>
@@ -381,10 +383,10 @@ export const BookmarksSection = memo(function BookmarksSection({
             className="rounded-2xl p-6 w-full max-w-md mx-4 bg-background border border-border shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-lg font-bold mb-4">Rename Folder</h3>
+            <h3 className="text-lg font-bold mb-4">{t('bookmarks.renameFolder')}</h3>
             <div className="space-y-4">
               <div>
-                <label className="text-sm text-muted-foreground block mb-2">Name</label>
+                <label className="text-sm text-muted-foreground block mb-2">{t('bookmarks.name')}</label>
                 <input
                   value={editingFolder.name}
                   onChange={(e) => setEditingFolder({ ...editingFolder, name: e.target.value })}
@@ -403,13 +405,13 @@ export const BookmarksSection = memo(function BookmarksSection({
                 className="flex-1 py-2.5 rounded-full text-sm font-medium border border-border hover:bg-surface-hover transition-colors"
                 onClick={() => setEditingFolder(null)}
               >
-                Cancel
+                {t('bookmarks.cancel')}
               </button>
               <button
                 className="flex-1 py-2.5 rounded-full text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
                 onClick={handleSaveFolderEdit}
               >
-                Save
+                {t('bookmarks.save')}
               </button>
             </div>
           </div>

@@ -1,7 +1,138 @@
 {
   "start": {
-    "subtitle": "Исследуйте децентрализованную сеть TON. Приватно.",
-    "searchPlaceholder": "Введите .ton адрес",
-    "searchButton": "Перейти"
+    "title": "Добро пожаловать в Tonnet",
+    "subtitle": "Ваш путь в децентрализованную сеть",
+    "searchPlaceholder": "Поиск или введите .ton адрес",
+    "searchButton": "Перейти",
+    "quickLinks": "Быстрые ссылки",
+    "recentlyVisited": "Недавно посещённые",
+    "noRecent": "Нет недавно посещённых сайтов"
+  },
+  "storage": {
+    "title": "TON Хранилище",
+    "description": "Децентрализованное хранение и получение файлов",
+    "tabs": {
+      "active": "Активные",
+      "completed": "Завершённые",
+      "info": "Информация"
+    },
+    "filters": {
+      "all": "Все",
+      "downloading": "Загружается",
+      "seeding": "Раздаётся",
+      "paused": "Приостановлено"
+    },
+    "actions": {
+      "addTorrent": "Добавить торрент",
+      "pause": "Приостановить",
+      "resume": "Продолжить",
+      "remove": "Удалить",
+      "openFolder": "Открыть папку",
+      "copyBagId": "Копировать Bag ID",
+      "details": "Подробности"
+    },
+    "table": {
+      "name": "Название",
+      "size": "Размер",
+      "progress": "Прогресс",
+      "download": "Загрузка",
+      "upload": "Отдача",
+      "peers": "Пиры",
+      "status": "Статус",
+      "added": "Добавлено"
+    },
+    "status": {
+      "downloading": "Загружается",
+      "seeding": "Раздаётся",
+      "paused": "Приостановлено",
+      "completed": "Завершено",
+      "error": "Ошибка",
+      "checking": "Проверка",
+      "queued": "В очереди"
+    },
+    "addModal": {
+      "title": "Добавить TON Storage торрент",
+      "bagIdLabel": "Bag ID",
+      "bagIdPlaceholder": "Введите bag ID или перетащите торрент-файл...",
+      "downloadPathLabel": "Путь загрузки",
+      "autoStartLabel": "Начать загрузку автоматически",
+      "cancel": "Отмена",
+      "add": "Добавить",
+      "browse": "Обзор"
+    },
+    "info": {
+      "title": "Статистика хранилища",
+      "totalDownload": "Всего загружено",
+      "totalUpload": "Всего отдано",
+      "activeTorrents": "Активные торренты",
+      "downloadSpeed": "Скорость загрузки",
+      "uploadSpeed": "Скорость отдачи",
+      "ratio": "Рейтинг",
+      "connectedPeers": "Подключённые пиры",
+      "diskSpace": "Место на диске"
+    },
+    "empty": {
+      "title": "Нет активных загрузок",
+      "description": "Добавьте контент через Bag ID или торрент-файл для начала",
+      "action": "Добавить торрент"
+    },
+    "errors": {
+      "invalidBagId": "Неверный Bag ID",
+      "downloadFailed": "Загрузка не удалась",
+      "addFailed": "Не удалось добавить торрент",
+      "removeFailed": "Не удалось удалить",
+      "noSpace": "Недостаточно места на диске"
+    }
+  },
+  "history": {
+    "title": "История просмотров",
+    "description": "История ваших посещений и записей",
+    "search": "Поиск в истории...",
+    "filters": {
+      "all": "Всё время",
+      "today": "Сегодня",
+      "yesterday": "Вчера",
+      "thisWeek": "На этой неделе",
+      "thisMonth": "В этом месяце",
+      "older": "Ранее"
+    },
+    "actions": {
+      "clearAll": "Очистить всю историю",
+      "clearToday": "Очистить сегодня",
+      "clearSelected": "Очистить выбранное",
+      "export": "Экспортировать историю"
+    },
+    "table": {
+      "title": "Заголовок",
+      "url": "URL",
+      "visits": "Посещения",
+      "lastVisit": "Последнее посещение"
+    },
+    "empty": {
+      "title": "Нет истории",
+      "description": "Посещённые вами сайты появятся здесь",
+      "allCleared": "Вся история очищена"
+    },
+    "clearConfirm": {
+      "title": "Очистить историю?",
+      "message": "Это действие нельзя отменить.",
+      "clearAll": "Это удалит всю историю просмотров.",
+      "clearSelected": "Это удалит {{count}} выбранных элементов.",
+      "cancel": "Отмена",
+      "confirm": "Очистить"
+    },
+    "stats": {
+      "totalVisits": "Всего посещений",
+      "uniqueSites": "Уникальные сайты",
+      "todayVisits": "Сегодня посещений",
+      "averageDaily": "Средне в день"
+    },
+    "timeFormat": {
+      "justNow": "Только что",
+      "minutesAgo": "{{count}} минут назад",
+      "hoursAgo": "{{count}} часов назад",
+      "yesterday": "Вчера",
+      "daysAgo": "{{count}} дней назад"
+    }
   }
 }

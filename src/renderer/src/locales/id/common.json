@@ -1,0 +1,36 @@
+{
+  "appName": "Tonnet",
+  "buttons": {
+    "connect": "Hubungkan ke jaringan TON",
+    "disconnect": "Putuskan",
+    "connecting": "Menghubungkan...",
+    "cancel": "Batal",
+    "save": "Simpan",
+    "delete": "Hapus",
+    "edit": "Sunting",
+    "close": "Tutup",
+    "back": "Kembali",
+    "next": "Lanjut",
+    "done": "Selesai",
+    "retry": "Coba Lagi",
+    "ok": "OK",
+    "create": "Buat",
+    "import": "Impor",
+    "export": "Ekspor"
+  },
+  "status": {
+    "connected": "Terhubung",
+    "disconnected": "Terputus",
+    "connecting": "Menghubungkan",
+    "error": "Kesalahan",
+    "syncing": "Menyinkronkan",
+    "synced": "Tersinkronkan"
+  },
+  "errors": {
+    "generic": "Terjadi kesalahan",
+    "network": "Kesalahan jaringan",
+    "timeout": "Waktu habis",
+    "notFound": "Tidak ditemukan",
+    "unauthorized": "Tidak diizinkan"
+  }
+}

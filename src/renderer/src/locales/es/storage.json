@@ -1,0 +1,60 @@
+{
+  "title": "Almacenamiento TON",
+  "description": "Almacenamiento y recuperación de archivos descentralizado",
+  "tabs": {
+    "active": "Activo",
+    "completed": "Completado",
+    "info": "Información"
+  },
+  "filters": {
+    "all": "Todo",
+    "downloading": "Descargando",
+    "seeding": "Compartiendo",
+    "paused": "Pausado"
+  },
+  "actions": {
+    "addTorrent": "Añadir torrent",
+    "pause": "Pausar",
+    "resume": "Reanudar",
+    "remove": "Eliminar",
+    "openFolder": "Abrir carpeta"
+  },
+  "table": {
+    "name": "Nombre",
+    "size": "Tamaño",
+    "progress": "Progreso",
+    "download": "Descarga",
+    "upload": "Subida",
+    "peers": "Pares",
+    "status": "Estado"
+  },
+  "status": {
+    "downloading": "Descargando",
+    "seeding": "Compartiendo",
+    "paused": "Pausado",
+    "completed": "Completado",
+    "error": "Error",
+    "checking": "Verificando"
+  },
+  "addModal": {
+    "title": "Añadir torrent de almacenamiento TON",
+    "bagIdLabel": "ID de bolsa",
+    "bagIdPlaceholder": "Introduce el ID de bolsa...",
+    "downloadPathLabel": "Ruta de descarga",
+    "autoStartLabel": "Iniciar descarga automáticamente",
+    "cancel": "Cancelar",
+    "add": "Añadir"
+  },
+  "info": {
+    "totalDownload": "Descarga total",
+    "totalUpload": "Subida total",
+    "activeTorrents": "Torrents activos",
+    "downloadSpeed": "Velocidad de descarga",
+    "uploadSpeed": "Velocidad de subida"
+  },
+  "empty": {
+    "title": "No hay descargas activas",
+    "description": "Añade un torrent por ID de bolsa para comenzar",
+    "action": "Añadir torrent"
+  }
+}

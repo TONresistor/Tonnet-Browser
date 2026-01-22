@@ -3,11 +3,13 @@
  */
 
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 
 const DIAGRAM_COLOR = 'rgba(255, 255, 255, 0.5)'
 const DIAGRAM_COLOR_ACTIVE = 'rgba(255, 255, 255, 0.8)'
 
 export function GarlicRoutingDiagram() {
+  const { t } = useTranslation('settings')
   const [relayIds, setRelayIds] = useState([
     Math.floor(Math.random() * 100) + 1,
     Math.floor(Math.random() * 100) + 1,
@@ -105,7 +107,7 @@ export function GarlicRoutingDiagram() {
   return (
     <div className="py-4">
       <div className="flex items-center justify-between mb-3">
-        <p className="text-foreground text-base font-semibold">How it works</p>
+        <p className="text-foreground text-base font-semibold">{t('general.howItWorks')}</p>
         <button
           onClick={handlePlayPause}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm transition-all bg-surface-hover border border-border-medium text-foreground-secondary"
@@ -113,19 +115,18 @@ export function GarlicRoutingDiagram() {
           {isPlaying ? (
             <>
               <span className="w-2 h-2 flex items-center justify-center">▪</span>
-              Stop
+              {t('general.stop')}
             </>
           ) : (
             <>
               <span className="w-2 h-2 flex items-center justify-center">▶</span>
-              Play
+              {t('general.play')}
             </>
           )}
         </button>
       </div>
       <p className="text-muted-foreground text-base mb-5 leading-relaxed">
-        Your traffic is encrypted in 3 layers and routed through independent relays. Each relay only
-        knows its immediate neighbors, never the full path.
+        {t('general.routingDescription')}
       </p>
 
       <div className="relative h-24 w-full">
@@ -180,7 +181,7 @@ export function GarlicRoutingDiagram() {
               fontSize="12"
               fontWeight="600"
             >
-              You
+              {t('general.you')}
             </text>
             <circle
               cx="50"
@@ -199,7 +200,7 @@ export function GarlicRoutingDiagram() {
                 fill="rgba(255, 255, 255, 0.5)"
                 fontSize="11"
               >
-                {phase === 'forward' ? 'encrypts' : 'decrypts'}
+                {phase === 'forward' ? t('general.encrypts') : t('general.decrypts')}
               </text>
             )}
           </g>
@@ -208,7 +209,7 @@ export function GarlicRoutingDiagram() {
             const cx = 150 + i * 100
             const isPassed = isRelayPassed(i)
             const isActive = isNodeActive(i + 1)
-            const actionText = phase === 'forward' ? 'peels' : 'wraps'
+            const actionText = phase === 'forward' ? t('general.peels') : t('general.wraps')
 
             return (
               <g key={`relay-${i}`}>
@@ -234,7 +235,7 @@ export function GarlicRoutingDiagram() {
                   fill="rgba(255, 255, 255, 0.6)"
                   fontSize="11"
                 >
-                  Relay {relayIds[i]}
+                  {t('general.relay')} {relayIds[i]}
                 </text>
                 {isPlaying && (isActive || isPassed) && (
                   <text
@@ -279,7 +280,7 @@ export function GarlicRoutingDiagram() {
                 fill="rgba(255, 255, 255, 0.5)"
                 fontSize="11"
               >
-                {phase === 'forward' ? 'receives' : 'responds'}
+                {phase === 'forward' ? t('general.receives') : t('general.responds')}
               </text>
             )}
           </g>
@@ -299,7 +300,7 @@ export function GarlicRoutingDiagram() {
       </div>
 
       <p className="text-xs text-muted-foreground/60 text-center mt-4">
-        New circuit every rotation
+        {t('general.newCircuit')}
       </p>
     </div>
   )

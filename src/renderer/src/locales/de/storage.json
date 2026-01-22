@@ -1,0 +1,60 @@
+{
+  "title": "TON-Speicher",
+  "description": "Dezentrales Speichern und Abrufen von Dateien",
+  "tabs": {
+    "active": "Aktiv",
+    "completed": "Abgeschlossen",
+    "info": "Information"
+  },
+  "filters": {
+    "all": "Alle",
+    "downloading": "Download läuft",
+    "seeding": "Seeding",
+    "paused": "Pausiert"
+  },
+  "actions": {
+    "addTorrent": "Torrent hinzufügen",
+    "pause": "Pausieren",
+    "resume": "Fortsetzen",
+    "remove": "Entfernen",
+    "openFolder": "Ordner öffnen"
+  },
+  "table": {
+    "name": "Name",
+    "size": "Größe",
+    "progress": "Fortschritt",
+    "download": "Download",
+    "upload": "Upload",
+    "peers": "Peers",
+    "status": "Status"
+  },
+  "status": {
+    "downloading": "Download läuft",
+    "seeding": "Seeding",
+    "paused": "Pausiert",
+    "completed": "Abgeschlossen",
+    "error": "Fehler",
+    "checking": "Überprüfung läuft"
+  },
+  "addModal": {
+    "title": "TON-Speicher-Torrent hinzufügen",
+    "bagIdLabel": "Bag-ID",
+    "bagIdPlaceholder": "Bag-ID eingeben...",
+    "downloadPathLabel": "Download-Pfad",
+    "autoStartLabel": "Download automatisch starten",
+    "cancel": "Abbrechen",
+    "add": "Hinzufügen"
+  },
+  "info": {
+    "totalDownload": "Gesamt-Download",
+    "totalUpload": "Gesamt-Upload",
+    "activeTorrents": "Aktive Torrents",
+    "downloadSpeed": "Download-Geschwindigkeit",
+    "uploadSpeed": "Upload-Geschwindigkeit"
+  },
+  "empty": {
+    "title": "Keine aktiven Downloads",
+    "description": "Füge einen Torrent per Bag-ID hinzu, um zu beginnen",
+    "action": "Torrent hinzufügen"
+  }
+}

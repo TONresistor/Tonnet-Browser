@@ -10,6 +10,7 @@ import { ToggleGroup } from '../shared/ToggleGroup'
 import { NumberInput } from '../shared/NumberInput'
 import { useTabsStore } from '@/stores/tabs'
 import type { SectionProps } from '../types'
+import { useTranslation } from 'react-i18next'
 
 interface HistorySectionProps extends SectionProps {
   changingHistoryMode: boolean
@@ -22,6 +23,7 @@ export const HistorySection = memo(function HistorySection({
   changingHistoryMode,
   onHistoryModeChange,
 }: HistorySectionProps) {
+  const { t } = useTranslation('settings')
   const addTab = useTabsStore((state) => state.addTab)
 
   const historyModeOptions: {
@@ -29,16 +31,16 @@ export const HistorySection = memo(function HistorySection({
     label: string
     icon: React.ReactNode
   }[] = [
-    { value: 'memory', label: 'Live', icon: <HistoryIcon className="h-3.5 w-3.5" /> },
-    { value: 'persistent', label: 'Persistent', icon: <Lock className="h-3.5 w-3.5" /> },
+    { value: 'memory', label: t('history.modeLive'), icon: <HistoryIcon className="h-3.5 w-3.5" /> },
+    { value: 'persistent', label: t('history.modePersistent'), icon: <Lock className="h-3.5 w-3.5" /> },
   ]
 
   const getModeDescription = (mode: string) => {
     switch (mode) {
       case 'memory':
-        return 'RAM only, cleared on exit'
+        return t('history.historyModeMemory')
       case 'persistent':
-        return 'Auto-encrypted on disk via OS keychain'
+        return t('history.historyModePersistent')
       default:
         return ''
     }
@@ -46,9 +48,9 @@ export const HistorySection = memo(function HistorySection({
 
   return (
     <div>
-      <SectionHeader title="History" description="Configure browsing history storage" />
+      <SectionHeader title={t('history.title')} description={t('history.description')} />
       <div className="bg-card rounded-xl border border-border px-4">
-        <SettingRow label="History mode" description={getModeDescription(draft.historyMode)}>
+        <SettingRow label={t('history.historyMode')} description={getModeDescription(draft.historyMode)}>
           <ToggleGroup
             value={draft.historyMode}
             onChange={(v) => !changingHistoryMode && onHistoryModeChange(v)}
@@ -56,7 +58,7 @@ export const HistorySection = memo(function HistorySection({
             disabled={changingHistoryMode}
           />
         </SettingRow>
-        <SettingRow label="Maximum entries" description="Limit stored history entries">
+        <SettingRow label={t('history.maxEntries')} description={t('history.maxEntriesDesc')}>
           <NumberInput
             value={draft.historyMaxEntries}
             onChange={(v) => setDraft('historyMaxEntries', v)}
@@ -65,13 +67,13 @@ export const HistorySection = memo(function HistorySection({
             step={100}
           />
         </SettingRow>
-        <SettingRow label="View history" description="Open browsing history page">
+        <SettingRow label={t('history.viewHistory')} description={t('history.viewHistoryDesc')}>
           <button
             onClick={() => addTab('ton://history')}
             className="flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-200 bg-surface-hover border border-border-medium text-foreground hover:bg-surface-active"
           >
             <HistoryIcon className="h-4 w-4" />
-            Open
+            {t('history.open')}
           </button>
         </SettingRow>
       </div>

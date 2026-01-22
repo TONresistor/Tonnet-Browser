@@ -1,0 +1,138 @@
+{
+  "start": {
+    "title": "Selamat Datang di Tonnet",
+    "subtitle": "Gerbang Anda menuju web terdesentralisasi",
+    "searchPlaceholder": "Cari atau masukkan alamat .ton",
+    "searchButton": "Kunjungi",
+    "quickLinks": "Tautan cepat",
+    "recentlyVisited": "Baru dikunjungi",
+    "noRecent": "Belum ada situs yang baru dikunjungi"
+  },
+  "storage": {
+    "title": "Penyimpanan TON",
+    "description": "Penyimpanan dan pengambilan file terdesentralisasi",
+    "tabs": {
+      "active": "Aktif",
+      "completed": "Selesai",
+      "info": "Informasi"
+    },
+    "filters": {
+      "all": "Semua",
+      "downloading": "Mengunduh",
+      "seeding": "Menyebarkan",
+      "paused": "Dijeda"
+    },
+    "actions": {
+      "addTorrent": "Tambah torrent",
+      "pause": "Jeda",
+      "resume": "Lanjutkan",
+      "remove": "Hapus",
+      "openFolder": "Buka folder",
+      "copyBagId": "Salin ID bag",
+      "details": "Detail"
+    },
+    "table": {
+      "name": "Nama",
+      "size": "Ukuran",
+      "progress": "Progres",
+      "download": "Unduh",
+      "upload": "Unggah",
+      "peers": "Rekan",
+      "status": "Status",
+      "added": "Ditambahkan"
+    },
+    "status": {
+      "downloading": "Mengunduh",
+      "seeding": "Menyebarkan",
+      "paused": "Dijeda",
+      "completed": "Selesai",
+      "error": "Kesalahan",
+      "checking": "Memeriksa",
+      "queued": "Antri"
+    },
+    "addModal": {
+      "title": "Tambah torrent penyimpanan TON",
+      "bagIdLabel": "ID bag",
+      "bagIdPlaceholder": "Masukkan ID bag atau seret file torrent...",
+      "downloadPathLabel": "Jalur unduhan",
+      "autoStartLabel": "Mulai unduhan secara otomatis",
+      "cancel": "Batal",
+      "add": "Tambah",
+      "browse": "Jelajahi"
+    },
+    "info": {
+      "title": "Statistik penyimpanan",
+      "totalDownload": "Total unduhan",
+      "totalUpload": "Total unggahan",
+      "activeTorrents": "Torrent aktif",
+      "downloadSpeed": "Kecepatan unduh",
+      "uploadSpeed": "Kecepatan unggah",
+      "ratio": "Rasio",
+      "connectedPeers": "Rekan terhubung",
+      "diskSpace": "Ruang disk"
+    },
+    "empty": {
+      "title": "Tidak ada unduhan aktif",
+      "description": "Tambahkan konten berdasarkan ID bag atau file torrent untuk memulai",
+      "action": "Tambah torrent"
+    },
+    "errors": {
+      "invalidBagId": "ID bag tidak valid",
+      "downloadFailed": "Unduhan gagal",
+      "addFailed": "Gagal menambahkan torrent",
+      "removeFailed": "Gagal menghapus",
+      "noSpace": "Ruang disk tidak cukup"
+    }
+  },
+  "history": {
+    "title": "Riwayat Penjelajahan",
+    "description": "Riwayat penjelajahan dan catatan kunjungan Anda",
+    "search": "Cari di riwayat...",
+    "filters": {
+      "all": "Semua waktu",
+      "today": "Hari ini",
+      "yesterday": "Kemarin",
+      "thisWeek": "Minggu ini",
+      "thisMonth": "Bulan ini",
+      "older": "Lebih lama"
+    },
+    "actions": {
+      "clearAll": "Hapus semua riwayat",
+      "clearToday": "Hapus hari ini",
+      "clearSelected": "Hapus yang dipilih",
+      "export": "Ekspor riwayat"
+    },
+    "table": {
+      "title": "Judul",
+      "url": "URL",
+      "visits": "Kunjungan",
+      "lastVisit": "Kunjungan terakhir"
+    },
+    "empty": {
+      "title": "Tidak ada riwayat",
+      "description": "Situs web yang Anda kunjungi akan muncul di sini",
+      "allCleared": "Semua riwayat telah dihapus"
+    },
+    "clearConfirm": {
+      "title": "Hapus riwayat?",
+      "message": "Tindakan ini tidak dapat dibatalkan.",
+      "clearAll": "Ini akan menghapus semua riwayat penjelajahan Anda.",
+      "clearSelected": "Ini akan menghapus {{count}} item yang dipilih.",
+      "cancel": "Batal",
+      "confirm": "Hapus"
+    },
+    "stats": {
+      "totalVisits": "Total kunjungan",
+      "uniqueSites": "Situs unik",
+      "todayVisits": "Kunjungan hari ini",
+      "averageDaily": "Rata-rata harian"
+    },
+    "timeFormat": {
+      "justNow": "Baru saja",
+      "minutesAgo": "{{count}} menit yang lalu",
+      "hoursAgo": "{{count}} jam yang lalu",
+      "yesterday": "Kemarin",
+      "daysAgo": "{{count}} hari yang lalu"
+    }
+  }
+}

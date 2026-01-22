@@ -8,13 +8,16 @@ import { SettingRow } from '../shared/SettingRow'
 import { Toggle } from '../shared/Toggle'
 import { NumberInput } from '../shared/NumberInput'
 import type { SectionProps } from '../types'
+import { useTranslation } from 'react-i18next'
 
 export const NetworkSection = memo(function NetworkSection({ draft, setDraft }: SectionProps) {
+  const { t } = useTranslation('settings')
+
   return (
     <div>
-      <SectionHeader title="Network" description="Proxy and connection settings" />
+      <SectionHeader title={t('network.title')} description={t('network.description')} />
       <div className="bg-card rounded-xl border border-border px-4">
-        <SettingRow label="Proxy port" description="Local port for TON proxy">
+        <SettingRow label={t('network.proxyPort')} description={t('network.proxyPortDesc')}>
           <NumberInput
             value={draft.proxyPort}
             onChange={(v) => setDraft('proxyPort', v)}
@@ -22,7 +25,7 @@ export const NetworkSection = memo(function NetworkSection({ draft, setDraft }: 
             max={65535}
           />
         </SettingRow>
-        <SettingRow label="Storage API port" description="Local port for storage daemon">
+        <SettingRow label={t('network.storageApiPort')} description={t('network.storageApiPortDesc')}>
           <NumberInput
             value={draft.storagePort}
             onChange={(v) => setDraft('storagePort', v)}
@@ -30,14 +33,14 @@ export const NetworkSection = memo(function NetworkSection({ draft, setDraft }: 
             max={65535}
           />
         </SettingRow>
-        <SettingRow label="Auto-connect" description="Connect to TON Network on startup">
+        <SettingRow label={t('network.autoConnect')} description={t('network.autoConnectDesc')}>
           <Toggle
             checked={draft.autoConnect}
             onChange={(v) => setDraft('autoConnect', v)}
-            label="Auto-connect to network"
+            label={t('network.autoConnectLabel')}
           />
         </SettingRow>
-        <SettingRow label="Connection timeout" description="Max time to wait for proxy startup">
+        <SettingRow label={t('network.connectionTimeout')} description={t('network.connectionTimeoutDesc')}>
           <NumberInput
             value={draft.connectionTimeout}
             onChange={(v) => setDraft('connectionTimeout', v)}
@@ -46,7 +49,7 @@ export const NetworkSection = memo(function NetworkSection({ draft, setDraft }: 
             suffix="sec"
           />
         </SettingRow>
-        <SettingRow label="Sync check interval" description="How often to check DHT sync status">
+        <SettingRow label={t('network.syncCheckInterval')} description={t('network.syncCheckIntervalDesc')}>
           <NumberInput
             value={draft.syncCheckInterval}
             onChange={(v) => setDraft('syncCheckInterval', v)}

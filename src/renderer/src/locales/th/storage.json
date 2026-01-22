@@ -1,0 +1,60 @@
+{
+  "title": "พื้นที่จัดเก็บ TON",
+  "description": "การจัดเก็บและดึงข้อมูลไฟล์แบบกระจายอำนาจ",
+  "tabs": {
+    "active": "ใช้งานอยู่",
+    "completed": "เสร็จสิ้น",
+    "info": "ข้อมูล"
+  },
+  "filters": {
+    "all": "ทั้งหมด",
+    "downloading": "กำลังดาวน์โหลด",
+    "seeding": "กำลังแชร์",
+    "paused": "หยุดชั่วคราว"
+  },
+  "actions": {
+    "addTorrent": "เพิ่มทอร์เรนต์",
+    "pause": "หยุดชั่วคราว",
+    "resume": "ดำเนินการต่อ",
+    "remove": "ลบ",
+    "openFolder": "เปิดโฟลเดอร์"
+  },
+  "table": {
+    "name": "ชื่อ",
+    "size": "ขนาด",
+    "progress": "ความคืบหน้า",
+    "download": "ดาวน์โหลด",
+    "upload": "อัปโหลด",
+    "peers": "เพียร์",
+    "status": "สถานะ"
+  },
+  "status": {
+    "downloading": "กำลังดาวน์โหลด",
+    "seeding": "กำลังแชร์",
+    "paused": "หยุดชั่วคราว",
+    "completed": "เสร็จสิ้น",
+    "error": "ข้อผิดพลาด",
+    "checking": "กำลังตรวจสอบ"
+  },
+  "addModal": {
+    "title": "เพิ่มทอร์เรนต์พื้นที่จัดเก็บ TON",
+    "bagIdLabel": "รหัส Bag",
+    "bagIdPlaceholder": "ป้อนรหัส Bag...",
+    "downloadPathLabel": "เส้นทางดาวน์โหลด",
+    "autoStartLabel": "เริ่มดาวน์โหลดอัตโนมัติ",
+    "cancel": "ยกเลิก",
+    "add": "เพิ่ม"
+  },
+  "info": {
+    "totalDownload": "ดาวน์โหลดทั้งหมด",
+    "totalUpload": "อัปโหลดทั้งหมด",
+    "activeTorrents": "ทอร์เรนต์ที่ใช้งานอยู่",
+    "downloadSpeed": "ความเร็วดาวน์โหลด",
+    "uploadSpeed": "ความเร็วอัปโหลด"
+  },
+  "empty": {
+    "title": "ไม่มีการดาวน์โหลดที่ใช้งานอยู่",
+    "description": "เพิ่มทอร์เรนต์โดยรหัส Bag เพื่อเริ่มต้น",
+    "action": "เพิ่มทอร์เรนต์"
+  }
+}

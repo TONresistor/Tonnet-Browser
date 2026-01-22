@@ -1,0 +1,52 @@
+{
+  "addressBar": {
+    "placeholder": "ป้อนที่อยู่ .ton...",
+    "ariaLabel": "ป้อน URL หรือที่อยู่ TON",
+    "addBookmarkAria": "เพิ่มไปยังบุ๊กมาร์ก",
+    "removeBookmarkAria": "ลบออกจากบุ๊กมาร์ก",
+    "addBookmarkTitle": "เพิ่มบุ๊กมาร์ก",
+    "removeBookmarkTitle": "ลบบุ๊กมาร์ก"
+  },
+  "navigation": {
+    "back": "ย้อนกลับ",
+    "forward": "ไปข้างหน้า",
+    "home": "หน้าแรก",
+    "reload": "โหลดใหม่",
+    "stop": "หยุดการโหลด",
+    "pageNavigation": "การนำทางหน้าเว็บ",
+    "goBackAria": "ย้อนกลับไปหน้าก่อนหน้า",
+    "goForwardAria": "ไปหน้าถัดไป",
+    "stopLoadingAria": "หยุดการโหลดหน้าเว็บ",
+    "reloadAria": "โหลดหน้าปัจจุบันใหม่",
+    "goHomeAria": "ไปที่หน้าแรก"
+  },
+  "tabs": {
+    "newTab": "แท็บใหม่",
+    "closeTab": "ปิดแท็บ",
+    "browserTabs": "แท็บเบราว์เซอร์",
+    "openNewTab": "เปิดแท็บใหม่",
+    "duplicateTab": "ทำสำเนาแท็บ",
+    "closeOtherTabs": "ปิดแท็บอื่น",
+    "pickedUp": "เลือกแท็บ: {{title}}",
+    "dragOver": "แท็บ {{activeTitle}} อยู่เหนือ {{overTitle}}",
+    "reordered": "จัดเรียงแท็บ {{title}} ใหม่แล้ว",
+    "dragCancelled": "ยกเลิกการลากแล้ว",
+    "dragCancelledFull": "ยกเลิกการลากแล้ว แท็บ {{title}} กลับไปยังตำแหน่งเดิม"
+  },
+  "bookmarksBar": {
+    "title": "บุ๊กมาร์ก"
+  },
+  "statusBar": {
+    "connected": "เชื่อมต่อกับเครือข่าย TON แล้ว",
+    "disconnected": "ตัดการเชื่อมต่อแล้ว",
+    "syncing": "กำลังซิงค์...",
+    "syncingMultiHop": "กำลังซิงค์ด้วยวงจรหลายฮอป...",
+    "garlicRouting": "Garlic Routing (3-hop)",
+    "buildingCircuit": "กำลังสร้างวงจร...",
+    "storage": "พื้นที่เก็บข้อมูล:",
+    "bag": "ถุง",
+    "bags": "ถุง",
+    "session": "เซสชัน:",
+    "networkStatus": "สถานะเครือข่าย: {{status}}"
+  }
+}

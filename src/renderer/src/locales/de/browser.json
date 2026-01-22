@@ -1,0 +1,52 @@
+{
+  "addressBar": {
+    "placeholder": ".ton-Adresse eingeben...",
+    "ariaLabel": "URL oder TON-Adresse eingeben",
+    "addBookmarkAria": "Zu Lesezeichen hinzufügen",
+    "removeBookmarkAria": "Aus Lesezeichen entfernen",
+    "addBookmarkTitle": "Lesezeichen hinzufügen",
+    "removeBookmarkTitle": "Lesezeichen entfernen"
+  },
+  "navigation": {
+    "back": "Zurück",
+    "forward": "Vor",
+    "home": "Startseite",
+    "reload": "Neu laden",
+    "stop": "Laden stoppen",
+    "pageNavigation": "Seitennavigation",
+    "goBackAria": "Zur vorherigen Seite zurückkehren",
+    "goForwardAria": "Zur nächsten Seite vorgehen",
+    "stopLoadingAria": "Laden der Seite stoppen",
+    "reloadAria": "Aktuelle Seite neu laden",
+    "goHomeAria": "Zur Startseite gehen"
+  },
+  "tabs": {
+    "newTab": "Neuer Tab",
+    "closeTab": "Tab schließen",
+    "browserTabs": "Browser-Tabs",
+    "openNewTab": "Neuen Tab öffnen",
+    "duplicateTab": "Tab Duplizieren",
+    "closeOtherTabs": "Andere Tabs Schließen",
+    "pickedUp": "Tab ausgewählt: {{title}}",
+    "dragOver": "Tab {{activeTitle}} ist über {{overTitle}}",
+    "reordered": "Tab {{title}} neu angeordnet",
+    "dragCancelled": "Ziehen abgebrochen",
+    "dragCancelledFull": "Ziehen abgebrochen. Tab {{title}} wurde an die ursprüngliche Position zurückgesetzt."
+  },
+  "bookmarksBar": {
+    "title": "Lesezeichen"
+  },
+  "statusBar": {
+    "connected": "Mit TON-Netzwerk verbunden",
+    "disconnected": "Getrennt",
+    "syncing": "Synchronisierung...",
+    "syncingMultiHop": "Synchronisierung mit Multi-Hop-Schaltung...",
+    "garlicRouting": "Garlic Routing (3-Hop)",
+    "buildingCircuit": "Schaltung wird aufgebaut...",
+    "storage": "Speicher:",
+    "bag": "Beutel",
+    "bags": "Beutel",
+    "session": "Sitzung:",
+    "networkStatus": "Netzwerkstatus: {{status}}"
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "title": "Peramban TON",
+  "subtitle": "Jelajahi Jaringan TON yang terdesentralisasi.",
+  "description": "Tonnet adalah peramban yang mengutamakan privasi untuk mengakses situs .ton dengan aman melalui jaringan terdesentralisasi.",
+  "connectionSteps": {
+    "startingProxy": "Memulai proxy...",
+    "loadingConfig": "Memuat konfigurasi...",
+    "syncingDHT": "Sinkronisasi dengan DHT...",
+    "connectingNetwork": "Menghubungkan ke jaringan...",
+    "ready": "Siap!"
+  },
+  "features": {
+    "privacy": "Privasi Utama",
+    "privacyDesc": "Lalu lintas Anda dirutekan melalui sirkuit terenkripsi multi-hop",
+    "decentralized": "Terdesentralisasi",
+    "decentralizedDesc": "Akses konten melalui jaringan TON",
+    "secure": "Aman",
+    "secureDesc": "Enkripsi end-to-end dan penjelajahan yang aman"
+  },
+  "footer": {
+    "peerToPeer": "Peer-to-peer - Tahan Sensor - Tanpa Pelacakan",
+    "version": "v{{version}}"
+  }
+}

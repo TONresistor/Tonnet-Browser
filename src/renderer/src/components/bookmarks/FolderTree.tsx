@@ -7,6 +7,7 @@ import { useState } from 'react'
 import { ChevronRight, ChevronDown, Folder, FolderOpen, Edit2, Trash2 } from 'lucide-react'
 import { useBookmarksStore, BookmarkFolder } from '@/stores/bookmarks'
 import { cn } from '@/lib/utils'
+import { useTranslation } from 'react-i18next'
 
 interface FolderTreeProps {
   selectedFolderId: string | null
@@ -15,6 +16,7 @@ interface FolderTreeProps {
 }
 
 export function FolderTree({ selectedFolderId, onSelectFolder, onEditFolder }: FolderTreeProps) {
+  const { t } = useTranslation('settings')
   const { folders, getBookmarksByFolder, getSubfolders, removeFolder } = useBookmarksStore()
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set(['root']))
 
@@ -158,7 +160,7 @@ export function FolderTree({ selectedFolderId, onSelectFolder, onEditFolder }: F
         )}
       >
         <Folder className="w-4 h-4 flex-shrink-0" />
-        <span className="flex-1 text-left">All Bookmarks</span>
+        <span className="flex-1 text-left">{t('bookmarks.allBookmarks')}</span>
         {totalBookmarks > 0 && (
           <span className="text-xs px-1.5 py-0.5 rounded-full bg-surface/50">
             {totalBookmarks}

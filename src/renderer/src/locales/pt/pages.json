@@ -1,0 +1,138 @@
+{
+  "start": {
+    "title": "Bem-vindo ao Tonnet",
+    "subtitle": "Sua porta de entrada para a web descentralizada",
+    "searchPlaceholder": "Pesquisar ou inserir endereço .ton",
+    "searchButton": "Ir",
+    "quickLinks": "Links rápidos",
+    "recentlyVisited": "Visitados recentemente",
+    "noRecent": "Nenhum site visitado recentemente ainda"
+  },
+  "storage": {
+    "title": "Armazenamento TON",
+    "description": "Armazenamento e recuperação de arquivos descentralizado",
+    "tabs": {
+      "active": "Ativo",
+      "completed": "Concluído",
+      "info": "Informações"
+    },
+    "filters": {
+      "all": "Todos",
+      "downloading": "Baixando",
+      "seeding": "Compartilhando",
+      "paused": "Pausado"
+    },
+    "actions": {
+      "addTorrent": "Adicionar torrent",
+      "pause": "Pausar",
+      "resume": "Retomar",
+      "remove": "Remover",
+      "openFolder": "Abrir pasta",
+      "copyBagId": "Copiar ID do bag",
+      "details": "Detalhes"
+    },
+    "table": {
+      "name": "Nome",
+      "size": "Tamanho",
+      "progress": "Progresso",
+      "download": "Download",
+      "upload": "Upload",
+      "peers": "Peers",
+      "status": "Status",
+      "added": "Adicionado"
+    },
+    "status": {
+      "downloading": "Baixando",
+      "seeding": "Compartilhando",
+      "paused": "Pausado",
+      "completed": "Concluído",
+      "error": "Erro",
+      "checking": "Verificando",
+      "queued": "Na fila"
+    },
+    "addModal": {
+      "title": "Adicionar torrent do armazenamento TON",
+      "bagIdLabel": "ID do bag",
+      "bagIdPlaceholder": "Digite o ID do bag ou arraste arquivo torrent...",
+      "downloadPathLabel": "Caminho de download",
+      "autoStartLabel": "Iniciar download automaticamente",
+      "cancel": "Cancelar",
+      "add": "Adicionar",
+      "browse": "Procurar"
+    },
+    "info": {
+      "title": "Estatísticas de armazenamento",
+      "totalDownload": "Download total",
+      "totalUpload": "Upload total",
+      "activeTorrents": "Torrents ativos",
+      "downloadSpeed": "Velocidade de download",
+      "uploadSpeed": "Velocidade de upload",
+      "ratio": "Proporção",
+      "connectedPeers": "Peers conectados",
+      "diskSpace": "Espaço em disco"
+    },
+    "empty": {
+      "title": "Nenhum download ativo",
+      "description": "Adicione conteúdo por ID do bag ou arquivo torrent para começar",
+      "action": "Adicionar torrent"
+    },
+    "errors": {
+      "invalidBagId": "ID do bag inválido",
+      "downloadFailed": "Falha no download",
+      "addFailed": "Falha ao adicionar torrent",
+      "removeFailed": "Falha ao remover",
+      "noSpace": "Espaço em disco insuficiente"
+    }
+  },
+  "history": {
+    "title": "Histórico de navegação",
+    "description": "Seu histórico de navegação e registros de visitas",
+    "search": "Pesquisar no histórico...",
+    "filters": {
+      "all": "Todo o período",
+      "today": "Hoje",
+      "yesterday": "Ontem",
+      "thisWeek": "Esta semana",
+      "thisMonth": "Este mês",
+      "older": "Mais antigo"
+    },
+    "actions": {
+      "clearAll": "Limpar todo o histórico",
+      "clearToday": "Limpar hoje",
+      "clearSelected": "Limpar selecionados",
+      "export": "Exportar histórico"
+    },
+    "table": {
+      "title": "Título",
+      "url": "URL",
+      "visits": "Visitas",
+      "lastVisit": "Última visita"
+    },
+    "empty": {
+      "title": "Sem histórico",
+      "description": "Os sites que você visitar aparecerão aqui",
+      "allCleared": "Todo o histórico foi limpo"
+    },
+    "clearConfirm": {
+      "title": "Limpar histórico?",
+      "message": "Esta ação não pode ser desfeita.",
+      "clearAll": "Isso removerá todo o seu histórico de navegação.",
+      "clearSelected": "Isso removerá {{count}} itens selecionados.",
+      "cancel": "Cancelar",
+      "confirm": "Limpar"
+    },
+    "stats": {
+      "totalVisits": "Visitas totais",
+      "uniqueSites": "Sites únicos",
+      "todayVisits": "Visitas de hoje",
+      "averageDaily": "Média diária"
+    },
+    "timeFormat": {
+      "justNow": "Agora mesmo",
+      "minutesAgo": "{{count}} minutos atrás",
+      "hoursAgo": "{{count}} horas atrás",
+      "yesterday": "Ontem",
+      "daysAgo": "{{count}} dias atrás"
+    }
+  }
+}

@@ -8,6 +8,7 @@ import { SectionHeader } from '../shared/SectionHeader'
 import { SettingRow } from '../shared/SettingRow'
 import { SelectInput } from '../shared/SelectInput'
 import type { SectionProps } from '../types'
+import { useTranslation } from 'react-i18next'
 
 interface AdvancedSectionProps extends SectionProps {
   onResetAll: () => void
@@ -18,35 +19,37 @@ export const AdvancedSection = memo(function AdvancedSection({
   setDraft,
   onResetAll,
 }: AdvancedSectionProps) {
+  const { t } = useTranslation('settings')
+
   return (
     <div>
-      <SectionHeader title="Advanced" description="Settings for developers and power users" />
+      <SectionHeader title={t('advanced.title')} description={t('advanced.description')} />
       <div className="bg-card rounded-xl border border-border px-4">
-        <SettingRow label="Proxy verbosity" description="Logging level for proxy daemon">
+        <SettingRow label={t('advanced.proxyVerbosity')} description={t('advanced.proxyVerbosityDesc')}>
           <SelectInput
             value={String(draft.proxyVerbosity)}
             onChange={(v) => setDraft('proxyVerbosity', Number(v))}
             options={[
-              { value: '0', label: 'Silent' },
-              { value: '1', label: 'Errors only' },
-              { value: '2', label: 'Normal' },
-              { value: '3', label: 'Verbose' },
+              { value: '0', label: t('advanced.silent') },
+              { value: '1', label: t('advanced.errorsOnly') },
+              { value: '2', label: t('advanced.normal') },
+              { value: '3', label: t('advanced.verbose') },
             ]}
           />
         </SettingRow>
-        <SettingRow label="Storage verbosity" description="Logging level for storage daemon">
+        <SettingRow label={t('advanced.storageVerbosity')} description={t('advanced.storageVerbosityDesc')}>
           <SelectInput
             value={String(draft.storageVerbosity)}
             onChange={(v) => setDraft('storageVerbosity', Number(v))}
             options={[
-              { value: '0', label: 'Silent' },
-              { value: '1', label: 'Errors only' },
-              { value: '2', label: 'Normal' },
-              { value: '3', label: 'Verbose' },
+              { value: '0', label: t('advanced.silent') },
+              { value: '1', label: t('advanced.errorsOnly') },
+              { value: '2', label: t('advanced.normal') },
+              { value: '3', label: t('advanced.verbose') },
             ]}
           />
         </SettingRow>
-        <SettingRow label="Sync test domain" description="Domain used to verify DHT sync">
+        <SettingRow label={t('advanced.syncTestDomain')} description={t('advanced.syncTestDomainDesc')}>
           <input
             value={draft.syncTestDomain}
             onChange={(e) => setDraft('syncTestDomain', e.target.value)}
@@ -62,7 +65,7 @@ export const AdvancedSection = memo(function AdvancedSection({
           className="flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 bg-destructive/15 border border-destructive/30 text-destructive hover:bg-destructive/25"
         >
           <RotateCcw className="h-4 w-4" />
-          Reset all settings to defaults
+          {t('advanced.resetAll')}
         </button>
       </div>
     </div>

@@ -1,0 +1,52 @@
+{
+  "addressBar": {
+    "placeholder": "Masukkan alamat .ton...",
+    "ariaLabel": "Masukkan URL atau alamat TON",
+    "addBookmarkAria": "Tambahkan ke penanda",
+    "removeBookmarkAria": "Hapus dari penanda",
+    "addBookmarkTitle": "Tambah penanda",
+    "removeBookmarkTitle": "Hapus penanda"
+  },
+  "navigation": {
+    "back": "Kembali",
+    "forward": "Maju",
+    "home": "Beranda",
+    "reload": "Muat Ulang",
+    "stop": "Hentikan pemuatan",
+    "pageNavigation": "Navigasi halaman",
+    "goBackAria": "Kembali ke halaman sebelumnya",
+    "goForwardAria": "Maju ke halaman berikutnya",
+    "stopLoadingAria": "Hentikan pemuatan halaman",
+    "reloadAria": "Muat ulang halaman saat ini",
+    "goHomeAria": "Pergi ke halaman beranda"
+  },
+  "tabs": {
+    "newTab": "Tab Baru",
+    "closeTab": "Tutup tab",
+    "browserTabs": "Tab browser",
+    "openNewTab": "Buka tab baru",
+    "duplicateTab": "Gandakan Tab",
+    "closeOtherTabs": "Tutup Tab Lain",
+    "pickedUp": "Tab dipilih: {{title}}",
+    "dragOver": "Tab {{activeTitle}} berada di atas {{overTitle}}",
+    "reordered": "Tab {{title}} disusun ulang",
+    "dragCancelled": "Penyeretan dibatalkan",
+    "dragCancelledFull": "Penyeretan dibatalkan. Tab {{title}} kembali ke posisi semula."
+  },
+  "bookmarksBar": {
+    "title": "Penanda"
+  },
+  "statusBar": {
+    "connected": "Terhubung ke Jaringan TON",
+    "disconnected": "Terputus",
+    "syncing": "Menyinkronkan...",
+    "syncingMultiHop": "Menyinkronkan dengan sirkuit multi-hop...",
+    "garlicRouting": "Garlic Routing (3-hop)",
+    "buildingCircuit": "Membangun sirkuit...",
+    "storage": "Penyimpanan:",
+    "bag": "tas",
+    "bags": "tas",
+    "session": "Sesi:",
+    "networkStatus": "Status jaringan: {{status}}"
+  }
+}

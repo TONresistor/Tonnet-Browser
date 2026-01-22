@@ -1,25 +1,36 @@
 {
-  "appName": "TON Browser",
+  "appName": "Tonnet",
   "buttons": {
     "connect": "Connect to TON Network",
+    "disconnect": "Disconnect",
     "connecting": "Connecting...",
+    "cancel": "Cancel",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "close": "Close",
+    "back": "Back",
+    "next": "Next",
+    "done": "Done",
+    "retry": "Retry",
+    "ok": "OK",
     "create": "Create",
     "import": "Import",
-    "export": "Export",
-    "delete": "Delete",
-    "save": "Save",
-    "cancel": "Cancel",
-    "close": "Close",
-    "ok": "OK"
-  },
-  "actions": {
-    "addBookmark": "Add bookmark",
-    "removeBookmark": "Remove bookmark",
-    "newTab": "New Tab"
+    "export": "Export"
   },
   "status": {
-    "peerToPeer": "Peer-to-peer",
-    "censorshipResistant": "Censorship Resistant",
-    "noTracking": "No Tracking"
+    "connected": "Connected",
+    "disconnected": "Disconnected",
+    "connecting": "Connecting",
+    "error": "Error",
+    "syncing": "Syncing",
+    "synced": "Synced"
+  },
+  "errors": {
+    "generic": "An error occurred",
+    "network": "Network error",
+    "timeout": "Connection timeout",
+    "notFound": "Not found",
+    "unauthorized": "Unauthorized"
   }
 }

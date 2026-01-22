@@ -1,0 +1,24 @@
+{
+  "title": "TON 브라우저",
+  "subtitle": "탈중앙화된 TON 네트워크를 탐색하세요.",
+  "description": "Tonnet은 탈중앙화 네트워크를 통해 .ton 사이트에 안전하게 액세스할 수 있는 프라이버시 중심 브라우저입니다.",
+  "connectionSteps": {
+    "startingProxy": "프록시 시작 중...",
+    "loadingConfig": "구성 로드 중...",
+    "syncingDHT": "DHT와 동기화 중...",
+    "connectingNetwork": "네트워크에 연결 중...",
+    "ready": "준비 완료!"
+  },
+  "features": {
+    "privacy": "프라이버시 우선",
+    "privacyDesc": "트래픽이 암호화된 다중 홉 회로를 통해 라우팅됩니다",
+    "decentralized": "탈중앙화",
+    "decentralizedDesc": "TON 네트워크를 통해 콘텐츠에 액세스",
+    "secure": "안전함",
+    "secureDesc": "엔드투엔드 암호화 및 안전한 브라우징"
+  },
+  "footer": {
+    "peerToPeer": "Peer-to-peer - 검열 저항 - 추적 없음",
+    "version": "v{{version}}"
+  }
+}

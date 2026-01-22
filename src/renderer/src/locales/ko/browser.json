@@ -1,0 +1,52 @@
+{
+  "addressBar": {
+    "placeholder": ".ton 주소 입력...",
+    "ariaLabel": "URL 또는 TON 주소 입력",
+    "addBookmarkAria": "북마크에 추가",
+    "removeBookmarkAria": "북마크에서 제거",
+    "addBookmarkTitle": "북마크 추가",
+    "removeBookmarkTitle": "북마크 제거"
+  },
+  "navigation": {
+    "back": "뒤로",
+    "forward": "앞으로",
+    "home": "홈",
+    "reload": "새로 고침",
+    "stop": "로딩 중지",
+    "pageNavigation": "페이지 탐색",
+    "goBackAria": "이전 페이지로 이동",
+    "goForwardAria": "다음 페이지로 이동",
+    "stopLoadingAria": "페이지 로딩 중지",
+    "reloadAria": "현재 페이지 새로 고침",
+    "goHomeAria": "홈페이지로 이동"
+  },
+  "tabs": {
+    "newTab": "새 탭",
+    "closeTab": "탭 닫기",
+    "browserTabs": "브라우저 탭",
+    "openNewTab": "새 탭 열기",
+    "duplicateTab": "탭 복제",
+    "closeOtherTabs": "다른 탭 닫기",
+    "pickedUp": "선택한 탭: {{title}}",
+    "dragOver": "탭 {{activeTitle}}이(가) {{overTitle}} 위에 있음",
+    "reordered": "탭 {{title}} 순서 변경됨",
+    "dragCancelled": "드래그 취소됨",
+    "dragCancelledFull": "드래그가 취소되었습니다. 탭 {{title}}이(가) 원래 위치로 돌아갔습니다."
+  },
+  "bookmarksBar": {
+    "title": "북마크"
+  },
+  "statusBar": {
+    "connected": "TON 네트워크에 연결됨",
+    "disconnected": "연결 끊김",
+    "syncing": "동기화 중...",
+    "syncingMultiHop": "다중 홉 회로로 동기화 중...",
+    "garlicRouting": "가릭 라우팅 (3-홉)",
+    "buildingCircuit": "회로 구축 중...",
+    "storage": "저장소:",
+    "bag": "백",
+    "bags": "백",
+    "session": "세션:",
+    "networkStatus": "네트워크 상태: {{status}}"
+  }
+}

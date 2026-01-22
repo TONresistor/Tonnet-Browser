@@ -1,0 +1,138 @@
+{
+  "start": {
+    "title": "欢迎使用 Tonnet",
+    "subtitle": "您通往去中心化网络的门户",
+    "searchPlaceholder": "搜索或输入 .ton 地址",
+    "searchButton": "前往",
+    "quickLinks": "快速链接",
+    "recentlyVisited": "最近访问",
+    "noRecent": "尚无最近访问的网站"
+  },
+  "storage": {
+    "title": "TON 存储",
+    "description": "去中心化文件存储和检索",
+    "tabs": {
+      "active": "活动",
+      "completed": "已完成",
+      "info": "信息"
+    },
+    "filters": {
+      "all": "全部",
+      "downloading": "下载中",
+      "seeding": "做种中",
+      "paused": "已暂停"
+    },
+    "actions": {
+      "addTorrent": "添加种子",
+      "pause": "暂停",
+      "resume": "继续",
+      "remove": "移除",
+      "openFolder": "打开文件夹",
+      "copyBagId": "复制 Bag ID",
+      "details": "详情"
+    },
+    "table": {
+      "name": "名称",
+      "size": "大小",
+      "progress": "进度",
+      "download": "下载",
+      "upload": "上传",
+      "peers": "节点",
+      "status": "状态",
+      "added": "添加时间"
+    },
+    "status": {
+      "downloading": "下载中",
+      "seeding": "做种中",
+      "paused": "已暂停",
+      "completed": "已完成",
+      "error": "错误",
+      "checking": "检查中",
+      "queued": "排队中"
+    },
+    "addModal": {
+      "title": "添加 TON 存储种子",
+      "bagIdLabel": "Bag ID",
+      "bagIdPlaceholder": "输入 bag ID 或拖放种子文件...",
+      "downloadPathLabel": "下载路径",
+      "autoStartLabel": "自动开始下载",
+      "cancel": "取消",
+      "add": "添加",
+      "browse": "浏览"
+    },
+    "info": {
+      "title": "存储统计",
+      "totalDownload": "总下载量",
+      "totalUpload": "总上传量",
+      "activeTorrents": "活动种子",
+      "downloadSpeed": "下载速度",
+      "uploadSpeed": "上传速度",
+      "ratio": "分享率",
+      "connectedPeers": "已连接节点",
+      "diskSpace": "磁盘空间"
+    },
+    "empty": {
+      "title": "没有活动的下载",
+      "description": "通过 Bag ID 或种子文件添加内容以开始",
+      "action": "添加种子"
+    },
+    "errors": {
+      "invalidBagId": "无效的 Bag ID",
+      "downloadFailed": "下载失败",
+      "addFailed": "添加种子失败",
+      "removeFailed": "移除失败",
+      "noSpace": "磁盘空间不足"
+    }
+  },
+  "history": {
+    "title": "浏览历史",
+    "description": "您的浏览历史和访问记录",
+    "search": "搜索历史记录...",
+    "filters": {
+      "all": "全部时间",
+      "today": "今天",
+      "yesterday": "昨天",
+      "thisWeek": "本周",
+      "thisMonth": "本月",
+      "older": "更早"
+    },
+    "actions": {
+      "clearAll": "清除所有历史记录",
+      "clearToday": "清除今天",
+      "clearSelected": "清除所选",
+      "export": "导出历史记录"
+    },
+    "table": {
+      "title": "标题",
+      "url": "URL",
+      "visits": "访问次数",
+      "lastVisit": "最后访问"
+    },
+    "empty": {
+      "title": "没有历史记录",
+      "description": "您访问的网站将显示在这里",
+      "allCleared": "所有历史记录已清除"
+    },
+    "clearConfirm": {
+      "title": "清除历史记录？",
+      "message": "此操作无法撤销。",
+      "clearAll": "这将删除所有浏览历史记录。",
+      "clearSelected": "这将删除 {{count}} 个选定的项目。",
+      "cancel": "取消",
+      "confirm": "清除"
+    },
+    "stats": {
+      "totalVisits": "总访问次数",
+      "uniqueSites": "独特网站",
+      "todayVisits": "今天的访问",
+      "averageDaily": "日均访问"
+    },
+    "timeFormat": {
+      "justNow": "刚刚",
+      "minutesAgo": "{{count}} 分钟前",
+      "hoursAgo": "{{count}} 小时前",
+      "yesterday": "昨天",
+      "daysAgo": "{{count}} 天前"
+    }
+  }
+}

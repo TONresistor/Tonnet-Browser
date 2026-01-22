@@ -91,6 +91,14 @@ export const AppearanceSection = memo(function AppearanceSection({
   const languageOptions = [
     { value: 'en', label: t('appearance.language.english') },
     { value: 'ru', label: t('appearance.language.russian') },
+    { value: 'zh', label: t('appearance.language.chinese') },
+    { value: 'es', label: t('appearance.language.spanish') },
+    { value: 'id', label: t('appearance.language.indonesian') },
+    { value: 'th', label: t('appearance.language.thai') },
+    { value: 'de', label: t('appearance.language.german') },
+    { value: 'fr', label: t('appearance.language.french') },
+    { value: 'pt', label: t('appearance.language.portuguese') },
+    { value: 'ko', label: t('appearance.language.korean') },
   ]
 
   return (

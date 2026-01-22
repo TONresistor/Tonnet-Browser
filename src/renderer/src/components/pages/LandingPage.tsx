@@ -82,10 +82,10 @@ export function LandingPage() {
         {isConnecting ? (
           <div className="flex items-center justify-center gap-3">
             <div className="w-6 h-6 border-2 border-primary-foreground/20 border-t-primary-foreground rounded-full animate-spin" />
-            <span>{stepMessage || t('../common:buttons.connecting')}</span>
+            <span>{stepMessage || t('buttons.connecting', { ns: 'common' })}</span>
           </div>
         ) : (
-          t('../common:buttons.connect')
+          t('buttons.connect', { ns: 'common' })
         )}
       </button>
 

@@ -1,7 +1,60 @@
 {
   "title": "TON Хранилище",
-  "description": "Управление пакетами TON Storage",
-  "addBag": "Добавить пакет",
-  "invalidBagId": "Неверный ID пакета",
-  "noBags": "Пакеты ещё не добавлены"
+  "description": "Децентрализованное хранение и получение файлов",
+  "tabs": {
+    "active": "Активные",
+    "completed": "Завершённые",
+    "info": "Информация"
+  },
+  "filters": {
+    "all": "Все",
+    "downloading": "Загрузка",
+    "seeding": "Раздача",
+    "paused": "Приостановлено"
+  },
+  "actions": {
+    "addTorrent": "Добавить торрент",
+    "pause": "Пауза",
+    "resume": "Возобновить",
+    "remove": "Удалить",
+    "openFolder": "Открыть папку"
+  },
+  "table": {
+    "name": "Название",
+    "size": "Размер",
+    "progress": "Прогресс",
+    "download": "Загрузка",
+    "upload": "Отдача",
+    "peers": "Пиры",
+    "status": "Статус"
+  },
+  "status": {
+    "downloading": "Загрузка",
+    "seeding": "Раздача",
+    "paused": "Приостановлено",
+    "completed": "Завершено",
+    "error": "Ошибка",
+    "checking": "Проверка"
+  },
+  "addModal": {
+    "title": "Добавить торрент TON Хранилища",
+    "bagIdLabel": "ID пакета",
+    "bagIdPlaceholder": "Введите ID пакета...",
+    "downloadPathLabel": "Путь загрузки",
+    "autoStartLabel": "Начать загрузку автоматически",
+    "cancel": "Отмена",
+    "add": "Добавить"
+  },
+  "info": {
+    "totalDownload": "Всего загружено",
+    "totalUpload": "Всего отдано",
+    "activeTorrents": "Активные торренты",
+    "downloadSpeed": "Скорость загрузки",
+    "uploadSpeed": "Скорость отдачи"
+  },
+  "empty": {
+    "title": "Нет активных загрузок",
+    "description": "Добавьте торрент по ID пакета, чтобы начать",
+    "action": "Добавить торрент"
+  }
 }

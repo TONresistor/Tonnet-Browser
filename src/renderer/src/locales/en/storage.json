@@ -1,7 +1,60 @@
 {
   "title": "TON Storage",
-  "description": "Manage TON Storage bags",
-  "addBag": "Add Bag",
-  "invalidBagId": "Invalid Bag ID",
-  "noBags": "No bags added yet"
+  "description": "Decentralized file storage and retrieval",
+  "tabs": {
+    "active": "Active",
+    "completed": "Completed",
+    "info": "Info"
+  },
+  "filters": {
+    "all": "All",
+    "downloading": "Downloading",
+    "seeding": "Seeding",
+    "paused": "Paused"
+  },
+  "actions": {
+    "addTorrent": "Add Torrent",
+    "pause": "Pause",
+    "resume": "Resume",
+    "remove": "Remove",
+    "openFolder": "Open Folder"
+  },
+  "table": {
+    "name": "Name",
+    "size": "Size",
+    "progress": "Progress",
+    "download": "Download",
+    "upload": "Upload",
+    "peers": "Peers",
+    "status": "Status"
+  },
+  "status": {
+    "downloading": "Downloading",
+    "seeding": "Seeding",
+    "paused": "Paused",
+    "completed": "Completed",
+    "error": "Error",
+    "checking": "Checking"
+  },
+  "addModal": {
+    "title": "Add TON Storage Torrent",
+    "bagIdLabel": "Bag ID",
+    "bagIdPlaceholder": "Enter bag ID...",
+    "downloadPathLabel": "Download Path",
+    "autoStartLabel": "Start download automatically",
+    "cancel": "Cancel",
+    "add": "Add"
+  },
+  "info": {
+    "totalDownload": "Total Download",
+    "totalUpload": "Total Upload",
+    "activeTorrents": "Active Torrents",
+    "downloadSpeed": "Download Speed",
+    "uploadSpeed": "Upload Speed"
+  },
+  "empty": {
+    "title": "No active downloads",
+    "description": "Add a torrent by Bag ID to start",
+    "action": "Add Torrent"
+  }
 }

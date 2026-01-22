@@ -1,7 +1,138 @@
 {
   "start": {
-    "subtitle": "Explore the decentralized TON Network. Privately.",
-    "searchPlaceholder": "Enter a .ton address",
-    "searchButton": "Go"
+    "title": "Welcome to Tonnet",
+    "subtitle": "Your gateway to the decentralized web",
+    "searchPlaceholder": "Search or enter .ton address",
+    "searchButton": "Go",
+    "quickLinks": "Quick Links",
+    "recentlyVisited": "Recently Visited",
+    "noRecent": "No recently visited sites"
+  },
+  "storage": {
+    "title": "TON Storage",
+    "description": "Decentralized file storage and retrieval",
+    "tabs": {
+      "active": "Active",
+      "completed": "Completed",
+      "info": "Info"
+    },
+    "filters": {
+      "all": "All",
+      "downloading": "Downloading",
+      "seeding": "Seeding",
+      "paused": "Paused"
+    },
+    "actions": {
+      "addTorrent": "Add Torrent",
+      "pause": "Pause",
+      "resume": "Resume",
+      "remove": "Remove",
+      "openFolder": "Open Folder",
+      "copyBagId": "Copy Bag ID",
+      "details": "Details"
+    },
+    "table": {
+      "name": "Name",
+      "size": "Size",
+      "progress": "Progress",
+      "download": "Download",
+      "upload": "Upload",
+      "peers": "Peers",
+      "status": "Status",
+      "added": "Added"
+    },
+    "status": {
+      "downloading": "Downloading",
+      "seeding": "Seeding",
+      "paused": "Paused",
+      "completed": "Completed",
+      "error": "Error",
+      "checking": "Checking",
+      "queued": "Queued"
+    },
+    "addModal": {
+      "title": "Add TON Storage Torrent",
+      "bagIdLabel": "Bag ID",
+      "bagIdPlaceholder": "Enter bag ID or drag and drop torrent file...",
+      "downloadPathLabel": "Download Path",
+      "autoStartLabel": "Start download automatically",
+      "cancel": "Cancel",
+      "add": "Add",
+      "browse": "Browse"
+    },
+    "info": {
+      "title": "Storage Statistics",
+      "totalDownload": "Total Download",
+      "totalUpload": "Total Upload",
+      "activeTorrents": "Active Torrents",
+      "downloadSpeed": "Download Speed",
+      "uploadSpeed": "Upload Speed",
+      "ratio": "Share Ratio",
+      "connectedPeers": "Connected Peers",
+      "diskSpace": "Disk Space"
+    },
+    "empty": {
+      "title": "No active downloads",
+      "description": "Add content via Bag ID or torrent file to get started",
+      "action": "Add Torrent"
+    },
+    "errors": {
+      "invalidBagId": "Invalid Bag ID",
+      "downloadFailed": "Download failed",
+      "addFailed": "Failed to add torrent",
+      "removeFailed": "Failed to remove",
+      "noSpace": "Insufficient disk space"
+    }
+  },
+  "history": {
+    "title": "Browsing History",
+    "description": "Your browsing history and visit records",
+    "search": "Search history...",
+    "filters": {
+      "all": "All Time",
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "thisWeek": "This Week",
+      "thisMonth": "This Month",
+      "older": "Older"
+    },
+    "actions": {
+      "clearAll": "Clear All History",
+      "clearToday": "Clear Today",
+      "clearSelected": "Clear Selected",
+      "export": "Export History"
+    },
+    "table": {
+      "title": "Title",
+      "url": "URL",
+      "visits": "Visits",
+      "lastVisit": "Last Visit"
+    },
+    "empty": {
+      "title": "No history",
+      "description": "Websites you visit will appear here",
+      "allCleared": "All history cleared"
+    },
+    "clearConfirm": {
+      "title": "Clear history?",
+      "message": "This action cannot be undone.",
+      "clearAll": "This will delete all browsing history.",
+      "clearSelected": "This will delete {{count}} selected items.",
+      "cancel": "Cancel",
+      "confirm": "Clear"
+    },
+    "stats": {
+      "totalVisits": "Total Visits",
+      "uniqueSites": "Unique Sites",
+      "todayVisits": "Today's Visits",
+      "averageDaily": "Daily Average"
+    },
+    "timeFormat": {
+      "justNow": "Just now",
+      "minutesAgo": "{{count}} minutes ago",
+      "hoursAgo": "{{count}} hours ago",
+      "yesterday": "Yesterday",
+      "daysAgo": "{{count}} days ago"
+    }
   }
 }

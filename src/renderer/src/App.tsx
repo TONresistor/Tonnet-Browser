@@ -25,7 +25,7 @@ import Lottie from 'lottie-react'
 import loadingAnimation from '@/assets/loading.json'
 import loadingYellowAnimation from '@/assets/loading-yellow.json'
 import { Button } from '@/components/ui/button'
-import i18n from '@/i18n'
+import i18n, { loadLanguage } from '@/i18n'
 
 function App() {
   const { currentUrl, proxyConnected } = useSettingsStore()
@@ -39,10 +39,12 @@ function App() {
     useThemeStore.getState().loadFromSettings()
   }, [])
 
-  // Update i18n language when preference changes
+  // Update i18n language when preference changes (with lazy loading)
   useEffect(() => {
     if (language && i18n.language !== language) {
-      i18n.changeLanguage(language)
+      loadLanguage(language).catch((error) => {
+        console.error('Failed to load language:', error)
+      })
     }
   }, [language])
 
