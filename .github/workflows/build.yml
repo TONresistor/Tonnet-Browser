@@ -31,11 +31,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci --prefer-offline
-
-      - name: Install optional dependencies (macOS fix)
-        if: runner.os == 'macOS'
-        run: npm install --no-save --force @rollup/rollup-darwin-arm64 @rollup/rollup-darwin-x64
+        run: npm ci
 
       - name: Build for ${{ matrix.platform }}
         run: npm run build && npx electron-builder --${{ matrix.platform }} --publish never
