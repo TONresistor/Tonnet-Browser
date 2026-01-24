@@ -45,6 +45,7 @@ export interface AppearanceSettings {
   showBookmarksBar: boolean
   showStatusBar: boolean
   tabOrientation: 'horizontal' | 'vertical'
+  sidebarWidth: number
 }
 
 export interface PrivacySettings {
@@ -166,6 +167,7 @@ export function getDefaultSettings(): AppSettings {
       showBookmarksBar: DEFAULT_SETTINGS.showBookmarksBar,
       showStatusBar: DEFAULT_SETTINGS.showStatusBar,
       tabOrientation: DEFAULT_SETTINGS.tabOrientation,
+      sidebarWidth: DEFAULT_SETTINGS.sidebarWidth,
     },
     privacy: {
       clearOnExit: DEFAULT_SETTINGS.clearOnExit,

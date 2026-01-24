@@ -37,6 +37,7 @@ export interface AppPreferences {
   showBookmarksBar: boolean
   showStatusBar: boolean
   tabOrientation: 'horizontal' | 'vertical'
+  sidebarWidth: number
 
   // Privacy
   clearOnExit: boolean
@@ -108,6 +109,7 @@ export const defaultPreferences: AppPreferences = {
   showBookmarksBar: DEFAULT_SETTINGS.showBookmarksBar,
   showStatusBar: DEFAULT_SETTINGS.showStatusBar,
   tabOrientation: DEFAULT_SETTINGS.tabOrientation,
+  sidebarWidth: DEFAULT_SETTINGS.sidebarWidth,
 
   // Privacy
   clearOnExit: DEFAULT_SETTINGS.clearOnExit,
@@ -155,6 +157,7 @@ const prefToCategory: Record<keyof AppPreferences, { category: string; field: st
   showBookmarksBar: { category: 'appearance', field: 'showBookmarksBar' },
   showStatusBar: { category: 'appearance', field: 'showStatusBar' },
   tabOrientation: { category: 'appearance', field: 'tabOrientation' },
+  sidebarWidth: { category: 'appearance', field: 'sidebarWidth' },
   clearOnExit: { category: 'privacy', field: 'clearOnExit' },
   disableCache: { category: 'privacy', field: 'disableCache' },
   firstPartyIsolation: { category: 'privacy', field: 'firstPartyIsolation' },
@@ -197,6 +200,7 @@ function mainSettingsToPrefs(settings: any): AppPreferences {
     showBookmarksBar: settings.appearance?.showBookmarksBar ?? defaultPreferences.showBookmarksBar,
     showStatusBar: settings.appearance?.showStatusBar ?? defaultPreferences.showStatusBar,
     tabOrientation: settings.appearance?.tabOrientation ?? defaultPreferences.tabOrientation,
+    sidebarWidth: settings.appearance?.sidebarWidth ?? defaultPreferences.sidebarWidth,
     clearOnExit: settings.privacy?.clearOnExit ?? defaultPreferences.clearOnExit,
     historyMode: settings.privacy?.historyMode ?? defaultPreferences.historyMode,
     historyMaxEntries: settings.privacy?.historyMaxEntries ?? defaultPreferences.historyMaxEntries,

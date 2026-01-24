@@ -10,6 +10,7 @@ import { WindowControls } from '@/components/browser/WindowControls'
 import { TabBar } from '@/components/browser/TabBar'
 import { BookmarksBar } from '@/components/browser/BookmarksBar'
 import { StatusBar } from '@/components/browser/StatusBar'
+import { ResizablePanel } from '@/components/browser/ResizablePanel'
 import { LandingPage } from '@/components/pages/LandingPage'
 import { StartPage } from '@/components/pages/StartPage'
 import { StoragePage } from '@/components/pages/StoragePage'
@@ -30,7 +31,8 @@ import i18n, { loadLanguage } from '@/i18n'
 function App() {
   const { currentUrl, proxyConnected } = useSettingsStore()
   const { activeTabId, updateTab, openOrSwitchToTab, ensureDefaultTab } = useTabsStore()
-  const { showBookmarksBar, showStatusBar, theme, language, tabOrientation } = usePreferences()
+  const { showBookmarksBar, showStatusBar, theme, language, tabOrientation, sidebarWidth } = usePreferences()
+  const { setDraft } = usePreferencesStore()
   const customThemes = useThemeStore((state) => state.customThemes)
 
   // Load preferences from main process on startup
@@ -319,11 +321,21 @@ function App() {
 
       {/* Main Content Area - Sidebar + Content */}
       <div className="flex flex-1 min-h-0">
-        {/* Sidebar (vertical tabs) - Only in vertical mode */}
+        {/* Sidebar (vertical tabs) - Resizable in vertical mode */}
         {isVertical && proxyConnected && (
-          <div className="flex flex-col w-60 bg-background border-r border-border">
+          <ResizablePanel
+            defaultWidth={sidebarWidth}
+            minWidth={64}
+            maxWidth={400}
+            onResize={(width) => {
+              setDraft('sidebarWidth', width)
+              // Notify main process to update BrowserView bounds
+              window.electron.settings.set('appearance', { sidebarWidth: width }).catch(console.error)
+            }}
+            className="flex flex-col bg-background border-r border-border"
+          >
             <TabBar />
-          </div>
+          </ResizablePanel>
         )}
 
         {/* Content Area */}

@@ -15,7 +15,7 @@ import { normalizeUrl } from '../../shared/utils/url'
 const CHROME_HEIGHT_HORIZONTAL = 136 // tabbar (44) + navbar (44) + bookmarks (40) + buffer (8)
 const CHROME_HEIGHT_VERTICAL = 92    // navbar (44) + bookmarks (40) + buffer (8) - no tab bar row
 const STATUSBAR_HEIGHT = 24
-const SIDEBAR_WIDTH = 240 // Width of vertical tab bar sidebar
+const DEFAULT_SIDEBAR_WIDTH = 240 // Default sidebar width
 
 // Map of all BrowserViews by tabId
 const views = new Map<string, BrowserView>()
@@ -177,13 +177,14 @@ function updateViewBounds(view: BrowserView): void {
   if (!mainWindow) return
   const bounds = mainWindow.getContentBounds()
 
-  // Get tab orientation setting
+  // Get tab orientation and sidebar width settings
   const appearance = getSetting('appearance')
   const isVertical = (appearance as any).tabOrientation === 'vertical'
+  const sidebarWidth = (appearance as any).sidebarWidth ?? DEFAULT_SIDEBAR_WIDTH
 
   // Calculate dimensions based on tab orientation
-  const x = isVertical ? SIDEBAR_WIDTH : 0
-  const width = isVertical ? bounds.width - SIDEBAR_WIDTH : bounds.width
+  const x = isVertical ? sidebarWidth : 0
+  const width = isVertical ? bounds.width - sidebarWidth : bounds.width
   const chromeHeight = isVertical ? CHROME_HEIGHT_VERTICAL : CHROME_HEIGHT_HORIZONTAL
 
   // Use full available space

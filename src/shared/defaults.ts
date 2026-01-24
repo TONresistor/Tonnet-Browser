@@ -41,6 +41,7 @@ export const DEFAULT_SETTINGS = {
   showBookmarksBar: true,
   showStatusBar: true,
   tabOrientation: 'horizontal' as 'horizontal' | 'vertical',
+  sidebarWidth: 240, // Default sidebar width in pixels
 
   // Privacy
   clearOnExit: true, // Privacy-first: clear data on exit by default
