@@ -11,9 +11,11 @@ import { logger } from '../../shared/logger'
 import { historyManager } from '../history/manager'
 import { normalizeUrl } from '../../shared/utils/url'
 
-// Chrome heights for different modes
-const CHROME_HEIGHT_HORIZONTAL = 136 // tabbar (44) + navbar (44) + bookmarks (40) + buffer (8)
-const CHROME_HEIGHT_VERTICAL = 92    // navbar (44) + bookmarks (40) + buffer (8) - no tab bar row
+// Chrome component heights
+const TABBAR_HEIGHT = 44
+const NAVBAR_HEIGHT = 44
+const BOOKMARKS_HEIGHT = 40
+const CHROME_BUFFER = 0 // No extra buffer needed
 const STATUSBAR_HEIGHT = 24
 const DEFAULT_SIDEBAR_WIDTH = 240 // Default sidebar width
 
@@ -119,6 +121,35 @@ export function onAppearanceSettingsChanged(): void {
   }
 }
 
+// Immediate sidebar width update (for real-time resize without settings persistence)
+export function updateSidebarWidth(width: number): void {
+  // This is called directly during resize drag for immediate visual feedback
+  // Settings persistence is handled separately in the renderer
+  const activeView = getActiveView()
+  if (!activeView || !mainWindow) return
+
+  const bounds = mainWindow.getContentBounds()
+  const appearance = getSetting('appearance')
+  const isVertical = (appearance as any).tabOrientation === 'vertical'
+
+  if (!isVertical) return // Only applies in vertical mode
+
+  const showBookmarksBar = (appearance as any).showBookmarksBar ?? false
+
+  // Calculate chrome height dynamically
+  let chromeHeight = NAVBAR_HEIGHT + CHROME_BUFFER
+  if (showBookmarksBar) {
+    chromeHeight += BOOKMARKS_HEIGHT
+  }
+
+  activeView.setBounds({
+    x: width,
+    y: chromeHeight,
+    width: bounds.width - width,
+    height: bounds.height - chromeHeight - STATUSBAR_HEIGHT,
+  })
+}
+
 // Get or create session for a domain (First-Party Isolation)
 function getSessionForDomain(domain: string): Electron.Session {
   const privacy = getSetting('privacy')
@@ -177,15 +208,24 @@ function updateViewBounds(view: BrowserView): void {
   if (!mainWindow) return
   const bounds = mainWindow.getContentBounds()
 
-  // Get tab orientation and sidebar width settings
+  // Get appearance settings
   const appearance = getSetting('appearance')
   const isVertical = (appearance as any).tabOrientation === 'vertical'
   const sidebarWidth = (appearance as any).sidebarWidth ?? DEFAULT_SIDEBAR_WIDTH
+  const showBookmarksBar = (appearance as any).showBookmarksBar ?? false
+
+  // Calculate chrome height dynamically based on visible components
+  let chromeHeight = NAVBAR_HEIGHT + CHROME_BUFFER
+  if (!isVertical) {
+    chromeHeight += TABBAR_HEIGHT // Horizontal mode has tab bar row
+  }
+  if (showBookmarksBar) {
+    chromeHeight += BOOKMARKS_HEIGHT // Add bookmarks bar if visible
+  }
 
   // Calculate dimensions based on tab orientation
   const x = isVertical ? sidebarWidth : 0
   const width = isVertical ? bounds.width - sidebarWidth : bounds.width
-  const chromeHeight = isVertical ? CHROME_HEIGHT_VERTICAL : CHROME_HEIGHT_HORIZONTAL
 
   // Use full available space
   // Anti-fingerprinting is handled by JavaScript injection (spoofs window dimensions)

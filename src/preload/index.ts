@@ -80,6 +80,9 @@ const electronAPI = {
     close: () => ipcRenderer.invoke('window:close')
   },
 
+  // Immediate sidebar width update (for real-time resize)
+  updateSidebarWidth: (width: number) => ipcRenderer.invoke('update-sidebar-width', width),
+
   // Settings
   clearBrowsingData: () => ipcRenderer.invoke('settings:clear-data'),
 

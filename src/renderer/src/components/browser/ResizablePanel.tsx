@@ -33,6 +33,9 @@ export function ResizablePanel({
   useEffect(() => {
     if (!isResizing) return
 
+    let lastUpdateTime = 0
+    const THROTTLE_MS = 16 // ~60fps
+
     const handleMouseMove = (e: MouseEvent) => {
       if (!panelRef.current) return
 
@@ -40,6 +43,15 @@ export function ResizablePanel({
       const clampedWidth = Math.min(Math.max(newWidth, minWidth), maxWidth)
 
       setWidth(clampedWidth)
+
+      // Throttle immediate IPC updates for performance
+      const now = Date.now()
+      if (now - lastUpdateTime >= THROTTLE_MS) {
+        window.electron.updateSidebarWidth(clampedWidth)
+        lastUpdateTime = now
+      }
+
+      // Still call onResize for settings persistence (will be debounced separately)
       onResize(clampedWidth)
     }
 

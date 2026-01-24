@@ -38,7 +38,8 @@ import {
   navigateInTab,
   getActiveTabId,
   onPrivacySettingsChanged,
-  onAppearanceSettingsChanged
+  onAppearanceSettingsChanged,
+  updateSidebarWidth
 } from '../windows/tabs'
 import { historyManager, HistoryMode } from '../history/manager'
 
@@ -494,6 +495,12 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.WINDOW_CLOSE, () => {
     const win = getMainWindow()
     win?.close()
+  })
+
+  // Immediate sidebar width update (for real-time resize)
+  ipcMain.handle('update-sidebar-width', (_event, width: number) => {
+    updateSidebarWidth(width)
+    return { success: true }
   })
 
   // ===== Settings Handlers =====

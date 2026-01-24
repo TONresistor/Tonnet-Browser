@@ -3,7 +3,7 @@
  * Browser chrome with tabs, navigation, and content area.
  */
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { NavigationButtons } from '@/components/browser/NavigationButtons'
 import { AddressBar } from '@/components/browser/AddressBar'
 import { WindowControls } from '@/components/browser/WindowControls'
@@ -34,6 +34,9 @@ function App() {
   const { showBookmarksBar, showStatusBar, theme, language, tabOrientation, sidebarWidth } = usePreferences()
   const { setDraft } = usePreferencesStore()
   const customThemes = useThemeStore((state) => state.customThemes)
+
+  // Debounce timer for settings save
+  const settingsSaveTimer = useRef<NodeJS.Timeout | null>(null)
 
   // Load preferences from main process on startup
   useEffect(() => {
@@ -288,10 +291,14 @@ function App() {
 
       {/* Navigation Bar - Full width */}
       <div className={`flex items-center px-2 py-1.5 gap-2 bg-background ${isVertical ? 'drag-region' : ''}`}>
-        <NavigationButtons />
-        <AddressBar />
+        <div className="no-drag">
+          <NavigationButtons />
+        </div>
+        <div className="no-drag flex-1">
+          <AddressBar />
+        </div>
         <div
-          className="flex items-center gap-0.5 rounded-full px-1 py-0.5 bg-surface border border-surface-hover backdrop-blur-[20px]"
+          className="no-drag flex items-center gap-0.5 rounded-full px-1 py-0.5 bg-surface border border-surface-hover backdrop-blur-[20px]"
         >
           <Button
             variant="ghost"
@@ -313,7 +320,11 @@ function App() {
           </Button>
         </div>
         {/* Window Controls in nav bar - Only in vertical/sidebar mode */}
-        {isVertical && <WindowControls />}
+        {isVertical && (
+          <div className="no-drag">
+            <WindowControls />
+          </div>
+        )}
       </div>
 
       {/* Bookmarks Bar - Full width */}
@@ -329,8 +340,14 @@ function App() {
             maxWidth={400}
             onResize={(width) => {
               setDraft('sidebarWidth', width)
-              // Notify main process to update BrowserView bounds
-              window.electron.settings.set('appearance', { sidebarWidth: width }).catch(console.error)
+
+              // Debounce settings save to avoid excessive disk writes
+              if (settingsSaveTimer.current) {
+                clearTimeout(settingsSaveTimer.current)
+              }
+              settingsSaveTimer.current = setTimeout(() => {
+                window.electron.settings.set('appearance', { sidebarWidth: width }).catch(console.error)
+              }, 300)
             }}
             className="flex flex-col bg-background border-r border-border"
           >
