@@ -11,7 +11,9 @@ import { logger } from '../../shared/logger'
 import { historyManager } from '../history/manager'
 import { normalizeUrl } from '../../shared/utils/url'
 
-const CHROME_HEIGHT = 136 // tabbar (44) + navbar (44) + bookmarks (40) + buffer (8)
+// Chrome heights for different modes
+const CHROME_HEIGHT_HORIZONTAL = 136 // tabbar (44) + navbar (44) + bookmarks (40) + buffer (8)
+const CHROME_HEIGHT_VERTICAL = 92    // navbar (44) + bookmarks (40) + buffer (8) - no tab bar row
 const STATUSBAR_HEIGHT = 24
 const SIDEBAR_WIDTH = 240 // Width of vertical tab bar sidebar
 
@@ -182,14 +184,15 @@ function updateViewBounds(view: BrowserView): void {
   // Calculate dimensions based on tab orientation
   const x = isVertical ? SIDEBAR_WIDTH : 0
   const width = isVertical ? bounds.width - SIDEBAR_WIDTH : bounds.width
+  const chromeHeight = isVertical ? CHROME_HEIGHT_VERTICAL : CHROME_HEIGHT_HORIZONTAL
 
   // Use full available space
   // Anti-fingerprinting is handled by JavaScript injection (spoofs window dimensions)
   view.setBounds({
     x,
-    y: CHROME_HEIGHT,
+    y: chromeHeight,
     width,
-    height: bounds.height - CHROME_HEIGHT - STATUSBAR_HEIGHT,
+    height: bounds.height - chromeHeight - STATUSBAR_HEIGHT,
   })
 }
 

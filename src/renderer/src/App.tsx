@@ -270,79 +270,70 @@ function App() {
     }
   }
 
-  // Horizontal layout (default): flex-col with tabs on top
-  // Vertical layout (sidebar): flex-row with tabs on left
+  // Vertical tabs: sidebar only affects content area, not full window
   const isVertical = tabOrientation === 'vertical'
 
   return (
-    <div className={`flex h-screen bg-background ${isVertical ? 'flex-row' : 'flex-col'}`}>
-      {/* Sidebar (vertical tabs) */}
-      {isVertical && proxyConnected && (
-        <div className="flex flex-col w-60 bg-background border-r border-border">
-          {/* Drag region spacer for vertical mode */}
-          <div className="drag-region min-h-[44px]" />
-          {/* Vertical tab bar */}
-          <TabBar />
+    <div className="flex flex-col h-screen bg-background">
+      {/* Tab Bar Row - Only in horizontal mode */}
+      {!isVertical && (
+        <div className="flex items-center bg-background drag-region min-h-[44px]">
+          {proxyConnected && <TabBar />}
+          <div className="flex-1" />
+          <WindowControls />
         </div>
       )}
 
-      {/* Main content column */}
-      <div className="flex flex-col flex-1 min-w-0 min-h-0">
-        {/* Top bar with window controls (always visible) */}
-        {isVertical ? (
-          // Vertical mode: just window controls on the right
-          <div className="flex items-center bg-background drag-region min-h-[44px]">
-            <div className="flex-1" />
-            <WindowControls />
-          </div>
-        ) : (
-          // Horizontal mode: tabs on left, window controls on right
-          <div className="flex items-center bg-background drag-region min-h-[44px]">
-            {proxyConnected && <TabBar />}
-            <div className="flex-1" />
-            <WindowControls />
+      {/* Navigation Bar - Full width */}
+      <div className={`flex items-center px-2 py-1.5 gap-2 bg-background ${isVertical ? 'drag-region' : ''}`}>
+        <NavigationButtons />
+        <AddressBar />
+        <div
+          className="flex items-center gap-0.5 rounded-full px-1 py-0.5 bg-surface border border-surface-hover backdrop-blur-[20px]"
+        >
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 rounded-full"
+            onClick={() => openOrSwitchToTab('ton://storage')}
+            title="Storage"
+          >
+            <HardDrive className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 rounded-full"
+            onClick={() => openOrSwitchToTab('ton://settings')}
+            title="Settings"
+          >
+            <Settings className="h-4 w-4" />
+          </Button>
+        </div>
+        {/* Window Controls in nav bar - Only in vertical/sidebar mode */}
+        {isVertical && <WindowControls />}
+      </div>
+
+      {/* Bookmarks Bar - Full width */}
+      {showBookmarksBar && <BookmarksBar />}
+
+      {/* Main Content Area - Sidebar + Content */}
+      <div className="flex flex-1 min-h-0">
+        {/* Sidebar (vertical tabs) - Only in vertical mode */}
+        {isVertical && proxyConnected && (
+          <div className="flex flex-col w-60 bg-background border-r border-border">
+            <TabBar />
           </div>
         )}
-
-        {/* Navigation Bar */}
-        <div className="flex items-center px-2 py-1.5 gap-2 bg-background">
-          <NavigationButtons />
-          <AddressBar />
-          <div
-            className="flex items-center gap-0.5 rounded-full px-1 py-0.5 bg-surface border border-surface-hover backdrop-blur-[20px]"
-          >
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 rounded-full"
-              onClick={() => openOrSwitchToTab('ton://storage')}
-              title="Storage"
-            >
-              <HardDrive className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 rounded-full"
-              onClick={() => openOrSwitchToTab('ton://settings')}
-              title="Settings"
-            >
-              <Settings className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-
-        {/* Bookmarks Bar */}
-        {showBookmarksBar && <BookmarksBar />}
 
         {/* Content Area */}
         <div className="flex-1 overflow-auto min-h-0">
           {renderContent()}
         </div>
-
-        {/* Status Bar */}
-        {showStatusBar && <StatusBar />}
       </div>
+
+      {/* Status Bar - Full width */}
+      {showStatusBar && <StatusBar />}
     </div>
   )
 }
