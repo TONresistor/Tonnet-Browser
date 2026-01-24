@@ -16,6 +16,7 @@ interface SortableTabProps {
   onClose: (e: React.MouseEvent) => void
   onContextMenu: (e: React.MouseEvent) => void
   onKeyDown: (e: React.KeyboardEvent) => void
+  isVertical?: boolean
 }
 
 export function SortableTab({
@@ -25,6 +26,7 @@ export function SortableTab({
   onClose,
   onContextMenu,
   onKeyDown,
+  isVertical = false,
 }: SortableTabProps) {
   const { t } = useTranslation('browser')
   const {
@@ -52,7 +54,7 @@ export function SortableTab({
       role="tab"
       aria-selected={isActive}
       tabIndex={isActive ? 0 : -1}
-      className={`no-drag group flex items-center gap-2 px-2.5 py-1.5 rounded-full cursor-pointer transition-all duration-200 max-w-[200px] border ${
+      className={`no-drag group flex items-center gap-2 px-2.5 py-1.5 ${isVertical ? 'rounded-lg w-full' : 'rounded-full max-w-[200px]'} cursor-pointer transition-all duration-200 border ${
         isActive
           ? 'bg-surface-active border-border-medium text-foreground'
           : 'bg-surface border-transparent text-foreground-muted hover:bg-surface-hover hover:text-foreground'

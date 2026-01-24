@@ -18,12 +18,14 @@ import {
 import {
   SortableContext,
   horizontalListSortingStrategy,
+  verticalListSortingStrategy,
   sortableKeyboardCoordinates,
 } from '@dnd-kit/sortable'
 import { Plus, Globe } from 'lucide-react'
 import { useTabs } from '@/hooks/useTabs'
 import { SortableTab } from './SortableTab'
 import { useTranslation } from 'react-i18next'
+import { usePreferences } from '@/stores/preferences'
 
 interface ContextMenuState {
   tabId: string
@@ -34,10 +36,13 @@ interface ContextMenuState {
 export function TabBar() {
   const { t } = useTranslation('browser')
   const { tabs, activeTabId, addTab, closeTab, setActiveTab, duplicateTab, closeOtherTabs, reorderTabs } = useTabs()
+  const { tabOrientation } = usePreferences()
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
   const [activeId, setActiveId] = useState<string | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
   const tabRefs = useRef<Map<string, HTMLDivElement>>(new Map())
+
+  const isVertical = tabOrientation === 'vertical'
 
   // Close context menu on click outside
   useEffect(() => {
@@ -109,8 +114,12 @@ export function TabBar() {
     (e: React.KeyboardEvent, tabId: string) => {
       const currentIndex = tabs.findIndex((t) => t.id === tabId)
 
+      // Arrow keys for navigation (adjust based on orientation)
+      const nextKey = isVertical ? 'ArrowDown' : 'ArrowRight'
+      const prevKey = isVertical ? 'ArrowUp' : 'ArrowLeft'
+
       switch (e.key) {
-        case 'ArrowRight': {
+        case nextKey: {
           e.preventDefault()
           const nextIndex = (currentIndex + 1) % tabs.length
           const nextTab = tabs[nextIndex]
@@ -118,7 +127,7 @@ export function TabBar() {
           tabRefs.current.get(nextTab.id)?.focus()
           break
         }
-        case 'ArrowLeft': {
+        case prevKey: {
           e.preventDefault()
           const prevIndex = (currentIndex - 1 + tabs.length) % tabs.length
           const prevTab = tabs[prevIndex]
@@ -133,11 +142,15 @@ export function TabBar() {
         }
       }
     },
-    [tabs, setActiveTab, closeTab]
+    [tabs, setActiveTab, closeTab, isVertical]
   )
 
   return (
-    <div className="flex items-center gap-1.5 px-2 py-1.5" role="tablist" aria-label={t('tabs.browserTabs')}>
+    <div
+      className={`flex gap-1.5 px-2 py-1.5 ${isVertical ? 'flex-col flex-1 overflow-y-auto' : 'items-center'}`}
+      role="tablist"
+      aria-label={t('tabs.browserTabs')}
+    >
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
@@ -167,7 +180,10 @@ export function TabBar() {
           },
         }}
       >
-        <SortableContext items={tabs.map((t) => t.id)} strategy={horizontalListSortingStrategy}>
+        <SortableContext
+          items={tabs.map((t) => t.id)}
+          strategy={isVertical ? verticalListSortingStrategy : horizontalListSortingStrategy}
+        >
           {tabs.map((tab) => (
             <SortableTab
               key={tab.id}
@@ -180,6 +196,7 @@ export function TabBar() {
               }}
               onContextMenu={(e) => handleContextMenu(e, tab.id)}
               onKeyDown={(e) => handleTabKeyDown(e, tab.id)}
+              isVertical={isVertical}
             />
           ))}
         </SortableContext>
@@ -190,7 +207,7 @@ export function TabBar() {
             (() => {
               const activeTab = tabs.find((t) => t.id === activeId)
               return activeTab ? (
-                <div className="px-2.5 py-1.5 rounded-full text-sm bg-surface text-foreground shadow-2xl opacity-90 border border-border-medium flex items-center gap-2 max-w-[200px]">
+                <div className={`px-2.5 py-1.5 ${isVertical ? 'rounded-lg' : 'rounded-full'} text-sm bg-surface text-foreground shadow-2xl opacity-90 border border-border-medium flex items-center gap-2 ${isVertical ? 'w-full' : 'max-w-[200px]'}`}>
                   {activeTab.favicon ? (
                     <img src={activeTab.favicon} alt="" className="w-5 h-5 flex-shrink-0 object-contain" />
                   ) : (
@@ -204,7 +221,7 @@ export function TabBar() {
       </DndContext>
 
       <button
-        className="h-7 w-7 rounded-full no-drag flex items-center justify-center transition-all duration-200 bg-surface text-foreground-muted hover:bg-surface-active hover:text-foreground"
+        className={`${isVertical ? 'w-full py-2 rounded-lg' : 'h-7 w-7 rounded-full'} no-drag flex items-center justify-center transition-all duration-200 bg-surface text-foreground-muted hover:bg-surface-active hover:text-foreground`}
         onClick={() => addTab()}
         title={t('tabs.newTab')}
         aria-label={t('tabs.openNewTab')}

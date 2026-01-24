@@ -30,7 +30,7 @@ import i18n, { loadLanguage } from '@/i18n'
 function App() {
   const { currentUrl, proxyConnected } = useSettingsStore()
   const { activeTabId, updateTab, openOrSwitchToTab, ensureDefaultTab } = useTabsStore()
-  const { showBookmarksBar, showStatusBar, theme, language } = usePreferences()
+  const { showBookmarksBar, showStatusBar, theme, language, tabOrientation } = usePreferences()
   const customThemes = useThemeStore((state) => state.customThemes)
 
   // Load preferences from main process on startup
@@ -270,55 +270,76 @@ function App() {
     }
   }
 
+  // Horizontal layout (default): flex-col with tabs on top
+  // Vertical layout (sidebar): flex-row with tabs on left
+  const isVertical = tabOrientation === 'vertical'
+
   return (
-    <div className="flex flex-col h-screen bg-background">
-      {/* Tab Bar + Window Controls - entire bar is draggable except buttons */}
-      <div className="flex items-center bg-background drag-region min-h-[44px]">
-        {proxyConnected && <TabBar />}
-        {/* Spacer fills remaining space */}
-        <div className="flex-1" />
-        {/* Window Controls */}
-        <WindowControls />
-      </div>
-
-      {/* Navigation Bar */}
-      <div className="flex items-center px-2 py-1.5 gap-2 bg-background">
-        <NavigationButtons />
-        <AddressBar />
-        <div
-          className="flex items-center gap-0.5 rounded-full px-1 py-0.5 bg-surface border border-surface-hover backdrop-blur-[20px]"
-        >
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7 rounded-full"
-            onClick={() => openOrSwitchToTab('ton://storage')}
-            title="Storage"
-          >
-            <HardDrive className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7 rounded-full"
-            onClick={() => openOrSwitchToTab('ton://settings')}
-            title="Settings"
-          >
-            <Settings className="h-4 w-4" />
-          </Button>
+    <div className={`flex h-screen bg-background ${isVertical ? 'flex-row' : 'flex-col'}`}>
+      {/* Sidebar (vertical tabs) */}
+      {isVertical && proxyConnected && (
+        <div className="flex flex-col w-60 bg-background border-r border-border">
+          {/* Window controls in sidebar mode */}
+          <div className="flex items-center justify-end drag-region min-h-[44px] px-2">
+            <WindowControls />
+          </div>
+          {/* Vertical tab bar */}
+          <TabBar />
         </div>
+      )}
+
+      {/* Main content column */}
+      <div className="flex flex-col flex-1 min-w-0">
+        {/* Horizontal tab bar (when not vertical) */}
+        {!isVertical && (
+          <div className="flex items-center bg-background drag-region min-h-[44px]">
+            {proxyConnected && <TabBar />}
+            {/* Spacer fills remaining space */}
+            <div className="flex-1" />
+            {/* Window Controls */}
+            <WindowControls />
+          </div>
+        )}
+
+        {/* Navigation Bar */}
+        <div className="flex items-center px-2 py-1.5 gap-2 bg-background">
+          <NavigationButtons />
+          <AddressBar />
+          <div
+            className="flex items-center gap-0.5 rounded-full px-1 py-0.5 bg-surface border border-surface-hover backdrop-blur-[20px]"
+          >
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 rounded-full"
+              onClick={() => openOrSwitchToTab('ton://storage')}
+              title="Storage"
+            >
+              <HardDrive className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 rounded-full"
+              onClick={() => openOrSwitchToTab('ton://settings')}
+              title="Settings"
+            >
+              <Settings className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+
+        {/* Bookmarks Bar */}
+        {showBookmarksBar && <BookmarksBar />}
+
+        {/* Content Area */}
+        <div className="flex-1 overflow-auto">
+          {renderContent()}
+        </div>
+
+        {/* Status Bar */}
+        {showStatusBar && <StatusBar />}
       </div>
-
-      {/* Bookmarks Bar */}
-      {showBookmarksBar && <BookmarksBar />}
-
-      {/* Content Area */}
-      <div className="flex-1 overflow-auto">
-        {renderContent()}
-      </div>
-
-      {/* Status Bar */}
-      {showStatusBar && <StatusBar />}
     </div>
   )
 }

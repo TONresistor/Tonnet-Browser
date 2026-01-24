@@ -43,7 +43,11 @@
       "showBookmarksBar": "Show bookmarks bar",
       "showBookmarksBarDesc": "Display quick access bookmarks",
       "showStatusBar": "Show status bar",
-      "showStatusBarDesc": "Display connection status at bottom"
+      "showStatusBarDesc": "Display connection status at bottom",
+      "tabOrientation": "Tab orientation",
+      "tabOrientationDesc": "Display tabs horizontally or vertically",
+      "tabOrientationHorizontal": "Horizontal (Top)",
+      "tabOrientationVertical": "Vertical (Sidebar)"
     },
     "language": {
       "label": "Language",

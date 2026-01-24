@@ -44,6 +44,7 @@ export interface AppearanceSettings {
   zoomMax: number
   showBookmarksBar: boolean
   showStatusBar: boolean
+  tabOrientation: 'horizontal' | 'vertical'
 }
 
 export interface PrivacySettings {
@@ -158,11 +159,13 @@ export function getDefaultSettings(): AppSettings {
     appearance: {
       theme: DEFAULT_SETTINGS.theme,
       customThemes: DEFAULT_SETTINGS.customThemes,
+      language: DEFAULT_SETTINGS.language,
       defaultZoom: DEFAULT_SETTINGS.defaultZoom,
       zoomMin: DEFAULT_SETTINGS.zoomMin,
       zoomMax: DEFAULT_SETTINGS.zoomMax,
       showBookmarksBar: DEFAULT_SETTINGS.showBookmarksBar,
       showStatusBar: DEFAULT_SETTINGS.showStatusBar,
+      tabOrientation: DEFAULT_SETTINGS.tabOrientation,
     },
     privacy: {
       clearOnExit: DEFAULT_SETTINGS.clearOnExit,

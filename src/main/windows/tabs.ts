@@ -13,6 +13,7 @@ import { normalizeUrl } from '../../shared/utils/url'
 
 const CHROME_HEIGHT = 136 // tabbar (44) + navbar (44) + bookmarks (40) + buffer (8)
 const STATUSBAR_HEIGHT = 24
+const SIDEBAR_WIDTH = 240 // Width of vertical tab bar sidebar
 
 // Map of all BrowserViews by tabId
 const views = new Map<string, BrowserView>()
@@ -108,6 +109,14 @@ export function onPrivacySettingsChanged(): void {
   startCookieAutoDeleteTimer()
 }
 
+// Update view bounds when appearance settings change (called from IPC handlers)
+export function onAppearanceSettingsChanged(): void {
+  const activeView = getActiveView()
+  if (activeView) {
+    updateViewBounds(activeView)
+  }
+}
+
 // Get or create session for a domain (First-Party Isolation)
 function getSessionForDomain(domain: string): Electron.Session {
   const privacy = getSetting('privacy')
@@ -166,12 +175,20 @@ function updateViewBounds(view: BrowserView): void {
   if (!mainWindow) return
   const bounds = mainWindow.getContentBounds()
 
+  // Get tab orientation setting
+  const appearance = getSetting('appearance')
+  const isVertical = (appearance as any).tabOrientation === 'vertical'
+
+  // Calculate dimensions based on tab orientation
+  const x = isVertical ? SIDEBAR_WIDTH : 0
+  const width = isVertical ? bounds.width - SIDEBAR_WIDTH : bounds.width
+
   // Use full available space
   // Anti-fingerprinting is handled by JavaScript injection (spoofs window dimensions)
   view.setBounds({
-    x: 0,
+    x,
     y: CHROME_HEIGHT,
-    width: bounds.width,
+    width,
     height: bounds.height - CHROME_HEIGHT - STATUSBAR_HEIGHT,
   })
 }

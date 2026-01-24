@@ -37,7 +37,8 @@ import {
   showActiveView,
   navigateInTab,
   getActiveTabId,
-  onPrivacySettingsChanged
+  onPrivacySettingsChanged,
+  onAppearanceSettingsChanged
 } from '../windows/tabs'
 import { historyManager, HistoryMode } from '../history/manager'
 
@@ -577,6 +578,10 @@ export function registerIpcHandlers(): void {
     // If privacy settings changed, restart cookie auto-delete timer
     if (category === 'privacy') {
       onPrivacySettingsChanged()
+    }
+    // If appearance settings changed, update BrowserView bounds (for tab orientation)
+    if (category === 'appearance') {
+      onAppearanceSettingsChanged()
     }
     // If content filtering settings changed, apply immediately to filter manager
     if (category === 'contentFiltering') {

@@ -244,6 +244,16 @@ export const AppearanceSection = memo(function AppearanceSection({
             label="Show status bar"
           />
         </SettingRow>
+        <SettingRow label={t('appearance.ui.tabOrientation')} description={t('appearance.ui.tabOrientationDesc')}>
+          <SelectInput
+            value={draft.tabOrientation}
+            onChange={(v) => setDraft('tabOrientation', v as 'horizontal' | 'vertical')}
+            options={[
+              { value: 'horizontal', label: t('appearance.ui.tabOrientationHorizontal') },
+              { value: 'vertical', label: t('appearance.ui.tabOrientationVertical') },
+            ]}
+          />
+        </SettingRow>
       </div>
 
       {/* Theme Editor Modal */}

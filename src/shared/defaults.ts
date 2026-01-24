@@ -40,6 +40,7 @@ export const DEFAULT_SETTINGS = {
   zoomMax: 300,
   showBookmarksBar: true,
   showStatusBar: true,
+  tabOrientation: 'horizontal' as 'horizontal' | 'vertical',
 
   // Privacy
   clearOnExit: true, // Privacy-first: clear data on exit by default

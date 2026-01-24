@@ -36,6 +36,7 @@ export interface AppPreferences {
   zoomMax: number
   showBookmarksBar: boolean
   showStatusBar: boolean
+  tabOrientation: 'horizontal' | 'vertical'
 
   // Privacy
   clearOnExit: boolean
@@ -106,6 +107,7 @@ export const defaultPreferences: AppPreferences = {
   zoomMax: DEFAULT_SETTINGS.zoomMax,
   showBookmarksBar: DEFAULT_SETTINGS.showBookmarksBar,
   showStatusBar: DEFAULT_SETTINGS.showStatusBar,
+  tabOrientation: DEFAULT_SETTINGS.tabOrientation,
 
   // Privacy
   clearOnExit: DEFAULT_SETTINGS.clearOnExit,
@@ -152,6 +154,7 @@ const prefToCategory: Record<keyof AppPreferences, { category: string; field: st
   zoomMax: { category: 'appearance', field: 'zoomMax' },
   showBookmarksBar: { category: 'appearance', field: 'showBookmarksBar' },
   showStatusBar: { category: 'appearance', field: 'showStatusBar' },
+  tabOrientation: { category: 'appearance', field: 'tabOrientation' },
   clearOnExit: { category: 'privacy', field: 'clearOnExit' },
   disableCache: { category: 'privacy', field: 'disableCache' },
   firstPartyIsolation: { category: 'privacy', field: 'firstPartyIsolation' },
@@ -193,6 +196,7 @@ function mainSettingsToPrefs(settings: any): AppPreferences {
     zoomMax: settings.appearance?.zoomMax ?? defaultPreferences.zoomMax,
     showBookmarksBar: settings.appearance?.showBookmarksBar ?? defaultPreferences.showBookmarksBar,
     showStatusBar: settings.appearance?.showStatusBar ?? defaultPreferences.showStatusBar,
+    tabOrientation: settings.appearance?.tabOrientation ?? defaultPreferences.tabOrientation,
     clearOnExit: settings.privacy?.clearOnExit ?? defaultPreferences.clearOnExit,
     historyMode: settings.privacy?.historyMode ?? defaultPreferences.historyMode,
     historyMaxEntries: settings.privacy?.historyMaxEntries ?? defaultPreferences.historyMaxEntries,
