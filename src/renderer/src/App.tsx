@@ -279,24 +279,27 @@ function App() {
       {/* Sidebar (vertical tabs) */}
       {isVertical && proxyConnected && (
         <div className="flex flex-col w-60 bg-background border-r border-border">
-          {/* Window controls in sidebar mode */}
-          <div className="flex items-center justify-end drag-region min-h-[44px] px-2">
-            <WindowControls />
-          </div>
+          {/* Drag region spacer for vertical mode */}
+          <div className="drag-region min-h-[44px]" />
           {/* Vertical tab bar */}
           <TabBar />
         </div>
       )}
 
       {/* Main content column */}
-      <div className="flex flex-col flex-1 min-w-0">
-        {/* Horizontal tab bar (when not vertical) */}
-        {!isVertical && (
+      <div className="flex flex-col flex-1 min-w-0 min-h-0">
+        {/* Top bar with window controls (always visible) */}
+        {isVertical ? (
+          // Vertical mode: just window controls on the right
+          <div className="flex items-center bg-background drag-region min-h-[44px]">
+            <div className="flex-1" />
+            <WindowControls />
+          </div>
+        ) : (
+          // Horizontal mode: tabs on left, window controls on right
           <div className="flex items-center bg-background drag-region min-h-[44px]">
             {proxyConnected && <TabBar />}
-            {/* Spacer fills remaining space */}
             <div className="flex-1" />
-            {/* Window Controls */}
             <WindowControls />
           </div>
         )}
@@ -333,7 +336,7 @@ function App() {
         {showBookmarksBar && <BookmarksBar />}
 
         {/* Content Area */}
-        <div className="flex-1 overflow-auto">
+        <div className="flex-1 overflow-auto min-h-0">
           {renderContent()}
         </div>
 
