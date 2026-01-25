@@ -3,7 +3,7 @@
  * Browser chrome with tabs, navigation, and content area.
  */
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { NavigationButtons } from '@/components/browser/NavigationButtons'
 import { AddressBar } from '@/components/browser/AddressBar'
 import { WindowControls } from '@/components/browser/WindowControls'
@@ -31,9 +31,12 @@ import i18n, { loadLanguage } from '@/i18n'
 function App() {
   const { currentUrl, proxyConnected } = useSettingsStore()
   const { activeTabId, updateTab, openOrSwitchToTab, ensureDefaultTab } = useTabsStore()
-  const { showBookmarksBar, showStatusBar, theme, language, tabOrientation, sidebarWidth } = usePreferences()
+  const { showBookmarksBar, showStatusBar, theme, language, tabOrientation, sidebarWidth: savedSidebarWidth } = usePreferences()
   const { setDraft } = usePreferencesStore()
   const customThemes = useThemeStore((state) => state.customThemes)
+
+  // Track current sidebar width in real-time during resize
+  const [currentSidebarWidth, setCurrentSidebarWidth] = useState(savedSidebarWidth)
 
   // Debounce timer for settings save
   const settingsSaveTimer = useRef<NodeJS.Timeout | null>(null)
@@ -43,6 +46,11 @@ function App() {
     usePreferencesStore.getState().loadFromMain()
     useThemeStore.getState().loadFromSettings()
   }, [])
+
+  // Sync current sidebar width with saved value when preferences load
+  useEffect(() => {
+    setCurrentSidebarWidth(savedSidebarWidth)
+  }, [savedSidebarWidth])
 
   // Update i18n language when preference changes (with lazy loading)
   useEffect(() => {
@@ -335,10 +343,12 @@ function App() {
         {/* Sidebar (vertical tabs) - Resizable in vertical mode */}
         {isVertical && proxyConnected && (
           <ResizablePanel
-            defaultWidth={sidebarWidth}
+            defaultWidth={savedSidebarWidth}
             minWidth={64}
             maxWidth={400}
             onResize={(width) => {
+              // Update local state immediately for real-time UI updates
+              setCurrentSidebarWidth(width)
               setDraft('sidebarWidth', width)
 
               // Debounce settings save to avoid excessive disk writes
@@ -351,7 +361,7 @@ function App() {
             }}
             className="flex flex-col bg-background border-r border-border"
           >
-            <TabBar />
+            <TabBar sidebarWidth={currentSidebarWidth} />
           </ResizablePanel>
         )}
 

@@ -36,6 +36,15 @@ let cookieAutoDeleteTimer: NodeJS.Timeout | null = null
 // Store resize handler reference to prevent listener accumulation
 let resizeHandler: (() => void) | null = null
 
+// Cache for appearance settings to avoid redundant getSetting() calls during resize
+interface AppearanceCache {
+  showBookmarksBar: boolean
+  isVertical: boolean
+  timestamp: number
+}
+let appearanceCache: AppearanceCache | null = null
+const CACHE_VALIDITY_MS = 100 // Cache valid for 100ms
+
 // Extract domain from URL for first-party isolation
 function extractDomain(url: string): string {
   try {
@@ -115,10 +124,32 @@ export function onPrivacySettingsChanged(): void {
 
 // Update view bounds when appearance settings change (called from IPC handlers)
 export function onAppearanceSettingsChanged(): void {
+  // Invalidate cache when settings change
+  appearanceCache = null
   const activeView = getActiveView()
   if (activeView) {
     updateViewBounds(activeView)
   }
+}
+
+// Get cached appearance settings or refresh cache
+function getAppearanceSettings(): AppearanceCache {
+  const now = Date.now()
+
+  // Return cached value if still valid
+  if (appearanceCache && (now - appearanceCache.timestamp) < CACHE_VALIDITY_MS) {
+    return appearanceCache
+  }
+
+  // Refresh cache
+  const appearance = getSetting('appearance')
+  appearanceCache = {
+    showBookmarksBar: (appearance as any).showBookmarksBar ?? false,
+    isVertical: (appearance as any).tabOrientation === 'vertical',
+    timestamp: now
+  }
+
+  return appearanceCache
 }
 
 // Immediate sidebar width update (for real-time resize without settings persistence)
@@ -129,12 +160,9 @@ export function updateSidebarWidth(width: number): void {
   if (!activeView || !mainWindow) return
 
   const bounds = mainWindow.getContentBounds()
-  const appearance = getSetting('appearance')
-  const isVertical = (appearance as any).tabOrientation === 'vertical'
+  const { isVertical, showBookmarksBar } = getAppearanceSettings()
 
   if (!isVertical) return // Only applies in vertical mode
-
-  const showBookmarksBar = (appearance as any).showBookmarksBar ?? false
 
   // Calculate chrome height dynamically
   let chromeHeight = NAVBAR_HEIGHT + CHROME_BUFFER

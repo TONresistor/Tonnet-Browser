@@ -26,6 +26,21 @@ export function ResizablePanel({
   const [isResizing, setIsResizing] = useState(false)
   const panelRef = useRef<HTMLDivElement>(null)
 
+  // Apply GPU optimization hints during resize
+  useEffect(() => {
+    if (!panelRef.current) return
+
+    if (isResizing) {
+      // Enable GPU acceleration during resize for smooth rendering
+      panelRef.current.style.willChange = 'width'
+      panelRef.current.style.transform = 'translateZ(0)' // Force GPU layer
+    } else {
+      // Remove hints after resize to save memory
+      panelRef.current.style.willChange = 'auto'
+      panelRef.current.style.transform = ''
+    }
+  }, [isResizing])
+
   useEffect(() => {
     setWidth(defaultWidth)
   }, [defaultWidth])
@@ -33,8 +48,8 @@ export function ResizablePanel({
   useEffect(() => {
     if (!isResizing) return
 
-    let lastUpdateTime = 0
-    const THROTTLE_MS = 16 // ~60fps
+    let rafId: number | null = null
+    let pendingWidth: number | null = null
 
     const handleMouseMove = (e: MouseEvent) => {
       if (!panelRef.current) return
@@ -42,23 +57,44 @@ export function ResizablePanel({
       const newWidth = e.clientX
       const clampedWidth = Math.min(Math.max(newWidth, minWidth), maxWidth)
 
+      // Update local state immediately for instant visual feedback
       setWidth(clampedWidth)
 
-      // Throttle immediate IPC updates for performance
-      const now = Date.now()
-      if (now - lastUpdateTime >= THROTTLE_MS) {
-        window.electron.updateSidebarWidth(clampedWidth)
-        lastUpdateTime = now
-      }
+      // Store pending width for batched IPC update
+      pendingWidth = clampedWidth
 
-      // Still call onResize for settings persistence (will be debounced separately)
-      onResize(clampedWidth)
+      // Schedule IPC update on next animation frame if not already scheduled
+      if (rafId === null) {
+        rafId = requestAnimationFrame(() => {
+          rafId = null
+          if (pendingWidth !== null) {
+            // Send batched IPC update synchronized with browser repaint
+            window.electron.updateSidebarWidth(pendingWidth)
+            // Call onResize for settings persistence (will be debounced separately)
+            onResize(pendingWidth)
+            pendingWidth = null
+          }
+        })
+      }
     }
 
     const handleMouseUp = () => {
       setIsResizing(false)
       document.body.style.cursor = ''
       document.body.style.userSelect = ''
+
+      // Cancel any pending animation frame
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId)
+        rafId = null
+      }
+
+      // Send final update if there's a pending width
+      if (pendingWidth !== null) {
+        window.electron.updateSidebarWidth(pendingWidth)
+        onResize(pendingWidth)
+        pendingWidth = null
+      }
     }
 
     document.addEventListener('mousemove', handleMouseMove)
@@ -72,6 +108,11 @@ export function ResizablePanel({
       document.removeEventListener('mouseup', handleMouseUp)
       document.body.style.cursor = ''
       document.body.style.userSelect = ''
+
+      // Cleanup: cancel any pending animation frame
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId)
+      }
     }
   }, [isResizing, minWidth, maxWidth, onResize])
 

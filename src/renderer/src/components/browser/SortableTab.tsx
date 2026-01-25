@@ -17,6 +17,7 @@ interface SortableTabProps {
   onContextMenu: (e: React.MouseEvent) => void
   onKeyDown: (e: React.KeyboardEvent) => void
   isVertical?: boolean
+  sidebarWidth?: number
 }
 
 export function SortableTab({
@@ -27,6 +28,7 @@ export function SortableTab({
   onContextMenu,
   onKeyDown,
   isVertical = false,
+  sidebarWidth,
 }: SortableTabProps) {
   const { t } = useTranslation('browser')
   const {
@@ -45,6 +47,11 @@ export function SortableTab({
     cursor: isDragging ? 'grabbing' : 'grab',
   }
 
+  // Adaptive layout based on sidebar width (only in vertical mode)
+  const isNarrow = isVertical && sidebarWidth !== undefined && sidebarWidth <= 80
+  const isMedium = isVertical && sidebarWidth !== undefined && sidebarWidth > 80 && sidebarWidth <= 120
+  const showTitle = !isNarrow && (!isMedium || isActive) // Hide title in narrow, show only on active in medium
+
   return (
     <div
       ref={setNodeRef}
@@ -58,7 +65,7 @@ export function SortableTab({
         isActive
           ? 'bg-surface-active border-border-medium text-foreground'
           : 'bg-surface border-transparent text-foreground-muted hover:bg-surface-hover hover:text-foreground'
-      }`}
+      } ${isNarrow ? 'justify-center' : ''}`}
       onClick={(e) => {
         // Only activate if not dragging
         if (!isDragging) {
@@ -69,30 +76,63 @@ export function SortableTab({
       onContextMenu={onContextMenu}
       aria-label={`Tab: ${tab.title || t('tabs.newTab')}. Press space to start dragging.`}
     >
-      {/* Favicon */}
-      {tab.favicon ? (
-        <img
-          src={tab.favicon}
-          alt=""
-          className="w-5 h-5 flex-shrink-0 object-contain"
-          onError={(e) => {
-            e.currentTarget.style.display = 'none'
-          }}
-        />
+      {/* Favicon with optional close overlay in narrow mode */}
+      {isNarrow ? (
+        <div className="relative w-5 h-5 flex-shrink-0">
+          {tab.favicon ? (
+            <img
+              src={tab.favicon}
+              alt=""
+              className="w-5 h-5 object-contain transition-opacity group-hover:opacity-0"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none'
+              }}
+            />
+          ) : (
+            <Globe className="w-5 h-5 text-foreground-muted transition-opacity group-hover:opacity-0" />
+          )}
+          {/* Close button overlay */}
+          <button
+            className="absolute inset-0 opacity-0 group-hover:opacity-100 focus:opacity-100 rounded-full transition-opacity flex items-center justify-center bg-surface-active"
+            aria-label={`Close ${tab.title || t('tabs.closeTab')}`}
+            tabIndex={0}
+            onClick={onClose}
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
       ) : (
-        <Globe className="w-5 h-5 flex-shrink-0 text-foreground-muted" />
+        <>
+          {/* Standard favicon */}
+          {tab.favicon ? (
+            <img
+              src={tab.favicon}
+              alt=""
+              className="w-5 h-5 flex-shrink-0 object-contain"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none'
+              }}
+            />
+          ) : (
+            <Globe className="w-5 h-5 flex-shrink-0 text-foreground-muted" />
+          )}
+        </>
       )}
 
-      <span className="truncate text-sm flex-1">{tab.title || t('tabs.newTab')}</span>
+      {/* Title - Hidden in narrow mode */}
+      {showTitle && <span className="truncate text-sm flex-1">{tab.title || t('tabs.newTab')}</span>}
 
-      <button
-        className="opacity-0 group-hover:opacity-100 focus:opacity-100 hover:bg-surface-active rounded-full p-0.5 transition-opacity"
-        aria-label={`Close ${tab.title || t('tabs.closeTab')}`}
-        tabIndex={0}
-        onClick={onClose}
-      >
-        <X className="h-3.5 w-3.5" />
-      </button>
+      {/* Close button - Standard position (only in non-narrow mode) */}
+      {!isNarrow && (
+        <button
+          className="opacity-0 group-hover:opacity-100 focus:opacity-100 hover:bg-surface-active rounded-full p-0.5 transition-opacity"
+          aria-label={`Close ${tab.title || t('tabs.closeTab')}`}
+          tabIndex={0}
+          onClick={onClose}
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      )}
     </div>
   )
 }

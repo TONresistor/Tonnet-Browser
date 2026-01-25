@@ -33,7 +33,11 @@ interface ContextMenuState {
   y: number
 }
 
-export function TabBar() {
+interface TabBarProps {
+  sidebarWidth?: number
+}
+
+export function TabBar({ sidebarWidth }: TabBarProps) {
   const { t } = useTranslation('browser')
   const { tabs, activeTabId, addTab, closeTab, setActiveTab, duplicateTab, closeOtherTabs, reorderTabs } = useTabs()
   const { tabOrientation } = usePreferences()
@@ -197,6 +201,7 @@ export function TabBar() {
               onContextMenu={(e) => handleContextMenu(e, tab.id)}
               onKeyDown={(e) => handleTabKeyDown(e, tab.id)}
               isVertical={isVertical}
+              sidebarWidth={sidebarWidth}
             />
           ))}
         </SortableContext>
