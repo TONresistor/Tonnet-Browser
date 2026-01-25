@@ -101,6 +101,58 @@ export function createBrowserView(ses: Electron.Session): BrowserView {
       (function() {
         'use strict';
 
+        // === NAVIGATOR PROPERTIES SPOOFING ===
+        // Match HTTP User-Agent header for consistency
+        Object.defineProperty(navigator, 'userAgent', {
+          get: () => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
+          enumerable: true,
+          configurable: false
+        });
+
+        Object.defineProperty(navigator, 'platform', {
+          get: () => 'Win32',
+          enumerable: true,
+          configurable: false
+        });
+
+        Object.defineProperty(navigator, 'language', {
+          get: () => 'en-US',
+          enumerable: true,
+          configurable: false
+        });
+
+        Object.defineProperty(navigator, 'languages', {
+          get: () => ['en-US', 'en'],
+          enumerable: true,
+          configurable: false
+        });
+
+        // Block Client Hints API (prevents UA bypass in Chrome 90+)
+        Object.defineProperty(navigator, 'userAgentData', {
+          get: () => undefined,
+          enumerable: true,
+          configurable: false
+        });
+
+        // Derived properties for consistency
+        Object.defineProperty(navigator, 'appVersion', {
+          get: () => '5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
+          enumerable: true,
+          configurable: false
+        });
+
+        Object.defineProperty(navigator, 'vendor', {
+          get: () => 'Google Inc.',
+          enumerable: true,
+          configurable: false
+        });
+
+        Object.defineProperty(navigator, 'product', {
+          get: () => 'Gecko',
+          enumerable: true,
+          configurable: false
+        });
+
         // === CANVAS FINGERPRINT PROTECTION ===
         // Inject deterministic noise to canvas readouts (stable per session)
         const sessionSeed = crypto.getRandomValues(new Uint32Array(1))[0] / 0xFFFFFFFF;

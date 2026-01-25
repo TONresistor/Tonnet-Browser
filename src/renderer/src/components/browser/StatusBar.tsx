@@ -142,7 +142,7 @@ export function StatusBar() {
     const isReady = circuitRelays.length === 3
 
     return (
-      <span className="text-primary">
+      <span className="text-tonsite">
         {isReady ? t('statusBar.garlicRouting') : t('statusBar.buildingCircuit')}
       </span>
     )
@@ -220,7 +220,7 @@ export function StatusBar() {
       <div className="flex items-center gap-3">
         <span aria-label={`Version ${APP_VERSION}`}>v{APP_VERSION}</span>
         <Separator />
-        <span>{formatTime(currentTime)}</span>
+        <span className="text-foreground">{formatTime(currentTime)}</span>
       </div>
     </footer>
   )

@@ -27,7 +27,7 @@
     --ring: 207 83% 68%;                /* #6ab2f2 */
     --radius: 0.5rem;
     /* Status colors */
-    --success: 142 76% 36%;             /* #22c55e */
+    --success: 120 100% 55%;            /* #39FF14 - Vert fluo néon */
     --success-foreground: 0 0% 100%;
     --warning: 38 92% 50%;              /* #f59e0b */
     --warning-foreground: 0 0% 0%;
@@ -83,7 +83,7 @@
     --ring: 200 85% 55%;                /* #2AABEE - Bleu Telegram */
     --radius: 0.5rem;
     /* Status colors */
-    --success: 142 80% 30%;             /* #0F8C3D - Vert foncé */
+    --success: 120 100% 35%;            /* #00B300 - Vert fluo pour light theme */
     --success-foreground: 0 0% 100%;
     --warning: 15 90% 40%;              /* #C24D0A - Rouge-orange */
     --warning-foreground: 0 0% 100%;
@@ -185,6 +185,10 @@
 /* Tonsite badge color - #0098EA */
 .bg-tonsite {
   background-color: #0098EA;
+}
+
+.text-tonsite {
+  color: #0098EA;
 }
 
 /* Theme gradient utilities */
