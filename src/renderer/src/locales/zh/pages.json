@@ -1,7 +1,7 @@
 {
   "start": {
     "title": "欢迎使用 Tonnet",
-    "subtitle": "您通往去中心化网络的门户",
+    "subtitle": "Browse tonsites on TON Network, privately",
     "searchPlaceholder": "搜索或输入 .ton 地址",
     "searchButton": "前往",
     "quickLinks": "快速链接",

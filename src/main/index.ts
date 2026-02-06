@@ -75,7 +75,7 @@ function loadWindowBounds(): Partial<WindowBounds> {
       const data = readFileSync(boundsFile, 'utf-8')
       const bounds = JSON.parse(data) as WindowBounds
 
-      // Validate bounds are on a visible display
+      // Validate bounds are on a visible display (top-left corner must be on some display)
       const displays = screen.getAllDisplays()
       const isVisible = displays.some((display) => {
         return (
@@ -171,6 +171,11 @@ function createWindow(): void {
         mainWindow.webContents.send('proxy:status', { status: 'connected', ...proxyManager.getStatus() })
       } catch (error) {
         logger.error('App', `Auto-connect failed: ${String(error)}`)
+        // Notify renderer of connection failure (field name matches ProxyStatus.error)
+        mainWindow.webContents.send('proxy:status', {
+          status: 'error',
+          error: error instanceof Error ? error.message : String(error)
+        })
       }
     }
   })

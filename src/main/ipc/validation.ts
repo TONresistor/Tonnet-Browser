@@ -60,11 +60,27 @@ export function isValidDownloadPath(inputPath: string): { valid: boolean; error?
   // Normalize to resolve .. and .
   const normalized = path.normalize(inputPath)
 
-  // Block system directories (Unix)
+  // Block system directories (Unix/Linux/macOS)
   if (process.platform !== 'win32') {
-    const blockedPaths = ['/bin', '/sbin', '/usr', '/etc', '/var', '/sys', '/proc', '/dev', '/boot', '/lib']
+    const blockedPaths = [
+      '/bin', '/sbin', '/usr', '/etc', '/var', '/sys', '/proc', '/dev', '/boot', '/lib', '/lib64',
+      '/root', '/opt', '/srv', '/snap', '/run'
+    ]
     for (const blocked of blockedPaths) {
       if (normalized === blocked || normalized.startsWith(blocked + '/')) {
+        return { valid: false, error: 'System directories are not allowed' }
+      }
+    }
+  } else {
+    // Block system directories (Windows)
+    const blockedPaths = [
+      'C:\\Windows', 'C:\\Program Files', 'C:\\Program Files (x86)',
+      'C:\\ProgramData', 'C:\\System', 'C:\\$', 'C:\\Boot'
+    ]
+    for (const blocked of blockedPaths) {
+      const blockedNormalized = path.normalize(blocked).toLowerCase()
+      const normalizedLower = normalized.toLowerCase()
+      if (normalizedLower === blockedNormalized || normalizedLower.startsWith(blockedNormalized + path.sep)) {
         return { valid: false, error: 'System directories are not allowed' }
       }
     }

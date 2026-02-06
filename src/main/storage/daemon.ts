@@ -127,13 +127,19 @@ export class StorageManager extends EventEmitter {
   private async waitForReady(maxAttempts = 30): Promise<void> {
     for (let i = 0; i < maxAttempts; i++) {
       if (!this.client) break
-      if (await this.client.ping()) {
-        logger.info('StorageManager', `API ready after ${i + 1} attempts`)
-        return
+      try {
+        // ping() has 10s timeout built-in via fetch AbortSignal
+        if (await this.client.ping()) {
+          logger.info('StorageManager', `API ready after ${i + 1} attempts`)
+          return
+        }
+      } catch (error) {
+        // Log ping errors but continue retrying (daemon may still be starting)
+        logger.debug('StorageManager', `Ping attempt ${i + 1} failed:`, error)
       }
       await new Promise((resolve) => setTimeout(resolve, 500))
     }
-    throw new Error('Storage daemon API did not become ready')
+    throw new Error('Storage daemon API did not become ready after 30 attempts (15s total)')
   }
 
   private startPolling(): void {

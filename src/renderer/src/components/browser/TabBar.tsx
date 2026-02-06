@@ -3,7 +3,7 @@
  * Create, switch, and close tabs with drag & drop support.
  */
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, memo } from 'react'
 import {
   DndContext,
   DragEndEvent,
@@ -37,7 +37,7 @@ interface TabBarProps {
   sidebarWidth?: number
 }
 
-export function TabBar({ sidebarWidth }: TabBarProps) {
+export const TabBar = memo(function TabBar({ sidebarWidth }: TabBarProps) {
   const { t } = useTranslation('browser')
   const { tabs, activeTabId, addTab, closeTab, setActiveTab, duplicateTab, closeOtherTabs, reorderTabs } = useTabs()
   const { tabOrientation } = usePreferences()
@@ -268,4 +268,4 @@ export function TabBar({ sidebarWidth }: TabBarProps) {
       )}
     </div>
   )
-}
+})

@@ -9,6 +9,7 @@ import explorerAnimation from '@/assets/explorer.json'
 import explorerYellowAnimation from '@/assets/explorer-yellow.json'
 import tonIcon from '@/assets/ton.png'
 import { APP_VERSION } from '@shared/constants'
+import { processNavigationInput } from '@/lib/url-utils'
 import { usePreferences } from '@/stores/preferences'
 import { useTranslation } from 'react-i18next'
 
@@ -23,26 +24,16 @@ export function StartPage() {
     const input = searchInput.trim()
     if (!input) return
 
-    // Remove protocol to analyze the domain
-    const urlWithoutProtocol = input.replace(/^https?:\/\//, '')
-
-    // Split into host and path
-    const slashIndex = urlWithoutProtocol.indexOf('/')
-    const hostPart = slashIndex >= 0 ? urlWithoutProtocol.slice(0, slashIndex) : urlWithoutProtocol
-    const pathPart = slashIndex >= 0 ? urlWithoutProtocol.slice(slashIndex) : ''
-
-    // If no dot in hostname, append .ton (e.g., "example" → "example.ton")
-    const finalHost = hostPart.includes('.') ? hostPart : `${hostPart}.ton`
-
-    const url = `http://${finalHost}${pathPart}`
+    // Process navigation input (handles TON domain auto-completion)
+    const url = processNavigationInput(input)
     window.electron.navigate(url)
   }
 
   return (
     <div className="relative flex flex-col items-center justify-center h-full w-full bg-background-secondary">
-      <Lottie animationData={currentExplorerAnimation} className="w-[200px] h-[200px] mb-8" loop autoplay />
+      <Lottie animationData={currentExplorerAnimation} className="w-[280px] h-[280px] mb-8" loop autoplay />
 
-      <p className="text-muted-foreground text-xl mb-8">{t('start.subtitle')}</p>
+      <p className="text-foreground text-2xl font-bold mb-8">{t('start.subtitle')}</p>
 
       <form onSubmit={handleSearch} className="w-full max-w-[700px] px-5">
         <div
@@ -64,9 +55,9 @@ export function StartPage() {
           />
           <button
             type="submit"
-            className="w-14 h-14 flex items-center justify-center rounded-full text-2xl font-medium transition-all duration-200 hover:scale-105 bg-primary text-primary-foreground backdrop-blur-[10px]"
+            className="w-14 h-14 flex items-center justify-center rounded-full text-2xl font-medium transition-all duration-200 hover:scale-105 bg-tonsite text-white backdrop-blur-[10px]"
             style={{
-              boxShadow: '0 4px 16px rgba(0, 136, 204, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2)',
+              boxShadow: '0 4px 16px rgba(0, 152, 234, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2)',
             }}
             aria-label={t('start.searchButton')}
           >

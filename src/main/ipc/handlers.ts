@@ -3,7 +3,7 @@
  * Handles proxy, tabs, navigation, storage, and settings.
  */
 
-import { ipcMain, BrowserWindow, session, dialog, Menu, shell } from 'electron'
+import { ipcMain, BrowserWindow, session, dialog, Menu, shell, IpcMainInvokeEvent } from 'electron'
 import path from 'path'
 import { IPC_CHANNELS } from '../../shared/types'
 import { isValidNavigationUrl, isValidBagId, isValidDownloadPath, RateLimiter } from './validation'
@@ -51,6 +51,64 @@ export function _resetHandlersForTesting(): void {
   handlersRegistered = false
 }
 
+/**
+ * Security: Verify IPC call originates from the main window, not a compromised tab/BrowserView
+ * This prevents a malicious website from invoking privileged IPC handlers
+ */
+function verifyIpcOrigin(event: IpcMainInvokeEvent): void {
+  const mainWindow = getMainWindow()
+  if (!mainWindow) {
+    throw new Error('Main window not available')
+  }
+
+  // Check if sender is the main window's webContents (not a BrowserView)
+  if (event.sender !== mainWindow.webContents) {
+    logger.error('IPC', 'Unauthorized IPC call from non-main-window sender')
+    throw new Error('Unauthorized: IPC calls must originate from main window')
+  }
+}
+
+/**
+ * Secure ipcMain.handle wrapper - verifies origin + catches errors
+ * All IPC handlers should use this to prevent calls from compromised BrowserViews
+ */
+function secureHandle(
+  channel: string,
+  handler: (...args: unknown[]) => unknown
+): void {
+  ipcMain.handle(channel, (event: IpcMainInvokeEvent, ...args: unknown[]) => {
+    verifyIpcOrigin(event)
+    return handler(...args)
+  })
+}
+
+/**
+ * Secure ipcMain.handle wrapper for handlers that need the event parameter
+ */
+function secureHandleWithEvent(
+  channel: string,
+  handler: (event: IpcMainInvokeEvent, ...args: unknown[]) => unknown
+): void {
+  ipcMain.handle(channel, (event: IpcMainInvokeEvent, ...args: unknown[]) => {
+    verifyIpcOrigin(event)
+    return handler(event, ...args)
+  })
+}
+
+/**
+ * Wrapper for handleWithErrors that adds origin verification
+ * Use for handlers that need the full error wrapping + origin check
+ */
+function handleSecure<T = unknown>(
+  channel: string,
+  handler: (event: IpcMainInvokeEvent, ...args: unknown[]) => Promise<T> | T
+): void {
+  handleWithErrors(channel, async (event, ...args) => {
+    verifyIpcOrigin(event)
+    return await handler(event, ...args)
+  })
+}
+
 export function registerIpcHandlers(): void {
   // Prevent duplicate listener registration (causes memory leaks)
   if (handlersRegistered) {
@@ -64,6 +122,9 @@ export function registerIpcHandlers(): void {
     const win = getMainWindow()
     if (win) {
       win.webContents.send('proxy:status', { status, ...proxyManager.getStatus() })
+      // Update window title to show connection status
+      const title = status === 'connected' ? 'TON Browser [Connected]' : 'TON Browser'
+      win.setTitle(title)
     }
   })
 
@@ -98,7 +159,7 @@ export function registerIpcHandlers(): void {
   })
 
   // ===== Proxy Handlers =====
-  handleWithErrors(IPC_CHANNELS.PROXY_CONNECT, async () => {
+  handleSecure(IPC_CHANNELS.PROXY_CONNECT, async () => {
     const win = getMainWindow()
 
     // Helper to send progress updates
@@ -144,48 +205,48 @@ export function registerIpcHandlers(): void {
     return { success: true, ...proxyManager.getStatus() }
   })
 
-  ipcMain.handle(IPC_CHANNELS.PROXY_DISCONNECT, async () => {
+  secureHandle(IPC_CHANNELS.PROXY_DISCONNECT, async () => {
     storageManager.stop()
     proxyManager.stop()
     return { success: true }
   })
 
-  ipcMain.handle(IPC_CHANNELS.PROXY_STATUS, () => {
+  secureHandle(IPC_CHANNELS.PROXY_STATUS, () => {
     return proxyManager.getStatus()
   })
 
   // ===== Tab Handlers =====
-  ipcMain.handle(IPC_CHANNELS.TAB_CREATE, (_event, tabId: string) => {
+  secureHandleWithEvent(IPC_CHANNELS.TAB_CREATE, (_event, tabId: string) => {
     logger.debug('IPC', `Tab create: ${tabId}`)
     const success = createTab(tabId)
     return { success }
   })
 
-  ipcMain.handle(IPC_CHANNELS.TAB_CLOSE, (_event, tabId: string) => {
+  secureHandleWithEvent(IPC_CHANNELS.TAB_CLOSE, (_event, tabId: string) => {
     logger.debug('IPC', `Tab close: ${tabId}`)
     const success = closeTab(tabId)
     return { success }
   })
 
-  ipcMain.handle(IPC_CHANNELS.TAB_SWITCH, (_event, tabId: string) => {
+  secureHandleWithEvent(IPC_CHANNELS.TAB_SWITCH, (_event, tabId: string) => {
     logger.debug('IPC', `Tab switch: ${tabId}`)
     const success = switchTab(tabId)
     return { success }
   })
 
   // ===== View Handlers =====
-  ipcMain.handle(IPC_CHANNELS.VIEW_HIDE, () => {
+  secureHandle(IPC_CHANNELS.VIEW_HIDE, () => {
     hideAllViews()
     return { success: true }
   })
 
-  ipcMain.handle(IPC_CHANNELS.VIEW_SHOW, () => {
+  secureHandle(IPC_CHANNELS.VIEW_SHOW, () => {
     showActiveView()
     return { success: true }
   })
 
   // ===== Navigation Handlers =====
-  ipcMain.handle(IPC_CHANNELS.NAVIGATE, (_event, url: string, tabId?: string) => {
+  secureHandleWithEvent(IPC_CHANNELS.NAVIGATE, (_event, url: string, tabId?: string) => {
     // Rate limit navigation requests
     if (!navLimiter.check()) {
       return { success: false, error: 'Rate limited' }
@@ -220,7 +281,7 @@ export function registerIpcHandlers(): void {
     return { success: false, error: 'No active tab' }
   })
 
-  ipcMain.handle(IPC_CHANNELS.GO_BACK, () => {
+  secureHandle(IPC_CHANNELS.GO_BACK, () => {
     const view = getActiveView()
     if (view?.webContents.navigationHistory.canGoBack()) {
       view.webContents.navigationHistory.goBack()
@@ -229,7 +290,7 @@ export function registerIpcHandlers(): void {
     return { success: false }
   })
 
-  ipcMain.handle(IPC_CHANNELS.GO_FORWARD, () => {
+  secureHandle(IPC_CHANNELS.GO_FORWARD, () => {
     const view = getActiveView()
     if (view?.webContents.navigationHistory.canGoForward()) {
       view.webContents.navigationHistory.goForward()
@@ -238,7 +299,7 @@ export function registerIpcHandlers(): void {
     return { success: false }
   })
 
-  ipcMain.handle(IPC_CHANNELS.RELOAD, () => {
+  secureHandle(IPC_CHANNELS.RELOAD, () => {
     const view = getActiveView()
     if (view) {
       view.webContents.reload()
@@ -247,7 +308,7 @@ export function registerIpcHandlers(): void {
     return { success: false }
   })
 
-  ipcMain.handle(IPC_CHANNELS.STOP, () => {
+  secureHandle(IPC_CHANNELS.STOP, () => {
     const view = getActiveView()
     if (view) {
       view.webContents.stop()
@@ -256,7 +317,7 @@ export function registerIpcHandlers(): void {
     return { success: false }
   })
 
-  ipcMain.handle(IPC_CHANNELS.ZOOM_IN, () => {
+  secureHandle(IPC_CHANNELS.ZOOM_IN, () => {
     const view = getActiveView()
     if (view) {
       const { zoomMax } = getSetting('appearance')
@@ -268,7 +329,7 @@ export function registerIpcHandlers(): void {
     return { success: false }
   })
 
-  ipcMain.handle(IPC_CHANNELS.ZOOM_OUT, () => {
+  secureHandle(IPC_CHANNELS.ZOOM_OUT, () => {
     const view = getActiveView()
     if (view) {
       const { zoomMin } = getSetting('appearance')
@@ -280,7 +341,7 @@ export function registerIpcHandlers(): void {
     return { success: false }
   })
 
-  ipcMain.handle(IPC_CHANNELS.ZOOM_RESET, () => {
+  secureHandle(IPC_CHANNELS.ZOOM_RESET, () => {
     const view = getActiveView()
     if (view) {
       const { defaultZoom } = getSetting('appearance')
@@ -290,7 +351,7 @@ export function registerIpcHandlers(): void {
     return { success: false }
   })
 
-  ipcMain.handle(IPC_CHANNELS.TOGGLE_DEVTOOLS, () => {
+  secureHandle(IPC_CHANNELS.TOGGLE_DEVTOOLS, () => {
     const view = getActiveView()
     if (view) {
       if (view.webContents.isDevToolsOpened()) {
@@ -304,7 +365,7 @@ export function registerIpcHandlers(): void {
   })
 
   // ===== Storage Handlers =====
-  handleWithErrors(IPC_CHANNELS.STORAGE_ADD_BAG, async (_event, bagId: string, name?: string) => {
+  handleSecure(IPC_CHANNELS.STORAGE_ADD_BAG, async (_event, bagId: string, name?: string) => {
     // Rate limit storage operations
     if (!storageLimiter.check()) {
       return { success: false, error: 'Rate limited' }
@@ -320,7 +381,7 @@ export function registerIpcHandlers(): void {
     return { success: true, bag }
   })
 
-  ipcMain.handle(IPC_CHANNELS.STORAGE_REMOVE_BAG, async (_event, bagId: string) => {
+  secureHandleWithEvent(IPC_CHANNELS.STORAGE_REMOVE_BAG, async (_event, bagId: string) => {
     if (!isValidBagId(bagId)) {
       return { success: false, error: 'Invalid bag ID format' }
     }
@@ -328,12 +389,12 @@ export function registerIpcHandlers(): void {
     return { success: result }
   })
 
-  ipcMain.handle(IPC_CHANNELS.STORAGE_LIST_BAGS, async () => {
+  secureHandle(IPC_CHANNELS.STORAGE_LIST_BAGS, async () => {
     const bags = await listBags()
     return { success: true, bags }
   })
 
-  ipcMain.handle(IPC_CHANNELS.STORAGE_PAUSE_BAG, async (_event, bagId: string) => {
+  secureHandleWithEvent(IPC_CHANNELS.STORAGE_PAUSE_BAG, async (_event, bagId: string) => {
     if (!isValidBagId(bagId)) {
       return { success: false, error: 'Invalid bag ID format' }
     }
@@ -341,7 +402,7 @@ export function registerIpcHandlers(): void {
     return { success: result }
   })
 
-  ipcMain.handle(IPC_CHANNELS.STORAGE_GET_DETAILS, async (_event, bagId: string) => {
+  secureHandleWithEvent(IPC_CHANNELS.STORAGE_GET_DETAILS, async (_event, bagId: string) => {
     if (!isValidBagId(bagId)) {
       return { success: false, error: 'Invalid bag ID format' }
     }
@@ -353,7 +414,7 @@ export function registerIpcHandlers(): void {
     }
   })
 
-  ipcMain.handle(IPC_CHANNELS.STORAGE_OPEN_FOLDER, async (_event, bagId: string) => {
+  secureHandleWithEvent(IPC_CHANNELS.STORAGE_OPEN_FOLDER, async (_event, bagId: string) => {
     if (!isValidBagId(bagId)) {
       return { success: false, error: 'Invalid bag ID' }
     }
@@ -369,7 +430,7 @@ export function registerIpcHandlers(): void {
     }
   })
 
-  ipcMain.handle(IPC_CHANNELS.STORAGE_SHOW_FILE, async (_event, bagId: string, fileName: string) => {
+  secureHandleWithEvent(IPC_CHANNELS.STORAGE_SHOW_FILE, async (_event, bagId: string, fileName: string) => {
     if (!isValidBagId(bagId)) {
       return { success: false, error: 'Invalid bag ID' }
     }
@@ -398,7 +459,7 @@ export function registerIpcHandlers(): void {
   })
 
   // ===== Bookmark Context Menu =====
-  ipcMain.handle('bookmark:show-menu', (_event, id: string, title: string, url: string) => {
+  secureHandleWithEvent('bookmark:show-menu', (_event, id: string, title: string, url: string) => {
     const win = getMainWindow()
     if (!win) return
 
@@ -422,7 +483,7 @@ export function registerIpcHandlers(): void {
   })
 
   // ===== Folder Dropdown Menu =====
-  ipcMain.handle(
+  secureHandleWithEvent(
     'folder:show-menu',
     (_event, folderId: string, bookmarks: Array<{ id: string; title: string; url: string }>) => {
       const win = getMainWindow()
@@ -454,7 +515,7 @@ export function registerIpcHandlers(): void {
   )
 
   // ===== Folder Context Menu =====
-  ipcMain.handle('folder:show-context-menu', (_event, folderId: string, folderName: string) => {
+  secureHandleWithEvent('folder:show-context-menu', (_event, folderId: string, folderName: string) => {
     const win = getMainWindow()
     if (!win) return
 
@@ -478,12 +539,12 @@ export function registerIpcHandlers(): void {
   })
 
   // ===== Window Handlers =====
-  ipcMain.handle(IPC_CHANNELS.WINDOW_MINIMIZE, () => {
+  secureHandle(IPC_CHANNELS.WINDOW_MINIMIZE, () => {
     const win = getMainWindow()
     win?.minimize()
   })
 
-  ipcMain.handle(IPC_CHANNELS.WINDOW_MAXIMIZE, () => {
+  secureHandle(IPC_CHANNELS.WINDOW_MAXIMIZE, () => {
     const win = getMainWindow()
     if (win?.isMaximized()) {
       win.unmaximize()
@@ -492,19 +553,19 @@ export function registerIpcHandlers(): void {
     }
   })
 
-  ipcMain.handle(IPC_CHANNELS.WINDOW_CLOSE, () => {
+  secureHandle(IPC_CHANNELS.WINDOW_CLOSE, () => {
     const win = getMainWindow()
     win?.close()
   })
 
   // Immediate sidebar width update (for real-time resize)
-  ipcMain.handle('update-sidebar-width', (_event, width: number) => {
+  secureHandleWithEvent('update-sidebar-width', (_event, width: number) => {
     updateSidebarWidth(width)
     return { success: true }
   })
 
   // ===== Settings Handlers =====
-  handleWithErrors(IPC_CHANNELS.CLEAR_BROWSING_DATA, async () => {
+  handleSecure(IPC_CHANNELS.CLEAR_BROWSING_DATA, async () => {
     const ses = session.fromPartition('persist:ton-browser')
     await ses.clearCache()
     await ses.clearStorageData({
@@ -515,11 +576,11 @@ export function registerIpcHandlers(): void {
   })
 
   // ===== Storage Settings Handlers =====
-  ipcMain.handle(IPC_CHANNELS.STORAGE_GET_DOWNLOAD_PATH, () => {
+  secureHandle(IPC_CHANNELS.STORAGE_GET_DOWNLOAD_PATH, () => {
     return { success: true, path: getDownloadPath() }
   })
 
-  ipcMain.handle(IPC_CHANNELS.STORAGE_SET_DOWNLOAD_PATH, (_event, inputPath: string) => {
+  secureHandleWithEvent(IPC_CHANNELS.STORAGE_SET_DOWNLOAD_PATH, (_event, inputPath: string) => {
     // Security: Validate path before setting
     const validation = isValidDownloadPath(inputPath)
     if (!validation.valid) {
@@ -539,7 +600,7 @@ export function registerIpcHandlers(): void {
     }
   })
 
-  ipcMain.handle(IPC_CHANNELS.STORAGE_SELECT_DOWNLOAD_FOLDER, async () => {
+  secureHandle(IPC_CHANNELS.STORAGE_SELECT_DOWNLOAD_FOLDER, async () => {
     const win = getMainWindow()
     if (!win) {
       return { success: false, error: 'No window available' }
@@ -563,15 +624,15 @@ export function registerIpcHandlers(): void {
   })
 
   // ===== App Settings Handlers =====
-  ipcMain.handle(IPC_CHANNELS.SETTINGS_GET_ALL, () => {
+  secureHandle(IPC_CHANNELS.SETTINGS_GET_ALL, () => {
     return loadSettings()
   })
 
-  ipcMain.handle(IPC_CHANNELS.SETTINGS_GET, (_event, category: keyof AppSettings) => {
+  secureHandleWithEvent(IPC_CHANNELS.SETTINGS_GET, (_event, category: keyof AppSettings) => {
     return getSetting(category)
   })
 
-  ipcMain.handle(IPC_CHANNELS.SETTINGS_SET, async (_event, category: keyof AppSettings, values: object) => {
+  secureHandleWithEvent(IPC_CHANNELS.SETTINGS_SET, async (_event, category: keyof AppSettings, values: object) => {
     setSetting(category, values as any)
     // Notify renderer of settings change
     const win = getMainWindow()
@@ -604,7 +665,7 @@ export function registerIpcHandlers(): void {
     return { success: true }
   })
 
-  ipcMain.handle(IPC_CHANNELS.SETTINGS_RESET, () => {
+  secureHandle(IPC_CHANNELS.SETTINGS_RESET, () => {
     resetSettings()
     const win = getMainWindow()
     if (win) {
@@ -616,7 +677,7 @@ export function registerIpcHandlers(): void {
   })
 
   // ===== History Handlers =====
-  ipcMain.handle('history:change-mode', async (_event, mode: HistoryMode) => {
+  secureHandleWithEvent('history:change-mode', async (_event, mode: HistoryMode) => {
     try {
       const result = await historyManager.changeMode(mode)
       return result
@@ -625,7 +686,7 @@ export function registerIpcHandlers(): void {
     }
   })
 
-  ipcMain.handle('history:search', (_event, query: string, limit?: number) => {
+  secureHandleWithEvent('history:search', (_event, query: string, limit?: number) => {
     try {
       return historyManager.search(query, limit)
     } catch (error) {
@@ -634,7 +695,7 @@ export function registerIpcHandlers(): void {
     }
   })
 
-  ipcMain.handle('history:get-recent', (_event, limit?: number) => {
+  secureHandleWithEvent('history:get-recent', (_event, limit?: number) => {
     try {
       return historyManager.getRecent(limit)
     } catch (error) {
@@ -643,7 +704,7 @@ export function registerIpcHandlers(): void {
     }
   })
 
-  ipcMain.handle('history:get-top', (_event, limit?: number) => {
+  secureHandleWithEvent('history:get-top', (_event, limit?: number) => {
     try {
       return historyManager.getTopVisited(limit)
     } catch (error) {
@@ -652,7 +713,7 @@ export function registerIpcHandlers(): void {
     }
   })
 
-  ipcMain.handle('history:get-by-date', (_event, startDate: number, endDate: number) => {
+  secureHandleWithEvent('history:get-by-date', (_event, startDate: number, endDate: number) => {
     try {
       return historyManager.getByDateRange(startDate, endDate)
     } catch (error) {
@@ -661,7 +722,7 @@ export function registerIpcHandlers(): void {
     }
   })
 
-  ipcMain.handle('history:delete', (_event, id: string) => {
+  secureHandleWithEvent('history:delete', (_event, id: string) => {
     try {
       const success = historyManager.deleteEntry(id)
       return { success }
@@ -670,7 +731,7 @@ export function registerIpcHandlers(): void {
     }
   })
 
-  ipcMain.handle('history:delete-pattern', (_event, pattern: string) => {
+  secureHandleWithEvent('history:delete-pattern', (_event, pattern: string) => {
     try {
       const count = historyManager.deleteByPattern(pattern)
       return { success: true, count }
@@ -679,7 +740,7 @@ export function registerIpcHandlers(): void {
     }
   })
 
-  ipcMain.handle('history:clear', () => {
+  secureHandleWithEvent('history:clear', () => {
     try {
       historyManager.clear()
       return { success: true }
@@ -688,7 +749,7 @@ export function registerIpcHandlers(): void {
     }
   })
 
-  ipcMain.handle('history:get-stats', () => {
+  secureHandleWithEvent('history:get-stats', () => {
     try {
       return historyManager.getStats()
     } catch (error) {
@@ -700,7 +761,7 @@ export function registerIpcHandlers(): void {
     }
   })
 
-  ipcMain.handle('history:has-persistent-file', () => {
+  secureHandleWithEvent('history:has-persistent-file', () => {
     try {
       return historyManager.hasPersistentFile()
     } catch (error) {
@@ -709,11 +770,11 @@ export function registerIpcHandlers(): void {
   })
 
   // ===== Error Logging Handlers (for debugging) =====
-  ipcMain.handle('errors:get-recent', (_event, limit?: number) => {
+  secureHandleWithEvent('errors:get-recent', (_event, limit?: number) => {
     return ipcErrorHandler.getRecentErrors(limit)
   })
 
-  ipcMain.handle('errors:clear', () => {
+  secureHandleWithEvent('errors:clear', () => {
     ipcErrorHandler.clearLogs()
     return { success: true }
   })

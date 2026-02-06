@@ -140,7 +140,29 @@ const electronAPI = {
 
   // Backward compatible - removes ALL listeners for a channel
   off: (channel: string) => {
-    ipcRenderer.removeAllListeners(channel)
+    const validChannels = [
+      'page:loading',
+      'page:navigate',
+      'page:title',
+      'page:favicon',
+      'proxy:status',
+      'proxy:progress',
+      'proxy:bandwidth',
+      'storage:bags-updated',
+      'storage:status',
+      'context:open-link',
+      'settings:changed',
+      'bookmark:open-new-tab',
+      'bookmark:edit',
+      'bookmark:delete',
+      'folder:rename',
+      'folder:delete',
+      'folder:open-all',
+    ]
+    // Security: Only allow removing listeners for whitelisted channels
+    if (validChannels.includes(channel)) {
+      ipcRenderer.removeAllListeners(channel)
+    }
   }
 }
 

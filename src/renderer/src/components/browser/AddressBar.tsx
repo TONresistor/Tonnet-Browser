@@ -4,7 +4,7 @@
  * Features history-based autocomplete suggestions.
  */
 
-import { useState, useEffect, FormEvent, useRef } from 'react'
+import { useState, useEffect, FormEvent, useRef, useMemo } from 'react'
 import { Lock, Star, Loader2, Clock, History } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -12,6 +12,7 @@ import { useSettingsStore } from '@/stores/settings'
 import { useBookmarksStore } from '@/stores/bookmarks'
 import { useTabsStore } from '@/stores/tabs'
 import { cn } from '@/lib/utils'
+import { processNavigationInput, stripHttpPrefix, getHostname } from '@/lib/url-utils'
 import tonIcon from '@/assets/ton.png'
 import { useTranslation } from 'react-i18next'
 
@@ -21,20 +22,6 @@ interface HistorySuggestion {
   title: string
   visitedAt: number
   visitCount: number
-}
-
-// Helper to strip http:// prefix for display
-const stripHttpPrefix = (url: string) => url.replace(/^https?:\/\//, '')
-
-// Helper to extract hostname from URL for bookmark name
-const getHostname = (url: string): string => {
-  try {
-    const urlObj = new URL(url)
-    return urlObj.hostname
-  } catch {
-    // Fallback: strip protocol and get first segment
-    return url.replace(/^https?:\/\//, '').split('/')[0]
-  }
 }
 
 export function AddressBar() {
@@ -50,9 +37,12 @@ export function AddressBar() {
   const inputRef = useRef<HTMLInputElement>(null)
   const suggestionsRef = useRef<HTMLDivElement>(null)
 
-  const isBookmarked = bookmarks.some((b) => b.url === currentUrl)
-  const isTonSite = currentUrl.includes('.ton') || currentUrl.includes('.adnl') || currentUrl.includes('.t.me')
-  const isInternalPage = currentUrl.startsWith('ton://')
+  const isBookmarked = useMemo(() => bookmarks.some((b) => b.url === currentUrl), [bookmarks, currentUrl])
+  const isTonSite = useMemo(
+    () => currentUrl.includes('.ton') || currentUrl.includes('.adnl') || currentUrl.includes('.t.me'),
+    [currentUrl]
+  )
+  const isInternalPage = useMemo(() => currentUrl.startsWith('ton://'), [currentUrl])
 
   // Display URL without http:// for TON sites
   useEffect(() => {
@@ -115,32 +105,15 @@ export function AddressBar() {
       return
     }
 
-    let navigateUrl = input.trim()
-
+    const navigateUrl = input.trim()
     if (!navigateUrl) return
 
     // Hide suggestions
     setShowSuggestions(false)
 
-    // Internal pages - pass through unchanged
-    if (navigateUrl.startsWith('ton://')) {
-      navigateActiveTab(navigateUrl)
-      return
-    }
-
-    // Remove protocol to analyze the domain
-    const urlWithoutProtocol = navigateUrl.replace(/^https?:\/\//, '')
-
-    // Split into host and path
-    const slashIndex = urlWithoutProtocol.indexOf('/')
-    const hostPart = slashIndex >= 0 ? urlWithoutProtocol.slice(0, slashIndex) : urlWithoutProtocol
-    const pathPart = slashIndex >= 0 ? urlWithoutProtocol.slice(slashIndex) : ''
-
-    // If no dot in hostname, append .ton (e.g., "example" → "example.ton")
-    const finalHost = hostPart.includes('.') ? hostPart : `${hostPart}.ton`
-
-    // Navigate with http://
-    navigateActiveTab(`http://${finalHost}${pathPart}`)
+    // Process navigation input (handles TON domain auto-completion)
+    const finalUrl = processNavigationInput(navigateUrl)
+    navigateActiveTab(finalUrl)
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {

@@ -33,6 +33,15 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Type check
+        run: npm run type-check
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Format check
+        run: npm run format:check
+
       - name: Build for ${{ matrix.platform }}
         run: npm run build && npx electron-builder --${{ matrix.platform }} --publish never
         env:

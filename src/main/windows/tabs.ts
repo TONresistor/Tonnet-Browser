@@ -6,14 +6,14 @@
 import { BrowserView, BrowserWindow, Menu, clipboard } from 'electron'
 import { createTonSession, createBrowserView, extractFavicon } from './browser-view'
 import { DEFAULT_PROXY_PORT } from '../../shared/constants'
-import { getSetting, type PrivacySettings } from '../settings'
+import { getSetting, type PrivacySettings, type AppearanceSettings } from '../settings'
 import { logger } from '../../shared/logger'
 import { historyManager } from '../history/manager'
 import { normalizeUrl } from '../../shared/utils/url'
 
 // Chrome component heights
 const TABBAR_HEIGHT = 44
-const NAVBAR_HEIGHT = 44
+const NAVBAR_HEIGHT = 46
 const BOOKMARKS_HEIGHT = 40
 const CHROME_BUFFER = 0 // No extra buffer needed
 const STATUSBAR_HEIGHT = 24
@@ -43,7 +43,7 @@ interface AppearanceCache {
   timestamp: number
 }
 let appearanceCache: AppearanceCache | null = null
-const CACHE_VALIDITY_MS = 100 // Cache valid for 100ms
+const CACHE_VALIDITY_MS = 500 // Cache valid for 500ms (optimized for resize performance)
 
 // Extract domain from URL for first-party isolation
 function extractDomain(url: string): string {
@@ -58,13 +58,20 @@ function extractDomain(url: string): string {
 // Update activity timestamp for a domain
 function updateDomainActivity(domain: string): void {
   domainActivity.set(domain, Date.now())
+
+  // Restart cookie auto-delete timer if not already running (handles idle→active transition)
+  const privacy: PrivacySettings = getSetting('privacy')
+  const cookieAutoDelete = privacy.cookieAutoDelete ?? false
+  if (cookieAutoDelete && !cookieAutoDeleteTimer) {
+    startCookieAutoDeleteTimer()
+  }
 }
 
 // Cookie auto-delete: Check for inactive domains and clear their cookies
 async function checkInactiveDomains(): Promise<void> {
-  const privacy = getSetting('privacy')
-  const cookieAutoDelete = (privacy as any).cookieAutoDelete ?? false
-  const cookieAutoDeleteMinutes = (privacy as any).cookieAutoDeleteMinutes ?? 30
+  const privacy: PrivacySettings = getSetting('privacy')
+  const cookieAutoDelete = privacy.cookieAutoDelete ?? false
+  const cookieAutoDeleteMinutes = privacy.cookieAutoDeleteMinutes ?? 30
 
   if (!cookieAutoDelete) return
 
@@ -96,6 +103,13 @@ async function checkInactiveDomains(): Promise<void> {
       }
     }
   }
+
+  // Stop timer if no more domains to monitor (optimization: prevent idle CPU usage)
+  if (domainActivity.size === 0 && cookieAutoDeleteTimer) {
+    clearInterval(cookieAutoDeleteTimer)
+    cookieAutoDeleteTimer = null
+    logger.debug('Tabs', 'Cookie auto-delete timer stopped (no domains to monitor)')
+  }
 }
 
 // Start cookie auto-delete timer
@@ -108,6 +122,9 @@ function startCookieAutoDeleteTimer(): void {
   const cookieAutoDelete = privacy.cookieAutoDelete ?? false
 
   if (!cookieAutoDelete) return
+
+  // Only run timer if there are domains with activity (optimization: prevent idle CPU usage)
+  if (domainActivity.size === 0) return
 
   // Check every minute
   cookieAutoDeleteTimer = setInterval(() => {
@@ -142,10 +159,10 @@ function getAppearanceSettings(): AppearanceCache {
   }
 
   // Refresh cache
-  const appearance = getSetting('appearance')
+  const appearance: AppearanceSettings = getSetting('appearance')
   appearanceCache = {
-    showBookmarksBar: (appearance as any).showBookmarksBar ?? false,
-    isVertical: (appearance as any).tabOrientation === 'vertical',
+    showBookmarksBar: appearance.showBookmarksBar ?? false,
+    isVertical: appearance.tabOrientation === 'vertical',
     timestamp: now
   }
 
@@ -180,8 +197,8 @@ export function updateSidebarWidth(width: number): void {
 
 // Get or create session for a domain (First-Party Isolation)
 function getSessionForDomain(domain: string): Electron.Session {
-  const privacy = getSetting('privacy')
-  const firstPartyIsolation = (privacy as any).firstPartyIsolation ?? true // Default: enabled
+  const privacy: PrivacySettings = getSetting('privacy')
+  const firstPartyIsolation = privacy.firstPartyIsolation ?? true // Default: enabled
 
   if (!firstPartyIsolation) {
     // First-party isolation disabled - use shared session
@@ -237,10 +254,10 @@ function updateViewBounds(view: BrowserView): void {
   const bounds = mainWindow.getContentBounds()
 
   // Get appearance settings
-  const appearance = getSetting('appearance')
-  const isVertical = (appearance as any).tabOrientation === 'vertical'
-  const sidebarWidth = (appearance as any).sidebarWidth ?? DEFAULT_SIDEBAR_WIDTH
-  const showBookmarksBar = (appearance as any).showBookmarksBar ?? false
+  const appearance: AppearanceSettings = getSetting('appearance')
+  const isVertical = appearance.tabOrientation === 'vertical'
+  const sidebarWidth = appearance.sidebarWidth ?? DEFAULT_SIDEBAR_WIDTH
+  const showBookmarksBar = appearance.showBookmarksBar ?? false
 
   // Calculate chrome height dynamically based on visible components
   let chromeHeight = NAVBAR_HEIGHT + CHROME_BUFFER
@@ -458,19 +475,27 @@ export function createTab(tabId: string, initialUrl?: string): boolean {
   if (!mainWindow) return false
   if (views.has(tabId)) return false
 
-  // Determine initial domain for session isolation
-  const domain = initialUrl ? extractDomain(initialUrl) : 'default'
-  const session = getSessionForDomain(domain)
+  try {
+    // Determine initial domain for session isolation
+    const domain = initialUrl ? extractDomain(initialUrl) : 'default'
+    const session = getSessionForDomain(domain)
 
-  const view = createBrowserView(session)
-  setupViewEvents(view, tabId)
-  views.set(tabId, view)
-  tabDomains.set(tabId, domain)
+    const view = createBrowserView(session)
+    setupViewEvents(view, tabId)
+    views.set(tabId, view)
+    tabDomains.set(tabId, domain)
 
-  // Switch to the new tab
-  switchTab(tabId)
+    // Switch to the new tab
+    switchTab(tabId)
 
-  return true
+    return true
+  } catch (error) {
+    logger.error('Tabs', `Failed to create tab ${tabId}:`, error)
+    // Cleanup: Remove any partially created state
+    views.delete(tabId)
+    tabDomains.delete(tabId)
+    return false
+  }
 }
 
 export function closeTab(tabId: string): boolean {

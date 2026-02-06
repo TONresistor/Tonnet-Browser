@@ -3,6 +3,7 @@
  * Wraps a tab with dnd-kit's useSortable hook.
  */
 
+import { memo } from 'react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { Tab } from '@/stores/tabs'
@@ -20,7 +21,7 @@ interface SortableTabProps {
   sidebarWidth?: number
 }
 
-export function SortableTab({
+export const SortableTab = memo(function SortableTab({
   tab,
   isActive,
   onActivate,
@@ -135,4 +136,4 @@ export function SortableTab({
       )}
     </div>
   )
-}
+})
