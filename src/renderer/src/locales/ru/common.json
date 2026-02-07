@@ -33,4 +33,9 @@
     "notFound": "Не найдено",
     "unauthorized": "Не авторизовано"
   }
+  },
+  "tooltips": {
+    "storage": "Storage",
+    "settings": "Settings"
+  }
 }

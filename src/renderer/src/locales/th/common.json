@@ -33,4 +33,9 @@
     "notFound": "ไม่พบ",
     "unauthorized": "ไม่ได้รับอนุญาต"
   }
+  },
+  "tooltips": {
+    "storage": "Storage",
+    "settings": "Settings"
+  }
 }

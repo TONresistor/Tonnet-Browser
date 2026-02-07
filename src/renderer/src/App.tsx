@@ -27,8 +27,10 @@ import loadingAnimation from '@/assets/loading.json'
 import loadingYellowAnimation from '@/assets/loading-yellow.json'
 import { Button } from '@/components/ui/button'
 import i18n, { loadLanguage } from '@/i18n'
+import { useTranslation } from 'react-i18next'
 
 function App() {
+  const { t } = useTranslation('common')
   const { currentUrl, proxyConnected } = useSettingsStore()
   const { activeTabId, updateTab, openOrSwitchToTab, ensureDefaultTab } = useTabsStore()
   const { showBookmarksBar, showStatusBar, theme, language, tabOrientation, sidebarWidth: savedSidebarWidth } = usePreferences()
@@ -313,7 +315,7 @@ function App() {
             size="icon"
             className="h-7 w-7 rounded-full"
             onClick={() => openOrSwitchToTab('ton://storage')}
-            title="Storage"
+            title={t('tooltips.storage')}
           >
             <HardDrive className="h-4 w-4" />
           </Button>
@@ -322,7 +324,7 @@ function App() {
             size="icon"
             className="h-7 w-7 rounded-full"
             onClick={() => openOrSwitchToTab('ton://settings')}
-            title="Settings"
+            title={t('tooltips.settings')}
           >
             <Settings className="h-4 w-4" />
           </Button>

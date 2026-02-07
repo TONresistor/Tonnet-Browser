@@ -33,4 +33,9 @@
     "notFound": "찾을 수 없음",
     "unauthorized": "권한 없음"
   }
+  },
+  "tooltips": {
+    "storage": "Storage",
+    "settings": "Settings"
+  }
 }

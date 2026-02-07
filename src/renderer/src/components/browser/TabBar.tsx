@@ -3,7 +3,7 @@
  * Create, switch, and close tabs with drag & drop support.
  */
 
-import { useState, useEffect, useRef, useCallback, memo } from 'react'
+import { useState, useEffect, useRef, useCallback, memo, useMemo } from 'react'
 import {
   DndContext,
   DragEndEvent,
@@ -47,6 +47,9 @@ export const TabBar = memo(function TabBar({ sidebarWidth }: TabBarProps) {
   const tabRefs = useRef<Map<string, HTMLDivElement>>(new Map())
 
   const isVertical = tabOrientation === 'vertical'
+
+  // Memoize tab IDs array to avoid recalculation on every render
+  const tabIds = useMemo(() => tabs.map((t) => t.id), [tabs])
 
   // Close context menu on click outside
   useEffect(() => {
@@ -185,7 +188,7 @@ export const TabBar = memo(function TabBar({ sidebarWidth }: TabBarProps) {
         }}
       >
         <SortableContext
-          items={tabs.map((t) => t.id)}
+          items={tabIds}
           strategy={isVertical ? verticalListSortingStrategy : horizontalListSortingStrategy}
         >
           {tabs.map((tab) => (

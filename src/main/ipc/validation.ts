@@ -4,7 +4,17 @@
  */
 
 // Security: URL validation for navigation
-const ALLOWED_SCHEMES = ['http:', 'https:', 'ton:']
+const ALLOWED_SCHEMES = new Set(['http:', 'https:', 'ton:'])
+const BLOCKED_SCHEMES = new Set([
+  'javascript:', // XSS vector
+  'data:',       // XSS vector
+  'file:',       // Local file access
+  'vbscript:',   // XSS vector
+  'blob:',       // XSS vector
+  'about:',      // Bypass proxy
+  'ws:',         // IP leak via WebSocket
+  'wss:',        // IP leak via WebSocket (secure)
+])
 
 export function isValidNavigationUrl(url: string): { valid: boolean; error?: string } {
   // Allow internal ton:// URLs
@@ -21,14 +31,14 @@ export function isValidNavigationUrl(url: string): { valid: boolean; error?: str
   try {
     const parsed = new URL(urlToParse)
 
-    // Check allowed schemes
-    if (!ALLOWED_SCHEMES.includes(parsed.protocol)) {
+    // Block dangerous schemes first
+    if (BLOCKED_SCHEMES.has(parsed.protocol)) {
       return { valid: false, error: `Blocked scheme: ${parsed.protocol}` }
     }
 
-    // Block dangerous schemes explicitly
-    if (['javascript:', 'data:', 'file:', 'vbscript:'].includes(parsed.protocol)) {
-      return { valid: false, error: `Dangerous scheme: ${parsed.protocol}` }
+    // Then check whitelist
+    if (!ALLOWED_SCHEMES.has(parsed.protocol)) {
+      return { valid: false, error: `Disallowed scheme: ${parsed.protocol}` }
     }
 
     return { valid: true }

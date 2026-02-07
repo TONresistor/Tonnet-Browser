@@ -3,7 +3,7 @@
  * Shows connection status and storage stats.
  */
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, memo } from 'react'
 import { Wifi, WifiOff, Loader2, ArrowDown, ArrowUp, Zap } from 'lucide-react'
 import { useSettingsStore } from '@/stores/settings'
 import { APP_VERSION } from '@shared/constants'
@@ -35,7 +35,7 @@ function Separator() {
   return <div className="w-px h-3 bg-border" />
 }
 
-export function StatusBar() {
+export const StatusBar = memo(function StatusBar() {
   const { t } = useTranslation('browser')
   const { proxyConnected, proxySyncing, anonymousMode, circuitRelays, storageStats, setProxyStatus, setStorageStats } = useSettingsStore()
   const [currentTime, setCurrentTime] = useState(new Date())
@@ -224,4 +224,4 @@ export function StatusBar() {
       </div>
     </footer>
   )
-}
+})

@@ -440,6 +440,11 @@ export function registerIpcHandlers(): void {
       return { success: false, error: 'Invalid file name: path separators not allowed' }
     }
 
+    // Validate length and null bytes
+    if (fileName.length > 255 || fileName.includes('\0')) {
+      return { success: false, error: 'Invalid file name: exceeds length limit or contains null bytes' }
+    }
+
     // Sanitize fileName using path.basename to ensure it's just a filename
     const sanitizedFileName = path.basename(fileName)
     if (sanitizedFileName !== fileName) {
@@ -560,6 +565,10 @@ export function registerIpcHandlers(): void {
 
   // Immediate sidebar width update (for real-time resize)
   secureHandleWithEvent('update-sidebar-width', (_event, width: number) => {
+    // Validate width parameter
+    if (typeof width !== 'number' || width < 0 || width > 3000 || !isFinite(width)) {
+      return { success: false, error: 'Invalid width parameter' }
+    }
     updateSidebarWidth(width)
     return { success: true }
   })
@@ -629,10 +638,24 @@ export function registerIpcHandlers(): void {
   })
 
   secureHandleWithEvent(IPC_CHANNELS.SETTINGS_GET, (_event, category: keyof AppSettings) => {
+    // Validate category parameter
+    const validCategories = ['general', 'network', 'storage', 'appearance', 'privacy', 'advanced', 'contentFiltering']
+    if (typeof category !== 'string' || !validCategories.includes(category)) {
+      throw new Error('Invalid settings category')
+    }
     return getSetting(category)
   })
 
   secureHandleWithEvent(IPC_CHANNELS.SETTINGS_SET, async (_event, category: keyof AppSettings, values: object) => {
+    // Validate category parameter
+    const validCategories = ['general', 'network', 'storage', 'appearance', 'privacy', 'advanced', 'contentFiltering']
+    if (typeof category !== 'string' || !validCategories.includes(category)) {
+      throw new Error('Invalid settings category')
+    }
+    // Validate values parameter
+    if (typeof values !== 'object' || values === null || Array.isArray(values)) {
+      throw new Error('Settings values must be a non-null object')
+    }
     setSetting(category, values as any)
     // Notify renderer of settings change
     const win = getMainWindow()

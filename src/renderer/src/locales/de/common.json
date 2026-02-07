@@ -33,4 +33,9 @@
     "notFound": "Nicht gefunden",
     "unauthorized": "Nicht autorisiert"
   }
+  },
+  "tooltips": {
+    "storage": "Storage",
+    "settings": "Settings"
+  }
 }

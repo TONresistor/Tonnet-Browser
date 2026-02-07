@@ -547,6 +547,10 @@ export async function extractFavicon(view: BrowserView): Promise<string | null> 
             // Convert relative URLs to absolute
             try {
               const url = new URL(href, window.location.href);
+              // Security: Only allow http/https schemes
+              if (!url.protocol.match(/^https?:/)) {
+                continue;
+              }
               return url.href;
             } catch {
               continue;
@@ -575,6 +579,12 @@ export async function extractFavicon(view: BrowserView): Promise<string | null> 
           if (!response.ok) return null;
 
           const blob = await response.blob();
+
+          // Security: Limit favicon size to 50KB
+          if (blob.size > 50000) {
+            return null;
+          }
+
           const reader = new FileReader();
 
           return new Promise((resolve) => {
@@ -587,6 +597,11 @@ export async function extractFavicon(view: BrowserView): Promise<string | null> 
         }
       })();
     `)
+
+    // Validate result size (data URL should be < ~70KB for 50KB blob)
+    if (faviconBase64 && typeof faviconBase64 === 'string' && faviconBase64.length > 70000) {
+      return null
+    }
 
     return faviconBase64 as string | null
   } catch (error) {

@@ -33,4 +33,9 @@
     "notFound": "Tidak ditemukan",
     "unauthorized": "Tidak diizinkan"
   }
+  },
+  "tooltips": {
+    "storage": "Storage",
+    "settings": "Settings"
+  }
 }

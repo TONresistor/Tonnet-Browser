@@ -32,5 +32,9 @@
     "timeout": "Connection timeout",
     "notFound": "Not found",
     "unauthorized": "Unauthorized"
+  },
+  "tooltips": {
+    "storage": "Storage",
+    "settings": "Settings"
   }
 }
