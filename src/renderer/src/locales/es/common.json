@@ -32,7 +32,6 @@
     "timeout": "Tiempo de espera agotado",
     "notFound": "No encontrado",
     "unauthorized": "No autorizado"
-  }
   },
   "tooltips": {
     "storage": "Storage",

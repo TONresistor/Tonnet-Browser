@@ -32,7 +32,6 @@
     "timeout": "Превышено время ожидания",
     "notFound": "Не найдено",
     "unauthorized": "Не авторизовано"
-  }
   },
   "tooltips": {
     "storage": "Storage",

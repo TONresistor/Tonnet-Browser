@@ -32,7 +32,6 @@
     "timeout": "หมดเวลาการเชื่อมต่อ",
     "notFound": "ไม่พบ",
     "unauthorized": "ไม่ได้รับอนุญาต"
-  }
   },
   "tooltips": {
     "storage": "Storage",
