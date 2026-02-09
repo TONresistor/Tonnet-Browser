@@ -309,7 +309,7 @@ describe('IPC Handlers', () => {
   describe('Storage Handlers', () => {
     it('STORAGE_ADD_BAG validates bagId format', async () => {
       const handler = mockHandlers.get(IPC_CHANNELS.STORAGE_ADD_BAG)
-      if (!handler) return // Skip if not registered
+      expect(handler).toBeDefined() // Skip if not registered
 
       // Valid 64-char hex
       const validBagId = 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2'
@@ -320,7 +320,7 @@ describe('IPC Handlers', () => {
 
     it('STORAGE_ADD_BAG rejects invalid bagId', async () => {
       const handler = mockHandlers.get(IPC_CHANNELS.STORAGE_ADD_BAG)
-      if (!handler) return
+      expect(handler).toBeDefined()
 
       const invalidBagId = 'invalid-bag-id'
       const result = await handler(createMockEvent(), invalidBagId, 'Test')
@@ -331,7 +331,7 @@ describe('IPC Handlers', () => {
 
     it('STORAGE_REMOVE_BAG removes bag by id', async () => {
       const handler = mockHandlers.get(IPC_CHANNELS.STORAGE_REMOVE_BAG)
-      if (!handler) return
+      expect(handler).toBeDefined()
 
       const validBagId = 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2'
       await handler(createMockEvent(), validBagId)
@@ -341,7 +341,7 @@ describe('IPC Handlers', () => {
 
     it('STORAGE_LIST_BAGS returns bag list', async () => {
       const handler = mockHandlers.get(IPC_CHANNELS.STORAGE_LIST_BAGS)
-      if (!handler) return
+      expect(handler).toBeDefined()
 
       await handler(createMockEvent())
 
@@ -352,7 +352,7 @@ describe('IPC Handlers', () => {
   describe('Settings Handlers', () => {
     it('SETTINGS_SET updates a setting category', async () => {
       const handler = mockHandlers.get(IPC_CHANNELS.SETTINGS_SET)
-      if (!handler) return
+      expect(handler).toBeDefined()
 
       await handler(createMockEvent(), 'network', { proxyPort: 9000 })
 
@@ -361,7 +361,7 @@ describe('IPC Handlers', () => {
 
     it('SETTINGS_RESET restores defaults', async () => {
       const handler = mockHandlers.get(IPC_CHANNELS.SETTINGS_RESET)
-      if (!handler) return
+      expect(handler).toBeDefined()
 
       await handler(createMockEvent())
 
@@ -418,13 +418,14 @@ describe('Security - Input Validation', () => {
     mockMainWindow = {
       webContents: { send: vi.fn() },
       getBounds: vi.fn(() => ({ x: 0, y: 0, width: 1024, height: 768 })),
+      setTitle: vi.fn(),
     }
     registerIpcHandlers()
   })
 
   it('navigation handler rejects javascript: URLs', async () => {
     const handler = mockHandlers.get(IPC_CHANNELS.NAVIGATE)
-    if (!handler) return
+    expect(handler).toBeDefined()
 
     const result = await handler(createMockEvent(), 'javascript:alert(1)')
 
@@ -435,7 +436,7 @@ describe('Security - Input Validation', () => {
 
   it('navigation handler rejects data: URLs', async () => {
     const handler = mockHandlers.get(IPC_CHANNELS.NAVIGATE)
-    if (!handler) return
+    expect(handler).toBeDefined()
 
     const result = await handler(createMockEvent(), 'data:text/html,<script>alert(1)</script>')
 
@@ -445,7 +446,7 @@ describe('Security - Input Validation', () => {
 
   it('navigation handler rejects file: URLs', async () => {
     const handler = mockHandlers.get(IPC_CHANNELS.NAVIGATE)
-    if (!handler) return
+    expect(handler).toBeDefined()
 
     const result = await handler(createMockEvent(), 'file:///etc/passwd')
 
@@ -455,7 +456,7 @@ describe('Security - Input Validation', () => {
 
   it('storage handler rejects invalid bagId format', async () => {
     const handler = mockHandlers.get(IPC_CHANNELS.STORAGE_ADD_BAG)
-    if (!handler) return
+    expect(handler).toBeDefined()
 
     // Test command injection attempt
     const maliciousBagId = '$(rm -rf /)'

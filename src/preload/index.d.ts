@@ -8,6 +8,11 @@ import type { AppSettings } from '../shared/types'
 declare global {
     interface Window {
         electron: {
+            versions: {
+                electron: string;
+                chrome: string;
+                node: string;
+            };
             proxy: {
                 connect: () => Promise<{
                     success: boolean;
@@ -86,6 +91,11 @@ declare global {
                     canceled?: boolean;
                     error?: string;
                 }>;
+                getBagDetails: (bagId: string) => Promise<{
+                    success: boolean;
+                    details?: unknown;
+                    error?: string;
+                }>;
                 openFolder: (bagId: string) => Promise<{ success: boolean; error?: string }>;
                 showFile: (bagId: string, fileName: string) => Promise<{ success: boolean; error?: string }>;
             };
@@ -157,6 +167,10 @@ declare global {
                     oldestEntry?: number;
                     newestEntry?: number;
                     isLocked: boolean;
+                }>;
+                hasPersistentFile: () => Promise<{
+                    success: boolean;
+                    exists?: boolean;
                 }>;
             };
             on: (channel: string, callback: (...args: unknown[]) => void) => () => void;

@@ -396,7 +396,7 @@ export function StoragePage() {
                   </div>
                   <div className="flex">
                     <span className="text-muted-foreground w-24">{t('storage.info.status')}</span>
-                    <span className="text-foreground">{selectedBag.status}</span>
+                    <span className="text-foreground">{t(`storage.status.${selectedBag.status}`, selectedBag.status)}</span>
                   </div>
                   <div className="flex">
                     <span className="text-muted-foreground w-24">{t('storage.info.peers')}</span>

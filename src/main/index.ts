@@ -5,7 +5,7 @@
 
 import { app, BrowserWindow, shell, screen, session, Menu } from 'electron'
 import { join } from 'path'
-import { existsSync, readFileSync } from 'fs'
+import { existsSync, readFileSync, writeFileSync } from 'fs'
 import { writeFile } from 'fs/promises'
 import { EventEmitter } from 'events'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
@@ -348,6 +348,21 @@ app.on('window-all-closed', async () => {
 })
 
 app.on('before-quit', async () => {
+  // Flush pending window bounds save synchronously before quit
+  if (saveBoundsTimer) {
+    clearTimeout(saveBoundsTimer)
+    saveBoundsTimer = null
+    const wins = BrowserWindow.getAllWindows()
+    if (wins.length > 0) {
+      try {
+        const bounds = { ...wins[0].getBounds(), isMaximized: wins[0].isMaximized() }
+        writeFileSync(boundsFile, JSON.stringify(bounds))
+      } catch (err) {
+        logger.error('Window', `Failed to flush bounds on quit: ${String(err)}`)
+      }
+    }
+  }
+
   // Cleanup history before quit
   await historyManager.onAppExit()
 

@@ -37,7 +37,7 @@ function App() {
   const language = usePreferencesStore((s) => s.saved.language)
   const tabOrientation = usePreferencesStore((s) => s.saved.tabOrientation)
   const savedSidebarWidth = usePreferencesStore((s) => s.saved.sidebarWidth)
-  const { setDraft } = usePreferencesStore()
+  const setDraft = usePreferencesStore((s) => s.setDraft)
   const customThemes = useThemeStore((state) => state.customThemes)
 
   // Track current sidebar width in real-time during resize
