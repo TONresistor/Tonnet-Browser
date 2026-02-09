@@ -26,6 +26,10 @@ vi.mock('electron', () => ({
   },
   BrowserWindow: vi.fn(),
   session: {
+    fromPartition: vi.fn(() => ({
+      clearCache: vi.fn(() => Promise.resolve()),
+      clearStorageData: vi.fn(() => Promise.resolve()),
+    })),
     defaultSession: {
       setProxy: vi.fn(),
     },
@@ -36,6 +40,11 @@ vi.mock('electron', () => ({
   Menu: {
     buildFromTemplate: vi.fn(() => ({ popup: vi.fn() })),
   },
+  shell: {
+    openPath: vi.fn(() => Promise.resolve('')),
+    showItemInFolder: vi.fn(),
+  },
+  IpcMainInvokeEvent: {},
 }))
 
 // Mock proxy manager - must be inside vi.mock factory
@@ -113,7 +122,77 @@ vi.mock('../../windows/tabs', () => ({
   showActiveView: vi.fn(),
   navigateInTab: vi.fn(() => ({ success: true })),
   getActiveTabId: vi.fn(() => 'tab-1'),
+  onPrivacySettingsChanged: vi.fn(),
+  onAppearanceSettingsChanged: vi.fn(),
+  updateSidebarWidth: vi.fn(),
 }))
+
+// Mock content filter manager
+vi.mock('../../content-filter/filter-manager', () => ({
+  contentFilterManager: {
+    setEnabled: vi.fn(),
+    setWhitelist: vi.fn(),
+    setCategoryEnabled: vi.fn(),
+  },
+}))
+
+// Mock history manager
+vi.mock('../../history/manager', () => ({
+  historyManager: {
+    changeMode: vi.fn(() => Promise.resolve({ success: true })),
+    search: vi.fn(() => []),
+    getRecent: vi.fn(() => []),
+    getTopVisited: vi.fn(() => []),
+    getByDateRange: vi.fn(() => []),
+    deleteEntry: vi.fn(() => true),
+    deleteByPattern: vi.fn(() => 0),
+    clear: vi.fn(),
+    getStats: vi.fn(() => ({ total: 0, mode: 'memory', isLocked: false })),
+    hasPersistentFile: vi.fn(() => false),
+  },
+  HistoryMode: { MEMORY: 'memory', PERSISTENT: 'persistent' },
+}))
+
+// Mock IPC error handler - wraps handler with try/catch like the real implementation
+vi.mock('../error-handler', () => ({
+  handleWithErrors: (channel: string, handler: (...args: any[]) => any) => {
+    mockHandlers.set(channel, async (...args: any[]) => {
+      try {
+        return await handler(...args)
+      } catch (err: any) {
+        return { success: false, error: err.message || 'Unknown error' }
+      }
+    })
+  },
+  ipcErrorHandler: {
+    getRecentErrors: vi.fn(() => []),
+    clearLogs: vi.fn(),
+  },
+}))
+
+// Mock validation
+vi.mock('../validation', () => {
+  class MockRateLimiter {
+    check() { return true }
+  }
+  return {
+    isValidNavigationUrl: vi.fn((url: string) => {
+      try {
+        const parsed = new URL(url)
+        const blocked = ['javascript:', 'data:', 'file:', 'vbscript:']
+        if (blocked.includes(parsed.protocol)) {
+          return { valid: false, error: `Blocked scheme: ${parsed.protocol}` }
+        }
+        return { valid: true }
+      } catch {
+        return { valid: false, error: 'Invalid URL' }
+      }
+    }),
+    isValidBagId: vi.fn((id: string) => /^[a-fA-F0-9]{64}$/.test(id)),
+    isValidDownloadPath: vi.fn(() => ({ valid: true })),
+    RateLimiter: MockRateLimiter,
+  }
+})
 
 // Import after mocks
 import { registerIpcHandlers, _resetHandlersForTesting } from '../handlers'
@@ -123,6 +202,12 @@ import { storageManager } from '../../storage/daemon'
 import { addBag, removeBag, listBags } from '../../storage/bags'
 import { setSetting, resetSettings } from '../../settings'
 import { createTab, closeTab, switchTab, navigateInTab } from '../../windows/tabs'
+
+// Helper to create a mock IPC event that passes origin verification
+const createMockEvent = () => {
+  // Event sender must match mainWindow.webContents for origin check
+  return { sender: mockMainWindow?.webContents } as any
+}
 
 describe('IPC Handlers', () => {
   beforeEach(() => {
@@ -134,6 +219,7 @@ describe('IPC Handlers', () => {
         send: vi.fn(),
       },
       getBounds: vi.fn(() => ({ x: 0, y: 0, width: 1024, height: 768 })),
+      setTitle: vi.fn(),
     }
     registerIpcHandlers()
   })
@@ -160,7 +246,7 @@ describe('IPC Handlers', () => {
       const handler = mockHandlers.get(IPC_CHANNELS.PROXY_CONNECT)
       expect(handler).toBeDefined()
 
-      const result = await handler!()
+      const result = await handler!(createMockEvent())
 
       expect(result.success).toBe(true)
       expect(proxyManager.start).toHaveBeenCalled()
@@ -170,7 +256,7 @@ describe('IPC Handlers', () => {
       vi.mocked(proxyManager.start).mockRejectedValueOnce(new Error('Proxy failed'))
 
       const handler = mockHandlers.get(IPC_CHANNELS.PROXY_CONNECT)
-      const result = await handler!()
+      const result = await handler!(createMockEvent())
 
       expect(result.success).toBe(false)
       expect(result.error).toBe('Proxy failed')
@@ -178,7 +264,7 @@ describe('IPC Handlers', () => {
 
     it('PROXY_DISCONNECT stops both storage and proxy', async () => {
       const handler = mockHandlers.get(IPC_CHANNELS.PROXY_DISCONNECT)
-      const result = await handler!()
+      const result = await handler!(createMockEvent())
 
       expect(storageManager.stop).toHaveBeenCalled()
       expect(proxyManager.stop).toHaveBeenCalled()
@@ -187,7 +273,7 @@ describe('IPC Handlers', () => {
 
     it('PROXY_STATUS returns current status', async () => {
       const handler = mockHandlers.get(IPC_CHANNELS.PROXY_STATUS)
-      const result = await handler!()
+      const result = await handler!(createMockEvent())
 
       expect(result.status).toBe('connected')
       expect(result.port).toBe(8080)
@@ -197,7 +283,7 @@ describe('IPC Handlers', () => {
   describe('Tab Handlers', () => {
     it('TAB_CREATE creates a new tab', async () => {
       const handler = mockHandlers.get(IPC_CHANNELS.TAB_CREATE)
-      const result = await handler!({}, 'new-tab-id')
+      const result = await handler!(createMockEvent(), 'new-tab-id')
 
       expect(createTab).toHaveBeenCalledWith('new-tab-id')
       expect(result.success).toBe(true)
@@ -205,7 +291,7 @@ describe('IPC Handlers', () => {
 
     it('TAB_CLOSE closes a tab', async () => {
       const handler = mockHandlers.get(IPC_CHANNELS.TAB_CLOSE)
-      const result = await handler!({}, 'tab-to-close')
+      const result = await handler!(createMockEvent(), 'tab-to-close')
 
       expect(closeTab).toHaveBeenCalledWith('tab-to-close')
       expect(result.success).toBe(true)
@@ -213,7 +299,7 @@ describe('IPC Handlers', () => {
 
     it('TAB_SWITCH switches to a tab', async () => {
       const handler = mockHandlers.get(IPC_CHANNELS.TAB_SWITCH)
-      const result = await handler!({}, 'tab-to-activate')
+      const result = await handler!(createMockEvent(), 'tab-to-activate')
 
       expect(switchTab).toHaveBeenCalledWith('tab-to-activate')
       expect(result.success).toBe(true)
@@ -227,7 +313,7 @@ describe('IPC Handlers', () => {
 
       // Valid 64-char hex
       const validBagId = 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2'
-      const result = await handler({}, validBagId, 'Test Bag')
+      const result = await handler(createMockEvent(), validBagId, 'Test Bag')
 
       expect(addBag).toHaveBeenCalledWith(validBagId, 'Test Bag')
     })
@@ -237,7 +323,7 @@ describe('IPC Handlers', () => {
       if (!handler) return
 
       const invalidBagId = 'invalid-bag-id'
-      const result = await handler({}, invalidBagId, 'Test')
+      const result = await handler(createMockEvent(), invalidBagId, 'Test')
 
       expect(result.success).toBe(false)
       expect(addBag).not.toHaveBeenCalled()
@@ -248,7 +334,7 @@ describe('IPC Handlers', () => {
       if (!handler) return
 
       const validBagId = 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2'
-      await handler({}, validBagId)
+      await handler(createMockEvent(), validBagId)
 
       expect(removeBag).toHaveBeenCalledWith(validBagId)
     })
@@ -257,7 +343,7 @@ describe('IPC Handlers', () => {
       const handler = mockHandlers.get(IPC_CHANNELS.STORAGE_LIST_BAGS)
       if (!handler) return
 
-      await handler({})
+      await handler(createMockEvent())
 
       expect(listBags).toHaveBeenCalled()
     })
@@ -268,7 +354,7 @@ describe('IPC Handlers', () => {
       const handler = mockHandlers.get(IPC_CHANNELS.SETTINGS_SET)
       if (!handler) return
 
-      await handler({}, 'network', { proxyPort: 9000 })
+      await handler(createMockEvent(), 'network', { proxyPort: 9000 })
 
       expect(setSetting).toHaveBeenCalledWith('network', { proxyPort: 9000 })
     })
@@ -277,7 +363,7 @@ describe('IPC Handlers', () => {
       const handler = mockHandlers.get(IPC_CHANNELS.SETTINGS_RESET)
       if (!handler) return
 
-      await handler({})
+      await handler(createMockEvent())
 
       expect(resetSettings).toHaveBeenCalled()
     })
@@ -337,10 +423,10 @@ describe('Security - Input Validation', () => {
   })
 
   it('navigation handler rejects javascript: URLs', async () => {
-    const handler = mockHandlers.get(IPC_CHANNELS.NAV_NAVIGATE)
+    const handler = mockHandlers.get(IPC_CHANNELS.NAVIGATE)
     if (!handler) return
 
-    const result = await handler({}, 'javascript:alert(1)')
+    const result = await handler(createMockEvent(), 'javascript:alert(1)')
 
     expect(result.success).toBe(false)
     expect(result.error).toBeDefined()
@@ -348,20 +434,20 @@ describe('Security - Input Validation', () => {
   })
 
   it('navigation handler rejects data: URLs', async () => {
-    const handler = mockHandlers.get(IPC_CHANNELS.NAV_NAVIGATE)
+    const handler = mockHandlers.get(IPC_CHANNELS.NAVIGATE)
     if (!handler) return
 
-    const result = await handler({}, 'data:text/html,<script>alert(1)</script>')
+    const result = await handler(createMockEvent(), 'data:text/html,<script>alert(1)</script>')
 
     expect(result.success).toBe(false)
     expect(navigateInTab).not.toHaveBeenCalled()
   })
 
   it('navigation handler rejects file: URLs', async () => {
-    const handler = mockHandlers.get(IPC_CHANNELS.NAV_NAVIGATE)
+    const handler = mockHandlers.get(IPC_CHANNELS.NAVIGATE)
     if (!handler) return
 
-    const result = await handler({}, 'file:///etc/passwd')
+    const result = await handler(createMockEvent(), 'file:///etc/passwd')
 
     expect(result.success).toBe(false)
     expect(navigateInTab).not.toHaveBeenCalled()
@@ -373,7 +459,7 @@ describe('Security - Input Validation', () => {
 
     // Test command injection attempt
     const maliciousBagId = '$(rm -rf /)'
-    const result = await handler({}, maliciousBagId)
+    const result = await handler(createMockEvent(), maliciousBagId)
 
     expect(result.success).toBe(false)
     expect(addBag).not.toHaveBeenCalled()

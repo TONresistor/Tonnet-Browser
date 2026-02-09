@@ -21,6 +21,7 @@ vi.mock('fs', () => ({
   readFileSync: vi.fn(),
   writeFileSync: vi.fn(),
   mkdirSync: vi.fn(),
+  renameSync: vi.fn(),
 }))
 
 // Import after mocks are set up
@@ -34,7 +35,7 @@ import {
   getDownloadPath,
   setDownloadPath,
 } from '../index'
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs'
+import { existsSync, readFileSync, writeFileSync, mkdirSync, renameSync } from 'fs'
 
 describe('Settings Persistence', () => {
   beforeEach(() => {
@@ -170,9 +171,14 @@ describe('Settings Persistence', () => {
 
       freshSave(defaults)
 
+      // Atomic write: writes to .tmp then renames
       expect(writeFileSync).toHaveBeenCalledWith(
-        '/mock/userData/app-settings.json',
+        '/mock/userData/app-settings.json.tmp',
         expect.stringContaining('"homepage"')
+      )
+      expect(renameSync).toHaveBeenCalledWith(
+        '/mock/userData/app-settings.json.tmp',
+        '/mock/userData/app-settings.json'
       )
       // Check it's formatted (indented)
       const writtenContent = vi.mocked(writeFileSync).mock.calls[0][1] as string
@@ -225,8 +231,9 @@ describe('Settings Persistence', () => {
       // Update only proxyPort
       freshSet('network', { proxyPort: 9000 })
 
-      // Check write was called with merged values
-      const writtenContent = vi.mocked(writeFileSync).mock.calls[0][1] as string
+      // Check write was called with merged values (atomic write to .tmp)
+      const lastCallIndex = vi.mocked(writeFileSync).mock.calls.length - 1
+      const writtenContent = vi.mocked(writeFileSync).mock.calls[lastCallIndex][1] as string
       const parsed = JSON.parse(writtenContent)
 
       expect(parsed.network.proxyPort).toBe(9000)
@@ -244,7 +251,8 @@ describe('Settings Persistence', () => {
       freshReset()
 
       const defaults = getDefaults()
-      const writtenContent = vi.mocked(writeFileSync).mock.calls[0][1] as string
+      const lastCallIndex = vi.mocked(writeFileSync).mock.calls.length - 1
+      const writtenContent = vi.mocked(writeFileSync).mock.calls[lastCallIndex][1] as string
       const parsed = JSON.parse(writtenContent)
 
       expect(parsed.general.homepage).toBe(defaults.general.homepage)
@@ -275,7 +283,8 @@ describe('Settings Persistence', () => {
       freshLoad()
       freshSet('/new/path')
 
-      const writtenContent = vi.mocked(writeFileSync).mock.calls[0][1] as string
+      const lastCallIndex = vi.mocked(writeFileSync).mock.calls.length - 1
+      const writtenContent = vi.mocked(writeFileSync).mock.calls[lastCallIndex][1] as string
       const parsed = JSON.parse(writtenContent)
 
       expect(parsed.storage.downloadPath).toBe('/new/path')
