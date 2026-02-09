@@ -464,7 +464,7 @@ export function registerIpcHandlers(): void {
   })
 
   // ===== Bookmark Context Menu =====
-  secureHandleWithEvent('bookmark:show-menu', (_event, id: string, title: string, url: string) => {
+  secureHandleWithEvent(IPC_CHANNELS.BOOKMARK_SHOW_MENU, (_event, id: string, title: string, url: string) => {
     const win = getMainWindow()
     if (!win) return
 
@@ -493,7 +493,7 @@ export function registerIpcHandlers(): void {
 
   // ===== Folder Dropdown Menu =====
   secureHandleWithEvent(
-    'folder:show-menu',
+    IPC_CHANNELS.FOLDER_SHOW_MENU,
     (_event, folderId: string, bookmarks: Array<{ id: string; title: string; url: string }>) => {
       const win = getMainWindow()
       if (!win) return
@@ -524,7 +524,7 @@ export function registerIpcHandlers(): void {
   )
 
   // ===== Folder Context Menu =====
-  secureHandleWithEvent('folder:show-context-menu', (_event, folderId: string, folderName: string) => {
+  secureHandleWithEvent(IPC_CHANNELS.FOLDER_SHOW_CONTEXT_MENU, (_event, folderId: string, folderName: string) => {
     const win = getMainWindow()
     if (!win) return
 
@@ -568,7 +568,7 @@ export function registerIpcHandlers(): void {
   })
 
   // Immediate sidebar width update (for real-time resize)
-  secureHandleWithEvent('update-sidebar-width', (_event, width: number) => {
+  secureHandleWithEvent(IPC_CHANNELS.UPDATE_SIDEBAR_WIDTH, (_event, width: number) => {
     // Validate width parameter
     if (typeof width !== 'number' || width < 0 || width > 3000 || !isFinite(width)) {
       return { success: false, error: 'Invalid width parameter' }
@@ -680,14 +680,7 @@ export function registerIpcHandlers(): void {
     }
     // If content filtering settings changed, apply immediately to filter manager
     if (category === 'contentFiltering') {
-      const filterSettings = getSetting('contentFiltering')
-      contentFilterManager.setEnabled(filterSettings.enabled)
-      contentFilterManager.setWhitelist(filterSettings.whitelistedDomains)
-      contentFilterManager.setCategoryEnabled('ads', filterSettings.blockAds)
-      contentFilterManager.setCategoryEnabled('trackers', filterSettings.blockTrackers)
-      contentFilterManager.setCategoryEnabled('miners', filterSettings.blockMiners)
-      contentFilterManager.setCategoryEnabled('malware', filterSettings.blockMalware)
-      contentFilterManager.setCategoryEnabled('annoyances', filterSettings.blockAnnoyances)
+      contentFilterManager.applySettings(getSetting('contentFiltering'))
     }
     return { success: true }
   })
@@ -704,7 +697,7 @@ export function registerIpcHandlers(): void {
   })
 
   // ===== History Handlers =====
-  secureHandleWithEvent('history:change-mode', async (_event, mode: HistoryMode) => {
+  secureHandleWithEvent(IPC_CHANNELS.HISTORY_CHANGE_MODE, async (_event, mode: HistoryMode) => {
     try {
       const result = await historyManager.changeMode(mode)
       return result
@@ -713,7 +706,7 @@ export function registerIpcHandlers(): void {
     }
   })
 
-  secureHandleWithEvent('history:search', (_event, query: string, limit?: number) => {
+  secureHandleWithEvent(IPC_CHANNELS.HISTORY_SEARCH, (_event, query: string, limit?: number) => {
     try {
       return historyManager.search(query, limit)
     } catch (error) {
@@ -722,7 +715,7 @@ export function registerIpcHandlers(): void {
     }
   })
 
-  secureHandleWithEvent('history:get-recent', (_event, limit?: number) => {
+  secureHandleWithEvent(IPC_CHANNELS.HISTORY_GET_RECENT, (_event, limit?: number) => {
     try {
       return historyManager.getRecent(limit)
     } catch (error) {
@@ -731,7 +724,7 @@ export function registerIpcHandlers(): void {
     }
   })
 
-  secureHandleWithEvent('history:get-top', (_event, limit?: number) => {
+  secureHandleWithEvent(IPC_CHANNELS.HISTORY_GET_TOP, (_event, limit?: number) => {
     try {
       return historyManager.getTopVisited(limit)
     } catch (error) {
@@ -740,7 +733,7 @@ export function registerIpcHandlers(): void {
     }
   })
 
-  secureHandleWithEvent('history:get-by-date', (_event, startDate: number, endDate: number) => {
+  secureHandleWithEvent(IPC_CHANNELS.HISTORY_GET_BY_DATE, (_event, startDate: number, endDate: number) => {
     try {
       return historyManager.getByDateRange(startDate, endDate)
     } catch (error) {
@@ -749,7 +742,7 @@ export function registerIpcHandlers(): void {
     }
   })
 
-  secureHandleWithEvent('history:delete', (_event, id: string) => {
+  secureHandleWithEvent(IPC_CHANNELS.HISTORY_DELETE, (_event, id: string) => {
     try {
       const success = historyManager.deleteEntry(id)
       return { success }
@@ -758,7 +751,7 @@ export function registerIpcHandlers(): void {
     }
   })
 
-  secureHandleWithEvent('history:delete-pattern', (_event, pattern: string) => {
+  secureHandleWithEvent(IPC_CHANNELS.HISTORY_DELETE_PATTERN, (_event, pattern: string) => {
     try {
       const count = historyManager.deleteByPattern(pattern)
       return { success: true, count }
@@ -767,7 +760,7 @@ export function registerIpcHandlers(): void {
     }
   })
 
-  secureHandleWithEvent('history:clear', () => {
+  secureHandleWithEvent(IPC_CHANNELS.HISTORY_CLEAR, () => {
     try {
       historyManager.clear()
       return { success: true }
@@ -776,7 +769,7 @@ export function registerIpcHandlers(): void {
     }
   })
 
-  secureHandleWithEvent('history:get-stats', () => {
+  secureHandleWithEvent(IPC_CHANNELS.HISTORY_GET_STATS, () => {
     try {
       return historyManager.getStats()
     } catch (error) {
@@ -788,7 +781,7 @@ export function registerIpcHandlers(): void {
     }
   })
 
-  secureHandleWithEvent('history:has-persistent-file', () => {
+  secureHandleWithEvent(IPC_CHANNELS.HISTORY_HAS_PERSISTENT_FILE, () => {
     try {
       return historyManager.hasPersistentFile()
     } catch (error) {
@@ -797,11 +790,11 @@ export function registerIpcHandlers(): void {
   })
 
   // ===== Error Logging Handlers (for debugging) =====
-  secureHandleWithEvent('errors:get-recent', (_event, limit?: number) => {
+  secureHandleWithEvent(IPC_CHANNELS.ERRORS_GET_RECENT, (_event, limit?: number) => {
     return ipcErrorHandler.getRecentErrors(limit)
   })
 
-  secureHandleWithEvent('errors:clear', () => {
+  secureHandleWithEvent(IPC_CHANNELS.ERRORS_CLEAR, () => {
     ipcErrorHandler.clearLogs()
     return { success: true }
   })

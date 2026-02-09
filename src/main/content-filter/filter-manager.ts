@@ -5,6 +5,7 @@
 
 import { EventEmitter } from 'events'
 import { logger } from '../../shared/logger'
+import type { ContentFilteringSettings } from '../../shared/types'
 
 export interface FilterRule {
   pattern: RegExp
@@ -309,6 +310,20 @@ export class ContentFilterManager extends EventEmitter {
   setCategoryEnabled(category: 'ads' | 'trackers' | 'miners' | 'malware' | 'annoyances', enabled: boolean): void {
     this.categoryEnabled[category] = enabled
     logger.info('ContentFilter', `Category ${category}: ${enabled ? 'enabled' : 'disabled'}`)
+  }
+
+  /**
+   * Apply content filter settings from user preferences.
+   * Syncs enabled state, whitelist, and per-category toggles.
+   */
+  applySettings(settings: ContentFilteringSettings): void {
+    this.setEnabled(settings.enabled)
+    this.setWhitelist(settings.whitelistedDomains)
+    this.setCategoryEnabled('ads', settings.blockAds)
+    this.setCategoryEnabled('trackers', settings.blockTrackers)
+    this.setCategoryEnabled('miners', settings.blockMiners)
+    this.setCategoryEnabled('malware', settings.blockMalware)
+    this.setCategoryEnabled('annoyances', settings.blockAnnoyances)
   }
 
   /**

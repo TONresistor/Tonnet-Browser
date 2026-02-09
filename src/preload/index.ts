@@ -4,6 +4,27 @@
  */
 
 import { contextBridge, ipcRenderer } from 'electron'
+import { IPC_CHANNELS } from '../shared/types'
+
+const VALID_EVENT_CHANNELS = [
+  'page:loading',
+  'page:navigate',
+  'page:title',
+  'page:favicon',
+  'proxy:status',
+  'proxy:progress',
+  'proxy:bandwidth',
+  'storage:bags-updated',
+  'storage:status',
+  'context:open-link',
+  'settings:changed',
+  'bookmark:open-new-tab',
+  'bookmark:edit',
+  'bookmark:delete',
+  'folder:rename',
+  'folder:delete',
+  'folder:open-all',
+]
 
 // Custom APIs for renderer - exposed as window.electron
 const electronAPI = {
@@ -16,120 +37,101 @@ const electronAPI = {
 
   // Proxy
   proxy: {
-    connect: () => ipcRenderer.invoke('proxy:connect'),
-    disconnect: () => ipcRenderer.invoke('proxy:disconnect'),
-    status: () => ipcRenderer.invoke('proxy:status')
+    connect: () => ipcRenderer.invoke(IPC_CHANNELS.PROXY_CONNECT),
+    disconnect: () => ipcRenderer.invoke(IPC_CHANNELS.PROXY_DISCONNECT),
+    status: () => ipcRenderer.invoke(IPC_CHANNELS.PROXY_STATUS)
   },
 
   // Tabs
   tabs: {
-    create: (tabId: string) => ipcRenderer.invoke('tab:create', tabId),
-    close: (tabId: string) => ipcRenderer.invoke('tab:close', tabId),
-    switch: (tabId: string) => ipcRenderer.invoke('tab:switch', tabId)
+    create: (tabId: string) => ipcRenderer.invoke(IPC_CHANNELS.TAB_CREATE, tabId),
+    close: (tabId: string) => ipcRenderer.invoke(IPC_CHANNELS.TAB_CLOSE, tabId),
+    switch: (tabId: string) => ipcRenderer.invoke(IPC_CHANNELS.TAB_SWITCH, tabId)
   },
 
   // View (BrowserView visibility)
   view: {
-    hide: () => ipcRenderer.invoke('view:hide'),
-    show: () => ipcRenderer.invoke('view:show')
+    hide: () => ipcRenderer.invoke(IPC_CHANNELS.VIEW_HIDE),
+    show: () => ipcRenderer.invoke(IPC_CHANNELS.VIEW_SHOW)
   },
 
   // Bookmark context menu
   showBookmarkMenu: (id: string, title: string, url: string) =>
-    ipcRenderer.invoke('bookmark:show-menu', id, title, url),
+    ipcRenderer.invoke(IPC_CHANNELS.BOOKMARK_SHOW_MENU, id, title, url),
 
   // Folder dropdown menu
   showFolderMenu: (
     folderId: string,
     bookmarks: Array<{ id: string; title: string; url: string }>
-  ) => ipcRenderer.invoke('folder:show-menu', folderId, bookmarks),
+  ) => ipcRenderer.invoke(IPC_CHANNELS.FOLDER_SHOW_MENU, folderId, bookmarks),
 
   // Folder context menu
   showFolderContextMenu: (folderId: string, folderName: string) =>
-    ipcRenderer.invoke('folder:show-context-menu', folderId, folderName),
+    ipcRenderer.invoke(IPC_CHANNELS.FOLDER_SHOW_CONTEXT_MENU, folderId, folderName),
 
   // Navigation
-  navigate: (url: string, tabId?: string) => ipcRenderer.invoke('navigate', url, tabId),
-  goBack: () => ipcRenderer.invoke('go-back'),
-  goForward: () => ipcRenderer.invoke('go-forward'),
-  reload: () => ipcRenderer.invoke('reload'),
-  stop: () => ipcRenderer.invoke('stop'),
-  zoomIn: () => ipcRenderer.invoke('zoom:in'),
-  zoomOut: () => ipcRenderer.invoke('zoom:out'),
-  zoomReset: () => ipcRenderer.invoke('zoom:reset'),
-  toggleDevTools: () => ipcRenderer.invoke('devtools:toggle'),
+  navigate: (url: string, tabId?: string) => ipcRenderer.invoke(IPC_CHANNELS.NAVIGATE, url, tabId),
+  goBack: () => ipcRenderer.invoke(IPC_CHANNELS.GO_BACK),
+  goForward: () => ipcRenderer.invoke(IPC_CHANNELS.GO_FORWARD),
+  reload: () => ipcRenderer.invoke(IPC_CHANNELS.RELOAD),
+  stop: () => ipcRenderer.invoke(IPC_CHANNELS.STOP),
+  zoomIn: () => ipcRenderer.invoke(IPC_CHANNELS.ZOOM_IN),
+  zoomOut: () => ipcRenderer.invoke(IPC_CHANNELS.ZOOM_OUT),
+  zoomReset: () => ipcRenderer.invoke(IPC_CHANNELS.ZOOM_RESET),
+  toggleDevTools: () => ipcRenderer.invoke(IPC_CHANNELS.TOGGLE_DEVTOOLS),
 
   // Storage
   storage: {
-    addBag: (bagId: string, name?: string) => ipcRenderer.invoke('storage:add-bag', bagId, name),
-    removeBag: (bagId: string) => ipcRenderer.invoke('storage:remove-bag', bagId),
-    listBags: () => ipcRenderer.invoke('storage:list-bags'),
-    pauseBag: (bagId: string) => ipcRenderer.invoke('storage:pause-bag', bagId),
-    getBagDetails: (bagId: string) => ipcRenderer.invoke('storage:get-details', bagId),
-    getDownloadPath: () => ipcRenderer.invoke('storage:get-download-path'),
-    setDownloadPath: (path: string) => ipcRenderer.invoke('storage:set-download-path', path),
-    selectDownloadFolder: () => ipcRenderer.invoke('storage:select-download-folder'),
-    openFolder: (bagId: string) => ipcRenderer.invoke('storage:open-folder', bagId),
-    showFile: (bagId: string, fileName: string) => ipcRenderer.invoke('storage:show-file', bagId, fileName)
+    addBag: (bagId: string, name?: string) => ipcRenderer.invoke(IPC_CHANNELS.STORAGE_ADD_BAG, bagId, name),
+    removeBag: (bagId: string) => ipcRenderer.invoke(IPC_CHANNELS.STORAGE_REMOVE_BAG, bagId),
+    listBags: () => ipcRenderer.invoke(IPC_CHANNELS.STORAGE_LIST_BAGS),
+    pauseBag: (bagId: string) => ipcRenderer.invoke(IPC_CHANNELS.STORAGE_PAUSE_BAG, bagId),
+    getBagDetails: (bagId: string) => ipcRenderer.invoke(IPC_CHANNELS.STORAGE_GET_DETAILS, bagId),
+    getDownloadPath: () => ipcRenderer.invoke(IPC_CHANNELS.STORAGE_GET_DOWNLOAD_PATH),
+    setDownloadPath: (path: string) => ipcRenderer.invoke(IPC_CHANNELS.STORAGE_SET_DOWNLOAD_PATH, path),
+    selectDownloadFolder: () => ipcRenderer.invoke(IPC_CHANNELS.STORAGE_SELECT_DOWNLOAD_FOLDER),
+    openFolder: (bagId: string) => ipcRenderer.invoke(IPC_CHANNELS.STORAGE_OPEN_FOLDER, bagId),
+    showFile: (bagId: string, fileName: string) => ipcRenderer.invoke(IPC_CHANNELS.STORAGE_SHOW_FILE, bagId, fileName)
   },
 
   // Window controls
   window: {
-    minimize: () => ipcRenderer.invoke('window:minimize'),
-    maximize: () => ipcRenderer.invoke('window:maximize'),
-    close: () => ipcRenderer.invoke('window:close')
+    minimize: () => ipcRenderer.invoke(IPC_CHANNELS.WINDOW_MINIMIZE),
+    maximize: () => ipcRenderer.invoke(IPC_CHANNELS.WINDOW_MAXIMIZE),
+    close: () => ipcRenderer.invoke(IPC_CHANNELS.WINDOW_CLOSE)
   },
 
   // Immediate sidebar width update (for real-time resize)
-  updateSidebarWidth: (width: number) => ipcRenderer.invoke('update-sidebar-width', width),
+  updateSidebarWidth: (width: number) => ipcRenderer.invoke(IPC_CHANNELS.UPDATE_SIDEBAR_WIDTH, width),
 
   // Settings
-  clearBrowsingData: () => ipcRenderer.invoke('settings:clear-data'),
+  clearBrowsingData: () => ipcRenderer.invoke(IPC_CHANNELS.CLEAR_BROWSING_DATA),
 
   // App Settings
   settings: {
-    getAll: () => ipcRenderer.invoke('settings:get-all'),
-    get: (category: string) => ipcRenderer.invoke('settings:get', category),
-    set: (category: string, values: object) => ipcRenderer.invoke('settings:set', category, values),
-    reset: () => ipcRenderer.invoke('settings:reset'),
+    getAll: () => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_GET_ALL),
+    get: (category: string) => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_GET, category),
+    set: (category: string, values: object) => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_SET, category, values),
+    reset: () => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_RESET),
   },
 
   // History
   history: {
-    changeMode: (mode: string) => ipcRenderer.invoke('history:change-mode', mode),
-    search: (query: string, limit?: number) => ipcRenderer.invoke('history:search', query, limit),
-    getRecent: (limit?: number) => ipcRenderer.invoke('history:get-recent', limit),
-    getTop: (limit?: number) => ipcRenderer.invoke('history:get-top', limit),
-    getByDate: (startDate: number, endDate: number) => ipcRenderer.invoke('history:get-by-date', startDate, endDate),
-    delete: (id: string) => ipcRenderer.invoke('history:delete', id),
-    deletePattern: (pattern: string) => ipcRenderer.invoke('history:delete-pattern', pattern),
-    clear: () => ipcRenderer.invoke('history:clear'),
-    getStats: () => ipcRenderer.invoke('history:get-stats'),
-    hasPersistentFile: () => ipcRenderer.invoke('history:has-persistent-file'),
+    changeMode: (mode: string) => ipcRenderer.invoke(IPC_CHANNELS.HISTORY_CHANGE_MODE, mode),
+    search: (query: string, limit?: number) => ipcRenderer.invoke(IPC_CHANNELS.HISTORY_SEARCH, query, limit),
+    getRecent: (limit?: number) => ipcRenderer.invoke(IPC_CHANNELS.HISTORY_GET_RECENT, limit),
+    getTop: (limit?: number) => ipcRenderer.invoke(IPC_CHANNELS.HISTORY_GET_TOP, limit),
+    getByDate: (startDate: number, endDate: number) => ipcRenderer.invoke(IPC_CHANNELS.HISTORY_GET_BY_DATE, startDate, endDate),
+    delete: (id: string) => ipcRenderer.invoke(IPC_CHANNELS.HISTORY_DELETE, id),
+    deletePattern: (pattern: string) => ipcRenderer.invoke(IPC_CHANNELS.HISTORY_DELETE_PATTERN, pattern),
+    clear: () => ipcRenderer.invoke(IPC_CHANNELS.HISTORY_CLEAR),
+    getStats: () => ipcRenderer.invoke(IPC_CHANNELS.HISTORY_GET_STATS),
+    hasPersistentFile: () => ipcRenderer.invoke(IPC_CHANNELS.HISTORY_HAS_PERSISTENT_FILE),
   },
 
   // Event listeners - returns unsubscribe function for proper cleanup
   on: (channel: string, callback: (...args: unknown[]) => void): (() => void) => {
-    const validChannels = [
-      'page:loading',
-      'page:navigate',
-      'page:title',
-      'page:favicon',
-      'proxy:status',
-      'proxy:progress',
-      'proxy:bandwidth',
-      'storage:bags-updated',
-      'storage:status',
-      'context:open-link',
-      'settings:changed',
-      'bookmark:open-new-tab',
-      'bookmark:edit',
-      'bookmark:delete',
-      'folder:rename',
-      'folder:delete',
-      'folder:open-all',
-    ]
-    if (validChannels.includes(channel)) {
+    if (VALID_EVENT_CHANNELS.includes(channel)) {
       const listener = (_event: Electron.IpcRendererEvent, ...args: unknown[]) => callback(...args)
       ipcRenderer.on(channel, listener)
       // Return unsubscribe function that removes only THIS listener
@@ -140,27 +142,8 @@ const electronAPI = {
 
   // Backward compatible - removes ALL listeners for a channel
   off: (channel: string) => {
-    const validChannels = [
-      'page:loading',
-      'page:navigate',
-      'page:title',
-      'page:favicon',
-      'proxy:status',
-      'proxy:progress',
-      'proxy:bandwidth',
-      'storage:bags-updated',
-      'storage:status',
-      'context:open-link',
-      'settings:changed',
-      'bookmark:open-new-tab',
-      'bookmark:edit',
-      'bookmark:delete',
-      'folder:rename',
-      'folder:delete',
-      'folder:open-all',
-    ]
     // Security: Only allow removing listeners for whitelisted channels
-    if (validChannels.includes(channel)) {
+    if (VALID_EVENT_CHANNELS.includes(channel)) {
       ipcRenderer.removeAllListeners(channel)
     }
   }

@@ -54,15 +54,18 @@ interface BookmarksState {
 
 const generateId = () => crypto.randomUUID()
 
+const createDefaultBookmarks = (): Bookmark[] =>
+  DEFAULT_BOOKMARKS.map((b, idx) => ({
+    ...b,
+    folderId: null,
+    order: idx,
+  }))
+
 export const useBookmarksStore = create<BookmarksState>()(
   persist(
     (set, get) => ({
       // Default bookmarks are unfiled (folderId: null) - like Chrome
-      bookmarks: DEFAULT_BOOKMARKS.map((b, idx) => ({
-        ...b,
-        folderId: null,
-        order: idx,
-      })),
+      bookmarks: createDefaultBookmarks(),
       // No default folders - user creates them as needed
       folders: [],
 
@@ -196,11 +199,7 @@ export const useBookmarksStore = create<BookmarksState>()(
 
       resetBookmarks: () => {
         set({
-          bookmarks: DEFAULT_BOOKMARKS.map((b, idx) => ({
-            ...b,
-            folderId: null,
-            order: idx,
-          })),
+          bookmarks: createDefaultBookmarks(),
           folders: [],
         })
       },
@@ -311,11 +310,7 @@ export const useBookmarksStore = create<BookmarksState>()(
         if (!persisted?.bookmarks || persisted.bookmarks.length === 0) {
           return {
             ...currentState,
-            bookmarks: DEFAULT_BOOKMARKS.map((b, idx) => ({
-              ...b,
-              folderId: null,
-              order: idx,
-            })),
+            bookmarks: createDefaultBookmarks(),
             folders: [],
           }
         }

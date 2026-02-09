@@ -28,14 +28,7 @@ export function createTonSession(proxyPort: number, partitionName: string = SESS
   ses.setUserAgent(USER_AGENT)
 
   // Sync content filter settings from user preferences
-  const filterSettings = getSetting('contentFiltering')
-  contentFilterManager.setEnabled(filterSettings.enabled)
-  contentFilterManager.setWhitelist(filterSettings.whitelistedDomains)
-  contentFilterManager.setCategoryEnabled('ads', filterSettings.blockAds)
-  contentFilterManager.setCategoryEnabled('trackers', filterSettings.blockTrackers)
-  contentFilterManager.setCategoryEnabled('miners', filterSettings.blockMiners)
-  contentFilterManager.setCategoryEnabled('malware', filterSettings.blockMalware)
-  contentFilterManager.setCategoryEnabled('annoyances', filterSettings.blockAnnoyances)
+  contentFilterManager.applySettings(getSetting('contentFiltering'))
 
   // Content Filtering: Block ads, trackers, miners, and malicious content
   ses.webRequest.onBeforeRequest({ urls: ['http://*/*'] }, (details, callback) => {

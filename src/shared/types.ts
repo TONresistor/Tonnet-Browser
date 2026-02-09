@@ -171,4 +171,30 @@ export const IPC_CHANNELS = {
   SETTINGS_GET: 'settings:get',
   SETTINGS_SET: 'settings:set',
   SETTINGS_RESET: 'settings:reset',
+
+  // Sidebar
+  UPDATE_SIDEBAR_WIDTH: 'update-sidebar-width',
+
+  // Bookmarks
+  BOOKMARK_SHOW_MENU: 'bookmark:show-menu',
+
+  // Folders
+  FOLDER_SHOW_MENU: 'folder:show-menu',
+  FOLDER_SHOW_CONTEXT_MENU: 'folder:show-context-menu',
+
+  // History
+  HISTORY_CHANGE_MODE: 'history:change-mode',
+  HISTORY_SEARCH: 'history:search',
+  HISTORY_GET_RECENT: 'history:get-recent',
+  HISTORY_GET_TOP: 'history:get-top',
+  HISTORY_GET_BY_DATE: 'history:get-by-date',
+  HISTORY_DELETE: 'history:delete',
+  HISTORY_DELETE_PATTERN: 'history:delete-pattern',
+  HISTORY_CLEAR: 'history:clear',
+  HISTORY_GET_STATS: 'history:get-stats',
+  HISTORY_HAS_PERSISTENT_FILE: 'history:has-persistent-file',
+
+  // Errors
+  ERRORS_GET_RECENT: 'errors:get-recent',
+  ERRORS_CLEAR: 'errors:clear',
 } as const

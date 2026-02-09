@@ -56,7 +56,7 @@ export const useThemeStore = create<ThemeStore>()((set, get) => ({
       customThemes: [...state.customThemes, theme],
     }))
     // Auto-save after creation
-    get().saveToSettings()
+    get().saveToSettings().catch(console.error)
     return theme
   },
 
@@ -102,7 +102,7 @@ export const useThemeStore = create<ThemeStore>()((set, get) => ({
       customThemes: state.customThemes.filter((t) => t.id !== id),
       editingTheme: state.editingTheme?.id === id ? null : state.editingTheme,
     }))
-    get().saveToSettings()
+    get().saveToSettings().catch(console.error)
   },
 
   duplicateTheme: (id) => {
@@ -122,7 +122,7 @@ export const useThemeStore = create<ThemeStore>()((set, get) => ({
     set((state) => ({
       customThemes: [...state.customThemes, duplicate],
     }))
-    get().saveToSettings()
+    get().saveToSettings().catch(console.error)
     return duplicate
   },
 
@@ -162,7 +162,7 @@ export const useThemeStore = create<ThemeStore>()((set, get) => ({
     set((state) => ({
       customThemes: [...state.customThemes, theme],
     }))
-    get().saveToSettings()
+    get().saveToSettings().catch(console.error)
     return theme
   },
 

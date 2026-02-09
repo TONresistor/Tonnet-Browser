@@ -3,7 +3,7 @@
  * Creates the browser window and initializes all services.
  */
 
-import { app, BrowserWindow, shell, screen, session, Menu, clipboard } from 'electron'
+import { app, BrowserWindow, shell, screen, session, Menu } from 'electron'
 import { join } from 'path'
 import { existsSync, readFileSync } from 'fs'
 import { writeFile } from 'fs/promises'
@@ -18,6 +18,7 @@ import { getSetting } from './settings'
 import { initTabManager } from './windows/tabs'
 import { historyManager } from './history/manager'
 import { logger } from '../shared/logger'
+import { buildContextMenu } from './utils/context-menu'
 
 // Memory leak prevention: increase limit for BrowserView tab switches
 // Each addBrowserView() adds a 'closed' listener to BrowserWindow
@@ -202,43 +203,7 @@ function createWindow(): void {
 
   // Context menu for internal pages (ton://)
   mainWindow.webContents.on('context-menu', (_e, params) => {
-    const menuItems: Electron.MenuItemConstructorOptions[] = []
-
-    // Text editing options
-    if (params.isEditable) {
-      menuItems.push(
-        { label: 'Cut', accelerator: 'CmdOrCtrl+X', enabled: params.editFlags.canCut, click: () => mainWindow.webContents.cut() },
-        { label: 'Copy', accelerator: 'CmdOrCtrl+C', enabled: params.editFlags.canCopy, click: () => mainWindow.webContents.copy() },
-        { label: 'Paste', accelerator: 'CmdOrCtrl+V', enabled: params.editFlags.canPaste, click: () => mainWindow.webContents.paste() },
-        { type: 'separator' },
-        { label: 'Select All', accelerator: 'CmdOrCtrl+A', click: () => mainWindow.webContents.selectAll() }
-      )
-    } else if (params.selectionText) {
-      menuItems.push(
-        { label: 'Copy', accelerator: 'CmdOrCtrl+C', click: () => mainWindow.webContents.copy() }
-      )
-    }
-
-    // Link options
-    if (params.linkURL) {
-      if (menuItems.length > 0) menuItems.push({ type: 'separator' })
-      menuItems.push(
-        { label: 'Copy Link Address', click: () => clipboard.writeText(params.linkURL) }
-      )
-    }
-
-    // Image options
-    if (params.hasImageContents && params.srcURL) {
-      if (menuItems.length > 0) menuItems.push({ type: 'separator' })
-      menuItems.push(
-        { label: 'Copy Image Address', click: () => clipboard.writeText(params.srcURL) }
-      )
-    }
-
-    // Show menu only if there are items
-    if (menuItems.length > 0) {
-      Menu.buildFromTemplate(menuItems).popup()
-    }
+    buildContextMenu(params, { webContents: mainWindow.webContents })
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {

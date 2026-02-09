@@ -3,13 +3,14 @@
  * Creates, switches, and manages BrowserViews.
  */
 
-import { BrowserView, BrowserWindow, Menu, clipboard } from 'electron'
+import { BrowserView, BrowserWindow } from 'electron'
 import { createTonSession, createBrowserView, extractFavicon } from './browser-view'
 import { DEFAULT_PROXY_PORT } from '../../shared/constants'
 import { getSetting, type PrivacySettings, type AppearanceSettings } from '../settings'
 import { logger } from '../../shared/logger'
 import { historyManager } from '../history/manager'
 import { normalizeUrl } from '../../shared/utils/url'
+import { buildContextMenu } from '../utils/context-menu'
 
 // Chrome component heights
 const TABBAR_HEIGHT = 44
@@ -424,50 +425,15 @@ function setupViewEvents(view: BrowserView, tabId: string): void {
 
   // Context menu for web pages
   view.webContents.on('context-menu', (_e, params) => {
-    const menuItems: Electron.MenuItemConstructorOptions[] = []
-
-    // Text editing options (when editable or text selected)
-    if (params.isEditable) {
-      menuItems.push(
-        { label: 'Cut', accelerator: 'CmdOrCtrl+X', enabled: params.editFlags.canCut, click: () => view.webContents.cut() },
-        { label: 'Copy', accelerator: 'CmdOrCtrl+C', enabled: params.editFlags.canCopy, click: () => view.webContents.copy() },
-        { label: 'Paste', accelerator: 'CmdOrCtrl+V', enabled: params.editFlags.canPaste, click: () => view.webContents.paste() },
-        { type: 'separator' },
-        { label: 'Select All', accelerator: 'CmdOrCtrl+A', click: () => view.webContents.selectAll() }
-      )
-    } else if (params.selectionText) {
-      menuItems.push(
-        { label: 'Copy', accelerator: 'CmdOrCtrl+C', click: () => view.webContents.copy() }
-      )
-    }
-
-    // Link options
-    if (params.linkURL) {
-      if (menuItems.length > 0) menuItems.push({ type: 'separator' })
-      menuItems.push(
-        { label: 'Open Link in New Tab', click: () => mainWindow?.webContents.send('context:open-link', params.linkURL) },
-        { label: 'Copy Link Address', click: () => clipboard.writeText(params.linkURL) }
-      )
-    }
-
-    // Image options
-    if (params.hasImageContents && params.srcURL) {
-      if (menuItems.length > 0) menuItems.push({ type: 'separator' })
-      menuItems.push(
-        { label: 'Copy Image Address', click: () => clipboard.writeText(params.srcURL) }
-      )
-    }
-
-    // Navigation options (always show)
-    if (menuItems.length > 0) menuItems.push({ type: 'separator' })
-    menuItems.push(
-      { label: 'Back', accelerator: 'Alt+Left', enabled: view.webContents.navigationHistory.canGoBack(), click: () => view.webContents.navigationHistory.goBack() },
-      { label: 'Forward', accelerator: 'Alt+Right', enabled: view.webContents.navigationHistory.canGoForward(), click: () => view.webContents.navigationHistory.goForward() },
-      { label: 'Reload', accelerator: 'CmdOrCtrl+R', click: () => view.webContents.reload() }
-    )
-
-    const menu = Menu.buildFromTemplate(menuItems)
-    menu.popup()
+    buildContextMenu(params, {
+      webContents: view.webContents,
+      onOpenLink: (url) => mainWindow?.webContents.send('context:open-link', url),
+      onNavigateBack: () => view.webContents.navigationHistory.goBack(),
+      onNavigateForward: () => view.webContents.navigationHistory.goForward(),
+      onReload: () => view.webContents.reload(),
+      canGoBack: view.webContents.navigationHistory.canGoBack(),
+      canGoForward: view.webContents.navigationHistory.canGoForward(),
+    })
   })
 }
 

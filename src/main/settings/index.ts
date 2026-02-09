@@ -54,6 +54,8 @@ export interface PrivacySettings {
   firstPartyIsolation: boolean
   cookieAutoDelete: boolean
   cookieAutoDeleteMinutes: number
+  historyMode: 'memory' | 'persistent'
+  historyMaxEntries: number
 }
 
 export interface AdvancedSettings {
@@ -175,6 +177,8 @@ export function getDefaultSettings(): AppSettings {
       firstPartyIsolation: DEFAULT_SETTINGS.firstPartyIsolation,
       cookieAutoDelete: DEFAULT_SETTINGS.cookieAutoDelete,
       cookieAutoDeleteMinutes: DEFAULT_SETTINGS.cookieAutoDeleteMinutes,
+      historyMode: DEFAULT_SETTINGS.historyMode,
+      historyMaxEntries: DEFAULT_SETTINGS.historyMaxEntries,
     },
     contentFiltering: {
       enabled: DEFAULT_SETTINGS.contentFiltering.enabled,
