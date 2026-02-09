@@ -77,7 +77,8 @@ function isValidSettingsObject(obj: unknown): obj is Partial<AppSettings> {
     if (privacy.disableCache !== undefined && typeof privacy.disableCache !== 'boolean') return false
     if (privacy.firstPartyIsolation !== undefined && typeof privacy.firstPartyIsolation !== 'boolean') return false
     if (privacy.cookieAutoDelete !== undefined && typeof privacy.cookieAutoDelete !== 'boolean') return false
-    if (privacy.cookieAutoDeleteMinutes !== undefined && typeof privacy.cookieAutoDeleteMinutes !== 'number') return false
+    if (privacy.cookieAutoDeleteMinutes !== undefined && typeof privacy.cookieAutoDeleteMinutes !== 'number')
+      return false
   }
 
   const appearance = settings.appearance as Record<string, unknown> | undefined
@@ -201,10 +202,10 @@ export function loadSettings(): AppSettings {
     }
 
     // Migrate old theme names to new ones
-    if (settingsCache.appearance.theme === 'midnight-blue' as ThemeType) {
+    if (settingsCache.appearance.theme === ('midnight-blue' as ThemeType)) {
       settingsCache.appearance.theme = 'resistance-dog'
       saveSettings(settingsCache)
-    } else if (settingsCache.appearance.theme === 'canard-yellow' as ThemeType) {
+    } else if (settingsCache.appearance.theme === ('canard-yellow' as ThemeType)) {
       settingsCache.appearance.theme = 'utya-duck'
       saveSettings(settingsCache)
     }
@@ -244,10 +245,7 @@ export function getSetting<K extends keyof AppSettings>(category: K): AppSetting
 }
 
 // Update a specific category
-export function setSetting<K extends keyof AppSettings>(
-  category: K,
-  values: Partial<AppSettings[K]>
-): void {
+export function setSetting<K extends keyof AppSettings>(category: K, values: Partial<AppSettings[K]>): void {
   const settings = loadSettings()
   settings[category] = { ...settings[category], ...values }
   saveSettings(settings)

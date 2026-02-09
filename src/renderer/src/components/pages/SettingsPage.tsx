@@ -36,17 +36,8 @@ export function SettingsPage() {
   const clearTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Stores
-  const {
-    draft,
-    isLoaded,
-    hasChanges,
-    isSaving,
-    loadFromMain,
-    setDraft,
-    save,
-    discard,
-    resetToDefaults,
-  } = usePreferencesStore()
+  const { draft, isLoaded, hasChanges, isSaving, loadFromMain, setDraft, save, discard, resetToDefaults } =
+    usePreferencesStore()
   const { bookmarks, resetBookmarks } = useBookmarksStore()
 
   // Load settings on mount
@@ -143,12 +134,7 @@ export function SettingsPage() {
 
       case 'storage':
         return (
-          <StorageSection
-            draft={draft}
-            setDraft={setDraft}
-            isLoaded={isLoaded}
-            onSelectFolder={handleSelectFolder}
-          />
+          <StorageSection draft={draft} setDraft={setDraft} isLoaded={isLoaded} onSelectFolder={handleSelectFolder} />
         )
 
       case 'appearance':
@@ -203,17 +189,10 @@ export function SettingsPage() {
 
   return (
     <SettingsLayout
-      sidebar={
-        <SettingsSidebar activeSection={activeSection} onSectionChange={setActiveSection} />
-      }
+      sidebar={<SettingsSidebar activeSection={activeSection} onSectionChange={setActiveSection} />}
       content={isLoaded ? renderContent() : <LoadingState />}
       actions={
-        <SettingsActions
-          hasChanges={hasChanges}
-          isSaving={isSaving}
-          onSave={handleSave}
-          onDiscard={handleDiscard}
-        />
+        <SettingsActions hasChanges={hasChanges} isSaving={isSaving} onSave={handleSave} onDiscard={handleDiscard} />
       }
     />
   )

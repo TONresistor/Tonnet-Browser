@@ -63,7 +63,7 @@ export class ContentFilterManager extends EventEmitter {
   private loadDefaultRules(): void {
     // ADVERTISEMENTS
     this.addRule({
-      pattern: /\/(ads?|advert|banner|popup|sponsor)[\/_\-\.]/i,
+      pattern: /\/(ads?|advert|banner|popup|sponsor)[/_\-.]/i,
       category: 'ads',
       resourceTypes: new Set(['image', 'script', 'stylesheet', 'xhr']),
       description: 'Advertisement resources',
@@ -85,7 +85,7 @@ export class ContentFilterManager extends EventEmitter {
 
     // TRACKERS & ANALYTICS
     this.addRule({
-      pattern: /\/(track|analytics|beacon|telemetry|stats|collect)[\/_\-\.]/i,
+      pattern: /\/(track|analytics|beacon|telemetry|stats|collect)[/_\-.]/i,
       category: 'trackers',
       resourceTypes: new Set(['script', 'xhr', 'image']),
       description: 'Tracking and analytics',
@@ -121,7 +121,7 @@ export class ContentFilterManager extends EventEmitter {
     })
 
     this.addRule({
-      pattern: /\/(miner|mining|cryptonight|webminer)[\/_\-\.]/i,
+      pattern: /\/(miner|mining|cryptonight|webminer)[/_\-.]/i,
       category: 'miners',
       resourceTypes: new Set(['script']),
       description: 'Mining scripts',
@@ -209,10 +209,7 @@ export class ContentFilterManager extends EventEmitter {
         this.stats.totalBlocked++
         this.stats.blockedByCategory[rule.category]++
 
-        logger.debug(
-          'ContentFilter',
-          `Blocked [${rule.category}] ${resourceType}: ${url.substring(0, 100)}...`
-        )
+        logger.debug('ContentFilter', `Blocked [${rule.category}] ${resourceType}: ${url.substring(0, 100)}...`)
 
         // Emit event for UI updates
         this.emit('blocked', {

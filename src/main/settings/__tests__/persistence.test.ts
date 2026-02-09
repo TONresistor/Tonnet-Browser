@@ -51,9 +51,11 @@ describe('Settings Persistence', () => {
       const { loadSettings: freshLoad } = await import('../index')
 
       vi.mocked(existsSync).mockReturnValue(true)
-      vi.mocked(readFileSync).mockReturnValue(JSON.stringify({
-        general: { homepage: 'ton://cached' },
-      }))
+      vi.mocked(readFileSync).mockReturnValue(
+        JSON.stringify({
+          general: { homepage: 'ton://cached' },
+        })
+      )
 
       const first = freshLoad()
       const second = freshLoad()
@@ -81,10 +83,12 @@ describe('Settings Persistence', () => {
       const { loadSettings: freshLoad } = await import('../index')
 
       vi.mocked(existsSync).mockReturnValue(true)
-      vi.mocked(readFileSync).mockReturnValue(JSON.stringify({
-        general: { homepage: 'http://custom.ton' },
-        // Missing: network, storage, appearance, privacy, advanced
-      }))
+      vi.mocked(readFileSync).mockReturnValue(
+        JSON.stringify({
+          general: { homepage: 'http://custom.ton' },
+          // Missing: network, storage, appearance, privacy, advanced
+        })
+      )
 
       const settings = freshLoad()
 
@@ -113,9 +117,11 @@ describe('Settings Persistence', () => {
       const { loadSettings: freshLoad, getDefaultSettings: getDefaults } = await import('../index')
 
       vi.mocked(existsSync).mockReturnValue(true)
-      vi.mocked(readFileSync).mockReturnValue(JSON.stringify({
-        network: { proxyPort: 'not-a-number' }, // Invalid type
-      }))
+      vi.mocked(readFileSync).mockReturnValue(
+        JSON.stringify({
+          network: { proxyPort: 'not-a-number' }, // Invalid type
+        })
+      )
 
       const settings = freshLoad()
       const defaults = getDefaults()
@@ -205,9 +211,11 @@ describe('Settings Persistence', () => {
       const { getSetting: freshGet } = await import('../index')
 
       vi.mocked(existsSync).mockReturnValue(true)
-      vi.mocked(readFileSync).mockReturnValue(JSON.stringify({
-        network: { proxyPort: 9999 },
-      }))
+      vi.mocked(readFileSync).mockReturnValue(
+        JSON.stringify({
+          network: { proxyPort: 9999 },
+        })
+      )
 
       const network = freshGet('network')
 
@@ -221,9 +229,11 @@ describe('Settings Persistence', () => {
       const { setSetting: freshSet, loadSettings: freshLoad } = await import('../index')
 
       vi.mocked(existsSync).mockReturnValue(true)
-      vi.mocked(readFileSync).mockReturnValue(JSON.stringify({
-        network: { proxyPort: 8080, autoConnect: false },
-      }))
+      vi.mocked(readFileSync).mockReturnValue(
+        JSON.stringify({
+          network: { proxyPort: 8080, autoConnect: false },
+        })
+      )
 
       // Load first to populate cache
       freshLoad()
@@ -266,9 +276,11 @@ describe('Settings Persistence', () => {
       const { getDownloadPath: freshGet } = await import('../index')
 
       vi.mocked(existsSync).mockReturnValue(true)
-      vi.mocked(readFileSync).mockReturnValue(JSON.stringify({
-        storage: { downloadPath: '/custom/path' },
-      }))
+      vi.mocked(readFileSync).mockReturnValue(
+        JSON.stringify({
+          storage: { downloadPath: '/custom/path' },
+        })
+      )
 
       expect(freshGet()).toBe('/custom/path')
     })

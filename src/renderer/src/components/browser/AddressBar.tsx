@@ -95,55 +95,64 @@ export const AddressBar = memo(function AddressBar() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  const handleSubmit = useCallback((e: FormEvent) => {
-    e.preventDefault()
+  const handleSubmit = useCallback(
+    (e: FormEvent) => {
+      e.preventDefault()
 
-    // If suggestion is selected, use it
-    if (selectedIndex >= 0 && selectedIndex < suggestions.length) {
-      const suggestion = suggestions[selectedIndex]
+      // If suggestion is selected, use it
+      if (selectedIndex >= 0 && selectedIndex < suggestions.length) {
+        const suggestion = suggestions[selectedIndex]
+        navigateActiveTab(suggestion.url)
+        setShowSuggestions(false)
+        return
+      }
+
+      const navigateUrl = input.trim()
+      if (!navigateUrl) return
+
+      // Hide suggestions
+      setShowSuggestions(false)
+
+      // Process navigation input (handles TON domain auto-completion)
+      const finalUrl = processNavigationInput(navigateUrl)
+      navigateActiveTab(finalUrl)
+    },
+    [selectedIndex, suggestions, navigateActiveTab, input]
+  )
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (!showSuggestions || suggestions.length === 0) return
+
+      switch (e.key) {
+        case 'ArrowDown':
+          e.preventDefault()
+          setSelectedIndex((prev) => (prev < suggestions.length - 1 ? prev + 1 : prev))
+          break
+        case 'ArrowUp':
+          e.preventDefault()
+          setSelectedIndex((prev) => (prev > 0 ? prev - 1 : -1))
+          break
+        case 'Escape':
+          setShowSuggestions(false)
+          setSelectedIndex(-1)
+          break
+        case 'Enter':
+          // handleSubmit will handle the selected suggestion
+          break
+      }
+    },
+    [showSuggestions, suggestions.length]
+  )
+
+  const handleSuggestionClick = useCallback(
+    (suggestion: HistorySuggestion) => {
       navigateActiveTab(suggestion.url)
       setShowSuggestions(false)
-      return
-    }
-
-    const navigateUrl = input.trim()
-    if (!navigateUrl) return
-
-    // Hide suggestions
-    setShowSuggestions(false)
-
-    // Process navigation input (handles TON domain auto-completion)
-    const finalUrl = processNavigationInput(navigateUrl)
-    navigateActiveTab(finalUrl)
-  }, [selectedIndex, suggestions, navigateActiveTab, input])
-
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (!showSuggestions || suggestions.length === 0) return
-
-    switch (e.key) {
-      case 'ArrowDown':
-        e.preventDefault()
-        setSelectedIndex((prev) => (prev < suggestions.length - 1 ? prev + 1 : prev))
-        break
-      case 'ArrowUp':
-        e.preventDefault()
-        setSelectedIndex((prev) => (prev > 0 ? prev - 1 : -1))
-        break
-      case 'Escape':
-        setShowSuggestions(false)
-        setSelectedIndex(-1)
-        break
-      case 'Enter':
-        // handleSubmit will handle the selected suggestion
-        break
-    }
-  }, [showSuggestions, suggestions.length])
-
-  const handleSuggestionClick = useCallback((suggestion: HistorySuggestion) => {
-    navigateActiveTab(suggestion.url)
-    setShowSuggestions(false)
-    setInput(stripHttpPrefix(suggestion.url))
-  }, [navigateActiveTab])
+      setInput(stripHttpPrefix(suggestion.url))
+    },
+    [navigateActiveTab]
+  )
 
   const toggleBookmark = useCallback(() => {
     if (isBookmarked) {
@@ -164,12 +173,13 @@ export const AddressBar = memo(function AddressBar() {
   return (
     <form onSubmit={handleSubmit} className="flex items-center gap-2 flex-1 min-w-[400px] no-drag" role="search">
       <div className="relative flex-1">
-        <div
-          className="relative flex items-center rounded-full bg-surface border border-surface-hover backdrop-blur-[20px]"
-        >
+        <div className="relative flex items-center rounded-full bg-surface border border-surface-hover backdrop-blur-[20px]">
           {/* TON site badge */}
           {isTonSite && !isLoading ? (
-            <div className="absolute left-1.5 top-1/2 -translate-y-1/2 z-10 flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-tonsite text-white" aria-hidden="true">
+            <div
+              className="absolute left-1.5 top-1/2 -translate-y-1/2 z-10 flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-tonsite text-white"
+              aria-hidden="true"
+            >
               <Lock className="h-3 w-3" />
               <span>tonsite://</span>
             </div>
@@ -219,10 +229,7 @@ export const AddressBar = memo(function AddressBar() {
             aria-pressed={isBookmarked}
           >
             <Star
-              className={cn(
-                'h-3.5 w-3.5',
-                isBookmarked ? 'fill-yellow-500 text-yellow-500' : 'text-muted-foreground'
-              )}
+              className={cn('h-3.5 w-3.5', isBookmarked ? 'fill-yellow-500 text-yellow-500' : 'text-muted-foreground')}
               aria-hidden="true"
             />
           </Button>

@@ -9,6 +9,8 @@ import {
   DragEndEvent,
   DragOverlay,
   DragStartEvent,
+  DragOverEvent,
+  DragCancelEvent,
   closestCenter,
   PointerSensor,
   KeyboardSensor,
@@ -153,34 +155,43 @@ export const TabBar = memo(function TabBar({ sidebarWidth }: TabBarProps) {
   )
 
   const handleActivate = useCallback((tabId: string) => setActiveTab(tabId), [setActiveTab])
-  const handleClose = useCallback((e: React.MouseEvent, tabId: string) => {
-    e.stopPropagation()
-    closeTab(tabId)
-  }, [closeTab])
+  const handleClose = useCallback(
+    (e: React.MouseEvent, tabId: string) => {
+      e.stopPropagation()
+      closeTab(tabId)
+    },
+    [closeTab]
+  )
   const handleContextMenuCb = useCallback((e: React.MouseEvent, tabId: string) => handleContextMenu(e, tabId), [])
-  const handleKeyDownCb = useCallback((e: React.KeyboardEvent, tabId: string) => handleTabKeyDown(e, tabId), [handleTabKeyDown])
+  const handleKeyDownCb = useCallback(
+    (e: React.KeyboardEvent, tabId: string) => handleTabKeyDown(e, tabId),
+    [handleTabKeyDown]
+  )
 
-  const announcements = useMemo(() => ({
-    onDragStart({ active }) {
-      const tab = tabs.find((t) => t.id === active.id)
-      return t('tabs.pickedUp', { title: tab?.title || t('tabs.newTab') })
-    },
-    onDragOver({ active, over }) {
-      if (!over) return ''
-      const activeTab = tabs.find((t) => t.id === active.id)
-      const overTab = tabs.find((t) => t.id === over.id)
-      return t('tabs.dragOver', { activeTitle: activeTab?.title, overTitle: overTab?.title })
-    },
-    onDragEnd({ active, over }) {
-      if (!over) return t('tabs.dragCancelled')
-      const tab = tabs.find((t) => t.id === active.id)
-      return t('tabs.reordered', { title: tab?.title })
-    },
-    onDragCancel({ active }) {
-      const tab = tabs.find((t) => t.id === active.id)
-      return t('tabs.dragCancelledFull', { title: tab?.title })
-    },
-  }), [tabs, t])
+  const announcements = useMemo(
+    () => ({
+      onDragStart({ active }: DragStartEvent) {
+        const tab = tabs.find((t) => t.id === active.id)
+        return t('tabs.pickedUp', { title: tab?.title || t('tabs.newTab') })
+      },
+      onDragOver({ active, over }: DragOverEvent) {
+        if (!over) return ''
+        const activeTab = tabs.find((t) => t.id === active.id)
+        const overTab = tabs.find((t) => t.id === over.id)
+        return t('tabs.dragOver', { activeTitle: activeTab?.title, overTitle: overTab?.title })
+      },
+      onDragEnd({ active, over }: DragEndEvent) {
+        if (!over) return t('tabs.dragCancelled')
+        const tab = tabs.find((t) => t.id === active.id)
+        return t('tabs.reordered', { title: tab?.title })
+      },
+      onDragCancel({ active }: DragCancelEvent) {
+        const tab = tabs.find((t) => t.id === active.id)
+        return t('tabs.dragCancelledFull', { title: tab?.title })
+      },
+    }),
+    [tabs, t]
+  )
 
   return (
     <div
@@ -220,7 +231,9 @@ export const TabBar = memo(function TabBar({ sidebarWidth }: TabBarProps) {
             (() => {
               const activeTab = tabs.find((t) => t.id === activeId)
               return activeTab ? (
-                <div className={`px-2.5 py-1.5 ${isVertical ? 'rounded-lg' : 'rounded-full'} text-sm bg-surface text-foreground shadow-2xl opacity-90 border border-border-medium flex items-center gap-2 ${isVertical ? 'w-full' : 'max-w-[200px]'}`}>
+                <div
+                  className={`px-2.5 py-1.5 ${isVertical ? 'rounded-lg' : 'rounded-full'} text-sm bg-surface text-foreground shadow-2xl opacity-90 border border-border-medium flex items-center gap-2 ${isVertical ? 'w-full' : 'max-w-[200px]'}`}
+                >
                   {activeTab.favicon ? (
                     <img src={activeTab.favicon} alt="" className="w-5 h-5 flex-shrink-0 object-contain" />
                   ) : (

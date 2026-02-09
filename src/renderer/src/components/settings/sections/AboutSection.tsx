@@ -21,29 +21,21 @@ export const AboutSection = memo(function AboutSection() {
         </div>
         <h3 className="text-2xl font-bold text-foreground mb-1">{APP_NAME}</h3>
         <p className="text-muted-foreground mb-4">Version {APP_VERSION}</p>
-        <p className="text-muted-foreground text-sm max-w-md mx-auto">
-          {t('about.description')}
-        </p>
+        <p className="text-muted-foreground text-sm max-w-md mx-auto">{t('about.description')}</p>
 
         <div className="mt-6 pt-6 border-t border-border">
           <div className="grid grid-cols-3 gap-4 text-sm">
             <div>
               <p className="text-muted-foreground">{t('about.electron')}</p>
-              <p className="text-foreground font-mono">
-                {window.electron?.versions?.electron || 'N/A'}
-              </p>
+              <p className="text-foreground font-mono">{window.electron?.versions?.electron || 'N/A'}</p>
             </div>
             <div>
               <p className="text-muted-foreground">{t('about.chromium')}</p>
-              <p className="text-foreground font-mono">
-                {window.electron?.versions?.chrome || 'N/A'}
-              </p>
+              <p className="text-foreground font-mono">{window.electron?.versions?.chrome || 'N/A'}</p>
             </div>
             <div>
               <p className="text-muted-foreground">{t('about.nodejs')}</p>
-              <p className="text-foreground font-mono">
-                {window.electron?.versions?.node || 'N/A'}
-              </p>
+              <p className="text-foreground font-mono">{window.electron?.versions?.node || 'N/A'}</p>
             </div>
           </div>
         </div>

@@ -42,7 +42,7 @@ export interface StorageBag {
 // Theme customization
 export interface ThemeColors {
   // Core
-  background: string           // HSL: "210 26% 13%"
+  background: string // HSL: "210 26% 13%"
   backgroundSecondary: string
   foreground: string
   card: string

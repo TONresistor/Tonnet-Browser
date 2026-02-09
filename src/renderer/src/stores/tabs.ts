@@ -83,7 +83,7 @@ export const useTabsStore = create<TabsState>((set, get) => ({
 
   addTab: async (url?: string) => {
     // Use homepage if no URL provided
-    const targetUrl = url ?? await getHomepage()
+    const targetUrl = url ?? (await getHomepage())
     const id = generateId()
     const title = getInternalPageTitle(targetUrl) || i18n.t('tabs.newTab', { ns: 'browser' })
     const newTab: Tab = {
@@ -126,10 +126,7 @@ export const useTabsStore = create<TabsState>((set, get) => ({
 
     // Save closed tab for Ctrl+Shift+T (skip ton://start and ton://loading)
     if (closedTab && !closedTab.url.startsWith('ton://start') && !closedTab.url.startsWith('ton://loading')) {
-      const newClosedTabs = [
-        { url: closedTab.url, title: closedTab.title },
-        ...closedTabs
-      ].slice(0, 10) // Keep last 10
+      const newClosedTabs = [{ url: closedTab.url, title: closedTab.title }, ...closedTabs].slice(0, 10) // Keep last 10
       set({ closedTabs: newClosedTabs })
     }
 
@@ -146,11 +143,9 @@ export const useTabsStore = create<TabsState>((set, get) => ({
           // Sync settings store with new active tab
           const newActiveTab = newTabs.find((t) => t.id === newActiveId)
           if (newActiveTab) {
-            useSettingsStore.getState().setNavigation(
-              newActiveTab.url,
-              newActiveTab.canGoBack,
-              newActiveTab.canGoForward
-            )
+            useSettingsStore
+              .getState()
+              .setNavigation(newActiveTab.url, newActiveTab.canGoBack, newActiveTab.canGoForward)
             // Hide views for internal pages
             if (newActiveTab.url.startsWith('ton://')) {
               window.electron.navigate(newActiveTab.url, newActiveId)
@@ -202,7 +197,7 @@ export const useTabsStore = create<TabsState>((set, get) => ({
   },
 
   navigateActiveTab: async (url: string) => {
-    const { activeTabId, tabs, ensureDefaultTab } = get()
+    const { activeTabId, ensureDefaultTab } = get()
 
     // Ensure we have a tab to navigate in
     if (!activeTabId) {

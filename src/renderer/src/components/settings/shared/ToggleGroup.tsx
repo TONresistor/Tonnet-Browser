@@ -11,12 +11,7 @@ interface ToggleGroupProps<T extends string> {
   disabled?: boolean
 }
 
-export function ToggleGroup<T extends string>({
-  value,
-  onChange,
-  options,
-  disabled,
-}: ToggleGroupProps<T>) {
+export function ToggleGroup<T extends string>({ value, onChange, options, disabled }: ToggleGroupProps<T>) {
   return (
     <div className="inline-flex rounded-full border border-border-medium bg-surface-hover p-0.5">
       {options.map((option, index) => (

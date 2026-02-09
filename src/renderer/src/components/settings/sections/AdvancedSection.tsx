@@ -14,11 +14,7 @@ interface AdvancedSectionProps extends SectionProps {
   onResetAll: () => void
 }
 
-export const AdvancedSection = memo(function AdvancedSection({
-  draft,
-  setDraft,
-  onResetAll,
-}: AdvancedSectionProps) {
+export const AdvancedSection = memo(function AdvancedSection({ draft, setDraft, onResetAll }: AdvancedSectionProps) {
   const { t } = useTranslation('settings')
 
   return (

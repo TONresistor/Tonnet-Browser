@@ -37,12 +37,7 @@ export function ThemeList({
     <div className="space-y-2">
       {themes.map((theme) => {
         const isSelected = selectedThemeId === `custom:${theme.id}`
-        const previewColors = [
-          theme.colors.background,
-          theme.colors.primary,
-          theme.colors.accent,
-          theme.colors.success,
-        ]
+        const previewColors = [theme.colors.background, theme.colors.primary, theme.colors.accent, theme.colors.success]
 
         return (
           <div
@@ -68,21 +63,11 @@ export function ThemeList({
             {/* Theme info */}
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
-                <span className="font-medium text-sm text-foreground truncate">
-                  {theme.name}
-                </span>
-                {isSelected && (
-                  <Check className="w-4 h-4 text-primary flex-shrink-0" />
-                )}
+                <span className="font-medium text-sm text-foreground truncate">{theme.name}</span>
+                {isSelected && <Check className="w-4 h-4 text-primary flex-shrink-0" />}
               </div>
-              {theme.description && (
-                <p className="text-xs text-muted-foreground truncate">
-                  {theme.description}
-                </p>
-              )}
-              <p className="text-xs text-foreground-muted">
-                {theme.isDark ? 'Dark' : 'Light'} theme
-              </p>
+              {theme.description && <p className="text-xs text-muted-foreground truncate">{theme.description}</p>}
+              <p className="text-xs text-foreground-muted">{theme.isDark ? 'Dark' : 'Light'} theme</p>
             </div>
 
             {/* Actions */}

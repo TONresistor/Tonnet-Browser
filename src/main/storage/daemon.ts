@@ -75,10 +75,14 @@ export class StorageManager extends EventEmitter {
     // Start tonutils-storage in daemon mode with HTTP API
     this.process = spawn(binPath, [
       '-daemon',
-      '-api', `127.0.0.1:${safePort}`,
-      '-db', this.dbPath,
-      '-network-config', configPath,
-      '-verbosity', String(safeVerbosity),
+      '-api',
+      `127.0.0.1:${safePort}`,
+      '-db',
+      this.dbPath,
+      '-network-config',
+      configPath,
+      '-verbosity',
+      String(safeVerbosity),
     ])
 
     this.process.stdout?.on('data', (data: Buffer) => {

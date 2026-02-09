@@ -20,8 +20,7 @@ export function useProxy() {
       if (result.success) {
         // Proxy started successfully - consider it "connected" for UI purposes
         // StatusBar will show "Syncing..." until DHT sync completes
-        const isSyncing = result.status === 'syncing'
-        setProxyStatus(true, isSyncing, result.port)
+        setProxyStatus(true, false, result.port)
       } else {
         setError(result.error ?? 'Failed to connect')
         setProxyStatus(false)
@@ -46,7 +45,7 @@ export function useProxy() {
   const checkStatus = useCallback(async () => {
     try {
       const status = await window.electron.proxy.status()
-      setProxyStatus(status.connected, status.port)
+      setProxyStatus(status.connected, undefined, status.port)
     } catch {
       setProxyStatus(false)
     }

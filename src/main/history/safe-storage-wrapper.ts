@@ -92,6 +92,7 @@ export class SafeStorageWrapper {
    */
   existsSync(): boolean {
     try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       require('fs').accessSync(this.filePath)
       return true
     } catch {

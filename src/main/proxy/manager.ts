@@ -46,9 +46,7 @@ export class ProxyManager extends EventEmitter {
     this.port = safePort
     this.anonymousMode = network.anonymousMode
     this.circuitRotation = network.circuitRotation
-    this.rotateInterval = /^\d+[smh]$/.test(network.rotateInterval)
-      ? network.rotateInterval
-      : '10m'
+    this.rotateInterval = /^\d+[smh]$/.test(network.rotateInterval) ? network.rotateInterval : '10m'
 
     this.setStatus('starting')
 
@@ -73,10 +71,7 @@ export class ProxyManager extends EventEmitter {
       logger.info('ProxyManager', `Starting direct proxy from: ${binPath}`)
       logger.info('ProxyManager', `Port: ${safePort}, Mode: direct`)
 
-      this.process = spawn(binPath, [
-        '--direct',
-        '--listen', `127.0.0.1:${safePort}`,
-      ])
+      this.process = spawn(binPath, ['--direct', '--listen', `127.0.0.1:${safePort}`])
     }
 
     this.process.stdout?.on('data', (data: Buffer) => {
@@ -132,30 +127,31 @@ export class ProxyManager extends EventEmitter {
 
   private startSyncCheck(): void {
     const { network, advanced } = this.loadSettings()
-    const testDomain = /^[a-zA-Z0-9.-]+$/.test(advanced.syncTestDomain)
-      ? advanced.syncTestDomain
-      : 'foundation.ton'
+    const testDomain = /^[a-zA-Z0-9.-]+$/.test(advanced.syncTestDomain) ? advanced.syncTestDomain : 'foundation.ton'
     const interval = network.syncCheckInterval
 
     const checkSync = (): Promise<boolean> => {
       return new Promise((resolve) => {
-        const req = http.request({
-          hostname: '127.0.0.1',
-          port: this.port,
-          path: '/',
-          method: 'GET',
-          headers: { 'Host': testDomain },
-          timeout: 5000,
-        }, (res) => {
-          // If we get a response that's not 502, we're synced
-          if (res.statusCode !== 502) {
-            logger.info('ProxyManager', `Sync complete! ${testDomain} responded with ${res.statusCode}`)
-            resolve(true)
-          } else {
-            resolve(false)
+        const req = http.request(
+          {
+            hostname: '127.0.0.1',
+            port: this.port,
+            path: '/',
+            method: 'GET',
+            headers: { Host: testDomain },
+            timeout: 5000,
+          },
+          (res) => {
+            // If we get a response that's not 502, we're synced
+            if (res.statusCode !== 502) {
+              logger.info('ProxyManager', `Sync complete! ${testDomain} responded with ${res.statusCode}`)
+              resolve(true)
+            } else {
+              resolve(false)
+            }
+            res.resume()
           }
-          res.resume()
-        })
+        )
 
         req.on('error', () => resolve(false))
         req.on('timeout', () => {
@@ -234,10 +230,8 @@ export class ProxyManager extends EventEmitter {
     const { network } = this.loadSettings()
     const needsRestart =
       network.anonymousMode !== this.anonymousMode ||
-      (this.anonymousMode && (
-        network.circuitRotation !== this.circuitRotation ||
-        network.rotateInterval !== this.rotateInterval
-      ))
+      (this.anonymousMode &&
+        (network.circuitRotation !== this.circuitRotation || network.rotateInterval !== this.rotateInterval))
 
     if (needsRestart) {
       logger.info('ProxyManager', `Network settings changed, restarting proxy...`)

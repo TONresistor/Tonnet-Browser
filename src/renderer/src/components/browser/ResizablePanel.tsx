@@ -122,11 +122,7 @@ export function ResizablePanel({
   }
 
   return (
-    <div
-      ref={panelRef}
-      className={`relative ${className}`}
-      style={{ width: `${width}px`, flexShrink: 0 }}
-    >
+    <div ref={panelRef} className={`relative ${className}`} style={{ width: `${width}px`, flexShrink: 0 }}>
       {children}
 
       {/* Resize handle */}

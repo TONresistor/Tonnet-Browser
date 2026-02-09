@@ -11,12 +11,7 @@ interface SettingsActionsProps {
   onDiscard: () => void
 }
 
-export function SettingsActions({
-  hasChanges,
-  isSaving,
-  onSave,
-  onDiscard,
-}: SettingsActionsProps) {
+export function SettingsActions({ hasChanges, isSaving, onSave, onDiscard }: SettingsActionsProps) {
   if (!hasChanges) return null
 
   return (

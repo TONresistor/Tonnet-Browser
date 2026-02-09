@@ -7,7 +7,8 @@ import { useMemo } from 'react'
 import { useTabsStore } from '../stores/tabs'
 
 export function useTabs() {
-  const { tabs, activeTabId, addTab, closeTab, setActiveTab, updateTab, duplicateTab, closeOtherTabs, reorderTabs } = useTabsStore()
+  const { tabs, activeTabId, addTab, closeTab, setActiveTab, updateTab, duplicateTab, closeOtherTabs, reorderTabs } =
+    useTabsStore()
 
   const activeTab = useMemo(() => tabs.find((t) => t.id === activeTabId), [tabs, activeTabId])
 

@@ -284,9 +284,7 @@ export const usePreferencesStore = create<PreferencesState>()((set, get) => ({
     // Sync all changed categories to main process in parallel
     try {
       await Promise.all(
-        Object.entries(categoryUpdates).map(([category, values]) =>
-          window.electron.settings.set(category, values)
-        )
+        Object.entries(categoryUpdates).map(([category, values]) => window.electron.settings.set(category, values))
       )
       set({ saved: { ...draft }, hasChanges: false, isSaving: false })
     } catch (error) {
@@ -319,7 +317,8 @@ export const usePreferencesStore = create<PreferencesState>()((set, get) => ({
 
 // Listen for settings changes from main process
 if (typeof window !== 'undefined' && window.electron) {
-  window.electron.on('settings:changed', (data: { reset?: boolean; category?: string; values?: object }) => {
+  window.electron.on('settings:changed', (...args: unknown[]) => {
+    const data = args[0] as { reset?: boolean; category?: string; values?: object }
     if (data.reset) {
       usePreferencesStore.setState({
         saved: { ...defaultPreferences },

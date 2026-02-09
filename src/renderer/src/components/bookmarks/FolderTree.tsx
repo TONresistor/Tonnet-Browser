@@ -17,7 +17,7 @@ interface FolderTreeProps {
 
 export function FolderTree({ selectedFolderId, onSelectFolder, onEditFolder }: FolderTreeProps) {
   const { t } = useTranslation('settings')
-  const { folders, getBookmarksByFolder, getSubfolders, removeFolder } = useBookmarksStore()
+  const { getBookmarksByFolder, getSubfolders, removeFolder } = useBookmarksStore()
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set(['root']))
 
   const toggleExpand = (folderId: string) => {
@@ -35,9 +35,10 @@ export function FolderTree({ selectedFolderId, onSelectFolder, onEditFolder }: F
   const handleDeleteFolder = (e: React.MouseEvent, folder: BookmarkFolder) => {
     e.stopPropagation()
     const bookmarksCount = getBookmarksByFolder(folder.id).length
-    const message = bookmarksCount > 0
-      ? `Delete "${folder.name}"? ${bookmarksCount} bookmark(s) will be moved to Unfiled.`
-      : `Delete "${folder.name}"?`
+    const message =
+      bookmarksCount > 0
+        ? `Delete "${folder.name}"? ${bookmarksCount} bookmark(s) will be moved to Unfiled.`
+        : `Delete "${folder.name}"?`
 
     if (confirm(message)) {
       removeFolder(folder.id)
@@ -54,9 +55,7 @@ export function FolderTree({ selectedFolderId, onSelectFolder, onEditFolder }: F
     const isSelected = selectedFolderId === folderId
     const subfolders = getSubfolders(folderId)
     const hasSubfolders = subfolders.length > 0
-    const bookmarksCount = isRoot
-      ? getBookmarksByFolder(null).length
-      : getBookmarksByFolder(folderId).length
+    const bookmarksCount = isRoot ? getBookmarksByFolder(null).length : getBookmarksByFolder(folderId).length
 
     return (
       <div key={folderId ?? 'root'}>
@@ -84,11 +83,7 @@ export function FolderTree({ selectedFolderId, onSelectFolder, onEditFolder }: F
               }}
               className="p-0.5 hover:bg-surface-active rounded transition-colors"
             >
-              {isExpanded ? (
-                <ChevronDown className="w-3.5 h-3.5" />
-              ) : (
-                <ChevronRight className="w-3.5 h-3.5" />
-              )}
+              {isExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
             </button>
           )}
 
@@ -102,15 +97,11 @@ export function FolderTree({ selectedFolderId, onSelectFolder, onEditFolder }: F
           )}
 
           {/* Folder name */}
-          <span className="flex-1 text-left truncate">
-            {isRoot ? 'Unfiled Bookmarks' : folder!.name}
-          </span>
+          <span className="flex-1 text-left truncate">{isRoot ? 'Unfiled Bookmarks' : folder!.name}</span>
 
           {/* Count badge */}
           {bookmarksCount > 0 && (
-            <span className="text-xs px-1.5 py-0.5 rounded-full bg-surface/50">
-              {bookmarksCount}
-            </span>
+            <span className="text-xs px-1.5 py-0.5 rounded-full bg-surface/50">{bookmarksCount}</span>
           )}
 
           {/* Actions - only for non-root folders */}
@@ -162,9 +153,7 @@ export function FolderTree({ selectedFolderId, onSelectFolder, onEditFolder }: F
         <Folder className="w-4 h-4 flex-shrink-0" />
         <span className="flex-1 text-left">{t('bookmarks.allBookmarks')}</span>
         {totalBookmarks > 0 && (
-          <span className="text-xs px-1.5 py-0.5 rounded-full bg-surface/50">
-            {totalBookmarks}
-          </span>
+          <span className="text-xs px-1.5 py-0.5 rounded-full bg-surface/50">{totalBookmarks}</span>
         )}
       </button>
 

@@ -89,12 +89,10 @@ function App() {
   }, [theme, customThemes])
 
   useEffect(() => {
-    const isLight = theme === 'utya-duck' ||
-      (theme.startsWith('custom:') &&
-        customThemes.find((t) => t.id === theme.replace('custom:', ''))?.isDark === false)
-    const importAnimation = isLight
-      ? import('@/assets/loading-yellow.json')
-      : import('@/assets/loading.json')
+    const isLight =
+      theme === 'utya-duck' ||
+      (theme.startsWith('custom:') && customThemes.find((t) => t.id === theme.replace('custom:', ''))?.isDark === false)
+    const importAnimation = isLight ? import('@/assets/loading-yellow.json') : import('@/assets/loading.json')
     importAnimation.then((mod) => setAnimationData(mod.default))
   }, [theme, customThemes])
 
@@ -107,7 +105,7 @@ function App() {
 
   // Keyboard shortcuts
   useEffect(() => {
-    const { addTab, closeTab, activeTabId, goBack, goForward, reopenLastClosedTab, nextTab, previousTab, goToTabByIndex } = useTabsStore.getState()
+    const { addTab, closeTab } = useTabsStore.getState()
 
     const handleKeyDown = (e: KeyboardEvent) => {
       // Ctrl+T: New tab
@@ -316,9 +314,7 @@ function App() {
         <div className="no-drag flex-1">
           <AddressBar />
         </div>
-        <div
-          className="no-drag flex items-center gap-0.5 rounded-full px-1 py-0.5 bg-surface border border-surface-hover backdrop-blur-[20px]"
-        >
+        <div className="no-drag flex items-center gap-0.5 rounded-full px-1 py-0.5 bg-surface border border-surface-hover backdrop-blur-[20px]">
           <Button
             variant="ghost"
             size="icon"
@@ -378,11 +374,13 @@ function App() {
 
         {/* Content Area */}
         <div className="flex-1 overflow-auto min-h-0">
-          <Suspense fallback={
-            <div className="w-full h-full flex flex-col items-center justify-center bg-background-secondary">
-              <Lottie animationData={animationData} className="w-64 h-64" loop autoplay />
-            </div>
-          }>
+          <Suspense
+            fallback={
+              <div className="w-full h-full flex flex-col items-center justify-center bg-background-secondary">
+                <Lottie animationData={animationData} className="w-64 h-64" loop autoplay />
+              </div>
+            }
+          >
             {renderContent()}
           </Suspense>
         </div>

@@ -31,15 +31,9 @@ export function ThemePreview({ colors, isDark }: ThemePreviewProps) {
   } as React.CSSProperties
 
   return (
-    <div
-      className="rounded-lg overflow-hidden border border-border-medium"
-      style={style}
-    >
+    <div className="rounded-lg overflow-hidden border border-border-medium" style={style}>
       {/* Tab bar + Window controls */}
-      <div
-        className="px-2 py-1.5 flex items-center gap-2"
-        style={{ backgroundColor: 'var(--preview-background)' }}
-      >
+      <div className="px-2 py-1.5 flex items-center gap-2" style={{ backgroundColor: 'var(--preview-background)' }}>
         {/* Tabs */}
         <div className="flex gap-1 flex-1">
           <div
@@ -80,10 +74,7 @@ export function ThemePreview({ colors, isDark }: ThemePreviewProps) {
       </div>
 
       {/* Address bar */}
-      <div
-        className="px-2 py-1.5 flex items-center gap-2"
-        style={{ backgroundColor: 'var(--preview-background)' }}
-      >
+      <div className="px-2 py-1.5 flex items-center gap-2" style={{ backgroundColor: 'var(--preview-background)' }}>
         <div
           className="flex-1 h-7 rounded-full px-3 flex items-center text-xs"
           style={{
@@ -97,10 +88,7 @@ export function ThemePreview({ colors, isDark }: ThemePreviewProps) {
       </div>
 
       {/* Content area */}
-      <div
-        className="p-3 min-h-[160px]"
-        style={{ backgroundColor: 'var(--preview-background-secondary)' }}
-      >
+      <div className="p-3 min-h-[160px]" style={{ backgroundColor: 'var(--preview-background-secondary)' }}>
         {/* Card */}
         <div
           className="rounded-lg p-3 mb-3"
@@ -109,16 +97,10 @@ export function ThemePreview({ colors, isDark }: ThemePreviewProps) {
             border: `1px solid var(--preview-border)`,
           }}
         >
-          <h3
-            className="text-sm font-semibold mb-1"
-            style={{ color: 'var(--preview-card-foreground)' }}
-          >
+          <h3 className="text-sm font-semibold mb-1" style={{ color: 'var(--preview-card-foreground)' }}>
             Card Title
           </h3>
-          <p
-            className="text-xs"
-            style={{ color: 'var(--preview-muted-foreground)' }}
-          >
+          <p className="text-xs" style={{ color: 'var(--preview-muted-foreground)' }}>
             Preview of your theme.
           </p>
         </div>
@@ -148,17 +130,11 @@ export function ThemePreview({ colors, isDark }: ThemePreviewProps) {
 
         {/* Status indicators */}
         <div className="flex gap-3 text-xs">
-          <span
-            className="flex items-center gap-1"
-            style={{ color: 'var(--preview-success)' }}
-          >
+          <span className="flex items-center gap-1" style={{ color: 'var(--preview-success)' }}>
             <span className="w-2 h-2 rounded-full" style={{ backgroundColor: 'currentColor' }} />
             Connected
           </span>
-          <span
-            className="flex items-center gap-1"
-            style={{ color: 'var(--preview-warning)' }}
-          >
+          <span className="flex items-center gap-1" style={{ color: 'var(--preview-warning)' }}>
             <span className="w-2 h-2 rounded-full" style={{ backgroundColor: 'currentColor' }} />
             Syncing
           </span>

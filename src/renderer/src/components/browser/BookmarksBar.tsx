@@ -16,12 +16,8 @@ import {
   useSensor,
   useSensors,
 } from '@dnd-kit/core'
-import {
-  SortableContext,
-  horizontalListSortingStrategy,
-  sortableKeyboardCoordinates,
-} from '@dnd-kit/sortable'
-import { useBookmarksStore, Bookmark } from '@/stores/bookmarks'
+import { SortableContext, horizontalListSortingStrategy, sortableKeyboardCoordinates } from '@dnd-kit/sortable'
+import { useBookmarksStore, Bookmark, BookmarkFolder } from '@/stores/bookmarks'
 import { useSettingsStore } from '@/stores/settings'
 import { useTabsStore } from '@/stores/tabs'
 import { ErrorBoundary } from '../ErrorBoundary'
@@ -183,9 +179,16 @@ export function BookmarksBar() {
         return
       }
       setEditModal({
-        bookmark: { id: bookmark.id, title: bookmark.title, url: bookmark.url, createdAt: Date.now() },
+        bookmark: {
+          id: bookmark.id,
+          title: bookmark.title,
+          url: bookmark.url,
+          folderId: null,
+          order: 0,
+          createdAt: Date.now(),
+        },
         name: bookmark.title,
-        url: bookmark.url
+        url: bookmark.url,
       })
     })
 
@@ -209,7 +212,7 @@ export function BookmarksBar() {
     const unsubFolderOpenAll = window.electron.on('folder:open-all', (...args: unknown[]) => {
       const folderId = args[0] as string
       const bookmarks = getBookmarksByFolderRef.current(folderId)
-      bookmarks.forEach(b => addTabRef.current(b.url))
+      bookmarks.forEach((b) => addTabRef.current(b.url))
     })
 
     return () => {
@@ -236,10 +239,10 @@ export function BookmarksBar() {
   const handleFolderClick = (folderId: string) => {
     const folderBookmarks = getBookmarksByFolder(folderId)
     // Convert to simple objects for IPC
-    const bookmarksData = folderBookmarks.map(b => ({
+    const bookmarksData = folderBookmarks.map((b) => ({
       id: b.id,
       title: b.title,
-      url: b.url
+      url: b.url,
     }))
     window.electron.showFolderMenu(folderId, bookmarksData)
   }
@@ -288,8 +291,8 @@ export function BookmarksBar() {
 
       if (activeId === actualOverId) return
 
-      const oldIndex = topLevelFolders.findIndex(f => f.id === activeId)
-      const newIndex = topLevelFolders.findIndex(f => f.id === actualOverId)
+      const oldIndex = topLevelFolders.findIndex((f) => f.id === activeId)
+      const newIndex = topLevelFolders.findIndex((f) => f.id === actualOverId)
 
       if (oldIndex !== -1 && newIndex !== -1) {
         reorderFolders(activeId, newIndex, null)
@@ -306,8 +309,8 @@ export function BookmarksBar() {
 
     // Case 3: Reordering bookmarks in the bar
     if (!isActiveFolder && !isOverFolder && activeId !== overId) {
-      const oldIndex = topLevelBookmarks.findIndex(b => b.id === activeId)
-      const newIndex = topLevelBookmarks.findIndex(b => b.id === overId)
+      const oldIndex = topLevelBookmarks.findIndex((b) => b.id === activeId)
+      const newIndex = topLevelBookmarks.findIndex((b) => b.id === overId)
 
       if (oldIndex !== -1 && newIndex !== -1) {
         reorderBookmarks(activeId, null, newIndex)
@@ -319,10 +322,10 @@ export function BookmarksBar() {
   const getActiveItem = () => {
     if (!activeId) return null
 
-    const bookmark = topLevelBookmarks.find(b => b.id === activeId)
+    const bookmark = topLevelBookmarks.find((b) => b.id === activeId)
     if (bookmark) return { type: 'bookmark', item: bookmark }
 
-    const folder = topLevelFolders.find(f => f.id === activeId)
+    const folder = topLevelFolders.find((f) => f.id === activeId)
     if (folder) return { type: 'folder', item: folder }
 
     return null
@@ -340,10 +343,10 @@ export function BookmarksBar() {
         accessibility={{
           announcements: {
             onDragStart({ active }) {
-              const bookmark = topLevelBookmarks.find(b => b.id === active.id)
+              const bookmark = topLevelBookmarks.find((b) => b.id === active.id)
               if (bookmark) return `Picked up bookmark: ${bookmark.title}`
 
-              const folder = topLevelFolders.find(f => f.id === active.id)
+              const folder = topLevelFolders.find((f) => f.id === active.id)
               if (folder) return `Picked up folder: ${folder.name}`
 
               return 'Picked up draggable item'
@@ -351,9 +354,9 @@ export function BookmarksBar() {
             onDragOver({ active, over }) {
               if (!over) return ''
 
-              const activeBookmark = topLevelBookmarks.find(b => b.id === active.id)
-              const overBookmark = topLevelBookmarks.find(b => b.id === over.id)
-              const overFolder = topLevelFolders.find(f => f.id === over.id || `droppable-${f.id}` === over.id)
+              const activeBookmark = topLevelBookmarks.find((b) => b.id === active.id)
+              const overBookmark = topLevelBookmarks.find((b) => b.id === over.id)
+              const overFolder = topLevelFolders.find((f) => f.id === over.id || `droppable-${f.id}` === over.id)
 
               if (activeBookmark && overBookmark) {
                 return `Bookmark ${activeBookmark.title} is over ${overBookmark.title}`
@@ -366,8 +369,8 @@ export function BookmarksBar() {
             onDragEnd({ active, over }) {
               if (!over) return 'Dragging cancelled'
 
-              const activeBookmark = topLevelBookmarks.find(b => b.id === active.id)
-              const overFolder = topLevelFolders.find(f => f.id === over.id || `droppable-${f.id}` === over.id)
+              const activeBookmark = topLevelBookmarks.find((b) => b.id === active.id)
+              const overFolder = topLevelFolders.find((f) => f.id === over.id || `droppable-${f.id}` === over.id)
 
               if (activeBookmark && overFolder) {
                 return `Bookmark ${activeBookmark.title} moved to folder ${overFolder.name}`
@@ -378,10 +381,10 @@ export function BookmarksBar() {
               return 'Item dropped'
             },
             onDragCancel({ active }) {
-              const bookmark = topLevelBookmarks.find(b => b.id === active.id)
+              const bookmark = topLevelBookmarks.find((b) => b.id === active.id)
               if (bookmark) return `Dragging cancelled. Bookmark ${bookmark.title} returned to original position.`
 
-              const folder = topLevelFolders.find(f => f.id === active.id)
+              const folder = topLevelFolders.find((f) => f.id === active.id)
               if (folder) return `Dragging cancelled. Folder ${folder.name} returned to original position.`
 
               return 'Dragging cancelled'
@@ -391,10 +394,7 @@ export function BookmarksBar() {
       >
         <div className="flex items-center gap-1.5 px-2 py-1 overflow-x-auto">
           {/* Sortable bookmarks context */}
-          <SortableContext
-            items={topLevelBookmarks.map(b => b.id)}
-            strategy={horizontalListSortingStrategy}
-          >
+          <SortableContext items={topLevelBookmarks.map((b) => b.id)} strategy={horizontalListSortingStrategy}>
             {topLevelBookmarks.map((bookmark) => (
               <SortableBookmarkItem
                 key={bookmark.id}
@@ -406,10 +406,7 @@ export function BookmarksBar() {
           </SortableContext>
 
           {/* Sortable folders context */}
-          <SortableContext
-            items={topLevelFolders.map(f => f.id)}
-            strategy={horizontalListSortingStrategy}
-          >
+          <SortableContext items={topLevelFolders.map((f) => f.id)} strategy={horizontalListSortingStrategy}>
             {topLevelFolders.map((folder) => (
               <DroppableFolder
                 key={folder.id}
@@ -425,12 +422,12 @@ export function BookmarksBar() {
         <DragOverlay>
           {activeItem && activeItem.type === 'bookmark' && (
             <div className="px-2.5 py-1.5 rounded-full text-sm bg-surface text-foreground shadow-2xl opacity-90 flex items-center gap-2 border border-border-medium">
-              <span>{activeItem.item.title}</span>
+              <span>{(activeItem.item as Bookmark).title}</span>
             </div>
           )}
           {activeItem && activeItem.type === 'folder' && (
             <div className="px-3 py-1.5 rounded-full text-sm bg-surface text-foreground shadow-2xl opacity-90 border border-border-medium">
-              {activeItem.item.name}
+              {(activeItem.item as BookmarkFolder).name}
             </div>
           )}
         </DragOverlay>
@@ -450,7 +447,9 @@ export function BookmarksBar() {
             className="rounded-2xl p-5 w-full max-w-sm mx-4 bg-background/85 backdrop-blur-xl border border-border-medium shadow-2xl font-sans"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 id="edit-bookmark-title" className="text-foreground font-bold mb-4">Edit bookmark</h3>
+            <h3 id="edit-bookmark-title" className="text-foreground font-bold mb-4">
+              Edit bookmark
+            </h3>
             <div className="space-y-3">
               <div>
                 <label className="text-muted-foreground text-xs block mb-1">Name</label>
@@ -502,7 +501,9 @@ export function BookmarksBar() {
             className="rounded-2xl p-5 w-full max-w-sm mx-4 bg-background/85 backdrop-blur-xl border border-border-medium shadow-2xl font-sans"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 id="rename-folder-title" className="text-foreground font-bold mb-4">Rename folder</h3>
+            <h3 id="rename-folder-title" className="text-foreground font-bold mb-4">
+              Rename folder
+            </h3>
             <input
               value={renameModal.name}
               onChange={(e) => setRenameModal({ ...renameModal, name: e.target.value })}

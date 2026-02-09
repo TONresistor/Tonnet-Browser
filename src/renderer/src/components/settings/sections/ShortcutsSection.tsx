@@ -18,11 +18,11 @@ export const ShortcutsSection = memo(function ShortcutsSection() {
     'Next tab': 'nextTab',
     'Previous tab': 'previousTab',
     'Go to tab 1-9': 'goToTab',
-    'History': 'history',
+    History: 'history',
     'Focus address bar': 'focusAddressBar',
-    'Reload': 'reload',
-    'Back': 'back',
-    'Forward': 'forward',
+    Reload: 'reload',
+    Back: 'back',
+    Forward: 'forward',
     'Stop loading': 'stopLoading',
     'Zoom in': 'zoomIn',
     'Zoom out': 'zoomOut',
@@ -47,10 +47,7 @@ export const ShortcutsSection = memo(function ShortcutsSection() {
           </thead>
           <tbody>
             {SHORTCUTS.map((item, idx) => (
-              <tr
-                key={item.action}
-                className={idx !== SHORTCUTS.length - 1 ? 'border-b border-border/50' : ''}
-              >
+              <tr key={item.action} className={idx !== SHORTCUTS.length - 1 ? 'border-b border-border/50' : ''}>
                 <td className="px-4 py-3 text-foreground text-sm">
                   {t(`shortcuts.actions.${actionKeyMap[item.action] || item.action}`)}
                 </td>

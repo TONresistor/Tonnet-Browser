@@ -91,7 +91,9 @@ export function createBrowserView(ses: Electron.Session): BrowserView {
 
   // Privacy: Disable tracking APIs on every page load
   view.webContents.on('dom-ready', () => {
-    view.webContents.executeJavaScript(`
+    view.webContents
+      .executeJavaScript(
+        `
       (function() {
         'use strict';
 
@@ -294,7 +296,7 @@ export function createBrowserView(ses: Electron.Session): BrowserView {
             pc.addIceCandidate = function(candidate) {
               if (candidate && candidate.candidate) {
                 // Block candidates containing local IPs (192.168, 10., 172.16-31)
-                if (/((192\.168)|(10\.)|(172\.(1[6-9]|2[0-9]|3[0-1])))/.test(candidate.candidate)) {
+                if (/((192[.]168)|(10[.])|(172[.](1[6-9]|2[0-9]|3[0-1])))/.test(candidate.candidate)) {
                   console.log('[Privacy] Blocked local IP leak via WebRTC');
                   return Promise.resolve();
                 }
@@ -515,9 +517,12 @@ export function createBrowserView(ses: Electron.Session): BrowserView {
 
         console.log('[Privacy] Anti-fingerprinting protections enabled (viewport spoofing)');
       })();
-    `, true).catch((error) => {
-      console.error('[Privacy] Failed to inject anti-fingerprinting code:', error)
-    });
+    `,
+        true
+      )
+      .catch((error) => {
+        console.error('[Privacy] Failed to inject anti-fingerprinting code:', error)
+      })
   })
 
   return view

@@ -36,7 +36,16 @@ const COLOR_SECTIONS = [
   },
   {
     title: 'Status Colors',
-    keys: ['success', 'successForeground', 'warning', 'warningForeground', 'destructive', 'destructiveForeground', 'info', 'infoForeground'] as (keyof ThemeColors)[],
+    keys: [
+      'success',
+      'successForeground',
+      'warning',
+      'warningForeground',
+      'destructive',
+      'destructiveForeground',
+      'info',
+      'infoForeground',
+    ] as (keyof ThemeColors)[],
   },
   {
     title: 'Border & Input',
@@ -68,7 +77,7 @@ export function ThemeEditor({ themeId, onClose, onSave }: ThemeEditorProps) {
   }
 
   const handleColorChange = (key: keyof ThemeColors, value: string) => {
-    setLocalColors((prev) => prev ? { ...prev, [key]: value } : null)
+    setLocalColors((prev) => (prev ? { ...prev, [key]: value } : null))
   }
 
   const handleSave = async () => {
@@ -91,10 +100,7 @@ export function ThemeEditor({ themeId, onClose, onSave }: ThemeEditorProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-        onClick={onClose}
-      />
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
 
       {/* Modal */}
       <div className="relative bg-card border border-border rounded-xl shadow-2xl w-[900px] max-h-[85vh] flex flex-col overflow-hidden">
@@ -134,9 +140,7 @@ export function ThemeEditor({ themeId, onClose, onSave }: ThemeEditorProps) {
               <button
                 onClick={() => setLocalIsDark(true)}
                 className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm transition-colors ${
-                  localIsDark
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-surface-hover text-muted-foreground'
+                  localIsDark ? 'bg-primary text-primary-foreground' : 'bg-surface-hover text-muted-foreground'
                 }`}
               >
                 <Moon className="w-4 h-4" />
@@ -145,9 +149,7 @@ export function ThemeEditor({ themeId, onClose, onSave }: ThemeEditorProps) {
               <button
                 onClick={() => setLocalIsDark(false)}
                 className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm transition-colors ${
-                  !localIsDark
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-surface-hover text-muted-foreground'
+                  !localIsDark ? 'bg-primary text-primary-foreground' : 'bg-surface-hover text-muted-foreground'
                 }`}
               >
                 <Sun className="w-4 h-4" />

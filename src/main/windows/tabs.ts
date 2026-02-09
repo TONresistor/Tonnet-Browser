@@ -155,7 +155,7 @@ function getAppearanceSettings(): AppearanceCache {
   const now = Date.now()
 
   // Return cached value if still valid
-  if (appearanceCache && (now - appearanceCache.timestamp) < CACHE_VALIDITY_MS) {
+  if (appearanceCache && now - appearanceCache.timestamp < CACHE_VALIDITY_MS) {
     return appearanceCache
   }
 
@@ -164,7 +164,7 @@ function getAppearanceSettings(): AppearanceCache {
   appearanceCache = {
     showBookmarksBar: appearance.showBookmarksBar ?? false,
     isVertical: appearance.tabOrientation === 'vertical',
-    timestamp: now
+    timestamp: now,
   }
 
   return appearanceCache
@@ -366,7 +366,7 @@ function setupViewEvents(view: BrowserView, tabId: string): void {
       if (normalized !== url) {
         event.preventDefault()
         logger.debug('Tabs', `Normalizing URL: ${url} → ${normalized}`)
-        view.webContents.loadURL(normalized).catch(err => {
+        view.webContents.loadURL(normalized).catch((err) => {
           logger.error('Tabs', 'loadURL failed (normalization):', err)
           loadErrorPage(view, err.message, normalized)
         })
@@ -401,7 +401,7 @@ function setupViewEvents(view: BrowserView, tabId: string): void {
     } catch {
       console.warn(`[Tabs] Blocked popup to invalid URL: ${url}`)
     }
-    return { action: 'deny' }  // Never create popup windows
+    return { action: 'deny' } // Never create popup windows
   })
 
   // Fallback: Close any window that somehow gets created (shouldn't happen with setWindowOpenHandler)
@@ -605,7 +605,7 @@ function loadErrorPage(view: BrowserView, errorMessage: string, failedUrl: strin
 </body>
 </html>`
 
-  view.webContents.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(errorHtml)}`).catch(err => {
+  view.webContents.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(errorHtml)}`).catch((err) => {
     logger.error('Tabs', 'Failed to load error page:', err)
   })
 }
@@ -616,7 +616,12 @@ export function navigateInTab(tabId: string, url: string): boolean {
 
   // Auto-add http:// if no scheme provided
   let navigateUrl = url
-  if (!url.startsWith('http://') && !url.startsWith('https://') && !url.startsWith('ton://') && !url.startsWith('tonsite://')) {
+  if (
+    !url.startsWith('http://') &&
+    !url.startsWith('https://') &&
+    !url.startsWith('ton://') &&
+    !url.startsWith('tonsite://')
+  ) {
     navigateUrl = `http://${url}`
   }
 
@@ -667,7 +672,7 @@ export function navigateInTab(tabId: string, url: string): boolean {
     }
 
     // Navigate in new view
-    newView.webContents.loadURL(navigateUrl).catch(err => {
+    newView.webContents.loadURL(navigateUrl).catch((err) => {
       logger.error('Tabs', 'loadURL failed (new view):', err)
       loadErrorPage(newView, err.message, navigateUrl)
     })
@@ -675,7 +680,7 @@ export function navigateInTab(tabId: string, url: string): boolean {
     // Same domain or first navigation, just load URL
     tabDomains.set(tabId, domain)
     updateDomainActivity(domain)
-    view.webContents.loadURL(navigateUrl).catch(err => {
+    view.webContents.loadURL(navigateUrl).catch((err) => {
       logger.error('Tabs', 'loadURL failed:', err)
       loadErrorPage(view, err.message, navigateUrl)
     })

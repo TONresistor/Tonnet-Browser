@@ -60,10 +60,7 @@ export class StorageHTTPClient {
     this.auth = auth
   }
 
-  private async fetch<T>(
-    endpoint: string,
-    options: RequestInit = {}
-  ): Promise<T> {
+  private async fetch<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',

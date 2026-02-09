@@ -25,9 +25,7 @@ export const GeneralSection = memo(function GeneralSection({ draft, setDraft }: 
           <div className="flex items-center justify-between">
             <div className="flex-1 pr-4">
               <p className="text-foreground font-medium">{t('general.anonymousMode')}</p>
-              <p className="text-muted-foreground text-sm mt-0.5">
-                {t('general.anonymousModeDesc')}
-              </p>
+              <p className="text-muted-foreground text-sm mt-0.5">{t('general.anonymousModeDesc')}</p>
             </div>
             <Toggle
               checked={draft.anonymousMode}
@@ -44,9 +42,7 @@ export const GeneralSection = memo(function GeneralSection({ draft, setDraft }: 
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-foreground font-medium">{t('general.circuitRotation')}</p>
-                  <p className="text-muted-foreground text-sm mt-0.5">
-                    {t('general.circuitRotationDesc')}
-                  </p>
+                  <p className="text-muted-foreground text-sm mt-0.5">{t('general.circuitRotationDesc')}</p>
                 </div>
                 <Toggle
                   checked={draft.circuitRotation}
@@ -61,9 +57,7 @@ export const GeneralSection = memo(function GeneralSection({ draft, setDraft }: 
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-foreground font-medium">{t('general.rotationInterval')}</p>
-                    <p className="text-muted-foreground text-sm mt-0.5">
-                      {t('general.rotationIntervalDesc')}
-                    </p>
+                    <p className="text-muted-foreground text-sm mt-0.5">{t('general.rotationIntervalDesc')}</p>
                   </div>
                   <select
                     value={draft.rotateInterval}

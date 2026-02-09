@@ -43,9 +43,7 @@ interface ColorSectionProps {
 export function ColorSection({ title, colorKeys, colors, onChange }: ColorSectionProps) {
   return (
     <div className="space-y-3">
-      <h4 className="text-sm font-semibold text-foreground border-b border-border-subtle pb-2">
-        {title}
-      </h4>
+      <h4 className="text-sm font-semibold text-foreground border-b border-border-subtle pb-2">{title}</h4>
       <div className="grid grid-cols-2 gap-3">
         {colorKeys.map((key) => {
           const info = COLOR_LABELS[key]

@@ -71,11 +71,7 @@ export function NavigationButtons() {
         title={isLoading ? t('navigation.stop') : t('navigation.reload')}
         aria-label={isLoading ? t('navigation.stopLoadingAria') : t('navigation.reloadAria')}
       >
-        {isLoading ? (
-          <X className="h-4 w-4" aria-hidden="true" />
-        ) : (
-          <RotateCw className="h-4 w-4" aria-hidden="true" />
-        )}
+        {isLoading ? <X className="h-4 w-4" aria-hidden="true" /> : <RotateCw className="h-4 w-4" aria-hidden="true" />}
       </Button>
 
       <Button

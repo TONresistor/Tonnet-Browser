@@ -14,19 +14,8 @@ interface SortableBookmarkItemProps {
   onContextMenu: (e: React.MouseEvent, bookmark: Bookmark) => void
 }
 
-export function SortableBookmarkItem({
-  bookmark,
-  onNavigate,
-  onContextMenu,
-}: SortableBookmarkItemProps) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: bookmark.id })
+export function SortableBookmarkItem({ bookmark, onNavigate, onContextMenu }: SortableBookmarkItemProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: bookmark.id })
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -42,7 +31,7 @@ export function SortableBookmarkItem({
       {...attributes}
       {...listeners}
       className="px-2.5 py-1.5 rounded-full text-sm transition-all duration-200 shrink-0 bg-surface text-foreground-muted hover:bg-surface-active hover:text-foreground flex items-center gap-2"
-      onClick={(e) => {
+      onClick={(_e) => {
         // Only navigate if not dragging
         if (!isDragging) {
           onNavigate(bookmark.url)

@@ -16,10 +16,7 @@ import type { SectionProps } from '../types'
 import type { BuiltInTheme } from '@shared/defaults'
 import { useTranslation } from 'react-i18next'
 
-export const AppearanceSection = memo(function AppearanceSection({
-  draft,
-  setDraft,
-}: SectionProps) {
+export const AppearanceSection = memo(function AppearanceSection({ draft, setDraft }: SectionProps) {
   const { t } = useTranslation('settings')
 
   const builtInThemes = [
@@ -37,14 +34,7 @@ export const AppearanceSection = memo(function AppearanceSection({
     },
   ]
 
-  const {
-    customThemes,
-    createTheme,
-    deleteTheme,
-    duplicateTheme,
-    exportTheme,
-    importTheme,
-  } = useThemeStore()
+  const { customThemes, createTheme, deleteTheme, duplicateTheme, exportTheme, importTheme } = useThemeStore()
 
   const [editingThemeId, setEditingThemeId] = useState<string | null>(null)
   const [showImportDialog, setShowImportDialog] = useState(false)
@@ -108,11 +98,7 @@ export const AppearanceSection = memo(function AppearanceSection({
       {/* Language selector */}
       <div className="bg-card rounded-xl border border-border px-4">
         <SettingRow label={t('appearance.language.label')} description={t('appearance.language.description')}>
-          <SelectInput
-            value={draft.language}
-            onChange={(v) => setDraft('language', v)}
-            options={languageOptions}
-          />
+          <SelectInput value={draft.language} onChange={(v) => setDraft('language', v)} options={languageOptions} />
         </SettingRow>
       </div>
 
@@ -144,9 +130,7 @@ export const AppearanceSection = memo(function AppearanceSection({
         <div className="flex items-center justify-between mb-4">
           <div>
             <h4 className="text-sm font-semibold text-foreground">{t('appearance.customThemes.title')}</h4>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              {t('appearance.customThemes.description')}
-            </p>
+            <p className="text-xs text-muted-foreground mt-0.5">{t('appearance.customThemes.description')}</p>
           </div>
           <div className="flex gap-2">
             <button
@@ -258,25 +242,15 @@ export const AppearanceSection = memo(function AppearanceSection({
 
       {/* Theme Editor Modal */}
       {editingThemeId && (
-        <ThemeEditor
-          themeId={editingThemeId}
-          onClose={() => setEditingThemeId(null)}
-          onSave={handleEditorSave}
-        />
+        <ThemeEditor themeId={editingThemeId} onClose={() => setEditingThemeId(null)} onSave={handleEditorSave} />
       )}
 
       {/* Import Dialog */}
-      {showImportDialog && (
-        <ImportDialog onImport={handleImport} onClose={() => setShowImportDialog(false)} />
-      )}
+      {showImportDialog && <ImportDialog onImport={handleImport} onClose={() => setShowImportDialog(false)} />}
 
       {/* Export Dialog */}
       {exportData && (
-        <ExportDialog
-          themeJson={exportData.json}
-          themeName={exportData.name}
-          onClose={() => setExportData(null)}
-        />
+        <ExportDialog themeJson={exportData.json} themeName={exportData.name} onClose={() => setExportData(null)} />
       )}
     </div>
   )

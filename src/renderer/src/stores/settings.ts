@@ -24,7 +24,13 @@ interface SettingsState {
   canGoForward: boolean
   storageStats: StorageStats
 
-  setProxyStatus: (connected: boolean, syncing?: boolean, port?: number, anonymousMode?: boolean, circuitRelays?: string[]) => void
+  setProxyStatus: (
+    connected: boolean,
+    syncing?: boolean,
+    port?: number,
+    anonymousMode?: boolean,
+    circuitRelays?: string[]
+  ) => void
   setLoading: (loading: boolean) => void
   setNavigation: (url: string, canGoBack: boolean, canGoForward: boolean) => void
   setTitle: (title: string) => void
@@ -55,8 +61,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
 
   setLoading: (isLoading) => set({ isLoading }),
 
-  setNavigation: (currentUrl, canGoBack, canGoForward) =>
-    set({ currentUrl, canGoBack, canGoForward }),
+  setNavigation: (currentUrl, canGoBack, canGoForward) => set({ currentUrl, canGoBack, canGoForward }),
 
   setTitle: (currentTitle) => set({ currentTitle }),
 

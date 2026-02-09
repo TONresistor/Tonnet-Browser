@@ -173,7 +173,9 @@ vi.mock('../error-handler', () => ({
 // Mock validation
 vi.mock('../validation', () => {
   class MockRateLimiter {
-    check() { return true }
+    check() {
+      return true
+    }
   }
   return {
     isValidNavigationUrl: vi.fn((url: string) => {
@@ -384,28 +386,19 @@ describe('IPC Handlers', () => {
       const bags = [{ id: 'bag1', name: 'Test' }]
       ;(storageManager as EventEmitter).emit('bags-updated', bags)
 
-      expect(mockMainWindow.webContents.send).toHaveBeenCalledWith(
-        'storage:bags-updated',
-        bags
-      )
+      expect(mockMainWindow.webContents.send).toHaveBeenCalledWith('storage:bags-updated', bags)
     })
 
     it('forwards storage started event to renderer', () => {
       ;(storageManager as EventEmitter).emit('started')
 
-      expect(mockMainWindow.webContents.send).toHaveBeenCalledWith(
-        'storage:status',
-        { running: true }
-      )
+      expect(mockMainWindow.webContents.send).toHaveBeenCalledWith('storage:status', { running: true })
     })
 
     it('forwards storage stopped event to renderer', () => {
       ;(storageManager as EventEmitter).emit('stopped')
 
-      expect(mockMainWindow.webContents.send).toHaveBeenCalledWith(
-        'storage:status',
-        { running: false }
-      )
+      expect(mockMainWindow.webContents.send).toHaveBeenCalledWith('storage:status', { running: false })
     })
   })
 })

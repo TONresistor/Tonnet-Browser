@@ -61,19 +61,21 @@ vi.mock('../http-client', () => {
       addBag = vi.fn(() => Promise.resolve({ ok: true }))
       removeBag = vi.fn(() => Promise.resolve({ ok: true }))
       stopBag = vi.fn(() => Promise.resolve({ ok: true }))
-      getBagDetails = vi.fn(() => Promise.resolve({
-        bag_id: 'test123',
-        description: 'Test bag',
-        files: [],
-        peers: [],
-        merkle_hash: 'abc',
-        piece_size: 128,
-        path: '/mock/path',
-        downloaded: 0,
-        size: 1000,
-        active: true,
-        seeding: false,
-      }))
+      getBagDetails = vi.fn(() =>
+        Promise.resolve({
+          bag_id: 'test123',
+          description: 'Test bag',
+          files: [],
+          peers: [],
+          merkle_hash: 'abc',
+          piece_size: 128,
+          path: '/mock/path',
+          downloaded: 0,
+          size: 1000,
+          active: true,
+          seeding: false,
+        })
+      )
 
       constructor() {
         mockClientInstances.push(this)
@@ -135,10 +137,14 @@ describe('StorageManager', () => {
         '/mock/bin/tonutils-storage',
         expect.arrayContaining([
           '-daemon',
-          '-api', '127.0.0.1:5555',
-          '-db', expect.stringContaining('db'),
-          '-network-config', '/mock/config/global.config.json',
-          '-verbosity', '2',
+          '-api',
+          '127.0.0.1:5555',
+          '-db',
+          expect.stringContaining('db'),
+          '-network-config',
+          '/mock/config/global.config.json',
+          '-verbosity',
+          '2',
         ])
       )
     })
@@ -166,7 +172,7 @@ describe('StorageManager', () => {
     })
 
     it('waits for API to be ready', async () => {
-      let pingCalls = 0
+      const pingCalls = 0
       // Will be called after client is created
       vi.mocked(spawn).mockImplementation(() => {
         mockProcess = createMockProcess()

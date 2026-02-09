@@ -199,10 +199,7 @@ export function applyCustomTheme(theme: CustomTheme): void {
   // Glow colors (parse primary and destructive for glow)
   const primaryHsl = parseHsl(theme.colors.primary)
   const destructiveHsl = parseHsl(theme.colors.destructive)
-  root.style.setProperty(
-    '--primary-glow',
-    `hsla(${primaryHsl.h}, ${primaryHsl.s}%, ${primaryHsl.l}%, 0.4)`
-  )
+  root.style.setProperty('--primary-glow', `hsla(${primaryHsl.h}, ${primaryHsl.s}%, ${primaryHsl.l}%, 0.4)`)
   root.style.setProperty(
     '--destructive-glow',
     `hsla(${destructiveHsl.h}, ${destructiveHsl.s}%, ${destructiveHsl.l}%, 0.3)`
@@ -256,9 +253,7 @@ export function validateColors(colors: unknown): colors is ThemeColors {
   ]
 
   const c = colors as Record<string, unknown>
-  return required.every(
-    (key) => typeof c[key] === 'string' && isValidHsl(c[key] as string)
-  )
+  return required.every((key) => typeof c[key] === 'string' && isValidHsl(c[key] as string))
 }
 
 /**
@@ -302,12 +297,8 @@ export function generateThemeId(): string {
 /**
  * Create a new theme from a base
  */
-export function createThemeFromBase(
-  base: 'resistance-dog' | 'utya-duck',
-  name: string
-): CustomTheme {
-  const colors =
-    base === 'resistance-dog' ? RESISTANCE_DOG_COLORS : UTYA_DUCK_COLORS
+export function createThemeFromBase(base: 'resistance-dog' | 'utya-duck', name: string): CustomTheme {
+  const colors = base === 'resistance-dog' ? RESISTANCE_DOG_COLORS : UTYA_DUCK_COLORS
   const isDark = base === 'resistance-dog'
   const now = Date.now()
 
@@ -377,8 +368,7 @@ function getLuminance(hsl: string): number {
   const g = parseInt(result[2], 16) / 255
   const b = parseInt(result[3], 16) / 255
 
-  const toLinear = (c: number) =>
-    c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4)
+  const toLinear = (c: number) => (c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4))
 
   return 0.2126 * toLinear(r) + 0.7152 * toLinear(g) + 0.0722 * toLinear(b)
 }

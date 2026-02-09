@@ -76,10 +76,7 @@ export const useStandardSetup = () => {
 /**
  * Assert a function was called with specific partial args
  */
-export const expectCalledWithPartial = (
-  mockFn: ReturnType<typeof vi.fn>,
-  partial: Record<string, unknown>
-) => {
+export const expectCalledWithPartial = (mockFn: ReturnType<typeof vi.fn>, partial: Record<string, unknown>) => {
   expect(mockFn).toHaveBeenCalled()
   const lastCall = mockFn.mock.calls[mockFn.mock.calls.length - 1]
   expect(lastCall[0]).toMatchObject(partial)
@@ -88,10 +85,6 @@ export const expectCalledWithPartial = (
 /**
  * Assert event was emitted on EventEmitter mock
  */
-export const expectEventEmitted = (
-  emitter: { emit: ReturnType<typeof vi.fn> },
-  eventName: string,
-  data?: unknown
-) => {
+export const expectEventEmitted = (emitter: { emit: ReturnType<typeof vi.fn> }, eventName: string, data?: unknown) => {
   expect(emitter.emit).toHaveBeenCalledWith(eventName, data !== undefined ? data : expect.anything())
 }

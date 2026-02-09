@@ -5,12 +5,7 @@
 
 import { create } from 'zustand'
 import type { CustomTheme, ThemeColors } from '@shared/types'
-import {
-  createThemeFromBase,
-  exportThemeToJson,
-  importThemeFromJson,
-  generateThemeId,
-} from '../lib/theme-utils'
+import { createThemeFromBase, exportThemeToJson, importThemeFromJson, generateThemeId } from '../lib/theme-utils'
 
 interface ThemeStore {
   // Custom themes list
@@ -62,11 +57,7 @@ export const useThemeStore = create<ThemeStore>()((set, get) => ({
 
   updateTheme: (id, updates) => {
     set((state) => ({
-      customThemes: state.customThemes.map((t) =>
-        t.id === id
-          ? { ...t, ...updates, updatedAt: Date.now() }
-          : t
-      ),
+      customThemes: state.customThemes.map((t) => (t.id === id ? { ...t, ...updates, updatedAt: Date.now() } : t)),
       editingTheme:
         state.editingTheme?.id === id
           ? { ...state.editingTheme, ...updates, updatedAt: Date.now() }
@@ -87,11 +78,8 @@ export const useThemeStore = create<ThemeStore>()((set, get) => ({
       }
 
       return {
-        customThemes: state.customThemes.map((t) =>
-          t.id === id ? updatedTheme : t
-        ),
-        editingTheme:
-          state.editingTheme?.id === id ? updatedTheme : state.editingTheme,
+        customThemes: state.customThemes.map((t) => (t.id === id ? updatedTheme : t)),
+        editingTheme: state.editingTheme?.id === id ? updatedTheme : state.editingTheme,
         previewColors: state.editingTheme?.id === id ? updatedColors : state.previewColors,
       }
     })

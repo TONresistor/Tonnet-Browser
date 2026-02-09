@@ -122,10 +122,7 @@ describe('ProxyManager', () => {
 
       expect(spawn).toHaveBeenCalledWith(
         '/mock/bin/tonnet-proxy',
-        expect.arrayContaining([
-          '--direct',
-          '--listen', '127.0.0.1:8080',
-        ])
+        expect.arrayContaining(['--direct', '--listen', '127.0.0.1:8080'])
       )
 
       manager.stop()
@@ -167,10 +164,7 @@ describe('ProxyManager', () => {
       const newManager = new ProxyManager()
       await newManager.start()
 
-      expect(spawn).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.arrayContaining(['--listen', '127.0.0.1:8080'])
-      )
+      expect(spawn).toHaveBeenCalledWith(expect.any(String), expect.arrayContaining(['--listen', '127.0.0.1:8080']))
 
       newManager.stop()
       // Reset
@@ -347,15 +341,15 @@ describe('Port Validation', () => {
   })
 
   it.each([
-    [0, 8080],        // Zero - invalid
-    [123, 8080],      // Below 1024 - invalid
-    [1023, 8080],     // Just below 1024 - invalid
-    [65536, 8080],    // Above 65535 - invalid
-    ['8080' as any, 8080],  // String - invalid type
-    [null as any, 8080],    // Null - invalid type
-    [1024, 1024],     // Minimum valid
-    [8080, 8080],     // Default valid
-    [65535, 65535],   // Maximum valid
+    [0, 8080], // Zero - invalid
+    [123, 8080], // Below 1024 - invalid
+    [1023, 8080], // Just below 1024 - invalid
+    [65536, 8080], // Above 65535 - invalid
+    ['8080' as any, 8080], // String - invalid type
+    [null as any, 8080], // Null - invalid type
+    [1024, 1024], // Minimum valid
+    [8080, 8080], // Default valid
+    [65535, 65535], // Maximum valid
   ])('port %s resolves to %s', async (input, expected) => {
     const testMockProcess = createMockProcess()
     vi.mocked(spawn).mockReturnValue(testMockProcess as any)

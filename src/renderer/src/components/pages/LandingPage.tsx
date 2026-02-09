@@ -106,7 +106,9 @@ export function LandingPage() {
       </div>
 
       {/* Footer - hide when connecting */}
-      <div className={`absolute bottom-8 text-center transition-opacity duration-300 ${isConnecting ? 'opacity-0' : 'opacity-100'}`}>
+      <div
+        className={`absolute bottom-8 text-center transition-opacity duration-300 ${isConnecting ? 'opacity-0' : 'opacity-100'}`}
+      >
         <p className="text-muted-foreground text-sm">{t('footer.peerToPeer')}</p>
         <p className="text-muted-foreground/50 text-xs mt-1">{t('footer.version', { version: APP_VERSION })}</p>
       </div>

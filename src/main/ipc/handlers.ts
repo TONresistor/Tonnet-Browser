@@ -24,7 +24,7 @@ import {
   resetSettings,
   getDownloadPath,
   setDownloadPath,
-  AppSettings
+  AppSettings,
 } from '../settings'
 import { getMainWindow } from '../windows/main'
 import {
@@ -39,7 +39,7 @@ import {
   getActiveTabId,
   onPrivacySettingsChanged,
   onAppearanceSettingsChanged,
-  updateSidebarWidth
+  updateSidebarWidth,
 } from '../windows/tabs'
 import { historyManager, HistoryMode } from '../history/manager'
 
@@ -72,10 +72,8 @@ function verifyIpcOrigin(event: IpcMainInvokeEvent): void {
  * Secure ipcMain.handle wrapper - verifies origin + catches errors
  * All IPC handlers should use this to prevent calls from compromised BrowserViews
  */
-function secureHandle(
-  channel: string,
-  handler: (...args: unknown[]) => unknown
-): void {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function secureHandle(channel: string, handler: (...args: any[]) => any): void {
   ipcMain.handle(channel, (event: IpcMainInvokeEvent, ...args: unknown[]) => {
     verifyIpcOrigin(event)
     return handler(...args)
@@ -85,10 +83,8 @@ function secureHandle(
 /**
  * Secure ipcMain.handle wrapper for handlers that need the event parameter
  */
-function secureHandleWithEvent(
-  channel: string,
-  handler: (event: IpcMainInvokeEvent, ...args: unknown[]) => unknown
-): void {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function secureHandleWithEvent(channel: string, handler: (event: IpcMainInvokeEvent, ...args: any[]) => any): void {
   ipcMain.handle(channel, (event: IpcMainInvokeEvent, ...args: unknown[]) => {
     verifyIpcOrigin(event)
     return handler(event, ...args)
@@ -101,7 +97,7 @@ function secureHandleWithEvent(
  */
 function handleSecure<T = unknown>(
   channel: string,
-  handler: (event: IpcMainInvokeEvent, ...args: unknown[]) => Promise<T> | T
+  handler: (event: IpcMainInvokeEvent, ...args: any[]) => Promise<T> | T
 ): void {
   handleWithErrors(channel, async (event, ...args) => {
     verifyIpcOrigin(event)
@@ -121,7 +117,7 @@ export function registerIpcHandlers(): void {
   proxyManager.on('status', (status) => {
     const win = getMainWindow()
     if (win) {
-      win.webContents.send('proxy:status', { status, ...proxyManager.getStatus() })
+      win.webContents.send('proxy:status', proxyManager.getStatus())
       // Update window title to show connection status
       const title = status === 'connected' ? 'TON Browser [Connected]' : 'TON Browser'
       win.setTitle(title)
@@ -175,15 +171,15 @@ export function registerIpcHandlers(): void {
 
     // Step 1: Loading configuration
     sendProgress(1, 'Loading configuration...')
-    await new Promise(r => setTimeout(r, 300)) // Small delay for visual feedback
+    await new Promise((r) => setTimeout(r, 300)) // Small delay for visual feedback
 
     // Step 2: Starting DHT
     sendProgress(2, 'Starting DHT...')
-    await new Promise(r => setTimeout(r, 400))
+    await new Promise((r) => setTimeout(r, 400))
 
     // Step 3: Connecting to network
     sendProgress(3, 'Connecting to network...')
-    await new Promise(r => setTimeout(r, 400))
+    await new Promise((r) => setTimeout(r, 400))
 
     // Initialize TabManager with proxy
     if (win) {
@@ -475,17 +471,17 @@ export function registerIpcHandlers(): void {
           if (isValidNavigationUrl(url).valid) {
             win.webContents.send('bookmark:open-new-tab', url)
           }
-        }
+        },
       },
       {
         label: 'Edit',
-        click: () => win.webContents.send('bookmark:edit', { id, title, url })
+        click: () => win.webContents.send('bookmark:edit', { id, title, url }),
       },
       { type: 'separator' },
       {
         label: 'Delete',
-        click: () => win.webContents.send('bookmark:delete', id)
-      }
+        click: () => win.webContents.send('bookmark:delete', id),
+      },
     ])
 
     menu.popup({ window: win })
@@ -499,7 +495,7 @@ export function registerIpcHandlers(): void {
       if (!win) return
 
       // Build menu items from bookmarks
-      const menuItems = bookmarks.map((bookmark) => ({
+      const menuItems: Electron.MenuItemConstructorOptions[] = bookmarks.map((bookmark) => ({
         label: bookmark.title,
         click: () => {
           if (!isValidNavigationUrl(bookmark.url).valid) return
@@ -507,14 +503,14 @@ export function registerIpcHandlers(): void {
           if (activeTabId) {
             navigateInTab(activeTabId, bookmark.url)
           }
-        }
+        },
       }))
 
       // Show "Empty folder" if no bookmarks
       if (menuItems.length === 0) {
         menuItems.push({
           label: 'Empty folder',
-          enabled: false
+          enabled: false,
         })
       }
 
@@ -531,17 +527,17 @@ export function registerIpcHandlers(): void {
     const menu = Menu.buildFromTemplate([
       {
         label: 'Rename',
-        click: () => win.webContents.send('folder:rename', { folderId, folderName })
+        click: () => win.webContents.send('folder:rename', { folderId, folderName }),
       },
       {
         label: 'Open all bookmarks',
-        click: () => win.webContents.send('folder:open-all', folderId)
+        click: () => win.webContents.send('folder:open-all', folderId),
       },
       { type: 'separator' },
       {
         label: 'Delete',
-        click: () => win.webContents.send('folder:delete', folderId)
-      }
+        click: () => win.webContents.send('folder:delete', folderId),
+      },
     ])
 
     menu.popup({ window: win })
@@ -622,7 +618,7 @@ export function registerIpcHandlers(): void {
     const result = await dialog.showOpenDialog(win, {
       properties: ['openDirectory', 'createDirectory'],
       title: 'Select TON Storage Download Folder',
-      buttonLabel: 'Select Folder'
+      buttonLabel: 'Select Folder',
     })
 
     if (result.canceled || result.filePaths.length === 0) {
@@ -776,7 +772,7 @@ export function registerIpcHandlers(): void {
       return {
         total: 0,
         mode: 'memory' as HistoryMode,
-        isLocked: false
+        isLocked: false,
       }
     }
   })

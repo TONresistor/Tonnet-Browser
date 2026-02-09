@@ -125,9 +125,7 @@ export function GarlicRoutingDiagram() {
           )}
         </button>
       </div>
-      <p className="text-muted-foreground text-base mb-5 leading-relaxed">
-        {t('general.routingDescription')}
-      </p>
+      <p className="text-muted-foreground text-base mb-5 leading-relaxed">{t('general.routingDescription')}</p>
 
       <div className="relative h-24 w-full">
         <svg className="w-full h-full" viewBox="0 0 500 96" preserveAspectRatio="xMidYMid meet">
@@ -138,14 +136,7 @@ export function GarlicRoutingDiagram() {
 
             return (
               <g key={`segment-${i}`}>
-                <line
-                  x1={x1 + 18}
-                  y1={36}
-                  x2={x2 - 18}
-                  y2={36}
-                  stroke="rgba(255, 255, 255, 0.1)"
-                  strokeWidth="2"
-                />
+                <line x1={x1 + 18} y1={36} x2={x2 - 18} y2={36} stroke="rgba(255, 255, 255, 0.1)" strokeWidth="2" />
                 <line
                   x1={x1 + 18}
                   y1={36}
@@ -173,14 +164,7 @@ export function GarlicRoutingDiagram() {
           })}
 
           <g>
-            <text
-              x="50"
-              y="12"
-              textAnchor="middle"
-              fill="rgba(255, 255, 255, 0.9)"
-              fontSize="12"
-              fontWeight="600"
-            >
+            <text x="50" y="12" textAnchor="middle" fill="rgba(255, 255, 255, 0.9)" fontSize="12" fontWeight="600">
               {t('general.you')}
             </text>
             <circle
@@ -193,13 +177,7 @@ export function GarlicRoutingDiagram() {
               style={{ transition: 'all 0.3s ease' }}
             />
             {isPlaying && (
-              <text
-                x="50"
-                y="68"
-                textAnchor="middle"
-                fill="rgba(255, 255, 255, 0.5)"
-                fontSize="11"
-              >
+              <text x="50" y="68" textAnchor="middle" fill="rgba(255, 255, 255, 0.5)" fontSize="11">
                 {phase === 'forward' ? t('general.encrypts') : t('general.decrypts')}
               </text>
             )}
@@ -217,34 +195,16 @@ export function GarlicRoutingDiagram() {
                   cx={cx}
                   cy={36}
                   r="16"
-                  fill={
-                    isActive || isPassed
-                      ? 'rgba(255, 255, 255, 0.1)'
-                      : 'rgba(255, 255, 255, 0.04)'
-                  }
-                  stroke={
-                    isActive || isPassed ? DIAGRAM_COLOR : 'rgba(255, 255, 255, 0.15)'
-                  }
+                  fill={isActive || isPassed ? 'rgba(255, 255, 255, 0.1)' : 'rgba(255, 255, 255, 0.04)'}
+                  stroke={isActive || isPassed ? DIAGRAM_COLOR : 'rgba(255, 255, 255, 0.15)'}
                   strokeWidth="2"
                   style={{ transition: 'all 0.3s ease' }}
                 />
-                <text
-                  x={cx}
-                  y="68"
-                  textAnchor="middle"
-                  fill="rgba(255, 255, 255, 0.6)"
-                  fontSize="11"
-                >
+                <text x={cx} y="68" textAnchor="middle" fill="rgba(255, 255, 255, 0.6)" fontSize="11">
                   {t('general.relay')} {relayIds[i]}
                 </text>
                 {isPlaying && (isActive || isPassed) && (
-                  <text
-                    x={cx}
-                    y="84"
-                    textAnchor="middle"
-                    fill="rgba(255, 255, 255, 0.4)"
-                    fontSize="10"
-                  >
+                  <text x={cx} y="84" textAnchor="middle" fill="rgba(255, 255, 255, 0.4)" fontSize="10">
                     {actionText}
                   </text>
                 )}
@@ -253,14 +213,7 @@ export function GarlicRoutingDiagram() {
           })}
 
           <g>
-            <text
-              x="450"
-              y="12"
-              textAnchor="middle"
-              fill="rgba(255, 255, 255, 0.9)"
-              fontSize="12"
-              fontWeight="600"
-            >
+            <text x="450" y="12" textAnchor="middle" fill="rgba(255, 255, 255, 0.9)" fontSize="12" fontWeight="600">
               .ton
             </text>
             <circle
@@ -273,13 +226,7 @@ export function GarlicRoutingDiagram() {
               style={{ transition: 'all 0.3s ease' }}
             />
             {isPlaying && (
-              <text
-                x="450"
-                y="68"
-                textAnchor="middle"
-                fill="rgba(255, 255, 255, 0.5)"
-                fontSize="11"
-              >
+              <text x="450" y="68" textAnchor="middle" fill="rgba(255, 255, 255, 0.5)" fontSize="11">
                 {phase === 'forward' ? t('general.receives') : t('general.responds')}
               </text>
             )}
@@ -299,9 +246,7 @@ export function GarlicRoutingDiagram() {
         </svg>
       </div>
 
-      <p className="text-xs text-muted-foreground/60 text-center mt-4">
-        {t('general.newCircuit')}
-      </p>
+      <p className="text-xs text-muted-foreground/60 text-center mt-4">{t('general.newCircuit')}</p>
     </div>
   )
 }

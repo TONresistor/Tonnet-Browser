@@ -37,7 +37,8 @@ function Separator() {
 
 export const StatusBar = memo(function StatusBar() {
   const { t, i18n } = useTranslation('browser')
-  const { proxyConnected, proxySyncing, anonymousMode, circuitRelays, storageStats, setProxyStatus, setStorageStats } = useSettingsStore()
+  const { proxyConnected, proxySyncing, anonymousMode, circuitRelays, storageStats, setProxyStatus, setStorageStats } =
+    useSettingsStore()
   const [currentTime, setCurrentTime] = useState(new Date())
   const [bandwidth, setBandwidth] = useState({ down: 0, up: 0 })
   const [latency, setLatency] = useState<number | null>(null)
@@ -142,19 +143,29 @@ export const StatusBar = memo(function StatusBar() {
     const isReady = circuitRelays.length === 3
 
     return (
-      <span className="text-tonsite">
-        {isReady ? t('statusBar.garlicRouting') : t('statusBar.buildingCircuit')}
-      </span>
+      <span className="text-tonsite">{isReady ? t('statusBar.garlicRouting') : t('statusBar.buildingCircuit')}</span>
     )
   }
 
-  const statusText = proxyConnected ? t('statusBar.connected') : proxySyncing ? t('statusBar.syncing') : t('statusBar.disconnected')
+  const statusText = proxyConnected
+    ? t('statusBar.connected')
+    : proxySyncing
+      ? t('statusBar.syncing')
+      : t('statusBar.disconnected')
 
   return (
-    <footer className="flex items-center justify-between px-3 py-1 bg-background-secondary border-t border-border text-xs text-muted-foreground" role="contentinfo">
+    <footer
+      className="flex items-center justify-between px-3 py-1 bg-background-secondary border-t border-border text-xs text-muted-foreground"
+      role="contentinfo"
+    >
       <div className="flex items-center gap-3">
         {/* Network Status */}
-        <div className="flex items-center gap-1.5" role="status" aria-live="polite" aria-label={t('statusBar.networkStatus', { status: statusText })}>
+        <div
+          className="flex items-center gap-1.5"
+          role="status"
+          aria-live="polite"
+          aria-label={t('statusBar.networkStatus', { status: statusText })}
+        >
           {getNetworkStatus()}
         </div>
 
@@ -162,28 +173,37 @@ export const StatusBar = memo(function StatusBar() {
         {anonymousMode && (
           <>
             <Separator />
-            <div className="flex items-center gap-1.5">
-              {getGarlicStatus()}
-            </div>
+            <div className="flex items-center gap-1.5">{getGarlicStatus()}</div>
           </>
         )}
 
         {/* Storage Bags */}
         <Separator />
-        <div className="flex items-center gap-1.5 text-muted-foreground" aria-label={`${storageStats.bagsCount} ${storageStats.bagsCount === 1 ? t('statusBar.bag') : t('statusBar.bags')}`}>
+        <div
+          className="flex items-center gap-1.5 text-muted-foreground"
+          aria-label={`${storageStats.bagsCount} ${storageStats.bagsCount === 1 ? t('statusBar.bag') : t('statusBar.bags')}`}
+        >
           <span>{t('statusBar.storage')}</span>
-          <span>{storageStats.bagsCount} {storageStats.bagsCount === 1 ? t('statusBar.bag') : t('statusBar.bags')}</span>
+          <span>
+            {storageStats.bagsCount} {storageStats.bagsCount === 1 ? t('statusBar.bag') : t('statusBar.bags')}
+          </span>
         </div>
 
         {/* Transfer Speeds */}
         {(storageStats.downloadSpeed > 0 || storageStats.uploadSpeed > 0) && (
           <>
             <Separator />
-            <div className="flex items-center gap-1" aria-label={`Download speed: ${formatSpeed(storageStats.downloadSpeed)}`}>
+            <div
+              className="flex items-center gap-1"
+              aria-label={`Download speed: ${formatSpeed(storageStats.downloadSpeed)}`}
+            >
               <ArrowDown className="h-3 w-3 text-info" aria-hidden="true" />
               <span>{formatSpeed(storageStats.downloadSpeed)}</span>
             </div>
-            <div className="flex items-center gap-1" aria-label={`Upload speed: ${formatSpeed(storageStats.uploadSpeed)}`}>
+            <div
+              className="flex items-center gap-1"
+              aria-label={`Upload speed: ${formatSpeed(storageStats.uploadSpeed)}`}
+            >
               <ArrowUp className="h-3 w-3 text-success" aria-hidden="true" />
               <span>{formatSpeed(storageStats.uploadSpeed)}</span>
             </div>

@@ -11,7 +11,7 @@ import { logger } from '../../shared/logger'
 
 export enum HistoryMode {
   MEMORY = 'memory',
-  PERSISTENT = 'persistent'
+  PERSISTENT = 'persistent',
 }
 
 export interface HistoryEntry {
@@ -58,7 +58,7 @@ export class HistoryManager extends EventEmitter {
         const data = await this.storage.read<HistoryEntry[]>()
         if (data && Array.isArray(data)) {
           this.entries.clear()
-          data.forEach(entry => {
+          data.forEach((entry) => {
             this.entries.set(entry.id, entry)
           })
           logger.info('HistoryManager', `Loaded ${data.length} entries from persistent storage`)
@@ -92,7 +92,7 @@ export class HistoryManager extends EventEmitter {
         const data = await this.storage.read<HistoryEntry[]>()
         if (data && Array.isArray(data)) {
           this.entries.clear()
-          data.forEach(entry => {
+          data.forEach((entry) => {
             this.entries.set(entry.id, entry)
           })
           logger.info('HistoryManager', `Loaded ${data.length} entries from persistent storage`)
@@ -149,7 +149,7 @@ export class HistoryManager extends EventEmitter {
         title: title || url,
         visitedAt: Date.now(),
         visitCount: 1,
-        favicon
+        favicon,
       }
 
       this.entries.set(id, entry)
@@ -163,7 +163,7 @@ export class HistoryManager extends EventEmitter {
 
     // Auto-save if persistent mode
     if (this.mode === HistoryMode.PERSISTENT) {
-      this.savePersistent().catch(err => {
+      this.savePersistent().catch((err) => {
         logger.error('HistoryManager', 'Auto-save failed:', err)
       })
     }
@@ -186,11 +186,10 @@ export class HistoryManager extends EventEmitter {
     }
 
     // Remove oldest entries
-    const sorted = Array.from(this.entries.values())
-      .sort((a, b) => a.visitedAt - b.visitedAt)
+    const sorted = Array.from(this.entries.values()).sort((a, b) => a.visitedAt - b.visitedAt)
 
     const toRemove = sorted.slice(0, sorted.length - this.maxEntries)
-    toRemove.forEach(entry => {
+    toRemove.forEach((entry) => {
       this.entries.delete(entry.id)
     })
 
@@ -203,10 +202,7 @@ export class HistoryManager extends EventEmitter {
   search(query: string, limit: number = 50): HistoryEntry[] {
     const lowerQuery = query.toLowerCase()
     return Array.from(this.entries.values())
-      .filter(entry =>
-        entry.url.toLowerCase().includes(lowerQuery) ||
-        entry.title.toLowerCase().includes(lowerQuery)
-      )
+      .filter((entry) => entry.url.toLowerCase().includes(lowerQuery) || entry.title.toLowerCase().includes(lowerQuery))
       .sort((a, b) => b.visitedAt - a.visitedAt)
       .slice(0, limit)
   }
@@ -225,7 +221,7 @@ export class HistoryManager extends EventEmitter {
    */
   getTopVisited(limit: number = 20): HistoryEntry[] {
     return Array.from(this.entries.values())
-      .filter(entry => entry.visitCount > 1)
+      .filter((entry) => entry.visitCount > 1)
       .sort((a, b) => b.visitCount - a.visitCount)
       .slice(0, limit)
   }
@@ -235,7 +231,7 @@ export class HistoryManager extends EventEmitter {
    */
   getByDateRange(startDate: number, endDate: number): HistoryEntry[] {
     return Array.from(this.entries.values())
-      .filter(entry => entry.visitedAt >= startDate && entry.visitedAt <= endDate)
+      .filter((entry) => entry.visitedAt >= startDate && entry.visitedAt <= endDate)
       .sort((a, b) => b.visitedAt - a.visitedAt)
   }
 
@@ -251,7 +247,7 @@ export class HistoryManager extends EventEmitter {
 
       // Auto-save if persistent
       if (this.mode === HistoryMode.PERSISTENT) {
-        this.savePersistent().catch(err => {
+        this.savePersistent().catch((err) => {
           logger.error('HistoryManager', 'Auto-save after delete failed:', err)
         })
       }
@@ -272,8 +268,8 @@ export class HistoryManager extends EventEmitter {
     // Detect potentially dangerous patterns (catastrophic backtracking)
     const dangerousPatterns = [
       /(\*|\+|\{[0-9,]+\}){3,}/, // Multiple quantifiers in a row
-      /(\(.*\+.*\))\1/,          // Nested repeating groups
-      /(.+\*){2,}/               // Multiple greedy quantifiers
+      /(\(.*\+.*\))\1/, // Nested repeating groups
+      /(.+\*){2,}/, // Multiple greedy quantifiers
     ]
 
     for (const dangerous of dangerousPatterns) {
@@ -302,7 +298,7 @@ export class HistoryManager extends EventEmitter {
       }
     }
 
-    toDelete.forEach(id => this.entries.delete(id))
+    toDelete.forEach((id) => this.entries.delete(id))
 
     if (toDelete.length > 0) {
       this.emit('entries-deleted', toDelete.length)
@@ -310,7 +306,7 @@ export class HistoryManager extends EventEmitter {
 
       // Auto-save if persistent
       if (this.mode === HistoryMode.PERSISTENT) {
-        this.savePersistent().catch(err => {
+        this.savePersistent().catch((err) => {
           logger.error('HistoryManager', 'Auto-save after batch delete failed:', err)
         })
       }
@@ -331,7 +327,7 @@ export class HistoryManager extends EventEmitter {
 
     // Delete persistent file if exists
     if (this.mode === HistoryMode.PERSISTENT && this.storage) {
-      this.storage.delete().catch(err => {
+      this.storage.delete().catch((err) => {
         logger.error('HistoryManager', 'Failed to delete persistent history:', err)
       })
     }
@@ -346,13 +342,9 @@ export class HistoryManager extends EventEmitter {
     return {
       total: entries.length,
       mode: this.mode,
-      oldestEntry: entries.length > 0
-        ? Math.min(...entries.map(e => e.visitedAt))
-        : undefined,
-      newestEntry: entries.length > 0
-        ? Math.max(...entries.map(e => e.visitedAt))
-        : undefined,
-      isLocked: false
+      oldestEntry: entries.length > 0 ? Math.min(...entries.map((e) => e.visitedAt)) : undefined,
+      newestEntry: entries.length > 0 ? Math.max(...entries.map((e) => e.visitedAt)) : undefined,
+      isLocked: false,
     }
   }
 

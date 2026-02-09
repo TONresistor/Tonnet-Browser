@@ -11,7 +11,7 @@ import { DEFAULT_BOOKMARKS } from '@shared/constants'
 export interface BookmarkFolder {
   id: string
   name: string
-  parentId: string | null  // null = root level
+  parentId: string | null // null = root level
   createdAt: number
   order: number
 }
@@ -21,7 +21,7 @@ export interface Bookmark {
   url: string
   title: string
   favicon?: string
-  folderId: string | null  // null = unfiled (root)
+  folderId: string | null // null = unfiled (root)
   createdAt: number
   order: number
 }
@@ -40,7 +40,10 @@ interface BookmarksState {
 
   // Bookmark operations
   addBookmark: (url: string, title: string, folderId?: string | null, favicon?: string) => void
-  updateBookmark: (id: string, data: { url?: string; title?: string; folderId?: string | null; favicon?: string }) => void
+  updateBookmark: (
+    id: string,
+    data: { url?: string; title?: string; folderId?: string | null; favicon?: string }
+  ) => void
   removeBookmark: (id: string) => void
   moveBookmark: (bookmarkId: string, folderId: string | null) => void
   getBookmarksByFolder: (folderId: string | null) => Bookmark[]
@@ -94,18 +97,14 @@ export const useBookmarksStore = create<BookmarksState>()(
 
       updateFolder: (id, data) => {
         set((state) => ({
-          folders: state.folders.map((f) =>
-            f.id === id ? { ...f, ...data } : f
-          ),
+          folders: state.folders.map((f) => (f.id === id ? { ...f, ...data } : f)),
         }))
       },
 
       removeFolder: (id) => {
         // Move bookmarks in this folder to unfiled
         set((state) => ({
-          bookmarks: state.bookmarks.map((b) =>
-            b.folderId === id ? { ...b, folderId: null } : b
-          ),
+          bookmarks: state.bookmarks.map((b) => (b.folderId === id ? { ...b, folderId: null } : b)),
           folders: state.folders.filter((f) => {
             // Remove folder and all subfolders
             if (f.id === id) return false
@@ -159,9 +158,7 @@ export const useBookmarksStore = create<BookmarksState>()(
 
       updateBookmark: (id, data) => {
         set((state) => ({
-          bookmarks: state.bookmarks.map((b) =>
-            b.id === id ? { ...b, ...data } : b
-          ),
+          bookmarks: state.bookmarks.map((b) => (b.id === id ? { ...b, ...data } : b)),
         }))
       },
 
@@ -173,9 +170,7 @@ export const useBookmarksStore = create<BookmarksState>()(
 
       moveBookmark: (bookmarkId, folderId) => {
         set((state) => ({
-          bookmarks: state.bookmarks.map((b) =>
-            b.id === bookmarkId ? { ...b, folderId } : b
-          ),
+          bookmarks: state.bookmarks.map((b) => (b.id === bookmarkId ? { ...b, folderId } : b)),
         }))
       },
 
@@ -192,9 +187,7 @@ export const useBookmarksStore = create<BookmarksState>()(
       searchBookmarks: (query) => {
         if (!query.trim()) return get().bookmarks
         const q = query.toLowerCase()
-        return get().bookmarks.filter((b) =>
-          b.title.toLowerCase().includes(q) || b.url.toLowerCase().includes(q)
-        )
+        return get().bookmarks.filter((b) => b.title.toLowerCase().includes(q) || b.url.toLowerCase().includes(q))
       },
 
       resetBookmarks: () => {
@@ -208,7 +201,7 @@ export const useBookmarksStore = create<BookmarksState>()(
       reorderBookmarks: (bookmarkId, targetFolderId, newIndex) => {
         set((state) => {
           // Find the bookmark being moved
-          const bookmark = state.bookmarks.find(b => b.id === bookmarkId)
+          const bookmark = state.bookmarks.find((b) => b.id === bookmarkId)
           if (!bookmark) return state
 
           const sourceFolderId = bookmark.folderId
@@ -216,12 +209,12 @@ export const useBookmarksStore = create<BookmarksState>()(
 
           // Get all bookmarks in the target folder
           let targetBookmarks = state.bookmarks
-            .filter(b => b.folderId === targetFolderId)
+            .filter((b) => b.folderId === targetFolderId)
             .sort((a, b) => a.order - b.order)
 
           // If same folder, remove the bookmark from its current position
           if (isSameFolder) {
-            targetBookmarks = targetBookmarks.filter(b => b.id !== bookmarkId)
+            targetBookmarks = targetBookmarks.filter((b) => b.id !== bookmarkId)
           }
 
           // Insert at the new position
@@ -231,15 +224,15 @@ export const useBookmarksStore = create<BookmarksState>()(
           const updatedBookmarks = targetBookmarks.map((b, idx) => ({
             ...b,
             order: idx,
-            folderId: targetFolderId
+            folderId: targetFolderId,
           }))
 
           // Update the global state
           return {
-            bookmarks: state.bookmarks.map(b => {
-              const updated = updatedBookmarks.find(ub => ub.id === b.id)
+            bookmarks: state.bookmarks.map((b) => {
+              const updated = updatedBookmarks.find((ub) => ub.id === b.id)
               return updated || b
-            })
+            }),
           }
         })
       },
@@ -247,20 +240,18 @@ export const useBookmarksStore = create<BookmarksState>()(
       reorderFolders: (folderId, newIndex, parentId) => {
         set((state) => {
           // Find the folder being moved
-          const folder = state.folders.find(f => f.id === folderId)
+          const folder = state.folders.find((f) => f.id === folderId)
           if (!folder) return state
 
           const sourceParentId = folder.parentId
           const isSameParent = sourceParentId === parentId
 
           // Get all folders with the target parent
-          let targetFolders = state.folders
-            .filter(f => f.parentId === parentId)
-            .sort((a, b) => a.order - b.order)
+          let targetFolders = state.folders.filter((f) => f.parentId === parentId).sort((a, b) => a.order - b.order)
 
           // If same parent, remove the folder from its current position
           if (isSameParent) {
-            targetFolders = targetFolders.filter(f => f.id !== folderId)
+            targetFolders = targetFolders.filter((f) => f.id !== folderId)
           }
 
           // Insert at the new position
@@ -270,15 +261,15 @@ export const useBookmarksStore = create<BookmarksState>()(
           const updatedFolders = targetFolders.map((f, idx) => ({
             ...f,
             order: idx,
-            parentId: parentId
+            parentId: parentId,
           }))
 
           // Update the global state
           return {
-            folders: state.folders.map(f => {
-              const updated = updatedFolders.find(uf => uf.id === f.id)
+            folders: state.folders.map((f) => {
+              const updated = updatedFolders.find((uf) => uf.id === f.id)
               return updated || f
-            })
+            }),
           }
         })
       },
@@ -293,7 +284,7 @@ export const useBookmarksStore = create<BookmarksState>()(
           const migratedBookmarks = persisted.bookmarks.map((b, idx) => ({
             ...b,
             // Migrate old folder references to unfiled (null)
-            folderId: (b.folderId === 'folder-ton' || b.folderId === 'folder-unsorted') ? null : (b.folderId ?? null),
+            folderId: b.folderId === 'folder-ton' || b.folderId === 'folder-unsorted' ? null : (b.folderId ?? null),
             order: b.order ?? idx,
           }))
           persisted.bookmarks = migratedBookmarks
@@ -301,9 +292,7 @@ export const useBookmarksStore = create<BookmarksState>()(
 
         // Migration: Remove old default folders
         if (persisted?.folders) {
-          persisted.folders = persisted.folders.filter(
-            (f) => f.id !== 'folder-ton' && f.id !== 'folder-unsorted'
-          )
+          persisted.folders = persisted.folders.filter((f) => f.id !== 'folder-ton' && f.id !== 'folder-unsorted')
         }
 
         // If no persisted data, use defaults

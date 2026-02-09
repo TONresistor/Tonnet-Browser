@@ -7,13 +7,13 @@
 const ALLOWED_SCHEMES = new Set(['http:', 'https:', 'ton:'])
 const BLOCKED_SCHEMES = new Set([
   'javascript:', // XSS vector
-  'data:',       // XSS vector
-  'file:',       // Local file access
-  'vbscript:',   // XSS vector
-  'blob:',       // XSS vector
-  'about:',      // Bypass proxy
-  'ws:',         // IP leak via WebSocket
-  'wss:',        // IP leak via WebSocket (secure)
+  'data:', // XSS vector
+  'file:', // Local file access
+  'vbscript:', // XSS vector
+  'blob:', // XSS vector
+  'about:', // Bypass proxy
+  'ws:', // IP leak via WebSocket
+  'wss:', // IP leak via WebSocket (secure)
 ])
 
 export function isValidNavigationUrl(url: string): { valid: boolean; error?: string } {
@@ -54,7 +54,9 @@ export function isValidBagId(bagId: string): boolean {
 
 // Security: Validate download path
 export function isValidDownloadPath(inputPath: string): { valid: boolean; error?: string } {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const path = require('path')
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const os = require('os')
 
   // Must be a non-empty string
@@ -73,8 +75,22 @@ export function isValidDownloadPath(inputPath: string): { valid: boolean; error?
   // Block system directories (Unix/Linux/macOS)
   if (process.platform !== 'win32') {
     const blockedPaths = [
-      '/bin', '/sbin', '/usr', '/etc', '/var', '/sys', '/proc', '/dev', '/boot', '/lib', '/lib64',
-      '/root', '/opt', '/srv', '/snap', '/run'
+      '/bin',
+      '/sbin',
+      '/usr',
+      '/etc',
+      '/var',
+      '/sys',
+      '/proc',
+      '/dev',
+      '/boot',
+      '/lib',
+      '/lib64',
+      '/root',
+      '/opt',
+      '/srv',
+      '/snap',
+      '/run',
     ]
     for (const blocked of blockedPaths) {
       if (normalized === blocked || normalized.startsWith(blocked + '/')) {
@@ -84,8 +100,13 @@ export function isValidDownloadPath(inputPath: string): { valid: boolean; error?
   } else {
     // Block system directories (Windows)
     const blockedPaths = [
-      'C:\\Windows', 'C:\\Program Files', 'C:\\Program Files (x86)',
-      'C:\\ProgramData', 'C:\\System', 'C:\\$', 'C:\\Boot'
+      'C:\\Windows',
+      'C:\\Program Files',
+      'C:\\Program Files (x86)',
+      'C:\\ProgramData',
+      'C:\\System',
+      'C:\\$',
+      'C:\\Boot',
     ]
     for (const blocked of blockedPaths) {
       const blockedNormalized = path.normalize(blocked).toLowerCase()
@@ -112,7 +133,7 @@ export function isValidDownloadPath(inputPath: string): { valid: boolean; error?
     allowedRoots.push('/tmp', '/home')
   }
 
-  const isAllowed = allowedRoots.some(root => root && normalized.startsWith(root))
+  const isAllowed = allowedRoots.some((root) => root && normalized.startsWith(root))
   if (!isAllowed) {
     return { valid: false, error: 'Path must be in user-accessible directory' }
   }
@@ -133,7 +154,7 @@ export class RateLimiter {
 
   check(): boolean {
     const now = Date.now()
-    this.calls = this.calls.filter(t => now - t < this.windowMs)
+    this.calls = this.calls.filter((t) => now - t < this.windowMs)
     if (this.calls.length >= this.maxCalls) {
       return false
     }

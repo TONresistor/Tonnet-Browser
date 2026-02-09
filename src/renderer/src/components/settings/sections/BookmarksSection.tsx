@@ -3,16 +3,7 @@
  */
 
 import { memo, useState, useMemo } from 'react'
-import {
-  ExternalLink,
-  RotateCcw,
-  Search,
-  Plus,
-  Edit,
-  Trash2,
-  Bookmark,
-  Globe,
-} from 'lucide-react'
+import { ExternalLink, RotateCcw, Search, Plus, Edit, Trash2, Globe } from 'lucide-react'
 import { SectionHeader } from '../shared/SectionHeader'
 import { SettingRow } from '../shared/SettingRow'
 import { FolderTree } from '@/components/bookmarks/FolderTree'
@@ -294,9 +285,7 @@ export const BookmarksSection = memo(function BookmarksSection({
                 <label className="text-sm text-muted-foreground block mb-2">{t('bookmarks.folder')}</label>
                 <select
                   value={editingBookmark.folderId ?? ''}
-                  onChange={(e) =>
-                    setEditingBookmark({ ...editingBookmark, folderId: e.target.value || null })
-                  }
+                  onChange={(e) => setEditingBookmark({ ...editingBookmark, folderId: e.target.value || null })}
                   className="w-full px-4 py-2 rounded-full border border-border bg-background text-foreground focus:ring-2 focus:ring-primary focus:outline-none"
                 >
                   <option value="">{t('bookmarks.unfiledBookmarks')}</option>

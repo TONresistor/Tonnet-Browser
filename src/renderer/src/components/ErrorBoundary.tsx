@@ -39,8 +39,7 @@ export class ErrorBoundary extends Component<Props, State> {
           <AlertTriangle className="h-16 w-16 text-red-500 mb-4" aria-hidden="true" />
           <h1 className="text-2xl font-bold mb-2">Something went wrong</h1>
           <p className="text-muted-foreground mb-4 text-center max-w-md">
-            The application encountered an unexpected error.
-            Try reloading to recover.
+            The application encountered an unexpected error. Try reloading to recover.
           </p>
           <code className="text-xs text-red-400 bg-card p-3 rounded mb-6 max-w-lg overflow-auto">
             {this.state.error?.message || 'Unknown error'}

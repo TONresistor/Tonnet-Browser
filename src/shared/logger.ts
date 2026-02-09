@@ -26,7 +26,7 @@ function shouldLog(level: LogLevel): boolean {
   return logLevels[level] >= logLevels[config.level]
 }
 
-function formatMessage(level: LogLevel, tag: string, message: string): string {
+function formatMessage(_level: LogLevel, tag: string, message: string): string {
   return `[${tag}] ${message}`
 }
 

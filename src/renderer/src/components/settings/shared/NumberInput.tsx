@@ -11,14 +11,7 @@ interface NumberInputProps {
   suffix?: string
 }
 
-export function NumberInput({
-  value,
-  onChange,
-  min,
-  max,
-  step = 1,
-  suffix,
-}: NumberInputProps) {
+export function NumberInput({ value, onChange, min, max, step = 1, suffix }: NumberInputProps) {
   return (
     <div className="flex items-center gap-2">
       <input

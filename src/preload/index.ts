@@ -39,20 +39,20 @@ const electronAPI = {
   proxy: {
     connect: () => ipcRenderer.invoke(IPC_CHANNELS.PROXY_CONNECT),
     disconnect: () => ipcRenderer.invoke(IPC_CHANNELS.PROXY_DISCONNECT),
-    status: () => ipcRenderer.invoke(IPC_CHANNELS.PROXY_STATUS)
+    status: () => ipcRenderer.invoke(IPC_CHANNELS.PROXY_STATUS),
   },
 
   // Tabs
   tabs: {
     create: (tabId: string) => ipcRenderer.invoke(IPC_CHANNELS.TAB_CREATE, tabId),
     close: (tabId: string) => ipcRenderer.invoke(IPC_CHANNELS.TAB_CLOSE, tabId),
-    switch: (tabId: string) => ipcRenderer.invoke(IPC_CHANNELS.TAB_SWITCH, tabId)
+    switch: (tabId: string) => ipcRenderer.invoke(IPC_CHANNELS.TAB_SWITCH, tabId),
   },
 
   // View (BrowserView visibility)
   view: {
     hide: () => ipcRenderer.invoke(IPC_CHANNELS.VIEW_HIDE),
-    show: () => ipcRenderer.invoke(IPC_CHANNELS.VIEW_SHOW)
+    show: () => ipcRenderer.invoke(IPC_CHANNELS.VIEW_SHOW),
   },
 
   // Bookmark context menu
@@ -60,10 +60,8 @@ const electronAPI = {
     ipcRenderer.invoke(IPC_CHANNELS.BOOKMARK_SHOW_MENU, id, title, url),
 
   // Folder dropdown menu
-  showFolderMenu: (
-    folderId: string,
-    bookmarks: Array<{ id: string; title: string; url: string }>
-  ) => ipcRenderer.invoke(IPC_CHANNELS.FOLDER_SHOW_MENU, folderId, bookmarks),
+  showFolderMenu: (folderId: string, bookmarks: Array<{ id: string; title: string; url: string }>) =>
+    ipcRenderer.invoke(IPC_CHANNELS.FOLDER_SHOW_MENU, folderId, bookmarks),
 
   // Folder context menu
   showFolderContextMenu: (folderId: string, folderName: string) =>
@@ -91,14 +89,14 @@ const electronAPI = {
     setDownloadPath: (path: string) => ipcRenderer.invoke(IPC_CHANNELS.STORAGE_SET_DOWNLOAD_PATH, path),
     selectDownloadFolder: () => ipcRenderer.invoke(IPC_CHANNELS.STORAGE_SELECT_DOWNLOAD_FOLDER),
     openFolder: (bagId: string) => ipcRenderer.invoke(IPC_CHANNELS.STORAGE_OPEN_FOLDER, bagId),
-    showFile: (bagId: string, fileName: string) => ipcRenderer.invoke(IPC_CHANNELS.STORAGE_SHOW_FILE, bagId, fileName)
+    showFile: (bagId: string, fileName: string) => ipcRenderer.invoke(IPC_CHANNELS.STORAGE_SHOW_FILE, bagId, fileName),
   },
 
   // Window controls
   window: {
     minimize: () => ipcRenderer.invoke(IPC_CHANNELS.WINDOW_MINIMIZE),
     maximize: () => ipcRenderer.invoke(IPC_CHANNELS.WINDOW_MAXIMIZE),
-    close: () => ipcRenderer.invoke(IPC_CHANNELS.WINDOW_CLOSE)
+    close: () => ipcRenderer.invoke(IPC_CHANNELS.WINDOW_CLOSE),
   },
 
   // Immediate sidebar width update (for real-time resize)
@@ -121,7 +119,8 @@ const electronAPI = {
     search: (query: string, limit?: number) => ipcRenderer.invoke(IPC_CHANNELS.HISTORY_SEARCH, query, limit),
     getRecent: (limit?: number) => ipcRenderer.invoke(IPC_CHANNELS.HISTORY_GET_RECENT, limit),
     getTop: (limit?: number) => ipcRenderer.invoke(IPC_CHANNELS.HISTORY_GET_TOP, limit),
-    getByDate: (startDate: number, endDate: number) => ipcRenderer.invoke(IPC_CHANNELS.HISTORY_GET_BY_DATE, startDate, endDate),
+    getByDate: (startDate: number, endDate: number) =>
+      ipcRenderer.invoke(IPC_CHANNELS.HISTORY_GET_BY_DATE, startDate, endDate),
     delete: (id: string) => ipcRenderer.invoke(IPC_CHANNELS.HISTORY_DELETE, id),
     deletePattern: (pattern: string) => ipcRenderer.invoke(IPC_CHANNELS.HISTORY_DELETE_PATTERN, pattern),
     clear: () => ipcRenderer.invoke(IPC_CHANNELS.HISTORY_CLEAR),
@@ -146,7 +145,7 @@ const electronAPI = {
     if (VALID_EVENT_CHANNELS.includes(channel)) {
       ipcRenderer.removeAllListeners(channel)
     }
-  }
+  },
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to renderer

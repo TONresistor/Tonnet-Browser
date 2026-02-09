@@ -3,17 +3,14 @@
  */
 
 import { memo, useState } from 'react'
-import { Shield, Plus, X } from 'lucide-react'
+import { Plus, X } from 'lucide-react'
 import { SectionHeader } from '../shared/SectionHeader'
 import { SettingRow } from '../shared/SettingRow'
 import { Toggle } from '../shared/Toggle'
 import type { SectionProps } from '../types'
 import { useTranslation } from 'react-i18next'
 
-export const ContentFilteringSection = memo(function ContentFilteringSection({
-  draft,
-  setDraft,
-}: SectionProps) {
+export const ContentFilteringSection = memo(function ContentFilteringSection({ draft, setDraft }: SectionProps) {
   const { t } = useTranslation('settings')
   const [newDomain, setNewDomain] = useState('')
 
@@ -26,7 +23,10 @@ export const ContentFilteringSection = memo(function ContentFilteringSection({
   }
 
   const handleRemoveDomain = (domain: string) => {
-    setDraft('whitelistedDomains', draft.whitelistedDomains.filter((d) => d !== domain))
+    setDraft(
+      'whitelistedDomains',
+      draft.whitelistedDomains.filter((d) => d !== domain)
+    )
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -38,10 +38,7 @@ export const ContentFilteringSection = memo(function ContentFilteringSection({
 
   return (
     <div>
-      <SectionHeader
-        title={t('contentFiltering.title')}
-        description={t('contentFiltering.description')}
-      />
+      <SectionHeader title={t('contentFiltering.title')} description={t('contentFiltering.description')} />
       <div className="bg-card rounded-xl border border-border px-4">
         <SettingRow
           label={t('contentFiltering.enableFiltering')}
@@ -56,10 +53,7 @@ export const ContentFilteringSection = memo(function ContentFilteringSection({
 
         {draft.contentFilteringEnabled && (
           <>
-            <SettingRow
-              label={t('contentFiltering.blockAds')}
-              description={t('contentFiltering.blockAdsDesc')}
-            >
+            <SettingRow label={t('contentFiltering.blockAds')} description={t('contentFiltering.blockAdsDesc')}>
               <Toggle
                 checked={draft.blockAds}
                 onChange={(v) => setDraft('blockAds', v)}
@@ -78,10 +72,7 @@ export const ContentFilteringSection = memo(function ContentFilteringSection({
               />
             </SettingRow>
 
-            <SettingRow
-              label={t('contentFiltering.blockMiners')}
-              description={t('contentFiltering.blockMinersDesc')}
-            >
+            <SettingRow label={t('contentFiltering.blockMiners')} description={t('contentFiltering.blockMinersDesc')}>
               <Toggle
                 checked={draft.blockMiners}
                 onChange={(v) => setDraft('blockMiners', v)}
@@ -89,10 +80,7 @@ export const ContentFilteringSection = memo(function ContentFilteringSection({
               />
             </SettingRow>
 
-            <SettingRow
-              label={t('contentFiltering.blockMalware')}
-              description={t('contentFiltering.blockMalwareDesc')}
-            >
+            <SettingRow label={t('contentFiltering.blockMalware')} description={t('contentFiltering.blockMalwareDesc')}>
               <Toggle
                 checked={draft.blockMalware}
                 onChange={(v) => setDraft('blockMalware', v)}

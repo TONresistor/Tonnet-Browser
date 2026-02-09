@@ -4,17 +4,7 @@
  */
 
 import { useState, useEffect, useRef } from 'react'
-import {
-  Plus,
-  Search,
-  HardDrive,
-  X,
-  Settings,
-  FileText,
-  Info,
-  Folder,
-  FolderOpen,
-} from 'lucide-react'
+import { Plus, Search, HardDrive, X, Settings, FileText, Info, Folder, FolderOpen } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { StorageBag } from '@shared/types'
 import { cn } from '@/lib/utils'
@@ -173,9 +163,10 @@ export function StoragePage() {
     try {
       const result = await window.electron.storage.getBagDetails(bagId)
       if (result.success && result.details) {
+        const details = result.details as BagDetails
         setBagDetails({
-          files: result.details.files || [],
-          path: result.details.path || '',
+          files: details.files || [],
+          path: details.path || '',
         })
       } else {
         setBagDetails(null)
@@ -223,10 +214,7 @@ export function StoragePage() {
     // Apply search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase()
-      return (
-        bag.name.toLowerCase().includes(query) ||
-        bag.id.toLowerCase().includes(query)
-      )
+      return bag.name.toLowerCase().includes(query) || bag.id.toLowerCase().includes(query)
     }
     return true
   })
@@ -254,11 +242,7 @@ export function StoragePage() {
 
         {/* Filters */}
         <div className="space-y-2 mb-6 mt-4">
-          <FilterButton
-            active={filter === 'all'}
-            onClick={() => setFilter('all')}
-            count={counts.all}
-          >
+          <FilterButton active={filter === 'all'} onClick={() => setFilter('all')} count={counts.all}>
             {t('storage.filters.all')}
           </FilterButton>
           <FilterButton
@@ -268,11 +252,7 @@ export function StoragePage() {
           >
             {t('storage.filters.downloading')}
           </FilterButton>
-          <FilterButton
-            active={filter === 'complete'}
-            onClick={() => setFilter('complete')}
-            count={counts.complete}
-          >
+          <FilterButton active={filter === 'complete'} onClick={() => setFilter('complete')} count={counts.complete}>
             {t('storage.filters.complete')}
           </FilterButton>
         </div>
@@ -293,9 +273,7 @@ export function StoragePage() {
       <div className="flex-1 flex flex-col min-w-0">
         {/* Search Bar */}
         <div className="p-4 border-b border-border flex justify-end">
-          <div
-            className="w-64 flex items-center rounded-full px-3 bg-surface-hover backdrop-blur-[20px] border border-border-medium shadow-[inset_0_1px_0_hsl(var(--surface-hover))]"
-          >
+          <div className="w-64 flex items-center rounded-full px-3 bg-surface-hover backdrop-blur-[20px] border border-border-medium shadow-[inset_0_1px_0_hsl(var(--surface-hover))]">
             <Search className="h-4 w-4 text-muted-foreground" />
             <input
               value={searchQuery}
@@ -318,9 +296,7 @@ export function StoragePage() {
             <div className="p-4">
               <table className="w-full" style={{ borderCollapse: 'separate', borderSpacing: '0 8px' }}>
                 <thead>
-                  <tr
-                    className="text-left text-xs text-muted-foreground uppercase tracking-wider bg-surface backdrop-blur-[10px]"
-                  >
+                  <tr className="text-left text-xs text-muted-foreground uppercase tracking-wider bg-surface backdrop-blur-[10px]">
                     <th className="px-4 py-3 font-medium rounded-l-full">{t('storage.table.name')}</th>
                     <th className="px-4 py-3 font-medium w-24">{t('storage.table.size')}</th>
                     <th className="px-4 py-3 font-medium w-40">{t('storage.table.progress')}</th>
@@ -382,9 +358,7 @@ export function StoragePage() {
                 <div className="grid grid-cols-2 gap-x-8 gap-y-2 text-sm">
                   <div className="flex">
                     <span className="text-muted-foreground w-24">{t('storage.info.id')}</span>
-                    <span className="text-foreground/80 font-mono text-xs break-all">
-                      {selectedBag.id}
-                    </span>
+                    <span className="text-foreground/80 font-mono text-xs break-all">{selectedBag.id}</span>
                   </div>
                   <div className="flex">
                     <span className="text-muted-foreground w-24">{t('storage.info.size')}</span>
@@ -396,7 +370,9 @@ export function StoragePage() {
                   </div>
                   <div className="flex">
                     <span className="text-muted-foreground w-24">{t('storage.info.status')}</span>
-                    <span className="text-foreground">{t(`storage.status.${selectedBag.status}`, selectedBag.status)}</span>
+                    <span className="text-foreground">
+                      {t(`storage.status.${selectedBag.status}`, selectedBag.status)}
+                    </span>
                   </div>
                   <div className="flex">
                     <span className="text-muted-foreground w-24">{t('storage.info.peers')}</span>
@@ -420,7 +396,9 @@ export function StoragePage() {
                       onClick={() => handleOpenFolder(selectedBag.id)}
                       className="flex items-center gap-2 text-muted-foreground text-xs hover:text-primary transition-colors cursor-pointer group text-left"
                     >
-                      <span className="break-all">{bagDetails?.path || `~/Downloads/TON-Storage/${selectedBag.id.slice(0, 16)}`}</span>
+                      <span className="break-all">
+                        {bagDetails?.path || `~/Downloads/TON-Storage/${selectedBag.id.slice(0, 16)}`}
+                      </span>
                       <FolderOpen className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
                     </button>
                   </div>
@@ -454,7 +432,6 @@ export function StoragePage() {
             </div>
           </div>
         )}
-
       </div>
 
       {/* Add Bag Modal */}
@@ -483,7 +460,9 @@ export function StoragePage() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-4">
-              <h3 id="add-bag-title" className="text-foreground font-semibold text-lg">{t('storage.addModal.title')}</h3>
+              <h3 id="add-bag-title" className="text-foreground font-semibold text-lg">
+                {t('storage.addModal.title')}
+              </h3>
               <button
                 type="button"
                 onClick={() => {
@@ -497,9 +476,7 @@ export function StoragePage() {
               </button>
             </div>
 
-            <p className="text-muted-foreground text-sm mb-4">
-              {t('storage.addModal.bagIdDescription')}
-            </p>
+            <p className="text-muted-foreground text-sm mb-4">{t('storage.addModal.bagIdDescription')}</p>
 
             <div className="mb-4">
               <label className="block text-muted-foreground text-xs uppercase tracking-wider mb-2">
@@ -521,9 +498,7 @@ export function StoragePage() {
                 className={`w-full px-3 py-2 bg-background-secondary border rounded-md text-foreground placeholder:text-muted-foreground/50 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-primary ${bagIdError ? 'border-destructive' : 'border-border'}`}
                 autoFocus
               />
-              {bagIdError && (
-                <p className="mt-2 text-destructive text-xs">{bagIdError}</p>
-              )}
+              {bagIdError && <p className="mt-2 text-destructive text-xs">{bagIdError}</p>}
             </div>
 
             <div className="flex gap-3">
@@ -577,9 +552,7 @@ function FilterButton({
       )}
     >
       <span className={active ? '' : 'text-muted-foreground'}>{children}</span>
-      <span className={cn('text-xs', active ? 'text-foreground' : 'text-muted-foreground')}>
-        {count}
-      </span>
+      <span className={cn('text-xs', active ? 'text-foreground' : 'text-muted-foreground')}>{count}</span>
     </button>
   )
 }
@@ -617,9 +590,7 @@ function BagRow({
       </td>
       <td className="px-4 py-3">
         <div className="flex items-center gap-2">
-          <div
-            className="flex-1 h-2 rounded-full overflow-hidden bg-surface-hover shadow-[inset_0_1px_2px_hsl(var(--shadow-color)/0.2)]"
-          >
+          <div className="flex-1 h-2 rounded-full overflow-hidden bg-surface-hover shadow-[inset_0_1px_2px_hsl(var(--shadow-color)/0.2)]">
             <div
               className={cn(
                 'h-full rounded-full transition-all duration-300',
@@ -637,9 +608,7 @@ function BagRow({
         <StatusBadge status={bag.status} />
       </td>
       <td className="px-4 py-3">
-        <span className="text-muted-foreground text-sm">
-          {bag.filesCount ?? '-'}
-        </span>
+        <span className="text-muted-foreground text-sm">{bag.filesCount ?? '-'}</span>
       </td>
       <td className="px-4 py-3 rounded-r-full">
         <button
@@ -668,9 +637,5 @@ function StatusBadge({ status }: { status: StorageBag['status'] }) {
 
   const { className, label } = config[status]
 
-  return (
-    <span className={cn('text-xs', className)}>
-      {label}
-    </span>
-  )
+  return <span className={cn('text-xs', className)}>{label}</span>
 }

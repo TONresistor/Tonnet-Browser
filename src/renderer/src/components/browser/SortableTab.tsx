@@ -32,14 +32,7 @@ export const SortableTab = memo(function SortableTab({
   sidebarWidth,
 }: SortableTabProps) {
   const { t } = useTranslation('browser')
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: tab.id })
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: tab.id })
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -67,7 +60,7 @@ export const SortableTab = memo(function SortableTab({
           ? 'bg-surface-active border-border-medium text-foreground'
           : 'bg-surface border-transparent text-foreground-muted hover:bg-surface-hover hover:text-foreground'
       } ${isNarrow ? 'justify-center' : ''}`}
-      onClick={(e) => {
+      onClick={(_e) => {
         // Only activate if not dragging
         if (!isDragging) {
           onActivate(tab.id)

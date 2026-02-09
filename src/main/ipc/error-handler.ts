@@ -24,7 +24,7 @@ class IpcErrorHandler {
       timestamp: Date.now(),
       channel,
       error: error.message,
-      stack: error.stack
+      stack: error.stack,
     }
 
     this.errorLogs.push(errorLog)
@@ -74,7 +74,7 @@ class IpcErrorHandler {
         // Return standardized error response
         return {
           success: false,
-          error: err.message
+          error: err.message,
         }
       }
     }

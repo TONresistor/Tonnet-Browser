@@ -26,13 +26,13 @@ export function DroppableFolder({ folder, onClick, onContextMenu }: DroppableFol
     isDragging,
   } = useSortable({
     id: folder.id,
-    data: { type: 'folder' }
+    data: { type: 'folder' },
   })
 
   // Also make it droppable (can receive bookmarks)
   const { setNodeRef: setDroppableRef, isOver } = useDroppable({
     id: `droppable-${folder.id}`,
-    data: { type: 'folder', folderId: folder.id }
+    data: { type: 'folder', folderId: folder.id },
   })
 
   const style = {
@@ -57,12 +57,13 @@ export function DroppableFolder({ folder, onClick, onContextMenu }: DroppableFol
       className={`
         px-3 py-1.5 rounded-full text-sm transition-all duration-200 shrink-0
         flex items-center gap-1
-        ${isOver
-          ? 'bg-primary/20 text-foreground ring-2 ring-primary scale-105'
-          : 'bg-surface text-foreground-muted hover:bg-surface-active hover:text-foreground'
+        ${
+          isOver
+            ? 'bg-primary/20 text-foreground ring-2 ring-primary scale-105'
+            : 'bg-surface text-foreground-muted hover:bg-surface-active hover:text-foreground'
         }
       `}
-      onClick={(e) => {
+      onClick={(_e) => {
         // Only open dropdown if not dragging
         if (!isDragging) {
           onClick()

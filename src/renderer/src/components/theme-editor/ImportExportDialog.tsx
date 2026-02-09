@@ -45,10 +45,7 @@ export function ImportDialog({ onImport, onClose }: ImportDialogProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-        onClick={onClose}
-      />
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
 
       <div className="relative bg-card border border-border rounded-xl shadow-2xl w-[500px] overflow-hidden">
         {/* Header */}
@@ -68,9 +65,7 @@ export function ImportDialog({ onImport, onClose }: ImportDialogProps) {
         {/* Content */}
         <div className="p-6 space-y-4">
           <div>
-            <label className="block text-sm font-medium mb-2">
-              Theme JSON
-            </label>
+            <label className="block text-sm font-medium mb-2">Theme JSON</label>
             <textarea
               value={json}
               onChange={(e) => {
@@ -97,12 +92,7 @@ export function ImportDialog({ onImport, onClose }: ImportDialogProps) {
             <label className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface hover:bg-surface-hover cursor-pointer transition-colors">
               <Upload className="w-4 h-4" />
               <span className="text-sm">Upload JSON file</span>
-              <input
-                type="file"
-                accept=".json"
-                onChange={handleFileUpload}
-                className="hidden"
-              />
+              <input type="file" accept=".json" onChange={handleFileUpload} className="hidden" />
             </label>
           </div>
 
@@ -165,10 +155,7 @@ export function ExportDialog({ themeJson, themeName, onClose }: ExportDialogProp
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-        onClick={onClose}
-      />
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
 
       <div className="relative bg-card border border-border rounded-xl shadow-2xl w-[500px] overflow-hidden">
         {/* Header */}
@@ -188,9 +175,7 @@ export function ExportDialog({ themeJson, themeName, onClose }: ExportDialogProp
         {/* Content */}
         <div className="p-6 space-y-4">
           <div>
-            <label className="block text-sm font-medium mb-2">
-              {themeName}
-            </label>
+            <label className="block text-sm font-medium mb-2">{themeName}</label>
             <pre className="w-full h-48 px-3 py-2 rounded-lg bg-background border border-border font-mono text-xs overflow-auto">
               {themeJson}
             </pre>

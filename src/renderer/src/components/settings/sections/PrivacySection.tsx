@@ -62,20 +62,14 @@ export const PrivacySection = memo(function PrivacySection({
             label={t('privacy.disableCacheLabel')}
           />
         </SettingRow>
-        <SettingRow
-          label={t('privacy.firstPartyIsolation')}
-          description={t('privacy.firstPartyIsolationDesc')}
-        >
+        <SettingRow label={t('privacy.firstPartyIsolation')} description={t('privacy.firstPartyIsolationDesc')}>
           <Toggle
             checked={draft.firstPartyIsolation}
             onChange={(v) => setDraft('firstPartyIsolation', v)}
             label={t('privacy.firstPartyIsolationLabel')}
           />
         </SettingRow>
-        <SettingRow
-          label={t('privacy.cookieAutoDelete')}
-          description={t('privacy.cookieAutoDeleteDesc')}
-        >
+        <SettingRow label={t('privacy.cookieAutoDelete')} description={t('privacy.cookieAutoDeleteDesc')}>
           <Toggle
             checked={draft.cookieAutoDelete}
             onChange={(v) => setDraft('cookieAutoDelete', v)}
@@ -83,10 +77,7 @@ export const PrivacySection = memo(function PrivacySection({
           />
         </SettingRow>
         {draft.cookieAutoDelete && (
-          <SettingRow
-            label={t('privacy.autoDeleteTimeout')}
-            description={t('privacy.autoDeleteTimeoutDesc')}
-          >
+          <SettingRow label={t('privacy.autoDeleteTimeout')} description={t('privacy.autoDeleteTimeoutDesc')}>
             <input
               type="number"
               min={1}

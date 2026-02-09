@@ -19,30 +19,28 @@ import pagesEn from './locales/en/pages.json'
 const loadedLanguages = new Set<string>(['en'])
 
 // Initialize i18next with English only
-i18n
-  .use(initReactI18next)
-  .init({
-    resources: {
-      en: {
-        common: commonEn,
-        landing: landingEn,
-        browser: browserEn,
-        settings: settingsEn,
-        storage: storageEn,
-        pages: pagesEn,
-      },
+i18n.use(initReactI18next).init({
+  resources: {
+    en: {
+      common: commonEn,
+      landing: landingEn,
+      browser: browserEn,
+      settings: settingsEn,
+      storage: storageEn,
+      pages: pagesEn,
     },
-    lng: 'en', // Default language (will be overridden by settings)
-    fallbackLng: 'en',
-    defaultNS: 'common',
-    ns: ['common', 'landing', 'browser', 'settings', 'storage', 'pages'],
-    interpolation: {
-      escapeValue: false, // React already escapes
-    },
-    react: {
-      useSuspense: false, // Disable suspense for Electron compatibility
-    },
-  })
+  },
+  lng: 'en', // Default language (will be overridden by settings)
+  fallbackLng: 'en',
+  defaultNS: 'common',
+  ns: ['common', 'landing', 'browser', 'settings', 'storage', 'pages'],
+  interpolation: {
+    escapeValue: false, // React already escapes
+  },
+  react: {
+    useSuspense: false, // Disable suspense for Electron compatibility
+  },
+})
 
 /**
  * Dynamically load a language and its translations

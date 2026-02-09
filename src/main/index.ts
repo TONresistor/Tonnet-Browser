@@ -142,8 +142,8 @@ function createWindow(): void {
       preload: join(__dirname, '../preload/index.mjs'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false  // Main window loads trusted local UI only; BrowserView has sandbox: true for untrusted content
-    }
+      sandbox: false, // Main window loads trusted local UI only; BrowserView has sandbox: true for untrusted content
+    },
   })
 
   // Register window with our module for IPC handlers
@@ -157,9 +157,9 @@ function createWindow(): void {
         responseHeaders: {
           ...details.responseHeaders,
           'Content-Security-Policy': [
-            "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'"
-          ]
-        }
+            "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'",
+          ],
+        },
       })
     })
   }
@@ -171,7 +171,7 @@ function createWindow(): void {
     }
     mainWindow.show()
     // Open DevTools only in dev mode (not preview)
-    if (import.meta.env.DEV) {
+    if (process.env.NODE_ENV !== 'production') {
       mainWindow.webContents.openDevTools({ mode: 'detach' })
     }
 
@@ -185,13 +185,13 @@ function createWindow(): void {
         await storageManager.start()
         logger.info('App', 'Auto-connect complete')
         // Notify renderer of connection status
-        mainWindow.webContents.send('proxy:status', { status: 'connected', ...proxyManager.getStatus() })
+        mainWindow.webContents.send('proxy:status', proxyManager.getStatus())
       } catch (error) {
         logger.error('App', `Auto-connect failed: ${String(error)}`)
         // Notify renderer of connection failure (field name matches ProxyStatus.error)
         mainWindow.webContents.send('proxy:status', {
           status: 'error',
-          error: error instanceof Error ? error.message : String(error)
+          error: error instanceof Error ? error.message : String(error),
         })
       }
     }
@@ -236,8 +236,8 @@ app.whenReady().then(() => {
           { role: 'hideOthers' },
           { role: 'unhide' },
           { type: 'separator' },
-          { role: 'quit' }
-        ]
+          { role: 'quit' },
+        ],
       },
       {
         label: 'Edit',
@@ -248,8 +248,8 @@ app.whenReady().then(() => {
           { role: 'cut' },
           { role: 'copy' },
           { role: 'paste' },
-          { role: 'selectAll' }
-        ]
+          { role: 'selectAll' },
+        ],
       },
       {
         label: 'View',
@@ -261,18 +261,13 @@ app.whenReady().then(() => {
           { role: 'zoomIn' },
           { role: 'zoomOut' },
           { type: 'separator' },
-          { role: 'togglefullscreen' }
-        ]
+          { role: 'togglefullscreen' },
+        ],
       },
       {
         label: 'Window',
-        submenu: [
-          { role: 'minimize' },
-          { role: 'zoom' },
-          { type: 'separator' },
-          { role: 'front' }
-        ]
-      }
+        submenu: [{ role: 'minimize' }, { role: 'zoom' }, { type: 'separator' }, { role: 'front' }],
+      },
     ]
     Menu.setApplicationMenu(Menu.buildFromTemplate(template))
   }

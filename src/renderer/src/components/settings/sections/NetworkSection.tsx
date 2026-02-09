@@ -18,20 +18,10 @@ export const NetworkSection = memo(function NetworkSection({ draft, setDraft }: 
       <SectionHeader title={t('network.title')} description={t('network.description')} />
       <div className="bg-card rounded-xl border border-border px-4">
         <SettingRow label={t('network.proxyPort')} description={t('network.proxyPortDesc')}>
-          <NumberInput
-            value={draft.proxyPort}
-            onChange={(v) => setDraft('proxyPort', v)}
-            min={1024}
-            max={65535}
-          />
+          <NumberInput value={draft.proxyPort} onChange={(v) => setDraft('proxyPort', v)} min={1024} max={65535} />
         </SettingRow>
         <SettingRow label={t('network.storageApiPort')} description={t('network.storageApiPortDesc')}>
-          <NumberInput
-            value={draft.storagePort}
-            onChange={(v) => setDraft('storagePort', v)}
-            min={1024}
-            max={65535}
-          />
+          <NumberInput value={draft.storagePort} onChange={(v) => setDraft('storagePort', v)} min={1024} max={65535} />
         </SettingRow>
         <SettingRow label={t('network.autoConnect')} description={t('network.autoConnectDesc')}>
           <Toggle

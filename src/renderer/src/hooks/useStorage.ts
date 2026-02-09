@@ -25,42 +25,51 @@ export function useStorage() {
     }
   }, [])
 
-  const addBag = useCallback(async (bagId: string, name?: string) => {
-    setError(null)
-    try {
-      const result = await window.electron.storage.addBag(bagId, name)
-      if (result.success) {
-        await refresh()
-        return true
-      } else {
-        setError(result.error ?? 'Failed to add bag')
+  const addBag = useCallback(
+    async (bagId: string, name?: string) => {
+      setError(null)
+      try {
+        const result = await window.electron.storage.addBag(bagId, name)
+        if (result.success) {
+          await refresh()
+          return true
+        } else {
+          setError(result.error ?? 'Failed to add bag')
+          return false
+        }
+      } catch (err) {
+        setError((err as Error).message)
         return false
       }
-    } catch (err) {
-      setError((err as Error).message)
-      return false
-    }
-  }, [refresh])
+    },
+    [refresh]
+  )
 
-  const removeBag = useCallback(async (bagId: string) => {
-    try {
-      const result = await window.electron.storage.removeBag(bagId)
-      if (result.success) {
-        await refresh()
+  const removeBag = useCallback(
+    async (bagId: string) => {
+      try {
+        const result = await window.electron.storage.removeBag(bagId)
+        if (result.success) {
+          await refresh()
+        }
+      } catch (err) {
+        setError((err as Error).message)
       }
-    } catch (err) {
-      setError((err as Error).message)
-    }
-  }, [refresh])
+    },
+    [refresh]
+  )
 
-  const pauseBag = useCallback(async (bagId: string) => {
-    try {
-      await window.electron.storage.pauseBag(bagId)
-      await refresh()
-    } catch (err) {
-      setError((err as Error).message)
-    }
-  }, [refresh])
+  const pauseBag = useCallback(
+    async (bagId: string) => {
+      try {
+        await window.electron.storage.pauseBag(bagId)
+        await refresh()
+      } catch (err) {
+        setError((err as Error).message)
+      }
+    },
+    [refresh]
+  )
 
   // Initial load
   useEffect(() => {
