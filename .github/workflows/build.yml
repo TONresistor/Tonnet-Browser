@@ -31,7 +31,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: rm -f package-lock.json && npm install
+        run: node -e "try{require('fs').unlinkSync('package-lock.json')}catch{}" && npm install
 
       - name: Type check
         run: npm run type-check
