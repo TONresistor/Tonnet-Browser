@@ -3,7 +3,7 @@
  * Browser chrome with tabs, navigation, and content area.
  */
 
-import { useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { NavigationButtons } from '@/components/browser/NavigationButtons'
 import { AddressBar } from '@/components/browser/AddressBar'
 import { WindowControls } from '@/components/browser/WindowControls'
@@ -13,9 +13,9 @@ import { StatusBar } from '@/components/browser/StatusBar'
 import { ResizablePanel } from '@/components/browser/ResizablePanel'
 import { LandingPage } from '@/components/pages/LandingPage'
 import { StartPage } from '@/components/pages/StartPage'
-import { StoragePage } from '@/components/pages/StoragePage'
-import { SettingsPage } from '@/components/pages/SettingsPage'
-import { HistoryPage } from '@/components/pages/HistoryPage'
+const StoragePage = lazy(() => import('@/components/pages/StoragePage').then((m) => ({ default: m.StoragePage })))
+const SettingsPage = lazy(() => import('@/components/pages/SettingsPage').then((m) => ({ default: m.SettingsPage })))
+const HistoryPage = lazy(() => import('@/components/pages/HistoryPage').then((m) => ({ default: m.HistoryPage })))
 import { useSettingsStore } from '@/stores/settings'
 import { useTabsStore } from '@/stores/tabs'
 import { usePreferencesStore } from '@/stores/preferences'
@@ -23,8 +23,6 @@ import { useThemeStore } from '@/stores/themes'
 import { applyCustomTheme, removeCustomTheme } from '@/lib/theme-utils'
 import { Settings, HardDrive } from 'lucide-react'
 import Lottie from 'lottie-react'
-import loadingAnimation from '@/assets/loading.json'
-import loadingYellowAnimation from '@/assets/loading-yellow.json'
 import { Button } from '@/components/ui/button'
 import i18n, { loadLanguage } from '@/i18n'
 import { useTranslation } from 'react-i18next'
@@ -44,6 +42,8 @@ function App() {
 
   // Track current sidebar width in real-time during resize
   const [currentSidebarWidth, setCurrentSidebarWidth] = useState(savedSidebarWidth)
+
+  const [animationData, setAnimationData] = useState<any>(null)
 
   // Debounce timer for settings save
   const settingsSaveTimer = useRef<NodeJS.Timeout | null>(null)
@@ -86,6 +86,16 @@ function App() {
       removeCustomTheme()
       document.documentElement.setAttribute('data-theme', theme)
     }
+  }, [theme, customThemes])
+
+  useEffect(() => {
+    const isLight = theme === 'utya-duck' ||
+      (theme.startsWith('custom:') &&
+        customThemes.find((t) => t.id === theme.replace('custom:', ''))?.isDark === false)
+    const importAnimation = isLight
+      ? import('@/assets/loading-yellow.json')
+      : import('@/assets/loading.json')
+    importAnimation.then((mod) => setAnimationData(mod.default))
   }, [theme, customThemes])
 
   // Create default tab when proxy connects
@@ -248,12 +258,6 @@ function App() {
   const isInternalPage = currentUrl.startsWith('ton://')
   const internalPage = currentUrl.replace('ton://', '')
 
-  // Determine loading animation based on theme type
-  const isLightTheme = theme === 'utya-duck' ||
-    (theme.startsWith('custom:') &&
-      customThemes.find((t) => t.id === theme.replace('custom:', ''))?.isDark === false)
-  const currentLoadingAnimation = isLightTheme ? loadingYellowAnimation : loadingAnimation
-
   const renderContent = () => {
     // Show landing page if not connected
     if (!proxyConnected && (internalPage === 'start' || !isInternalPage)) {
@@ -264,7 +268,7 @@ function App() {
       // External page - BrowserView handles this, this is just a background
       return (
         <div className="w-full h-full flex flex-col items-center justify-center bg-background-secondary">
-          <Lottie animationData={currentLoadingAnimation} className="w-64 h-64" loop autoplay />
+          <Lottie animationData={animationData} className="w-64 h-64" loop autoplay />
         </div>
       )
     }
@@ -282,7 +286,7 @@ function App() {
       case 'loading':
         return (
           <div className="w-full h-full flex flex-col items-center justify-center bg-background-secondary">
-            <Lottie animationData={currentLoadingAnimation} className="w-64 h-64" loop autoplay />
+            <Lottie animationData={animationData} className="w-64 h-64" loop autoplay />
           </div>
         )
       default:
@@ -374,7 +378,13 @@ function App() {
 
         {/* Content Area */}
         <div className="flex-1 overflow-auto min-h-0">
-          {renderContent()}
+          <Suspense fallback={
+            <div className="w-full h-full flex flex-col items-center justify-center bg-background-secondary">
+              <Lottie animationData={animationData} className="w-64 h-64" loop autoplay />
+            </div>
+          }>
+            {renderContent()}
+          </Suspense>
         </div>
       </div>
 

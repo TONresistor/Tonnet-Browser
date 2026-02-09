@@ -4,7 +4,7 @@
  * Features history-based autocomplete suggestions.
  */
 
-import { useState, useEffect, FormEvent, useRef, useMemo } from 'react'
+import { useState, useEffect, FormEvent, useRef, useMemo, memo, useCallback } from 'react'
 import { Lock, Star, Loader2, Clock, History } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -24,9 +24,10 @@ interface HistorySuggestion {
   visitCount: number
 }
 
-export function AddressBar() {
+export const AddressBar = memo(function AddressBar() {
   const { t } = useTranslation('browser')
-  const { currentUrl, isLoading } = useSettingsStore()
+  const currentUrl = useSettingsStore((s) => s.currentUrl)
+  const isLoading = useSettingsStore((s) => s.isLoading)
   const { bookmarks, addBookmark, removeBookmark } = useBookmarksStore()
   const { navigateActiveTab, tabs, activeTabId } = useTabsStore()
   const [input, setInput] = useState('')
@@ -94,7 +95,7 @@ export function AddressBar() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = useCallback((e: FormEvent) => {
     e.preventDefault()
 
     // If suggestion is selected, use it
@@ -114,9 +115,9 @@ export function AddressBar() {
     // Process navigation input (handles TON domain auto-completion)
     const finalUrl = processNavigationInput(navigateUrl)
     navigateActiveTab(finalUrl)
-  }
+  }, [selectedIndex, suggestions, navigateActiveTab, input])
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (!showSuggestions || suggestions.length === 0) return
 
     switch (e.key) {
@@ -136,15 +137,15 @@ export function AddressBar() {
         // handleSubmit will handle the selected suggestion
         break
     }
-  }
+  }, [showSuggestions, suggestions.length])
 
-  const handleSuggestionClick = (suggestion: HistorySuggestion) => {
+  const handleSuggestionClick = useCallback((suggestion: HistorySuggestion) => {
     navigateActiveTab(suggestion.url)
     setShowSuggestions(false)
     setInput(stripHttpPrefix(suggestion.url))
-  }
+  }, [navigateActiveTab])
 
-  const toggleBookmark = () => {
+  const toggleBookmark = useCallback(() => {
     if (isBookmarked) {
       const bookmark = bookmarks.find((b) => b.url === currentUrl)
       if (bookmark) {
@@ -158,7 +159,7 @@ export function AddressBar() {
       // Use hostname as bookmark name (e.g., "example.ton")
       addBookmark(currentUrl, getHostname(currentUrl), null, favicon)
     }
-  }
+  }, [isBookmarked, bookmarks, currentUrl, removeBookmark, tabs, activeTabId, addBookmark])
 
   return (
     <form onSubmit={handleSubmit} className="flex items-center gap-2 flex-1 min-w-[400px] no-drag" role="search">
@@ -266,4 +267,4 @@ export function AddressBar() {
       </div>
     </form>
   )
-}
+})
