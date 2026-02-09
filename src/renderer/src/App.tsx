@@ -18,7 +18,7 @@ import { SettingsPage } from '@/components/pages/SettingsPage'
 import { HistoryPage } from '@/components/pages/HistoryPage'
 import { useSettingsStore } from '@/stores/settings'
 import { useTabsStore } from '@/stores/tabs'
-import { usePreferences, usePreferencesStore } from '@/stores/preferences'
+import { usePreferencesStore } from '@/stores/preferences'
 import { useThemeStore } from '@/stores/themes'
 import { applyCustomTheme, removeCustomTheme } from '@/lib/theme-utils'
 import { Settings, HardDrive } from 'lucide-react'
@@ -33,7 +33,12 @@ function App() {
   const { t } = useTranslation('common')
   const { currentUrl, proxyConnected } = useSettingsStore()
   const { activeTabId, updateTab, openOrSwitchToTab, ensureDefaultTab } = useTabsStore()
-  const { showBookmarksBar, showStatusBar, theme, language, tabOrientation, sidebarWidth: savedSidebarWidth } = usePreferences()
+  const showBookmarksBar = usePreferencesStore((s) => s.saved.showBookmarksBar)
+  const showStatusBar = usePreferencesStore((s) => s.saved.showStatusBar)
+  const theme = usePreferencesStore((s) => s.saved.theme)
+  const language = usePreferencesStore((s) => s.saved.language)
+  const tabOrientation = usePreferencesStore((s) => s.saved.tabOrientation)
+  const savedSidebarWidth = usePreferencesStore((s) => s.saved.sidebarWidth)
   const { setDraft } = usePreferencesStore()
   const customThemes = useThemeStore((state) => state.customThemes)
 

@@ -5,7 +5,8 @@
 
 import { app, BrowserWindow, shell, screen, session, Menu, clipboard } from 'electron'
 import { join } from 'path'
-import { existsSync, readFileSync, writeFileSync } from 'fs'
+import { existsSync, readFileSync } from 'fs'
+import { writeFile } from 'fs/promises'
 import { EventEmitter } from 'events'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { registerIpcHandlers } from './ipc/handlers'
@@ -68,6 +69,7 @@ interface WindowBounds {
 }
 
 const boundsFile = join(app.getPath('userData'), 'window-bounds.json')
+let saveBoundsTimer: ReturnType<typeof setTimeout> | null = null
 
 function loadWindowBounds(): Partial<WindowBounds> {
   try {
@@ -106,15 +108,20 @@ function loadWindowBounds(): Partial<WindowBounds> {
 }
 
 function saveWindowBounds(win: BrowserWindow): void {
-  try {
-    const bounds: WindowBounds = {
-      ...win.getBounds(),
-      isMaximized: win.isMaximized(),
+  if (saveBoundsTimer) clearTimeout(saveBoundsTimer)
+  saveBoundsTimer = setTimeout(() => {
+    try {
+      const bounds: WindowBounds = {
+        ...win.getBounds(),
+        isMaximized: win.isMaximized(),
+      }
+      writeFile(boundsFile, JSON.stringify(bounds)).catch((err) => {
+        logger.error('Window', `Failed to save bounds: ${String(err)}`)
+      })
+    } catch (err) {
+      logger.error('Window', `Failed to save bounds: ${String(err)}`)
     }
-    writeFileSync(boundsFile, JSON.stringify(bounds))
-  } catch (err) {
-    logger.error('Window', `Failed to save bounds: ${String(err)}`)
-  }
+  }, 500)
 }
 
 function createWindow(): void {

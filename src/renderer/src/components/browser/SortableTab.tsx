@@ -13,10 +13,10 @@ import { useTranslation } from 'react-i18next'
 interface SortableTabProps {
   tab: Tab
   isActive: boolean
-  onActivate: () => void
-  onClose: (e: React.MouseEvent) => void
-  onContextMenu: (e: React.MouseEvent) => void
-  onKeyDown: (e: React.KeyboardEvent) => void
+  onActivate: (tabId: string) => void
+  onClose: (e: React.MouseEvent, tabId: string) => void
+  onContextMenu: (e: React.MouseEvent, tabId: string) => void
+  onKeyDown: (e: React.KeyboardEvent, tabId: string) => void
   isVertical?: boolean
   sidebarWidth?: number
 }
@@ -70,11 +70,11 @@ export const SortableTab = memo(function SortableTab({
       onClick={(e) => {
         // Only activate if not dragging
         if (!isDragging) {
-          onActivate()
+          onActivate(tab.id)
         }
       }}
-      onKeyDown={onKeyDown}
-      onContextMenu={onContextMenu}
+      onKeyDown={(e) => onKeyDown(e, tab.id)}
+      onContextMenu={(e) => onContextMenu(e, tab.id)}
       aria-label={`Tab: ${tab.title || t('tabs.newTab')}. Press space to start dragging.`}
     >
       {/* Favicon with optional close overlay in narrow mode */}
@@ -97,7 +97,7 @@ export const SortableTab = memo(function SortableTab({
             className="absolute inset-0 opacity-0 group-hover:opacity-100 focus:opacity-100 rounded-full transition-opacity flex items-center justify-center bg-surface-active"
             aria-label={`Close ${tab.title || t('tabs.closeTab')}`}
             tabIndex={0}
-            onClick={onClose}
+            onClick={(e) => onClose(e, tab.id)}
           >
             <X className="h-3.5 w-3.5" />
           </button>
@@ -129,7 +129,7 @@ export const SortableTab = memo(function SortableTab({
           className="opacity-0 group-hover:opacity-100 focus:opacity-100 hover:bg-surface-active rounded-full p-0.5 transition-opacity"
           aria-label={`Close ${tab.title || t('tabs.closeTab')}`}
           tabIndex={0}
-          onClick={onClose}
+          onClick={(e) => onClose(e, tab.id)}
         >
           <X className="h-3.5 w-3.5" />
         </button>

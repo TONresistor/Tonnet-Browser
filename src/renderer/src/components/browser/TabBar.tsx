@@ -25,7 +25,7 @@ import { Plus, Globe } from 'lucide-react'
 import { useTabs } from '@/hooks/useTabs'
 import { SortableTab } from './SortableTab'
 import { useTranslation } from 'react-i18next'
-import { usePreferences } from '@/stores/preferences'
+import { usePreferencesStore } from '@/stores/preferences'
 
 interface ContextMenuState {
   tabId: string
@@ -40,7 +40,7 @@ interface TabBarProps {
 export const TabBar = memo(function TabBar({ sidebarWidth }: TabBarProps) {
   const { t } = useTranslation('browser')
   const { tabs, activeTabId, addTab, closeTab, setActiveTab, duplicateTab, closeOtherTabs, reorderTabs } = useTabs()
-  const { tabOrientation } = usePreferences()
+  const tabOrientation = usePreferencesStore((s) => s.saved.tabOrientation)
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
   const [activeId, setActiveId] = useState<string | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -152,6 +152,36 @@ export const TabBar = memo(function TabBar({ sidebarWidth }: TabBarProps) {
     [tabs, setActiveTab, closeTab, isVertical]
   )
 
+  const handleActivate = useCallback((tabId: string) => setActiveTab(tabId), [setActiveTab])
+  const handleClose = useCallback((e: React.MouseEvent, tabId: string) => {
+    e.stopPropagation()
+    closeTab(tabId)
+  }, [closeTab])
+  const handleContextMenuCb = useCallback((e: React.MouseEvent, tabId: string) => handleContextMenu(e, tabId), [])
+  const handleKeyDownCb = useCallback((e: React.KeyboardEvent, tabId: string) => handleTabKeyDown(e, tabId), [handleTabKeyDown])
+
+  const announcements = useMemo(() => ({
+    onDragStart({ active }) {
+      const tab = tabs.find((t) => t.id === active.id)
+      return t('tabs.pickedUp', { title: tab?.title || t('tabs.newTab') })
+    },
+    onDragOver({ active, over }) {
+      if (!over) return ''
+      const activeTab = tabs.find((t) => t.id === active.id)
+      const overTab = tabs.find((t) => t.id === over.id)
+      return t('tabs.dragOver', { activeTitle: activeTab?.title, overTitle: overTab?.title })
+    },
+    onDragEnd({ active, over }) {
+      if (!over) return t('tabs.dragCancelled')
+      const tab = tabs.find((t) => t.id === active.id)
+      return t('tabs.reordered', { title: tab?.title })
+    },
+    onDragCancel({ active }) {
+      const tab = tabs.find((t) => t.id === active.id)
+      return t('tabs.dragCancelledFull', { title: tab?.title })
+    },
+  }), [tabs, t])
+
   return (
     <div
       className={`flex gap-1.5 px-2 py-1.5 ${isVertical ? 'flex-col flex-1 overflow-y-auto' : 'items-center'}`}
@@ -163,29 +193,7 @@ export const TabBar = memo(function TabBar({ sidebarWidth }: TabBarProps) {
         collisionDetection={closestCenter}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
-        accessibility={{
-          announcements: {
-            onDragStart({ active }) {
-              const tab = tabs.find((t) => t.id === active.id)
-              return t('tabs.pickedUp', { title: tab?.title || t('tabs.newTab') })
-            },
-            onDragOver({ active, over }) {
-              if (!over) return ''
-              const activeTab = tabs.find((t) => t.id === active.id)
-              const overTab = tabs.find((t) => t.id === over.id)
-              return t('tabs.dragOver', { activeTitle: activeTab?.title, overTitle: overTab?.title })
-            },
-            onDragEnd({ active, over }) {
-              if (!over) return t('tabs.dragCancelled')
-              const tab = tabs.find((t) => t.id === active.id)
-              return t('tabs.reordered', { title: tab?.title })
-            },
-            onDragCancel({ active }) {
-              const tab = tabs.find((t) => t.id === active.id)
-              return t('tabs.dragCancelledFull', { title: tab?.title })
-            },
-          },
-        }}
+        accessibility={{ announcements }}
       >
         <SortableContext
           items={tabIds}
@@ -196,13 +204,10 @@ export const TabBar = memo(function TabBar({ sidebarWidth }: TabBarProps) {
               key={tab.id}
               tab={tab}
               isActive={tab.id === activeTabId}
-              onActivate={() => setActiveTab(tab.id)}
-              onClose={(e) => {
-                e.stopPropagation()
-                closeTab(tab.id)
-              }}
-              onContextMenu={(e) => handleContextMenu(e, tab.id)}
-              onKeyDown={(e) => handleTabKeyDown(e, tab.id)}
+              onActivate={handleActivate}
+              onClose={handleClose}
+              onContextMenu={handleContextMenuCb}
+              onKeyDown={handleKeyDownCb}
               isVertical={isVertical}
               sidebarWidth={sidebarWidth}
             />

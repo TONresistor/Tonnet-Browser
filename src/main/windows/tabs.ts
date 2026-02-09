@@ -723,7 +723,7 @@ export function getTabCount(): number {
 }
 
 export function destroyAllTabs(): void {
-  views.forEach((view, tabId) => {
+  Array.from(views.keys()).forEach((tabId) => {
     closeTab(tabId)
   })
 }
