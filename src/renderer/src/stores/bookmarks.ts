@@ -34,7 +34,7 @@ interface BookmarksState {
   addFolder: (name: string, parentId: string | null) => string | null
   updateFolder: (id: string, data: { name?: string; parentId?: string | null }) => void
   removeFolder: (id: string) => void
-  getFolderDepth: (folderId: string | null) => number
+  getFolderDepth: (folderId: string | null, visited?: Set<string>) => number
   getSubfolders: (parentId: string | null) => BookmarkFolder[]
   reorderFolders: (folderId: string, newIndex: number, parentId: string | null) => void
 
@@ -119,11 +119,14 @@ export const useBookmarksStore = create<BookmarksState>()(
         }))
       },
 
-      getFolderDepth: (folderId) => {
+      getFolderDepth: (folderId, visited: Set<string> = new Set()) => {
         if (!folderId) return 0
+        if (visited.has(folderId)) return 10
+        visited.add(folderId)
         const folder = get().folders.find((f) => f.id === folderId)
         if (!folder) return 0
-        return 1 + get().getFolderDepth(folder.parentId)
+        const depth = 1 + get().getFolderDepth(folder.parentId, visited)
+        return depth > 10 ? 10 : depth
       },
 
       getSubfolders: (parentId) => {

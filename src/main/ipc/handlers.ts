@@ -471,7 +471,11 @@ export function registerIpcHandlers(): void {
     const menu = Menu.buildFromTemplate([
       {
         label: 'Open in new tab',
-        click: () => win.webContents.send('bookmark:open-new-tab', url)
+        click: () => {
+          if (isValidNavigationUrl(url).valid) {
+            win.webContents.send('bookmark:open-new-tab', url)
+          }
+        }
       },
       {
         label: 'Edit',
@@ -498,7 +502,7 @@ export function registerIpcHandlers(): void {
       const menuItems = bookmarks.map((bookmark) => ({
         label: bookmark.title,
         click: () => {
-          // Navigate directly in the active tab (main process handles it)
+          if (!isValidNavigationUrl(bookmark.url).valid) return
           const activeTabId = getActiveTabId()
           if (activeTabId) {
             navigateInTab(activeTabId, bookmark.url)

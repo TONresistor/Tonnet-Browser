@@ -46,7 +46,9 @@ export class ProxyManager extends EventEmitter {
     this.port = safePort
     this.anonymousMode = network.anonymousMode
     this.circuitRotation = network.circuitRotation
-    this.rotateInterval = network.rotateInterval
+    this.rotateInterval = /^\d+[smh]$/.test(network.rotateInterval)
+      ? network.rotateInterval
+      : '10m'
 
     this.setStatus('starting')
 
@@ -59,8 +61,8 @@ export class ProxyManager extends EventEmitter {
       const args = ['--auto', '--listen', `127.0.0.1:${safePort}`]
 
       // Add circuit rotation if enabled
-      if (network.circuitRotation && network.rotateInterval) {
-        args.push(`--rotate=${network.rotateInterval}`)
+      if (network.circuitRotation && this.rotateInterval) {
+        args.push(`--rotate=${this.rotateInterval}`)
         logger.info('ProxyManager', `Circuit rotation: ${network.rotateInterval}`)
       }
 
@@ -130,7 +132,9 @@ export class ProxyManager extends EventEmitter {
 
   private startSyncCheck(): void {
     const { network, advanced } = this.loadSettings()
-    const testDomain = advanced.syncTestDomain
+    const testDomain = /^[a-zA-Z0-9.-]+$/.test(advanced.syncTestDomain)
+      ? advanced.syncTestDomain
+      : 'foundation.ton'
     const interval = network.syncCheckInterval
 
     const checkSync = (): Promise<boolean> => {

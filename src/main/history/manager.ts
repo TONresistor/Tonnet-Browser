@@ -265,8 +265,8 @@ export class HistoryManager extends EventEmitter {
    */
   deleteByPattern(pattern: string): number {
     // Anti-ReDoS protection: validate pattern complexity
-    if (!pattern || pattern.length > 200) {
-      throw new Error('Pattern must be between 1-200 characters')
+    if (!pattern || pattern.length > 500) {
+      return 0
     }
 
     // Detect potentially dangerous patterns (catastrophic backtracking)
