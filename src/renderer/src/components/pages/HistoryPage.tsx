@@ -5,6 +5,7 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { Search, Trash2, Clock, ExternalLink, Filter, History } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { useTabsStore } from '../../stores/tabs'
 import { ErrorBoundary } from '../ErrorBoundary'
 import Lottie from 'lottie-react'
@@ -30,6 +31,7 @@ interface HistoryStats {
 type TimeFilter = 'today' | 'week' | 'month' | 'all'
 
 export function HistoryPage() {
+  const { t } = useTranslation('pages')
   const [entries, setEntries] = useState<HistoryEntry[]>([])
   const [stats, setStats] = useState<HistoryStats | null>(null)
   const [query, setQuery] = useState('')
@@ -97,7 +99,7 @@ export function HistoryPage() {
   }
 
   const handleClearAll = async () => {
-    if (!confirm('Clear all history? This action is irreversible.')) {
+    if (!confirm(t('history.clearConfirm.message'))) {
       return
     }
 
@@ -122,7 +124,7 @@ export function HistoryPage() {
 
     const entriesToDelete = await window.electron.history.getByDate(start.getTime(), now)
 
-    if (!confirm(`Clear ${entriesToDelete.length} entr${entriesToDelete.length > 1 ? 'ies' : 'y'} from the last ${range === 'hour' ? 'hour' : range === 'day' ? 'day' : 'week'}?`)) {
+    if (!confirm(t('history.clearConfirm.clearRange', { count: entriesToDelete.length, entries: entriesToDelete.length > 1 ? t('history.entries.plural') : t('history.entries.singular'), range: t(`history.timeRange.${range}`) }))) {
       return
     }
 
@@ -151,35 +153,35 @@ export function HistoryPage() {
 
     // Less than 1 minute
     if (diff < 60000) {
-      return 'Just now'
+      return t('history.timeFormat.justNow')
     }
 
     // Less than 1 hour
     if (diff < 3600000) {
       const minutes = Math.floor(diff / 60000)
-      return `${minutes} min ago`
+      return t('history.timeFormat.minuteAgo', { count: minutes })
     }
 
     // Less than 1 day
     if (diff < 86400000) {
       const hours = Math.floor(diff / 3600000)
-      return `${hours}h ago`
+      return t('history.timeFormat.hourAgo', { count: hours })
     }
 
     // Same year
     if (date.getFullYear() === now.getFullYear()) {
-      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+      return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
     }
 
     // Different year
-    return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+    return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
   }
 
   // Group entries by date (memoized to avoid recalculation on every render)
   const groupedEntries = useMemo(() => {
     return entries.reduce((groups, entry) => {
       const date = new Date(entry.visitedAt)
-      const dateKey = date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+      const dateKey = date.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
 
       if (!groups[dateKey]) {
         groups[dateKey] = []
@@ -197,7 +199,7 @@ export function HistoryPage() {
       <div className="mb-8">
         <div className="flex items-center gap-3">
           <History className="w-8 h-8 text-primary" />
-          <h1 className="text-3xl font-bold text-foreground">Browsing History</h1>
+          <h1 className="text-3xl font-bold text-foreground">{t('history.title')}</h1>
         </div>
       </div>
 
@@ -209,7 +211,7 @@ export function HistoryPage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <input
               type="text"
-              placeholder="Search history..."
+              placeholder={t('history.search')}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border border-border rounded-full focus:ring-2 focus:ring-primary focus:border-transparent bg-background text-foreground"
@@ -224,10 +226,10 @@ export function HistoryPage() {
               onChange={(e) => setTimeFilter(e.target.value as TimeFilter)}
               className="px-3 py-2 border border-border rounded-full focus:ring-2 focus:ring-primary focus:border-transparent bg-background text-foreground"
             >
-              <option value="all">All history</option>
-              <option value="today">Today</option>
-              <option value="week">This week</option>
-              <option value="month">This month</option>
+              <option value="all">{t('history.filters.all')}</option>
+              <option value="today">{t('history.filters.today')}</option>
+              <option value="week">{t('history.filters.thisWeek')}</option>
+              <option value="month">{t('history.filters.thisMonth')}</option>
             </select>
           </div>
 
@@ -237,20 +239,20 @@ export function HistoryPage() {
               onClick={() => handleClearTimeRange('hour')}
               className="px-3 py-2 text-sm border border-border rounded-full hover:bg-surface-hover transition-colors text-foreground"
             >
-              Clear last hour
+              {t('history.actions.clearLastHour')}
             </button>
             <button
               onClick={() => handleClearTimeRange('day')}
               className="px-3 py-2 text-sm border border-border rounded-full hover:bg-surface-hover transition-colors text-foreground"
             >
-              Clear last day
+              {t('history.actions.clearLastDay')}
             </button>
             <button
               onClick={handleClearAll}
               className="px-3 py-2 text-sm bg-destructive text-white rounded-full hover:bg-destructive/90 transition-colors flex items-center gap-2"
             >
               <Trash2 className="w-4 h-4" />
-              Clear all
+              {t('history.actions.clearAll')}
             </button>
           </div>
         </div>
@@ -260,16 +262,16 @@ export function HistoryPage() {
       {isLoading ? (
         <div className="flex flex-col items-center justify-center py-12">
           <Lottie animationData={explorerAnimation} className="w-32 h-32 mb-4" loop autoplay />
-          <p className="text-muted-foreground">Loading history...</p>
+          <p className="text-muted-foreground">{t('history.loading')}</p>
         </div>
       ) : entries.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12">
           <Lottie animationData={explorerAnimation} className="w-40 h-40 mb-6" loop autoplay />
           <h3 className="text-lg font-semibold text-foreground mb-2">
-            {query ? 'No results found' : 'No history yet'}
+            {query ? t('history.empty.noResults') : t('history.empty.title')}
           </h3>
           <p className="text-sm text-muted-foreground">
-            {query ? 'Try a different search term' : 'Your visited pages will appear here'}
+            {query ? t('history.empty.tryDifferent') : t('history.empty.description')}
           </p>
         </div>
       ) : (
@@ -309,7 +311,7 @@ export function HistoryPage() {
                           </button>
                           {entry.visitCount > 1 && (
                             <span className="text-xs text-muted-foreground flex-shrink-0">
-                              ({entry.visitCount} visits)
+                              {t('history.visitsCount', { count: entry.visitCount })}
                             </span>
                           )}
                         </div>
@@ -328,17 +330,17 @@ export function HistoryPage() {
                           <button
                             onClick={() => openInNewTab(entry.url)}
                             className="p-2 hover:bg-surface-active rounded transition-colors"
-                            title="Open in new tab"
+                            title={t('history.actions.openInNewTab')}
                           >
                             <ExternalLink className="w-4 h-4 text-foreground" />
                           </button>
                           <button
                             onClick={() => copyUrl(entry.url, entry.id)}
                             className="p-2 hover:bg-surface-active rounded transition-colors relative"
-                            title="Copy URL"
+                            title={t('history.actions.copyUrl')}
                           >
                             {copiedId === entry.id ? (
-                              <span className="text-xs text-green-600 font-medium whitespace-nowrap">Copied!</span>
+                              <span className="text-xs text-green-600 font-medium whitespace-nowrap">{t('history.copied')}</span>
                             ) : (
                               <svg className="w-4 h-4 text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
@@ -348,7 +350,7 @@ export function HistoryPage() {
                           <button
                             onClick={() => handleDelete(entry.id)}
                             className="p-2 hover:bg-destructive/10 rounded transition-colors"
-                            title="Delete"
+                            title={t('history.actions.delete')}
                           >
                             <Trash2 className="w-4 h-4 text-destructive" />
                           </button>

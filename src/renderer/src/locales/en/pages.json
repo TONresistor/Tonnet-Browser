@@ -14,22 +14,26 @@
     "tabs": {
       "active": "Active",
       "completed": "Completed",
-      "info": "Info"
+      "info": "Info",
+      "files": "Files"
     },
     "filters": {
       "all": "All",
       "downloading": "Downloading",
+      "complete": "Complete",
       "seeding": "Seeding",
       "paused": "Paused"
     },
     "actions": {
+      "addBag": "Add Bag",
       "addTorrent": "Add Torrent",
       "pause": "Pause",
       "resume": "Resume",
       "remove": "Remove",
       "openFolder": "Open Folder",
       "copyBagId": "Copy Bag ID",
-      "details": "Details"
+      "details": "Details",
+      "settings": "Settings"
     },
     "table": {
       "name": "Name",
@@ -39,25 +43,28 @@
       "upload": "Upload",
       "peers": "Peers",
       "status": "Status",
+      "files": "Files",
       "added": "Added"
     },
     "status": {
-      "downloading": "Downloading",
+      "downloading": "downloading",
       "seeding": "Seeding",
-      "paused": "Paused",
-      "completed": "Completed",
-      "error": "Error",
+      "paused": "paused",
+      "completed": "completed",
+      "error": "error",
       "checking": "Checking",
       "queued": "Queued"
     },
     "addModal": {
-      "title": "Add TON Storage Torrent",
+      "title": "Add Bag",
       "bagIdLabel": "Bag ID",
-      "bagIdPlaceholder": "Enter bag ID or drag and drop torrent file...",
+      "bagIdPlaceholder": "Paste bag ID (64 hex characters)...",
+      "bagIdDescription": "Enter the Bag ID to start downloading. You can find bag IDs on TON sites or from other users.",
       "downloadPathLabel": "Download Path",
       "autoStartLabel": "Start download automatically",
       "cancel": "Cancel",
-      "add": "Add",
+      "add": "Add Bag",
+      "adding": "Adding...",
       "browse": "Browse"
     },
     "info": {
@@ -69,17 +76,29 @@
       "uploadSpeed": "Upload Speed",
       "ratio": "Share Ratio",
       "connectedPeers": "Connected Peers",
-      "diskSpace": "Disk Space"
+      "diskSpace": "Disk Space",
+      "id": "ID",
+      "size": "Size",
+      "downloaded": "Downloaded",
+      "status": "Status",
+      "peers": "Peers",
+      "files": "Files",
+      "download": "Download",
+      "upload": "Upload",
+      "path": "Path"
     },
+    "searchBags": "Search bags...",
     "empty": {
-      "title": "No active downloads",
-      "description": "Add content via Bag ID or torrent file to get started",
+      "title": "No bags yet",
+      "description": "Click \"+ Add Bag\" to get started",
       "action": "Add Torrent"
     },
+    "loadingFiles": "Loading files...",
+    "noFiles": "No files found or metadata not yet loaded",
     "errors": {
-      "invalidBagId": "Invalid Bag ID",
+      "invalidBagId": "Invalid Bag ID. Must be 64 hexadecimal characters.",
       "downloadFailed": "Download failed",
-      "addFailed": "Failed to add torrent",
+      "addFailed": "Failed to add bag. Please try again.",
       "removeFailed": "Failed to remove",
       "noSpace": "Insufficient disk space"
     }
@@ -88,19 +107,25 @@
     "title": "Browsing History",
     "description": "Your browsing history and visit records",
     "search": "Search history...",
+    "loading": "Loading history...",
     "filters": {
-      "all": "All Time",
+      "all": "All history",
       "today": "Today",
       "yesterday": "Yesterday",
-      "thisWeek": "This Week",
-      "thisMonth": "This Month",
+      "thisWeek": "This week",
+      "thisMonth": "This month",
       "older": "Older"
     },
     "actions": {
-      "clearAll": "Clear All History",
+      "clearAll": "Clear all",
+      "clearLastHour": "Clear last hour",
+      "clearLastDay": "Clear last day",
       "clearToday": "Clear Today",
       "clearSelected": "Clear Selected",
-      "export": "Export History"
+      "export": "Export History",
+      "openInNewTab": "Open in new tab",
+      "copyUrl": "Copy URL",
+      "delete": "Delete"
     },
     "table": {
       "title": "Title",
@@ -109,17 +134,31 @@
       "lastVisit": "Last Visit"
     },
     "empty": {
-      "title": "No history",
-      "description": "Websites you visit will appear here",
+      "title": "No history yet",
+      "noResults": "No results found",
+      "description": "Your visited pages will appear here",
+      "tryDifferent": "Try a different search term",
       "allCleared": "All history cleared"
     },
     "clearConfirm": {
       "title": "Clear history?",
-      "message": "This action cannot be undone.",
+      "message": "Clear all history? This action is irreversible.",
       "clearAll": "This will delete all browsing history.",
+      "clearRange": "Clear {{count}} {{entries}} from the last {{range}}?",
       "clearSelected": "This will delete {{count}} selected items.",
       "cancel": "Cancel",
       "confirm": "Clear"
+    },
+    "copied": "Copied!",
+    "visitsCount": "({{count}} visits)",
+    "entries": {
+      "singular": "entry",
+      "plural": "entries"
+    },
+    "timeRange": {
+      "hour": "hour",
+      "day": "day",
+      "week": "week"
     },
     "stats": {
       "totalVisits": "Total Visits",
@@ -129,6 +168,8 @@
     },
     "timeFormat": {
       "justNow": "Just now",
+      "minuteAgo": "{{count}} min ago",
+      "hourAgo": "{{count}}h ago",
       "minutesAgo": "{{count}} minutes ago",
       "hoursAgo": "{{count}} hours ago",
       "yesterday": "Yesterday",

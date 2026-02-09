@@ -57,6 +57,8 @@ export function BookmarksBar() {
   const [editModal, setEditModal] = useState<EditModal | null>(null)
   const [renameModal, setRenameModal] = useState<RenameModal | null>(null)
   const [activeId, setActiveId] = useState<string | null>(null)
+  const editModalRef = useRef<HTMLDivElement>(null)
+  const renameModalRef = useRef<HTMLDivElement>(null)
 
   // Use refs to avoid re-registering listeners
   const addTabRef = useRef(addTab)
@@ -92,6 +94,74 @@ export function BookmarksBar() {
       window.electron.view.show()
     }
   }, [editModal, renameModal])
+
+  // Focus trap for edit modal
+  useEffect(() => {
+    if (!editModal) return
+
+    const modal = editModalRef.current
+    if (!modal) return
+
+    const focusableSelector = 'input, button, select, textarea, [tabindex]:not([tabindex="-1"])'
+    const focusableElements = modal.querySelectorAll<HTMLElement>(focusableSelector)
+    const firstFocusable = focusableElements[0]
+    const lastFocusable = focusableElements[focusableElements.length - 1]
+
+    firstFocusable?.focus()
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Tab') {
+        if (e.shiftKey) {
+          if (document.activeElement === firstFocusable) {
+            e.preventDefault()
+            lastFocusable?.focus()
+          }
+        } else {
+          if (document.activeElement === lastFocusable) {
+            e.preventDefault()
+            firstFocusable?.focus()
+          }
+        }
+      }
+    }
+
+    modal.addEventListener('keydown', handleKeyDown)
+    return () => modal.removeEventListener('keydown', handleKeyDown)
+  }, [editModal])
+
+  // Focus trap for rename modal
+  useEffect(() => {
+    if (!renameModal) return
+
+    const modal = renameModalRef.current
+    if (!modal) return
+
+    const focusableSelector = 'input, button, select, textarea, [tabindex]:not([tabindex="-1"])'
+    const focusableElements = modal.querySelectorAll<HTMLElement>(focusableSelector)
+    const firstFocusable = focusableElements[0]
+    const lastFocusable = focusableElements[focusableElements.length - 1]
+
+    firstFocusable?.focus()
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Tab') {
+        if (e.shiftKey) {
+          if (document.activeElement === firstFocusable) {
+            e.preventDefault()
+            lastFocusable?.focus()
+          }
+        } else {
+          if (document.activeElement === lastFocusable) {
+            e.preventDefault()
+            firstFocusable?.focus()
+          }
+        }
+      }
+    }
+
+    modal.addEventListener('keydown', handleKeyDown)
+    return () => modal.removeEventListener('keydown', handleKeyDown)
+  }, [renameModal])
 
   // Listen for IPC events from main process - only once
   useEffect(() => {
@@ -376,6 +446,7 @@ export function BookmarksBar() {
           aria-labelledby="edit-bookmark-title"
         >
           <div
+            ref={editModalRef}
             className="rounded-2xl p-5 w-full max-w-sm mx-4 bg-background/85 backdrop-blur-xl border border-border-medium shadow-2xl font-sans"
             onClick={(e) => e.stopPropagation()}
           >
@@ -427,6 +498,7 @@ export function BookmarksBar() {
           aria-labelledby="rename-folder-title"
         >
           <div
+            ref={renameModalRef}
             className="rounded-2xl p-5 w-full max-w-sm mx-4 bg-background/85 backdrop-blur-xl border border-border-medium shadow-2xl font-sans"
             onClick={(e) => e.stopPropagation()}
           >

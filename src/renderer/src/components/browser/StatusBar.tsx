@@ -26,8 +26,8 @@ function formatBytes(bytes: number): string {
   return `${(bytes / Math.pow(k, i)).toFixed(1)} ${sizes[i]}`
 }
 
-function formatTime(date: Date): string {
-  return date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+function formatTime(date: Date, locale?: string): string {
+  return date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', second: '2-digit' })
 }
 
 // Separator component
@@ -36,7 +36,7 @@ function Separator() {
 }
 
 export const StatusBar = memo(function StatusBar() {
-  const { t } = useTranslation('browser')
+  const { t, i18n } = useTranslation('browser')
   const { proxyConnected, proxySyncing, anonymousMode, circuitRelays, storageStats, setProxyStatus, setStorageStats } = useSettingsStore()
   const [currentTime, setCurrentTime] = useState(new Date())
   const [bandwidth, setBandwidth] = useState({ down: 0, up: 0 })
@@ -220,7 +220,7 @@ export const StatusBar = memo(function StatusBar() {
       <div className="flex items-center gap-3">
         <span aria-label={`Version ${APP_VERSION}`}>v{APP_VERSION}</span>
         <Separator />
-        <span className="text-foreground">{formatTime(currentTime)}</span>
+        <span className="text-foreground">{formatTime(currentTime, i18n.language)}</span>
       </div>
     </footer>
   )

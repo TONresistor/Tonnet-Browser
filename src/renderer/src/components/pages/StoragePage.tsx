@@ -3,7 +3,7 @@
  * Add, remove, pause, and monitor bags.
  */
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
   Plus,
   Search,
@@ -15,6 +15,7 @@ import {
   Folder,
   FolderOpen,
 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import type { StorageBag } from '@shared/types'
 import { cn } from '@/lib/utils'
 import { useSettingsStore } from '@/stores/settings'
@@ -48,6 +49,7 @@ interface BagDetails {
 }
 
 export function StoragePage() {
+  const { t } = useTranslation('pages')
   const [bags, setBags] = useState<StorageBag[]>([])
   const [filter, setFilter] = useState<FilterType>('all')
   const [searchQuery, setSearchQuery] = useState('')
@@ -59,6 +61,7 @@ export function StoragePage() {
   const [newBagId, setNewBagId] = useState('')
   const [bagIdError, setBagIdError] = useState('')
   const [isAdding, setIsAdding] = useState(false)
+  const addModalRef = useRef<HTMLDivElement>(null)
 
   // Load bags on mount and listen for real-time updates
   useEffect(() => {
@@ -75,6 +78,40 @@ export function StoragePage() {
       unsubscribe()
     }
   }, [])
+
+  // Focus trap for add bag modal
+  useEffect(() => {
+    if (!showAddModal) return
+
+    const modal = addModalRef.current
+    if (!modal) return
+
+    const focusableSelector = 'input, button, select, textarea, [tabindex]:not([tabindex="-1"])'
+    const focusableElements = modal.querySelectorAll<HTMLElement>(focusableSelector)
+    const firstFocusable = focusableElements[0]
+    const lastFocusable = focusableElements[focusableElements.length - 1]
+
+    firstFocusable?.focus()
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Tab') {
+        if (e.shiftKey) {
+          if (document.activeElement === firstFocusable) {
+            e.preventDefault()
+            lastFocusable?.focus()
+          }
+        } else {
+          if (document.activeElement === lastFocusable) {
+            e.preventDefault()
+            firstFocusable?.focus()
+          }
+        }
+      }
+    }
+
+    modal.addEventListener('keydown', handleKeyDown)
+    return () => modal.removeEventListener('keydown', handleKeyDown)
+  }, [showAddModal])
 
   const loadBags = async () => {
     try {
@@ -95,7 +132,7 @@ export function StoragePage() {
 
     // Validate bag ID format
     if (!BAG_ID_REGEX.test(trimmedId)) {
-      setBagIdError('Invalid Bag ID. Must be 64 hexadecimal characters.')
+      setBagIdError(t('storage.errors.invalidBagId'))
       return
     }
 
@@ -112,7 +149,7 @@ export function StoragePage() {
       }
     } catch (err) {
       console.error('Failed to add bag:', err)
-      setBagIdError('Failed to add bag. Please try again.')
+      setBagIdError(t('storage.errors.addFailed'))
     } finally {
       setIsAdding(false)
     }
@@ -205,14 +242,14 @@ export function StoragePage() {
     <div className="flex h-full bg-background-secondary" style={{ fontFamily: 'Inter, sans-serif' }}>
       {/* Sidebar */}
       <div className="w-56 border-r border-border p-4 flex flex-col">
-        <h2 className="text-foreground text-xl font-bold mb-4">TON Storage</h2>
+        <h2 className="text-foreground text-xl font-bold mb-4">{t('storage.title')}</h2>
 
         <button
           onClick={() => setShowAddModal(true)}
           className="w-full flex items-center justify-center gap-2 py-2.5 rounded-full text-sm font-medium transition-all duration-200 hover:scale-[1.02] bg-primary/90 backdrop-blur-[10px] text-primary-foreground shadow-[0_4px_16px_hsl(var(--primary)/0.4),inset_0_1px_0_hsl(var(--foreground)/0.2)]"
         >
           <Plus className="h-4 w-4" />
-          Add Bag
+          {t('storage.actions.addBag')}
         </button>
 
         {/* Filters */}
@@ -222,21 +259,21 @@ export function StoragePage() {
             onClick={() => setFilter('all')}
             count={counts.all}
           >
-            All
+            {t('storage.filters.all')}
           </FilterButton>
           <FilterButton
             active={filter === 'downloading'}
             onClick={() => setFilter('downloading')}
             count={counts.downloading}
           >
-            Downloading
+            {t('storage.filters.downloading')}
           </FilterButton>
           <FilterButton
             active={filter === 'complete'}
             onClick={() => setFilter('complete')}
             count={counts.complete}
           >
-            Complete
+            {t('storage.filters.complete')}
           </FilterButton>
         </div>
 
@@ -247,7 +284,7 @@ export function StoragePage() {
             className="w-full flex items-center gap-2 px-3 py-2 rounded-full text-sm text-muted-foreground transition-all duration-200 hover:text-foreground bg-surface backdrop-blur-[10px] border border-border-subtle"
           >
             <Settings className="h-4 w-4" />
-            Settings
+            {t('storage.actions.settings')}
           </button>
         </div>
       </div>
@@ -263,7 +300,7 @@ export function StoragePage() {
             <input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search bags..."
+              placeholder={t('storage.searchBags')}
               className="flex-1 bg-transparent border-none py-2.5 px-3 text-foreground text-sm outline-none placeholder:text-muted-foreground/50"
             />
           </div>
@@ -274,8 +311,8 @@ export function StoragePage() {
           {filteredBags.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
               <HardDrive className="h-16 w-16 mb-4 opacity-50" />
-              <p className="text-lg mb-2">No bags yet</p>
-              <p className="text-sm">Click "+ Add Bag" to get started</p>
+              <p className="text-lg mb-2">{t('storage.empty.title')}</p>
+              <p className="text-sm">{t('storage.empty.description')}</p>
             </div>
           ) : (
             <div className="p-4">
@@ -284,11 +321,11 @@ export function StoragePage() {
                   <tr
                     className="text-left text-xs text-muted-foreground uppercase tracking-wider bg-surface backdrop-blur-[10px]"
                   >
-                    <th className="px-4 py-3 font-medium rounded-l-full">Name</th>
-                    <th className="px-4 py-3 font-medium w-24">Size</th>
-                    <th className="px-4 py-3 font-medium w-40">Progress</th>
-                    <th className="px-4 py-3 font-medium w-28">Status</th>
-                    <th className="px-4 py-3 font-medium w-20">Files</th>
+                    <th className="px-4 py-3 font-medium rounded-l-full">{t('storage.table.name')}</th>
+                    <th className="px-4 py-3 font-medium w-24">{t('storage.table.size')}</th>
+                    <th className="px-4 py-3 font-medium w-40">{t('storage.table.progress')}</th>
+                    <th className="px-4 py-3 font-medium w-28">{t('storage.table.status')}</th>
+                    <th className="px-4 py-3 font-medium w-20">{t('storage.table.files')}</th>
                     <th className="px-4 py-3 font-medium w-12 rounded-r-full"></th>
                   </tr>
                 </thead>
@@ -323,7 +360,7 @@ export function StoragePage() {
                 )}
               >
                 <Info className="h-4 w-4 inline mr-2" />
-                Info
+                {t('storage.tabs.info')}
               </button>
               <button
                 onClick={() => setDetailTab('files')}
@@ -335,7 +372,7 @@ export function StoragePage() {
                 )}
               >
                 <FileText className="h-4 w-4 inline mr-2" />
-                Files
+                {t('storage.tabs.files')}
               </button>
             </div>
 
@@ -344,41 +381,41 @@ export function StoragePage() {
               {detailTab === 'info' ? (
                 <div className="grid grid-cols-2 gap-x-8 gap-y-2 text-sm">
                   <div className="flex">
-                    <span className="text-muted-foreground w-24">ID</span>
+                    <span className="text-muted-foreground w-24">{t('storage.info.id')}</span>
                     <span className="text-foreground/80 font-mono text-xs break-all">
                       {selectedBag.id}
                     </span>
                   </div>
                   <div className="flex">
-                    <span className="text-muted-foreground w-24">Size</span>
+                    <span className="text-muted-foreground w-24">{t('storage.info.size')}</span>
                     <span className="text-foreground">{formatBytes(selectedBag.size)}</span>
                   </div>
                   <div className="flex">
-                    <span className="text-muted-foreground w-24">Downloaded</span>
+                    <span className="text-muted-foreground w-24">{t('storage.info.downloaded')}</span>
                     <span className="text-foreground">{formatBytes(selectedBag.downloaded)}</span>
                   </div>
                   <div className="flex">
-                    <span className="text-muted-foreground w-24">Status</span>
+                    <span className="text-muted-foreground w-24">{t('storage.info.status')}</span>
                     <span className="text-foreground">{selectedBag.status}</span>
                   </div>
                   <div className="flex">
-                    <span className="text-muted-foreground w-24">Peers</span>
+                    <span className="text-muted-foreground w-24">{t('storage.info.peers')}</span>
                     <span className="text-foreground">{selectedBag.peers}</span>
                   </div>
                   <div className="flex">
-                    <span className="text-muted-foreground w-24">Files</span>
+                    <span className="text-muted-foreground w-24">{t('storage.info.files')}</span>
                     <span className="text-foreground">{selectedBag.filesCount ?? '-'}</span>
                   </div>
                   <div className="flex">
-                    <span className="text-muted-foreground w-24">Download</span>
+                    <span className="text-muted-foreground w-24">{t('storage.info.download')}</span>
                     <span className="text-foreground">{formatSpeed(selectedBag.downloadSpeed)}</span>
                   </div>
                   <div className="flex">
-                    <span className="text-muted-foreground w-24">Upload</span>
+                    <span className="text-muted-foreground w-24">{t('storage.info.upload')}</span>
                     <span className="text-foreground">{formatSpeed(selectedBag.uploadSpeed)}</span>
                   </div>
                   <div className="flex col-span-2">
-                    <span className="text-muted-foreground w-24 flex-shrink-0">Path</span>
+                    <span className="text-muted-foreground w-24 flex-shrink-0">{t('storage.info.path')}</span>
                     <button
                       onClick={() => handleOpenFolder(selectedBag.id)}
                       className="flex items-center gap-2 text-muted-foreground text-xs hover:text-primary transition-colors cursor-pointer group text-left"
@@ -391,7 +428,7 @@ export function StoragePage() {
               ) : loadingDetails ? (
                 <div className="text-muted-foreground text-sm flex items-center gap-2">
                   <Folder className="h-4 w-4 animate-pulse" />
-                  <span>Loading files...</span>
+                  <span>{t('storage.loadingFiles')}</span>
                 </div>
               ) : bagDetails && bagDetails.files.length > 0 ? (
                 <div className="space-y-1">
@@ -411,7 +448,7 @@ export function StoragePage() {
               ) : (
                 <div className="text-muted-foreground text-sm flex items-center gap-2">
                   <Folder className="h-4 w-4" />
-                  <span>No files found or metadata not yet loaded</span>
+                  <span>{t('storage.noFiles')}</span>
                 </div>
               )}
             </div>
@@ -441,11 +478,12 @@ export function StoragePage() {
           aria-labelledby="add-bag-title"
         >
           <div
+            ref={addModalRef}
             className="rounded-2xl p-6 w-full max-w-md mx-4 bg-card/85 backdrop-blur-[20px] border border-border-medium shadow-[0_8px_32px_hsl(var(--shadow-color)/0.4),inset_0_1px_0_hsl(var(--surface-hover))]"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-4">
-              <h3 id="add-bag-title" className="text-foreground font-semibold text-lg">Add Bag</h3>
+              <h3 id="add-bag-title" className="text-foreground font-semibold text-lg">{t('storage.addModal.title')}</h3>
               <button
                 type="button"
                 onClick={() => {
@@ -460,12 +498,12 @@ export function StoragePage() {
             </div>
 
             <p className="text-muted-foreground text-sm mb-4">
-              Enter the Bag ID to start downloading. You can find bag IDs on TON sites or from other users.
+              {t('storage.addModal.bagIdDescription')}
             </p>
 
             <div className="mb-4">
               <label className="block text-muted-foreground text-xs uppercase tracking-wider mb-2">
-                Bag ID
+                {t('storage.addModal.bagIdLabel')}
               </label>
               <input
                 type="text"
@@ -479,7 +517,7 @@ export function StoragePage() {
                     handleAddBag()
                   }
                 }}
-                placeholder="Paste bag ID (64 hex characters)..."
+                placeholder={t('storage.addModal.bagIdPlaceholder')}
                 className={`w-full px-3 py-2 bg-background-secondary border rounded-md text-foreground placeholder:text-muted-foreground/50 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-primary ${bagIdError ? 'border-destructive' : 'border-border'}`}
                 autoFocus
               />
@@ -498,7 +536,7 @@ export function StoragePage() {
                 }}
                 className="flex-1 py-2.5 rounded-full text-sm font-medium text-muted-foreground transition-all duration-200 hover:text-foreground bg-surface-hover backdrop-blur-[10px] border border-border-medium"
               >
-                Cancel
+                {t('storage.addModal.cancel')}
               </button>
               <button
                 type="button"
@@ -506,7 +544,7 @@ export function StoragePage() {
                 disabled={!newBagId.trim() || isAdding}
                 className="flex-1 py-2.5 rounded-full text-sm font-medium transition-all duration-200 hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 bg-primary/90 backdrop-blur-[10px] text-primary-foreground shadow-[0_4px_16px_hsl(var(--primary)/0.4),inset_0_1px_0_hsl(var(--foreground)/0.2)]"
               >
-                {isAdding ? 'Adding...' : 'Add Bag'}
+                {isAdding ? t('storage.addModal.adding') : t('storage.addModal.add')}
               </button>
             </div>
           </div>
@@ -620,11 +658,12 @@ function BagRow({
 
 // Status Badge Component
 function StatusBadge({ status }: { status: StorageBag['status'] }) {
+  const { t } = useTranslation('pages')
   const config = {
-    downloading: { className: 'text-primary', label: 'downloading' },
-    seeding: { className: 'text-success', label: 'completed' },
-    paused: { className: 'text-muted-foreground', label: 'paused' },
-    error: { className: 'text-destructive', label: 'error' },
+    downloading: { className: 'text-primary', label: t('storage.status.downloading') },
+    seeding: { className: 'text-success', label: t('storage.status.completed') },
+    paused: { className: 'text-muted-foreground', label: t('storage.status.paused') },
+    error: { className: 'text-destructive', label: t('storage.status.error') },
   }
 
   const { className, label } = config[status]
