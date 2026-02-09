@@ -22,6 +22,7 @@ export function createTonSession(proxyPort: number, partitionName: string = SESS
   ses.setPermissionRequestHandler((_webContents, _permission, callback) => {
     callback(false)
   })
+  ses.setPermissionCheckHandler(() => false)
 
   // Set uniform User-Agent
   ses.setUserAgent(USER_AGENT)

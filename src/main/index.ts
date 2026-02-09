@@ -75,6 +75,15 @@ function loadWindowBounds(): Partial<WindowBounds> {
       const data = readFileSync(boundsFile, 'utf-8')
       const bounds = JSON.parse(data) as WindowBounds
 
+      if (
+        typeof bounds.x !== 'number' ||
+        typeof bounds.y !== 'number' ||
+        typeof bounds.width !== 'number' ||
+        typeof bounds.height !== 'number'
+      ) {
+        return {}
+      }
+
       // Validate bounds are on a visible display (top-left corner must be on some display)
       const displays = screen.getAllDisplays()
       const isVisible = displays.some((display) => {
@@ -226,6 +235,10 @@ function createWindow(): void {
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
+    const scheme = new URL(details.url).protocol
+    if (scheme !== 'https:' && scheme !== 'http:') {
+      return { action: 'deny' }
+    }
     shell.openExternal(details.url)
     return { action: 'deny' }
   })

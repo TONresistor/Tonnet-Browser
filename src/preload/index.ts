@@ -173,7 +173,4 @@ if (process.contextIsolated) {
   } catch (error) {
     console.error(error)
   }
-} else {
-  // @ts-ignore (define in dts)
-  window.electron = electronAPI
 }

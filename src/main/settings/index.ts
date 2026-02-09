@@ -84,7 +84,7 @@ function isValidSettingsObject(obj: unknown): obj is Partial<AppSettings> {
   }
 
   const settings = obj as Record<string, unknown>
-  const categories = ['general', 'network', 'storage', 'appearance', 'privacy', 'advanced']
+  const categories = ['general', 'network', 'storage', 'appearance', 'privacy', 'contentFiltering', 'advanced']
 
   for (const key of Object.keys(settings)) {
     // Only allow known categories
