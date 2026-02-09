@@ -86,6 +86,59 @@ export interface CustomTheme {
   updatedAt: number
 }
 
+// Settings interfaces (shared between main and renderer)
+import type { ThemeType } from './defaults'
+
+export interface GeneralSettings {
+  homepage: string
+  restoreTabs: boolean
+}
+
+export interface NetworkSettings {
+  proxyPort: number
+  storagePort: number
+  autoConnect: boolean
+  connectionTimeout: number
+  syncCheckInterval: number
+  anonymousMode: boolean
+  circuitRotation: boolean
+  rotateInterval: string
+}
+
+export interface StorageSettings {
+  downloadPath: string
+  pollingInterval: number
+}
+
+export interface AppearanceSettings {
+  theme: ThemeType
+  customThemes: CustomTheme[]
+  language: string
+  defaultZoom: number
+  zoomMin: number
+  zoomMax: number
+  showBookmarksBar: boolean
+  showStatusBar: boolean
+  tabOrientation: 'horizontal' | 'vertical'
+  sidebarWidth: number
+}
+
+export interface PrivacySettings {
+  clearOnExit: boolean
+  disableCache: boolean
+  firstPartyIsolation: boolean
+  cookieAutoDelete: boolean
+  cookieAutoDeleteMinutes: number
+  historyMode: 'memory' | 'persistent'
+  historyMaxEntries: number
+}
+
+export interface AdvancedSettings {
+  proxyVerbosity: number
+  storageVerbosity: number
+  syncTestDomain: string
+}
+
 // Content Filtering
 export interface ContentFilteringSettings {
   enabled: boolean
@@ -96,6 +149,16 @@ export interface ContentFilteringSettings {
   blockAnnoyances: boolean
   whitelistedDomains: string[]
   showBlockCount: boolean
+}
+
+export interface AppSettings {
+  general: GeneralSettings
+  network: NetworkSettings
+  storage: StorageSettings
+  appearance: AppearanceSettings
+  privacy: PrivacySettings
+  contentFiltering: ContentFilteringSettings
+  advanced: AdvancedSettings
 }
 
 export interface ContentFilterStats {

@@ -3,6 +3,8 @@
  * Defines window.electron interface for TypeScript.
  */
 
+import type { AppSettings } from '../shared/types'
+
 declare global {
     interface Window {
         electron: {
@@ -101,8 +103,8 @@ declare global {
                 show: () => Promise<void>;
             };
             settings: {
-                getAll: () => Promise<unknown>;
-                get: (category: string) => Promise<unknown>;
+                getAll: () => Promise<AppSettings>;
+                get: <K extends keyof AppSettings>(category: K) => Promise<AppSettings[K]>;
                 set: (category: string, values: object) => Promise<{ success: boolean; error?: string }>;
                 reset: () => Promise<{ success: boolean; error?: string }>;
             };

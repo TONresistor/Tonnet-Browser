@@ -8,70 +8,29 @@ import { join } from 'path'
 import { existsSync, readFileSync, writeFileSync, mkdirSync, renameSync } from 'fs'
 import { DEFAULT_SETTINGS } from '../../shared/defaults'
 import type { ThemeType } from '../../shared/defaults'
-import type { CustomTheme, ContentFilteringSettings } from '../../shared/types'
+import type {
+  GeneralSettings,
+  NetworkSettings,
+  StorageSettings,
+  AppearanceSettings,
+  PrivacySettings,
+  AdvancedSettings,
+  AppSettings,
+  ContentFilteringSettings,
+} from '../../shared/types'
 import { logger } from '../../shared/logger'
 
-// Settings interfaces
-export interface GeneralSettings {
-  homepage: string
-  restoreTabs: boolean
-}
-
-export interface NetworkSettings {
-  proxyPort: number
-  storagePort: number
-  autoConnect: boolean
-  connectionTimeout: number
-  syncCheckInterval: number
-  anonymousMode: boolean
-  circuitRotation: boolean
-  rotateInterval: string
-}
-
-export interface StorageSettings {
-  downloadPath: string
-  pollingInterval: number
-}
-
-export type { ThemeType }
-
-export interface AppearanceSettings {
-  theme: ThemeType
-  customThemes: CustomTheme[]
-  language: string
-  defaultZoom: number
-  zoomMin: number
-  zoomMax: number
-  showBookmarksBar: boolean
-  showStatusBar: boolean
-  tabOrientation: 'horizontal' | 'vertical'
-  sidebarWidth: number
-}
-
-export interface PrivacySettings {
-  clearOnExit: boolean
-  disableCache: boolean
-  firstPartyIsolation: boolean
-  cookieAutoDelete: boolean
-  cookieAutoDeleteMinutes: number
-  historyMode: 'memory' | 'persistent'
-  historyMaxEntries: number
-}
-
-export interface AdvancedSettings {
-  proxyVerbosity: number
-  storageVerbosity: number
-  syncTestDomain: string
-}
-
-export interface AppSettings {
-  general: GeneralSettings
-  network: NetworkSettings
-  storage: StorageSettings
-  appearance: AppearanceSettings
-  privacy: PrivacySettings
-  contentFiltering: ContentFilteringSettings
-  advanced: AdvancedSettings
+// Re-export settings types for consumers that import from this module
+export type {
+  GeneralSettings,
+  NetworkSettings,
+  StorageSettings,
+  AppearanceSettings,
+  PrivacySettings,
+  AdvancedSettings,
+  AppSettings,
+  ContentFilteringSettings,
+  ThemeType,
 }
 
 // File paths

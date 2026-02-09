@@ -6,6 +6,7 @@
 import { create } from 'zustand'
 import { DEFAULT_SETTINGS } from '../../../shared/defaults'
 import type { ThemeType } from '../../../shared/defaults'
+import type { AppSettings } from '../../../shared/types'
 
 export type { ThemeType }
 
@@ -178,7 +179,7 @@ const prefToCategory: Record<keyof AppPreferences, { category: string; field: st
 }
 
 // Convert main process settings to flat preferences
-function mainSettingsToPrefs(settings: any): AppPreferences {
+function mainSettingsToPrefs(settings: AppSettings): AppPreferences {
   return {
     homepage: settings.general?.homepage ?? defaultPreferences.homepage,
     restoreTabs: settings.general?.restoreTabs ?? defaultPreferences.restoreTabs,
@@ -269,7 +270,7 @@ export const usePreferencesStore = create<PreferencesState>()((set, get) => ({
     set({ isSaving: true })
 
     // Find changed values and group by category
-    const categoryUpdates: Record<string, Record<string, any>> = {}
+    const categoryUpdates: Record<string, Record<string, AppPreferences[keyof AppPreferences]>> = {}
     for (const key of Object.keys(draft) as (keyof AppPreferences)[]) {
       if (draft[key] !== saved[key]) {
         const { category, field } = prefToCategory[key]
@@ -318,7 +319,7 @@ export const usePreferencesStore = create<PreferencesState>()((set, get) => ({
 
 // Listen for settings changes from main process
 if (typeof window !== 'undefined' && window.electron) {
-  window.electron.on('settings:changed', (data: any) => {
+  window.electron.on('settings:changed', (data: { reset?: boolean; category?: string; values?: object }) => {
     if (data.reset) {
       usePreferencesStore.setState({
         saved: { ...defaultPreferences },
