@@ -39,6 +39,20 @@ export interface StorageBag {
   status: 'downloading' | 'seeding' | 'paused' | 'error'
 }
 
+export interface BagDetails {
+  bag_id: string
+  description: string
+  files: Array<{ name: string; size: number }>
+  peers: Array<{ addr: string; download_speed: number; upload_speed: number }>
+  merkle_hash: string
+  piece_size: number
+  path: string
+  downloaded: number
+  size: number
+  active: boolean
+  seeding: boolean
+}
+
 // Theme customization
 export interface ThemeColors {
   // Core

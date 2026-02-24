@@ -2,52 +2,19 @@
  * Settings validation functions - extracted for testing without Electron dependencies
  */
 
-// Settings interfaces
-export interface GeneralSettings {
-  homepage: string
-  restoreTabs: boolean
-}
+import type { AppSettings } from '../../shared/types'
+import { DEFAULT_SETTINGS } from '../../shared/defaults'
 
-export interface NetworkSettings {
-  proxyPort: number
-  storagePort: number
-  autoConnect: boolean
-  connectionTimeout: number
-  syncCheckInterval: number
-}
-
-export interface StorageSettings {
-  downloadPath: string
-  pollingInterval: number
-}
-
-export interface AppearanceSettings {
-  language: string
-  defaultZoom: number
-  zoomMin: number
-  zoomMax: number
-  showBookmarksBar: boolean
-  showStatusBar: boolean
-}
-
-export interface PrivacySettings {
-  clearOnExit: boolean
-}
-
-export interface AdvancedSettings {
-  proxyVerbosity: number
-  storageVerbosity: number
-  syncTestDomain: string
-}
-
-export interface AppSettings {
-  general: GeneralSettings
-  network: NetworkSettings
-  storage: StorageSettings
-  appearance: AppearanceSettings
-  privacy: PrivacySettings
-  advanced: AdvancedSettings
-}
+/** Valid settings category names, derived from the AppSettings type */
+export const SETTINGS_CATEGORIES: ReadonlyArray<keyof AppSettings> = [
+  'general',
+  'network',
+  'storage',
+  'appearance',
+  'privacy',
+  'contentFiltering',
+  'advanced',
+]
 
 /**
  * Security: Validate parsed settings structure
@@ -59,7 +26,7 @@ export function isValidSettingsObject(obj: unknown): obj is Partial<AppSettings>
   }
 
   const settings = obj as Record<string, unknown>
-  const categories = ['general', 'network', 'storage', 'appearance', 'privacy', 'advanced']
+  const categories: readonly string[] = SETTINGS_CATEGORIES
 
   for (const key of Object.keys(settings)) {
     // Only allow known categories
@@ -101,37 +68,61 @@ export function isValidSettingsObject(obj: unknown): obj is Partial<AppSettings>
  * Uses fixed paths suitable for testing
  */
 export function getDefaultSettingsBase(): AppSettings {
+  const d = DEFAULT_SETTINGS
   return {
     general: {
-      homepage: 'ton://start',
-      restoreTabs: false,
+      homepage: d.homepage,
+      restoreTabs: d.restoreTabs,
     },
     network: {
-      proxyPort: 8080,
-      storagePort: 5555,
-      autoConnect: false,
-      connectionTimeout: 30,
-      syncCheckInterval: 3000,
+      proxyPort: d.proxyPort,
+      storagePort: d.storagePort,
+      autoConnect: d.autoConnect,
+      connectionTimeout: d.connectionTimeout,
+      syncCheckInterval: d.syncCheckInterval,
+      anonymousMode: d.anonymousMode,
+      circuitRotation: d.circuitRotation,
+      rotateInterval: d.rotateInterval,
     },
     storage: {
       downloadPath: '/tmp/tonnet-storage',
-      pollingInterval: 2000,
+      pollingInterval: d.pollingInterval,
     },
     appearance: {
-      language: 'en',
-      defaultZoom: 100,
-      zoomMin: 30,
-      zoomMax: 300,
-      showBookmarksBar: true,
-      showStatusBar: true,
+      theme: d.theme,
+      customThemes: [...d.customThemes],
+      language: d.language,
+      defaultZoom: d.defaultZoom,
+      zoomMin: d.zoomMin,
+      zoomMax: d.zoomMax,
+      showBookmarksBar: d.showBookmarksBar,
+      showStatusBar: d.showStatusBar,
+      tabOrientation: d.tabOrientation,
+      sidebarWidth: d.sidebarWidth,
     },
     privacy: {
-      clearOnExit: true,
+      clearOnExit: d.clearOnExit,
+      disableCache: d.disableCache,
+      firstPartyIsolation: d.firstPartyIsolation,
+      cookieAutoDelete: d.cookieAutoDelete,
+      cookieAutoDeleteMinutes: d.cookieAutoDeleteMinutes,
+      historyMode: d.historyMode,
+      historyMaxEntries: d.historyMaxEntries,
+    },
+    contentFiltering: {
+      enabled: d.contentFiltering.enabled,
+      blockAds: d.contentFiltering.blockAds,
+      blockTrackers: d.contentFiltering.blockTrackers,
+      blockMiners: d.contentFiltering.blockMiners,
+      blockMalware: d.contentFiltering.blockMalware,
+      blockAnnoyances: d.contentFiltering.blockAnnoyances,
+      whitelistedDomains: [...d.contentFiltering.whitelistedDomains],
+      showBlockCount: d.contentFiltering.showBlockCount,
     },
     advanced: {
-      proxyVerbosity: 2,
-      storageVerbosity: 2,
-      syncTestDomain: 'tonnet-sync-check.ton',
+      proxyVerbosity: d.proxyVerbosity,
+      storageVerbosity: d.storageVerbosity,
+      syncTestDomain: d.syncTestDomain,
     },
   }
 }

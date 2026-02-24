@@ -3,7 +3,7 @@
  * Defines window.electron interface for TypeScript.
  */
 
-import type { AppSettings } from '../shared/types'
+import type { AppSettings, StorageBag, BagDetails } from '../shared/types'
 
 declare global {
   interface Window {
@@ -70,7 +70,7 @@ declare global {
           name?: string
         ) => Promise<{
           success: boolean
-          bag?: unknown
+          bag?: StorageBag
           error?: string
         }>
         removeBag: (bagId: string) => Promise<{
@@ -78,7 +78,7 @@ declare global {
         }>
         listBags: () => Promise<{
           success: boolean
-          bags: unknown[]
+          bags: StorageBag[]
         }>
         pauseBag: (bagId: string) => Promise<{
           success: boolean
@@ -99,7 +99,7 @@ declare global {
         }>
         getBagDetails: (bagId: string) => Promise<{
           success: boolean
-          details?: unknown
+          details?: BagDetails
           error?: string
         }>
         openFolder: (bagId: string) => Promise<{ success: boolean; error?: string }>

@@ -9,10 +9,22 @@ import { IPC_CHANNELS } from '../../shared/types'
 import { isValidNavigationUrl, isValidBagId, isValidDownloadPath, RateLimiter } from './validation'
 import { handleWithErrors, ipcErrorHandler } from './error-handler'
 import { logger } from '../../shared/logger'
+import { SETTINGS_CATEGORIES } from '../settings/validation'
 
 // Lenient limits: 30 nav/sec, 10 storage ops/sec
 const navLimiter = new RateLimiter(30, 1000)
 const storageLimiter = new RateLimiter(10, 1000)
+
+/**
+ * Validate bag ID and return an error response if invalid.
+ * Returns null if valid, or an error response object to short-circuit from handlers.
+ */
+function validateBagIdOrFail(bagId: string): { success: false; error: string } | null {
+  if (!isValidBagId(bagId)) {
+    return { success: false, error: 'Invalid bag ID format (must be 64 hex characters)' }
+  }
+  return null
+}
 import { proxyManager } from '../proxy/manager'
 import { storageManager } from '../storage/daemon'
 import { addBag, removeBag, listBags, pauseBag, getBagDetails } from '../storage/bags'
@@ -368,19 +380,16 @@ export function registerIpcHandlers(): void {
     }
 
     // Security: Validate bag ID format
-    if (!isValidBagId(bagId)) {
-      logger.warn('IPC', `Invalid bag ID format: ${bagId}`)
-      return { success: false, error: 'Invalid bag ID format (must be 64 hex characters)' }
-    }
+    const bagIdError = validateBagIdOrFail(bagId)
+    if (bagIdError) return bagIdError
 
     const bag = await addBag(bagId, name)
     return { success: true, bag }
   })
 
   secureHandleWithEvent(IPC_CHANNELS.STORAGE_REMOVE_BAG, async (_event, bagId: string) => {
-    if (!isValidBagId(bagId)) {
-      return { success: false, error: 'Invalid bag ID format' }
-    }
+    const bagIdError = validateBagIdOrFail(bagId)
+    if (bagIdError) return bagIdError
     const result = await removeBag(bagId)
     return { success: result }
   })
@@ -391,17 +400,15 @@ export function registerIpcHandlers(): void {
   })
 
   secureHandleWithEvent(IPC_CHANNELS.STORAGE_PAUSE_BAG, async (_event, bagId: string) => {
-    if (!isValidBagId(bagId)) {
-      return { success: false, error: 'Invalid bag ID format' }
-    }
+    const bagIdError = validateBagIdOrFail(bagId)
+    if (bagIdError) return bagIdError
     const result = await pauseBag(bagId)
     return { success: result }
   })
 
   secureHandleWithEvent(IPC_CHANNELS.STORAGE_GET_DETAILS, async (_event, bagId: string) => {
-    if (!isValidBagId(bagId)) {
-      return { success: false, error: 'Invalid bag ID format' }
-    }
+    const bagIdError = validateBagIdOrFail(bagId)
+    if (bagIdError) return bagIdError
     try {
       const details = await getBagDetails(bagId)
       return { success: true, details }
@@ -411,9 +418,8 @@ export function registerIpcHandlers(): void {
   })
 
   secureHandleWithEvent(IPC_CHANNELS.STORAGE_OPEN_FOLDER, async (_event, bagId: string) => {
-    if (!isValidBagId(bagId)) {
-      return { success: false, error: 'Invalid bag ID' }
-    }
+    const bagIdError = validateBagIdOrFail(bagId)
+    if (bagIdError) return bagIdError
     try {
       const details = await getBagDetails(bagId)
       if (!details?.path) {
@@ -427,9 +433,8 @@ export function registerIpcHandlers(): void {
   })
 
   secureHandleWithEvent(IPC_CHANNELS.STORAGE_SHOW_FILE, async (_event, bagId: string, fileName: string) => {
-    if (!isValidBagId(bagId)) {
-      return { success: false, error: 'Invalid bag ID' }
-    }
+    const bagIdError = validateBagIdOrFail(bagId)
+    if (bagIdError) return bagIdError
 
     // Validate fileName to prevent path traversal
     if (!fileName || fileName.includes('/') || fileName.includes('\\') || fileName.includes('..')) {
@@ -639,8 +644,7 @@ export function registerIpcHandlers(): void {
 
   secureHandleWithEvent(IPC_CHANNELS.SETTINGS_GET, (_event, category: keyof AppSettings) => {
     // Validate category parameter
-    const validCategories = ['general', 'network', 'storage', 'appearance', 'privacy', 'advanced', 'contentFiltering']
-    if (typeof category !== 'string' || !validCategories.includes(category)) {
+    if (typeof category !== 'string' || !(SETTINGS_CATEGORIES as readonly string[]).includes(category)) {
       throw new Error('Invalid settings category')
     }
     return getSetting(category)
@@ -648,8 +652,7 @@ export function registerIpcHandlers(): void {
 
   secureHandleWithEvent(IPC_CHANNELS.SETTINGS_SET, async (_event, category: keyof AppSettings, values: object) => {
     // Validate category parameter
-    const validCategories = ['general', 'network', 'storage', 'appearance', 'privacy', 'advanced', 'contentFiltering']
-    if (typeof category !== 'string' || !validCategories.includes(category)) {
+    if (typeof category !== 'string' || !(SETTINGS_CATEGORIES as readonly string[]).includes(category)) {
       throw new Error('Invalid settings category')
     }
     // Validate values parameter

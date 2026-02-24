@@ -3,6 +3,9 @@
  * API Reference: https://github.com/xssnick/tonutils-storage
  */
 
+import type { BagDetails } from '../../shared/types'
+export type { BagDetails }
+
 export interface BagInfo {
   bag_id: string
   description: string
@@ -18,20 +21,6 @@ export interface BagInfo {
   active: boolean
   seeding: boolean
   peers: number
-}
-
-export interface BagDetails {
-  bag_id: string
-  description: string
-  files: Array<{ name: string; size: number }>
-  peers: Array<{ addr: string; download_speed: number; upload_speed: number }>
-  merkle_hash: string
-  piece_size: number
-  path: string
-  downloaded: number
-  size: number
-  active: boolean
-  seeding: boolean
 }
 
 export interface AddBagRequest {

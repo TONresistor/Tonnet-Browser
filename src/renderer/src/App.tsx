@@ -29,8 +29,12 @@ import { useTranslation } from 'react-i18next'
 
 function App() {
   const { t } = useTranslation('common')
-  const { currentUrl, proxyConnected } = useSettingsStore()
-  const { activeTabId, updateTab, openOrSwitchToTab, ensureDefaultTab } = useTabsStore()
+  const currentUrl = useSettingsStore((s) => s.currentUrl)
+  const proxyConnected = useSettingsStore((s) => s.proxyConnected)
+  const activeTabId = useTabsStore((s) => s.activeTabId)
+  const updateTab = useTabsStore((s) => s.updateTab)
+  const openOrSwitchToTab = useTabsStore((s) => s.openOrSwitchToTab)
+  const ensureDefaultTab = useTabsStore((s) => s.ensureDefaultTab)
   const showBookmarksBar = usePreferencesStore((s) => s.saved.showBookmarksBar)
   const showStatusBar = usePreferencesStore((s) => s.saved.showStatusBar)
   const theme = usePreferencesStore((s) => s.saved.theme)
@@ -43,7 +47,9 @@ function App() {
   // Track current sidebar width in real-time during resize
   const [currentSidebarWidth, setCurrentSidebarWidth] = useState(savedSidebarWidth)
 
-  const [animationData, setAnimationData] = useState<any>(null)
+  // Preload both animations once, select based on theme
+  const animationsRef = useRef<{ dark: unknown; light: unknown } | null>(null)
+  const [animationData, setAnimationData] = useState<unknown>(null)
 
   // Debounce timer for settings save
   const settingsSaveTimer = useRef<NodeJS.Timeout | null>(null)
@@ -88,12 +94,26 @@ function App() {
     }
   }, [theme, customThemes])
 
+  // Preload both animations once on mount
   useEffect(() => {
+    Promise.all([import('@/assets/loading.json'), import('@/assets/loading-yellow.json')]).then(([dark, light]) => {
+      animationsRef.current = { dark: dark.default, light: light.default }
+      // Set initial animation based on current theme
+      const isLight =
+        theme === 'utya-duck' ||
+        (theme.startsWith('custom:') && customThemes.find((t) => t.id === theme.replace('custom:', ''))?.isDark === false)
+      setAnimationData(isLight ? light.default : dark.default)
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Switch animation instantly on theme change (no re-import)
+  useEffect(() => {
+    if (!animationsRef.current) return
     const isLight =
       theme === 'utya-duck' ||
       (theme.startsWith('custom:') && customThemes.find((t) => t.id === theme.replace('custom:', ''))?.isDark === false)
-    const importAnimation = isLight ? import('@/assets/loading-yellow.json') : import('@/assets/loading.json')
-    importAnimation.then((mod) => setAnimationData(mod.default))
+    setAnimationData(isLight ? animationsRef.current.light : animationsRef.current.dark)
   }, [theme, customThemes])
 
   // Create default tab when proxy connects

@@ -317,7 +317,7 @@ export const usePreferencesStore = create<PreferencesState>()((set, get) => ({
 
 // Listen for settings changes from main process
 if (typeof window !== 'undefined' && window.electron) {
-  window.electron.on('settings:changed', (...args: unknown[]) => {
+  const unsubscribe = window.electron.on('settings:changed', (...args: unknown[]) => {
     const data = args[0] as { reset?: boolean; category?: string; values?: object }
     if (data.reset) {
       usePreferencesStore.setState({
@@ -327,4 +327,12 @@ if (typeof window !== 'undefined' && window.electron) {
       })
     }
   })
+
+  // Cleanup listener on HMR module replacement
+  const hot = (import.meta as unknown as Record<string, unknown>).hot as
+    | { dispose: (cb: () => void) => void }
+    | undefined
+  if (hot) {
+    hot.dispose(() => unsubscribe())
+  }
 }

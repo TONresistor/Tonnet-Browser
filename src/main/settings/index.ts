@@ -19,6 +19,7 @@ import type {
   ContentFilteringSettings,
 } from '../../shared/types'
 import { logger } from '../../shared/logger'
+import { SETTINGS_CATEGORIES } from './validation'
 
 // Re-export settings types for consumers that import from this module
 export type {
@@ -45,7 +46,7 @@ function isValidSettingsObject(obj: unknown): obj is Partial<AppSettings> {
   }
 
   const settings = obj as Record<string, unknown>
-  const categories = ['general', 'network', 'storage', 'appearance', 'privacy', 'contentFiltering', 'advanced']
+  const categories: readonly string[] = SETTINGS_CATEGORIES
 
   for (const key of Object.keys(settings)) {
     // Only allow known categories
