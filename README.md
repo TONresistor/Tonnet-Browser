@@ -24,25 +24,29 @@
 <h3 align="center">Download</h3>
 
 <p align="center">
-  <a href="https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON.Browser.Setup.1.0.0.exe">
+  <a href="https://tonnet.resistance.dog/download/">
     <img src="https://img.shields.io/badge/Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white" alt="Windows">
   </a>
   &nbsp;
-  <a href="https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON.Browser-1.0.0-universal.dmg">
+  <a href="https://tonnet.resistance.dog/download/">
     <img src="https://img.shields.io/badge/macOS-000000?style=for-the-badge&logo=apple&logoColor=white" alt="macOS">
   </a>
   &nbsp;
-  <a href="https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON.Browser-1.0.0.AppImage">
+  <a href="https://tonnet.resistance.dog/download/">
     <img src="https://img.shields.io/badge/Linux-FCC624?style=for-the-badge&logo=linux&logoColor=black" alt="Linux">
   </a>
 </p>
 
 <p align="center">
   <sub>
-    <a href="https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/ton-browser_1.0.0_amd64.deb">Linux .deb</a> ·
-    <a href="https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON.Browser.1.0.0.exe">Windows Portable</a> ·
-    <a href="https://github.com/TONresistor/Tonnet-Browser/releases">All releases</a>
+    <a href="https://tonnet.resistance.dog/download/">Linux .deb</a> ·
+    <a href="https://tonnet.resistance.dog/download/">Windows Portable</a> ·
+    <a href="https://tonnet.resistance.dog/download/">All releases</a>
   </sub>
+</p>
+
+<p align="center">
+  <a href="https://tonnet.resistance.dog/download/">tonnet.resistance.dog/download</a>
 </p>
 
 ---
