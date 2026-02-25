@@ -164,6 +164,7 @@ function createWindow(): void {
     })
   }
 
+  let autoConnectStarted = false
   mainWindow.on('ready-to-show', async () => {
     // Restore maximized state
     if (savedBounds.isMaximized) {
@@ -175,17 +176,34 @@ function createWindow(): void {
       mainWindow.webContents.openDevTools({ mode: 'detach' })
     }
 
-    // Auto-connect if enabled
+    // Auto-connect if enabled — reuse same progress events as manual connect
     const { autoConnect } = getSetting('network')
-    if (autoConnect) {
+    if (autoConnect && !autoConnectStarted) {
+      autoConnectStarted = true
       logger.info('App', 'Auto-connect enabled, starting proxy...')
+      const sendProgress = (step: number, message: string) => {
+        mainWindow.webContents.send('proxy:progress', { step, message })
+      }
+      // Tell renderer to show loading state
+      mainWindow.webContents.send('proxy:auto-connect')
       try {
+        sendProgress(0, 'Starting proxy...')
         await proxyManager.start()
+
+        sendProgress(1, 'Loading configuration...')
+        await new Promise((r) => setTimeout(r, 300))
+
+        sendProgress(2, 'Starting DHT...')
         initTabManager(mainWindow, proxyManager.getStatus().port)
+        await new Promise((r) => setTimeout(r, 400))
+
+        sendProgress(3, 'Connecting to network...')
         await storageManager.start()
+
+        sendProgress(4, 'Ready!')
         logger.info('App', 'Auto-connect complete')
         // Notify renderer of connection status
-        mainWindow.webContents.send('proxy:status', proxyManager.getStatus())
+        mainWindow.webContents.send('proxy:status', { status: 'connected', ...proxyManager.getStatus() })
       } catch (error) {
         logger.error('App', `Auto-connect failed: ${String(error)}`)
         // Notify renderer of connection failure (field name matches ProxyStatus.error)

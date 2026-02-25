@@ -13,6 +13,7 @@ const VALID_EVENT_CHANNELS = [
   'page:favicon',
   'proxy:status',
   'proxy:progress',
+  'proxy:auto-connect',
   'proxy:bandwidth',
   'storage:bags-updated',
   'storage:status',
