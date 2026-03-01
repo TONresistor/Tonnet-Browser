@@ -28,14 +28,16 @@ EventEmitter.defaultMaxListeners = 50
 
 // Register custom protocol for serving renderer in production
 // MUST be called before app.ready — silently fails otherwise
-protocol.registerSchemesAsPrivileged([{
-  scheme: 'app',
-  privileges: {
-    standard: true,
-    secure: true,
-    supportFetchAPI: true,
-  }
-}])
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: 'app',
+    privileges: {
+      standard: true,
+      secure: true,
+      supportFetchAPI: true,
+    },
+  },
+])
 
 // Global error handlers - must be registered early to catch all errors
 process.on('uncaughtException', (error: Error) => {
