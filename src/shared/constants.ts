@@ -4,7 +4,7 @@
  */
 
 export const APP_NAME = 'TON Browser'
-export const APP_VERSION = '1.1.0'
+export const APP_VERSION = '1.4.0'
 
 export const DEFAULT_PROXY_PORT = 8080
 export const DEFAULT_STORAGE_PORT = 5555

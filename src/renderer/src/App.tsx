@@ -101,7 +101,8 @@ function App() {
       // Set initial animation based on current theme
       const isLight =
         theme === 'utya-duck' ||
-        (theme.startsWith('custom:') && customThemes.find((t) => t.id === theme.replace('custom:', ''))?.isDark === false)
+        (theme.startsWith('custom:') &&
+          customThemes.find((t) => t.id === theme.replace('custom:', ''))?.isDark === false)
       setAnimationData(isLight ? light.default : dark.default)
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps

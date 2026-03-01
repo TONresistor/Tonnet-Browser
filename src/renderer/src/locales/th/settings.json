@@ -254,7 +254,19 @@
     "electron": "Electron",
     "chromium": "Chromium",
     "nodejs": "Node.js",
-    "github": "GitHub"
+    "github": "GitHub",
+    "update": {
+      "check": "ตรวจสอบการอัปเดต",
+      "checking": "กำลังตรวจสอบ...",
+      "upToDate": "เป็นเวอร์ชันล่าสุดแล้ว",
+      "available": "พร้อมใช้งาน",
+      "download": "ดาวน์โหลดและติดตั้ง",
+      "downloading": "กำลังดาวน์โหลด...",
+      "restart": "รีสตาร์ทเพื่ออัปเดต",
+      "retry": "ลองอีกครั้ง",
+      "errorGeneric": "ตรวจสอบการอัปเดตล้มเหลว",
+      "errorDownload": "ดาวน์โหลดล้มเหลว"
+    }
   },
   "storage": {
     "title": "พื้นที่จัดเก็บ TON",

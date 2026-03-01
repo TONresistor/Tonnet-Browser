@@ -25,6 +25,11 @@ const VALID_EVENT_CHANNELS = [
   'folder:rename',
   'folder:delete',
   'folder:open-all',
+  'updater:available',
+  'updater:not-available',
+  'updater:progress',
+  'updater:downloaded',
+  'updater:error',
 ]
 
 // Custom APIs for renderer - exposed as window.electron
@@ -127,6 +132,13 @@ const electronAPI = {
     clear: () => ipcRenderer.invoke(IPC_CHANNELS.HISTORY_CLEAR),
     getStats: () => ipcRenderer.invoke(IPC_CHANNELS.HISTORY_GET_STATS),
     hasPersistentFile: () => ipcRenderer.invoke(IPC_CHANNELS.HISTORY_HAS_PERSISTENT_FILE),
+  },
+
+  // Updater
+  updater: {
+    check: () => ipcRenderer.invoke(IPC_CHANNELS.UPDATER_CHECK),
+    download: () => ipcRenderer.invoke(IPC_CHANNELS.UPDATER_DOWNLOAD),
+    install: () => ipcRenderer.invoke(IPC_CHANNELS.UPDATER_INSTALL),
   },
 
   // Event listeners - returns unsubscribe function for proper cleanup

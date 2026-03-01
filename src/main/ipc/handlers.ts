@@ -224,9 +224,9 @@ export function registerIpcHandlers(): void {
   })
 
   // ===== Tab Handlers =====
-  secureHandleWithEvent(IPC_CHANNELS.TAB_CREATE, (_event, tabId: string) => {
+  secureHandleWithEvent(IPC_CHANNELS.TAB_CREATE, async (_event, tabId: string) => {
     logger.debug('IPC', `Tab create: ${tabId}`)
-    const success = createTab(tabId)
+    const success = await createTab(tabId)
     return { success }
   })
 
@@ -254,7 +254,7 @@ export function registerIpcHandlers(): void {
   })
 
   // ===== Navigation Handlers =====
-  secureHandleWithEvent(IPC_CHANNELS.NAVIGATE, (_event, url: string, tabId?: string) => {
+  secureHandleWithEvent(IPC_CHANNELS.NAVIGATE, async (_event, url: string, tabId?: string) => {
     // Rate limit navigation requests
     if (!navLimiter.check()) {
       return { success: false, error: 'Rate limited' }
@@ -276,12 +276,10 @@ export function registerIpcHandlers(): void {
       return { success: true, internal: true }
     }
 
-    // Show active view for external URLs
-    showActiveView()
-
+    // navigateInTab handles view visibility (show/attach) internally
     const targetTabId = tabId || getActiveTabId()
     if (targetTabId) {
-      const success = navigateInTab(targetTabId, url)
+      const success = await navigateInTab(targetTabId, url)
       return { success }
     }
 

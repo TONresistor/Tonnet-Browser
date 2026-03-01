@@ -254,7 +254,19 @@
     "electron": "Electron",
     "chromium": "Chromium",
     "nodejs": "Node.js",
-    "github": "GitHub"
+    "github": "GitHub",
+    "update": {
+      "check": "Periksa Pembaruan",
+      "checking": "Memeriksa...",
+      "upToDate": "Sudah terbaru",
+      "available": "tersedia",
+      "download": "Unduh & Pasang",
+      "downloading": "Mengunduh...",
+      "restart": "Mulai ulang untuk memperbarui",
+      "retry": "Coba lagi",
+      "errorGeneric": "Gagal memeriksa pembaruan",
+      "errorDownload": "Unduhan gagal"
+    }
   },
   "storage": {
     "title": "Penyimpanan TON",

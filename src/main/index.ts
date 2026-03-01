@@ -3,7 +3,7 @@
  * Creates the browser window and initializes all services.
  */
 
-import { app, BrowserWindow, shell, screen, session, Menu } from 'electron'
+import { app, BrowserWindow, shell, screen, Menu } from 'electron'
 import { join } from 'path'
 import { existsSync, readFileSync, writeFileSync } from 'fs'
 import { writeFile } from 'fs/promises'
@@ -19,6 +19,7 @@ import { initTabManager } from './windows/tabs'
 import { historyManager } from './history/manager'
 import { logger } from '../shared/logger'
 import { buildContextMenu } from './utils/context-menu'
+import { initUpdater } from './updater'
 
 // Memory leak prevention: increase limit for BrowserView tab switches
 // Each addBrowserView() adds a 'closed' listener to BrowserWindow
@@ -149,20 +150,22 @@ function createWindow(): void {
   // Register window with our module for IPC handlers
   setMainWindow(mainWindow)
 
-  // Security: Add Content-Security-Policy for main window (React UI) - production only
-  // In dev mode, Vite uses localhost with dynamic scripts which CSP would block
-  if (!is.dev) {
-    mainWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
-      callback({
-        responseHeaders: {
-          ...details.responseHeaders,
-          'Content-Security-Policy': [
-            "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'",
-          ],
-        },
-      })
+  // Initialize manual update checker
+  initUpdater(mainWindow)
+
+  // Security: Add Content-Security-Policy for main window (React UI)
+  // Dev mode uses Report-Only to avoid breaking HMR/hot reload
+  const cspPolicy =
+    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'"
+  const cspHeader = is.dev ? 'Content-Security-Policy-Report-Only' : 'Content-Security-Policy'
+  mainWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
+    callback({
+      responseHeaders: {
+        ...details.responseHeaders,
+        [cspHeader]: [cspPolicy],
+      },
     })
-  }
+  })
 
   let autoConnectStarted = false
   mainWindow.on('ready-to-show', async () => {
@@ -171,8 +174,8 @@ function createWindow(): void {
       mainWindow.maximize()
     }
     mainWindow.show()
-    // Open DevTools only in dev mode (not preview)
-    if (process.env.NODE_ENV !== 'production') {
+    // Open DevTools only in dev mode
+    if (is.dev) {
       mainWindow.webContents.openDevTools({ mode: 'detach' })
     }
 
@@ -203,7 +206,7 @@ function createWindow(): void {
         sendProgress(4, 'Ready!')
         logger.info('App', 'Auto-connect complete')
         // Notify renderer of connection status
-        mainWindow.webContents.send('proxy:status', { status: 'connected', ...proxyManager.getStatus() })
+        mainWindow.webContents.send('proxy:status', { ...proxyManager.getStatus(), status: 'connected' })
       } catch (error) {
         logger.error('App', `Auto-connect failed: ${String(error)}`)
         // Notify renderer of connection failure (field name matches ProxyStatus.error)

@@ -114,13 +114,13 @@ vi.mock('../../windows/main', () => ({
 // Mock tabs
 vi.mock('../../windows/tabs', () => ({
   initTabManager: vi.fn(),
-  createTab: vi.fn(() => true),
+  createTab: vi.fn(() => Promise.resolve(true)),
   closeTab: vi.fn(() => true),
   switchTab: vi.fn(() => true),
   getActiveView: vi.fn(),
   hideAllViews: vi.fn(),
   showActiveView: vi.fn(),
-  navigateInTab: vi.fn(() => ({ success: true })),
+  navigateInTab: vi.fn(() => Promise.resolve(true)),
   getActiveTabId: vi.fn(() => 'tab-1'),
   onPrivacySettingsChanged: vi.fn(),
   onAppearanceSettingsChanged: vi.fn(),

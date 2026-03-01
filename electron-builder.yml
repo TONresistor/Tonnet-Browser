@@ -3,6 +3,11 @@ productName: TON Browser
 directories:
   output: release
 
+publish:
+  provider: github
+  owner: TONresistor
+  repo: Tonnet-Browser
+
 files:
   - "out/**/*"
   - "package.json"
@@ -49,3 +54,12 @@ mac:
   hardenedRuntime: true
   gatekeeperAssess: false
   x64ArchFiles: "Contents/Resources/bin/*"
+
+electronFuses:
+  runAsNode: false
+  enableCookieEncryption: true
+  enableNodeOptionsEnvironmentVariable: false
+  enableNodeCliInspectArguments: false
+  enableEmbeddedAsarIntegrityValidation: true
+  onlyLoadAppFromAsar: true
+  grantFileProtocolExtraPrivileges: false

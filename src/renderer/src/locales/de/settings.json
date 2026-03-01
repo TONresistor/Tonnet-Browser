@@ -254,7 +254,19 @@
     "electron": "Electron",
     "chromium": "Chromium",
     "nodejs": "Node.js",
-    "github": "GitHub"
+    "github": "GitHub",
+    "update": {
+      "check": "Nach Updates suchen",
+      "checking": "Suche...",
+      "upToDate": "Aktuell",
+      "available": "verfügbar",
+      "download": "Herunterladen & Installieren",
+      "downloading": "Herunterladen...",
+      "restart": "Neustart zum Aktualisieren",
+      "retry": "Erneut versuchen",
+      "errorGeneric": "Update-Prüfung fehlgeschlagen",
+      "errorDownload": "Download fehlgeschlagen"
+    }
   },
   "storage": {
     "title": "TON-Speicher",

@@ -274,4 +274,9 @@ export const IPC_CHANNELS = {
   // Errors
   ERRORS_GET_RECENT: 'errors:get-recent',
   ERRORS_CLEAR: 'errors:clear',
+
+  // Updater
+  UPDATER_CHECK: 'updater:check',
+  UPDATER_DOWNLOAD: 'updater:download',
+  UPDATER_INSTALL: 'updater:install',
 } as const

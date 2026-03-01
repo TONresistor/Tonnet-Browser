@@ -254,7 +254,19 @@
     "electron": "Electron",
     "chromium": "Chromium",
     "nodejs": "Node.js",
-    "github": "GitHub"
+    "github": "GitHub",
+    "update": {
+      "check": "Buscar actualizaciones",
+      "checking": "Buscando...",
+      "upToDate": "Actualizado",
+      "available": "disponible",
+      "download": "Descargar e instalar",
+      "downloading": "Descargando...",
+      "restart": "Reiniciar para actualizar",
+      "retry": "Reintentar",
+      "errorGeneric": "Error al buscar actualizaciones",
+      "errorDownload": "Error de descarga"
+    }
   },
   "storage": {
     "title": "Almacenamiento TON",

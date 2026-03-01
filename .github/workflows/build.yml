@@ -7,7 +7,53 @@ on:
   workflow_dispatch:
 
 jobs:
+  # ─────────────────────────────────────────────
+  # Job 1: Validate (runs once, fail fast)
+  # ─────────────────────────────────────────────
+  validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate version matches tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          TAG_VERSION="${GITHUB_REF#refs/tags/v}"
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
+            echo "::error::Tag version ($TAG_VERSION) does not match package.json version ($PKG_VERSION)"
+            exit 1
+          fi
+          echo "Version validated: $PKG_VERSION"
+
+      - name: Type check
+        run: npm run type-check
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Format check
+        run: npm run format:check
+
+      - name: Run tests
+        run: npm test
+
+  # ─────────────────────────────────────────────
+  # Job 2: Build (parallel matrix, 3 platforms)
+  # ─────────────────────────────────────────────
   build:
+    needs: validate
     strategy:
       matrix:
         include:
@@ -30,17 +76,22 @@ jobs:
           node-version: '20'
           cache: 'npm'
 
+      - name: Cache Electron binary
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/electron
+            ~/.cache/electron-builder
+            ~/Library/Caches/electron
+            ~/Library/Caches/electron-builder
+            ~/AppData/Local/electron/Cache
+            ~/AppData/Local/electron-builder/Cache
+          key: electron-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            electron-${{ runner.os }}-
+
       - name: Install dependencies
-        run: node -e "try{require('fs').unlinkSync('package-lock.json')}catch{}" && npm install
-
-      - name: Type check
-        run: npm run type-check
-
-      - name: Lint
-        run: npm run lint
-
-      - name: Format check
-        run: npm run format:check
+        run: npm ci
 
       - name: Build for ${{ matrix.platform }}
         run: npm run build && npx electron-builder --${{ matrix.platform }} --publish never
@@ -55,6 +106,7 @@ jobs:
           path: |
             release/*.AppImage
             release/*.deb
+            release/latest-linux.yml
 
       - name: Upload Windows artifacts
         if: matrix.platform == 'win'
@@ -63,6 +115,7 @@ jobs:
           name: windows-build
           path: |
             release/*.exe
+            release/latest.yml
 
       - name: Upload macOS artifacts
         if: matrix.platform == 'mac'
@@ -71,7 +124,11 @@ jobs:
           name: macos-build
           path: |
             release/*.dmg
+            release/latest-mac.yml
 
+  # ─────────────────────────────────────────────
+  # Job 3: Release (single job, atomic publish)
+  # ─────────────────────────────────────────────
   release:
     needs: build
     runs-on: ubuntu-latest
@@ -88,13 +145,23 @@ jobs:
       - name: Display structure of downloaded files
         run: ls -R artifacts
 
+      - name: Generate SHA256 checksums
+        run: |
+          cd artifacts
+          find . -type f \( -name "*.AppImage" -o -name "*.deb" -o -name "*.exe" -o -name "*.dmg" \) | sort | while read f; do
+            sha256sum "$f" >> SHA256SUMS.txt
+          done
+          echo "=== SHA256SUMS.txt ==="
+          cat SHA256SUMS.txt
+
       - name: Create Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           files: |
             artifacts/linux-build/*
             artifacts/windows-build/*
             artifacts/macos-build/*
+            artifacts/SHA256SUMS.txt
           draft: false
           prerelease: false
           generate_release_notes: true

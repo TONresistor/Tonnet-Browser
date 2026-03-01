@@ -193,6 +193,16 @@ declare global {
           exists?: boolean
         }>
       }
+      updater: {
+        check: () => Promise<{
+          updateAvailable: boolean
+          version?: string
+          releaseDate?: string
+          reason?: string
+        }>
+        download: () => Promise<{ success: boolean }>
+        install: () => void
+      }
       on: (channel: string, callback: (...args: unknown[]) => void) => () => void
       off: (channel: string) => void
     }

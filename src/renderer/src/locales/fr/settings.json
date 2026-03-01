@@ -254,7 +254,19 @@
     "electron": "Electron",
     "chromium": "Chromium",
     "nodejs": "Node.js",
-    "github": "GitHub"
+    "github": "GitHub",
+    "update": {
+      "check": "Rechercher des mises à jour",
+      "checking": "Recherche...",
+      "upToDate": "À jour",
+      "available": "disponible",
+      "download": "Télécharger et installer",
+      "downloading": "Téléchargement...",
+      "restart": "Redémarrer pour mettre à jour",
+      "retry": "Réessayer",
+      "errorGeneric": "Échec de la vérification",
+      "errorDownload": "Échec du téléchargement"
+    }
   },
   "storage": {
     "title": "Stockage TON",

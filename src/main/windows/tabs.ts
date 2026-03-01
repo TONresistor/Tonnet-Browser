@@ -197,14 +197,14 @@ export function updateSidebarWidth(width: number): void {
 }
 
 // Get or create session for a domain (First-Party Isolation)
-function getSessionForDomain(domain: string): Electron.Session {
+async function getSessionForDomain(domain: string): Promise<Electron.Session> {
   const privacy: PrivacySettings = getSetting('privacy')
   const firstPartyIsolation = privacy.firstPartyIsolation ?? true // Default: enabled
 
   if (!firstPartyIsolation) {
     // First-party isolation disabled - use shared session
     if (!tonSession) {
-      tonSession = createTonSession(proxyPort, 'persist:ton-browser')
+      tonSession = await createTonSession(proxyPort, 'persist:ton-browser')
     }
     return tonSession
   }
@@ -216,9 +216,9 @@ function getSessionForDomain(domain: string): Electron.Session {
     return domainSessions.get(domain)!
   }
 
-  // Create new session for this domain
+  // Create new session for this domain (await proxy setup)
   const partitionName = `persist:ton-domain-${domain}`
-  const session = createTonSession(proxyPort, partitionName)
+  const session = await createTonSession(proxyPort, partitionName)
   domainSessions.set(domain, session)
   updateDomainActivity(domain)
 
@@ -437,14 +437,14 @@ function setupViewEvents(view: BrowserView, tabId: string): void {
   })
 }
 
-export function createTab(tabId: string, initialUrl?: string): boolean {
+export async function createTab(tabId: string, initialUrl?: string): Promise<boolean> {
   if (!mainWindow) return false
   if (views.has(tabId)) return false
 
   try {
     // Determine initial domain for session isolation
     const domain = initialUrl ? extractDomain(initialUrl) : 'default'
-    const session = getSessionForDomain(domain)
+    const session = await getSessionForDomain(domain)
 
     const view = createBrowserView(session)
     setupViewEvents(view, tabId)
@@ -610,7 +610,7 @@ function loadErrorPage(view: BrowserView, errorMessage: string, failedUrl: strin
   })
 }
 
-export function navigateInTab(tabId: string, url: string): boolean {
+export async function navigateInTab(tabId: string, url: string): Promise<boolean> {
   const view = views.get(tabId)
   if (!view) return false
 
@@ -643,13 +643,11 @@ export function navigateInTab(tabId: string, url: string): boolean {
   // Track domain for first-party isolation
   const domain = extractDomain(navigateUrl)
   const currentDomain = tabDomains.get(tabId)
+  const isActive = activeViewId === tabId
 
   // If navigating to different domain, recreate view with new session
   if (currentDomain && currentDomain !== domain) {
     console.log(`[Tabs] Domain changed: ${currentDomain} -> ${domain}, recreating view`)
-
-    // Store current position in view stack
-    const isActive = activeViewId === tabId
 
     // Remove old view
     view.webContents.removeAllListeners()
@@ -658,28 +656,36 @@ export function navigateInTab(tabId: string, url: string): boolean {
     }
     ;(view.webContents as any).destroy()
 
-    // Create new view with new domain's session
-    const newSession = getSessionForDomain(domain)
+    // Create new view with new domain's session (await proxy setup)
+    const newSession = await getSessionForDomain(domain)
     const newView = createBrowserView(newSession)
     setupViewEvents(newView, tabId)
     views.set(tabId, newView)
     tabDomains.set(tabId, domain)
+    updateDomainActivity(domain)
 
-    // Restore active state
+    // Show new view if this is the active tab
     if (isActive && mainWindow) {
       mainWindow.setBrowserView(newView)
       updateViewBounds(newView)
     }
 
-    // Navigate in new view
+    // Navigate in new view (proxy is ready)
     newView.webContents.loadURL(navigateUrl).catch((err) => {
       logger.error('Tabs', 'loadURL failed (new view):', err)
       loadErrorPage(newView, err.message, navigateUrl)
     })
   } else {
-    // Same domain or first navigation, just load URL
+    // Same domain or first navigation
     tabDomains.set(tabId, domain)
     updateDomainActivity(domain)
+
+    // Ensure view is visible (may have been hidden for ton:// pages)
+    if (isActive && mainWindow) {
+      mainWindow.setBrowserView(view)
+      updateViewBounds(view)
+    }
+
     view.webContents.loadURL(navigateUrl).catch((err) => {
       logger.error('Tabs', 'loadURL failed:', err)
       loadErrorPage(view, err.message, navigateUrl)

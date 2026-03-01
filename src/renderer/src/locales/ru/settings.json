@@ -254,7 +254,19 @@
     "electron": "Electron",
     "chromium": "Chromium",
     "nodejs": "Node.js",
-    "github": "GitHub"
+    "github": "GitHub",
+    "update": {
+      "check": "Проверить обновления",
+      "checking": "Проверка...",
+      "upToDate": "Актуальная версия",
+      "available": "доступна",
+      "download": "Скачать и установить",
+      "downloading": "Скачивание...",
+      "restart": "Перезапустить для обновления",
+      "retry": "Повторить",
+      "errorGeneric": "Ошибка проверки обновлений",
+      "errorDownload": "Ошибка загрузки"
+    }
   },
   "storage": {
     "title": "TON Хранилище",

@@ -258,7 +258,19 @@
     "electron": "Electron",
     "chromium": "Chromium",
     "nodejs": "Node.js",
-    "github": "GitHub"
+    "github": "GitHub",
+    "update": {
+      "check": "Check for Updates",
+      "checking": "Checking...",
+      "upToDate": "Up to date",
+      "available": "available",
+      "download": "Download & Install",
+      "downloading": "Downloading...",
+      "restart": "Restart to Update",
+      "retry": "Retry",
+      "errorGeneric": "Update check failed",
+      "errorDownload": "Download failed"
+    }
   },
   "storage": {
     "title": "TON Storage",
