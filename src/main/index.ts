@@ -3,11 +3,12 @@
  * Creates the browser window and initializes all services.
  */
 
-import { app, BrowserWindow, shell, screen, Menu } from 'electron'
-import { join } from 'path'
+import { app, BrowserWindow, shell, screen, Menu, protocol, net } from 'electron'
+import { join, resolve } from 'path'
 import { existsSync, readFileSync, writeFileSync } from 'fs'
 import { writeFile } from 'fs/promises'
 import { EventEmitter } from 'events'
+import { pathToFileURL } from 'url'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { registerIpcHandlers } from './ipc/handlers'
 import { getActiveView } from './windows/tabs'
@@ -24,6 +25,17 @@ import { initUpdater } from './updater'
 // Memory leak prevention: increase limit for BrowserView tab switches
 // Each addBrowserView() adds a 'closed' listener to BrowserWindow
 EventEmitter.defaultMaxListeners = 50
+
+// Register custom protocol for serving renderer in production
+// MUST be called before app.ready — silently fails otherwise
+protocol.registerSchemesAsPrivileged([{
+  scheme: 'app',
+  privileges: {
+    standard: true,
+    secure: true,
+    supportFetchAPI: true,
+  }
+}])
 
 // Global error handlers - must be registered early to catch all errors
 process.on('uncaughtException', (error: Error) => {
@@ -240,7 +252,7 @@ function createWindow(): void {
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {
-    mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
+    mainWindow.loadURL('app://bundle/index.html')
   }
 }
 
@@ -321,6 +333,24 @@ app.whenReady().then(() => {
         }
       }
     })
+  })
+
+  // Serve renderer files via app:// protocol in production
+  // Replaces file:// which is blocked by grantFileProtocolExtraPrivileges fuse
+  const rendererPath = resolve(__dirname, '../renderer')
+  protocol.handle('app', (request) => {
+    let { pathname } = new URL(request.url)
+    if (pathname === '/') pathname = '/index.html'
+
+    const filePath = resolve(rendererPath, pathname.slice(1))
+
+    // Path traversal guard
+    if (!filePath.startsWith(rendererPath)) {
+      logger.warn('Protocol', `Blocked path traversal: ${pathname}`)
+      return new Response('Forbidden', { status: 403 })
+    }
+
+    return net.fetch(pathToFileURL(filePath).toString())
   })
 
   registerIpcHandlers()
