@@ -57,7 +57,7 @@ mac:
 
 electronFuses:
   runAsNode: false
-  enableCookieEncryption: true
+  enableCookieEncryption: false # requires code signing on macOS — re-enable when available
   enableNodeOptionsEnvironmentVariable: false
   enableNodeCliInspectArguments: false
   enableEmbeddedAsarIntegrityValidation: true
