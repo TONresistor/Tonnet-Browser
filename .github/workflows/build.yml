@@ -55,6 +55,7 @@ jobs:
   build:
     needs: validate
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: ubuntu-latest
