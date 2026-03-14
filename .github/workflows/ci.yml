@@ -1,0 +1,102 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ─────────────────────────────────────────────
+  # Validate: type-check, lint, format, tests
+  # ─────────────────────────────────────────────
+  validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npm run type-check
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Format check
+        run: npm run format:check
+
+      - name: Run tests
+        run: npm test
+
+      - name: Security audit
+        run: npm audit --audit-level=high || true
+
+  # ─────────────────────────────────────────────
+  # Notify: Telegram (push to main only)
+  # ─────────────────────────────────────────────
+  notify:
+    needs: validate
+    runs-on: ubuntu-latest
+    if: always() && github.event_name == 'push'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          fetch-depth: 2
+
+      - name: Send Telegram notification
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          VALIDATE_RESULT: ${{ needs.validate.result }}
+        run: |
+          # Skip if secrets are not configured
+          if [ -z "$TELEGRAM_BOT_TOKEN" ] || [ -z "$TELEGRAM_CHAT_ID" ]; then
+            echo "Telegram secrets not configured, skipping"
+            exit 0
+          fi
+
+          # Extract commit info
+          COMMIT_TITLE=$(git log -1 --pretty=format:'%s')
+          COMMIT_DESC=$(git log -1 --pretty=format:'%b' | head -20)
+          COMMIT_SHA=$(git rev-parse --short HEAD)
+          COMMIT_URL="${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}"
+
+          # Status
+          if [ "$VALIDATE_RESULT" = "success" ]; then
+            STATUS="✅"
+          else
+            STATUS="❌"
+          fi
+
+          # Build message
+          TEXT="${STATUS} <b>${COMMIT_TITLE}</b>"
+          if [ -n "$COMMIT_DESC" ]; then
+            TEXT="${TEXT}
+
+${COMMIT_DESC}"
+          fi
+          TEXT="${TEXT}
+
+<a href=\"${COMMIT_URL}\">View commit ${COMMIT_SHA}</a>"
+
+          # Send
+          curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            -d chat_id="${TELEGRAM_CHAT_ID}" \
+            -d parse_mode="HTML" \
+            -d disable_web_page_preview="true" \
+            -d text="${TEXT}"
