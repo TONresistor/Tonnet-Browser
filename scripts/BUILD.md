@@ -37,7 +37,7 @@ For macOS, use the provided build script to create universal binaries:
 The project includes a GitHub Actions workflow that automatically builds binaries for all platforms:
 
 - **Trigger**: Push a tag starting with `v` (e.g., `v1.0.0`)
-- **Workflow file**: `.github/workflows/build-binaries.yml`
+- **Workflow file**: `.github/workflows/build.yml`
 - **Output**: Artifacts uploaded to the release
 
 ## Manual Build Instructions
@@ -168,7 +168,7 @@ chmod +x resources/bin/linux/*
 
 ## Continuous Integration
 
-The GitHub Actions workflow (`.github/workflows/build-binaries.yml`) handles:
+The GitHub Actions workflow (`.github/workflows/build.yml`) handles:
 
 1. Building on the appropriate runner for each platform
 2. Creating macOS universal binaries using `lipo`

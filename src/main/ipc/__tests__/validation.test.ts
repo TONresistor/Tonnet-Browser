@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import path from 'path'
 import os from 'os'
-import { isValidNavigationUrl, isValidBagId, isValidDownloadPath, RateLimiter } from '../validation'
+import { isValidNavigationUrl, isValidBagId, isValidDownloadPath } from '../validation'
 
 describe('isValidNavigationUrl', () => {
   it('accepts http://example.com', () => {
@@ -101,30 +101,6 @@ describe('isValidBagId', () => {
   it('REJECTS null/undefined (returns false, does not crash)', () => {
     expect(isValidBagId(null as unknown as string)).toBe(false)
     expect(isValidBagId(undefined as unknown as string)).toBe(false)
-  })
-})
-
-describe('RateLimiter', () => {
-  it('allows calls within the limit', () => {
-    const limiter = new RateLimiter(3, 1000)
-    expect(limiter.check()).toBe(true)
-    expect(limiter.check()).toBe(true)
-    expect(limiter.check()).toBe(true)
-  })
-
-  it('blocks calls exceeding the limit', () => {
-    const limiter = new RateLimiter(2, 1000)
-    expect(limiter.check()).toBe(true)
-    expect(limiter.check()).toBe(true)
-    expect(limiter.check()).toBe(false)
-  })
-
-  it('resets the call count', () => {
-    const limiter = new RateLimiter(1, 1000)
-    expect(limiter.check()).toBe(true)
-    expect(limiter.check()).toBe(false)
-    limiter.reset()
-    expect(limiter.check()).toBe(true)
   })
 })
 

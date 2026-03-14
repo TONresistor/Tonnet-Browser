@@ -45,11 +45,33 @@ jobs:
       - name: Test coverage
         run: npm run test:coverage 2>&1 | tail -30
 
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: coverage-report
+          path: coverage/
+          retention-days: 30
+          if-no-files-found: ignore
+
       - name: Verify build compiles
         run: npm run build
 
       - name: Security audit
-        run: npm audit --audit-level=high || true
+        run: npm audit --audit-level=high
+
+  # ─────────────────────────────────────────────
+  # Dependency review (PRs only)
+  # ─────────────────────────────────────────────
+  dependency-review:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
+      - name: Dependency review
+        uses: actions/dependency-review-action@3f54a7e412e545e3b4adb9a20d4ad39b9e5defe8 # v4
 
   # ─────────────────────────────────────────────
   # Notify: Telegram (push to main only)

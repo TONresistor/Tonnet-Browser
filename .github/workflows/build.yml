@@ -51,8 +51,7 @@ jobs:
         run: npm run format:check
 
       - name: Security audit
-        # Informational only — change `|| true` to fail the build when ready
-        run: npm audit --audit-level=high || true
+        run: npm audit --audit-level=high
 
   # ─────────────────────────────────────────────
   # Job 2: Build (parallel matrix, 3 platforms)
@@ -194,7 +193,7 @@ jobs:
   # Job 4: Notify (Telegram, runs on every outcome)
   # ─────────────────────────────────────────────
   notify:
-    needs: [validate, build]
+    needs: [validate, build, release]
     runs-on: ubuntu-latest
     if: always()
     steps:
