@@ -12,7 +12,7 @@ concurrency:
 
 jobs:
   # ─────────────────────────────────────────────
-  # Validate: type-check, lint, format, tests
+  # Validate: type-check, lint, format, tests, build
   # ─────────────────────────────────────────────
   validate:
     runs-on: ubuntu-latest
@@ -41,6 +41,12 @@ jobs:
 
       - name: Run tests
         run: npm test
+
+      - name: Test coverage
+        run: npm run test:coverage 2>&1 | tail -30
+
+      - name: Verify build compiles
+        run: npm run build
 
       - name: Security audit
         run: npm audit --audit-level=high || true

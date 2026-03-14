@@ -189,3 +189,43 @@ jobs:
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ─────────────────────────────────────────────
+  # Job 4: Notify (Telegram, runs on every outcome)
+  # ─────────────────────────────────────────────
+  notify:
+    needs: [validate, build]
+    runs-on: ubuntu-latest
+    if: always() && secrets.TELEGRAM_BOT_TOKEN
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          fetch-depth: 2
+
+      - name: Send Telegram notification
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          VALIDATE_RESULT: ${{ needs.validate.result }}
+          BUILD_RESULT: ${{ needs.build.result }}
+        run: |
+          if [ -z "$TELEGRAM_BOT_TOKEN" ] || [ -z "$TELEGRAM_CHAT_ID" ]; then
+            echo "Telegram secrets not configured, skipping"
+            exit 0
+          fi
+          COMMIT_TITLE=$(git log -1 --pretty=format:'%s')
+          COMMIT_DESC=$(git log -1 --pretty=format:'%b' | head -20)
+          COMMIT_SHA=$(git rev-parse --short HEAD)
+          COMMIT_URL="${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}"
+          if [ "$BUILD_RESULT" = "success" ] && [ "$VALIDATE_RESULT" = "success" ]; then STATUS="✅"; else STATUS="❌"; fi
+          TEXT="${STATUS} <b>${COMMIT_TITLE}</b>"
+          if [ -n "$COMMIT_DESC" ]; then
+            printf -v TEXT '%s\n\n%s' "$TEXT" "$COMMIT_DESC"
+          fi
+          printf -v TEXT '%s\n\n<a href="%s">View commit %s</a>' "$TEXT" "$COMMIT_URL" "$COMMIT_SHA"
+          curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            -d chat_id="${TELEGRAM_CHAT_ID}" \
+            -d parse_mode="HTML" \
+            -d disable_web_page_preview="true" \
+            -d text="${TEXT}"
