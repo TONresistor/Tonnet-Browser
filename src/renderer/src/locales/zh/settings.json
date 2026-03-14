@@ -231,7 +231,9 @@
     "create": "创建",
     "renameFolder": "重命名文件夹",
     "deleteConfirm": "删除 \"{{name}}\"？",
-    "maxDepthReached": "已达到最大文件夹深度（3 层）。"
+    "maxDepthReached": "已达到最大文件夹深度（3 层）。",
+    "deleteFolderConfirm": "Delete this folder? Bookmarks will be moved to Unfiled.",
+    "confirm": "Confirm"
   },
   "advanced": {
     "title": "高级",
@@ -246,7 +248,8 @@
     "verbose": "详细",
     "syncTestDomain": "同步测试域名",
     "syncTestDomainDesc": "用于验证 DHT 同步的域名",
-    "resetAll": "将所有设置重置为默认值"
+    "resetAll": "将所有设置重置为默认值",
+    "resetAllConfirm": "Click again to confirm"
   },
   "about": {
     "title": "关于",

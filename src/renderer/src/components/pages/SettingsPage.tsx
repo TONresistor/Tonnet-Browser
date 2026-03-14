@@ -34,9 +34,13 @@ export function SettingsPage() {
   const [clearing, setClearing] = useState(false)
   const [cleared, setCleared] = useState(false)
   const [changingHistoryMode, setChangingHistoryMode] = useState(false)
+  const [pendingReset, setPendingReset] = useState(false)
+  const [historyError, setHistoryError] = useState<string | null>(null)
 
   // Refs
   const clearTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const historyErrorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Stores
   const { draft, isLoaded, hasChanges, isSaving, loadFromMain, setDraft, save, discard, resetToDefaults } =
@@ -48,12 +52,12 @@ export function SettingsPage() {
     loadFromMain()
   }, [loadFromMain])
 
-  // Cleanup timeout on unmount
+  // Cleanup timeouts on unmount
   useEffect(() => {
     return () => {
-      if (clearTimeoutRef.current) {
-        clearTimeout(clearTimeoutRef.current)
-      }
+      if (clearTimeoutRef.current) clearTimeout(clearTimeoutRef.current)
+      if (resetTimerRef.current) clearTimeout(resetTimerRef.current)
+      if (historyErrorTimerRef.current) clearTimeout(historyErrorTimerRef.current)
     }
   }, [])
 
@@ -97,8 +101,14 @@ export function SettingsPage() {
   }
 
   const handleResetAll = () => {
-    if (confirm('Are you sure you want to reset all settings to defaults?')) {
+    if (pendingReset) {
       resetToDefaults()
+      setPendingReset(false)
+      if (resetTimerRef.current) clearTimeout(resetTimerRef.current)
+    } else {
+      setPendingReset(true)
+      if (resetTimerRef.current) clearTimeout(resetTimerRef.current)
+      resetTimerRef.current = setTimeout(() => setPendingReset(false), 3000)
     }
   }
 
@@ -117,10 +127,14 @@ export function SettingsPage() {
       if (result.success) {
         setDraft('historyMode', newMode as 'memory' | 'persistent')
       } else {
-        alert(`Failed to change history mode: ${result.error}`)
+        setHistoryError(`Failed to change history mode: ${result.error}`)
+        if (historyErrorTimerRef.current) clearTimeout(historyErrorTimerRef.current)
+        historyErrorTimerRef.current = setTimeout(() => setHistoryError(null), 5000)
       }
     } catch (error) {
-      alert(`Error changing history mode: ${(error as Error).message}`)
+      setHistoryError(`Error changing history mode: ${(error as Error).message}`)
+      if (historyErrorTimerRef.current) clearTimeout(historyErrorTimerRef.current)
+      historyErrorTimerRef.current = setTimeout(() => setHistoryError(null), 5000)
     } finally {
       setChangingHistoryMode(false)
     }
@@ -159,12 +173,15 @@ export function SettingsPage() {
 
       case 'history':
         return (
-          <HistorySection
-            draft={draft}
-            setDraft={setDraft}
-            changingHistoryMode={changingHistoryMode}
-            onHistoryModeChange={handleHistoryModeChange}
-          />
+          <div>
+            <HistorySection
+              draft={draft}
+              setDraft={setDraft}
+              changingHistoryMode={changingHistoryMode}
+              onHistoryModeChange={handleHistoryModeChange}
+            />
+            {historyError && <p className="mt-2 text-sm text-destructive px-1">{historyError}</p>}
+          </div>
         )
 
       case 'shortcuts':
@@ -180,7 +197,9 @@ export function SettingsPage() {
         )
 
       case 'advanced':
-        return <AdvancedSection draft={draft} setDraft={setDraft} onResetAll={handleResetAll} />
+        return (
+          <AdvancedSection draft={draft} setDraft={setDraft} onResetAll={handleResetAll} pendingReset={pendingReset} />
+        )
 
       case 'about':
         return <AboutSection />

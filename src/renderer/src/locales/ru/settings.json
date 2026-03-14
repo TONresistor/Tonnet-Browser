@@ -231,7 +231,9 @@
     "create": "Создать",
     "renameFolder": "Переименовать папку",
     "deleteConfirm": "Удалить \"{{name}}\"?",
-    "maxDepthReached": "Достигнута максимальная глубина вложенности (3 уровня)."
+    "maxDepthReached": "Достигнута максимальная глубина вложенности (3 уровня).",
+    "deleteFolderConfirm": "Delete this folder? Bookmarks will be moved to Unfiled.",
+    "confirm": "Confirm"
   },
   "advanced": {
     "title": "Дополнительно",
@@ -246,7 +248,8 @@
     "verbose": "Подробный",
     "syncTestDomain": "Домен проверки синхронизации",
     "syncTestDomainDesc": "Домен для проверки синхронизации DHT",
-    "resetAll": "Сбросить все настройки на значения по умолчанию"
+    "resetAll": "Сбросить все настройки на значения по умолчанию",
+    "resetAllConfirm": "Click again to confirm"
   },
   "about": {
     "title": "О программе",

@@ -294,6 +294,23 @@ export interface ContentFilterEvent {
   timestamp: number
 }
 
+export interface HistoryEntry {
+  id: string
+  url: string
+  title: string
+  visitedAt: number
+  visitCount: number
+  favicon?: string
+}
+
+export interface HistoryStats {
+  total: number
+  mode: 'memory' | 'persistent'
+  oldestEntry?: number
+  newestEntry?: number
+  isLocked: boolean
+}
+
 // IPC Channel names
 export const IPC_CHANNELS = {
   // Proxy

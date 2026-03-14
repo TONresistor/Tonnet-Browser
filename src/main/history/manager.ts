@@ -8,6 +8,7 @@ import { EventEmitter } from 'events'
 import { getSetting, setSetting } from '../settings'
 import { SafeStorageWrapper } from './safe-storage-wrapper'
 import { createLogger } from '../../shared/logger'
+import { HistoryEntry, HistoryStats } from '../../shared/types'
 const log = createLogger('history')
 
 export enum HistoryMode {
@@ -15,32 +16,22 @@ export enum HistoryMode {
   PERSISTENT = 'persistent',
 }
 
-export interface HistoryEntry {
-  id: string
-  url: string
-  title: string
-  visitedAt: number
-  visitCount: number
-  favicon?: string
-}
-
-export interface HistoryStats {
-  total: number
-  mode: HistoryMode
-  oldestEntry?: number
-  newestEntry?: number
-  isLocked: boolean
-}
+export type { HistoryEntry, HistoryStats }
 
 export class HistoryManager extends EventEmitter {
   private entries: Map<string, HistoryEntry> = new Map()
   private maxEntries: number = 1000
   private mode: HistoryMode = HistoryMode.MEMORY
   private storage: SafeStorageWrapper | null = null
+  private readyPromise: Promise<void>
 
   constructor() {
     super()
-    this.loadSettings()
+    this.readyPromise = this.loadSettings()
+  }
+
+  async ready(): Promise<void> {
+    return this.readyPromise
   }
 
   private async loadSettings(): Promise<void> {
@@ -200,7 +191,8 @@ export class HistoryManager extends EventEmitter {
   /**
    * Search history
    */
-  search(query: string, limit: number = 50): HistoryEntry[] {
+  async search(query: string, limit: number = 50): Promise<HistoryEntry[]> {
+    await this.readyPromise
     const lowerQuery = query.toLowerCase()
     return Array.from(this.entries.values())
       .filter((entry) => entry.url.toLowerCase().includes(lowerQuery) || entry.title.toLowerCase().includes(lowerQuery))
@@ -211,7 +203,8 @@ export class HistoryManager extends EventEmitter {
   /**
    * Get recent entries
    */
-  getRecent(limit: number = 100): HistoryEntry[] {
+  async getRecent(limit: number = 100): Promise<HistoryEntry[]> {
+    await this.readyPromise
     return Array.from(this.entries.values())
       .sort((a, b) => b.visitedAt - a.visitedAt)
       .slice(0, limit)
@@ -337,7 +330,8 @@ export class HistoryManager extends EventEmitter {
   /**
    * Get statistics
    */
-  getStats(): HistoryStats {
+  async getStats(): Promise<HistoryStats> {
+    await this.readyPromise
     const entries = Array.from(this.entries.values())
 
     return {

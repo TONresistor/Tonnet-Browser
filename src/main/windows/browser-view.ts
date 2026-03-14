@@ -8,7 +8,7 @@ import { USER_AGENT } from '../../shared/constants'
 import { getSetting } from '../settings'
 import { contentFilterManager } from '../content-filter/filter-manager'
 import { createLogger } from '../../shared/logger'
-const log = createLogger('tabs')
+const log = createLogger('browser-view')
 
 const SESSION_PARTITION = 'persist:ton-browser'
 

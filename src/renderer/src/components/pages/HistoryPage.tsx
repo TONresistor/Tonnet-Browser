@@ -13,30 +13,13 @@ import { useTabsStore } from '../../stores/tabs'
 import { ErrorBoundary } from '../ErrorBoundary'
 import Lottie from 'lottie-react'
 import explorerAnimation from '@/assets/explorer.json'
-
-interface HistoryEntry {
-  id: string
-  url: string
-  title: string
-  visitedAt: number
-  visitCount: number
-  favicon?: string
-}
-
-interface HistoryStats {
-  total: number
-  mode: string
-  oldestEntry?: number
-  newestEntry?: number
-  isLocked: boolean
-}
+import type { HistoryEntry } from '@shared/types'
 
 type TimeFilter = 'today' | 'week' | 'month' | 'all'
 
 export function HistoryPage() {
   const { t, i18n } = useTranslation('pages')
   const [entries, setEntries] = useState<HistoryEntry[]>([])
-  const [_stats, setStats] = useState<HistoryStats | null>(null)
   const [query, setQuery] = useState('')
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('all')
   const [isLoading, setIsLoading] = useState(false)
@@ -48,7 +31,6 @@ export function HistoryPage() {
     const timeoutId = setTimeout(
       () => {
         loadHistory()
-        loadStats()
       },
       query ? 300 : 0
     ) // Only debounce for search, not for filter changes
@@ -87,20 +69,10 @@ export function HistoryPage() {
     setIsLoading(false)
   }
 
-  const loadStats = async () => {
-    try {
-      const s = await window.electron.history.getStats()
-      setStats(s)
-    } catch (error) {
-      log.error('Failed to load stats:', error)
-    }
-  }
-
   const handleDelete = async (id: string) => {
     const result = await window.electron.history.delete(id)
     if (result.success) {
       loadHistory()
-      loadStats()
     }
   }
 
@@ -112,7 +84,6 @@ export function HistoryPage() {
     const result = await window.electron.history.clear()
     if (result.success) {
       loadHistory()
-      loadStats()
     }
   }
 
@@ -145,7 +116,6 @@ export function HistoryPage() {
     await Promise.all(entriesToDelete.map((entry) => window.electron.history.delete(entry.id)))
 
     loadHistory()
-    loadStats()
   }
 
   const openInNewTab = (url: string) => {

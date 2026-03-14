@@ -235,7 +235,9 @@
     "create": "Create",
     "renameFolder": "Rename Folder",
     "deleteConfirm": "Delete \"{{name}}\"?",
-    "maxDepthReached": "Maximum folder depth (3 levels) reached."
+    "maxDepthReached": "Maximum folder depth (3 levels) reached.",
+    "deleteFolderConfirm": "Delete this folder? Bookmarks will be moved to Unfiled.",
+    "confirm": "Confirm"
   },
   "advanced": {
     "title": "Advanced",
@@ -250,7 +252,8 @@
     "verbose": "Verbose",
     "syncTestDomain": "Sync test domain",
     "syncTestDomainDesc": "Domain used to verify DHT sync",
-    "resetAll": "Reset all settings to defaults"
+    "resetAll": "Reset all settings to defaults",
+    "resetAllConfirm": "Click again to confirm"
   },
   "about": {
     "title": "About",

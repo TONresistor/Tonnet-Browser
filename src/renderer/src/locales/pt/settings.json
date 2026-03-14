@@ -231,7 +231,9 @@
     "create": "Criar",
     "renameFolder": "Renomear pasta",
     "deleteConfirm": "Excluir \"{{name}}\"?",
-    "maxDepthReached": "Profundidade máxima de pasta atingida (3 níveis)."
+    "maxDepthReached": "Profundidade máxima de pasta atingida (3 níveis).",
+    "deleteFolderConfirm": "Delete this folder? Bookmarks will be moved to Unfiled.",
+    "confirm": "Confirm"
   },
   "advanced": {
     "title": "Avançado",
@@ -246,7 +248,8 @@
     "verbose": "Detalhado",
     "syncTestDomain": "Domínio de teste de sincronização",
     "syncTestDomainDesc": "Domínio usado para verificar sincronização DHT",
-    "resetAll": "Redefinir todas as configurações para padrões"
+    "resetAll": "Redefinir todas as configurações para padrões",
+    "resetAllConfirm": "Click again to confirm"
   },
   "about": {
     "title": "Sobre",

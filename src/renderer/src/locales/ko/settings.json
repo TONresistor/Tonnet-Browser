@@ -231,7 +231,9 @@
     "create": "만들기",
     "renameFolder": "폴더 이름 바꾸기",
     "deleteConfirm": "\"{{name}}\"을(를) 삭제하시겠습니까?",
-    "maxDepthReached": "최대 폴더 깊이에 도달했습니다 (3단계)."
+    "maxDepthReached": "최대 폴더 깊이에 도달했습니다 (3단계).",
+    "deleteFolderConfirm": "Delete this folder? Bookmarks will be moved to Unfiled.",
+    "confirm": "Confirm"
   },
   "advanced": {
     "title": "고급",
@@ -246,7 +248,8 @@
     "verbose": "상세",
     "syncTestDomain": "동기화 테스트 도메인",
     "syncTestDomainDesc": "DHT 동기화를 확인하는 데 사용되는 도메인",
-    "resetAll": "모든 설정을 기본값으로 재설정"
+    "resetAll": "모든 설정을 기본값으로 재설정",
+    "resetAllConfirm": "Click again to confirm"
   },
   "about": {
     "title": "정보",

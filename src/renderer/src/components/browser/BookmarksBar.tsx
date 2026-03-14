@@ -26,6 +26,7 @@ import { useTabsStore } from '@/stores/tabs'
 import { ErrorBoundary } from '../ErrorBoundary'
 import { SortableBookmarkItem } from './SortableBookmarkItem'
 import { DroppableFolder } from './DroppableFolder'
+import { useTranslation } from 'react-i18next'
 
 interface EditModal {
   bookmark: Bookmark
@@ -39,6 +40,7 @@ interface RenameModal {
 }
 
 export function BookmarksBar() {
+  const { t } = useTranslation('settings')
   const {
     bookmarks,
     folders,
@@ -56,6 +58,8 @@ export function BookmarksBar() {
   const [editModal, setEditModal] = useState<EditModal | null>(null)
   const [renameModal, setRenameModal] = useState<RenameModal | null>(null)
   const [activeId, setActiveId] = useState<string | null>(null)
+  const [pendingFolderDeleteId, setPendingFolderDeleteId] = useState<string | null>(null)
+  const folderDeleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const editModalRef = useRef<HTMLDivElement>(null)
   const renameModalRef = useRef<HTMLDivElement>(null)
 
@@ -207,9 +211,9 @@ export function BookmarksBar() {
 
     const unsubFolderDelete = window.electron.on('folder:delete', (...args: unknown[]) => {
       const folderId = args[0] as string
-      if (confirm('Delete this folder? Bookmarks will be moved to unfiled.')) {
-        removeFolderRef.current(folderId)
-      }
+      setPendingFolderDeleteId(folderId)
+      if (folderDeleteTimerRef.current) clearTimeout(folderDeleteTimerRef.current)
+      folderDeleteTimerRef.current = setTimeout(() => setPendingFolderDeleteId(null), 3000)
     })
 
     const unsubFolderOpenAll = window.electron.on('folder:open-all', (...args: unknown[]) => {
@@ -225,6 +229,7 @@ export function BookmarksBar() {
       unsubFolderRename()
       unsubFolderDelete()
       unsubFolderOpenAll()
+      if (folderDeleteTimerRef.current) clearTimeout(folderDeleteTimerRef.current)
     }
   }, []) // Empty deps - all callbacks use refs or state setters
 
@@ -435,6 +440,32 @@ export function BookmarksBar() {
           )}
         </DragOverlay>
       </DndContext>
+
+      {/* Folder delete confirmation */}
+      {pendingFolderDeleteId && (
+        <div className="flex items-center gap-2 px-3 py-1.5 text-sm bg-destructive/15 border-t border-destructive/30 text-destructive">
+          <span className="flex-1">{t('bookmarks.deleteFolderConfirm')}</span>
+          <button
+            onClick={() => {
+              removeFolderRef.current(pendingFolderDeleteId)
+              setPendingFolderDeleteId(null)
+              if (folderDeleteTimerRef.current) clearTimeout(folderDeleteTimerRef.current)
+            }}
+            className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-destructive/25 hover:bg-destructive/40 transition-colors"
+          >
+            {t('bookmarks.confirm')}
+          </button>
+          <button
+            onClick={() => {
+              setPendingFolderDeleteId(null)
+              if (folderDeleteTimerRef.current) clearTimeout(folderDeleteTimerRef.current)
+            }}
+            className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-surface-hover hover:bg-surface-active transition-colors text-muted-foreground"
+          >
+            {t('bookmarks.cancel')}
+          </button>
+        </div>
+      )}
 
       {/* Edit Modal */}
       {editModal && (

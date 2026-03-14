@@ -7,12 +7,12 @@ import { useEffect, useState, memo } from 'react'
 import { createLogger } from '@/logger'
 
 const log = createLogger('status')
-import { Wifi, WifiOff, Loader2, ArrowDown, ArrowUp, Zap } from 'lucide-react'
+import { Wifi, WifiOff, Loader2, ArrowDown, ArrowUp } from 'lucide-react'
 import { useBrowserStore } from '@/stores/browser'
 import { APP_VERSION } from '@shared/constants'
 import type { StorageBag } from '@shared/types'
 import { useTranslation } from 'react-i18next'
-import { formatBytes, formatSpeed } from '@/lib/format'
+import { formatSpeed } from '@/lib/format'
 
 function formatTime(date: Date, locale?: string): string {
   return date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', second: '2-digit' })
@@ -28,9 +28,6 @@ export const StatusBar = memo(function StatusBar() {
   const { proxyConnected, proxySyncing, anonymousMode, circuitRelays, storageStats, setProxyStatus, setStorageStats } =
     useBrowserStore()
   const [currentTime, setCurrentTime] = useState(new Date())
-  const [bandwidth, setBandwidth] = useState({ down: 0, up: 0 })
-  const [latency, setLatency] = useState<number | null>(null)
-
   // Clock update
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000)
@@ -60,25 +57,6 @@ export const StatusBar = memo(function StatusBar() {
       )
     })
 
-    // Listen for bandwidth updates
-    const unsubBandwidth = window.electron.on('proxy:bandwidth', (...args: unknown[]) => {
-      const data = args[0]
-      // Runtime validation
-      if (!data || typeof data !== 'object') {
-        log.error('Invalid proxy:bandwidth data:', data)
-        return
-      }
-      const bandwidth = data as { down: number; up: number; latency?: number }
-      if (typeof bandwidth.down !== 'number' || typeof bandwidth.up !== 'number') {
-        log.error('Invalid bandwidth field types')
-        return
-      }
-      setBandwidth({ down: bandwidth.down, up: bandwidth.up })
-      if (bandwidth.latency && typeof bandwidth.latency === 'number') {
-        setLatency(bandwidth.latency)
-      }
-    })
-
     // Listen for storage bags updates
     const unsubBagsUpdated = window.electron.on('storage:bags-updated', (...args: unknown[]) => {
       const bags = args[0] as StorageBag[]
@@ -93,7 +71,6 @@ export const StatusBar = memo(function StatusBar() {
 
     return () => {
       unsubProxyStatus()
-      unsubBandwidth()
       unsubBagsUpdated()
     }
   }, [setProxyStatus, setStorageStats])
@@ -194,31 +171,6 @@ export const StatusBar = memo(function StatusBar() {
             >
               <ArrowUp className="h-3 w-3 text-success" aria-hidden="true" />
               <span>{formatSpeed(storageStats.uploadSpeed)}</span>
-            </div>
-          </>
-        )}
-
-        {/* Latency */}
-        {latency !== null && (
-          <>
-            <Separator />
-            <div className="flex items-center gap-1">
-              <Zap className="h-3 w-3 text-warning" aria-hidden="true" />
-              <span className="text-warning">{latency}ms</span>
-            </div>
-          </>
-        )}
-
-        {/* Bandwidth */}
-        {(bandwidth.down > 0 || bandwidth.up > 0) && (
-          <>
-            <Separator />
-            <div className="flex items-center gap-1.5">
-              <span className="text-muted-foreground">{t('statusBar.session')}</span>
-              <ArrowDown className="h-3 w-3 text-info" aria-hidden="true" />
-              <span>{formatBytes(bandwidth.down)}</span>
-              <ArrowUp className="h-3 w-3 text-success" aria-hidden="true" />
-              <span>{formatBytes(bandwidth.up)}</span>
             </div>
           </>
         )}

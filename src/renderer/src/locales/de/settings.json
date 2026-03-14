@@ -231,7 +231,9 @@
     "create": "Erstellen",
     "renameFolder": "Ordner umbenennen",
     "deleteConfirm": "\"{{name}}\" löschen?",
-    "maxDepthReached": "Maximale Ordnertiefe erreicht (3 Ebenen)."
+    "maxDepthReached": "Maximale Ordnertiefe erreicht (3 Ebenen).",
+    "deleteFolderConfirm": "Delete this folder? Bookmarks will be moved to Unfiled.",
+    "confirm": "Confirm"
   },
   "advanced": {
     "title": "Erweitert",
@@ -246,7 +248,8 @@
     "verbose": "Ausführlich",
     "syncTestDomain": "Sync-Test-Domain",
     "syncTestDomainDesc": "Domain zur Überprüfung der DHT-Synchronisation",
-    "resetAll": "Alle Einstellungen auf Standardwerte zurücksetzen"
+    "resetAll": "Alle Einstellungen auf Standardwerte zurücksetzen",
+    "resetAllConfirm": "Click again to confirm"
   },
   "about": {
     "title": "Über",

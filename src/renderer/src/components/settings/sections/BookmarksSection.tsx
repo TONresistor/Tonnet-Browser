@@ -2,7 +2,7 @@
  * Section Bookmarks
  */
 
-import { memo, useState, useMemo } from 'react'
+import { memo, useState, useMemo, useRef, useEffect } from 'react'
 import { ExternalLink, RotateCcw, Search, Plus, Edit, Trash2, Globe } from 'lucide-react'
 import { SectionHeader } from '../shared/SectionHeader'
 import { SettingRow } from '../shared/SettingRow'
@@ -36,6 +36,18 @@ export const BookmarksSection = memo(function BookmarksSection({
     getFolderDepth,
   } = useBookmarksStore()
   const { navigateActiveTab, addTab } = useTabsStore()
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
+  const deleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [maxDepthWarning, setMaxDepthWarning] = useState(false)
+  const maxDepthTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (deleteTimerRef.current) clearTimeout(deleteTimerRef.current)
+      if (maxDepthTimerRef.current) clearTimeout(maxDepthTimerRef.current)
+    }
+  }, [])
+
   const [query, setQuery] = useState('')
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null)
   const [editingBookmark, setEditingBookmark] = useState<{
@@ -78,16 +90,24 @@ export const BookmarksSection = memo(function BookmarksSection({
     }
   }
 
-  const handleDelete = (id: string, title: string) => {
-    if (confirm(t('bookmarks.deleteConfirm', { name: title }))) {
+  const handleDelete = (id: string) => {
+    if (pendingDeleteId === id) {
       removeBookmark(id)
+      setPendingDeleteId(null)
+      if (deleteTimerRef.current) clearTimeout(deleteTimerRef.current)
+    } else {
+      setPendingDeleteId(id)
+      if (deleteTimerRef.current) clearTimeout(deleteTimerRef.current)
+      deleteTimerRef.current = setTimeout(() => setPendingDeleteId(null), 3000)
     }
   }
 
   const handleNewFolder = (parentId: string | null) => {
     const depth = getFolderDepth(parentId)
     if (depth >= 3) {
-      alert(t('bookmarks.maxDepthReached'))
+      setMaxDepthWarning(true)
+      if (maxDepthTimerRef.current) clearTimeout(maxDepthTimerRef.current)
+      maxDepthTimerRef.current = setTimeout(() => setMaxDepthWarning(false), 3000)
       return
     }
     setCreatingFolder({ parentId, name: '' })
@@ -168,6 +188,7 @@ export const BookmarksSection = memo(function BookmarksSection({
               <Plus className="w-4 h-4" />
             </button>
           </div>
+          {maxDepthWarning && <p className="text-xs text-amber-500 mb-2">{t('bookmarks.maxDepthReached')}</p>}
           <div className="bg-card rounded-2xl border border-border p-3">
             <FolderTree
               selectedFolderId={selectedFolderId}
@@ -237,8 +258,10 @@ export const BookmarksSection = memo(function BookmarksSection({
                         <Edit className="w-4 h-4 text-foreground" />
                       </button>
                       <button
-                        onClick={() => handleDelete(bookmark.id, bookmark.title)}
-                        className="p-2 hover:bg-destructive/10 rounded transition-colors"
+                        onClick={() => handleDelete(bookmark.id)}
+                        className={`p-2 rounded transition-colors ${
+                          pendingDeleteId === bookmark.id ? 'bg-destructive/20' : 'hover:bg-destructive/10'
+                        }`}
                         title={t('bookmarks.delete')}
                       >
                         <Trash2 className="w-4 h-4 text-destructive" />

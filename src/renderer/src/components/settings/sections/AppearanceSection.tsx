@@ -22,14 +22,14 @@ export const AppearanceSection = memo(function AppearanceSection({ draft, setDra
   const builtInThemes = [
     {
       value: 'resistance-dog',
-      label: 'Resistance Dog',
-      description: 'Dark blue theme (default)',
+      label: t('appearance.theme.resistanceDog'),
+      description: t('appearance.theme.resistanceDogDesc'),
       color: 'bg-[#5288c1]',
     },
     {
       value: 'utya-duck',
-      label: 'Utya Duck',
-      description: 'Bright yellow theme',
+      label: t('appearance.theme.utyaDuck'),
+      description: t('appearance.theme.utyaDuckDesc'),
       color: 'bg-[#FFE600]',
     },
   ]
@@ -224,14 +224,14 @@ export const AppearanceSection = memo(function AppearanceSection({ draft, setDra
           <Toggle
             checked={draft.showBookmarksBar}
             onChange={(v) => setDraft('showBookmarksBar', v)}
-            label="Show bookmarks bar"
+            label={t('appearance.ui.showBookmarksBar')}
           />
         </SettingRow>
         <SettingRow label={t('appearance.ui.showStatusBar')} description={t('appearance.ui.showStatusBarDesc')}>
           <Toggle
             checked={draft.showStatusBar}
             onChange={(v) => setDraft('showStatusBar', v)}
-            label="Show status bar"
+            label={t('appearance.ui.showStatusBar')}
           />
         </SettingRow>
         <SettingRow label={t('appearance.ui.tabOrientation')} description={t('appearance.ui.tabOrientationDesc')}>

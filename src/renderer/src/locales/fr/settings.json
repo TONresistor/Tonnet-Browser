@@ -231,7 +231,9 @@
     "create": "Créer",
     "renameFolder": "Renommer le dossier",
     "deleteConfirm": "Supprimer \"{{name}}\" ?",
-    "maxDepthReached": "Profondeur maximale de dossier atteinte (3 niveaux)."
+    "maxDepthReached": "Profondeur maximale de dossier atteinte (3 niveaux).",
+    "deleteFolderConfirm": "Delete this folder? Bookmarks will be moved to Unfiled.",
+    "confirm": "Confirm"
   },
   "advanced": {
     "title": "Avancé",
@@ -246,7 +248,8 @@
     "verbose": "Détaillé",
     "syncTestDomain": "Domaine de test de synchronisation",
     "syncTestDomainDesc": "Domaine utilisé pour vérifier la synchronisation DHT",
-    "resetAll": "Réinitialiser tous les paramètres aux valeurs par défaut"
+    "resetAll": "Réinitialiser tous les paramètres aux valeurs par défaut",
+    "resetAllConfirm": "Click again to confirm"
   },
   "about": {
     "title": "À propos",

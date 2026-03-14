@@ -231,7 +231,9 @@
     "create": "Buat",
     "renameFolder": "Ubah nama folder",
     "deleteConfirm": "Hapus \"{{name}}\"?",
-    "maxDepthReached": "Kedalaman folder maksimal tercapai (3 tingkat)."
+    "maxDepthReached": "Kedalaman folder maksimal tercapai (3 tingkat).",
+    "deleteFolderConfirm": "Delete this folder? Bookmarks will be moved to Unfiled.",
+    "confirm": "Confirm"
   },
   "advanced": {
     "title": "Lanjutan",
@@ -246,7 +248,8 @@
     "verbose": "Detail",
     "syncTestDomain": "Domain tes sinkronisasi",
     "syncTestDomainDesc": "Domain yang digunakan untuk memverifikasi sinkronisasi DHT",
-    "resetAll": "Setel ulang semua pengaturan ke default"
+    "resetAll": "Setel ulang semua pengaturan ke default",
+    "resetAllConfirm": "Click again to confirm"
   },
   "about": {
     "title": "Tentang",

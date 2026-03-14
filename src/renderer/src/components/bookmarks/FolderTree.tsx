@@ -3,7 +3,7 @@
  * Supports hierarchical folder structure with expand/collapse
  */
 
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { ChevronRight, ChevronDown, Folder, FolderOpen, Edit2, Trash2 } from 'lucide-react'
 import { useBookmarksStore, BookmarkFolder } from '@/stores/bookmarks'
 import { cn } from '@/lib/utils'
@@ -19,6 +19,14 @@ export function FolderTree({ selectedFolderId, onSelectFolder, onEditFolder }: F
   const { t } = useTranslation('settings')
   const { getBookmarksByFolder, getSubfolders, removeFolder } = useBookmarksStore()
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set(['root']))
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
+  const deleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (deleteTimerRef.current) clearTimeout(deleteTimerRef.current)
+    }
+  }, [])
 
   const toggleExpand = (folderId: string) => {
     setExpandedFolders((prev) => {
@@ -34,17 +42,17 @@ export function FolderTree({ selectedFolderId, onSelectFolder, onEditFolder }: F
 
   const handleDeleteFolder = (e: React.MouseEvent, folder: BookmarkFolder) => {
     e.stopPropagation()
-    const bookmarksCount = getBookmarksByFolder(folder.id).length
-    const message =
-      bookmarksCount > 0
-        ? `Delete "${folder.name}"? ${bookmarksCount} bookmark(s) will be moved to Unfiled.`
-        : `Delete "${folder.name}"?`
-
-    if (confirm(message)) {
+    if (pendingDeleteId === folder.id) {
       removeFolder(folder.id)
+      setPendingDeleteId(null)
+      if (deleteTimerRef.current) clearTimeout(deleteTimerRef.current)
       if (selectedFolderId === folder.id) {
         onSelectFolder(null)
       }
+    } else {
+      setPendingDeleteId(folder.id)
+      if (deleteTimerRef.current) clearTimeout(deleteTimerRef.current)
+      deleteTimerRef.current = setTimeout(() => setPendingDeleteId(null), 3000)
     }
   }
 
@@ -119,7 +127,9 @@ export function FolderTree({ selectedFolderId, onSelectFolder, onEditFolder }: F
               </button>
               <button
                 onClick={(e) => handleDeleteFolder(e, folder)}
-                className="p-1 hover:bg-destructive/10 rounded transition-colors"
+                className={`p-1 rounded transition-colors ${
+                  pendingDeleteId === folder.id ? 'bg-destructive/20' : 'hover:bg-destructive/10'
+                }`}
                 title="Delete folder"
               >
                 <Trash2 className="w-3.5 h-3.5 text-destructive" />

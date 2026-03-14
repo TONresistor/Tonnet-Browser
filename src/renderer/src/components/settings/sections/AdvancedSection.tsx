@@ -12,9 +12,15 @@ import { useTranslation } from 'react-i18next'
 
 interface AdvancedSectionProps extends SectionProps {
   onResetAll: () => void
+  pendingReset?: boolean
 }
 
-export const AdvancedSection = memo(function AdvancedSection({ draft, setDraft, onResetAll }: AdvancedSectionProps) {
+export const AdvancedSection = memo(function AdvancedSection({
+  draft,
+  setDraft,
+  onResetAll,
+  pendingReset,
+}: AdvancedSectionProps) {
   const { t } = useTranslation('settings')
 
   return (
@@ -58,10 +64,14 @@ export const AdvancedSection = memo(function AdvancedSection({ draft, setDraft, 
       <div className="mt-6">
         <button
           onClick={onResetAll}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 bg-destructive/15 border border-destructive/30 text-destructive hover:bg-destructive/25"
+          className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 border text-destructive ${
+            pendingReset
+              ? 'bg-destructive/30 border-destructive/60'
+              : 'bg-destructive/15 border-destructive/30 hover:bg-destructive/25'
+          }`}
         >
           <RotateCcw className="h-4 w-4" />
-          {t('advanced.resetAll')}
+          {pendingReset ? t('advanced.resetAllConfirm') : t('advanced.resetAll')}
         </button>
       </div>
     </div>

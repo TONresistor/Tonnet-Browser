@@ -231,7 +231,9 @@
     "create": "สร้าง",
     "renameFolder": "เปลี่ยนชื่อโฟลเดอร์",
     "deleteConfirm": "ลบ \"{{name}}\" หรือไม่",
-    "maxDepthReached": "ถึงความลึกสูงสุดของโฟลเดอร์แล้ว (3 ระดับ)"
+    "maxDepthReached": "ถึงความลึกสูงสุดของโฟลเดอร์แล้ว (3 ระดับ)",
+    "deleteFolderConfirm": "Delete this folder? Bookmarks will be moved to Unfiled.",
+    "confirm": "Confirm"
   },
   "advanced": {
     "title": "ขั้นสูง",
@@ -246,7 +248,8 @@
     "verbose": "รายละเอียด",
     "syncTestDomain": "โดเมนทดสอบการซิงค์",
     "syncTestDomainDesc": "โดเมนที่ใช้ตรวจสอบการซิงค์ DHT",
-    "resetAll": "รีเซ็ตการตั้งค่าทั้งหมดเป็นค่าเริ่มต้น"
+    "resetAll": "รีเซ็ตการตั้งค่าทั้งหมดเป็นค่าเริ่มต้น",
+    "resetAllConfirm": "Click again to confirm"
   },
   "about": {
     "title": "เกี่ยวกับ",
