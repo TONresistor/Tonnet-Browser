@@ -17,6 +17,13 @@ import {
 } from 'lucide-react'
 import type { SectionInfo, Shortcut } from './types'
 
+const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
+
+const mod = (key: string): string => {
+  if (!isMac) return key
+  return key.replace('Ctrl', '⌘').replace('Alt', '⌥').replace('Shift', '⇧')
+}
+
 /**
  * Liste des sections disponibles avec leurs métadonnées
  */
@@ -38,20 +45,20 @@ export const SECTIONS: SectionInfo[] = [
  * Liste des raccourcis clavier disponibles
  */
 export const SHORTCUTS: Shortcut[] = [
-  { action: 'New tab', shortcut: 'Ctrl+T' },
-  { action: 'Close tab', shortcut: 'Ctrl+W' },
-  { action: 'Reopen closed tab', shortcut: 'Ctrl+Shift+T' },
+  { action: 'New tab', shortcut: mod('Ctrl+T') },
+  { action: 'Close tab', shortcut: mod('Ctrl+W') },
+  { action: 'Reopen closed tab', shortcut: mod('Ctrl+Shift+T') },
   { action: 'Next tab', shortcut: 'Ctrl+Tab' },
   { action: 'Previous tab', shortcut: 'Ctrl+Shift+Tab' },
-  { action: 'Go to tab 1-9', shortcut: 'Ctrl+1-9' },
-  { action: 'History', shortcut: 'Ctrl+H' },
-  { action: 'Focus address bar', shortcut: 'Ctrl+L' },
-  { action: 'Reload', shortcut: 'Ctrl+R / F5' },
-  { action: 'Back', shortcut: 'Alt+←' },
-  { action: 'Forward', shortcut: 'Alt+→' },
+  { action: 'Go to tab 1-9', shortcut: mod('Ctrl+1-9') },
+  { action: 'History', shortcut: mod('Ctrl+H') },
+  { action: 'Focus address bar', shortcut: mod('Ctrl+L') },
+  { action: 'Reload', shortcut: `${mod('Ctrl+R')} / F5` },
+  { action: 'Back', shortcut: isMac ? '⌘+←' : 'Alt+←' },
+  { action: 'Forward', shortcut: isMac ? '⌘+→' : 'Alt+→' },
   { action: 'Stop loading', shortcut: 'Escape' },
-  { action: 'Zoom in', shortcut: 'Ctrl++' },
-  { action: 'Zoom out', shortcut: 'Ctrl+-' },
-  { action: 'Reset zoom', shortcut: 'Ctrl+0' },
-  { action: 'Developer tools', shortcut: 'F12' },
+  { action: 'Zoom in', shortcut: mod('Ctrl++') },
+  { action: 'Zoom out', shortcut: mod('Ctrl+-') },
+  { action: 'Reset zoom', shortcut: mod('Ctrl+0') },
+  { action: 'Developer tools', shortcut: isMac ? '⌘+⌥+I / F12' : 'Ctrl+Shift+I / F12' },
 ]

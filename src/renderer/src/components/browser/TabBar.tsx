@@ -24,7 +24,7 @@ import {
   sortableKeyboardCoordinates,
 } from '@dnd-kit/sortable'
 import { Plus, Globe } from 'lucide-react'
-import { useTabs } from '@/hooks/useTabs'
+import { useTabsStore } from '@/stores/tabs'
 import { SortableTab } from './SortableTab'
 import { useTranslation } from 'react-i18next'
 import { usePreferencesStore } from '@/stores/preferences'
@@ -41,7 +41,8 @@ interface TabBarProps {
 
 export const TabBar = memo(function TabBar({ sidebarWidth }: TabBarProps) {
   const { t } = useTranslation('browser')
-  const { tabs, activeTabId, addTab, closeTab, setActiveTab, duplicateTab, closeOtherTabs, reorderTabs } = useTabs()
+  const { tabs, activeTabId, addTab, closeTab, setActiveTab, duplicateTab, closeOtherTabs, reorderTabs } =
+    useTabsStore()
   const tabOrientation = usePreferencesStore((s) => s.saved.tabOrientation)
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
   const [activeId, setActiveId] = useState<string | null>(null)

@@ -8,8 +8,9 @@ import path from 'path'
 import { IPC_CHANNELS } from '../../shared/types'
 import { isValidNavigationUrl, isValidBagId, isValidDownloadPath, RateLimiter } from './validation'
 import { handleWithErrors, ipcErrorHandler } from './error-handler'
-import { logger } from '../../shared/logger'
-import { SETTINGS_CATEGORIES } from '../settings/validation'
+import { createLogger } from '../../shared/logger'
+const log = createLogger('ipc')
+import { SETTINGS_CATEGORIES, validateCategoryValues } from '../settings/validation'
 
 // Lenient limits: 30 nav/sec, 10 storage ops/sec
 const navLimiter = new RateLimiter(30, 1000)
@@ -40,7 +41,6 @@ import {
 } from '../settings'
 import { getMainWindow } from '../windows/main'
 import {
-  initTabManager,
   createTab,
   closeTab,
   switchTab,
@@ -54,6 +54,7 @@ import {
   updateSidebarWidth,
 } from '../windows/tabs'
 import { historyManager, HistoryMode } from '../history/manager'
+import { startProxySequence } from '../proxy/startup'
 
 // Guard to prevent multiple listener registrations
 let handlersRegistered = false
@@ -75,7 +76,7 @@ function verifyIpcOrigin(event: IpcMainInvokeEvent): void {
 
   // Check if sender is the main window's webContents (not a BrowserView)
   if (event.sender !== mainWindow.webContents) {
-    logger.error('IPC', 'Unauthorized IPC call from non-main-window sender')
+    log.error('Unauthorized IPC call from non-main-window sender')
     throw new Error('Unauthorized: IPC calls must originate from main window')
   }
 }
@@ -85,10 +86,15 @@ function verifyIpcOrigin(event: IpcMainInvokeEvent): void {
  * All IPC handlers should use this to prevent calls from compromised BrowserViews
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function secureHandle(channel: string, handler: (...args: any[]) => any): void {
-  ipcMain.handle(channel, (event: IpcMainInvokeEvent, ...args: unknown[]) => {
-    verifyIpcOrigin(event)
-    return handler(...args)
+export function secureHandle(channel: string, handler: (...args: any[]) => any): void {
+  ipcMain.handle(channel, async (event: IpcMainInvokeEvent, ...args: unknown[]) => {
+    try {
+      verifyIpcOrigin(event)
+      return await handler(...args)
+    } catch (err) {
+      log.error(`Error in handler '${channel}': ${(err as Error).message}`)
+      return { success: false, error: (err as Error).message }
+    }
   })
 }
 
@@ -97,9 +103,14 @@ function secureHandle(channel: string, handler: (...args: any[]) => any): void {
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function secureHandleWithEvent(channel: string, handler: (event: IpcMainInvokeEvent, ...args: any[]) => any): void {
-  ipcMain.handle(channel, (event: IpcMainInvokeEvent, ...args: unknown[]) => {
-    verifyIpcOrigin(event)
-    return handler(event, ...args)
+  ipcMain.handle(channel, async (event: IpcMainInvokeEvent, ...args: unknown[]) => {
+    try {
+      verifyIpcOrigin(event)
+      return await handler(event, ...args)
+    } catch (err) {
+      log.error(`Error in handler '${channel}': ${(err as Error).message}`)
+      return { success: false, error: (err as Error).message }
+    }
   })
 }
 
@@ -120,7 +131,7 @@ function handleSecure<T = unknown>(
 export function registerIpcHandlers(): void {
   // Prevent duplicate listener registration (causes memory leaks)
   if (handlersRegistered) {
-    logger.warn('IPC', 'Handlers already registered, skipping duplicate registration')
+    log.warn('Handlers already registered, skipping duplicate registration')
     return
   }
   handlersRegistered = true
@@ -137,7 +148,7 @@ export function registerIpcHandlers(): void {
   })
 
   proxyManager.on('error', (message) => {
-    logger.error('ProxyManager', `Error: ${message}`)
+    log.error(`Error: ${message}`)
   })
 
   // ===== Storage Events =====
@@ -163,7 +174,7 @@ export function registerIpcHandlers(): void {
   })
 
   storageManager.on('error', (message) => {
-    logger.error('StorageManager', `Error: ${message}`)
+    log.error(`Error: ${message}`)
   })
 
   // ===== Proxy Handlers =====
@@ -177,38 +188,7 @@ export function registerIpcHandlers(): void {
       }
     }
 
-    // Step 0: Starting proxy
-    sendProgress(0, 'Starting proxy...')
-    await proxyManager.start()
-
-    // Step 1: Loading configuration
-    sendProgress(1, 'Loading configuration...')
-    await new Promise((r) => setTimeout(r, 300)) // Small delay for visual feedback
-
-    // Step 2: Starting DHT
-    sendProgress(2, 'Starting DHT...')
-    await new Promise((r) => setTimeout(r, 400))
-
-    // Step 3: Connecting to network
-    sendProgress(3, 'Connecting to network...')
-    await new Promise((r) => setTimeout(r, 400))
-
-    // Initialize TabManager with proxy
-    if (win) {
-      initTabManager(win, proxyManager.getStatus().port)
-    }
-
-    // Also start storage daemon
-    try {
-      await storageManager.start()
-      logger.info('IPC', 'Storage daemon started')
-    } catch (storageError) {
-      logger.error('IPC', `Failed to start storage: ${String(storageError)}`)
-      // Non-critical: continue even if storage fails
-    }
-
-    // Step 4: Ready
-    sendProgress(4, 'Ready!')
+    await startProxySequence(sendProgress, proxyManager, storageManager, win)
 
     return { success: true, ...proxyManager.getStatus() }
   })
@@ -225,19 +205,19 @@ export function registerIpcHandlers(): void {
 
   // ===== Tab Handlers =====
   secureHandleWithEvent(IPC_CHANNELS.TAB_CREATE, async (_event, tabId: string) => {
-    logger.debug('IPC', `Tab create: ${tabId}`)
+    log.debug(`Tab create: ${tabId}`)
     const success = await createTab(tabId)
     return { success }
   })
 
   secureHandleWithEvent(IPC_CHANNELS.TAB_CLOSE, (_event, tabId: string) => {
-    logger.debug('IPC', `Tab close: ${tabId}`)
+    log.debug(`Tab close: ${tabId}`)
     const success = closeTab(tabId)
     return { success }
   })
 
   secureHandleWithEvent(IPC_CHANNELS.TAB_SWITCH, (_event, tabId: string) => {
-    logger.debug('IPC', `Tab switch: ${tabId}`)
+    log.debug(`Tab switch: ${tabId}`)
     const success = switchTab(tabId)
     return { success }
   })
@@ -260,18 +240,18 @@ export function registerIpcHandlers(): void {
       return { success: false, error: 'Rate limited' }
     }
 
-    logger.debug('IPC', `Navigate called with URL: ${url}, tabId: ${tabId || 'none'}`)
+    log.debug(`Navigate called with URL: ${url}, tabId: ${tabId || 'none'}`)
 
     // Security: Validate URL before navigation
     const validation = isValidNavigationUrl(url)
     if (!validation.valid) {
-      logger.warn('IPC', `Blocked invalid URL: ${url} (${validation.error})`)
+      log.warn(`Blocked invalid URL: ${url} (${validation.error})`)
       return { success: false, error: validation.error }
     }
 
     // Don't load internal ton:// URLs in BrowserView
     if (url.startsWith('ton://')) {
-      logger.debug('IPC', 'Internal URL, hiding views')
+      log.debug('Internal URL, hiding views')
       hideAllViews()
       return { success: true, internal: true }
     }
@@ -283,7 +263,7 @@ export function registerIpcHandlers(): void {
       return { success }
     }
 
-    logger.warn('IPC', 'No active tab')
+    log.warn('No active tab')
     return { success: false, error: 'No active tab' }
   })
 
@@ -583,7 +563,7 @@ export function registerIpcHandlers(): void {
     await ses.clearStorageData({
       storages: ['cookies', 'localstorage', 'indexdb', 'websql', 'serviceworkers', 'cachestorage'],
     })
-    logger.info('Settings', 'Browsing data cleared')
+    log.info('Browsing data cleared')
     return { success: true }
   })
 
@@ -596,7 +576,7 @@ export function registerIpcHandlers(): void {
     // Security: Validate path before setting
     const validation = isValidDownloadPath(inputPath)
     if (!validation.valid) {
-      logger.warn('Settings', `Invalid download path: ${inputPath} - ${validation.error}`)
+      log.warn(`Invalid download path: ${inputPath} - ${validation.error}`)
       return { success: false, error: validation.error }
     }
 
@@ -604,10 +584,10 @@ export function registerIpcHandlers(): void {
       setDownloadPath(inputPath)
       // Update the storage manager with new path
       storageManager.setStoragePath(inputPath)
-      logger.info('Settings', `Download path set to: ${inputPath}`)
+      log.info(`Download path set to: ${inputPath}`)
       return { success: true }
     } catch (error) {
-      logger.error('Settings', `Failed to set download path: ${String(error)}`)
+      log.error(`Failed to set download path: ${String(error)}`)
       return { success: false, error: (error as Error).message }
     }
   })
@@ -631,7 +611,7 @@ export function registerIpcHandlers(): void {
     const selectedPath = result.filePaths[0]
     setDownloadPath(selectedPath)
     storageManager.setStoragePath(selectedPath)
-    logger.info('Settings', `Download folder selected: ${selectedPath}`)
+    log.info(`Download folder selected: ${selectedPath}`)
     return { success: true, path: selectedPath }
   })
 
@@ -657,7 +637,12 @@ export function registerIpcHandlers(): void {
     if (typeof values !== 'object' || values === null || Array.isArray(values)) {
       throw new Error('Settings values must be a non-null object')
     }
-    setSetting(category, values as any)
+    // Validate values with Zod schema for this category
+    const validation = validateCategoryValues(category, values)
+    if (!validation.valid) {
+      throw new Error(`Invalid settings values: ${validation.error}`)
+    }
+    setSetting(category, validation.data as any)
     // Notify renderer of settings change
     const win = getMainWindow()
     if (win) {
@@ -695,6 +680,10 @@ export function registerIpcHandlers(): void {
 
   // ===== History Handlers =====
   secureHandleWithEvent(IPC_CHANNELS.HISTORY_CHANGE_MODE, async (_event, mode: HistoryMode) => {
+    const validModes = ['memory', 'persistent']
+    if (!validModes.includes(mode)) {
+      return { success: false, error: `Invalid history mode: ${mode}` }
+    }
     try {
       const result = await historyManager.changeMode(mode)
       return result
@@ -707,7 +696,7 @@ export function registerIpcHandlers(): void {
     try {
       return historyManager.search(query, limit)
     } catch (error) {
-      logger.error('History', `Search failed: ${String(error)}`)
+      log.error(`Search failed: ${String(error)}`)
       return []
     }
   })
@@ -716,7 +705,7 @@ export function registerIpcHandlers(): void {
     try {
       return historyManager.getRecent(limit)
     } catch (error) {
-      logger.error('History', `Get recent failed: ${String(error)}`)
+      log.error(`Get recent failed: ${String(error)}`)
       return []
     }
   })
@@ -725,7 +714,7 @@ export function registerIpcHandlers(): void {
     try {
       return historyManager.getTopVisited(limit)
     } catch (error) {
-      logger.error('History', `Get top visited failed: ${String(error)}`)
+      log.error(`Get top visited failed: ${String(error)}`)
       return []
     }
   })
@@ -734,7 +723,7 @@ export function registerIpcHandlers(): void {
     try {
       return historyManager.getByDateRange(startDate, endDate)
     } catch (error) {
-      logger.error('History', `Get by date range failed: ${String(error)}`)
+      log.error(`Get by date range failed: ${String(error)}`)
       return []
     }
   })

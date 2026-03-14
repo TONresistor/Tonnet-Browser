@@ -2,6 +2,7 @@
  * Sidebar de navigation pour les paramètres
  */
 
+import { useRef } from 'react'
 import { Settings } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { SECTIONS } from './constants'
@@ -15,11 +16,23 @@ interface SettingsSidebarProps {
 
 export function SettingsSidebar({ activeSection, onSectionChange }: SettingsSidebarProps) {
   const { t } = useTranslation('settings')
+  const navRef = useRef<HTMLElement>(null)
 
   const getSectionLabel = (sectionId: string): string => {
     // Convert kebab-case to camelCase (e.g. 'content-filtering' -> 'contentFiltering')
     const sectionKey = sectionId.replace(/-([a-z])/g, (g) => g[1].toUpperCase())
     return t(`sections.${sectionKey}`)
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLElement>) => {
+    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return
+    e.preventDefault()
+    const items = Array.from(navRef.current?.querySelectorAll<HTMLElement>('[role="option"]') ?? [])
+    const focused = document.activeElement as HTMLElement
+    const index = items.indexOf(focused)
+    if (index === -1) return
+    const next = e.key === 'ArrowDown' ? items[index + 1] : items[index - 1]
+    next?.focus()
   }
 
   return (
@@ -29,18 +42,20 @@ export function SettingsSidebar({ activeSection, onSectionChange }: SettingsSide
         <h2 className="text-foreground text-xl font-bold">{t('title')}</h2>
       </div>
 
-      <nav className="space-y-2">
+      <nav ref={navRef} role="listbox" onKeyDown={handleKeyDown} className="space-y-2">
         {SECTIONS.map((section) => {
           const Icon = section.icon
           const isActive = activeSection === section.id
           return (
             <button
               key={section.id}
+              role="option"
+              aria-selected={isActive}
               onClick={() => onSectionChange(section.id)}
               className={cn(
                 'w-full flex items-center gap-3 px-3 py-2 rounded-full text-sm transition-all duration-200 backdrop-blur-md border',
                 isActive
-                  ? 'bg-surface-active border-border-strong text-foreground'
+                  ? 'bg-surface-active border-primary text-foreground'
                   : 'bg-surface/50 border-border hover:bg-surface-hover'
               )}
             >

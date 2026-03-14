@@ -8,7 +8,7 @@ import { useState, useEffect, FormEvent, useRef, useMemo, memo, useCallback } fr
 import { Lock, Star, Loader2, Clock, History } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { useSettingsStore } from '@/stores/settings'
+import { useBrowserStore } from '@/stores/browser'
 import { useBookmarksStore } from '@/stores/bookmarks'
 import { useTabsStore } from '@/stores/tabs'
 import { cn } from '@/lib/utils'
@@ -26,8 +26,8 @@ interface HistorySuggestion {
 
 export const AddressBar = memo(function AddressBar() {
   const { t } = useTranslation('browser')
-  const currentUrl = useSettingsStore((s) => s.currentUrl)
-  const isLoading = useSettingsStore((s) => s.isLoading)
+  const currentUrl = useBrowserStore((s) => s.currentUrl)
+  const isLoading = useBrowserStore((s) => s.isLoading)
   const { bookmarks, addBookmark, removeBookmark } = useBookmarksStore()
   const { navigateActiveTab, tabs, activeTabId } = useTabsStore()
   const [input, setInput] = useState('')

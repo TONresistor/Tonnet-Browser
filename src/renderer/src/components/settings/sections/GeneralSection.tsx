@@ -53,30 +53,32 @@ export const GeneralSection = memo(function GeneralSection({ draft, setDraft }: 
             </div>
 
             {draft.circuitRotation && (
-              <div className="py-4 border-b border-border">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-foreground font-medium">{t('general.rotationInterval')}</p>
-                    <p className="text-muted-foreground text-sm mt-0.5">{t('general.rotationIntervalDesc')}</p>
+              <div className="ml-4 pl-4 border-l-2 border-border">
+                <div className="py-4 border-b border-border">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-foreground font-medium">{t('general.rotationInterval')}</p>
+                      <p className="text-muted-foreground text-sm mt-0.5">{t('general.rotationIntervalDesc')}</p>
+                    </div>
+                    <select
+                      value={draft.rotateInterval}
+                      onChange={(e) => setDraft('rotateInterval', e.target.value)}
+                      className="pl-4 pr-8 py-1.5 rounded-full text-sm text-foreground outline-none cursor-pointer bg-surface-hover border border-border-medium"
+                    >
+                      <option value="5m" className="bg-background text-foreground">
+                        {t('general.5minutes')}
+                      </option>
+                      <option value="10m" className="bg-background text-foreground">
+                        {t('general.10minutes')}
+                      </option>
+                      <option value="15m" className="bg-background text-foreground">
+                        {t('general.15minutes')}
+                      </option>
+                      <option value="30m" className="bg-background text-foreground">
+                        {t('general.30minutes')}
+                      </option>
+                    </select>
                   </div>
-                  <select
-                    value={draft.rotateInterval}
-                    onChange={(e) => setDraft('rotateInterval', e.target.value)}
-                    className="pl-4 pr-8 py-1.5 rounded-full text-sm text-foreground outline-none cursor-pointer bg-surface-hover border border-border-medium"
-                  >
-                    <option value="5m" className="bg-background text-foreground">
-                      {t('general.5minutes')}
-                    </option>
-                    <option value="10m" className="bg-background text-foreground">
-                      {t('general.10minutes')}
-                    </option>
-                    <option value="15m" className="bg-background text-foreground">
-                      {t('general.15minutes')}
-                    </option>
-                    <option value="30m" className="bg-background text-foreground">
-                      {t('general.30minutes')}
-                    </option>
-                  </select>
                 </div>
               </div>
             )}

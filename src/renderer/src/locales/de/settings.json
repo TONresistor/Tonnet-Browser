@@ -277,5 +277,11 @@
     "notSet": "Nicht festgelegt",
     "updateInterval": "Aktualisierungsintervall",
     "updateIntervalDesc": "Häufigkeit der Aktualisierung von Download-Statistiken"
+  },
+  "actions": {
+    "unsavedChanges": "Ungespeicherte Änderungen",
+    "discard": "Verwerfen",
+    "saveChanges": "Änderungen speichern",
+    "saving": "Speichern..."
   }
 }

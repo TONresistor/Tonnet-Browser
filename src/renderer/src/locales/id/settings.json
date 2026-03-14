@@ -277,5 +277,11 @@
     "notSet": "Belum diatur",
     "updateInterval": "Interval pembaruan",
     "updateIntervalDesc": "Seberapa sering memperbarui statistik unduhan"
+  },
+  "actions": {
+    "unsavedChanges": "Ada perubahan yang belum disimpan",
+    "discard": "Buang",
+    "saveChanges": "Simpan Perubahan",
+    "saving": "Menyimpan..."
   }
 }

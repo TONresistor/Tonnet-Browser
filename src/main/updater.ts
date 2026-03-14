@@ -4,11 +4,13 @@
  * No auto-check — only triggered by user action in Settings > About.
  */
 
-import { app, BrowserWindow, ipcMain } from 'electron'
+import { app, BrowserWindow } from 'electron'
 import pkg from 'electron-updater'
 const { autoUpdater } = pkg
 import { IPC_CHANNELS } from '../shared/types'
-import { logger } from '../shared/logger'
+import { createLogger } from '../shared/logger'
+const log = createLogger('updater')
+import { secureHandle } from './ipc/handlers'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -45,12 +47,12 @@ export function initUpdater(win: BrowserWindow): void {
   })
 
   autoUpdater.on('error', (error) => {
-    logger.error('Updater', `Update error: ${error.message}`)
+    log.error(`Update error: ${error.message}`)
     mainWindow?.webContents.send('updater:error', error.message)
   })
 
-  // IPC handlers
-  ipcMain.handle(IPC_CHANNELS.UPDATER_CHECK, async () => {
+  // IPC handlers — use secureHandle to verify origin and catch errors
+  secureHandle(IPC_CHANNELS.UPDATER_CHECK, async () => {
     if (!app.isPackaged) {
       return { updateAvailable: false, reason: 'dev-mode' }
     }
@@ -65,14 +67,14 @@ export function initUpdater(win: BrowserWindow): void {
     }
   })
 
-  ipcMain.handle(IPC_CHANNELS.UPDATER_DOWNLOAD, async () => {
+  secureHandle(IPC_CHANNELS.UPDATER_DOWNLOAD, async () => {
     await autoUpdater.downloadUpdate()
     return { success: true }
   })
 
-  ipcMain.handle(IPC_CHANNELS.UPDATER_INSTALL, () => {
+  secureHandle(IPC_CHANNELS.UPDATER_INSTALL, () => {
     autoUpdater.quitAndInstall()
   })
 
-  logger.info('Updater', 'Manual update checker initialized')
+  log.info('Manual update checker initialized')
 }

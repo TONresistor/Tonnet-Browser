@@ -6,6 +6,9 @@
 
 import i18n from 'i18next'
 import { initReactI18next } from 'react-i18next'
+import { createLogger } from '@/logger'
+
+const log = createLogger('i18n')
 
 // Import only English as default
 import commonEn from './locales/en/common.json'
@@ -79,7 +82,7 @@ export async function loadLanguage(lang: string): Promise<void> {
     // Switch to the new language
     await i18n.changeLanguage(lang)
   } catch (error) {
-    console.error(`Failed to load language: ${lang}`, error)
+    log.error(`Failed to load language: ${lang}`, error)
     // Fall back to English if loading fails
     await i18n.changeLanguage('en')
     throw error

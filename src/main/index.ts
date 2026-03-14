@@ -3,6 +3,7 @@
  * Creates the browser window and initializes all services.
  */
 
+import log from '../shared/logger'
 import { app, BrowserWindow, shell, screen, Menu, protocol, net } from 'electron'
 import { join, resolve } from 'path'
 import { existsSync, readFileSync, writeFileSync } from 'fs'
@@ -16,11 +17,13 @@ import { proxyManager } from './proxy/manager'
 import { storageManager } from './storage/daemon'
 import { setMainWindow } from './windows/main'
 import { getSetting } from './settings'
-import { initTabManager } from './windows/tabs'
 import { historyManager } from './history/manager'
-import { logger } from '../shared/logger'
+import { startProxySequence } from './proxy/startup'
 import { buildContextMenu } from './utils/context-menu'
 import { initUpdater } from './updater'
+
+// Initialize electron-log IPC bridge so renderer can also log via electron-log
+log.initialize()
 
 // Memory leak prevention: increase limit for BrowserView tab switches
 // Each addBrowserView() adds a 'closed' listener to BrowserWindow
@@ -39,34 +42,13 @@ protocol.registerSchemesAsPrivileged([
   },
 ])
 
-// Global error handlers - must be registered early to catch all errors
-process.on('uncaughtException', (error: Error) => {
-  logger.error('App', `Uncaught Exception: ${error.message}`)
-  logger.error('App', `Stack: ${error.stack}`)
-
-  // Attempt graceful shutdown of services
-  try {
-    proxyManager.stop()
-    storageManager.stop()
-  } catch {
-    // Ignore cleanup errors during crash
-  }
-
-  // Exit with error code (systemd/launchd can restart if configured)
-  process.exit(1)
-})
-
-process.on('unhandledRejection', (reason: unknown) => {
-  logger.error('App', `Unhandled Promise Rejection: ${String(reason)}`)
-  // Don't exit - just log for debugging, app can continue
-})
-
 // Log MaxListenersExceededWarning to help detect memory leaks during development
+const appLog = log.scope('app')
 process.on('warning', (warning) => {
   if (warning.name === 'MaxListenersExceededWarning') {
-    logger.warn('Memory', `Potential listener leak detected: ${warning.message}`)
+    appLog.warn(`Potential listener leak detected: ${warning.message}`)
     if (warning.stack) {
-      logger.warn('Memory', `Stack: ${warning.stack}`)
+      appLog.warn(`Stack: ${warning.stack}`)
     }
   }
 })
@@ -118,7 +100,7 @@ function loadWindowBounds(): Partial<WindowBounds> {
       }
     }
   } catch (err) {
-    logger.error('Window', `Failed to load bounds: ${String(err)}`)
+    appLog.error(`Failed to load bounds: ${String(err)}`)
   }
   return {}
 }
@@ -132,10 +114,10 @@ function saveWindowBounds(win: BrowserWindow): void {
         isMaximized: win.isMaximized(),
       }
       writeFile(boundsFile, JSON.stringify(bounds)).catch((err) => {
-        logger.error('Window', `Failed to save bounds: ${String(err)}`)
+        appLog.error(`Failed to save bounds: ${String(err)}`)
       })
     } catch (err) {
-      logger.error('Window', `Failed to save bounds: ${String(err)}`)
+      appLog.error(`Failed to save bounds: ${String(err)}`)
     }
   }, 500)
 }
@@ -197,32 +179,19 @@ function createWindow(): void {
     const { autoConnect } = getSetting('network')
     if (autoConnect && !autoConnectStarted) {
       autoConnectStarted = true
-      logger.info('App', 'Auto-connect enabled, starting proxy...')
+      appLog.info('Auto-connect enabled, starting proxy...')
       const sendProgress = (step: number, message: string) => {
         mainWindow.webContents.send('proxy:progress', { step, message })
       }
       // Tell renderer to show loading state
       mainWindow.webContents.send('proxy:auto-connect')
       try {
-        sendProgress(0, 'Starting proxy...')
-        await proxyManager.start()
-
-        sendProgress(1, 'Loading configuration...')
-        await new Promise((r) => setTimeout(r, 300))
-
-        sendProgress(2, 'Starting DHT...')
-        initTabManager(mainWindow, proxyManager.getStatus().port)
-        await new Promise((r) => setTimeout(r, 400))
-
-        sendProgress(3, 'Connecting to network...')
-        await storageManager.start()
-
-        sendProgress(4, 'Ready!')
-        logger.info('App', 'Auto-connect complete')
+        await startProxySequence(sendProgress, proxyManager, storageManager, mainWindow)
+        appLog.info('Auto-connect complete')
         // Notify renderer of connection status
         mainWindow.webContents.send('proxy:status', { ...proxyManager.getStatus(), status: 'connected' })
       } catch (error) {
-        logger.error('App', `Auto-connect failed: ${String(error)}`)
+        appLog.error(`Auto-connect failed: ${String(error)}`)
         // Notify renderer of connection failure (field name matches ProxyStatus.error)
         mainWindow.webContents.send('proxy:status', {
           status: 'error',
@@ -312,10 +281,13 @@ app.whenReady().then(() => {
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)
 
-    // Intercept Ctrl+Shift+I to open DevTools for active BrowserView (not main window)
+    // Intercept Ctrl+Shift+I (or Cmd+Option+I on macOS) to open DevTools for active BrowserView (not main window)
     // This prevents DevTools from appearing under the BrowserView overlay
     window.webContents.on('before-input-event', (event, input) => {
-      if (input.control && input.shift && input.key.toLowerCase() === 'i') {
+      const isDevToolsShortcut =
+        (input.control && input.shift && input.key.toLowerCase() === 'i') ||
+        (process.platform === 'darwin' && input.meta && input.alt && input.key.toLowerCase() === 'i')
+      if (isDevToolsShortcut) {
         event.preventDefault()
         const view = getActiveView()
         if (view) {
@@ -348,7 +320,7 @@ app.whenReady().then(() => {
 
     // Path traversal guard
     if (!filePath.startsWith(rendererPath)) {
-      logger.warn('Protocol', `Blocked path traversal: ${pathname}`)
+      appLog.warn(`Blocked path traversal: ${pathname}`)
       return new Response('Forbidden', { status: 403 })
     }
 
@@ -372,7 +344,7 @@ app.on('window-all-closed', async () => {
   // Clear browsing data on exit if enabled
   const { clearOnExit } = getSetting('privacy')
   if (clearOnExit) {
-    logger.info('App', 'Clearing browsing data on exit...')
+    log.info('Clearing browsing data on exit...')
     try {
       const { getAllSessions } = await import('./windows/tabs')
       const sessions = getAllSessions()
@@ -384,9 +356,9 @@ app.on('window-all-closed', async () => {
         })
       }
 
-      logger.info('App', `Cleared browsing data for ${sessions.length} session(s)`)
+      log.info(`Cleared browsing data for ${sessions.length} session(s)`)
     } catch (error) {
-      logger.error('App', `Failed to clear browsing data: ${String(error)}`)
+      log.error(`Failed to clear browsing data: ${String(error)}`)
     }
   }
 
@@ -395,7 +367,12 @@ app.on('window-all-closed', async () => {
   }
 })
 
-app.on('before-quit', async () => {
+let isQuitting = false
+app.on('before-quit', (event) => {
+  if (isQuitting) return
+  event.preventDefault()
+  isQuitting = true
+
   // Flush pending window bounds save synchronously before quit
   if (saveBoundsTimer) {
     clearTimeout(saveBoundsTimer)
@@ -406,14 +383,22 @@ app.on('before-quit', async () => {
         const bounds = { ...wins[0].getBounds(), isMaximized: wins[0].isMaximized() }
         writeFileSync(boundsFile, JSON.stringify(bounds))
       } catch (err) {
-        logger.error('Window', `Failed to flush bounds on quit: ${String(err)}`)
+        log.error(`Failed to flush bounds on quit: ${String(err)}`)
       }
     }
   }
 
-  // Cleanup history before quit
-  await historyManager.onAppExit()
-
-  proxyManager.stop()
-  storageManager.stop()
+  // Cleanup history before quit — must await, so use Promise chain
+  historyManager
+    .onAppExit()
+    .then(() => {
+      proxyManager.stop()
+      storageManager.stop()
+      app.quit()
+    })
+    .catch(() => {
+      proxyManager.stop()
+      storageManager.stop()
+      app.quit()
+    })
 })

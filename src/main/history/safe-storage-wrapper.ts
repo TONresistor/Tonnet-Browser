@@ -7,7 +7,11 @@ import { safeStorage } from 'electron'
 import { promises as fs } from 'fs'
 import { join } from 'path'
 import { app } from 'electron'
-import { logger } from '../../shared/logger'
+import { createLogger } from '../../shared/logger'
+const log = createLogger('history')
+
+// 4-byte magic prefix that marks an encrypted file written by this wrapper
+const ENCRYPTED_MARKER = Buffer.from('SENC')
 
 export class SafeStorageWrapper {
   private filePath: string
@@ -15,7 +19,7 @@ export class SafeStorageWrapper {
   constructor(name: string) {
     const userDataPath = app.getPath('userData')
     this.filePath = join(userDataPath, `${name}.dat`)
-    logger.info('SafeStorage', `Storage path: ${this.filePath}`)
+    log.info(`Storage path: ${this.filePath}`)
   }
 
   /**
@@ -26,48 +30,81 @@ export class SafeStorageWrapper {
   }
 
   /**
-   * Write data with automatic encryption
+   * Write data with automatic encryption.
+   * Encrypted files are prefixed with the SENC marker.
+   * Plaintext files are written as UTF-8 JSON with no marker.
    */
   async write<T>(data: T): Promise<void> {
     try {
       const json = JSON.stringify(data)
 
       if (!this.isAvailable()) {
-        logger.warn('SafeStorage', 'Encryption not available, storing unencrypted')
+        log.warn('Encryption not available, storing unencrypted')
         await fs.writeFile(this.filePath, json, 'utf-8')
         return
       }
 
       const encrypted = safeStorage.encryptString(json)
-      await fs.writeFile(this.filePath, encrypted)
-      logger.info('SafeStorage', `Wrote ${encrypted.length} encrypted bytes`)
+      // Prepend the SENC marker so the read path can detect the format
+      const markedBuffer = Buffer.concat([ENCRYPTED_MARKER, encrypted])
+      await fs.writeFile(this.filePath, markedBuffer)
+      log.info(`Wrote ${markedBuffer.length} encrypted bytes (with SENC marker)`)
     } catch (error) {
-      logger.error('SafeStorage', 'Failed to write:', error)
+      log.error('Failed to write:', error)
       throw error
     }
   }
 
   /**
-   * Read data with automatic decryption
+   * Read data with automatic decryption.
+   * Format is detected from the file contents — not from current encryption availability:
+   *   - Starts with 'SENC' → new encrypted format (decrypt bytes after the marker)
+   *   - Starts with '{' or '[' → plaintext JSON
+   *   - Otherwise → legacy encrypted format (no marker); try to decrypt, fall back to empty array
    */
   async read<T>(): Promise<T | null> {
     try {
       const buffer = await fs.readFile(this.filePath)
 
-      if (!this.isAvailable()) {
-        // File was stored unencrypted
+      // New encrypted format: SENC marker prefix
+      if (buffer.subarray(0, 4).equals(ENCRYPTED_MARKER)) {
+        try {
+          const decrypted = safeStorage.decryptString(buffer.subarray(4))
+          return JSON.parse(decrypted)
+        } catch (decryptError) {
+          // Defense in depth: if decryption fails, attempt to parse as plaintext
+          log.warn('SENC-marked file failed to decrypt, trying plaintext:', decryptError)
+          try {
+            return JSON.parse(buffer.subarray(4).toString('utf-8'))
+          } catch {
+            log.error('SENC-marked file could not be read as plaintext either')
+            return null
+          }
+        }
+      }
+
+      // Plaintext JSON (written when encryption was unavailable)
+      const firstByte = buffer[0]
+      if (firstByte === 0x7b /* '{' */ || firstByte === 0x5b /* '[' */) {
         const json = buffer.toString('utf-8')
         return JSON.parse(json)
       }
 
-      const decrypted = safeStorage.decryptString(buffer)
-      return JSON.parse(decrypted)
+      // Legacy encrypted format (written before SENC marker was introduced)
+      log.info('Detected legacy encrypted file (no SENC marker), attempting decrypt')
+      try {
+        const decrypted = safeStorage.decryptString(buffer)
+        return JSON.parse(decrypted)
+      } catch (legacyError) {
+        log.error('Legacy encrypted file could not be decrypted:', legacyError)
+        return null
+      }
     } catch (error: any) {
       if (error.code === 'ENOENT') {
         // File doesn't exist
         return null
       }
-      logger.error('SafeStorage', 'Failed to read:', error)
+      log.error('Failed to read:', error)
       throw error
     }
   }
@@ -78,10 +115,10 @@ export class SafeStorageWrapper {
   async delete(): Promise<void> {
     try {
       await fs.unlink(this.filePath)
-      logger.info('SafeStorage', 'Deleted storage file')
+      log.info('Deleted storage file')
     } catch (error: any) {
       if (error.code !== 'ENOENT') {
-        logger.error('SafeStorage', 'Failed to delete:', error)
+        log.error('Failed to delete:', error)
         throw error
       }
     }

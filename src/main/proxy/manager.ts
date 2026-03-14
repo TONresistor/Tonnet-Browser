@@ -9,7 +9,8 @@ import http from 'http'
 import { getBinaryPath } from '../utils/paths'
 import { validatePort } from '../utils/validators'
 import { getSetting } from '../settings'
-import { logger } from '../../shared/logger'
+import { createLogger } from '../../shared/logger'
+const log = createLogger('proxy')
 
 export type ProxyStatus = 'stopped' | 'starting' | 'syncing' | 'connected'
 
@@ -53,30 +54,30 @@ export class ProxyManager extends EventEmitter {
     if (this.anonymousMode) {
       // Anonymous mode: 3-hop garlic circuit via tonnet-proxy
       const binPath = getBinaryPath('tonnet-proxy')
-      logger.info('ProxyManager', `Starting anonymous proxy from: ${binPath}`)
-      logger.info('ProxyManager', `Port: ${safePort}, Mode: 3-hop circuit`)
+      log.info(`Starting anonymous proxy from: ${binPath}`)
+      log.info(`Port: ${safePort}, Mode: 3-hop circuit`)
 
       const args = ['--auto', '--listen', `127.0.0.1:${safePort}`]
 
       // Add circuit rotation if enabled
       if (network.circuitRotation && this.rotateInterval) {
         args.push(`--rotate=${this.rotateInterval}`)
-        logger.info('ProxyManager', `Circuit rotation: ${network.rotateInterval}`)
+        log.info(`Circuit rotation: ${network.rotateInterval}`)
       }
 
-      this.process = spawn(binPath, args)
+      this.process = spawn(binPath, args, { windowsHide: true })
     } else {
       // Direct mode: tonnet-proxy with --direct (faster, no anonymity)
       const binPath = getBinaryPath('tonnet-proxy')
-      logger.info('ProxyManager', `Starting direct proxy from: ${binPath}`)
-      logger.info('ProxyManager', `Port: ${safePort}, Mode: direct`)
+      log.info(`Starting direct proxy from: ${binPath}`)
+      log.info(`Port: ${safePort}, Mode: direct`)
 
-      this.process = spawn(binPath, ['--direct', '--listen', `127.0.0.1:${safePort}`])
+      this.process = spawn(binPath, ['--direct', '--listen', `127.0.0.1:${safePort}`], { windowsHide: true })
     }
 
     this.process.stdout?.on('data', (data: Buffer) => {
       const message = data.toString().trim()
-      logger.debug('proxy', message)
+      log.debug(message)
       this.emit('log', message)
 
       // Parse circuit relay names from tonnet-proxy output
@@ -93,13 +94,13 @@ export class ProxyManager extends EventEmitter {
     this.process.stderr?.on('data', (data: Buffer) => {
       const message = data.toString().trim()
       if (message) {
-        logger.warn('proxy', message)
+        log.warn(message)
         this.emit('error', message)
       }
     })
 
     this.process.on('exit', (code) => {
-      logger.info('ProxyManager', `Proxy exited with code: ${code}`)
+      log.info(`Proxy exited with code: ${code}`)
       this.setStatus('stopped')
       this.process = null
       if (this.syncCheckInterval) {
@@ -110,7 +111,7 @@ export class ProxyManager extends EventEmitter {
     })
 
     this.process.on('error', (err) => {
-      logger.error('ProxyManager', `Failed to start proxy:`, err)
+      log.error(`Failed to start proxy:`, err)
       this.emit('error', err.message)
     })
 
@@ -122,7 +123,7 @@ export class ProxyManager extends EventEmitter {
   private setStatus(status: ProxyStatus): void {
     this.status = status
     this.emit('status', status)
-    logger.info('ProxyManager', `Status: ${status}`)
+    log.info(`Status: ${status}`)
   }
 
   private startSyncCheck(): void {
@@ -144,7 +145,7 @@ export class ProxyManager extends EventEmitter {
           (res) => {
             // If we get a response that's not 502, we're synced
             if (res.statusCode !== 502) {
-              logger.info('ProxyManager', `Sync complete! ${testDomain} responded with ${res.statusCode}`)
+              log.info(`Sync complete! ${testDomain} responded with ${res.statusCode}`)
               resolve(true)
             } else {
               resolve(false)
@@ -168,7 +169,7 @@ export class ProxyManager extends EventEmitter {
         if (this.syncCheckInterval) {
           clearInterval(this.syncCheckInterval)
           this.syncCheckInterval = null
-          logger.info('ProxyManager', 'Sync check stopped')
+          log.info('Sync check stopped')
         }
       }
     }, interval)
@@ -180,7 +181,7 @@ export class ProxyManager extends EventEmitter {
       this.syncCheckInterval = null
     }
     if (this.process) {
-      logger.info('ProxyManager', 'Stopping proxy...')
+      log.info('Stopping proxy...')
       // Clean up all listeners before killing to prevent memory leaks
       this.process.stdout?.removeAllListeners()
       this.process.stderr?.removeAllListeners()
@@ -218,7 +219,7 @@ export class ProxyManager extends EventEmitter {
 
   // Restart proxy if anonymousMode changed
   async restart(): Promise<void> {
-    logger.info('ProxyManager', 'Restarting proxy...')
+    log.info('Restarting proxy...')
     this.stop()
     // Wait a bit for the process to fully stop
     await new Promise((r) => setTimeout(r, 500))
@@ -234,7 +235,7 @@ export class ProxyManager extends EventEmitter {
         (network.circuitRotation !== this.circuitRotation || network.rotateInterval !== this.rotateInterval))
 
     if (needsRestart) {
-      logger.info('ProxyManager', `Network settings changed, restarting proxy...`)
+      log.info(`Network settings changed, restarting proxy...`)
       await this.restart()
     }
   }
@@ -253,7 +254,7 @@ export class ProxyManager extends EventEmitter {
         if (data.toString().includes('Proxy listening')) {
           clearTimeout(timeout)
           this.process?.stdout?.off('data', checkOutput)
-          logger.info('ProxyManager', 'Proxy is ready')
+          log.info('Proxy is ready')
           resolve()
         }
       }

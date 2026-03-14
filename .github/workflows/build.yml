@@ -6,19 +6,23 @@ on:
       - 'v*'
   workflow_dispatch:
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   # ─────────────────────────────────────────────
-  # Job 1: Validate (runs once, fail fast)
+  # Job 1: Validate (static analysis, runs once)
   # ─────────────────────────────────────────────
   validate:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4
         with:
           node-version: '20'
           cache: 'npm'
@@ -46,8 +50,9 @@ jobs:
       - name: Format check
         run: npm run format:check
 
-      - name: Run tests
-        run: npm test
+      - name: Security audit
+        # Informational only — change `|| true` to fail the build when ready
+        run: npm audit --audit-level=high || true
 
   # ─────────────────────────────────────────────
   # Job 2: Build (parallel matrix, 3 platforms)
@@ -69,16 +74,16 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4
         with:
           node-version: '20'
           cache: 'npm'
 
       - name: Cache Electron binary
-        uses: actions/cache@v4
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4
         with:
           path: |
             ~/.cache/electron
@@ -92,7 +97,10 @@ jobs:
             electron-${{ runner.os }}-
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
 
       - name: Build for ${{ matrix.platform }}
         run: npm run build && npx electron-builder --${{ matrix.platform }} --publish never
@@ -101,7 +109,7 @@ jobs:
 
       - name: Upload Linux artifacts
         if: matrix.platform == 'linux'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: linux-build
           path: |
@@ -111,7 +119,7 @@ jobs:
 
       - name: Upload Windows artifacts
         if: matrix.platform == 'win'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: windows-build
           path: |
@@ -120,7 +128,7 @@ jobs:
 
       - name: Upload macOS artifacts
         if: matrix.platform == 'mac'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: macos-build
           path: |
@@ -138,8 +146,21 @@ jobs:
       contents: write
 
     steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify tag is on main branch
+        run: |
+          git fetch origin main
+          if ! git merge-base --is-ancestor ${{ github.sha }} origin/main; then
+            echo "::error::Tag must be on main branch"
+            exit 1
+          fi
+
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           path: artifacts
 
@@ -156,7 +177,7 @@ jobs:
           cat SHA256SUMS.txt
 
       - name: Create Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@da05d552573ad5aba039eaac05058a918a7bf631 # v2
         with:
           files: |
             artifacts/linux-build/*

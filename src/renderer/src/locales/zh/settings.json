@@ -277,5 +277,11 @@
     "notSet": "未设置",
     "updateInterval": "更新间隔",
     "updateIntervalDesc": "刷新下载统计信息的频率"
+  },
+  "actions": {
+    "unsavedChanges": "有未保存的更改",
+    "discard": "放弃",
+    "saveChanges": "保存更改",
+    "saving": "保存中..."
   }
 }

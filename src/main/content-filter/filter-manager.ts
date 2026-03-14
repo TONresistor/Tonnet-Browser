@@ -4,7 +4,8 @@
  */
 
 import { EventEmitter } from 'events'
-import { logger } from '../../shared/logger'
+import { createLogger } from '../../shared/logger'
+const log = createLogger('filter')
 import type { ContentFilteringSettings } from '../../shared/types'
 
 export interface FilterRule {
@@ -54,7 +55,7 @@ export class ContentFilterManager extends EventEmitter {
   constructor() {
     super()
     this.loadDefaultRules()
-    logger.info('ContentFilter', `Loaded ${this.rules.length} filter rules`)
+    log.info(`Loaded ${this.rules.length} filter rules`)
   }
 
   /**
@@ -164,7 +165,7 @@ export class ContentFilterManager extends EventEmitter {
       description: 'Push notification prompts',
     })
 
-    logger.info('ContentFilter', `Default rules loaded: ${this.rules.length} patterns`)
+    log.info(`Default rules loaded: ${this.rules.length} patterns`)
   }
 
   /**
@@ -187,7 +188,7 @@ export class ContentFilterManager extends EventEmitter {
     const domain = this.extractDomain(url)
     if (domain && this.whitelistedDomains.has(domain)) {
       this.stats.totalAllowed++
-      logger.debug('ContentFilter', `Whitelisted: ${domain}`)
+      log.debug(`Whitelisted: ${domain}`)
       return false
     }
 
@@ -209,7 +210,7 @@ export class ContentFilterManager extends EventEmitter {
         this.stats.totalBlocked++
         this.stats.blockedByCategory[rule.category]++
 
-        logger.debug('ContentFilter', `Blocked [${rule.category}] ${resourceType}: ${url.substring(0, 100)}...`)
+        log.debug(`Blocked [${rule.category}] ${resourceType}: ${url.substring(0, 100)}...`)
 
         // Emit event for UI updates
         this.emit('blocked', {
@@ -252,7 +253,7 @@ export class ContentFilterManager extends EventEmitter {
       },
       sessionStarted: Date.now(),
     }
-    logger.info('ContentFilter', 'Statistics reset')
+    log.info('Statistics reset')
   }
 
   /**
@@ -260,7 +261,7 @@ export class ContentFilterManager extends EventEmitter {
    */
   setEnabled(enabled: boolean): void {
     this.enabled = enabled
-    logger.info('ContentFilter', `Filtering ${enabled ? 'enabled' : 'disabled'}`)
+    log.info(`Filtering ${enabled ? 'enabled' : 'disabled'}`)
   }
 
   /**
@@ -282,7 +283,7 @@ export class ContentFilterManager extends EventEmitter {
    */
   setWhitelist(domains: string[]): void {
     this.whitelistedDomains = new Set(domains.map((d) => d.toLowerCase()))
-    logger.info('ContentFilter', `Whitelist updated: ${domains.length} domains`)
+    log.info(`Whitelist updated: ${domains.length} domains`)
   }
 
   /**
@@ -290,7 +291,7 @@ export class ContentFilterManager extends EventEmitter {
    */
   addToWhitelist(domain: string): void {
     this.whitelistedDomains.add(domain.toLowerCase())
-    logger.info('ContentFilter', `Added to whitelist: ${domain}`)
+    log.info(`Added to whitelist: ${domain}`)
   }
 
   /**
@@ -298,7 +299,7 @@ export class ContentFilterManager extends EventEmitter {
    */
   removeFromWhitelist(domain: string): void {
     this.whitelistedDomains.delete(domain.toLowerCase())
-    logger.info('ContentFilter', `Removed from whitelist: ${domain}`)
+    log.info(`Removed from whitelist: ${domain}`)
   }
 
   /**
@@ -306,7 +307,7 @@ export class ContentFilterManager extends EventEmitter {
    */
   setCategoryEnabled(category: 'ads' | 'trackers' | 'miners' | 'malware' | 'annoyances', enabled: boolean): void {
     this.categoryEnabled[category] = enabled
-    logger.info('ContentFilter', `Category ${category}: ${enabled ? 'enabled' : 'disabled'}`)
+    log.info(`Category ${category}: ${enabled ? 'enabled' : 'disabled'}`)
   }
 
   /**

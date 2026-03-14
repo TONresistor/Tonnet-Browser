@@ -16,7 +16,7 @@ import { StartPage } from '@/components/pages/StartPage'
 const StoragePage = lazy(() => import('@/components/pages/StoragePage').then((m) => ({ default: m.StoragePage })))
 const SettingsPage = lazy(() => import('@/components/pages/SettingsPage').then((m) => ({ default: m.SettingsPage })))
 const HistoryPage = lazy(() => import('@/components/pages/HistoryPage').then((m) => ({ default: m.HistoryPage })))
-import { useSettingsStore } from '@/stores/settings'
+import { useBrowserStore } from '@/stores/browser'
 import { useTabsStore } from '@/stores/tabs'
 import { usePreferencesStore } from '@/stores/preferences'
 import { useThemeStore } from '@/stores/themes'
@@ -26,11 +26,14 @@ import Lottie from 'lottie-react'
 import { Button } from '@/components/ui/button'
 import i18n, { loadLanguage } from '@/i18n'
 import { useTranslation } from 'react-i18next'
+import { createLogger } from '@/logger'
+
+const log = createLogger('app')
 
 function App() {
   const { t } = useTranslation('common')
-  const currentUrl = useSettingsStore((s) => s.currentUrl)
-  const proxyConnected = useSettingsStore((s) => s.proxyConnected)
+  const currentUrl = useBrowserStore((s) => s.currentUrl)
+  const proxyConnected = useBrowserStore((s) => s.proxyConnected)
   const activeTabId = useTabsStore((s) => s.activeTabId)
   const updateTab = useTabsStore((s) => s.updateTab)
   const openOrSwitchToTab = useTabsStore((s) => s.openOrSwitchToTab)
@@ -69,7 +72,7 @@ function App() {
   useEffect(() => {
     if (language && i18n.language !== language) {
       loadLanguage(language).catch((error) => {
-        console.error('Failed to load language:', error)
+        log.error('Failed to load language:', error)
       })
     }
   }, [language])
@@ -129,53 +132,54 @@ function App() {
     const { addTab, closeTab } = useTabsStore.getState()
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ctrl+T: New tab
-      if (e.ctrlKey && !e.shiftKey && e.key === 't') {
+      const mod = e.ctrlKey || e.metaKey
+      // Ctrl/Cmd+T: New tab
+      if (mod && !e.shiftKey && e.key === 't') {
         e.preventDefault()
         addTab()
       }
-      // Ctrl+Shift+T: Reopen last closed tab
-      else if (e.ctrlKey && e.shiftKey && e.key === 'T') {
+      // Ctrl/Cmd+Shift+T: Reopen last closed tab
+      else if (mod && e.shiftKey && e.key === 'T') {
         e.preventDefault()
         useTabsStore.getState().reopenLastClosedTab()
       }
-      // Ctrl+Tab: Next tab
+      // Ctrl+Tab: Next tab (Ctrl even on macOS, same as Chrome)
       else if (e.ctrlKey && !e.shiftKey && e.key === 'Tab') {
         e.preventDefault()
         useTabsStore.getState().nextTab()
       }
-      // Ctrl+Shift+Tab: Previous tab
+      // Ctrl+Shift+Tab: Previous tab (Ctrl even on macOS, same as Chrome)
       else if (e.ctrlKey && e.shiftKey && e.key === 'Tab') {
         e.preventDefault()
         useTabsStore.getState().previousTab()
       }
-      // Ctrl+1-9: Go to tab N
-      else if (e.ctrlKey && !e.shiftKey && /^[1-9]$/.test(e.key)) {
+      // Ctrl/Cmd+1-9: Go to tab N
+      else if (mod && !e.shiftKey && /^[1-9]$/.test(e.key)) {
         e.preventDefault()
         useTabsStore.getState().goToTabByIndex(parseInt(e.key, 10))
       }
-      // Ctrl+H: History
-      else if (e.ctrlKey && e.key === 'h') {
+      // Ctrl/Cmd+H: History
+      else if (mod && e.key === 'h') {
         e.preventDefault()
         openOrSwitchToTab('ton://history')
       }
-      // Ctrl+W: Close tab
-      else if (e.ctrlKey && e.key === 'w') {
+      // Ctrl/Cmd+W: Close tab
+      else if (mod && e.key === 'w') {
         e.preventDefault()
         const currentTabId = useTabsStore.getState().activeTabId
         if (currentTabId) {
           closeTab(currentTabId)
         }
       }
-      // Ctrl+L: Focus address bar
-      else if (e.ctrlKey && e.key === 'l') {
+      // Ctrl/Cmd+L: Focus address bar
+      else if (mod && e.key === 'l') {
         e.preventDefault()
         const addressInput = document.querySelector('input[placeholder*="ton"]') as HTMLInputElement
         addressInput?.focus()
         addressInput?.select()
       }
-      // Ctrl+R or F5: Reload
-      else if ((e.ctrlKey && e.key === 'r') || e.key === 'F5') {
+      // Ctrl/Cmd+R or F5: Reload
+      else if ((mod && e.key === 'r') || e.key === 'F5') {
         e.preventDefault()
         window.electron.reload()
       }
@@ -193,18 +197,18 @@ function App() {
       else if (e.key === 'Escape') {
         window.electron.stop()
       }
-      // Ctrl++: Zoom in
-      else if (e.ctrlKey && (e.key === '+' || e.key === '=')) {
+      // Ctrl/Cmd++: Zoom in
+      else if (mod && (e.key === '+' || e.key === '=')) {
         e.preventDefault()
         window.electron.zoomIn()
       }
-      // Ctrl+-: Zoom out
-      else if (e.ctrlKey && e.key === '-') {
+      // Ctrl/Cmd+-: Zoom out
+      else if (mod && e.key === '-') {
         e.preventDefault()
         window.electron.zoomOut()
       }
-      // Ctrl+0: Reset zoom
-      else if (e.ctrlKey && e.key === '0') {
+      // Ctrl/Cmd+0: Reset zoom
+      else if (mod && e.key === '0') {
         e.preventDefault()
         window.electron.zoomReset()
       }
@@ -221,7 +225,7 @@ function App() {
 
   // Listen for IPC events from main process (navigation state updates)
   useEffect(() => {
-    const { setNavigation, setLoading, setTitle } = useSettingsStore.getState()
+    const { setNavigation, setLoading, setTitle } = useBrowserStore.getState()
 
     const unsubNavigate = window.electron.on('page:navigate', (...args: unknown[]) => {
       const data = args[0] as { tabId?: string; url: string; canGoBack: boolean; canGoForward: boolean }
@@ -384,7 +388,9 @@ function App() {
                 clearTimeout(settingsSaveTimer.current)
               }
               settingsSaveTimer.current = setTimeout(() => {
-                window.electron.settings.set('appearance', { sidebarWidth: width }).catch(console.error)
+                window.electron.settings
+                  .set('appearance', { sidebarWidth: width })
+                  .catch((err) => log.error('Failed to save sidebar width:', err))
               }, 300)
             }}
             className="flex flex-col bg-background border-r border-border"

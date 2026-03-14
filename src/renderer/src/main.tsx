@@ -12,15 +12,18 @@ import '@fontsource/inter/700.css'
 import App from './App'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import './styles/globals.css'
+import { createLogger } from '@/logger'
+
+const log = createLogger('app')
 
 // Global error handlers for renderer process
 window.addEventListener('error', (event) => {
-  console.error('[Window Error]', event.error?.message || event.message)
-  console.error('[Window Error] Stack:', event.error?.stack)
+  log.error('[Window Error]', event.error?.message || event.message)
+  log.error('[Window Error] Stack:', event.error?.stack)
 })
 
 window.addEventListener('unhandledrejection', (event) => {
-  console.error('[Unhandled Promise Rejection]', event.reason)
+  log.error('[Unhandled Promise Rejection]', event.reason)
 })
 
 ReactDOM.createRoot(document.getElementById('root')!).render(

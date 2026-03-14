@@ -3,13 +3,16 @@
  * Shared between proxy and storage managers.
  */
 
+import { createLogger } from '../../shared/logger'
+const log = createLogger('app')
+
 /**
  * Validates a port number for spawned processes.
  * Returns default if port is invalid (outside 1024-65535 range).
  */
 export function validatePort(port: number, defaultPort = 8080): number {
   if (typeof port !== 'number' || port < 1024 || port > 65535) {
-    console.warn(`[Validators] Invalid port ${port}, using default ${defaultPort}`)
+    log.warn(`Invalid port ${port}, using default ${defaultPort}`)
     return defaultPort
   }
   return port

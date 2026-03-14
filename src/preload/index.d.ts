@@ -204,7 +204,7 @@ declare global {
         install: () => void
       }
       on: (channel: string, callback: (...args: unknown[]) => void) => () => void
-      off: (channel: string) => void
+      off: (channel: string, callback?: (...args: unknown[]) => void) => void
     }
   }
 }

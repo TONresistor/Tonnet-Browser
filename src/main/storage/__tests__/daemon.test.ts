@@ -145,7 +145,8 @@ describe('StorageManager', () => {
           '/mock/config/global.config.json',
           '-verbosity',
           '2',
-        ])
+        ]),
+        { windowsHide: true }
       )
     })
 

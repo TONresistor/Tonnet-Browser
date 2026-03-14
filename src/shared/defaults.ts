@@ -61,7 +61,6 @@ export const DEFAULT_SETTINGS = {
     blockMalware: true,
     blockAnnoyances: true,
     whitelistedDomains: [] as string[], // Bypass filter for these domains
-    showBlockCount: true, // Show count in UI (future)
   },
 
   // Advanced

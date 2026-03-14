@@ -5,7 +5,7 @@
 
 import { app } from 'electron'
 import { join } from 'path'
-import { existsSync, readFileSync, writeFileSync, mkdirSync, renameSync } from 'fs'
+import { existsSync, readFileSync, writeFileSync, mkdirSync, renameSync, unlinkSync } from 'fs'
 import { DEFAULT_SETTINGS } from '../../shared/defaults'
 import type { ThemeType } from '../../shared/defaults'
 import type {
@@ -18,7 +18,9 @@ import type {
   AppSettings,
   ContentFilteringSettings,
 } from '../../shared/types'
-import { logger } from '../../shared/logger'
+import { AppSettingsSchema } from '../../shared/types'
+import { createLogger } from '../../shared/logger'
+const log = createLogger('settings')
 import { SETTINGS_CATEGORIES } from './validation'
 
 // Re-export settings types for consumers that import from this module
@@ -38,66 +40,6 @@ export type {
 const getSettingsDir = () => join(app.getPath('userData'))
 const getSettingsFile = () => join(getSettingsDir(), 'app-settings.json')
 const getDefaultStoragePath = () => join(app.getPath('userData'), 'storage')
-
-// Security: Validate parsed settings structure
-function isValidSettingsObject(obj: unknown): obj is Partial<AppSettings> {
-  if (typeof obj !== 'object' || obj === null || Array.isArray(obj)) {
-    return false
-  }
-
-  const settings = obj as Record<string, unknown>
-  const categories: readonly string[] = SETTINGS_CATEGORIES
-
-  for (const key of Object.keys(settings)) {
-    // Only allow known categories
-    if (!categories.includes(key)) {
-      logger.warn('Settings', `Unknown category: ${key}`)
-      continue
-    }
-    // Each category must be an object
-    if (typeof settings[key] !== 'object' || settings[key] === null || Array.isArray(settings[key])) {
-      logger.warn('Settings', `Invalid category format: ${key}`)
-      return false
-    }
-  }
-
-  // Validate specific field types if present
-  const network = settings.network as Record<string, unknown> | undefined
-  if (network) {
-    if (network.proxyPort !== undefined && typeof network.proxyPort !== 'number') return false
-    if (network.storagePort !== undefined && typeof network.storagePort !== 'number') return false
-    if (network.autoConnect !== undefined && typeof network.autoConnect !== 'boolean') return false
-    if (network.anonymousMode !== undefined && typeof network.anonymousMode !== 'boolean') return false
-    if (network.circuitRotation !== undefined && typeof network.circuitRotation !== 'boolean') return false
-    if (network.rotateInterval !== undefined && typeof network.rotateInterval !== 'string') return false
-  }
-
-  const privacy = settings.privacy as Record<string, unknown> | undefined
-  if (privacy) {
-    if (privacy.clearOnExit !== undefined && typeof privacy.clearOnExit !== 'boolean') return false
-    if (privacy.disableCache !== undefined && typeof privacy.disableCache !== 'boolean') return false
-    if (privacy.firstPartyIsolation !== undefined && typeof privacy.firstPartyIsolation !== 'boolean') return false
-    if (privacy.cookieAutoDelete !== undefined && typeof privacy.cookieAutoDelete !== 'boolean') return false
-    if (privacy.cookieAutoDeleteMinutes !== undefined && typeof privacy.cookieAutoDeleteMinutes !== 'number')
-      return false
-  }
-
-  const appearance = settings.appearance as Record<string, unknown> | undefined
-  if (appearance) {
-    // Accept built-in themes, old names, and custom theme IDs (custom:xxx)
-    if (appearance.theme !== undefined) {
-      const theme = appearance.theme as string
-      const isBuiltIn = ['resistance-dog', 'utya-duck', 'midnight-blue', 'canard-yellow'].includes(theme)
-      const isCustom = typeof theme === 'string' && theme.startsWith('custom:')
-      if (!isBuiltIn && !isCustom) return false
-    }
-    if (appearance.defaultZoom !== undefined && typeof appearance.defaultZoom !== 'number') return false
-    // customThemes must be an array if present
-    if (appearance.customThemes !== undefined && !Array.isArray(appearance.customThemes)) return false
-  }
-
-  return true
-}
 
 // Default settings (using shared defaults)
 export function getDefaultSettings(): AppSettings {
@@ -149,7 +91,6 @@ export function getDefaultSettings(): AppSettings {
       blockMalware: DEFAULT_SETTINGS.contentFiltering.blockMalware,
       blockAnnoyances: DEFAULT_SETTINGS.contentFiltering.blockAnnoyances,
       whitelistedDomains: DEFAULT_SETTINGS.contentFiltering.whitelistedDomains,
-      showBlockCount: DEFAULT_SETTINGS.contentFiltering.showBlockCount,
     },
     advanced: {
       proxyVerbosity: DEFAULT_SETTINGS.proxyVerbosity,
@@ -181,25 +122,21 @@ export function loadSettings(): AppSettings {
     const data = readFileSync(settingsFile, 'utf-8')
     const parsed: unknown = JSON.parse(data)
 
-    // Security: Validate parsed data structure
-    if (!isValidSettingsObject(parsed)) {
-      logger.warn('Settings', 'Invalid settings file format, using defaults')
+    // Use Zod to validate and apply defaults for missing fields
+    const result = AppSettingsSchema.safeParse(parsed)
+
+    if (!result.success) {
+      log.warn(`Invalid settings file format: ${result.error.message}, using defaults`)
       settingsCache = defaults
       saveSettings(defaults)
       return defaults
     }
 
-    const loaded = parsed
+    settingsCache = result.data
 
-    // Merge with defaults to ensure all fields exist
-    settingsCache = {
-      general: { ...defaults.general, ...loaded.general },
-      network: { ...defaults.network, ...loaded.network },
-      storage: { ...defaults.storage, ...loaded.storage },
-      appearance: { ...defaults.appearance, ...loaded.appearance },
-      privacy: { ...defaults.privacy, ...loaded.privacy },
-      contentFiltering: { ...defaults.contentFiltering, ...loaded.contentFiltering },
-      advanced: { ...defaults.advanced, ...loaded.advanced },
+    // Apply dynamic default for downloadPath if not set
+    if (!settingsCache.storage.downloadPath) {
+      settingsCache.storage.downloadPath = getDefaultStoragePath()
     }
 
     // Migrate old theme names to new ones
@@ -213,7 +150,7 @@ export function loadSettings(): AppSettings {
 
     return settingsCache
   } catch (error) {
-    logger.error('Settings', `Failed to load settings: ${String(error)}`)
+    log.error(`Failed to load settings: ${String(error)}`)
     settingsCache = defaults
     return defaults
   }
@@ -235,7 +172,12 @@ export function saveSettings(settings: AppSettings): void {
     renameSync(tempFile, settingsFile)
     settingsCache = settings
   } catch (error) {
-    logger.error('Settings', `Failed to save settings: ${String(error)}`)
+    log.error(`Failed to save settings: ${String(error)}`)
+    try {
+      unlinkSync(tempFile)
+    } catch {
+      /* ignore cleanup failure */
+    }
   }
 }
 

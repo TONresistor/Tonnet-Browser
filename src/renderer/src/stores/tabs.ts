@@ -4,17 +4,14 @@
  */
 
 import { create } from 'zustand'
-import { useSettingsStore } from './settings'
+import { useBrowserStore } from './browser'
 import i18n from '@/i18n'
+import type { Tab as BaseTab } from '@shared/types'
+import { createLogger } from '@/logger'
 
-export interface Tab {
-  id: string
-  url: string
-  title: string
-  favicon?: string
-  isLoading: boolean
-  canGoBack: boolean
-  canGoForward: boolean
+const log = createLogger('tabs')
+
+export interface Tab extends BaseTab {
   history: string[]
   historyIndex: number
 }
@@ -107,14 +104,14 @@ export const useTabsStore = create<TabsState>((set, get) => ({
       }))
 
       // Sync settings store with new tab's state
-      useSettingsStore.getState().setNavigation(targetUrl, false, false)
-      useSettingsStore.getState().setTitle(title)
+      useBrowserStore.getState().setNavigation(targetUrl, false, false)
+      useBrowserStore.getState().setTitle(title)
 
       // Always call navigate - it handles hiding views for internal pages
       // and loading URLs for external pages
       await window.electron.navigate(targetUrl, id)
     } catch (error) {
-      console.error('[Tabs] Failed to create tab:', error)
+      log.error('Failed to create tab:', error)
     }
   },
 
@@ -143,7 +140,7 @@ export const useTabsStore = create<TabsState>((set, get) => ({
           // Sync settings store with new active tab
           const newActiveTab = newTabs.find((t) => t.id === newActiveId)
           if (newActiveTab) {
-            useSettingsStore
+            useBrowserStore
               .getState()
               .setNavigation(newActiveTab.url, newActiveTab.canGoBack, newActiveTab.canGoForward)
             // Hide views for internal pages
@@ -161,7 +158,7 @@ export const useTabsStore = create<TabsState>((set, get) => ({
 
       set({ tabs: newTabs, activeTabId: newActiveId })
     } catch (error) {
-      console.error('[Tabs] Failed to close tab:', error)
+      log.error('Failed to close tab:', error)
     }
   },
 
@@ -178,15 +175,15 @@ export const useTabsStore = create<TabsState>((set, get) => ({
       set({ activeTabId: id })
 
       // Sync settings store with this tab's state
-      useSettingsStore.getState().setNavigation(tab.url, tab.canGoBack, tab.canGoForward)
-      useSettingsStore.getState().setTitle(tab.title)
+      useBrowserStore.getState().setNavigation(tab.url, tab.canGoBack, tab.canGoForward)
+      useBrowserStore.getState().setTitle(tab.title)
 
       // For internal pages, hide BrowserViews so React content is visible
       if (tab.url.startsWith('ton://')) {
         await window.electron.view.hide()
       }
     } catch (error) {
-      console.error('[Tabs] Failed to switch tab:', error)
+      log.error('Failed to switch tab:', error)
     }
   },
 
@@ -244,16 +241,16 @@ export const useTabsStore = create<TabsState>((set, get) => ({
     }))
 
     // Sync settings store
-    useSettingsStore.getState().setNavigation(url, newHistoryIndex > 0, false)
+    useBrowserStore.getState().setNavigation(url, newHistoryIndex > 0, false)
     if (internalTitle) {
-      useSettingsStore.getState().setTitle(internalTitle)
+      useBrowserStore.getState().setTitle(internalTitle)
     }
 
     // Navigate (handles hide/show BrowserView)
     try {
       await window.electron.navigate(url, currentActiveTabId)
     } catch (error) {
-      console.error('[Tabs] Failed to navigate:', error)
+      log.error('Failed to navigate:', error)
     }
   },
 
@@ -312,16 +309,16 @@ export const useTabsStore = create<TabsState>((set, get) => ({
     }))
 
     // Sync settings store
-    useSettingsStore.getState().setNavigation(newUrl, newIndex > 0, true)
+    useBrowserStore.getState().setNavigation(newUrl, newIndex > 0, true)
     if (internalTitle) {
-      useSettingsStore.getState().setTitle(internalTitle)
+      useBrowserStore.getState().setTitle(internalTitle)
     }
 
     // Navigate
     try {
       await window.electron.navigate(newUrl, activeTabId)
     } catch (error) {
-      console.error('[Tabs] Failed to go back:', error)
+      log.error('Failed to go back:', error)
     }
   },
 
@@ -351,16 +348,16 @@ export const useTabsStore = create<TabsState>((set, get) => ({
     }))
 
     // Sync settings store
-    useSettingsStore.getState().setNavigation(newUrl, true, newIndex < activeTab.history.length - 1)
+    useBrowserStore.getState().setNavigation(newUrl, true, newIndex < activeTab.history.length - 1)
     if (internalTitle) {
-      useSettingsStore.getState().setTitle(internalTitle)
+      useBrowserStore.getState().setTitle(internalTitle)
     }
 
     // Navigate
     try {
       await window.electron.navigate(newUrl, activeTabId)
     } catch (error) {
-      console.error('[Tabs] Failed to go forward:', error)
+      log.error('Failed to go forward:', error)
     }
   },
 

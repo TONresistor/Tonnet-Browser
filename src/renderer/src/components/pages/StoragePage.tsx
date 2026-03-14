@@ -4,24 +4,15 @@
  */
 
 import { useState, useEffect, useRef } from 'react'
+import { createLogger } from '@/logger'
 import { Plus, Search, HardDrive, X, Settings, FileText, Info, Folder, FolderOpen } from 'lucide-react'
+
+const log = createLogger('storage')
 import { useTranslation } from 'react-i18next'
 import type { StorageBag } from '@shared/types'
 import { cn } from '@/lib/utils'
-import { useSettingsStore } from '@/stores/settings'
-
-// Utility functions
-function formatBytes(bytes: number): string {
-  if (bytes === 0) return '0 B'
-  const k = 1024
-  const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return `${(bytes / Math.pow(k, i)).toFixed(1)} ${sizes[i]}`
-}
-
-function formatSpeed(bytesPerSecond: number): string {
-  return `${formatBytes(bytesPerSecond)}/s`
-}
+import { useBrowserStore } from '@/stores/browser'
+import { formatBytes, formatSpeed } from '@/lib/format'
 
 // Regex to validate TON Storage Bag ID (64 hex characters)
 const BAG_ID_REGEX = /^[a-fA-F0-9]{64}$/
@@ -110,7 +101,7 @@ export function StoragePage() {
         setBags(result.bags as StorageBag[])
       }
     } catch (err) {
-      console.error('Failed to load bags:', err)
+      log.error('Failed to load bags:', err)
     }
   }
 
@@ -138,7 +129,7 @@ export function StoragePage() {
         setBagIdError(result.error)
       }
     } catch (err) {
-      console.error('Failed to add bag:', err)
+      log.error('Failed to add bag:', err)
       setBagIdError(t('storage.errors.addFailed'))
     } finally {
       setIsAdding(false)
@@ -154,7 +145,7 @@ export function StoragePage() {
         setBagDetails(null)
       }
     } catch (err) {
-      console.error('Failed to remove bag:', err)
+      log.error('Failed to remove bag:', err)
     }
   }
 
@@ -172,7 +163,7 @@ export function StoragePage() {
         setBagDetails(null)
       }
     } catch (err) {
-      console.error('Failed to load bag details:', err)
+      log.error('Failed to load bag details:', err)
       setBagDetails(null)
     } finally {
       setLoadingDetails(false)
@@ -189,20 +180,20 @@ export function StoragePage() {
   const handleOpenFolder = async (bagId: string) => {
     const result = await window.electron.storage.openFolder(bagId)
     if (!result.success) {
-      console.error('Failed to open folder:', result.error)
+      log.error('Failed to open folder:', result.error)
     }
   }
 
   const handleShowFile = async (bagId: string, fileName: string) => {
     const result = await window.electron.storage.showFile(bagId, fileName)
     if (!result.success) {
-      console.error('Failed to show file:', result.error)
+      log.error('Failed to show file:', result.error)
     }
   }
 
   const navigateToSettings = () => {
     window.electron.navigate('ton://settings')
-    useSettingsStore.getState().setNavigation('ton://settings', false, false)
+    useBrowserStore.getState().setNavigation('ton://settings', false, false)
   }
 
   // Filter bags
@@ -396,9 +387,7 @@ export function StoragePage() {
                       onClick={() => handleOpenFolder(selectedBag.id)}
                       className="flex items-center gap-2 text-muted-foreground text-xs hover:text-primary transition-colors cursor-pointer group text-left"
                     >
-                      <span className="break-all">
-                        {bagDetails?.path || `~/Downloads/TON-Storage/${selectedBag.id.slice(0, 16)}`}
-                      </span>
+                      <span className="break-all">{bagDetails?.path || selectedBag.id}</span>
                       <FolderOpen className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
                     </button>
                   </div>

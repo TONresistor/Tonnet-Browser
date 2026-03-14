@@ -2,13 +2,14 @@
  * List of custom themes with actions.
  */
 
-import { Pencil, Trash2, Copy, Download, Check } from 'lucide-react'
+import { Pencil, Trash2, Copy, Download, Check, AlertTriangle } from 'lucide-react'
 import type { CustomTheme } from '@shared/types'
 import { hslToHex } from '../../lib/theme-utils'
 
 interface ThemeListProps {
   themes: CustomTheme[]
   selectedThemeId?: string
+  pendingDeleteId?: string | null
   onEdit: (id: string) => void
   onDelete: (id: string) => void
   onDuplicate: (id: string) => void
@@ -19,6 +20,7 @@ interface ThemeListProps {
 export function ThemeList({
   themes,
   selectedThemeId,
+  pendingDeleteId,
   onEdit,
   onDelete,
   onDuplicate,
@@ -107,10 +109,14 @@ export function ThemeList({
                   e.stopPropagation()
                   onDelete(theme.id)
                 }}
-                className="p-1.5 rounded-md hover:bg-destructive/20 text-muted-foreground hover:text-destructive transition-colors"
-                title="Delete theme"
+                className={`p-1.5 rounded-md transition-colors ${
+                  pendingDeleteId === theme.id
+                    ? 'bg-destructive/20 text-destructive hover:bg-destructive/30'
+                    : 'hover:bg-destructive/20 text-muted-foreground hover:text-destructive'
+                }`}
+                title={pendingDeleteId === theme.id ? 'Click again to confirm' : 'Delete theme'}
               >
-                <Trash2 className="w-4 h-4" />
+                {pendingDeleteId === theme.id ? <AlertTriangle className="w-4 h-4" /> : <Trash2 className="w-4 h-4" />}
               </button>
             </div>
           </div>

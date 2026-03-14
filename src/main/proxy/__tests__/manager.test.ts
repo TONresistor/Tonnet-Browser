@@ -122,7 +122,8 @@ describe('ProxyManager', () => {
 
       expect(spawn).toHaveBeenCalledWith(
         '/mock/bin/tonnet-proxy',
-        expect.arrayContaining(['--direct', '--listen', '127.0.0.1:8080'])
+        expect.arrayContaining(['--direct', '--listen', '127.0.0.1:8080']),
+        { windowsHide: true }
       )
 
       manager.stop()
@@ -164,7 +165,9 @@ describe('ProxyManager', () => {
       const newManager = new ProxyManager()
       await newManager.start()
 
-      expect(spawn).toHaveBeenCalledWith(expect.any(String), expect.arrayContaining(['--listen', '127.0.0.1:8080']))
+      expect(spawn).toHaveBeenCalledWith(expect.any(String), expect.arrayContaining(['--listen', '127.0.0.1:8080']), {
+        windowsHide: true,
+      })
 
       newManager.stop()
       // Reset

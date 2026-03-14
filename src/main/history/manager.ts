@@ -7,7 +7,8 @@
 import { EventEmitter } from 'events'
 import { getSetting, setSetting } from '../settings'
 import { SafeStorageWrapper } from './safe-storage-wrapper'
-import { logger } from '../../shared/logger'
+import { createLogger } from '../../shared/logger'
+const log = createLogger('history')
 
 export enum HistoryMode {
   MEMORY = 'memory',
@@ -47,7 +48,7 @@ export class HistoryManager extends EventEmitter {
     this.mode = (settings.historyMode as HistoryMode) || HistoryMode.MEMORY
     this.maxEntries = settings.historyMaxEntries || 1000
 
-    logger.info('HistoryManager', `Mode: ${this.mode}, Max entries: ${this.maxEntries}`)
+    log.info(`Mode: ${this.mode}, Max entries: ${this.maxEntries}`)
 
     // Initialize persistent storage if needed
     if (this.mode === HistoryMode.PERSISTENT) {
@@ -61,10 +62,10 @@ export class HistoryManager extends EventEmitter {
           data.forEach((entry) => {
             this.entries.set(entry.id, entry)
           })
-          logger.info('HistoryManager', `Loaded ${data.length} entries from persistent storage`)
+          log.info(`Loaded ${data.length} entries from persistent storage`)
         }
       } catch (error) {
-        logger.error('HistoryManager', 'Failed to load persistent history:', error)
+        log.error('Failed to load persistent history:', error)
       }
     }
   }
@@ -78,7 +79,7 @@ export class HistoryManager extends EventEmitter {
     try {
       // Save current entries before switching
       if (oldMode === HistoryMode.PERSISTENT) {
-        logger.info('HistoryManager', 'Migrating from persistent to memory')
+        log.info('Migrating from persistent to memory')
       }
 
       // Update mode
@@ -95,7 +96,7 @@ export class HistoryManager extends EventEmitter {
           data.forEach((entry) => {
             this.entries.set(entry.id, entry)
           })
-          logger.info('HistoryManager', `Loaded ${data.length} entries from persistent storage`)
+          log.info(`Loaded ${data.length} entries from persistent storage`)
         }
       } else {
         // MEMORY mode - keep current in-memory entries
@@ -103,10 +104,10 @@ export class HistoryManager extends EventEmitter {
       }
 
       this.emit('mode-changed', newMode)
-      logger.info('HistoryManager', `Mode changed: ${oldMode} → ${newMode}`)
+      log.info(`Mode changed: ${oldMode} → ${newMode}`)
       return { success: true }
     } catch (error) {
-      logger.error('HistoryManager', 'Failed to change mode:', error)
+      log.error('Failed to change mode:', error)
       // Rollback
       this.mode = oldMode
       setSetting('privacy', { historyMode: oldMode })
@@ -140,7 +141,7 @@ export class HistoryManager extends EventEmitter {
         existing.favicon = favicon
       }
 
-      logger.debug('HistoryManager', `Updated: ${url} (visits: ${existing.visitCount})`)
+      log.debug(`Updated: ${url} (visits: ${existing.visitCount})`)
     } else {
       // Create new entry
       const entry: HistoryEntry = {
@@ -153,7 +154,7 @@ export class HistoryManager extends EventEmitter {
       }
 
       this.entries.set(id, entry)
-      logger.debug('HistoryManager', `Added: ${url}`)
+      log.debug(`Added: ${url}`)
 
       // Enforce limit
       this.enforceLimit()
@@ -164,7 +165,7 @@ export class HistoryManager extends EventEmitter {
     // Auto-save if persistent mode
     if (this.mode === HistoryMode.PERSISTENT) {
       this.savePersistent().catch((err) => {
-        logger.error('HistoryManager', 'Auto-save failed:', err)
+        log.error('Auto-save failed:', err)
       })
     }
   }
@@ -193,7 +194,7 @@ export class HistoryManager extends EventEmitter {
       this.entries.delete(entry.id)
     })
 
-    logger.info('HistoryManager', `Enforced limit: removed ${toRemove.length} old entries`)
+    log.info(`Enforced limit: removed ${toRemove.length} old entries`)
   }
 
   /**
@@ -243,12 +244,12 @@ export class HistoryManager extends EventEmitter {
 
     if (deleted) {
       this.emit('entry-deleted', id)
-      logger.debug('HistoryManager', `Deleted entry: ${id}`)
+      log.debug(`Deleted entry: ${id}`)
 
       // Auto-save if persistent
       if (this.mode === HistoryMode.PERSISTENT) {
         this.savePersistent().catch((err) => {
-          logger.error('HistoryManager', 'Auto-save after delete failed:', err)
+          log.error('Auto-save after delete failed:', err)
         })
       }
     }
@@ -294,7 +295,7 @@ export class HistoryManager extends EventEmitter {
         }
       } catch (err) {
         // Skip entry if regex test fails (protection against edge cases)
-        logger.error('HistoryManager', `Regex test failed for entry ${id}:`, err)
+        log.error(`Regex test failed for entry ${id}:`, err)
       }
     }
 
@@ -302,12 +303,12 @@ export class HistoryManager extends EventEmitter {
 
     if (toDelete.length > 0) {
       this.emit('entries-deleted', toDelete.length)
-      logger.info('HistoryManager', `Deleted ${toDelete.length} entries matching pattern: ${pattern}`)
+      log.info(`Deleted ${toDelete.length} entries matching pattern: ${pattern}`)
 
       // Auto-save if persistent
       if (this.mode === HistoryMode.PERSISTENT) {
         this.savePersistent().catch((err) => {
-          logger.error('HistoryManager', 'Auto-save after batch delete failed:', err)
+          log.error('Auto-save after batch delete failed:', err)
         })
       }
     }
@@ -323,12 +324,12 @@ export class HistoryManager extends EventEmitter {
     this.entries.clear()
 
     this.emit('cleared')
-    logger.info('HistoryManager', `Cleared ${count} entries`)
+    log.info(`Cleared ${count} entries`)
 
     // Delete persistent file if exists
     if (this.mode === HistoryMode.PERSISTENT && this.storage) {
       this.storage.delete().catch((err) => {
-        logger.error('HistoryManager', 'Failed to delete persistent history:', err)
+        log.error('Failed to delete persistent history:', err)
       })
     }
   }
@@ -369,7 +370,7 @@ export class HistoryManager extends EventEmitter {
 
     const entries = Array.from(this.entries.values())
     await this.storage.write(entries)
-    logger.debug('HistoryManager', `Saved ${entries.length} entries to persistent storage`)
+    log.debug(`Saved ${entries.length} entries to persistent storage`)
   }
 
   /**
@@ -379,11 +380,11 @@ export class HistoryManager extends EventEmitter {
     if (this.mode === HistoryMode.MEMORY) {
       // Clear everything
       this.clear()
-      logger.info('HistoryManager', 'Memory cleared on exit')
+      log.info('Memory cleared on exit')
     } else if (this.mode === HistoryMode.PERSISTENT) {
       // Final save
       await this.savePersistent()
-      logger.info('HistoryManager', 'Persistent history saved on exit')
+      log.info('Persistent history saved on exit')
     }
   }
 }

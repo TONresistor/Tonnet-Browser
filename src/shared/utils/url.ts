@@ -30,12 +30,3 @@ export function normalizeUrl(url: string): string {
 
   return url
 }
-
-/**
- * Checks if a URL needs normalization.
- * @param url - URL to check
- * @returns True if URL will be modified by normalizeUrl()
- */
-export function needsNormalization(url: string): boolean {
-  return url.startsWith('tonsite://') || url.startsWith('https://')
-}

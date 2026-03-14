@@ -5,6 +5,9 @@
  */
 
 import { useState, useEffect, useRef } from 'react'
+import { createLogger } from '@/logger'
+
+const log = createLogger('bookmarks')
 import {
   DndContext,
   DragEndEvent,
@@ -18,7 +21,7 @@ import {
 } from '@dnd-kit/core'
 import { SortableContext, horizontalListSortingStrategy, sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 import { useBookmarksStore, Bookmark, BookmarkFolder } from '@/stores/bookmarks'
-import { useSettingsStore } from '@/stores/settings'
+import { useBrowserStore } from '@/stores/browser'
 import { useTabsStore } from '@/stores/tabs'
 import { ErrorBoundary } from '../ErrorBoundary'
 import { SortableBookmarkItem } from './SortableBookmarkItem'
@@ -48,7 +51,7 @@ export function BookmarksBar() {
     reorderBookmarks,
     reorderFolders,
   } = useBookmarksStore()
-  const { proxyConnected } = useSettingsStore()
+  const { proxyConnected } = useBrowserStore()
   const { navigateActiveTab, addTab } = useTabsStore()
   const [editModal, setEditModal] = useState<EditModal | null>(null)
   const [renameModal, setRenameModal] = useState<RenameModal | null>(null)
@@ -170,12 +173,12 @@ export function BookmarksBar() {
       const data = args[0]
       // Runtime validation
       if (!data || typeof data !== 'object') {
-        console.error('[BookmarksBar] Invalid bookmark:edit data:', data)
+        log.error('Invalid bookmark:edit data:', data)
         return
       }
       const bookmark = data as { id: string; title: string; url: string }
       if (!bookmark.id || !bookmark.title || !bookmark.url) {
-        console.error('[BookmarksBar] Missing required fields in bookmark:edit')
+        log.error('Missing required fields in bookmark:edit')
         return
       }
       setEditModal({
@@ -392,7 +395,7 @@ export function BookmarksBar() {
           },
         }}
       >
-        <div className="flex items-center gap-1.5 px-2 py-1 overflow-x-auto">
+        <div className="flex items-center gap-1.5 px-2 pt-1 pb-2 overflow-x-auto">
           {/* Sortable bookmarks context */}
           <SortableContext items={topLevelBookmarks.map((b) => b.id)} strategy={horizontalListSortingStrategy}>
             {topLevelBookmarks.map((bookmark) => (

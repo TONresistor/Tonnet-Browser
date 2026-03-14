@@ -4,12 +4,12 @@
  */
 
 import { useState, useCallback } from 'react'
-import { useSettingsStore } from '../stores/settings'
+import { useBrowserStore } from '../stores/browser'
 
 export function useProxy() {
   const [isConnecting, setIsConnecting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const { proxyConnected, setProxyStatus } = useSettingsStore()
+  const { proxyConnected, setProxyStatus } = useBrowserStore()
 
   const connect = useCallback(async () => {
     setIsConnecting(true)

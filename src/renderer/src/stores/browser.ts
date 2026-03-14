@@ -1,6 +1,6 @@
 /**
- * Settings store.
- * Application settings synced with main process.
+ * Browser store.
+ * Runtime browser state: proxy status, navigation state, loading state.
  */
 
 import { create } from 'zustand'
@@ -11,7 +11,7 @@ interface StorageStats {
   uploadSpeed: number
 }
 
-interface SettingsState {
+interface BrowserState {
   proxyConnected: boolean
   proxySyncing: boolean
   proxyPort: number
@@ -37,7 +37,7 @@ interface SettingsState {
   setStorageStats: (stats: StorageStats) => void
 }
 
-export const useSettingsStore = create<SettingsState>((set) => ({
+export const useBrowserStore = create<BrowserState>((set) => ({
   proxyConnected: false,
   proxySyncing: false,
   proxyPort: 8080,

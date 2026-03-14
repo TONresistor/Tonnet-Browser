@@ -277,5 +277,11 @@
     "notSet": "설정되지 않음",
     "updateInterval": "업데이트 간격",
     "updateIntervalDesc": "다운로드 통계를 업데이트하는 빈도"
+  },
+  "actions": {
+    "unsavedChanges": "저장되지 않은 변경사항",
+    "discard": "취소",
+    "saveChanges": "변경사항 저장",
+    "saving": "저장 중..."
   }
 }

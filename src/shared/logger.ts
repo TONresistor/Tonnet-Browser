@@ -1,83 +1,24 @@
 /**
  * Centralized logging system.
- * Provides log levels with production-safe defaults.
+ * Thin wrapper around electron-log v5 providing scoped loggers.
  */
 
-export type LogLevel = 'debug' | 'info' | 'warn' | 'error'
+import log from 'electron-log'
 
-interface LoggerConfig {
-  level: LogLevel
-  enableDebugInProduction: boolean
-}
+// Configure file transport
+log.transports.file.level = 'info'
+log.transports.file.maxSize = 5 * 1024 * 1024 // 5 MB
+log.transports.file.format = '[{y}-{m}-{d} {h}:{i}:{s}.{ms}] [{level}] [{scope}] {text}'
 
-const config: LoggerConfig = {
-  level: (process.env.NODE_ENV === 'production' ? 'info' : 'debug') as LogLevel,
-  enableDebugInProduction: false,
-}
+// Console: verbose in development, warnings only in production
+log.transports.console.level = process.env.NODE_ENV === 'development' ? 'debug' : 'warn'
 
-const logLevels: Record<LogLevel, number> = {
-  debug: 0,
-  info: 1,
-  warn: 2,
-  error: 3,
-}
+// Catch uncaught exceptions and unhandled rejections automatically
+log.errorHandler.startCatching()
 
-function shouldLog(level: LogLevel): boolean {
-  return logLevels[level] >= logLevels[config.level]
-}
+export default log
 
-function formatMessage(_level: LogLevel, tag: string, message: string): string {
-  return `[${tag}] ${message}`
-}
-
-export const logger = {
-  /**
-   * Debug logs - only shown in development mode by default
-   */
-  debug(tag: string, message: string, ...args: any[]): void {
-    if (shouldLog('debug')) {
-      console.log(formatMessage('debug', tag, message), ...args)
-    }
-  },
-
-  /**
-   * Info logs - general informational messages
-   */
-  info(tag: string, message: string, ...args: any[]): void {
-    if (shouldLog('info')) {
-      console.log(formatMessage('info', tag, message), ...args)
-    }
-  },
-
-  /**
-   * Warning logs - potential issues
-   */
-  warn(tag: string, message: string, ...args: any[]): void {
-    if (shouldLog('warn')) {
-      console.warn(formatMessage('warn', tag, message), ...args)
-    }
-  },
-
-  /**
-   * Error logs - critical issues
-   */
-  error(tag: string, message: string, ...args: any[]): void {
-    if (shouldLog('error')) {
-      console.error(formatMessage('error', tag, message), ...args)
-    }
-  },
-
-  /**
-   * Configure logger behavior
-   */
-  configure(newConfig: Partial<LoggerConfig>): void {
-    Object.assign(config, newConfig)
-  },
-
-  /**
-   * Get current configuration
-   */
-  getConfig(): Readonly<LoggerConfig> {
-    return { ...config }
-  },
+// Convenience: create a scoped logger for a module
+export function createLogger(scope: string) {
+  return log.scope(scope)
 }

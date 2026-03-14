@@ -7,7 +7,8 @@ import { BrowserView, BrowserWindow } from 'electron'
 import { createTonSession, createBrowserView, extractFavicon } from './browser-view'
 import { DEFAULT_PROXY_PORT } from '../../shared/constants'
 import { getSetting, type PrivacySettings, type AppearanceSettings } from '../settings'
-import { logger } from '../../shared/logger'
+import { createLogger } from '../../shared/logger'
+const log = createLogger('tabs')
 import { historyManager } from '../history/manager'
 import { normalizeUrl } from '../../shared/utils/url'
 import { buildContextMenu } from '../utils/context-menu'
@@ -15,7 +16,7 @@ import { buildContextMenu } from '../utils/context-menu'
 // Chrome component heights
 const TABBAR_HEIGHT = 44
 const NAVBAR_HEIGHT = 46
-const BOOKMARKS_HEIGHT = 40
+const BOOKMARKS_HEIGHT = 44
 const CHROME_BUFFER = 0 // No extra buffer needed
 const STATUSBAR_HEIGHT = 24
 const DEFAULT_SIDEBAR_WIDTH = 240 // Default sidebar width
@@ -91,7 +92,7 @@ async function checkInactiveDomains(): Promise<void> {
     if (now - lastActivity > inactiveThreshold) {
       const session = domainSessions.get(domain)
       if (session) {
-        logger.info('Tabs', `Auto-deleting cookies for inactive domain: ${domain}`)
+        log.info(`Auto-deleting cookies for inactive domain: ${domain}`)
         try {
           await session.clearStorageData({
             storages: ['cookies', 'localstorage', 'indexdb', 'websql', 'serviceworkers'],
@@ -99,7 +100,7 @@ async function checkInactiveDomains(): Promise<void> {
           domainActivity.delete(domain)
           domainSessions.delete(domain)
         } catch (error) {
-          logger.error('Tabs', `Failed to clear storage for ${domain}:`, error)
+          log.error(`Failed to clear storage for ${domain}:`, error)
         }
       }
     }
@@ -109,7 +110,7 @@ async function checkInactiveDomains(): Promise<void> {
   if (domainActivity.size === 0 && cookieAutoDeleteTimer) {
     clearInterval(cookieAutoDeleteTimer)
     cookieAutoDeleteTimer = null
-    logger.debug('Tabs', 'Cookie auto-delete timer stopped (no domains to monitor)')
+    log.debug('Cookie auto-delete timer stopped (no domains to monitor)')
   }
 }
 
@@ -130,7 +131,7 @@ function startCookieAutoDeleteTimer(): void {
   // Check every minute
   cookieAutoDeleteTimer = setInterval(() => {
     checkInactiveDomains().catch((error) => {
-      logger.error('Tabs', 'Cookie auto-delete check failed:', error)
+      log.error('Cookie auto-delete check failed:', error)
     })
   }, 60000)
 }
@@ -222,7 +223,7 @@ async function getSessionForDomain(domain: string): Promise<Electron.Session> {
   domainSessions.set(domain, session)
   updateDomainActivity(domain)
 
-  logger.debug('Tabs', `Created isolated session for domain: ${domain}`)
+  log.debug(`Created isolated session for domain: ${domain}`)
   return session
 }
 
@@ -334,7 +335,7 @@ function setupViewEvents(view: BrowserView, tabId: string): void {
         mainWindow?.webContents.send('page:favicon', favicon, tabId)
       }
     } catch (error) {
-      logger.debug('Tabs', `Failed to extract favicon for tab ${tabId}:`, error)
+      log.debug(`Failed to extract favicon for tab ${tabId}:`, error)
     }
   })
 
@@ -352,7 +353,7 @@ function setupViewEvents(view: BrowserView, tabId: string): void {
       return
     }
 
-    logger.warn('Tabs', `Page load failed: ${errorDescription} (code: ${errorCode}) for ${validatedURL}`)
+    log.warn(`Page load failed: ${errorDescription} (code: ${errorCode}) for ${validatedURL}`)
     loadErrorPage(view, `${errorDescription} (${errorCode})`, validatedURL)
   })
 
@@ -365,20 +366,20 @@ function setupViewEvents(view: BrowserView, tabId: string): void {
       // If URL was normalized, redirect to normalized version
       if (normalized !== url) {
         event.preventDefault()
-        logger.debug('Tabs', `Normalizing URL: ${url} → ${normalized}`)
+        log.debug(`Normalizing URL: ${url} → ${normalized}`)
         view.webContents.loadURL(normalized).catch((err) => {
-          logger.error('Tabs', 'loadURL failed (normalization):', err)
+          log.error('loadURL failed (normalization):', err)
           loadErrorPage(view, err.message, normalized)
         })
         return
       }
 
       if (!ALLOWED_SCHEMES.includes(parsed.protocol)) {
-        console.warn(`[Tabs] Blocked navigation to unsafe URL: ${url}`)
+        log.warn(`Blocked navigation to unsafe URL: ${url}`)
         event.preventDefault()
       }
     } catch {
-      console.warn(`[Tabs] Blocked navigation to invalid URL: ${url}`)
+      log.warn(`Blocked navigation to invalid URL: ${url}`)
       event.preventDefault()
     }
   })
@@ -392,21 +393,21 @@ function setupViewEvents(view: BrowserView, tabId: string): void {
       if (ALLOWED_SCHEMES.includes(parsed.protocol)) {
         // Open valid http:// URLs in new tab
         if (targetUrl !== url) {
-          logger.debug('Tabs', `Normalizing popup URL: ${url} → ${targetUrl}`)
+          log.debug(`Normalizing popup URL: ${url} → ${targetUrl}`)
         }
         mainWindow?.webContents.send('context:open-link', targetUrl)
       } else {
-        console.warn(`[Tabs] Blocked popup to unsafe URL: ${url}`)
+        log.warn(`Blocked popup to unsafe URL: ${url}`)
       }
     } catch {
-      console.warn(`[Tabs] Blocked popup to invalid URL: ${url}`)
+      log.warn(`Blocked popup to invalid URL: ${url}`)
     }
     return { action: 'deny' } // Never create popup windows
   })
 
   // Fallback: Close any window that somehow gets created (shouldn't happen with setWindowOpenHandler)
   view.webContents.on('did-create-window', (childWindow, { url }) => {
-    console.warn(`[Tabs] Unexpected child window created, closing and redirecting: ${url}`)
+    log.warn(`Unexpected child window created, closing and redirecting: ${url}`)
     childWindow.close()
     // Open in new tab instead
     if (url && url !== 'about:blank') {
@@ -456,7 +457,7 @@ export async function createTab(tabId: string, initialUrl?: string): Promise<boo
 
     return true
   } catch (error) {
-    logger.error('Tabs', `Failed to create tab ${tabId}:`, error)
+    log.error(`Failed to create tab ${tabId}:`, error)
     // Cleanup: Remove any partially created state
     views.delete(tabId)
     tabDomains.delete(tabId)
@@ -476,10 +477,20 @@ export function closeTab(tabId: string): boolean {
     mainWindow.removeBrowserView(view)
   }
 
+  // Remove tab's domain mapping and clean up session if no other tab uses it
+  const domain = tabDomains.get(tabId)
+  tabDomains.delete(tabId)
+  if (domain) {
+    const domainStillInUse = [...tabDomains.values()].includes(domain)
+    if (!domainStillInUse) {
+      domainSessions.delete(domain)
+      domainActivity.delete(domain)
+    }
+  }
+
   // Destroy the view
   ;(view.webContents as any).destroy()
   views.delete(tabId)
-  tabDomains.delete(tabId)
 
   // If this was the active tab, clear activeViewId
   if (activeViewId === tabId) {
@@ -606,7 +617,7 @@ function loadErrorPage(view: BrowserView, errorMessage: string, failedUrl: strin
 </html>`
 
   view.webContents.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(errorHtml)}`).catch((err) => {
-    logger.error('Tabs', 'Failed to load error page:', err)
+    log.error('Failed to load error page:', err)
   })
 }
 
@@ -632,11 +643,11 @@ export async function navigateInTab(tabId: string, url: string): Promise<boolean
   try {
     const parsed = new URL(navigateUrl)
     if (!ALLOWED_SCHEMES.includes(parsed.protocol)) {
-      console.error(`[Tabs] Blocked navigation to unsafe scheme: ${parsed.protocol}`)
+      log.error(`Blocked navigation to unsafe scheme: ${parsed.protocol}`)
       return false
     }
   } catch (err) {
-    console.error(`[Tabs] Invalid URL: ${navigateUrl}`, err)
+    log.error(`Invalid URL: ${navigateUrl}`)
     return false
   }
 
@@ -647,7 +658,7 @@ export async function navigateInTab(tabId: string, url: string): Promise<boolean
 
   // If navigating to different domain, recreate view with new session
   if (currentDomain && currentDomain !== domain) {
-    console.log(`[Tabs] Domain changed: ${currentDomain} -> ${domain}, recreating view`)
+    log.info(`Domain changed: ${currentDomain} -> ${domain}, recreating view`)
 
     // Remove old view
     view.webContents.removeAllListeners()
@@ -670,9 +681,12 @@ export async function navigateInTab(tabId: string, url: string): Promise<boolean
       updateViewBounds(newView)
     }
 
+    // Notify renderer to reset tab history (BrowserView recreated, history is gone)
+    mainWindow?.webContents.send('tab:history-reset', tabId)
+
     // Navigate in new view (proxy is ready)
     newView.webContents.loadURL(navigateUrl).catch((err) => {
-      logger.error('Tabs', 'loadURL failed (new view):', err)
+      log.error('loadURL failed (new view):', err)
       loadErrorPage(newView, err.message, navigateUrl)
     })
   } else {
@@ -687,7 +701,7 @@ export async function navigateInTab(tabId: string, url: string): Promise<boolean
     }
 
     view.webContents.loadURL(navigateUrl).catch((err) => {
-      logger.error('Tabs', 'loadURL failed:', err)
+      log.error('loadURL failed:', err)
       loadErrorPage(view, err.message, navigateUrl)
     })
   }

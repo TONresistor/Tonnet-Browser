@@ -4,6 +4,8 @@
  */
 
 import { ipcMain, IpcMainInvokeEvent } from 'electron'
+import { createLogger } from '../../shared/logger'
+const log = createLogger('ipc')
 
 interface ErrorLog {
   timestamp: number
@@ -34,10 +36,10 @@ class IpcErrorHandler {
       this.errorLogs.shift()
     }
 
-    // Log to console with context
-    console.error(`[IPC Error] ${channel}:`, error.message)
+    // Log to logger with context
+    log.error(`[IPC Error] ${channel}: ${error.message}`)
     if (error.stack) {
-      console.error(error.stack)
+      log.error(error.stack)
     }
   }
 

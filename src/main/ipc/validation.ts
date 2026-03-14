@@ -3,6 +3,9 @@
  * URL validation, BagID validation, and rate limiting.
  */
 
+import path from 'path'
+import os from 'os'
+
 // Security: URL validation for navigation
 const ALLOWED_SCHEMES = new Set(['http:', 'https:', 'ton:'])
 const BLOCKED_SCHEMES = new Set([
@@ -54,11 +57,6 @@ export function isValidBagId(bagId: string): boolean {
 
 // Security: Validate download path
 export function isValidDownloadPath(inputPath: string): { valid: boolean; error?: string } {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const path = require('path')
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const os = require('os')
-
   // Must be a non-empty string
   if (typeof inputPath !== 'string' || inputPath.trim() === '') {
     return { valid: false, error: 'Path must be a non-empty string' }
@@ -91,6 +89,11 @@ export function isValidDownloadPath(inputPath: string): { valid: boolean; error?
       '/srv',
       '/snap',
       '/run',
+      // macOS system paths
+      '/System',
+      '/Library',
+      '/Applications',
+      '/private',
     ]
     for (const blocked of blockedPaths) {
       if (normalized === blocked || normalized.startsWith(blocked + '/')) {
@@ -98,15 +101,17 @@ export function isValidDownloadPath(inputPath: string): { valid: boolean; error?
       }
     }
   } else {
-    // Block system directories (Windows)
+    // Block system directories (Windows) — detect system drive dynamically
+    const systemRoot = process.env.SystemRoot || process.env.windir || 'C:\\Windows'
+    const systemDrive = path.parse(systemRoot).root // e.g. 'C:\\'
     const blockedPaths = [
-      'C:\\Windows',
-      'C:\\Program Files',
-      'C:\\Program Files (x86)',
-      'C:\\ProgramData',
-      'C:\\System',
-      'C:\\$',
-      'C:\\Boot',
+      path.join(systemDrive, 'Windows'),
+      path.join(systemDrive, 'Program Files'),
+      path.join(systemDrive, 'Program Files (x86)'),
+      path.join(systemDrive, 'ProgramData'),
+      path.join(systemDrive, 'System'),
+      path.join(systemDrive, '$'),
+      path.join(systemDrive, 'Boot'),
     ]
     for (const blocked of blockedPaths) {
       const blockedNormalized = path.normalize(blocked).toLowerCase()
@@ -133,7 +138,13 @@ export function isValidDownloadPath(inputPath: string): { valid: boolean; error?
     allowedRoots.push('/tmp', '/home')
   }
 
-  const isAllowed = allowedRoots.some((root) => root && normalized.startsWith(root))
+  const isAllowed = allowedRoots.some((root) => {
+    if (!root) return false
+    if (process.platform === 'win32') {
+      return normalized.toLowerCase().startsWith(root.toLowerCase())
+    }
+    return normalized.startsWith(root)
+  })
   if (!isAllowed) {
     return { valid: false, error: 'Path must be in user-accessible directory' }
   }

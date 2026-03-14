@@ -9,5 +9,11 @@ export default defineConfig({
     alias: {
       '@tests': resolve(__dirname, 'src/__tests__'),
     },
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'text-summary'],
+      include: ['src/**/*.ts'],
+      exclude: ['src/**/*.test.ts', 'src/__tests__/**'],
+    },
   },
 })

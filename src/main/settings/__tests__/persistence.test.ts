@@ -3,6 +3,7 @@
  * Tests for file I/O, caching, and error handling
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import path from 'path'
 import { createDefaultSettings } from '@tests/helpers/factories'
 
 // Mock Electron app
@@ -86,17 +87,22 @@ describe('Settings Persistence', () => {
       vi.mocked(readFileSync).mockReturnValue(
         JSON.stringify({
           general: { homepage: 'http://custom.ton' },
-          // Missing: network, storage, appearance, privacy, advanced
+          // network is present but sparse — Zod fills in missing fields with defaults
+          network: { autoConnect: true },
+          // privacy is present but sparse
+          privacy: { clearOnExit: false },
         })
       )
 
       const settings = freshLoad()
 
-      // Custom value preserved
+      // Custom values preserved
       expect(settings.general.homepage).toBe('http://custom.ton')
-      // Defaults filled in
+      expect(settings.network.autoConnect).toBe(true)
+      expect(settings.privacy.clearOnExit).toBe(false)
+      // Defaults filled in for fields not specified in each present category
       expect(settings.network.proxyPort).toBe(8080)
-      expect(settings.privacy.clearOnExit).toBe(true)
+      expect(settings.privacy.cookieAutoDelete).toBe(false)
     })
 
     it('falls back to defaults on JSON parse error', async () => {
@@ -179,12 +185,12 @@ describe('Settings Persistence', () => {
 
       // Atomic write: writes to .tmp then renames
       expect(writeFileSync).toHaveBeenCalledWith(
-        '/mock/userData/app-settings.json.tmp',
+        path.join('/mock/userData', 'app-settings.json.tmp'),
         expect.stringContaining('"homepage"')
       )
       expect(renameSync).toHaveBeenCalledWith(
-        '/mock/userData/app-settings.json.tmp',
-        '/mock/userData/app-settings.json'
+        path.join('/mock/userData', 'app-settings.json.tmp'),
+        path.join('/mock/userData', 'app-settings.json')
       )
       // Check it's formatted (indented)
       const writtenContent = vi.mocked(writeFileSync).mock.calls[0][1] as string

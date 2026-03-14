@@ -3,6 +3,8 @@
  * Used by both main and renderer processes.
  */
 
+import { z } from 'zod'
+
 export interface Tab {
   id: string
   url: string
@@ -53,127 +55,223 @@ export interface BagDetails {
   seeding: boolean
 }
 
-// Theme customization
-export interface ThemeColors {
-  // Core
-  background: string // HSL: "210 26% 13%"
-  backgroundSecondary: string
-  foreground: string
-  card: string
-  cardForeground: string
+// --- Zod Schemas ---
 
-  // Primary/Accent
-  primary: string
-  primaryForeground: string
-  secondary: string
-  secondaryForeground: string
-  accent: string
-  accentForeground: string
+export const GeneralSettingsSchema = z.object({
+  homepage: z.string().default('ton://start'),
+  restoreTabs: z.boolean().default(false),
+})
 
-  // Muted
-  muted: string
-  mutedForeground: string
+export const NetworkSettingsSchema = z.object({
+  proxyPort: z.number().int().min(1024).max(65535).default(8080),
+  storagePort: z.number().int().min(1024).max(65535).default(5555),
+  autoConnect: z.boolean().default(false),
+  connectionTimeout: z.number().min(5).max(120).default(30),
+  syncCheckInterval: z.number().min(500).max(60000).default(3000),
+  anonymousMode: z.boolean().default(false),
+  circuitRotation: z.boolean().default(true),
+  rotateInterval: z
+    .string()
+    .regex(/^\d+[smh]$/)
+    .default('10m'),
+})
 
-  // Status
-  destructive: string
-  destructiveForeground: string
-  success: string
-  successForeground: string
-  warning: string
-  warningForeground: string
-  info: string
-  infoForeground: string
+export const StorageSettingsSchema = z.object({
+  downloadPath: z.string().default(''),
+  pollingInterval: z.number().min(500).max(30000).default(2000),
+})
 
-  // Border/Input
-  border: string
-  input: string
-  ring: string
+// Theme: built-in names OR custom:* prefix
+const BuiltInThemeSchema = z.enum(['resistance-dog', 'utya-duck'])
+const LegacyThemeSchema = z.enum(['midnight-blue', 'canard-yellow'])
+const CustomThemeIdSchema = z.string().startsWith('custom:')
+export const ThemeTypeSchema = z.union([BuiltInThemeSchema, LegacyThemeSchema, CustomThemeIdSchema])
+
+export const ThemeColorsSchema = z.object({
+  background: z.string(),
+  backgroundSecondary: z.string(),
+  foreground: z.string(),
+  card: z.string(),
+  cardForeground: z.string(),
+  primary: z.string(),
+  primaryForeground: z.string(),
+  secondary: z.string(),
+  secondaryForeground: z.string(),
+  accent: z.string(),
+  accentForeground: z.string(),
+  muted: z.string(),
+  mutedForeground: z.string(),
+  destructive: z.string(),
+  destructiveForeground: z.string(),
+  success: z.string(),
+  successForeground: z.string(),
+  warning: z.string(),
+  warningForeground: z.string(),
+  info: z.string(),
+  infoForeground: z.string(),
+  border: z.string(),
+  input: z.string(),
+  ring: z.string(),
+})
+
+export const CustomThemeSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  description: z.string().optional(),
+  colors: ThemeColorsSchema,
+  isDark: z.boolean(),
+  createdAt: z.number(),
+  updatedAt: z.number(),
+})
+
+export const AppearanceSettingsSchema = z.object({
+  theme: ThemeTypeSchema.default('resistance-dog'),
+  customThemes: z.array(CustomThemeSchema).default([]),
+  language: z.string().default('en'),
+  defaultZoom: z.number().min(25).max(500).default(100),
+  zoomMin: z.number().min(10).max(100).default(30),
+  zoomMax: z.number().min(100).max(500).default(300),
+  showBookmarksBar: z.boolean().default(true),
+  showStatusBar: z.boolean().default(true),
+  tabOrientation: z.enum(['horizontal', 'vertical']).default('horizontal'),
+  sidebarWidth: z.number().min(64).max(400).default(240),
+})
+
+export const PrivacySettingsSchema = z.object({
+  clearOnExit: z.boolean().default(true),
+  disableCache: z.boolean().default(false),
+  firstPartyIsolation: z.boolean().default(true),
+  cookieAutoDelete: z.boolean().default(false),
+  cookieAutoDeleteMinutes: z.number().min(1).max(1440).default(30),
+  historyMode: z.enum(['memory', 'persistent']).default('memory'),
+  historyMaxEntries: z.number().min(100).max(100000).default(1000),
+})
+
+export const ContentFilteringSettingsSchema = z.object({
+  enabled: z.boolean().default(true),
+  blockAds: z.boolean().default(true),
+  blockTrackers: z.boolean().default(true),
+  blockMiners: z.boolean().default(true),
+  blockMalware: z.boolean().default(true),
+  blockAnnoyances: z.boolean().default(true),
+  whitelistedDomains: z.array(z.string()).default([]),
+})
+
+export const AdvancedSettingsSchema = z.object({
+  proxyVerbosity: z.number().min(0).max(5).default(2),
+  storageVerbosity: z.number().min(0).max(5).default(2),
+  syncTestDomain: z.string().default('tonnet-sync-check.ton'),
+})
+
+/**
+ * Helper that makes a category schema optional (absent key = use all defaults).
+ * In Zod v4, `.default({})` on a nested object does not apply inner field defaults,
+ * so we use `.optional().transform()` to correctly fill all field-level defaults.
+ */
+function withCategoryDefaults<T extends z.ZodObject<z.ZodRawShape>>(schema: T) {
+  return schema.optional().transform((v) => schema.parse(v ?? {}))
 }
 
-export interface CustomTheme {
-  id: string
-  name: string
-  description?: string
-  colors: ThemeColors
-  isDark: boolean
-  createdAt: number
-  updatedAt: number
-}
+export const AppSettingsSchema = z.object({
+  general: withCategoryDefaults(GeneralSettingsSchema),
+  network: withCategoryDefaults(NetworkSettingsSchema),
+  storage: withCategoryDefaults(StorageSettingsSchema),
+  appearance: withCategoryDefaults(AppearanceSettingsSchema),
+  privacy: withCategoryDefaults(PrivacySettingsSchema),
+  contentFiltering: withCategoryDefaults(ContentFilteringSettingsSchema),
+  advanced: withCategoryDefaults(AdvancedSettingsSchema),
+})
 
-// Settings interfaces (shared between main and renderer)
-import type { ThemeType } from './defaults'
+// Partial validation schemas (no defaults) — used to validate SETTINGS_SET updates.
+// These validate types/constraints without filling in missing fields with defaults.
+export const GeneralSettingsPartialSchema = z
+  .object({
+    homepage: z.string(),
+    restoreTabs: z.boolean(),
+  })
+  .partial()
 
-export interface GeneralSettings {
-  homepage: string
-  restoreTabs: boolean
-}
+export const NetworkSettingsPartialSchema = z
+  .object({
+    proxyPort: z.number().int().min(1024).max(65535),
+    storagePort: z.number().int().min(1024).max(65535),
+    autoConnect: z.boolean(),
+    connectionTimeout: z.number().min(5).max(120),
+    syncCheckInterval: z.number().min(500).max(60000),
+    anonymousMode: z.boolean(),
+    circuitRotation: z.boolean(),
+    rotateInterval: z.string().regex(/^\d+[smh]$/),
+  })
+  .partial()
 
-export interface NetworkSettings {
-  proxyPort: number
-  storagePort: number
-  autoConnect: boolean
-  connectionTimeout: number
-  syncCheckInterval: number
-  anonymousMode: boolean
-  circuitRotation: boolean
-  rotateInterval: string
-}
+export const StorageSettingsPartialSchema = z
+  .object({
+    downloadPath: z.string(),
+    pollingInterval: z.number().min(500).max(30000),
+  })
+  .partial()
 
-export interface StorageSettings {
-  downloadPath: string
-  pollingInterval: number
-}
+export const AppearanceSettingsPartialSchema = z
+  .object({
+    theme: ThemeTypeSchema,
+    customThemes: z.array(CustomThemeSchema),
+    language: z.string(),
+    defaultZoom: z.number().min(25).max(500),
+    zoomMin: z.number().min(10).max(100),
+    zoomMax: z.number().min(100).max(500),
+    showBookmarksBar: z.boolean(),
+    showStatusBar: z.boolean(),
+    tabOrientation: z.enum(['horizontal', 'vertical']),
+    sidebarWidth: z.number().min(64).max(400),
+  })
+  .partial()
 
-export interface AppearanceSettings {
-  theme: ThemeType
-  customThemes: CustomTheme[]
-  language: string
-  defaultZoom: number
-  zoomMin: number
-  zoomMax: number
-  showBookmarksBar: boolean
-  showStatusBar: boolean
-  tabOrientation: 'horizontal' | 'vertical'
-  sidebarWidth: number
-}
+export const PrivacySettingsPartialSchema = z
+  .object({
+    clearOnExit: z.boolean(),
+    disableCache: z.boolean(),
+    firstPartyIsolation: z.boolean(),
+    cookieAutoDelete: z.boolean(),
+    cookieAutoDeleteMinutes: z.number().min(1).max(1440),
+    historyMode: z.enum(['memory', 'persistent']),
+    historyMaxEntries: z.number().min(100).max(100000),
+  })
+  .partial()
 
-export interface PrivacySettings {
-  clearOnExit: boolean
-  disableCache: boolean
-  firstPartyIsolation: boolean
-  cookieAutoDelete: boolean
-  cookieAutoDeleteMinutes: number
-  historyMode: 'memory' | 'persistent'
-  historyMaxEntries: number
-}
+export const ContentFilteringSettingsPartialSchema = z
+  .object({
+    enabled: z.boolean(),
+    blockAds: z.boolean(),
+    blockTrackers: z.boolean(),
+    blockMiners: z.boolean(),
+    blockMalware: z.boolean(),
+    blockAnnoyances: z.boolean(),
+    whitelistedDomains: z.array(z.string()),
+  })
+  .partial()
 
-export interface AdvancedSettings {
-  proxyVerbosity: number
-  storageVerbosity: number
-  syncTestDomain: string
-}
+export const AdvancedSettingsPartialSchema = z
+  .object({
+    proxyVerbosity: z.number().min(0).max(5),
+    storageVerbosity: z.number().min(0).max(5),
+    syncTestDomain: z.string(),
+  })
+  .partial()
 
-// Content Filtering
-export interface ContentFilteringSettings {
-  enabled: boolean
-  blockAds: boolean
-  blockTrackers: boolean
-  blockMiners: boolean
-  blockMalware: boolean
-  blockAnnoyances: boolean
-  whitelistedDomains: string[]
-  showBlockCount: boolean
-}
+// Derived TypeScript types from Zod schemas
+export type ThemeColors = z.infer<typeof ThemeColorsSchema>
+export type CustomTheme = z.infer<typeof CustomThemeSchema>
+export type GeneralSettings = z.infer<typeof GeneralSettingsSchema>
+export type NetworkSettings = z.infer<typeof NetworkSettingsSchema>
+export type StorageSettings = z.infer<typeof StorageSettingsSchema>
+export type AppearanceSettings = z.infer<typeof AppearanceSettingsSchema>
+export type PrivacySettings = z.infer<typeof PrivacySettingsSchema>
+export type ContentFilteringSettings = z.infer<typeof ContentFilteringSettingsSchema>
+export type AdvancedSettings = z.infer<typeof AdvancedSettingsSchema>
+export type AppSettings = z.infer<typeof AppSettingsSchema>
 
-export interface AppSettings {
-  general: GeneralSettings
-  network: NetworkSettings
-  storage: StorageSettings
-  appearance: AppearanceSettings
-  privacy: PrivacySettings
-  contentFiltering: ContentFilteringSettings
-  advanced: AdvancedSettings
-}
+// Re-export ThemeType from defaults for backward compatibility
+export type { ThemeType, BuiltInTheme } from './defaults'
 
 export interface ContentFilterStats {
   totalBlocked: number

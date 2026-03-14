@@ -6,6 +6,9 @@
 import { create } from 'zustand'
 import type { CustomTheme, ThemeColors } from '@shared/types'
 import { createThemeFromBase, exportThemeToJson, importThemeFromJson, generateThemeId } from '../lib/theme-utils'
+import { createLogger } from '@/logger'
+
+const log = createLogger('themes')
 
 interface ThemeStore {
   // Custom themes list
@@ -51,7 +54,9 @@ export const useThemeStore = create<ThemeStore>()((set, get) => ({
       customThemes: [...state.customThemes, theme],
     }))
     // Auto-save after creation
-    get().saveToSettings().catch(console.error)
+    get()
+      .saveToSettings()
+      .catch((err) => log.error('Theme save failed:', err))
     return theme
   },
 
@@ -90,7 +95,9 @@ export const useThemeStore = create<ThemeStore>()((set, get) => ({
       customThemes: state.customThemes.filter((t) => t.id !== id),
       editingTheme: state.editingTheme?.id === id ? null : state.editingTheme,
     }))
-    get().saveToSettings().catch(console.error)
+    get()
+      .saveToSettings()
+      .catch((err) => log.error('Theme save failed:', err))
   },
 
   duplicateTheme: (id) => {
@@ -110,7 +117,9 @@ export const useThemeStore = create<ThemeStore>()((set, get) => ({
     set((state) => ({
       customThemes: [...state.customThemes, duplicate],
     }))
-    get().saveToSettings().catch(console.error)
+    get()
+      .saveToSettings()
+      .catch((err) => log.error('Theme save failed:', err))
     return duplicate
   },
 
@@ -150,7 +159,9 @@ export const useThemeStore = create<ThemeStore>()((set, get) => ({
     set((state) => ({
       customThemes: [...state.customThemes, theme],
     }))
-    get().saveToSettings().catch(console.error)
+    get()
+      .saveToSettings()
+      .catch((err) => log.error('Theme save failed:', err))
     return theme
   },
 
@@ -160,7 +171,7 @@ export const useThemeStore = create<ThemeStore>()((set, get) => ({
       const customThemes = settings.appearance?.customThemes || []
       set({ customThemes, isLoaded: true })
     } catch (error) {
-      console.error('[ThemeStore] Failed to load themes:', error)
+      log.error('Failed to load themes:', error)
       set({ isLoaded: true })
     }
   },
@@ -170,7 +181,7 @@ export const useThemeStore = create<ThemeStore>()((set, get) => ({
       const { customThemes } = get()
       await window.electron.settings.set('appearance', { customThemes })
     } catch (error) {
-      console.error('[ThemeStore] Failed to save themes:', error)
+      log.error('Failed to save themes:', error)
     }
   },
 }))

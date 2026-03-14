@@ -5,13 +5,13 @@
 
 import { ArrowLeft, ArrowRight, RotateCw, Home, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { useSettingsStore } from '@/stores/settings'
+import { useBrowserStore } from '@/stores/browser'
 import { useTabsStore } from '@/stores/tabs'
 import { useTranslation } from 'react-i18next'
 
 export function NavigationButtons() {
   const { t } = useTranslation('browser')
-  const { canGoBack, canGoForward, isLoading } = useSettingsStore()
+  const { canGoBack, canGoForward, isLoading } = useBrowserStore()
   const { navigateActiveTab, goBack, goForward } = useTabsStore()
 
   const handleBack = () => {

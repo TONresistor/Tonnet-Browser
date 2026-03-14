@@ -7,6 +7,9 @@ import { create } from 'zustand'
 import { DEFAULT_SETTINGS } from '../../../shared/defaults'
 import type { ThemeType } from '../../../shared/defaults'
 import type { AppSettings } from '../../../shared/types'
+import { createLogger } from '@/logger'
+
+const log = createLogger('preferences')
 
 export type { ThemeType }
 
@@ -193,7 +196,7 @@ function mainSettingsToPrefs(settings: AppSettings): AppPreferences {
     rotateInterval: settings.network?.rotateInterval ?? defaultPreferences.rotateInterval,
     downloadPath: settings.storage?.downloadPath ?? defaultPreferences.downloadPath,
     storagePollingInterval: settings.storage?.pollingInterval ?? defaultPreferences.storagePollingInterval,
-    theme: settings.appearance?.theme ?? defaultPreferences.theme,
+    theme: (settings.appearance?.theme ?? defaultPreferences.theme) as ThemeType,
     language: settings.appearance?.language ?? defaultPreferences.language,
     defaultZoom: settings.appearance?.defaultZoom ?? defaultPreferences.defaultZoom,
     zoomMin: settings.appearance?.zoomMin ?? defaultPreferences.zoomMin,
@@ -251,7 +254,7 @@ export const usePreferencesStore = create<PreferencesState>()((set, get) => ({
       const prefs = mainSettingsToPrefs(settings)
       set({ saved: prefs, draft: { ...prefs }, isLoaded: true, hasChanges: false })
     } catch (error) {
-      console.error('[Preferences] Failed to load from main:', error)
+      log.error('Failed to load from main:', error)
       set({ isLoaded: true })
     }
   },
@@ -288,7 +291,7 @@ export const usePreferencesStore = create<PreferencesState>()((set, get) => ({
       )
       set({ saved: { ...draft }, hasChanges: false, isSaving: false })
     } catch (error) {
-      console.error('[Preferences] Failed to save:', error)
+      log.error('Failed to save:', error)
       set({ isSaving: false })
     }
   },
@@ -309,7 +312,7 @@ export const usePreferencesStore = create<PreferencesState>()((set, get) => ({
         isSaving: false,
       })
     } catch (error) {
-      console.error('[Preferences] Failed to reset:', error)
+      log.error('Failed to reset:', error)
       set({ isSaving: false })
     }
   },

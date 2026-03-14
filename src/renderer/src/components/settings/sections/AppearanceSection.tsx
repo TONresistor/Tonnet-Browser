@@ -40,6 +40,7 @@ export const AppearanceSection = memo(function AppearanceSection({ draft, setDra
   const [showImportDialog, setShowImportDialog] = useState(false)
   const [exportData, setExportData] = useState<{ json: string; name: string } | null>(null)
   const [showCreateMenu, setShowCreateMenu] = useState(false)
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
 
   const handleCreateTheme = (base: 'resistance-dog' | 'utya-duck') => {
     const theme = createTheme(base, `Custom Theme ${customThemes.length + 1}`)
@@ -65,12 +66,15 @@ export const AppearanceSection = memo(function AppearanceSection({ draft, setDra
   }
 
   const handleDelete = (themeId: string) => {
-    const theme = customThemes.find((t) => t.id === themeId)
-    if (theme && confirm(`Delete "${theme.name}"?`)) {
+    if (pendingDeleteId === themeId) {
       if (draft.theme === `custom:${themeId}`) {
         setDraft('theme', 'resistance-dog')
       }
       deleteTheme(themeId)
+      setPendingDeleteId(null)
+    } else {
+      setPendingDeleteId(themeId)
+      setTimeout(() => setPendingDeleteId(null), 3000)
     }
   }
 
@@ -138,7 +142,7 @@ export const AppearanceSection = memo(function AppearanceSection({ draft, setDra
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-muted-foreground hover:text-foreground transition-colors bg-surface hover:bg-surface-hover"
             >
               <Upload className="w-4 h-4" />
-              {t('../../common:buttons.import')}
+              {t('common:buttons.import')}
             </button>
             <div className="relative">
               <button
@@ -146,7 +150,7 @@ export const AppearanceSection = memo(function AppearanceSection({ draft, setDra
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm bg-primary text-primary-foreground hover:opacity-90 transition-opacity"
               >
                 <Plus className="w-4 h-4" />
-                {t('../../common:buttons.create')}
+                {t('common:buttons.create')}
               </button>
               {showCreateMenu && (
                 <>
@@ -174,6 +178,7 @@ export const AppearanceSection = memo(function AppearanceSection({ draft, setDra
         <ThemeList
           themes={customThemes}
           selectedThemeId={draft.theme}
+          pendingDeleteId={pendingDeleteId}
           onEdit={setEditingThemeId}
           onDelete={handleDelete}
           onDuplicate={duplicateTheme}
@@ -214,6 +219,7 @@ export const AppearanceSection = memo(function AppearanceSection({ draft, setDra
             suffix="%"
           />
         </SettingRow>
+        <div className="border-t border-border" />
         <SettingRow label={t('appearance.ui.showBookmarksBar')} description={t('appearance.ui.showBookmarksBarDesc')}>
           <Toggle
             checked={draft.showBookmarksBar}

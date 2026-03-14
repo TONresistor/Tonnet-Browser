@@ -4,7 +4,10 @@
  */
 
 import { useState, useEffect, useMemo } from 'react'
+import { createLogger } from '@/logger'
 import { Search, Trash2, Clock, ExternalLink, Filter, History } from 'lucide-react'
+
+const log = createLogger('history')
 import { useTranslation } from 'react-i18next'
 import { useTabsStore } from '../../stores/tabs'
 import { ErrorBoundary } from '../ErrorBoundary'
@@ -31,7 +34,7 @@ interface HistoryStats {
 type TimeFilter = 'today' | 'week' | 'month' | 'all'
 
 export function HistoryPage() {
-  const { t } = useTranslation('pages')
+  const { t, i18n } = useTranslation('pages')
   const [entries, setEntries] = useState<HistoryEntry[]>([])
   const [_stats, setStats] = useState<HistoryStats | null>(null)
   const [query, setQuery] = useState('')
@@ -78,7 +81,7 @@ export function HistoryPage() {
 
       setEntries(results)
     } catch (error) {
-      console.error('Failed to load history:', error)
+      log.error('Failed to load history:', error)
       setEntries([])
     }
     setIsLoading(false)
@@ -89,7 +92,7 @@ export function HistoryPage() {
       const s = await window.electron.history.getStats()
       setStats(s)
     } catch (error) {
-      console.error('Failed to load stats:', error)
+      log.error('Failed to load stats:', error)
     }
   }
 
@@ -179,11 +182,16 @@ export function HistoryPage() {
 
     // Same year
     if (date.getFullYear() === now.getFullYear()) {
-      return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+      return date.toLocaleDateString(i18n.language, {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
     }
 
     // Different year
-    return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+    return date.toLocaleDateString(i18n.language, { year: 'numeric', month: 'short', day: 'numeric' })
   }
 
   // Group entries by date (memoized to avoid recalculation on every render)
@@ -191,18 +199,20 @@ export function HistoryPage() {
     return entries.reduce(
       (groups, entry) => {
         const date = new Date(entry.visitedAt)
-        const dateKey = date.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
+        // Use ISO date string as a stable locale-independent key for grouping
+        const dateKey = date.toISOString().slice(0, 10)
+        const displayLabel = date.toLocaleDateString(i18n.language, { year: 'numeric', month: 'long', day: 'numeric' })
 
         if (!groups[dateKey]) {
-          groups[dateKey] = []
+          groups[dateKey] = { label: displayLabel, entries: [] }
         }
-        groups[dateKey].push(entry)
+        groups[dateKey].entries.push(entry)
 
         return groups
       },
-      {} as Record<string, HistoryEntry[]>
+      {} as Record<string, { label: string; entries: HistoryEntry[] }>
     )
-  }, [entries])
+  }, [entries, i18n.language])
 
   return (
     <ErrorBoundary>
@@ -288,10 +298,10 @@ export function HistoryPage() {
           </div>
         ) : (
           <div className="space-y-6">
-            {Object.entries(groupedEntries).map(([dateKey, dateEntries]) => (
+            {Object.entries(groupedEntries).map(([dateKey, { label, entries: dateEntries }]) => (
               <div key={dateKey}>
                 {/* Date header */}
-                <h2 className="text-sm font-semibold text-muted-foreground mb-3 px-2">{dateKey}</h2>
+                <h2 className="text-sm font-semibold text-muted-foreground mb-3 px-2">{label}</h2>
 
                 {/* Entries for this date */}
                 <div className="bg-card rounded-2xl border border-border divide-y divide-border overflow-hidden">

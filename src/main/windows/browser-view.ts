@@ -7,6 +7,8 @@ import { BrowserView, session } from 'electron'
 import { USER_AGENT } from '../../shared/constants'
 import { getSetting } from '../settings'
 import { contentFilterManager } from '../content-filter/filter-manager'
+import { createLogger } from '../../shared/logger'
+const log = createLogger('tabs')
 
 const SESSION_PARTITION = 'persist:ton-browser'
 
@@ -467,7 +469,7 @@ export function createBrowserView(ses: Electron.Session): BrowserView {
         true
       )
       .catch((error) => {
-        console.error('[Privacy] Failed to inject anti-fingerprinting code:', error)
+        log.error('[Privacy] Failed to inject anti-fingerprinting code:', error)
       })
   })
 

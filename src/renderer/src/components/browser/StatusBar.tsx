@@ -4,27 +4,15 @@
  */
 
 import { useEffect, useState, memo } from 'react'
+import { createLogger } from '@/logger'
+
+const log = createLogger('status')
 import { Wifi, WifiOff, Loader2, ArrowDown, ArrowUp, Zap } from 'lucide-react'
-import { useSettingsStore } from '@/stores/settings'
+import { useBrowserStore } from '@/stores/browser'
 import { APP_VERSION } from '@shared/constants'
 import type { StorageBag } from '@shared/types'
 import { useTranslation } from 'react-i18next'
-
-function formatSpeed(bytesPerSecond: number): string {
-  if (bytesPerSecond === 0) return '0 B/s'
-  const k = 1024
-  const sizes = ['B/s', 'KB/s', 'MB/s', 'GB/s']
-  const i = Math.floor(Math.log(bytesPerSecond) / Math.log(k))
-  return `${(bytesPerSecond / Math.pow(k, i)).toFixed(1)} ${sizes[i]}`
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes === 0) return '0 B'
-  const k = 1024
-  const sizes = ['B', 'KB', 'MB', 'GB']
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return `${(bytes / Math.pow(k, i)).toFixed(1)} ${sizes[i]}`
-}
+import { formatBytes, formatSpeed } from '@/lib/format'
 
 function formatTime(date: Date, locale?: string): string {
   return date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', second: '2-digit' })
@@ -38,7 +26,7 @@ function Separator() {
 export const StatusBar = memo(function StatusBar() {
   const { t, i18n } = useTranslation('browser')
   const { proxyConnected, proxySyncing, anonymousMode, circuitRelays, storageStats, setProxyStatus, setStorageStats } =
-    useSettingsStore()
+    useBrowserStore()
   const [currentTime, setCurrentTime] = useState(new Date())
   const [bandwidth, setBandwidth] = useState({ down: 0, up: 0 })
   const [latency, setLatency] = useState<number | null>(null)
@@ -55,12 +43,12 @@ export const StatusBar = memo(function StatusBar() {
       const data = args[0]
       // Runtime validation
       if (!data || typeof data !== 'object') {
-        console.error('[StatusBar] Invalid proxy:status data:', data)
+        log.error('Invalid proxy:status data:', data)
         return
       }
       const status = data as { status: string; anonymousMode?: boolean; circuitRelays?: string[] }
       if (typeof status.status !== 'string') {
-        console.error('[StatusBar] Invalid status field type')
+        log.error('Invalid status field type')
         return
       }
       setProxyStatus(
@@ -77,12 +65,12 @@ export const StatusBar = memo(function StatusBar() {
       const data = args[0]
       // Runtime validation
       if (!data || typeof data !== 'object') {
-        console.error('[StatusBar] Invalid proxy:bandwidth data:', data)
+        log.error('Invalid proxy:bandwidth data:', data)
         return
       }
       const bandwidth = data as { down: number; up: number; latency?: number }
       if (typeof bandwidth.down !== 'number' || typeof bandwidth.up !== 'number') {
-        console.error('[StatusBar] Invalid bandwidth field types')
+        log.error('Invalid bandwidth field types')
         return
       }
       setBandwidth({ down: bandwidth.down, up: bandwidth.up })

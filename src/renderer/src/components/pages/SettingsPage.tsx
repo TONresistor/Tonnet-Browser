@@ -4,7 +4,10 @@
  */
 
 import { useState, useEffect, useRef } from 'react'
+import { createLogger } from '@/logger'
 import { usePreferencesStore } from '@/stores/preferences'
+
+const log = createLogger('settings')
 import { useBookmarksStore } from '@/stores/bookmarks'
 import { SettingsLayout } from '@/components/settings/SettingsLayout'
 import { SettingsSidebar } from '@/components/settings/SettingsSidebar'
@@ -62,7 +65,7 @@ export function SettingsPage() {
         setDraft('downloadPath', result.path)
       }
     } catch (error) {
-      console.error('Failed to select folder:', error)
+      log.error('Failed to select folder:', error)
     }
   }
 

@@ -3,6 +3,7 @@
  * Exposes safe IPC methods to the renderer process.
  */
 
+import 'electron-log'
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC_CHANNELS } from '../shared/types'
 
@@ -14,7 +15,6 @@ const VALID_EVENT_CHANNELS = [
   'proxy:status',
   'proxy:progress',
   'proxy:auto-connect',
-  'proxy:bandwidth',
   'storage:bags-updated',
   'storage:status',
   'context:open-link',
@@ -30,6 +30,7 @@ const VALID_EVENT_CHANNELS = [
   'updater:progress',
   'updater:downloaded',
   'updater:error',
+  'tab:history-reset',
 ]
 
 // Custom APIs for renderer - exposed as window.electron
@@ -152,10 +153,19 @@ const electronAPI = {
     return () => {} // No-op for invalid channels
   },
 
-  // Backward compatible - removes ALL listeners for a channel
-  off: (channel: string) => {
+  // Remove a specific listener for a channel.
+  // Pass the same callback reference used in on() to remove only that listener.
+  // Omitting callback removes all listeners for the channel (deprecated — prefer the unsubscribe
+  // function returned by on() instead).
+  off: (channel: string, callback?: (...args: unknown[]) => void) => {
     // Security: Only allow removing listeners for whitelisted channels
-    if (VALID_EVENT_CHANNELS.includes(channel)) {
+    if (!VALID_EVENT_CHANNELS.includes(channel)) return
+    if (callback) {
+      ipcRenderer.removeListener(channel, callback)
+    } else {
+      console.warn(
+        `[preload] off('${channel}') without a callback removes ALL listeners. Use the unsubscribe function returned by on() instead.`
+      )
       ipcRenderer.removeAllListeners(channel)
     }
   },

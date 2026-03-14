@@ -10,7 +10,8 @@ import { validatePort, validateVerbosity } from '../utils/validators'
 import { StorageHTTPClient, BagInfo } from './http-client'
 import type { StorageBag } from '../../shared/types'
 import { getSetting, getDownloadPath } from '../settings'
-import { logger } from '../../shared/logger'
+import { createLogger } from '../../shared/logger'
+const log = createLogger('storage')
 import fs from 'fs'
 import path from 'path'
 
@@ -40,7 +41,7 @@ export class StorageManager extends EventEmitter {
 
   setStoragePath(newPath: string): void {
     this.storagePath = newPath
-    logger.info('StorageManager', `Storage path updated to: ${newPath}`)
+    log.info(`Storage path updated to: ${newPath}`)
   }
 
   async start(): Promise<void> {
@@ -66,29 +67,33 @@ export class StorageManager extends EventEmitter {
     const safeVerbosity = validateVerbosity(advanced.storageVerbosity)
     this.port = safePort
 
-    logger.info('StorageManager', `Starting tonutils-storage from: ${binPath}`)
-    logger.debug('StorageManager', `Config: ${configPath}`)
-    logger.debug('StorageManager', `DB: ${this.dbPath}`)
-    logger.debug('StorageManager', `API port: ${safePort}`)
-    logger.debug('StorageManager', `Verbosity: ${safeVerbosity}`)
+    log.info(`Starting tonutils-storage from: ${binPath}`)
+    log.debug(`Config: ${configPath}`)
+    log.debug(`DB: ${this.dbPath}`)
+    log.debug(`API port: ${safePort}`)
+    log.debug(`Verbosity: ${safeVerbosity}`)
 
     // Start tonutils-storage in daemon mode with HTTP API
-    this.process = spawn(binPath, [
-      '-daemon',
-      '-api',
-      `127.0.0.1:${safePort}`,
-      '-db',
-      this.dbPath,
-      '-network-config',
-      configPath,
-      '-verbosity',
-      String(safeVerbosity),
-    ])
+    this.process = spawn(
+      binPath,
+      [
+        '-daemon',
+        '-api',
+        `127.0.0.1:${safePort}`,
+        '-db',
+        this.dbPath,
+        '-network-config',
+        configPath,
+        '-verbosity',
+        String(safeVerbosity),
+      ],
+      { windowsHide: true }
+    )
 
     this.process.stdout?.on('data', (data: Buffer) => {
       const message = data.toString().trim()
       if (message) {
-        logger.debug('storage', message)
+        log.debug(message)
         this.emit('log', message)
       }
     })
@@ -96,13 +101,13 @@ export class StorageManager extends EventEmitter {
     this.process.stderr?.on('data', (data: Buffer) => {
       const message = data.toString().trim()
       if (message) {
-        logger.warn('storage', message)
+        log.warn(message)
         this.emit('error', message)
       }
     })
 
     this.process.on('exit', (code) => {
-      logger.info('StorageManager', `Storage daemon exited with code: ${code}`)
+      log.info(`Storage daemon exited with code: ${code}`)
       this.isRunning = false
       this.process = null
       this.client = null
@@ -111,7 +116,7 @@ export class StorageManager extends EventEmitter {
     })
 
     this.process.on('error', (err) => {
-      logger.error('StorageManager', `Failed to start storage daemon: ${err.message}`)
+      log.error(`Failed to start storage daemon: ${err.message}`)
       this.emit('error', err.message)
     })
 
@@ -134,12 +139,12 @@ export class StorageManager extends EventEmitter {
       try {
         // ping() has 10s timeout built-in via fetch AbortSignal
         if (await this.client.ping()) {
-          logger.info('StorageManager', `API ready after ${i + 1} attempts`)
+          log.info(`API ready after ${i + 1} attempts`)
           return
         }
       } catch (error) {
         // Log ping errors but continue retrying (daemon may still be starting)
-        logger.debug('StorageManager', `Ping attempt ${i + 1} failed:`, error)
+        log.debug(`Ping attempt ${i + 1} failed:`, error)
       }
       await new Promise((resolve) => setTimeout(resolve, 500))
     }
@@ -156,7 +161,7 @@ export class StorageManager extends EventEmitter {
         const bags = await this.client.listBags()
         this.emit('bags-updated', bags.map(this.mapBagInfo))
       } catch (err) {
-        logger.error('StorageManager', `Poll error: ${String(err)}`)
+        log.error(`Poll error: ${String(err)}`)
       }
     }, interval)
   }
@@ -194,7 +199,7 @@ export class StorageManager extends EventEmitter {
   stop(): void {
     this.stopPolling()
     if (this.process) {
-      logger.info('StorageManager', 'Stopping storage daemon...')
+      log.info('Stopping storage daemon...')
       // Clean up all listeners before killing to prevent memory leaks
       this.process.stdout?.removeAllListeners()
       this.process.stderr?.removeAllListeners()

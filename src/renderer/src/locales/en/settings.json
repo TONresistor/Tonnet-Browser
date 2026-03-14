@@ -281,5 +281,11 @@
     "notSet": "Not set",
     "updateInterval": "Update interval",
     "updateIntervalDesc": "How often to refresh download stats"
+  },
+  "actions": {
+    "unsavedChanges": "You have unsaved changes",
+    "discard": "Discard",
+    "saveChanges": "Save Changes",
+    "saving": "Saving..."
   }
 }

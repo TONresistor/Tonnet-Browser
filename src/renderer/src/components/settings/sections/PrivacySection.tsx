@@ -77,16 +77,21 @@ export const PrivacySection = memo(function PrivacySection({
           />
         </SettingRow>
         {draft.cookieAutoDelete && (
-          <SettingRow label={t('privacy.autoDeleteTimeout')} description={t('privacy.autoDeleteTimeoutDesc')}>
-            <input
-              type="number"
-              min={1}
-              max={1440}
-              value={draft.cookieAutoDeleteMinutes}
-              onChange={(e) => setDraft('cookieAutoDeleteMinutes', parseInt(e.target.value) || 30)}
-              className="w-20 px-3 py-1.5 rounded-lg border border-border bg-background text-foreground"
-            />
-          </SettingRow>
+          <div className="ml-4 pl-4 border-l-2 border-border">
+            <SettingRow label={t('privacy.autoDeleteTimeout')} description={t('privacy.autoDeleteTimeoutDesc')}>
+              <div className="flex items-center">
+                <input
+                  type="number"
+                  min={1}
+                  max={1440}
+                  value={draft.cookieAutoDeleteMinutes}
+                  onChange={(e) => setDraft('cookieAutoDeleteMinutes', parseInt(e.target.value) || 30)}
+                  className="w-20 px-3 py-1.5 rounded-lg border border-border bg-background text-foreground"
+                />
+                <span className="text-xs text-muted-foreground ml-1">min</span>
+              </div>
+            </SettingRow>
+          </div>
         )}
       </div>
     </div>
