@@ -218,8 +218,7 @@ jobs:
           COMMIT_DESC=$(git log -1 --pretty=format:'%b' | head -20)
           COMMIT_SHA=$(git rev-parse --short HEAD)
           COMMIT_URL="${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}"
-          if [ "$BUILD_RESULT" = "success" ] && [ "$VALIDATE_RESULT" = "success" ]; then STATUS="✅"; else STATUS="❌"; fi
-          TEXT="${STATUS} <b>${COMMIT_TITLE}</b>"
+          TEXT="<b>[Tonnet Browser] ${COMMIT_TITLE}</b>"
           if [ -n "$COMMIT_DESC" ]; then
             printf -v TEXT '%s\n\n%s' "$TEXT" "$COMMIT_DESC"
           fi
