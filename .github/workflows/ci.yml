@@ -64,37 +64,20 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           VALIDATE_RESULT: ${{ needs.validate.result }}
         run: |
-          # Skip if secrets are not configured
           if [ -z "$TELEGRAM_BOT_TOKEN" ] || [ -z "$TELEGRAM_CHAT_ID" ]; then
             echo "Telegram secrets not configured, skipping"
             exit 0
           fi
-
-          # Extract commit info
           COMMIT_TITLE=$(git log -1 --pretty=format:'%s')
           COMMIT_DESC=$(git log -1 --pretty=format:'%b' | head -20)
           COMMIT_SHA=$(git rev-parse --short HEAD)
           COMMIT_URL="${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}"
-
-          # Status
-          if [ "$VALIDATE_RESULT" = "success" ]; then
-            STATUS="✅"
-          else
-            STATUS="❌"
-          fi
-
-          # Build message
+          if [ "$VALIDATE_RESULT" = "success" ]; then STATUS="✅"; else STATUS="❌"; fi
           TEXT="${STATUS} <b>${COMMIT_TITLE}</b>"
           if [ -n "$COMMIT_DESC" ]; then
-            TEXT="${TEXT}
-
-${COMMIT_DESC}"
+            printf -v TEXT '%s\n\n%s' "$TEXT" "$COMMIT_DESC"
           fi
-          TEXT="${TEXT}
-
-<a href=\"${COMMIT_URL}\">View commit ${COMMIT_SHA}</a>"
-
-          # Send
+          printf -v TEXT '%s\n\n<a href="%s">View commit %s</a>' "$TEXT" "$COMMIT_URL" "$COMMIT_SHA"
           curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
             -d chat_id="${TELEGRAM_CHAT_ID}" \
             -d parse_mode="HTML" \
