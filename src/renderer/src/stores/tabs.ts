@@ -170,7 +170,7 @@ export const useTabsStore = create<TabsState>((set, get) => ({
     if (!tab) return
 
     try {
-      // Switch tab in main process (shows/hides BrowserViews)
+      // Switch tab in main process (shows/hides WebContentsViews)
       await window.electron.tabs.switch(id)
       set({ activeTabId: id })
 
@@ -178,7 +178,7 @@ export const useTabsStore = create<TabsState>((set, get) => ({
       useBrowserStore.getState().setNavigation(tab.url, tab.canGoBack, tab.canGoForward)
       useBrowserStore.getState().setTitle(tab.title)
 
-      // For internal pages, hide BrowserViews so React content is visible
+      // For internal pages, hide WebContentsViews so React content is visible
       if (tab.url.startsWith('ton://')) {
         await window.electron.view.hide()
       }
@@ -246,7 +246,7 @@ export const useTabsStore = create<TabsState>((set, get) => ({
       useBrowserStore.getState().setTitle(internalTitle)
     }
 
-    // Navigate (handles hide/show BrowserView)
+    // Navigate (handles hide/show WebContentsView)
     try {
       await window.electron.navigate(url, currentActiveTabId)
     } catch (error) {

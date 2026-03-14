@@ -25,9 +25,8 @@ import { initUpdater } from './updater'
 // Initialize electron-log IPC bridge so renderer can also log via electron-log
 log.initialize()
 
-// Memory leak prevention: increase limit for BrowserView tab switches
-// Each addBrowserView() adds a 'closed' listener to BrowserWindow
-EventEmitter.defaultMaxListeners = 50
+// Memory leak prevention: increase limit for WebContentsView tab switches
+EventEmitter.defaultMaxListeners = 20
 
 // Register custom protocol for serving renderer in production
 // MUST be called before app.ready — silently fails otherwise
@@ -139,7 +138,7 @@ function createWindow(): void {
       preload: join(__dirname, '../preload/index.mjs'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false, // Main window loads trusted local UI only; BrowserView has sandbox: true for untrusted content
+      sandbox: false, // Main window loads trusted local UI only; WebContentsView has sandbox: true for untrusted content
     },
   })
 
@@ -281,8 +280,8 @@ app.whenReady().then(() => {
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)
 
-    // Intercept Ctrl+Shift+I (or Cmd+Option+I on macOS) to open DevTools for active BrowserView (not main window)
-    // This prevents DevTools from appearing under the BrowserView overlay
+    // Intercept Ctrl+Shift+I (or Cmd+Option+I on macOS) to open DevTools for active WebContentsView (not main window)
+    // This prevents DevTools from appearing under the WebContentsView overlay
     window.webContents.on('before-input-event', (event, input) => {
       const isDevToolsShortcut =
         (input.control && input.shift && input.key.toLowerCase() === 'i') ||
@@ -291,14 +290,14 @@ app.whenReady().then(() => {
         event.preventDefault()
         const view = getActiveView()
         if (view) {
-          // Toggle DevTools for the website's BrowserView
+          // Toggle DevTools for the website's WebContentsView
           if (view.webContents.isDevToolsOpened()) {
             view.webContents.closeDevTools()
           } else {
             view.webContents.openDevTools({ mode: 'detach' })
           }
         } else {
-          // No active BrowserView, open DevTools for main window (system pages)
+          // No active WebContentsView, open DevTools for main window (system pages)
           if (window.webContents.isDevToolsOpened()) {
             window.webContents.closeDevTools()
           } else {

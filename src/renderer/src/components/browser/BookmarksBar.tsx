@@ -85,7 +85,7 @@ export function BookmarksBar() {
     })
   )
 
-  // Hide/show BrowserView when modals open/close
+  // Hide/show WebContentsView when modals open/close
   useEffect(() => {
     if (editModal || renameModal) {
       window.electron.view.hide()

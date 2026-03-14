@@ -56,7 +56,7 @@ const electronAPI = {
     switch: (tabId: string) => ipcRenderer.invoke(IPC_CHANNELS.TAB_SWITCH, tabId),
   },
 
-  // View (BrowserView visibility)
+  // View (WebContentsView visibility)
   view: {
     hide: () => ipcRenderer.invoke(IPC_CHANNELS.VIEW_HIDE),
     show: () => ipcRenderer.invoke(IPC_CHANNELS.VIEW_SHOW),

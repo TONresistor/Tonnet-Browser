@@ -1,6 +1,6 @@
 /**
  * Shared context menu builder.
- * Reduces duplication between main window and BrowserView context menus.
+ * Reduces duplication between main window and WebContentsView context menus.
  */
 
 import { Menu, clipboard } from 'electron'
@@ -57,7 +57,7 @@ export function buildContextMenu(params: Electron.ContextMenuParams, options: Co
     menuItems.push({ label: 'Copy Image Address', click: () => clipboard.writeText(params.srcURL) })
   }
 
-  // Navigation options (optional, for BrowserView tabs)
+  // Navigation options (optional, for WebContentsView tabs)
   if (options.onNavigateBack || options.onNavigateForward || options.onReload) {
     if (menuItems.length > 0) menuItems.push({ type: 'separator' })
     if (options.onNavigateBack) {

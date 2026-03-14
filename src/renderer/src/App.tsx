@@ -288,7 +288,7 @@ function App() {
     }
 
     if (!isInternalPage) {
-      // External page - BrowserView handles this, this is just a background
+      // External page - WebContentsView handles this, this is just a background
       return (
         <div className="w-full h-full flex flex-col items-center justify-center bg-background-secondary">
           <Lottie animationData={animationData} className="w-64 h-64" loop autoplay />

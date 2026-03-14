@@ -1,9 +1,9 @@
 /**
- * BrowserView factory for tab content.
+ * WebContentsView factory for tab content.
  * Creates isolated views with TON proxy configured.
  */
 
-import { BrowserView, session } from 'electron'
+import { WebContentsView, session } from 'electron'
 import { USER_AGENT } from '../../shared/constants'
 import { getSetting } from '../settings'
 import { contentFilterManager } from '../content-filter/filter-manager'
@@ -79,8 +79,8 @@ export async function createTonSession(proxyPort: number, partitionName: string 
   return ses
 }
 
-export function createBrowserView(ses: Electron.Session): BrowserView {
-  const view = new BrowserView({
+export function createBrowserView(ses: Electron.Session): WebContentsView {
+  const view = new WebContentsView({
     webPreferences: {
       session: ses,
       sandbox: true,
@@ -91,6 +91,9 @@ export function createBrowserView(ses: Electron.Session): BrowserView {
       webviewTag: false,
     },
   })
+
+  // WebContentsView defaults to white background — prevent white flash
+  view.setBackgroundColor('#0a0a0a')
 
   // Privacy: Disable tracking APIs on every page load
   view.webContents.on('dom-ready', () => {
@@ -480,7 +483,7 @@ export function createBrowserView(ses: Electron.Session): BrowserView {
  * Extract favicon from a page.
  * Returns favicon data URL (base64) or null if not found.
  */
-export async function extractFavicon(view: BrowserView): Promise<string | null> {
+export async function extractFavicon(view: WebContentsView): Promise<string | null> {
   try {
     // Try multiple methods to find favicon
     const faviconDataUrl = await view.webContents.executeJavaScript(`

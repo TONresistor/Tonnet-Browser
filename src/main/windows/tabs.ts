@@ -1,9 +1,9 @@
 /**
  * Tab manager for multi-tab browsing.
- * Creates, switches, and manages BrowserViews.
+ * Creates, switches, and manages WebContentsViews.
  */
 
-import { BrowserView, BrowserWindow } from 'electron'
+import { WebContentsView, BrowserWindow } from 'electron'
 import { createTonSession, createBrowserView, extractFavicon } from './browser-view'
 import { DEFAULT_PROXY_PORT } from '../../shared/constants'
 import { getSetting, type PrivacySettings, type AppearanceSettings } from '../settings'
@@ -21,8 +21,8 @@ const CHROME_BUFFER = 0 // No extra buffer needed
 const STATUSBAR_HEIGHT = 24
 const DEFAULT_SIDEBAR_WIDTH = 240 // Default sidebar width
 
-// Map of all BrowserViews by tabId
-const views = new Map<string, BrowserView>()
+// Map of all WebContentsViews by tabId
+const views = new Map<string, WebContentsView>()
 // Map of sessions by domain (for first-party isolation)
 const domainSessions = new Map<string, Electron.Session>()
 // Map of tab IDs to their current domain
@@ -35,7 +35,7 @@ let proxyPort = DEFAULT_PROXY_PORT
 let tonSession: Electron.Session | null = null
 let cookieAutoDeleteTimer: NodeJS.Timeout | null = null
 
-// Store resize handler reference to prevent listener accumulation
+// Store resize handler reference to prevent listener accumulation on reconnect
 let resizeHandler: (() => void) | null = null
 
 // Cache for appearance settings to avoid redundant getSetting() calls during resize
@@ -251,7 +251,7 @@ export function initTabManager(win: BrowserWindow, port: number): void {
   mainWindow.on('resize', resizeHandler)
 }
 
-function updateViewBounds(view: BrowserView): void {
+function updateViewBounds(view: WebContentsView): void {
   if (!mainWindow) return
   const bounds = mainWindow.getContentBounds()
 
@@ -284,7 +284,7 @@ function updateViewBounds(view: BrowserView): void {
   })
 }
 
-function setupViewEvents(view: BrowserView, tabId: string): void {
+function setupViewEvents(view: WebContentsView, tabId: string): void {
   view.webContents.on('did-start-loading', () => {
     mainWindow?.webContents.send('page:loading', true, tabId)
   })
@@ -474,7 +474,11 @@ export function closeTab(tabId: string): boolean {
 
   // Remove from window
   if (mainWindow) {
-    mainWindow.removeBrowserView(view)
+    try {
+      mainWindow.contentView.removeChildView(view)
+    } catch {
+      /* view may not be attached */
+    }
   }
 
   // Remove tab's domain mapping and clean up session if no other tab uses it
@@ -489,7 +493,7 @@ export function closeTab(tabId: string): boolean {
   }
 
   // Destroy the view
-  ;(view.webContents as any).destroy()
+  view.webContents.close()
   views.delete(tabId)
 
   // If this was the active tab, clear activeViewId
@@ -506,16 +510,23 @@ export function switchTab(tabId: string): boolean {
   const view = views.get(tabId)
   if (!view) return false
 
-  // Use setBrowserView to avoid listener accumulation
-  // setBrowserView replaces the current view automatically
-  mainWindow.setBrowserView(view)
+  // Remove current tab view before adding the new one
+  const currentView = activeViewId ? views.get(activeViewId) : null
+  if (currentView) {
+    try {
+      mainWindow.contentView.removeChildView(currentView)
+    } catch {
+      /* view may not be attached */
+    }
+  }
+  mainWindow.contentView.addChildView(view)
   updateViewBounds(view)
   activeViewId = tabId
 
   return true
 }
 
-export function getActiveView(): BrowserView | null {
+export function getActiveView(): WebContentsView | null {
   if (!activeViewId) return null
   return views.get(activeViewId) || null
 }
@@ -527,16 +538,31 @@ export function getActiveTabId(): string | null {
 export function hideAllViews(): void {
   if (!mainWindow) return
 
-  // Set null to remove all views without adding listeners
-  mainWindow.setBrowserView(null)
+  // Remove the active tab view from the window
+  const activeView = activeViewId ? views.get(activeViewId) : null
+  if (activeView) {
+    try {
+      mainWindow.contentView.removeChildView(activeView)
+    } catch {
+      /* view may not be attached */
+    }
+  }
 }
 
 export function showActiveView(): void {
   if (!mainWindow) return
   const view = getActiveView()
   if (view) {
-    // Use setBrowserView to avoid listener accumulation
-    mainWindow.setBrowserView(view)
+    // Remove current tab view if any, then add the active one
+    const currentView = activeViewId ? views.get(activeViewId) : null
+    if (currentView) {
+      try {
+        mainWindow.contentView.removeChildView(currentView)
+      } catch {
+        /* view may not be attached */
+      }
+    }
+    mainWindow.contentView.addChildView(view)
     updateViewBounds(view)
   }
 }
@@ -547,10 +573,10 @@ export function showActiveView(): void {
 const ALLOWED_SCHEMES = ['http:']
 
 /**
- * Loads error page in BrowserView when navigation fails.
+ * Loads error page in WebContentsView when navigation fails.
  * Uses inline data URL to avoid file path issues and infinite loops.
  */
-function loadErrorPage(view: BrowserView, errorMessage: string, failedUrl: string): void {
+function loadErrorPage(view: WebContentsView, errorMessage: string, failedUrl: string): void {
   // Use data URL with inline HTML to avoid file path issues
   const errorHtml = `
 <!DOCTYPE html>
@@ -663,9 +689,13 @@ export async function navigateInTab(tabId: string, url: string): Promise<boolean
     // Remove old view
     view.webContents.removeAllListeners()
     if (mainWindow) {
-      mainWindow.removeBrowserView(view)
+      try {
+        mainWindow.contentView.removeChildView(view)
+      } catch {
+        /* view may not be attached */
+      }
     }
-    ;(view.webContents as any).destroy()
+    view.webContents.close()
 
     // Create new view with new domain's session (await proxy setup)
     const newSession = await getSessionForDomain(domain)
@@ -677,11 +707,11 @@ export async function navigateInTab(tabId: string, url: string): Promise<boolean
 
     // Show new view if this is the active tab
     if (isActive && mainWindow) {
-      mainWindow.setBrowserView(newView)
+      mainWindow.contentView.addChildView(newView)
       updateViewBounds(newView)
     }
 
-    // Notify renderer to reset tab history (BrowserView recreated, history is gone)
+    // Notify renderer to reset tab history (WebContentsView recreated, history is gone)
     mainWindow?.webContents.send('tab:history-reset', tabId)
 
     // Navigate in new view (proxy is ready)
@@ -696,7 +726,12 @@ export async function navigateInTab(tabId: string, url: string): Promise<boolean
 
     // Ensure view is visible (may have been hidden for ton:// pages)
     if (isActive && mainWindow) {
-      mainWindow.setBrowserView(view)
+      try {
+        mainWindow.contentView.removeChildView(view)
+      } catch {
+        /* view may not be attached */
+      }
+      mainWindow.contentView.addChildView(view)
       updateViewBounds(view)
     }
 

@@ -65,7 +65,7 @@ export function _resetHandlersForTesting(): void {
 }
 
 /**
- * Security: Verify IPC call originates from the main window, not a compromised tab/BrowserView
+ * Security: Verify IPC call originates from the main window, not a compromised tab/WebContentsView
  * This prevents a malicious website from invoking privileged IPC handlers
  */
 function verifyIpcOrigin(event: IpcMainInvokeEvent): void {
@@ -74,7 +74,7 @@ function verifyIpcOrigin(event: IpcMainInvokeEvent): void {
     throw new Error('Main window not available')
   }
 
-  // Check if sender is the main window's webContents (not a BrowserView)
+  // Check if sender is the main window's webContents (not a WebContentsView)
   if (event.sender !== mainWindow.webContents) {
     log.error('Unauthorized IPC call from non-main-window sender')
     throw new Error('Unauthorized: IPC calls must originate from main window')
@@ -83,7 +83,7 @@ function verifyIpcOrigin(event: IpcMainInvokeEvent): void {
 
 /**
  * Secure ipcMain.handle wrapper - verifies origin + catches errors
- * All IPC handlers should use this to prevent calls from compromised BrowserViews
+ * All IPC handlers should use this to prevent calls from compromised WebContentsViews
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function secureHandle(channel: string, handler: (...args: any[]) => any): void {
@@ -249,7 +249,7 @@ export function registerIpcHandlers(): void {
       return { success: false, error: validation.error }
     }
 
-    // Don't load internal ton:// URLs in BrowserView
+    // Don't load internal ton:// URLs in WebContentsView
     if (url.startsWith('ton://')) {
       log.debug('Internal URL, hiding views')
       hideAllViews()
@@ -656,7 +656,7 @@ export function registerIpcHandlers(): void {
     if (category === 'privacy') {
       onPrivacySettingsChanged()
     }
-    // If appearance settings changed, update BrowserView bounds (for tab orientation)
+    // If appearance settings changed, update WebContentsView bounds (for tab orientation)
     if (category === 'appearance') {
       onAppearanceSettingsChanged()
     }
