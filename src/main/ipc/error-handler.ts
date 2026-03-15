@@ -61,7 +61,7 @@ class IpcErrorHandler {
    * Wraps an IPC handler with error catching and logging.
    * Returns consistent error format: { success: false, error: string }
    */
-  wrapHandler<T = unknown>(
+  private wrapHandler<T = unknown>(
     channel: string,
     handler: (event: IpcMainInvokeEvent, ...args: unknown[]) => Promise<T> | T
   ): (event: IpcMainInvokeEvent, ...args: unknown[]) => Promise<T | { success: false; error: string }> {

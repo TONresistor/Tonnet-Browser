@@ -17,7 +17,6 @@ import { buildContextMenu } from '../utils/context-menu'
 const TABBAR_HEIGHT = 44
 const NAVBAR_HEIGHT = 46
 const BOOKMARKS_HEIGHT = 44
-const CHROME_BUFFER = 0 // No extra buffer needed
 const STATUSBAR_HEIGHT = 24
 const DEFAULT_SIDEBAR_WIDTH = 240 // Default sidebar width
 
@@ -184,7 +183,7 @@ export function updateSidebarWidth(width: number): void {
   if (!isVertical) return // Only applies in vertical mode
 
   // Calculate chrome height dynamically
-  let chromeHeight = NAVBAR_HEIGHT + CHROME_BUFFER
+  let chromeHeight = NAVBAR_HEIGHT
   if (showBookmarksBar) {
     chromeHeight += BOOKMARKS_HEIGHT
   }
@@ -262,7 +261,7 @@ function updateViewBounds(view: WebContentsView): void {
   const showBookmarksBar = appearance.showBookmarksBar ?? false
 
   // Calculate chrome height dynamically based on visible components
-  let chromeHeight = NAVBAR_HEIGHT + CHROME_BUFFER
+  let chromeHeight = NAVBAR_HEIGHT
   if (!isVertical) {
     chromeHeight += TABBAR_HEIGHT // Horizontal mode has tab bar row
   }
@@ -742,16 +741,6 @@ export async function navigateInTab(tabId: string, url: string): Promise<boolean
   }
 
   return true
-}
-
-export function getTabCount(): number {
-  return views.size
-}
-
-export function destroyAllTabs(): void {
-  Array.from(views.keys()).forEach((tabId) => {
-    closeTab(tabId)
-  })
 }
 
 // Export all sessions for cleanup (used by clearOnExit)

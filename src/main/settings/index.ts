@@ -208,11 +208,3 @@ export function getDownloadPath(): string {
 export function setDownloadPath(path: string): void {
   setSetting('storage', { downloadPath: path })
 }
-
-export function getProxyPort(): number {
-  return getSetting('network').proxyPort
-}
-
-export function getStoragePort(): number {
-  return getSetting('network').storagePort
-}

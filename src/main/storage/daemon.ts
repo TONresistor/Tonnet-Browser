@@ -177,8 +177,6 @@ export class StorageManager extends EventEmitter {
     let status: StorageBag['status'] = 'downloading'
     if (!info.active) {
       status = 'paused'
-    } else if (info.completed && info.seeding) {
-      status = 'seeding'
     } else if (info.completed) {
       status = 'seeding'
     }

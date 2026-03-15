@@ -30,11 +30,6 @@ export interface AddBagRequest {
   download_all?: boolean
 }
 
-export interface CreateBagRequest {
-  path: string
-  description?: string
-}
-
 export interface RemoveBagRequest {
   bag_id: string
   with_files?: boolean
@@ -110,19 +105,6 @@ export class StorageHTTPClient {
   }
 
   /**
-   * Create a new bag from a directory
-   */
-  async createBag(request: CreateBagRequest): Promise<{ bag_id: string }> {
-    return this.fetch<{ bag_id: string }>('/api/v1/create', {
-      method: 'POST',
-      body: JSON.stringify({
-        path: request.path,
-        description: request.description || '',
-      }),
-    })
-  }
-
-  /**
    * Remove a bag
    */
   async removeBag(request: RemoveBagRequest): Promise<{ ok: boolean }> {
@@ -142,19 +124,6 @@ export class StorageHTTPClient {
     return this.fetch<{ ok: boolean }>('/api/v1/stop', {
       method: 'POST',
       body: JSON.stringify({ bag_id: bagId }),
-    })
-  }
-
-  /**
-   * Verify bag integrity
-   */
-  async verifyBag(bagId: string, existsOnly = false): Promise<{ ok: boolean }> {
-    return this.fetch<{ ok: boolean }>('/api/v1/verify', {
-      method: 'POST',
-      body: JSON.stringify({
-        bag_id: bagId,
-        exists_only: existsOnly,
-      }),
     })
   }
 

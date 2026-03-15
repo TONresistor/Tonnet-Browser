@@ -31,15 +31,15 @@ export async function startProxySequence(
 
   // Step 1: Loading configuration
   sendProgress(1, 'Loading configuration...')
-  await new Promise((r) => setTimeout(r, 300)) // Small delay for visual feedback
+  await new Promise((r) => setTimeout(r, 100)) // Small delay for visual feedback
 
   // Step 2: Starting DHT
   sendProgress(2, 'Starting DHT...')
-  await new Promise((r) => setTimeout(r, 400))
+  await new Promise((r) => setTimeout(r, 100))
 
   // Step 3: Connecting to network
   sendProgress(3, 'Connecting to network...')
-  await new Promise((r) => setTimeout(r, 400))
+  await new Promise((r) => setTimeout(r, 100))
 
   // Initialize TabManager with proxy port
   if (mainWindow) {

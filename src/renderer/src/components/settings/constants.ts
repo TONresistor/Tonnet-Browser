@@ -17,7 +17,10 @@ import {
 } from 'lucide-react'
 import type { SectionInfo, Shortcut } from './types'
 
-const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
+const isMac =
+  ((navigator as Navigator & { userAgentData?: { platform?: string } }).userAgentData?.platform || navigator.platform)
+    .toUpperCase()
+    .indexOf('MAC') >= 0
 
 const mod = (key: string): string => {
   if (!isMac) return key
