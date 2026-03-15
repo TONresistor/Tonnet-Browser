@@ -24,10 +24,22 @@ export class HistoryManager extends EventEmitter {
   private mode: HistoryMode = HistoryMode.MEMORY
   private storage: SafeStorageWrapper | null = null
   private readyPromise: Promise<void>
+  private isReady: boolean = false
+  private pendingEntries: Array<{ url: string; title: string; favicon?: string }> = []
 
   constructor() {
     super()
-    this.readyPromise = this.loadSettings()
+    this.readyPromise = this.loadSettings().then(() => {
+      this.isReady = true
+      // Flush buffered entries that arrived before initialization completed
+      if (this.pendingEntries.length > 0) {
+        log.debug(`Flushing ${this.pendingEntries.length} buffered history entries`)
+        for (const entry of this.pendingEntries) {
+          this.addEntry(entry.url, entry.title, entry.favicon)
+        }
+        this.pendingEntries = []
+      }
+    })
   }
 
   async ready(): Promise<void> {
@@ -110,6 +122,13 @@ export class HistoryManager extends EventEmitter {
    * Add entry to history
    */
   addEntry(url: string, title: string, favicon?: string): void {
+    // Buffer entry if manager not yet ready (readyPromise not resolved)
+    if (!this.isReady) {
+      log.debug(`HistoryManager not ready, buffering entry: ${url}`)
+      this.pendingEntries.push({ url, title, favicon })
+      return
+    }
+
     // Don't record internal pages
     if (url.startsWith('ton://') || url.startsWith('about:') || url.startsWith('data:')) {
       return
