@@ -1,6 +1,74 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
+
+@source "../../**/*.{ts,tsx}";
+
+@theme {
+  --color-background: hsl(var(--background));
+  --color-background-secondary: hsl(var(--background-secondary));
+
+  --color-foreground: hsl(var(--foreground));
+
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+
+  --color-success: hsl(var(--success));
+  --color-success-foreground: hsl(var(--success-foreground));
+
+  --color-warning: hsl(var(--warning));
+  --color-warning-foreground: hsl(var(--warning-foreground));
+
+  --color-info: hsl(var(--info));
+  --color-info-foreground: hsl(var(--info-foreground));
+
+  --color-surface: hsl(var(--surface));
+  --color-surface-hover: hsl(var(--surface-hover));
+  --color-surface-active: hsl(var(--surface-active));
+
+  --color-foreground-secondary: hsl(var(--foreground-secondary));
+  --color-foreground-muted: hsl(var(--foreground-muted));
+  --color-border: hsl(var(--border));
+  --color-border-subtle: hsl(var(--border-subtle));
+  --color-border-medium: hsl(var(--border-medium));
+  --color-border-strong: hsl(var(--border-strong));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+
+  --font-sans: Inter, system-ui, sans-serif;
+}
+
+/*
+  The default border color has changed to `currentcolor` in Tailwind CSS v4,
+  so we've added these compatibility styles to make sure everything still
+  looks the same as it did with Tailwind CSS v3.
+*/
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-border, currentcolor);
+  }
+}
 
 @layer base {
   :root,
@@ -28,7 +96,7 @@
     --ring: 207 83% 68%; /* #6ab2f2 */
     --radius: 0.5rem;
     /* Status colors */
-    --success: 120 100% 55%; /* #39FF14 - Vert fluo néon */
+    --success: 120 100% 55%; /* #39FF14 - Vert fluo neon */
     --success-foreground: 0 0% 100%;
     --warning: 38 92% 50%; /* #f59e0b */
     --warning-foreground: 0 0% 0%;
@@ -63,7 +131,7 @@
   [data-theme='utya-duck'] {
     /* Utya Duck Theme - Bright Yellow with Telegram Blue buttons */
     --background: 50 100% 60%; /* #FFE600 - Jaune vif */
-    --background-secondary: 48 100% 55%; /* #FFD900 - Jaune légèrement plus foncé */
+    --background-secondary: 48 100% 55%; /* #FFD900 - Jaune legerement plus fonce */
     --foreground: 0 0% 8%; /* #141414 - Texte noir */
     --card: 52 100% 65%; /* #FFEB33 - Jaune clair pour cards */
     --card-foreground: 0 0% 8%;
@@ -71,11 +139,11 @@
     --popover-foreground: 0 0% 8%;
     --primary: 200 85% 55%; /* #2AABEE - Bleu Telegram */
     --primary-foreground: 0 0% 100%;
-    --secondary: 48 90% 55%; /* #F0D000 - Jaune doré */
+    --secondary: 48 90% 55%; /* #F0D000 - Jaune dore */
     --secondary-foreground: 0 0% 8%;
     --muted: 48 80% 65%; /* #F0DC4D - Jaune moyen */
-    --muted-foreground: 0 0% 15%; /* #262626 - Gris très foncé */
-    --accent: 200 80% 45%; /* #1E96D1 - Bleu Telegram foncé */
+    --muted-foreground: 0 0% 15%; /* #262626 - Gris tres fonce */
+    --accent: 200 80% 45%; /* #1E96D1 - Bleu Telegram fonce */
     --accent-foreground: 0 0% 100%;
     --destructive: 0 80% 45%; /* #CC2929 - Rouge */
     --destructive-foreground: 0 0% 100%;
@@ -88,7 +156,7 @@
     --success-foreground: 0 0% 100%;
     --warning: 15 90% 40%; /* #C24D0A - Rouge-orange */
     --warning-foreground: 0 0% 100%;
-    --info: 210 90% 35%; /* #0959A6 - Bleu foncé */
+    --info: 210 90% 35%; /* #0959A6 - Bleu fonce */
     --info-foreground: 0 0% 100%;
 
     /* Surface variants (black with opacity for light theme) */
@@ -116,12 +184,9 @@
     --button-highlight: rgba(255, 255, 255, 0.2);
   }
 
-  * {
-    @apply border-border;
-  }
-
   body {
-    @apply bg-background text-foreground;
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
     font-family:
       'Inter',
       system-ui,
