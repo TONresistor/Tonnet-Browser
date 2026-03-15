@@ -11,7 +11,7 @@ import { TabBar } from '@/components/browser/TabBar'
 import { BookmarksBar } from '@/components/browser/BookmarksBar'
 import { StatusBar } from '@/components/browser/StatusBar'
 import { ResizablePanel } from '@/components/browser/ResizablePanel'
-const LandingPage = lazy(() => import('@/components/pages/LandingPage').then((m) => ({ default: m.LandingPage })))
+import { LandingPage } from '@/components/pages/LandingPage'
 const StartPage = lazy(() => import('@/components/pages/StartPage').then((m) => ({ default: m.StartPage })))
 const StoragePage = lazy(() => import('@/components/pages/StoragePage').then((m) => ({ default: m.StoragePage })))
 const SettingsPage = lazy(() => import('@/components/pages/SettingsPage').then((m) => ({ default: m.SettingsPage })))
@@ -425,7 +425,11 @@ function App() {
           <Suspense
             fallback={
               <div className="w-full h-full flex flex-col items-center justify-center bg-background-secondary">
-                <Lottie animationData={animationData} className="w-64 h-64" loop autoplay />
+                {animationData ? (
+                  <Lottie animationData={animationData} className="w-64 h-64" loop autoplay />
+                ) : (
+                  <div className="w-16 h-16 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
+                )}
               </div>
             }
           >
