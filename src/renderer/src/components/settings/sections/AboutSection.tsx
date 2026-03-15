@@ -220,7 +220,7 @@ export const AboutSection = memo(function AboutSection() {
       <div className="mt-4 flex gap-3">
         <button
           className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium text-muted-foreground transition-all duration-200 hover:text-foreground bg-surface-hover border border-border-medium"
-          onClick={() => window.electron.navigate('http://github.com/example/ton-browser')}
+          onClick={() => window.electron.navigate('https://github.com/TONresistor/Tonnet-Browser')}
         >
           <ExternalLink className="h-4 w-4" />
           {t('about.github')}
