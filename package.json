@@ -55,7 +55,7 @@
     "@tailwindcss/vite": "^4.2.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
-    "@types/node": "^22.19.3",
+    "@types/node": "^25.5.0",
     "@types/react": "^19.0.1",
     "@types/react-dom": "^19.0.2",
     "@typescript-eslint/eslint-plugin": "^8.33.0",
