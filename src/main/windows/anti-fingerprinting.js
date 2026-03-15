@@ -217,6 +217,26 @@
     }
   });
 
+  // === NETWORK INFORMATION API SPOOFING ===
+  protect('NetworkInformationAPI', () => {
+    if (navigator.connection) {
+      Object.defineProperty(navigator, 'connection', {
+        get: () => ({
+          effectiveType: '4g',
+          type: 'unknown',
+          downlink: 10,
+          rtt: 50,
+          saveData: false,
+          onchange: null,
+          addEventListener: () => {},
+          removeEventListener: () => {},
+          dispatchEvent: () => false,
+        }),
+        configurable: false,
+      })
+    }
+  });
+
   // === HARDWARE/PLUGIN ENUMERATION PROTECTION ===
   // Disable Battery API (fingerprinting)
   protect('BatteryAPI', () => {

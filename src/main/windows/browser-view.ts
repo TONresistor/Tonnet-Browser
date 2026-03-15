@@ -27,6 +27,7 @@ export async function createTonSession(proxyPort: number, partitionName: string 
     callback(false)
   })
   ses.setPermissionCheckHandler(() => false)
+  ses.setDevicePermissionHandler(() => false)
 
   // Set uniform User-Agent
   ses.setUserAgent(USER_AGENT)

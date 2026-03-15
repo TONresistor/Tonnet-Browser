@@ -273,12 +273,28 @@ function App() {
       useTabsStore.getState().addTab(url)
     })
 
+    // Handle first-party isolation view recreation: reset renderer history so
+    // back/forward buttons don't point to URLs of a destroyed WebContentsView
+    const unsubHistoryReset = window.electron.on('tab:history-reset', (...args: unknown[]) => {
+      const tabId = args[0] as string
+      const tab = useTabsStore.getState().tabs.find((t) => t.id === tabId)
+      if (tab) {
+        useTabsStore.getState().updateTab(tabId, {
+          history: [tab.url],
+          historyIndex: 0,
+          canGoBack: false,
+          canGoForward: false,
+        })
+      }
+    })
+
     return () => {
       unsubNavigate()
       unsubLoading()
       unsubTitle()
       unsubFavicon()
       unsubOpenLink()
+      unsubHistoryReset()
     }
   }, [updateTab])
 
