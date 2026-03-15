@@ -3,7 +3,7 @@
  */
 
 import { useState } from 'react'
-import { X, Upload, Download, AlertCircle, Check } from 'lucide-react'
+import { X, Upload, Download, CircleAlert, Check } from 'lucide-react'
 
 interface ImportDialogProps {
   onImport: (json: string) => boolean
@@ -99,7 +99,7 @@ export function ImportDialog({ onImport, onClose }: ImportDialogProps) {
           {/* Error message */}
           {error && (
             <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
-              <AlertCircle className="w-4 h-4 flex-shrink-0" />
+              <CircleAlert className="w-4 h-4 flex-shrink-0" />
               {error}
             </div>
           )}

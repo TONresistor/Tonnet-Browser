@@ -7,7 +7,7 @@ import { useEffect, useState, memo } from 'react'
 import { createLogger } from '@/logger'
 
 const log = createLogger('status')
-import { Wifi, WifiOff, Loader2, ArrowDown, ArrowUp } from 'lucide-react'
+import { Wifi, WifiOff, LoaderCircle, ArrowDown, ArrowUp } from 'lucide-react'
 import { useBrowserStore } from '@/stores/browser'
 import { APP_VERSION } from '@shared/constants'
 import type { StorageBag } from '@shared/types'
@@ -87,7 +87,7 @@ export const StatusBar = memo(function StatusBar() {
     if (proxySyncing) {
       return (
         <>
-          <Loader2 className="h-3 w-3 text-warning animate-spin" aria-hidden="true" />
+          <LoaderCircle className="h-3 w-3 text-warning animate-spin" aria-hidden="true" />
           <span className="text-warning">
             {anonymousMode ? t('statusBar.syncingMultiHop') : t('statusBar.syncing')}
           </span>

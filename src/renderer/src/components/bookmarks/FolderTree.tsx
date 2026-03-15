@@ -4,7 +4,7 @@
  */
 
 import { useState, useRef, useEffect } from 'react'
-import { ChevronRight, ChevronDown, Folder, FolderOpen, Edit2, Trash2 } from 'lucide-react'
+import { ChevronRight, ChevronDown, Folder, FolderOpen, Pen, Trash2 } from 'lucide-react'
 import { useBookmarksStore, BookmarkFolder } from '@/stores/bookmarks'
 import { cn } from '@/lib/utils'
 import { useTranslation } from 'react-i18next'
@@ -123,7 +123,7 @@ export function FolderTree({ selectedFolderId, onSelectFolder, onEditFolder }: F
                 className="p-1 hover:bg-surface-active rounded transition-colors"
                 title="Rename folder"
               >
-                <Edit2 className="w-3.5 h-3.5" />
+                <Pen className="w-3.5 h-3.5" />
               </button>
               <button
                 onClick={(e) => handleDeleteFolder(e, folder)}

@@ -3,7 +3,7 @@
  */
 
 import { memo, useState, useEffect, useCallback, useRef } from 'react'
-import { ExternalLink, CheckCircle, Download, RefreshCw, Loader2, AlertCircle } from 'lucide-react'
+import { ExternalLink, CircleCheckBig, Download, RefreshCw, LoaderCircle, CircleAlert } from 'lucide-react'
 import { SectionHeader } from '../shared/SectionHeader'
 import { APP_NAME, APP_VERSION } from '@shared/constants'
 import tonLogo from '@/assets/ton.png'
@@ -114,7 +114,7 @@ export const AboutSection = memo(function AboutSection() {
             disabled
             className="flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-200 bg-primary/15 border border-primary/30 text-primary opacity-70"
           >
-            <Loader2 className="h-4 w-4 animate-spin" />
+            <LoaderCircle className="h-4 w-4 animate-spin" />
             {t('about.update.checking')}
           </button>
         )
@@ -125,7 +125,7 @@ export const AboutSection = memo(function AboutSection() {
             disabled
             className="flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-200 bg-green-500/15 border border-green-500/30 text-green-400"
           >
-            <CheckCircle className="h-4 w-4" />
+            <CircleCheckBig className="h-4 w-4" />
             {t('about.update.upToDate')}
           </button>
         )
@@ -152,7 +152,7 @@ export const AboutSection = memo(function AboutSection() {
             disabled
             className="flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-200 bg-primary/15 border border-primary/30 text-primary opacity-70"
           >
-            <Loader2 className="h-4 w-4 animate-spin" />
+            <LoaderCircle className="h-4 w-4 animate-spin" />
             {t('about.update.downloading')} {downloadPercent}%
           </button>
         )
@@ -172,7 +172,7 @@ export const AboutSection = memo(function AboutSection() {
         return (
           <div className="flex items-center gap-3">
             <span className="text-sm text-destructive flex items-center gap-1">
-              <AlertCircle className="h-3.5 w-3.5" />
+              <CircleAlert className="h-3.5 w-3.5" />
               {errorMessage || t('about.update.errorGeneric')}
             </span>
             <button
