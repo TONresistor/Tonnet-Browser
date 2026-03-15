@@ -3,7 +3,7 @@
  * Exposes safe IPC methods to the renderer process.
  */
 
-import 'electron-log'
+import log from 'electron-log'
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC_CHANNELS } from '../shared/types'
 
@@ -163,7 +163,7 @@ const electronAPI = {
     if (callback) {
       ipcRenderer.removeListener(channel, callback)
     } else {
-      console.warn(
+      log.warn(
         `[preload] off('${channel}') without a callback removes ALL listeners. Use the unsubscribe function returned by on() instead.`
       )
       ipcRenderer.removeAllListeners(channel)
@@ -176,6 +176,6 @@ if (process.contextIsolated) {
   try {
     contextBridge.exposeInMainWorld('electron', electronAPI)
   } catch (error) {
-    console.error(error)
+    log.error(error)
   }
 }

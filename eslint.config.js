@@ -58,7 +58,6 @@ export default tseslint.config(
       '@typescript-eslint/no-this-alias': 'warn',
       'react/prop-types': 'off',
       'no-console': ['warn', { allow: ['warn', 'error'] }],
-      'preserve-caught-error': 'warn',
     },
   },
 

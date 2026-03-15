@@ -7,6 +7,20 @@ updates:
     commit-message:
       prefix: '[deps]'
     open-pull-requests-limit: 10
+    groups:
+      dev-tools:
+        patterns:
+          - 'eslint*'
+          - '@eslint/*'
+          - 'prettier'
+          - 'typescript*'
+          - '@typescript-eslint/*'
+          - 'vitest*'
+          - '@vitest/*'
+      react:
+        patterns:
+          - 'react*'
+          - '@types/react*'
 
   - package-ecosystem: github-actions
     directory: /
@@ -15,3 +29,7 @@ updates:
     commit-message:
       prefix: '[ci]'
     open-pull-requests-limit: 5
+    groups:
+      github-actions:
+        patterns:
+          - '*'
