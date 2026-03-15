@@ -4,8 +4,11 @@
  */
 
 import { Minus, Square, X } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 export function WindowControls() {
+  const { t } = useTranslation('browser')
+
   const handleMinimize = () => {
     window.electron.window.minimize()
   }
@@ -19,12 +22,12 @@ export function WindowControls() {
   }
 
   return (
-    <div className="flex items-center no-drag" role="group" aria-label="Window controls">
+    <div className="flex items-center no-drag" role="group" aria-label={t('windowControls.group')}>
       <button
         className="h-8 w-10 flex items-center justify-center hover:bg-border transition-colors"
         onClick={handleMinimize}
-        title="Minimize"
-        aria-label="Minimize window"
+        title={t('windowControls.minimize')}
+        aria-label={t('windowControls.minimize')}
       >
         <Minus className="h-4 w-4" aria-hidden="true" />
       </button>
@@ -32,8 +35,8 @@ export function WindowControls() {
       <button
         className="h-8 w-10 flex items-center justify-center hover:bg-border transition-colors"
         onClick={handleMaximize}
-        title="Maximize"
-        aria-label="Maximize window"
+        title={t('windowControls.maximize')}
+        aria-label={t('windowControls.maximize')}
       >
         <Square className="h-3 w-3" aria-hidden="true" />
       </button>
@@ -41,8 +44,8 @@ export function WindowControls() {
       <button
         className="h-8 w-10 flex items-center justify-center hover:bg-destructive transition-colors"
         onClick={handleClose}
-        title="Close"
-        aria-label="Close window"
+        title={t('windowControls.close')}
+        aria-label={t('windowControls.close')}
       >
         <X className="h-4 w-4" aria-hidden="true" />
       </button>

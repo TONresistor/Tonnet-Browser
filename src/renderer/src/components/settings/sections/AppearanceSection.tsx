@@ -2,7 +2,7 @@
  * Section Appearance
  */
 
-import { memo, useState } from 'react'
+import { memo, useState, useRef, useEffect } from 'react'
 import { Plus, Upload } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { SectionHeader } from '../shared/SectionHeader'
@@ -41,6 +41,13 @@ export const AppearanceSection = memo(function AppearanceSection({ draft, setDra
   const [exportData, setExportData] = useState<{ json: string; name: string } | null>(null)
   const [showCreateMenu, setShowCreateMenu] = useState(false)
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
+  const deleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (deleteTimerRef.current) clearTimeout(deleteTimerRef.current)
+    }
+  }, [])
 
   const handleCreateTheme = (base: 'resistance-dog' | 'utya-duck') => {
     const theme = createTheme(base, `Custom Theme ${customThemes.length + 1}`)
@@ -74,7 +81,8 @@ export const AppearanceSection = memo(function AppearanceSection({ draft, setDra
       setPendingDeleteId(null)
     } else {
       setPendingDeleteId(themeId)
-      setTimeout(() => setPendingDeleteId(null), 3000)
+      if (deleteTimerRef.current) clearTimeout(deleteTimerRef.current)
+      deleteTimerRef.current = setTimeout(() => setPendingDeleteId(null), 3000)
     }
   }
 

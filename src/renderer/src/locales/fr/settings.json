@@ -230,10 +230,11 @@
     "folderPlaceholder": "Entrez le nom du dossier...",
     "create": "Créer",
     "renameFolder": "Renommer le dossier",
+    "deleteFolder": "Supprimer le dossier",
     "deleteConfirm": "Supprimer \"{{name}}\" ?",
     "maxDepthReached": "Profondeur maximale de dossier atteinte (3 niveaux).",
-    "deleteFolderConfirm": "Delete this folder? Bookmarks will be moved to Unfiled.",
-    "confirm": "Confirm"
+    "deleteFolderConfirm": "Supprimer ce dossier ? Les favoris seront déplacés dans les non classés.",
+    "confirm": "Confirmer"
   },
   "advanced": {
     "title": "Avancé",
@@ -249,7 +250,7 @@
     "syncTestDomain": "Domaine de test de synchronisation",
     "syncTestDomainDesc": "Domaine utilisé pour vérifier la synchronisation DHT",
     "resetAll": "Réinitialiser tous les paramètres aux valeurs par défaut",
-    "resetAllConfirm": "Click again to confirm"
+    "resetAllConfirm": "Cliquez à nouveau pour confirmer"
   },
   "about": {
     "title": "À propos",

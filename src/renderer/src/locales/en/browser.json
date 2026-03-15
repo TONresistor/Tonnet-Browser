@@ -33,6 +33,18 @@
     "dragCancelled": "Dragging cancelled",
     "dragCancelledFull": "Dragging cancelled. Tab {{title}} returned to original position."
   },
+  "windowControls": {
+    "group": "Window controls",
+    "minimize": "Minimize",
+    "maximize": "Maximize",
+    "close": "Close"
+  },
+  "dnd": {
+    "pickedUp": "Picked up {{type}}: {{name}}",
+    "movedOver": "{{name}} is over {{target}}",
+    "droppedOn": "{{name}} dropped on {{target}}",
+    "cancelled": "Dragging cancelled"
+  },
   "bookmarksBar": {
     "title": "Bookmarks"
   },
@@ -47,6 +59,8 @@
     "bag": "bag",
     "bags": "bags",
     "session": "Session:",
-    "networkStatus": "Network status: {{status}}"
+    "networkStatus": "Network status: {{status}}",
+    "downloadSpeedAria": "Download speed: {{speed}}",
+    "uploadSpeedAria": "Upload speed: {{speed}}"
   }
 }

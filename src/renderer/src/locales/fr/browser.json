@@ -33,6 +33,18 @@
     "dragCancelled": "Glissement annulé",
     "dragCancelledFull": "Glissement annulé. L'onglet {{title}} est revenu à sa position d'origine."
   },
+  "windowControls": {
+    "group": "Contrôles de fenêtre",
+    "minimize": "Réduire",
+    "maximize": "Agrandir",
+    "close": "Fermer"
+  },
+  "dnd": {
+    "pickedUp": "{{type}} sélectionné : {{name}}",
+    "movedOver": "{{name}} est au-dessus de {{target}}",
+    "droppedOn": "{{name}} déposé sur {{target}}",
+    "cancelled": "Glissement annulé"
+  },
   "bookmarksBar": {
     "title": "Favoris"
   },
@@ -47,6 +59,8 @@
     "bag": "sac",
     "bags": "sacs",
     "session": "Session :",
-    "networkStatus": "État du réseau : {{status}}"
+    "networkStatus": "État du réseau : {{status}}",
+    "downloadSpeedAria": "Vitesse de téléchargement : {{speed}}",
+    "uploadSpeedAria": "Vitesse d'envoi : {{speed}}"
   }
 }

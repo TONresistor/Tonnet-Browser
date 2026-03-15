@@ -41,6 +41,7 @@ interface RenameModal {
 
 export function BookmarksBar() {
   const { t } = useTranslation('settings')
+  const { t: tBrowser } = useTranslation('browser')
   const {
     bookmarks,
     folders,
@@ -352,12 +353,12 @@ export function BookmarksBar() {
           announcements: {
             onDragStart({ active }) {
               const bookmark = topLevelBookmarks.find((b) => b.id === active.id)
-              if (bookmark) return `Picked up bookmark: ${bookmark.title}`
+              if (bookmark) return tBrowser('dnd.pickedUp', { type: 'bookmark', name: bookmark.title })
 
               const folder = topLevelFolders.find((f) => f.id === active.id)
-              if (folder) return `Picked up folder: ${folder.name}`
+              if (folder) return tBrowser('dnd.pickedUp', { type: 'folder', name: folder.name })
 
-              return 'Picked up draggable item'
+              return tBrowser('dnd.pickedUp', { type: 'item', name: '' })
             },
             onDragOver({ active, over }) {
               if (!over) return ''
@@ -367,35 +368,35 @@ export function BookmarksBar() {
               const overFolder = topLevelFolders.find((f) => f.id === over.id || `droppable-${f.id}` === over.id)
 
               if (activeBookmark && overBookmark) {
-                return `Bookmark ${activeBookmark.title} is over ${overBookmark.title}`
+                return tBrowser('dnd.movedOver', { name: activeBookmark.title, target: overBookmark.title })
               }
               if (activeBookmark && overFolder) {
-                return `Bookmark ${activeBookmark.title} is over folder ${overFolder.name}`
+                return tBrowser('dnd.movedOver', { name: activeBookmark.title, target: overFolder.name })
               }
               return ''
             },
             onDragEnd({ active, over }) {
-              if (!over) return 'Dragging cancelled'
+              if (!over) return tBrowser('dnd.cancelled')
 
               const activeBookmark = topLevelBookmarks.find((b) => b.id === active.id)
               const overFolder = topLevelFolders.find((f) => f.id === over.id || `droppable-${f.id}` === over.id)
 
               if (activeBookmark && overFolder) {
-                return `Bookmark ${activeBookmark.title} moved to folder ${overFolder.name}`
+                return tBrowser('dnd.droppedOn', { name: activeBookmark.title, target: overFolder.name })
               }
               if (activeBookmark) {
-                return `Bookmark ${activeBookmark.title} reordered`
+                return tBrowser('dnd.droppedOn', { name: activeBookmark.title, target: '' })
               }
-              return 'Item dropped'
+              return tBrowser('dnd.cancelled')
             },
             onDragCancel({ active }) {
               const bookmark = topLevelBookmarks.find((b) => b.id === active.id)
-              if (bookmark) return `Dragging cancelled. Bookmark ${bookmark.title} returned to original position.`
+              if (bookmark) return tBrowser('dnd.cancelled', { name: bookmark.title })
 
               const folder = topLevelFolders.find((f) => f.id === active.id)
-              if (folder) return `Dragging cancelled. Folder ${folder.name} returned to original position.`
+              if (folder) return tBrowser('dnd.cancelled', { name: folder.name })
 
-              return 'Dragging cancelled'
+              return tBrowser('dnd.cancelled')
             },
           },
         }}

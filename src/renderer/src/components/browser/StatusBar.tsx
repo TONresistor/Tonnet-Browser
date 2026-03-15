@@ -160,14 +160,14 @@ export const StatusBar = memo(function StatusBar() {
             <Separator />
             <div
               className="flex items-center gap-1"
-              aria-label={`Download speed: ${formatSpeed(storageStats.downloadSpeed)}`}
+              aria-label={t('statusBar.downloadSpeedAria', { speed: formatSpeed(storageStats.downloadSpeed) })}
             >
               <ArrowDown className="h-3 w-3 text-info" aria-hidden="true" />
               <span>{formatSpeed(storageStats.downloadSpeed)}</span>
             </div>
             <div
               className="flex items-center gap-1"
-              aria-label={`Upload speed: ${formatSpeed(storageStats.uploadSpeed)}`}
+              aria-label={t('statusBar.uploadSpeedAria', { speed: formatSpeed(storageStats.uploadSpeed) })}
             >
               <ArrowUp className="h-3 w-3 text-success" aria-hidden="true" />
               <span>{formatSpeed(storageStats.uploadSpeed)}</span>

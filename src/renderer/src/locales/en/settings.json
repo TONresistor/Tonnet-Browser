@@ -234,6 +234,7 @@
     "folderPlaceholder": "Enter folder name...",
     "create": "Create",
     "renameFolder": "Rename Folder",
+    "deleteFolder": "Delete Folder",
     "deleteConfirm": "Delete \"{{name}}\"?",
     "maxDepthReached": "Maximum folder depth (3 levels) reached.",
     "deleteFolderConfirm": "Delete this folder? Bookmarks will be moved to Unfiled.",

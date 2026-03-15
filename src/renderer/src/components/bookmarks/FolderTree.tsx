@@ -105,7 +105,7 @@ export function FolderTree({ selectedFolderId, onSelectFolder, onEditFolder }: F
           )}
 
           {/* Folder name */}
-          <span className="flex-1 text-left truncate">{isRoot ? 'Unfiled Bookmarks' : folder!.name}</span>
+          <span className="flex-1 text-left truncate">{isRoot ? t('bookmarks.unfiledBookmarks') : folder!.name}</span>
 
           {/* Count badge */}
           {bookmarksCount > 0 && (
@@ -121,7 +121,7 @@ export function FolderTree({ selectedFolderId, onSelectFolder, onEditFolder }: F
                   onEditFolder(folder)
                 }}
                 className="p-1 hover:bg-surface-active rounded transition-colors"
-                title="Rename folder"
+                title={t('bookmarks.renameFolder')}
               >
                 <Pen className="w-3.5 h-3.5" />
               </button>
@@ -130,7 +130,7 @@ export function FolderTree({ selectedFolderId, onSelectFolder, onEditFolder }: F
                 className={`p-1 rounded transition-colors ${
                   pendingDeleteId === folder.id ? 'bg-destructive/20' : 'hover:bg-destructive/10'
                 }`}
-                title="Delete folder"
+                title={t('bookmarks.deleteFolder')}
               >
                 <Trash2 className="w-3.5 h-3.5 text-destructive" />
               </button>

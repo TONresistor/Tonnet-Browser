@@ -31,7 +31,7 @@ import { createLogger } from '@/logger'
 const log = createLogger('app')
 
 function App() {
-  const { t } = useTranslation('common')
+  const { t, i18n: i18nInstance } = useTranslation('common')
   const currentUrl = useBrowserStore((s) => s.currentUrl)
   const proxyConnected = useBrowserStore((s) => s.proxyConnected)
   const activeTabId = useTabsStore((s) => s.activeTabId)
@@ -67,6 +67,11 @@ function App() {
   useEffect(() => {
     setCurrentSidebarWidth(savedSidebarWidth)
   }, [savedSidebarWidth])
+
+  // Sync document lang attribute with i18n language
+  useEffect(() => {
+    document.documentElement.lang = i18nInstance.language
+  }, [i18nInstance.language])
 
   // Update i18n language when preference changes (with lazy loading)
   useEffect(() => {
