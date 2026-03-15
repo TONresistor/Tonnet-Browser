@@ -635,7 +635,7 @@ function loadErrorPage(view: WebContentsView, errorMessage: string, failedUrl: s
       <div class="url">URL: ${failedUrl.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
     </div>
     <div class="actions">
-      <button class="btn-primary" onclick="location.href=decodeURIComponent('${encodeURIComponent(failedUrl)}')">\u{1F504} Retry</button>
+      <button class="btn-primary" data-url="${encodeURIComponent(failedUrl)}" onclick="location.href=decodeURIComponent(this.dataset.url)">🔄 Retry</button>
       <button class="btn-secondary" onclick="history.back()">← Go Back</button>
     </div>
   </div>

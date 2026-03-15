@@ -52,6 +52,17 @@ process.on('warning', (warning) => {
   }
 })
 
+// Catch unhandled promise rejections in the main process
+process.on('unhandledRejection', (reason) => {
+  appLog.error(`Unhandled promise rejection: ${String(reason)}`)
+})
+
+// Catch uncaught exceptions in the main process — process state is corrupted, exit after logging
+process.on('uncaughtException', (error) => {
+  appLog.error(`Uncaught exception: ${String(error)}`)
+  process.exit(1)
+})
+
 // Privacy: Disable WebRTC to prevent IP leaks
 app.commandLine.appendSwitch('webrtc-ip-handling-policy', 'disable_non_proxied_udp')
 app.commandLine.appendSwitch('force-webrtc-ip-handling-policy')
@@ -210,11 +221,15 @@ function createWindow(): void {
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
-    const scheme = new URL(details.url).protocol
-    if (scheme !== 'https:' && scheme !== 'http:') {
-      return { action: 'deny' }
+    try {
+      const scheme = new URL(details.url).protocol
+      if (scheme !== 'https:' && scheme !== 'http:') {
+        return { action: 'deny' }
+      }
+      shell.openExternal(details.url)
+    } catch (err) {
+      appLog.error(`setWindowOpenHandler: invalid URL "${details.url}": ${String(err)}`)
     }
-    shell.openExternal(details.url)
     return { action: 'deny' }
   })
 
@@ -336,9 +351,11 @@ app.whenReady().then(() => {
   })
 })
 
-app.on('window-all-closed', async () => {
-  proxyManager.stop()
-  storageManager.stop()
+let isCleaningUp = false
+
+async function runCleanup(): Promise<void> {
+  if (isCleaningUp) return
+  isCleaningUp = true
 
   // Clear browsing data on exit if enabled
   const { clearOnExit } = getSetting('privacy')
@@ -360,6 +377,15 @@ app.on('window-all-closed', async () => {
       log.error(`Failed to clear browsing data: ${String(error)}`)
     }
   }
+
+  proxyManager.stop()
+  storageManager.stop()
+}
+
+app.on('window-all-closed', async () => {
+  if (isCleaningUp) return
+
+  await runCleanup()
 
   if (process.platform !== 'darwin') {
     app.quit()
@@ -390,14 +416,7 @@ app.on('before-quit', (event) => {
   // Cleanup history before quit — must await, so use Promise chain
   historyManager
     .onAppExit()
-    .then(() => {
-      proxyManager.stop()
-      storageManager.stop()
-      app.quit()
-    })
-    .catch(() => {
-      proxyManager.stop()
-      storageManager.stop()
-      app.quit()
-    })
+    .then(() => runCleanup())
+    .catch(() => runCleanup())
+    .finally(() => app.quit())
 })

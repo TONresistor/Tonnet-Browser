@@ -10,6 +10,22 @@ import { secureHandle, secureHandleWithEvent, handleSecure, storageLimiter, log 
 import { storageManager } from '../../storage/daemon'
 import { addBag, removeBag, listBags, pauseBag, getBagDetails } from '../../storage/bags'
 import { getMainWindow } from '../../windows/main'
+import { getDownloadPath } from '../../settings'
+
+/**
+ * Validate that a resolved path is within the configured download directory.
+ * Returns null if valid, or an error response object to short-circuit from handlers.
+ */
+function validatePathInDownloadDir(targetPath: string): { success: false; error: string } | null {
+  const downloadDir = path.resolve(getDownloadPath())
+  const resolved = path.resolve(targetPath)
+  // Ensure resolved path is inside the download directory (prevent path traversal)
+  if (!resolved.startsWith(downloadDir + path.sep) && resolved !== downloadDir) {
+    log.warn(`Blocked shell.openPath outside allowed directory: ${resolved}`)
+    return { success: false, error: 'Path outside allowed directory' }
+  }
+  return null
+}
 
 /**
  * Validate bag ID and return an error response if invalid.
@@ -102,7 +118,9 @@ export function registerStorageHandlers(): void {
       if (!details?.path) {
         return { success: false, error: 'Bag path not found' }
       }
-      const error = await shell.openPath(details.path)
+      const pathError = validatePathInDownloadDir(details.path)
+      if (pathError) return pathError
+      const error = await shell.openPath(path.resolve(details.path))
       return error ? { success: false, error } : { success: true }
     } catch (error) {
       return { success: false, error: (error as Error).message }
@@ -134,7 +152,10 @@ export function registerStorageHandlers(): void {
       if (!details?.path) {
         return { success: false, error: 'Bag path not found' }
       }
-      shell.showItemInFolder(path.join(details.path, sanitizedFileName))
+      const fullPath = path.join(details.path, sanitizedFileName)
+      const pathError = validatePathInDownloadDir(fullPath)
+      if (pathError) return pathError
+      shell.showItemInFolder(path.resolve(fullPath))
       return { success: true }
     } catch (error) {
       return { success: false, error: (error as Error).message }
