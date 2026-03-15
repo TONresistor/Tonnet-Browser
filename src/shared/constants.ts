@@ -20,6 +20,6 @@ export const DEFAULT_BOOKMARKS = [
 ]
 
 // Privacy: Generic User-Agent without TONBrowser identifier
-// Chrome version matches Electron 39 (Chromium 134)
+// Chrome version matches Electron 41 (Chromium 146)
 export const USER_AGENT =
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36'
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36'

@@ -10,7 +10,7 @@
   protect('NavigatorSpoofing', () => {
     // Match HTTP User-Agent header for consistency
     Object.defineProperty(navigator, 'userAgent', {
-      get: () => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36',
+      get: () => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36',
       enumerable: true,
       configurable: true
     });
@@ -42,7 +42,7 @@
 
     // Derived properties for consistency
     Object.defineProperty(navigator, 'appVersion', {
-      get: () => '5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36',
+      get: () => '5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36',
       enumerable: true,
       configurable: true
     });
