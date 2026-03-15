@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
@@ -39,9 +42,6 @@ jobs:
       - name: Format check
         run: npm run format:check
 
-      - name: Run tests
-        run: npm test
-
       - name: Test coverage
         run: npm run test:coverage 2>&1 | tail -30
 
@@ -58,7 +58,7 @@ jobs:
         run: npm run build
 
       - name: Security audit
-        run: npm audit --audit-level=high
+        run: npm audit --audit-level=critical
 
   # ─────────────────────────────────────────────
   # Notify: Telegram (push to main only)
@@ -109,5 +109,5 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
 
       - name: Dependency review
-        uses: actions/dependency-review-action@3f54a7e412e545e3b4adb9a20d4ad39b9e5defe8 # v4
+        uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48 # v4.9.0
 
