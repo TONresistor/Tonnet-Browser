@@ -48,7 +48,16 @@ export default defineConfig({
         }
       }
     },
-    plugins: [react(), tailwindcss()],
+    plugins: [
+      react({
+        babel: {
+          plugins: [
+            ['babel-plugin-react-compiler', {}],
+          ],
+        },
+      }),
+      tailwindcss(),
+    ],
     define: { __APP_VERSION__: JSON.stringify(pkg.version) },
     resolve: {
       alias: {
