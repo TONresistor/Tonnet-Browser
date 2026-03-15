@@ -483,11 +483,11 @@ export function BookmarksBar() {
             onClick={(e) => e.stopPropagation()}
           >
             <h3 id="edit-bookmark-title" className="text-foreground font-bold mb-4">
-              Edit bookmark
+              {t('bookmarks.editBookmark')}
             </h3>
             <div className="space-y-3">
               <div>
-                <label className="text-muted-foreground text-xs block mb-1">Name</label>
+                <label className="text-muted-foreground text-xs block mb-1">{t('bookmarks.name')}</label>
                 <input
                   value={editModal.name}
                   onChange={(e) => setEditModal({ ...editModal, name: e.target.value })}
@@ -496,7 +496,7 @@ export function BookmarksBar() {
                 />
               </div>
               <div>
-                <label className="text-muted-foreground text-xs block mb-1">URL</label>
+                <label className="text-muted-foreground text-xs block mb-1">{t('bookmarks.url')}</label>
                 <input
                   value={editModal.url}
                   onChange={(e) => setEditModal({ ...editModal, url: e.target.value })}
@@ -509,13 +509,13 @@ export function BookmarksBar() {
                 className="flex-1 py-2.5 rounded-full text-sm font-medium text-muted-foreground transition-all duration-200 hover:text-foreground bg-surface-hover border border-border-medium"
                 onClick={closeEditModal}
               >
-                Cancel
+                {t('bookmarks.cancel')}
               </button>
               <button
                 className="flex-1 py-2.5 rounded-full text-sm font-medium transition-all duration-200 hover:scale-[1.02] bg-primary/90 text-foreground shadow-primary/40 shadow-lg"
                 onClick={handleSaveEdit}
               >
-                Save
+                {t('bookmarks.save')}
               </button>
             </div>
           </div>
@@ -537,7 +537,7 @@ export function BookmarksBar() {
             onClick={(e) => e.stopPropagation()}
           >
             <h3 id="rename-folder-title" className="text-foreground font-bold mb-4">
-              Rename folder
+              {t('bookmarks.renameFolder')}
             </h3>
             <input
               value={renameModal.name}
@@ -560,7 +560,7 @@ export function BookmarksBar() {
                 className="flex-1 py-2.5 rounded-full text-sm font-medium text-muted-foreground transition-all duration-200 hover:text-foreground bg-surface-hover border border-border-medium"
                 onClick={() => setRenameModal(null)}
               >
-                Cancel
+                {t('bookmarks.cancel')}
               </button>
               <button
                 className="flex-1 py-2.5 rounded-full text-sm font-medium transition-all duration-200 hover:scale-[1.02] bg-primary/90 text-foreground shadow-primary/40 shadow-lg"
@@ -571,7 +571,7 @@ export function BookmarksBar() {
                   setRenameModal(null)
                 }}
               >
-                Save
+                {t('bookmarks.save')}
               </button>
             </div>
           </div>

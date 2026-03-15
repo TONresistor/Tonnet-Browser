@@ -186,6 +186,58 @@
   protect('WebRTC', () => {
     if (window.RTCPeerConnection) {
       const origRTCPeerConnection = window.RTCPeerConnection;
+
+      // Regex patterns for IPv4 and IPv6 addresses
+      const ipv4Re = /([0-9]{1,3}\.){3}[0-9]{1,3}/g;
+      const ipv6Re = /([a-f0-9]{1,4}:){7}[a-f0-9]{1,4}/gi;
+
+      // Strip IP addresses from an ICE candidate string
+      const sanitizeCandidate = (candidate) =>
+        candidate.replace(ipv4Re, '0.0.0.0').replace(ipv6Re, '::');
+
+      // Wrap an icecandidate callback to redact IP addresses from candidates
+      const wrapIceCandidateListener = (fn, ctx) => {
+        return (event) => {
+          if (event.candidate && event.candidate.candidate) {
+            const modified = new RTCIceCandidate({
+              candidate: sanitizeCandidate(event.candidate.candidate),
+              sdpMid: event.candidate.sdpMid,
+              sdpMLineIndex: event.candidate.sdpMLineIndex,
+            })
+            const modifiedEvent = new Event('icecandidate')
+            Object.defineProperty(modifiedEvent, 'candidate', { value: modified })
+            fn.call(ctx, modifiedEvent)
+          } else {
+            fn.call(ctx, event)
+          }
+        }
+      }
+
+      // Intercept addEventListener to wrap icecandidate listeners
+      const origAddEventListener = RTCPeerConnection.prototype.addEventListener;
+      RTCPeerConnection.prototype.addEventListener = function(type, listener, options) {
+        if (type === 'icecandidate') {
+          return origAddEventListener.call(this, type, wrapIceCandidateListener(listener, this), options)
+        }
+        return origAddEventListener.call(this, type, listener, options)
+      }
+
+      // Intercept onicecandidate property setter
+      const origOnIceCandidateDesc = Object.getOwnPropertyDescriptor(RTCPeerConnection.prototype, 'onicecandidate');
+      if (origOnIceCandidateDesc) {
+        Object.defineProperty(RTCPeerConnection.prototype, 'onicecandidate', {
+          set(fn) {
+            if (typeof fn === 'function') {
+              origOnIceCandidateDesc.set.call(this, wrapIceCandidateListener(fn, this))
+            } else {
+              origOnIceCandidateDesc.set.call(this, fn)
+            }
+          },
+          get() { return origOnIceCandidateDesc.get.call(this) },
+          configurable: true,
+        })
+      }
+
       const wrappedRTC = function(config, ...args) {
         // Force disable mDNS candidate gathering (prevents local IP leak)
         if (config) {
