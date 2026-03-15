@@ -7,6 +7,7 @@ import { Component, ReactNode } from 'react'
 import { TriangleAlert, RotateCcw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { createLogger } from '@/logger'
+import i18n from '@/i18n'
 
 const log = createLogger('app')
 
@@ -40,10 +41,8 @@ export class ErrorBoundary extends Component<Props, State> {
       return (
         <div className="flex flex-col items-center justify-center h-screen bg-background-secondary text-foreground p-8">
           <TriangleAlert className="h-16 w-16 text-red-500 mb-4" aria-hidden="true" />
-          <h1 className="text-2xl font-bold mb-2">Something went wrong</h1>
-          <p className="text-muted-foreground mb-4 text-center max-w-md">
-            The application encountered an unexpected error. Try reloading to recover.
-          </p>
+          <h1 className="text-2xl font-bold mb-2">{i18n.t('error.title')}</h1>
+          <p className="text-muted-foreground mb-4 text-center max-w-md">{i18n.t('error.description')}</p>
           <code className="text-xs text-red-400 bg-card p-3 rounded mb-6 max-w-lg overflow-auto">
             {this.state.error?.message || 'Unknown error'}
           </code>
@@ -53,7 +52,7 @@ export class ErrorBoundary extends Component<Props, State> {
             aria-label="Reload the application"
           >
             <RotateCcw className="h-4 w-4 mr-2" aria-hidden="true" />
-            Reload Application
+            {i18n.t('error.reload')}
           </Button>
         </div>
       )

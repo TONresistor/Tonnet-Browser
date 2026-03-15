@@ -36,5 +36,10 @@
   "tooltips": {
     "storage": "Storage",
     "settings": "Settings"
+  },
+  "error": {
+    "title": "Something went wrong",
+    "description": "The application encountered an unexpected error. Try reloading to recover.",
+    "reload": "Reload Application"
   }
 }

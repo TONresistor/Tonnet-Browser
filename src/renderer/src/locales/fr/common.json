@@ -36,5 +36,10 @@
   "tooltips": {
     "storage": "Storage",
     "settings": "Settings"
+  },
+  "error": {
+    "title": "Une erreur est survenue",
+    "description": "L'application a rencontré une erreur inattendue. Essayez de recharger pour récupérer.",
+    "reload": "Recharger l'application"
   }
 }
