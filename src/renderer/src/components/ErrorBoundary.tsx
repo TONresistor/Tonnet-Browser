@@ -4,7 +4,7 @@
  */
 
 import { Component, ReactNode } from 'react'
-import { AlertTriangle, RotateCcw } from 'lucide-react'
+import { TriangleAlert, RotateCcw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { createLogger } from '@/logger'
 
@@ -39,7 +39,7 @@ export class ErrorBoundary extends Component<Props, State> {
     if (this.state.hasError) {
       return (
         <div className="flex flex-col items-center justify-center h-screen bg-background-secondary text-foreground p-8">
-          <AlertTriangle className="h-16 w-16 text-red-500 mb-4" aria-hidden="true" />
+          <TriangleAlert className="h-16 w-16 text-red-500 mb-4" aria-hidden="true" />
           <h1 className="text-2xl font-bold mb-2">Something went wrong</h1>
           <p className="text-muted-foreground mb-4 text-center max-w-md">
             The application encountered an unexpected error. Try reloading to recover.

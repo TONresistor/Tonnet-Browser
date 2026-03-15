@@ -5,7 +5,7 @@
  */
 
 import { useState, useEffect, FormEvent, useRef, useMemo, memo, useCallback } from 'react'
-import { Lock, Star, Loader2, Clock, History } from 'lucide-react'
+import { Lock, Star, LoaderCircle, Clock, History } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { useBrowserStore } from '@/stores/browser'
@@ -186,7 +186,7 @@ export const AddressBar = memo(function AddressBar() {
           ) : (
             <div className="absolute left-3 top-1/2 -translate-y-1/2 z-10" aria-hidden="true">
               {isLoading ? (
-                <Loader2 className="h-4 w-4 text-muted-foreground animate-spin" />
+                <LoaderCircle className="h-4 w-4 text-muted-foreground animate-spin" />
               ) : (
                 <img src={tonIcon} alt="" className="h-4 w-4" />
               )}

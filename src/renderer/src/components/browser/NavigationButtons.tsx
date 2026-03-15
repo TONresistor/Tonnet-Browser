@@ -3,7 +3,7 @@
  * Back, forward, reload, home, and stop.
  */
 
-import { ArrowLeft, ArrowRight, RotateCw, Home, X } from 'lucide-react'
+import { ArrowLeft, ArrowRight, RotateCw, House, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useBrowserStore } from '@/stores/browser'
 import { useTabsStore } from '@/stores/tabs'
@@ -82,7 +82,7 @@ export function NavigationButtons() {
         title={t('navigation.home')}
         aria-label={t('navigation.goHomeAria')}
       >
-        <Home className="h-4 w-4" aria-hidden="true" />
+        <House className="h-4 w-4" aria-hidden="true" />
       </Button>
     </nav>
   )

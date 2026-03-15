@@ -3,7 +3,7 @@
  */
 
 import { memo, useState, useMemo, useRef, useEffect } from 'react'
-import { ExternalLink, RotateCcw, Search, Plus, Edit, Trash2, Globe } from 'lucide-react'
+import { ExternalLink, RotateCcw, Search, Plus, SquarePen, Trash2, Globe } from 'lucide-react'
 import { SectionHeader } from '../shared/SectionHeader'
 import { SettingRow } from '../shared/SettingRow'
 import { FolderTree } from '@/components/bookmarks/FolderTree'
@@ -255,7 +255,7 @@ export const BookmarksSection = memo(function BookmarksSection({
                         className="p-2 hover:bg-surface-active rounded transition-colors"
                         title={t('bookmarks.edit')}
                       >
-                        <Edit className="w-4 h-4 text-foreground" />
+                        <SquarePen className="w-4 h-4 text-foreground" />
                       </button>
                       <button
                         onClick={() => handleDelete(bookmark.id)}

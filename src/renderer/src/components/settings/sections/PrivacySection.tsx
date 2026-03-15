@@ -3,7 +3,7 @@
  */
 
 import { memo } from 'react'
-import { Trash2, CheckCircle } from 'lucide-react'
+import { Trash2, CircleCheckBig } from 'lucide-react'
 import { SectionHeader } from '../shared/SectionHeader'
 import { SettingRow } from '../shared/SettingRow'
 import { Toggle } from '../shared/Toggle'
@@ -39,7 +39,7 @@ export const PrivacySection = memo(function PrivacySection({
               t('privacy.clearing')
             ) : cleared ? (
               <>
-                <CheckCircle className="h-4 w-4" /> {t('privacy.done')}
+                <CircleCheckBig className="h-4 w-4" /> {t('privacy.done')}
               </>
             ) : (
               <>
