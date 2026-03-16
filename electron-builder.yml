@@ -30,6 +30,12 @@ linux:
   category: Network
   icon: resources/icons/icon.png
 
+appImage:
+  artifactName: "${productName}.${ext}"
+
+deb:
+  artifactName: "${name}_${arch}.${ext}"
+
 win:
   extraResources:
     - from: "resources/bin/win"
@@ -40,6 +46,12 @@ win:
     - nsis
     - portable
   icon: resources/icons/icon.ico
+
+nsis:
+  artifactName: "${productName}.Setup.${ext}"
+
+portable:
+  artifactName: "${productName}.${ext}"
 
 mac:
   extraResources:
@@ -54,6 +66,9 @@ mac:
   hardenedRuntime: true
   gatekeeperAssess: false
   x64ArchFiles: "Contents/Resources/bin/*"
+
+dmg:
+  artifactName: "${productName}-universal.${ext}"
 
 electronFuses:
   runAsNode: false
