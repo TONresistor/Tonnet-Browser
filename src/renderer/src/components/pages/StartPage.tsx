@@ -3,8 +3,10 @@
  * Quick access to search and popular sites.
  */
 
-import { useState, useEffect, useRef, FormEvent } from 'react'
+import { useState, FormEvent } from 'react'
 import Lottie from 'lottie-react'
+import explorerAnimation from '@/assets/explorer.json'
+import explorerYellowAnimation from '@/assets/explorer-yellow.json'
 import tonIcon from '@/assets/ton.png'
 import { APP_VERSION } from '@shared/constants'
 import { processNavigationInput } from '@/lib/url-utils'
@@ -15,27 +17,7 @@ export function StartPage() {
   const { t } = useTranslation('pages')
   const [searchInput, setSearchInput] = useState('')
   const { theme } = usePreferences()
-  const isYellow = theme === 'utya-duck'
-
-  // Dynamic import of animation JSON
-  const animationsRef = useRef<{ normal: unknown; yellow: unknown } | null>(null)
-  const [animationData, setAnimationData] = useState<unknown>(null)
-
-  useEffect(() => {
-    Promise.all([import('@/assets/explorer.json'), import('@/assets/explorer-yellow.json')]).then(
-      ([normal, yellow]) => {
-        animationsRef.current = { normal: normal.default, yellow: yellow.default }
-        setAnimationData(isYellow ? yellow.default : normal.default)
-      }
-    )
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  // Switch animation instantly on theme change (no re-import)
-  useEffect(() => {
-    if (!animationsRef.current) return
-    setAnimationData(isYellow ? animationsRef.current.yellow : animationsRef.current.normal)
-  }, [isYellow])
+  const currentExplorerAnimation = theme === 'utya-duck' ? explorerYellowAnimation : explorerAnimation
 
   const handleSearch = (e: FormEvent) => {
     e.preventDefault()
@@ -49,11 +31,7 @@ export function StartPage() {
 
   return (
     <div className="relative flex flex-col items-center justify-center h-full w-full bg-background-secondary">
-      {animationData ? (
-        <Lottie animationData={animationData} className="w-[280px] h-[280px] mb-8" loop autoplay />
-      ) : (
-        <div className="w-[280px] h-[280px] mb-8" />
-      )}
+      <Lottie animationData={currentExplorerAnimation} className="w-[280px] h-[280px] mb-8" loop autoplay />
 
       <p className="text-foreground text-2xl font-bold mb-8">{t('start.subtitle')}</p>
 

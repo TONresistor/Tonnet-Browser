@@ -12,7 +12,7 @@ import { BookmarksBar } from '@/components/browser/BookmarksBar'
 import { StatusBar } from '@/components/browser/StatusBar'
 import { ResizablePanel } from '@/components/browser/ResizablePanel'
 import { LandingPage } from '@/components/pages/LandingPage'
-const StartPage = lazy(() => import('@/components/pages/StartPage').then((m) => ({ default: m.StartPage })))
+import { StartPage } from '@/components/pages/StartPage'
 const StoragePage = lazy(() => import('@/components/pages/StoragePage').then((m) => ({ default: m.StoragePage })))
 const SettingsPage = lazy(() => import('@/components/pages/SettingsPage').then((m) => ({ default: m.SettingsPage })))
 const HistoryPage = lazy(() => import('@/components/pages/HistoryPage').then((m) => ({ default: m.HistoryPage })))
@@ -134,7 +134,6 @@ function App() {
         import('@/components/pages/SettingsPage')
         import('@/components/pages/StoragePage')
         import('@/components/pages/HistoryPage')
-        import('@/components/pages/StartPage')
       })
     }
   }, [proxyConnected, ensureDefaultTab])
