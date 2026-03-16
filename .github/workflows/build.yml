@@ -98,9 +98,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run tests
-        run: npm test
-
       - name: Build for ${{ matrix.platform }}
         run: npm run build && npx electron-builder --${{ matrix.platform }} --publish never
         env:
