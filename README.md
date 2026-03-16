@@ -114,22 +114,22 @@ Tonnet Browser matches Tor Browser's anti-fingerprinting capabilities while offe
 
 | Platform | Download |
 |----------|----------|
-| **Windows** | [Installer](https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON.Browser.Setup.exe) · [Portable](https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON.Browser.exe) |
-| **macOS** | [DMG (Universal)](https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON.Browser-universal.dmg) |
-| **Linux** | [AppImage](https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON.Browser.AppImage) · [.deb](https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/ton-browser_amd64.deb) |
+| **Windows** | [Installer](https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON.Browser.Setup.1.4.2.exe) · [Portable](https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON.Browser.1.4.2.exe) |
+| **macOS** | [DMG (Universal)](https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON.Browser-1.4.2-universal.dmg) |
+| **Linux** | [AppImage](https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON.Browser-1.4.2.AppImage) · [.deb](https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/ton-browser_1.4.2_amd64.deb) |
 
 ### Windows
 
 Your browser may warn that the file is from an unknown source. Click **"Keep"** to download.
 
-1. Download and run **TON.Browser.Setup.exe**
+1. Download and run **TON.Browser.Setup.1.4.2.exe**
 2. Follow the installation prompts
 3. Launch **TON Browser** from the Start menu
 
 **One-line install:** Open PowerShell and run:
 
 ```powershell
-irm https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON.Browser.Setup.exe -OutFile TonBrowser.exe; Unblock-File TonBrowser.exe; .\TonBrowser.exe
+irm https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON.Browser.Setup.1.4.2.exe -OutFile TonBrowser.exe; Unblock-File TonBrowser.exe; .\TonBrowser.exe
 ```
 
 ### macOS
@@ -144,28 +144,28 @@ xattr -cr /Applications/TON\ Browser.app
 **One-line install:** Open Terminal and run:
 
 ```bash
-curl -LO https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON.Browser-universal.dmg && hdiutil attach TON.Browser-universal.dmg && cp -R "/Volumes/TON Browser/TON Browser.app" /Applications/ && hdiutil detach "/Volumes/TON Browser" && xattr -cr /Applications/TON\ Browser.app && open /Applications/TON\ Browser.app
+curl -LO https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON.Browser-1.4.2-universal.dmg && hdiutil attach TON.Browser-1.4.2-universal.dmg && cp -R "/Volumes/TON Browser/TON Browser.app" /Applications/ && hdiutil detach "/Volumes/TON Browser" && xattr -cr /Applications/TON\ Browser.app && open /Applications/TON\ Browser.app
 ```
 
 ### Linux
 
 ```bash
 # AppImage
-chmod +x TON.Browser.AppImage
-./TON.Browser.AppImage
+chmod +x TON.Browser-1.4.2.AppImage
+./TON.Browser-1.4.2.AppImage
 
 # Debian/Ubuntu
-sudo dpkg -i ton-browser_amd64.deb
+sudo dpkg -i ton-browser_1.4.2_amd64.deb
 ```
 
 **One-line install:** Open Terminal and run:
 
 ```bash
 # AppImage
-curl -LO https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON.Browser.AppImage && chmod +x TON.Browser.AppImage && ./TON.Browser.AppImage
+curl -LO https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON.Browser-1.4.2.AppImage && chmod +x TON.Browser-1.4.2.AppImage && ./TON.Browser-1.4.2.AppImage
 
 # Debian/Ubuntu
-curl -LO https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/ton-browser_amd64.deb && sudo dpkg -i ton-browser_amd64.deb
+curl -LO https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/ton-browser_1.4.2_amd64.deb && sudo dpkg -i ton-browser_1.4.2_amd64.deb
 ```
 
 ## Usage
