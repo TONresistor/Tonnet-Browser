@@ -125,10 +125,17 @@ function App() {
     setAnimationData(isLight ? animationsRef.current.light : animationsRef.current.dark)
   }, [theme, customThemes])
 
-  // Create default tab when proxy connects
+  // Create default tab when proxy connects + prefetch lazy pages
   useEffect(() => {
     if (proxyConnected) {
       ensureDefaultTab()
+      // Prefetch lazy chunks while idle so they're instant when clicked
+      requestIdleCallback(() => {
+        import('@/components/pages/SettingsPage')
+        import('@/components/pages/StoragePage')
+        import('@/components/pages/HistoryPage')
+        import('@/components/pages/StartPage')
+      })
     }
   }, [proxyConnected, ensureDefaultTab])
 
