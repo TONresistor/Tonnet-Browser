@@ -3,9 +3,13 @@
  * Shows connect button and loading animation.
  */
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useProxy } from '@/hooks/useProxy'
 import Lottie from 'lottie-react'
+import welcomeAnimation from '@/assets/welcome.json'
+import welcomeYellowAnimation from '@/assets/welcome-yellow.json'
+import loadingAnimation from '@/assets/loading.json'
+import loadingYellowAnimation from '@/assets/loading-yellow.json'
 import { APP_VERSION } from '@shared/constants'
 import { usePreferences } from '@/stores/preferences'
 import { useTranslation } from 'react-i18next'
@@ -19,46 +23,6 @@ export function LandingPage() {
   const { theme } = usePreferences()
   const isYellow = theme === 'utya-duck'
 
-  // Dynamic import of animation JSON
-  const animationsRef = useRef<{
-    welcome: unknown
-    welcomeYellow: unknown
-    loading: unknown
-    loadingYellow: unknown
-  } | null>(null)
-  const [animationData, setAnimationData] = useState<{ welcome: unknown; loading: unknown } | null>(null)
-
-  useEffect(() => {
-    Promise.all([
-      import('@/assets/welcome.json'),
-      import('@/assets/welcome-yellow.json'),
-      import('@/assets/loading.json'),
-      import('@/assets/loading-yellow.json'),
-    ]).then(([welcome, welcomeYellow, loading, loadingYellow]) => {
-      animationsRef.current = {
-        welcome: welcome.default,
-        welcomeYellow: welcomeYellow.default,
-        loading: loading.default,
-        loadingYellow: loadingYellow.default,
-      }
-      setAnimationData({
-        welcome: isYellow ? welcomeYellow.default : welcome.default,
-        loading: isYellow ? loadingYellow.default : loading.default,
-      })
-    })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  // Switch animations instantly on theme change (no re-import)
-  useEffect(() => {
-    if (!animationsRef.current) return
-    const ref = animationsRef.current
-    setAnimationData({
-      welcome: isYellow ? ref.welcomeYellow : ref.welcome,
-      loading: isYellow ? ref.loadingYellow : ref.loading,
-    })
-  }, [isYellow])
-
   const CONNECTION_STEPS = [
     t('connectionSteps.startingProxy'),
     t('connectionSteps.loadingConfig'),
@@ -66,6 +30,9 @@ export function LandingPage() {
     t('connectionSteps.connectingNetwork'),
     t('connectionSteps.ready'),
   ]
+
+  const currentWelcomeAnimation = isYellow ? welcomeYellowAnimation : welcomeAnimation
+  const currentLoadingAnimation = isYellow ? loadingYellowAnimation : loadingAnimation
 
   // Listen for proxy progress events and auto-connect trigger
   useEffect(() => {
@@ -98,22 +65,15 @@ export function LandingPage() {
 
   const progressPercent = currentStep >= 0 ? ((currentStep + 1) / CONNECTION_STEPS.length) * 100 : 0
 
-  const currentWelcomeAnimation = animationData?.welcome ?? null
-  const currentLoadingAnimation = animationData?.loading ?? null
-
   return (
     <div className="relative flex flex-col items-center justify-center h-full w-full bg-background-secondary">
       {/* Logo - switches between welcome and loading animation */}
-      {animationData ? (
-        <Lottie
-          animationData={showLoading ? currentLoadingAnimation : currentWelcomeAnimation}
-          className="w-[200px] h-[200px] mb-8 transition-opacity duration-300"
-          loop
-          autoplay
-        />
-      ) : (
-        <div className="w-[200px] h-[200px] mb-8" />
-      )}
+      <Lottie
+        animationData={showLoading ? currentLoadingAnimation : currentWelcomeAnimation}
+        className="w-[200px] h-[200px] mb-8 transition-opacity duration-300"
+        loop
+        autoplay
+      />
 
       <h1 className="text-[42px] font-bold text-foreground mb-3">{t('title')}</h1>
 
