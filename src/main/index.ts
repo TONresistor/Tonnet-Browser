@@ -63,6 +63,12 @@ process.on('uncaughtException', (error) => {
   process.exit(1)
 })
 
+// App identity: set name and WM_CLASS for Linux taskbar
+app.name = 'TON Browser'
+if (process.platform === 'linux') {
+  app.commandLine.appendSwitch('class', 'TON Browser')
+}
+
 // Privacy: Disable WebRTC to prevent IP leaks
 app.commandLine.appendSwitch('webrtc-ip-handling-policy', 'disable_non_proxied_udp')
 app.commandLine.appendSwitch('force-webrtc-ip-handling-policy')
@@ -148,6 +154,7 @@ function createWindow(): void {
     minWidth: 800,
     minHeight: 600,
     frame: false,
+    icon: join(app.getAppPath(), 'resources/icons/icon.png'),
     backgroundColor: '#0a0a0a',
     show: false,
     webPreferences: {
