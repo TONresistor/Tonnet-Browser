@@ -48,9 +48,20 @@
   --color-input: hsl(var(--input));
   --color-ring: hsl(var(--ring));
 
-  --radius-lg: var(--radius);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-sm: calc(var(--radius) - 4px);
+  --radius-pill: 1000px;
+  --radius-container: 20px;
+  --radius-item: 10px;
+  --radius-lg: var(--radius-container);
+  --radius-md: var(--radius-item);
+  --radius-sm: 6px;
+
+  --color-glass-tint: var(--glass-tint);
+  --color-glass-border: var(--glass-border);
+  --color-elevation-0: hsl(var(--elevation-0));
+  --color-elevation-1: hsl(var(--elevation-1));
+  --color-elevation-2: hsl(var(--elevation-2));
+  --color-elevation-3: hsl(var(--elevation-3));
+  --color-elevation-4: hsl(var(--elevation-4));
 
   --font-sans: Inter, system-ui, sans-serif;
 }
@@ -68,6 +79,15 @@
   ::file-selector-button {
     border-color: var(--color-border, currentcolor);
   }
+
+  input[type='number']::-webkit-inner-spin-button,
+  input[type='number']::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type='number'] {
+    -moz-appearance: textfield;
+  }
 }
 
 @layer base {
@@ -81,19 +101,19 @@
     --card-foreground: 0 0% 96%;
     --popover: 210 24% 18%; /* #232e3c */
     --popover-foreground: 0 0% 96%;
-    --primary: 210 44% 53%; /* #5288c1 */
+    --primary: 200 100% 46%; /* #0098ea - TON blue */
     --primary-foreground: 0 0% 100%;
     --secondary: 210 24% 18%; /* #232e3c */
     --secondary-foreground: 0 0% 96%;
     --muted: 210 22% 15%; /* #1b2734 */
     --muted-foreground: 210 18% 52%; /* #708499 */
-    --accent: 207 83% 68%; /* #6ab2f2 */
+    --accent: 200 100% 46%; /* #0098ea - TON blue */
     --accent-foreground: 0 0% 100%;
     --destructive: 356 82% 58%; /* #ec3942 */
     --destructive-foreground: 0 0% 100%;
     --border: 210 22% 22%; /* #2b3d4f */
     --input: 210 24% 18%; /* #232e3c */
-    --ring: 207 83% 68%; /* #6ab2f2 */
+    --ring: 200 100% 46%; /* #0098ea - TON blue */
     --radius: 0.5rem;
     /* Status colors */
     --success: 120 100% 55%; /* #39FF14 - Vert fluo neon */
@@ -121,11 +141,26 @@
     --shadow-color: 0 0% 0%;
 
     /* Glow colors for shadows */
-    --primary-glow: rgba(82, 136, 193, 0.4);
+    --primary-glow: rgba(0, 152, 234, 0.4);
     --destructive-glow: rgba(236, 57, 66, 0.3);
 
     /* Button highlight (inset white for buttons) */
     --button-highlight: rgba(255, 255, 255, 0.2);
+
+    /* Glass material */
+    --glass-blur: 12px;
+    --glass-tint: rgba(255, 255, 255, 0.07);
+    --glass-wash: rgba(255, 255, 255, 0.03);
+    --glass-border: rgba(255, 255, 255, 0.12);
+    --glass-shadow: 0 4px 24px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.15);
+
+    /* Elevation */
+    --elevation-0: 210 32% 9%;
+    --elevation-1: 210 26% 13%;
+    --elevation-2: 210 24% 16%;
+    --elevation-3: 210 22% 20%;
+    --elevation-4: 210 20% 24%;
   }
 
   [data-theme='utya-duck'] {
@@ -182,6 +217,21 @@
 
     /* Button highlight (inset white for buttons) */
     --button-highlight: rgba(255, 255, 255, 0.2);
+
+    /* Glass material */
+    --glass-blur: 12px;
+    --glass-tint: rgba(0, 0, 0, 0.04);
+    --glass-wash: rgba(0, 0, 0, 0.02);
+    --glass-border: rgba(0, 0, 0, 0.1);
+    --glass-shadow: 0 4px 24px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+    --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.4);
+
+    /* Elevation */
+    --elevation-0: 48 100% 55%;
+    --elevation-1: 50 100% 60%;
+    --elevation-2: 52 100% 65%;
+    --elevation-3: 54 100% 70%;
+    --elevation-4: 56 100% 75%;
   }
 
   body {
@@ -295,4 +345,33 @@
 
 [data-theme='utya-duck'] ::-webkit-scrollbar-thumb:hover {
   background: hsl(40 70% 25%);
+}
+
+/* Glass surface material */
+.glass-surface {
+  position: relative;
+  background: var(--glass-tint);
+  backdrop-filter: blur(var(--glass-blur)) saturate(1.4);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.4);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+}
+
+.glass-surface-subtle {
+  position: relative;
+  background: var(--glass-wash);
+  backdrop-filter: blur(var(--glass-blur)) saturate(1.2);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.2);
+  border: 1px solid var(--glass-border);
+}
+
+/* Glass card (elevated glass with stronger tint) */
+.glass-card {
+  position: relative;
+  background: var(--glass-tint);
+  backdrop-filter: blur(var(--glass-blur)) saturate(1.4);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.4);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-container);
+  box-shadow: var(--glass-shadow);
 }

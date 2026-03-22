@@ -83,10 +83,7 @@ export function LandingPage() {
       <button
         onClick={connect}
         disabled={showLoading}
-        className="relative text-xl font-medium px-16 py-5 rounded-full min-w-[340px] transition-all duration-300 bg-primary text-primary-foreground backdrop-blur-[20px] border border-white/20 disabled:opacity-70 disabled:cursor-not-allowed"
-        style={{
-          boxShadow: '0 8px 32px rgba(0, 136, 204, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2)',
-        }}
+        className="relative text-xl font-medium px-16 py-5 rounded-full min-w-[340px] transition-all duration-300 bg-primary text-primary-foreground backdrop-blur-[20px] border border-white/20 disabled:opacity-70 disabled:cursor-not-allowed shadow-[0_8px_32px_hsl(var(--primary)/0.4)] [box-shadow:var(--glass-highlight)]"
       >
         {showLoading ? (
           <div className="flex items-center justify-center gap-3">

@@ -479,7 +479,7 @@ export function BookmarksBar() {
         >
           <div
             ref={editModalRef}
-            className="rounded-2xl p-5 w-full max-w-sm mx-4 bg-background/85 backdrop-blur-xl border border-border-medium shadow-2xl font-sans"
+            className="rounded-[var(--radius-container)] p-5 w-full max-w-sm mx-4 glass-surface shadow-2xl font-sans"
             onClick={(e) => e.stopPropagation()}
           >
             <h3 id="edit-bookmark-title" className="text-foreground font-bold mb-4">
@@ -533,7 +533,7 @@ export function BookmarksBar() {
         >
           <div
             ref={renameModalRef}
-            className="rounded-2xl p-5 w-full max-w-sm mx-4 bg-background/85 backdrop-blur-xl border border-border-medium shadow-2xl font-sans"
+            className="rounded-[var(--radius-container)] p-5 w-full max-w-sm mx-4 glass-surface shadow-2xl font-sans"
             onClick={(e) => e.stopPropagation()}
           >
             <h3 id="rename-folder-title" className="text-foreground font-bold mb-4">

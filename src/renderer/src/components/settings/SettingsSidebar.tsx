@@ -53,14 +53,14 @@ export function SettingsSidebar({ activeSection, onSectionChange }: SettingsSide
               aria-selected={isActive}
               onClick={() => onSectionChange(section.id)}
               className={cn(
-                'w-full flex items-center gap-3 px-3 py-2 rounded-full text-sm transition-all duration-200 backdrop-blur-md border',
+                'w-full flex items-center gap-3 px-3 py-2 rounded-full text-sm transition-all duration-200',
                 isActive
-                  ? 'bg-surface-active border-primary text-foreground'
-                  : 'bg-surface/50 border-border hover:bg-surface-hover'
+                  ? 'bg-surface-active text-foreground'
+                  : 'text-foreground-secondary hover:bg-surface-hover hover:text-foreground'
               )}
             >
-              <Icon className={cn('h-4 w-4', !isActive && 'text-muted-foreground')} />
-              <span className={!isActive ? 'text-muted-foreground' : ''}>{getSectionLabel(section.id)}</span>
+              <Icon className={cn('h-4 w-4', !isActive && 'opacity-70')} />
+              <span>{getSectionLabel(section.id)}</span>
             </button>
           )
         })}

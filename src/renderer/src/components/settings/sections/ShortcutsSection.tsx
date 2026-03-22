@@ -33,7 +33,7 @@ export const ShortcutsSection = memo(function ShortcutsSection() {
   return (
     <div>
       <SectionHeader title={t('shortcuts.title')} description={t('shortcuts.description')} />
-      <div className="bg-card rounded-xl border border-border overflow-hidden">
+      <div className="glass-card overflow-hidden">
         <table className="w-full">
           <thead>
             <tr className="border-b border-border">

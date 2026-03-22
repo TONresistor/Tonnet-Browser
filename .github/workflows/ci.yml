@@ -68,6 +68,11 @@ jobs:
           retention-days: 30
           if-no-files-found: ignore
 
+      - name: Download platform binaries
+        run: bash scripts/download-binaries.sh linux
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Verify build compiles
         run: npm run build
 

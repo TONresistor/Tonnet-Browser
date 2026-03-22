@@ -97,6 +97,15 @@ export function getDefaultSettings(): AppSettings {
       storageVerbosity: DEFAULT_SETTINGS.storageVerbosity,
       syncTestDomain: DEFAULT_SETTINGS.syncTestDomain,
     },
+    wallet: {
+      paymentMode: DEFAULT_SETTINGS.wallet.paymentMode,
+      notificationStyle: DEFAULT_SETTINGS.wallet.notificationStyle,
+      limits: { ...DEFAULT_SETTINGS.wallet.limits },
+      sitePolicies: [...DEFAULT_SETTINGS.wallet.sitePolicies],
+      autoPayDomains: [...DEFAULT_SETTINGS.wallet.autoPayDomains],
+      toncenterApiKey: DEFAULT_SETTINGS.wallet.toncenterApiKey,
+      tonapiKey: DEFAULT_SETTINGS.wallet.tonapiKey,
+    },
   }
 }
 

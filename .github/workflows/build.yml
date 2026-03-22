@@ -95,6 +95,11 @@ jobs:
           restore-keys: |
             electron-${{ runner.os }}-
 
+      - name: Download platform binaries
+        run: bash scripts/download-binaries.sh ${{ matrix.platform }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Install dependencies
         run: npm ci
 

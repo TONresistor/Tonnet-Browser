@@ -2,24 +2,26 @@
  * Section paramètres généraux
  */
 
-import { memo } from 'react'
+import { memo, useState } from 'react'
+import { Home, HardDrive, ChevronDown } from 'lucide-react'
 import { SectionHeader } from '../shared/SectionHeader'
 import { SettingRow } from '../shared/SettingRow'
 import { Toggle } from '../shared/Toggle'
-import { SelectInput } from '../shared/SelectInput'
+import { ToggleGroup } from '../shared/ToggleGroup'
 import { GarlicRoutingDiagram } from '../shared/GarlicRoutingDiagram'
 import type { SectionProps } from '../types'
 import { useTranslation } from 'react-i18next'
 
 export const GeneralSection = memo(function GeneralSection({ draft, setDraft }: SectionProps) {
   const { t } = useTranslation('settings')
+  const [howItWorksOpen, setHowItWorksOpen] = useState(false)
 
   return (
     <div>
       <SectionHeader title={t('general.title')} description={t('general.description')} />
 
       {/* Anonymous Mode Section */}
-      <div className="bg-card rounded-xl border border-border px-4">
+      <div className="glass-card px-4">
         {/* Anonymous mode toggle */}
         <div className="py-4 border-b border-border">
           <div className="flex items-center justify-between">
@@ -53,51 +55,47 @@ export const GeneralSection = memo(function GeneralSection({ draft, setDraft }: 
             </div>
 
             {draft.circuitRotation && (
-              <div className="ml-4 pl-4 border-l-2 border-border">
-                <div className="py-4 border-b border-border">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-foreground font-medium">{t('general.rotationInterval')}</p>
-                      <p className="text-muted-foreground text-sm mt-0.5">{t('general.rotationIntervalDesc')}</p>
-                    </div>
-                    <select
-                      value={draft.rotateInterval}
-                      onChange={(e) => setDraft('rotateInterval', e.target.value)}
-                      className="pl-4 pr-8 py-1.5 rounded-full text-sm text-foreground outline-none cursor-pointer bg-surface-hover border border-border-medium"
-                    >
-                      <option value="5m" className="bg-background text-foreground">
-                        {t('general.5minutes')}
-                      </option>
-                      <option value="10m" className="bg-background text-foreground">
-                        {t('general.10minutes')}
-                      </option>
-                      <option value="15m" className="bg-background text-foreground">
-                        {t('general.15minutes')}
-                      </option>
-                      <option value="30m" className="bg-background text-foreground">
-                        {t('general.30minutes')}
-                      </option>
-                    </select>
-                  </div>
-                </div>
-              </div>
+              <SettingRow label={t('general.rotationInterval')} description={t('general.rotationIntervalDesc')}>
+                <ToggleGroup
+                  value={draft.rotateInterval}
+                  onChange={(v) => setDraft('rotateInterval', v)}
+                  options={[
+                    { value: '5m', label: '5m' },
+                    { value: '10m', label: '10m' },
+                    { value: '15m', label: '15m' },
+                    { value: '30m', label: '30m' },
+                  ]}
+                />
+              </SettingRow>
             )}
           </>
         )}
 
-        {/* How it works - Garlic Routing Diagram */}
-        <GarlicRoutingDiagram />
+        {/* How it works - Garlic Routing Diagram (collapsible) */}
+        <div className="border-t border-border">
+          <button
+            type="button"
+            onClick={() => setHowItWorksOpen(!howItWorksOpen)}
+            className="flex items-center justify-between w-full py-4 text-left"
+          >
+            <p className="text-foreground font-medium">{t('general.howItWorks')}</p>
+            <ChevronDown
+              className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${howItWorksOpen ? 'rotate-180' : ''}`}
+            />
+          </button>
+          {howItWorksOpen && <GarlicRoutingDiagram />}
+        </div>
       </div>
 
       {/* Other General Settings */}
-      <div className="mt-6 bg-card rounded-xl border border-border px-4">
+      <div className="mt-6 glass-card px-4">
         <SettingRow label={t('general.homepage')} description={t('general.homepageDesc')}>
-          <SelectInput
+          <ToggleGroup
             value={draft.homepage}
             onChange={(v) => setDraft('homepage', v)}
             options={[
-              { value: 'ton://start', label: t('general.startPage') },
-              { value: 'ton://storage', label: t('general.tonStorage') },
+              { value: 'ton://start', label: t('general.startPage'), icon: <Home className="h-3.5 w-3.5" /> },
+              { value: 'ton://storage', label: t('general.tonStorage'), icon: <HardDrive className="h-3.5 w-3.5" /> },
             ]}
           />
         </SettingRow>

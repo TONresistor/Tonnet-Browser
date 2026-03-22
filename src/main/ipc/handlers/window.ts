@@ -5,7 +5,7 @@
 import { IPC_CHANNELS } from '../../../shared/types'
 import { secureHandle, secureHandleWithEvent } from './shared'
 import { getMainWindow } from '../../windows/main'
-import { updateSidebarWidth } from '../../windows/tabs'
+import { updateSidebarWidth, updateWalletSidebarWidth } from '../../windows/tabs'
 
 export function registerWindowHandlers(): void {
   secureHandle(IPC_CHANNELS.WINDOW_MINIMIZE, () => {
@@ -34,6 +34,11 @@ export function registerWindowHandlers(): void {
       return { success: false, error: 'Invalid width parameter' }
     }
     updateSidebarWidth(width)
+    return { success: true }
+  })
+
+  secureHandle(IPC_CHANNELS.UPDATE_WALLET_SIDEBAR_WIDTH, (width: number) => {
+    updateWalletSidebarWidth(typeof width === 'number' ? width : 0)
     return { success: true }
   })
 }

@@ -3,7 +3,7 @@
  * Shared between main and renderer processes.
  */
 
-import type { CustomTheme } from './types'
+import type { CustomTheme, SitePolicy } from './types'
 
 export type BuiltInTheme = 'resistance-dog' | 'utya-duck'
 export type ThemeType = BuiltInTheme | `custom:${string}`
@@ -67,4 +67,19 @@ export const DEFAULT_SETTINGS = {
   proxyVerbosity: 2,
   storageVerbosity: 2,
   syncTestDomain: 'tonnet-sync-check.ton',
+
+  // Wallet
+  wallet: {
+    paymentMode: 'manual' as const,
+    notificationStyle: 'banner' as const,
+    limits: {
+      perRequest: '0',
+      perDay: '0',
+      perSitePerMonth: '0',
+    },
+    sitePolicies: [] as SitePolicy[],
+    autoPayDomains: [] as string[],
+    toncenterApiKey: '',
+    tonapiKey: '',
+  },
 } as const

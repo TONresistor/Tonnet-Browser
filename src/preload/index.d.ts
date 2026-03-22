@@ -3,7 +3,7 @@
  * Defines window.electron interface for TypeScript.
  */
 
-import type { AppSettings, StorageBag, BagDetails } from '../shared/types'
+import type { AppSettings, StorageBag, BagDetails, WalletState, WalletTransaction } from '../shared/types'
 
 declare global {
   interface Window {
@@ -111,6 +111,7 @@ declare global {
         close: () => void
       }
       updateSidebarWidth: (width: number) => Promise<{ success: boolean }>
+      updateWalletSidebarWidth: (width: number) => Promise<{ success: boolean }>
       showBookmarkMenu: (id: string, title: string, url: string) => Promise<void>
       showFolderMenu: (folderId: string, bookmarks: Array<{ id: string; title: string; url: string }>) => Promise<void>
       showFolderContextMenu: (folderId: string, folderName: string) => Promise<void>
@@ -202,6 +203,54 @@ declare global {
         }>
         download: () => Promise<{ success: boolean }>
         install: () => void
+      }
+      wallet: {
+        create: () => Promise<WalletState>
+        getState: () => Promise<WalletState>
+        getBalance: () => Promise<string>
+        send: (to: string, amount: string) => Promise<{ success: boolean; txHash?: string; error?: string }>
+        getHistory: (limit?: number) => Promise<WalletTransaction[]>
+        clearHistory: () => Promise<{ success: boolean }>
+        exportKey: () => Promise<{ success: boolean; mnemonic?: string; error?: string }>
+        approvePayment: (id: string) => Promise<{ success: boolean; error?: string }>
+        rejectPayment: (id: string) => Promise<{ success: boolean }>
+        importWallet: (mnemonic: string[]) => Promise<WalletState>
+        exportMnemonic: () => Promise<{ mnemonic: string[] }>
+        resolveDomain: (domain: string) => Promise<{
+          address: string
+          source: 'wallet-record' | 'owner-fallback'
+          domain: string
+        }>
+        getNfts: () => Promise<
+          Array<{
+            address: string
+            name: string
+            description?: string
+            image?: string
+            collection?: string
+          }>
+        >
+        getDomains: () => Promise<
+          Array<{
+            name: string
+            address: string
+            owner: string
+            expiresAt: number
+            walletRecord?: string
+          }>
+        >
+        lookupDomain: (domain: string) => Promise<{
+          name: string
+          owner: string
+          expiresAt: number
+          nftAddress: string
+          records: {
+            wallet?: string
+            site?: string
+            storage?: string
+            nextResolver?: string
+          }
+        }>
       }
       on: (channel: string, callback: (...args: unknown[]) => void) => () => void
       off: (channel: string, callback?: (...args: unknown[]) => void) => void

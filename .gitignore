@@ -33,6 +33,9 @@ tonlib-cache/
 # Local config (contains private keys)
 config.json
 
+# Platform binaries (downloaded via scripts/download-binaries.sh)
+resources/bin/
+
 # Claude
 .claude/
 tonnet-demo/

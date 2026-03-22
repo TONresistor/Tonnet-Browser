@@ -260,7 +260,7 @@ export const TabBar = memo(function TabBar({ sidebarWidth }: TabBarProps) {
       {contextMenu && (
         <div
           ref={menuRef}
-          className="fixed z-50 rounded-xl py-1.5 min-w-[160px] bg-background/90 backdrop-blur-xl border border-border-medium shadow-lg"
+          className="fixed z-50 rounded-[var(--radius-container)] py-1.5 min-w-[160px] glass-surface shadow-lg"
           style={{
             left: contextMenu.x,
             top: contextMenu.y,

@@ -16,19 +16,26 @@ import { StartPage } from '@/components/pages/StartPage'
 const StoragePage = lazy(() => import('@/components/pages/StoragePage').then((m) => ({ default: m.StoragePage })))
 const SettingsPage = lazy(() => import('@/components/pages/SettingsPage').then((m) => ({ default: m.SettingsPage })))
 const HistoryPage = lazy(() => import('@/components/pages/HistoryPage').then((m) => ({ default: m.HistoryPage })))
+const WalletPage = lazy(() => import('@/components/pages/WalletPage'))
 import { useBrowserStore } from '@/stores/browser'
 import { useTabsStore } from '@/stores/tabs'
 import { usePreferencesStore } from '@/stores/preferences'
 import { useThemeStore } from '@/stores/themes'
+import { useWalletStore } from '@/stores/wallet'
 import { applyCustomTheme, removeCustomTheme } from '@/lib/theme-utils'
-import { Settings, HardDrive } from 'lucide-react'
-import Lottie from 'lottie-react'
+import { WalletSidebar } from '@/components/wallet/WalletSidebar'
+import { Settings } from 'lucide-react'
+import walletIcon from '@/assets/wallet.svg'
+import storageIcon from '@/assets/storage.svg'
 import { Button } from '@/components/ui/button'
+import Lottie from 'lottie-react'
 import i18n, { loadLanguage } from '@/i18n'
 import { useTranslation } from 'react-i18next'
 import { createLogger } from '@/logger'
 
 const log = createLogger('app')
+
+// Wallet pill button — simple click opens ton://wallet page
 
 function App() {
   const { t, i18n: i18nInstance } = useTranslation('common')
@@ -49,6 +56,8 @@ function App() {
 
   // Track current sidebar width in real-time during resize
   const [currentSidebarWidth, setCurrentSidebarWidth] = useState(savedSidebarWidth)
+  const [walletSidebarOpen, setWalletSidebarOpen] = useState(false)
+  const [walletSidebarWidth, setWalletSidebarWidth] = useState(320)
 
   // Preload both animations once, select based on theme
   const animationsRef = useRef<{ dark: unknown; light: unknown } | null>(null)
@@ -61,12 +70,21 @@ function App() {
   useEffect(() => {
     usePreferencesStore.getState().loadFromMain()
     useThemeStore.getState().loadFromSettings()
+    useWalletStore.getState().init()
   }, [])
 
   // Sync current sidebar width with saved value when preferences load
   useEffect(() => {
     setCurrentSidebarWidth(savedSidebarWidth)
   }, [savedSidebarWidth])
+
+  // Sync wallet sidebar width with main process
+  useEffect(() => {
+    window.electron.updateWalletSidebarWidth(walletSidebarOpen ? walletSidebarWidth : 0)
+    return () => {
+      window.electron.updateWalletSidebarWidth(0)
+    }
+  }, [walletSidebarOpen, walletSidebarWidth])
 
   // Sync document lang attribute with i18n language
   useEffect(() => {
@@ -134,6 +152,7 @@ function App() {
         import('@/components/pages/SettingsPage')
         import('@/components/pages/StoragePage')
         import('@/components/pages/HistoryPage')
+        import('@/components/pages/WalletPage')
       })
     }
   }, [proxyConnected, ensureDefaultTab])
@@ -333,6 +352,8 @@ function App() {
         return <SettingsPage key={`settings-${activeTabId}`} />
       case 'history':
         return <HistoryPage />
+      case 'wallet':
+        return <WalletPage />
       case 'loading':
         return (
           <div className="w-full h-full flex flex-col items-center justify-center bg-background-secondary">
@@ -366,7 +387,7 @@ function App() {
         <div className="no-drag flex-1">
           <AddressBar />
         </div>
-        <div className="no-drag flex items-center gap-0.5 rounded-full px-1 py-0.5 bg-surface border border-surface-hover backdrop-blur-[20px]">
+        <div className="no-drag flex items-center gap-0.5 rounded-full px-1 py-0.5 glass-surface">
           <Button
             variant="ghost"
             size="icon"
@@ -374,7 +395,16 @@ function App() {
             onClick={() => openOrSwitchToTab('ton://storage')}
             title={t('tooltips.storage')}
           >
-            <HardDrive className="h-4 w-4" />
+            <img src={storageIcon} alt="" className="h-4 w-4 brightness-0 invert" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 rounded-full"
+            onClick={() => setWalletSidebarOpen((v) => !v)}
+            title={t('tooltips.wallet')}
+          >
+            <img src={walletIcon} alt="" className="h-4 w-4 brightness-0 invert" />
           </Button>
           <Button
             variant="ghost"
@@ -442,6 +472,23 @@ function App() {
             {renderContent()}
           </Suspense>
         </div>
+
+        {/* Right sidebar (wallet) */}
+        {walletSidebarOpen && (
+          <ResizablePanel
+            side="right"
+            defaultWidth={walletSidebarWidth}
+            minWidth={280}
+            maxWidth={420}
+            onResize={(width) => {
+              setWalletSidebarWidth(width)
+              window.electron.updateWalletSidebarWidth(width)
+            }}
+            className="border-l border-border"
+          >
+            <WalletSidebar onClose={() => setWalletSidebarOpen(false)} />
+          </ResizablePanel>
+        )}
       </div>
 
       {/* Status Bar - Full width */}

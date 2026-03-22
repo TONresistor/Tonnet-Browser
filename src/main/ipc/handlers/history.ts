@@ -24,7 +24,7 @@ export function registerHistoryHandlers(): void {
     try {
       return historyManager.search(query, limit)
     } catch (error) {
-      log.error(`Search failed: ${String(error)}`)
+      log.error('Search failed:', error)
       return []
     }
   })
@@ -33,7 +33,7 @@ export function registerHistoryHandlers(): void {
     try {
       return historyManager.getRecent(limit)
     } catch (error) {
-      log.error(`Get recent failed: ${String(error)}`)
+      log.error('Get recent failed:', error)
       return []
     }
   })
@@ -42,7 +42,7 @@ export function registerHistoryHandlers(): void {
     try {
       return historyManager.getTopVisited(limit)
     } catch (error) {
-      log.error(`Get top visited failed: ${String(error)}`)
+      log.error('Get top visited failed:', error)
       return []
     }
   })
@@ -51,7 +51,7 @@ export function registerHistoryHandlers(): void {
     try {
       return historyManager.getByDateRange(startDate, endDate)
     } catch (error) {
-      log.error(`Get by date range failed: ${String(error)}`)
+      log.error('Get by date range failed:', error)
       return []
     }
   })

@@ -7,7 +7,7 @@ import { History as HistoryIcon, Lock } from 'lucide-react'
 import { SectionHeader } from '../shared/SectionHeader'
 import { SettingRow } from '../shared/SettingRow'
 import { ToggleGroup } from '../shared/ToggleGroup'
-import { NumberInput } from '../shared/NumberInput'
+import { StepperInput } from '../shared/StepperInput'
 import { useTabsStore } from '@/stores/tabs'
 import type { SectionProps } from '../types'
 import { useTranslation } from 'react-i18next'
@@ -49,7 +49,7 @@ export const HistorySection = memo(function HistorySection({
   return (
     <div>
       <SectionHeader title={t('history.title')} description={t('history.description')} />
-      <div className="bg-card rounded-xl border border-border px-4">
+      <div className="glass-card px-4">
         <SettingRow label={t('history.historyMode')} description={getModeDescription(draft.historyMode)}>
           <ToggleGroup
             value={draft.historyMode}
@@ -59,12 +59,13 @@ export const HistorySection = memo(function HistorySection({
           />
         </SettingRow>
         <SettingRow label={t('history.maxEntries')} description={t('history.maxEntriesDesc')}>
-          <NumberInput
+          <StepperInput
             value={draft.historyMaxEntries}
             onChange={(v) => setDraft('historyMaxEntries', v)}
             min={100}
             max={10000}
             step={100}
+            editable
           />
         </SettingRow>
         <SettingRow label={t('history.viewHistory')} description={t('history.viewHistoryDesc')}>

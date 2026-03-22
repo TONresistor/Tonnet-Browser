@@ -262,18 +262,18 @@ describe('ProxyManager', () => {
       manager.stop()
     })
 
-    it('emits "error" on stderr data', async () => {
+    it('emits "log" on stderr data (slog output)', async () => {
       setImmediate(() => {
         mockProcess.stdout.emit('data', Buffer.from('Proxy listening'))
       })
 
-      const errorSpy = vi.fn()
-      manager.on('error', errorSpy)
+      const logSpy = vi.fn()
+      manager.on('log', logSpy)
 
       await manager.start()
       mockProcess.stderr.emit('data', Buffer.from('Error message'))
 
-      expect(errorSpy).toHaveBeenCalledWith('Error message')
+      expect(logSpy).toHaveBeenCalledWith('Error message')
 
       manager.stop()
     })

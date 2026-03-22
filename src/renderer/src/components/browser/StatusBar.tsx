@@ -8,8 +8,11 @@ import { createLogger } from '@/logger'
 
 const log = createLogger('status')
 import { Wifi, WifiOff, LoaderCircle, ArrowDown, ArrowUp } from 'lucide-react'
+import walletIcon from '@/assets/wallet.svg'
 import { useBrowserStore } from '@/stores/browser'
-import { APP_VERSION } from '@shared/constants'
+import { useWalletStore, formatTonAmount } from '@/stores/wallet'
+import { useTabsStore } from '@/stores/tabs'
+import { APP_VERSION, TON_WALLET_PAGE } from '@shared/constants'
 import type { StorageBag } from '@shared/types'
 import { useTranslation } from 'react-i18next'
 import { formatSpeed } from '@/lib/format'
@@ -27,6 +30,9 @@ export const StatusBar = memo(function StatusBar() {
   const { t, i18n } = useTranslation('browser')
   const { proxyConnected, proxySyncing, anonymousMode, circuitRelays, storageStats, setProxyStatus, setStorageStats } =
     useBrowserStore()
+  const walletCreated = useWalletStore((s) => s.isCreated)
+  const walletBalance = useWalletStore((s) => s.balance)
+  const openOrSwitchToTab = useTabsStore((s) => s.openOrSwitchToTab)
   const [currentTime, setCurrentTime] = useState(new Date())
   // Clock update
   useEffect(() => {
@@ -120,7 +126,7 @@ export const StatusBar = memo(function StatusBar() {
 
   return (
     <footer
-      className="flex items-center justify-between px-3 py-1 bg-background-secondary border-t border-border text-xs text-muted-foreground"
+      className="flex items-center justify-between px-3 py-1 bg-[hsl(var(--elevation-0))] border-t border-border text-xs text-muted-foreground"
       role="contentinfo"
     >
       <div className="flex items-center gap-3">
@@ -176,8 +182,23 @@ export const StatusBar = memo(function StatusBar() {
         )}
       </div>
 
-      {/* Right side: version + clock */}
+      {/* Right side: wallet balance + version + clock */}
       <div className="flex items-center gap-3">
+        {walletCreated && (
+          <>
+            <button
+              type="button"
+              onClick={() => openOrSwitchToTab(TON_WALLET_PAGE)}
+              className="flex items-center gap-1 hover:text-foreground transition-colors"
+              title={t('statusBar.walletTitle')}
+              aria-label={t('statusBar.walletAria')}
+            >
+              <img src={walletIcon} alt="" className="h-3 w-3" />
+              <span>{formatTonAmount(walletBalance)} TON</span>
+            </button>
+            <Separator />
+          </>
+        )}
         <span aria-label={`Version ${APP_VERSION}`}>v{APP_VERSION}</span>
         <Separator />
         <span className="text-foreground">{formatTime(currentTime, i18n.language)}</span>

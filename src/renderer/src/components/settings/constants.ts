@@ -2,20 +2,34 @@
  * Constantes pour les composants Settings
  */
 
-import {
-  Globe,
-  Wifi,
-  HardDrive,
-  Palette,
-  Trash2,
-  Shield,
-  History as HistoryIcon,
-  Keyboard,
-  Bookmark,
-  Wrench,
-  Info,
-} from 'lucide-react'
+import { Globe, HardDrive, Shield, History as HistoryIcon, Wrench, Info } from 'lucide-react'
 import type { SectionInfo, Shortcut } from './types'
+import walletIconSrc from '@/assets/wallet.svg'
+import privacyIconSrc from '@/assets/privacy.svg'
+import networkIconSrc from '@/assets/network.svg'
+import appearanceIconSrc from '@/assets/appearance.svg'
+import bookmarkIconSrc from '@/assets/bookmark.svg'
+import keyboardIconSrc from '@/assets/keyboard.svg'
+
+// SVG icon component using asset (no JSX in .ts, use createElement)
+import { createElement } from 'react'
+function SvgIcon(src: string) {
+  return function Icon({ className }: { className?: string }) {
+    const isInactive = className?.includes('opacity')
+    return createElement('img', {
+      src,
+      alt: '',
+      className: className?.replace('opacity-70', '') || '',
+      style: { filter: `brightness(0) invert(${isInactive ? '0.45' : '0.85'})` },
+    })
+  }
+}
+const WalletIcon = SvgIcon(walletIconSrc)
+const PrivacyIcon = SvgIcon(privacyIconSrc)
+const NetworkIcon = SvgIcon(networkIconSrc)
+const AppearanceIcon = SvgIcon(appearanceIconSrc)
+const BookmarkIcon = SvgIcon(bookmarkIconSrc)
+const KeyboardIcon = SvgIcon(keyboardIconSrc)
 
 const isMac =
   ((navigator as Navigator & { userAgentData?: { platform?: string } }).userAgentData?.platform || navigator.platform)
@@ -32,15 +46,16 @@ const mod = (key: string): string => {
  */
 export const SECTIONS: SectionInfo[] = [
   { id: 'general', label: 'General', icon: Globe },
-  { id: 'network', label: 'Network', icon: Wifi },
+  { id: 'network', label: 'Network', icon: NetworkIcon },
   { id: 'storage', label: 'Storage', icon: HardDrive },
-  { id: 'appearance', label: 'Appearance', icon: Palette },
-  { id: 'privacy', label: 'Privacy', icon: Trash2 },
+  { id: 'appearance', label: 'Appearance', icon: AppearanceIcon },
+  { id: 'privacy', label: 'Privacy', icon: PrivacyIcon },
   { id: 'content-filtering', label: 'Content Filtering', icon: Shield },
   { id: 'history', label: 'History', icon: HistoryIcon },
-  { id: 'shortcuts', label: 'Shortcuts', icon: Keyboard },
-  { id: 'bookmarks', label: 'Bookmarks', icon: Bookmark },
+  { id: 'shortcuts', label: 'Shortcuts', icon: KeyboardIcon },
+  { id: 'bookmarks', label: 'Bookmarks', icon: BookmarkIcon },
   { id: 'advanced', label: 'Advanced', icon: Wrench },
+  { id: 'wallet', label: 'Wallet', icon: WalletIcon },
   { id: 'about', label: 'About', icon: Info },
 ]
 

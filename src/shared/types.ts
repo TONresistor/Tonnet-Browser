@@ -163,6 +163,48 @@ export const AdvancedSettingsSchema = z.object({
   syncTestDomain: z.string().default('tonnet-sync-check.ton'),
 })
 
+// --- Wallet Zod schemas ---
+
+const SpendingLimitsSchema = z.object({
+  perRequest: z.string().default('0'),
+  perDay: z.string().default('0'),
+  perSitePerMonth: z.string().default('0'),
+})
+
+const SitePolicySchema = z.object({
+  domain: z.string(),
+  mode: z.enum(['off', 'manual', 'auto']),
+  customLimits: SpendingLimitsSchema.optional(),
+  totalSpent: z.string().default('0'),
+  lastPayment: z.number().optional(),
+})
+
+export const WalletSettingsSchema = z.object({
+  paymentMode: z.enum(['off', 'manual', 'auto']).default('manual'),
+  notificationStyle: z.enum(['banner', 'modal', 'toast', 'panel']).default('banner'),
+  limits: SpendingLimitsSchema.default({
+    perRequest: '0',
+    perDay: '0',
+    perSitePerMonth: '0',
+  }),
+  sitePolicies: z.array(SitePolicySchema).default([]),
+  autoPayDomains: z.array(z.string()).default([]),
+  toncenterApiKey: z.string().default(''),
+  tonapiKey: z.string().default(''),
+})
+
+export const WalletSettingsPartialSchema = z
+  .object({
+    paymentMode: z.enum(['off', 'manual', 'auto']),
+    notificationStyle: z.enum(['banner', 'modal', 'toast', 'panel']),
+    limits: SpendingLimitsSchema.partial(),
+    sitePolicies: z.array(SitePolicySchema),
+    autoPayDomains: z.array(z.string()),
+    toncenterApiKey: z.string(),
+    tonapiKey: z.string(),
+  })
+  .partial()
+
 /**
  * Helper that makes a category schema optional (absent key = use all defaults).
  * In Zod v4, `.default({})` on a nested object does not apply inner field defaults,
@@ -180,6 +222,7 @@ export const AppSettingsSchema = z.object({
   privacy: withCategoryDefaults(PrivacySettingsSchema),
   contentFiltering: withCategoryDefaults(ContentFilteringSettingsSchema),
   advanced: withCategoryDefaults(AdvancedSettingsSchema),
+  wallet: withCategoryDefaults(WalletSettingsSchema),
 })
 
 // Partial validation schemas (no defaults) — used to validate SETTINGS_SET updates.
@@ -311,6 +354,117 @@ export interface HistoryStats {
   isLocked: boolean
 }
 
+// --- Wallet types ---
+
+export type PaymentMode = 'off' | 'manual' | 'auto'
+export type NotificationStyle = 'banner' | 'modal' | 'toast' | 'panel'
+
+export interface SpendingLimits {
+  perRequest: string
+  perDay: string
+  perSitePerMonth: string
+}
+
+export interface SitePolicy {
+  domain: string
+  mode: PaymentMode
+  customLimits?: SpendingLimits
+  totalSpent: string
+  lastPayment?: number
+}
+
+export interface WalletState {
+  isCreated: boolean
+  address: string
+  addressRaw: string
+  publicKey: string
+  balance: string
+}
+
+export interface WalletTransaction {
+  id: string
+  type: 'send' | 'receive' | 'x402'
+  amount: string
+  address: string
+  timestamp: number
+  status: 'pending' | 'confirmed' | 'failed'
+  hash?: string
+  x402Domain?: string
+  x402Url?: string
+}
+
+export interface PaymentRequirements {
+  scheme: string
+  network: string
+  asset: string
+  amount: string
+  payTo: string
+  maxTimeoutSeconds: number
+  extra?: {
+    relayAddress?: string
+    maxRelayCommission?: string
+    assetDecimals: number
+    assetSymbol: string
+  }
+}
+
+export interface ExactTonPayload {
+  signedBoc: string
+  walletPublicKey: string
+  walletAddress: string
+  seqno: number
+  validUntil: number
+}
+
+export interface PaymentNotificationData {
+  id: string
+  domain: string
+  url: string
+  amount: string
+  payTo: string
+  status: 'pending' | 'approved' | 'rejected' | 'completed' | 'failed'
+  error?: string
+}
+
+export interface NftItem {
+  address: string
+  name: string
+  description?: string
+  image?: string
+  collection?: string
+}
+
+export interface TonDomain {
+  name: string
+  address: string
+  owner: string
+  expiresAt: number
+  walletRecord?: string
+}
+
+export interface DomainLookupResult {
+  name: string
+  owner: string
+  expiresAt: number
+  nftAddress: string
+  records: {
+    wallet?: string
+    site?: string
+    storage?: string
+    nextResolver?: string
+  }
+}
+
+export interface WalletSettings {
+  paymentMode: PaymentMode
+  notificationStyle: NotificationStyle
+  limits: SpendingLimits
+  sitePolicies: SitePolicy[]
+  autoPayDomains: string[]
+  toncenterApiKey: string
+  tonapiKey: string
+}
+
 // IPC Channel names
 export const IPC_CHANNELS = {
   // Proxy
@@ -366,6 +520,7 @@ export const IPC_CHANNELS = {
 
   // Sidebar
   UPDATE_SIDEBAR_WIDTH: 'update-sidebar-width',
+  UPDATE_WALLET_SIDEBAR_WIDTH: 'update-wallet-sidebar-width',
 
   // Bookmarks
   BOOKMARK_SHOW_MENU: 'bookmark:show-menu',
@@ -394,4 +549,21 @@ export const IPC_CHANNELS = {
   UPDATER_CHECK: 'updater:check',
   UPDATER_DOWNLOAD: 'updater:download',
   UPDATER_INSTALL: 'updater:install',
+
+  // Wallet
+  WALLET_CREATE: 'wallet:create',
+  WALLET_GET_STATE: 'wallet:get-state',
+  WALLET_GET_BALANCE: 'wallet:get-balance',
+  WALLET_SEND: 'wallet:send',
+  WALLET_GET_HISTORY: 'wallet:get-history',
+  WALLET_CLEAR_HISTORY: 'wallet:clear-history',
+  WALLET_EXPORT_KEY: 'wallet:export-key',
+  WALLET_APPROVE_PAYMENT: 'wallet:approve-payment',
+  WALLET_REJECT_PAYMENT: 'wallet:reject-payment',
+  WALLET_IMPORT: 'wallet:import',
+  WALLET_EXPORT_MNEMONIC: 'wallet:export-mnemonic',
+  WALLET_RESOLVE_DOMAIN: 'wallet:resolve-domain',
+  WALLET_GET_NFTS: 'wallet:get-nfts',
+  WALLET_GET_DOMAINS: 'wallet:get-domains',
+  WALLET_LOOKUP_DOMAIN: 'wallet:lookup-domain',
 } as const

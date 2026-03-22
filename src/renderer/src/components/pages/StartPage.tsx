@@ -36,12 +36,7 @@ export function StartPage() {
       <p className="text-foreground text-2xl font-bold mb-8">{t('start.subtitle')}</p>
 
       <form onSubmit={handleSearch} className="w-full max-w-[700px] px-5">
-        <div
-          className="flex items-center rounded-full p-1.5 transition-all duration-300 bg-surface-hover border border-border-medium backdrop-blur-[20px]"
-          style={{
-            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
-          }}
-        >
+        <div className="flex items-center rounded-full p-1.5 transition-all duration-300 glass-surface">
           <span className="px-4">
             <img src={tonIcon} alt="TON" className="w-6 h-6" />
           </span>
@@ -55,10 +50,7 @@ export function StartPage() {
           />
           <button
             type="submit"
-            className="w-14 h-14 flex items-center justify-center rounded-full text-2xl font-medium transition-all duration-200 hover:scale-105 bg-tonsite text-white backdrop-blur-[10px]"
-            style={{
-              boxShadow: '0 4px 16px rgba(0, 152, 234, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2)',
-            }}
+            className="w-14 h-14 flex items-center justify-center rounded-full text-2xl font-medium transition-all duration-200 hover:scale-105 bg-tonsite text-white backdrop-blur-[10px] shadow-[var(--glass-shadow)]"
             aria-label={t('start.searchButton')}
           >
             →

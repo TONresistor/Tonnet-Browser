@@ -18,6 +18,7 @@ import { storageManager } from './storage/daemon'
 import { setMainWindow } from './windows/main'
 import { getSetting } from './settings'
 import { historyManager } from './history/manager'
+import { walletManager } from './wallet/manager'
 import { startProxySequence } from './proxy/startup'
 import { buildContextMenu } from './utils/context-menu'
 import { initUpdater } from './updater'
@@ -354,6 +355,7 @@ app.whenReady().then(() => {
   })
 
   registerIpcHandlers()
+  walletManager.init().catch((e) => log.error('Wallet init failed:', e))
   createWindow()
 
   app.on('activate', () => {
@@ -392,6 +394,7 @@ async function runCleanup(): Promise<void> {
 
   proxyManager.stop()
   storageManager.stop()
+  walletManager.destroy()
 }
 
 app.on('window-all-closed', async () => {

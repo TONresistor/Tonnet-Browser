@@ -1,0 +1,20 @@
+{
+  "tonnet-proxy": {
+    "repo": "TONresistor/tonnet-proxy",
+    "version": "latest",
+    "assets": {
+      "linux": { "name": "tonnet-proxy-linux-amd64", "dest": "resources/bin/linux/tonnet-proxy" },
+      "mac": { "name": "tonnet-proxy-darwin-universal", "dest": "resources/bin/mac/tonnet-proxy" },
+      "win": { "name": "tonnet-proxy-windows-amd64.exe", "dest": "resources/bin/win/tonnet-proxy.exe" }
+    }
+  },
+  "tonutils-storage": {
+    "repo": "xssnick/tonutils-storage",
+    "version": "latest",
+    "assets": {
+      "linux": { "name": "tonutils-storage-linux-amd64", "dest": "resources/bin/linux/tonutils-storage" },
+      "mac": { "name": "tonutils-storage-mac-amd64", "dest": "resources/bin/mac/tonutils-storage" },
+      "win": { "name": "tonutils-storage-x64.exe", "dest": "resources/bin/win/tonutils-storage.exe" }
+    }
+  }
+}

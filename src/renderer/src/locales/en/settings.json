@@ -11,6 +11,7 @@
     "shortcuts": "Shortcuts",
     "bookmarks": "Bookmarks",
     "advanced": "Advanced",
+    "wallet": "Wallet",
     "about": "About"
   },
   "appearance": {
@@ -291,5 +292,36 @@
     "discard": "Discard",
     "saveChanges": "Save Changes",
     "saving": "Saving..."
+  },
+  "wallet": {
+    "title": "Wallet",
+    "description": "Configure your TON wallet and HTTP 402 payment settings",
+    "paymentMode": "Default Payment Mode",
+    "paymentModeDesc": "How to handle HTTP 402 payment requests from .ton sites",
+    "modeOff": "Off",
+    "modeManual": "Manual",
+    "modeAuto": "Auto",
+    "notificationStyle": "Notification Style",
+    "notificationStyleDesc": "How payment requests are displayed",
+    "notifBanner": "Banner",
+    "notifModal": "Modal",
+    "notifToast": "Toast",
+    "notifPanel": "Panel",
+    "spendingLimits": "Spending Limits",
+    "spendingLimitsDesc": "Set maximum amounts for automatic payments (0 = no limit)",
+    "perRequest": "Per Request",
+    "perRequestDesc": "Maximum amount per single payment",
+    "perDay": "Per Day",
+    "perDayDesc": "Maximum total spending per day",
+    "perSitePerMonth": "Per Site / Month",
+    "perSitePerMonthDesc": "Maximum spending per site per month",
+    "sitePolicies": "Site Permissions",
+    "sitePoliciesDesc": "Per-site payment mode overrides",
+    "spent": "Spent",
+    "removeSitePolicy": "Remove policy for {{domain}}",
+    "apiKey": "Toncenter API Key",
+    "apiKeyDesc": "Optional. Get a free key at toncenter.com for higher rate limits.",
+    "apiKeyPlaceholder": "Paste your API key here",
+    "apiKeySave": "Save"
   }
 }

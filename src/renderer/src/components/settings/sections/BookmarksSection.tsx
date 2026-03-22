@@ -136,7 +136,7 @@ export const BookmarksSection = memo(function BookmarksSection({
       <SectionHeader title={t('bookmarks.title')} description={t('bookmarks.description')} />
 
       {/* Settings Row */}
-      <div className="bg-card rounded-xl border border-border px-4 mb-6">
+      <div className="glass-card px-4 mb-6">
         <SettingRow label={t('bookmarks.savedBookmarks')} description={t('bookmarks.savedBookmarksDesc')}>
           <span className="text-foreground font-medium">{bookmarksCount}</span>
         </SettingRow>

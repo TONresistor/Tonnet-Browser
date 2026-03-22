@@ -37,6 +37,8 @@ let cookieAutoDeleteTimer: NodeJS.Timeout | null = null
 // Store resize handler reference to prevent listener accumulation on reconnect
 let resizeHandler: (() => void) | null = null
 
+let currentWalletSidebarWidth = 0
+
 // Cache for appearance settings to avoid redundant getSetting() calls during resize
 interface AppearanceCache {
   showBookmarksBar: boolean
@@ -196,6 +198,17 @@ export function updateSidebarWidth(width: number): void {
   })
 }
 
+export function updateWalletSidebarWidth(width: number): void {
+  currentWalletSidebarWidth = width
+  // Recalculate bounds for all active views
+  if (!mainWindow) return
+  for (const view of mainWindow.contentView.children) {
+    if (view instanceof WebContentsView) {
+      updateViewBounds(view as WebContentsView)
+    }
+  }
+}
+
 // Get or create session for a domain (First-Party Isolation)
 async function getSessionForDomain(domain: string): Promise<Electron.Session> {
   const privacy: PrivacySettings = getSetting('privacy')
@@ -271,7 +284,7 @@ function updateViewBounds(view: WebContentsView): void {
 
   // Calculate dimensions based on tab orientation
   const x = isVertical ? sidebarWidth : 0
-  const width = isVertical ? bounds.width - sidebarWidth : bounds.width
+  const width = (isVertical ? bounds.width - sidebarWidth : bounds.width) - currentWalletSidebarWidth
 
   // Use full available space
   // Anti-fingerprinting is handled by JavaScript injection (spoofs window dimensions)
@@ -321,9 +334,9 @@ function setupViewEvents(view: WebContentsView, tabId: string): void {
   view.webContents.on('page-title-updated', (_e, title) => {
     mainWindow?.webContents.send('page:title', title, tabId)
 
-    // Update history with new title
+    // Update history title without incrementing visit count
     const url = view.webContents.getURL()
-    historyManager.addEntry(url, title)
+    historyManager.addEntry(url, title, undefined, false)
   })
 
   // Extract and send favicon when page finishes loading

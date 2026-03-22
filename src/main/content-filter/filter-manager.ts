@@ -315,13 +315,22 @@ export class ContentFilterManager extends EventEmitter {
    * Syncs enabled state, whitelist, and per-category toggles.
    */
   applySettings(settings: ContentFilteringSettings): void {
-    this.setEnabled(settings.enabled)
-    this.setWhitelist(settings.whitelistedDomains)
-    this.setCategoryEnabled('ads', settings.blockAds)
-    this.setCategoryEnabled('trackers', settings.blockTrackers)
-    this.setCategoryEnabled('miners', settings.blockMiners)
-    this.setCategoryEnabled('malware', settings.blockMalware)
-    this.setCategoryEnabled('annoyances', settings.blockAnnoyances)
+    this.enabled = settings.enabled
+    this.whitelistedDomains = new Set(settings.whitelistedDomains.map((d) => d.toLowerCase()))
+    this.categoryEnabled = {
+      ads: settings.blockAds,
+      trackers: settings.blockTrackers,
+      miners: settings.blockMiners,
+      malware: settings.blockMalware,
+      annoyances: settings.blockAnnoyances,
+    }
+    const cats = Object.entries(this.categoryEnabled)
+      .filter(([, v]) => v)
+      .map(([k]) => k)
+      .join(', ')
+    log.info(
+      `Filter: ${this.enabled ? 'on' : 'off'}, whitelist: ${settings.whitelistedDomains.length}, categories: ${cats}`
+    )
   }
 
   /**

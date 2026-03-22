@@ -44,6 +44,18 @@ vi.mock('electron', () => ({
     openPath: vi.fn(() => Promise.resolve('')),
     showItemInFolder: vi.fn(),
   },
+  app: {
+    getPath: vi.fn(() => '/tmp/tonnet-test'),
+  },
+  safeStorage: {
+    isEncryptionAvailable: vi.fn(() => false),
+    encryptString: vi.fn((s: string) => Buffer.from(s)),
+    decryptString: vi.fn((b: Buffer) => b.toString()),
+    getSelectedStorageBackend: vi.fn(() => 'gnome_libsecret'),
+  },
+  net: {
+    fetch: vi.fn(() => Promise.resolve(new Response('{}', { status: 200 }))),
+  },
   IpcMainInvokeEvent: {},
 }))
 

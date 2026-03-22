@@ -220,7 +220,7 @@ export function StoragePage() {
   return (
     <div className="flex h-full bg-background-secondary" style={{ fontFamily: 'Inter, sans-serif' }}>
       {/* Sidebar */}
-      <div className="w-56 border-r border-border p-4 flex flex-col">
+      <div className="w-56 border-r border-border p-4 flex flex-col bg-[hsl(var(--elevation-1))]">
         <h2 className="text-foreground text-xl font-bold mb-4">{t('storage.title')}</h2>
 
         <button
@@ -445,7 +445,7 @@ export function StoragePage() {
         >
           <div
             ref={addModalRef}
-            className="rounded-2xl p-6 w-full max-w-md mx-4 bg-card/85 backdrop-blur-[20px] border border-border-medium shadow-[0_8px_32px_hsl(var(--shadow-color)/0.4),inset_0_1px_0_hsl(var(--surface-hover))]"
+            className="rounded-[var(--radius-container)] p-6 w-full max-w-md mx-4 glass-card shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-4">
@@ -484,7 +484,7 @@ export function StoragePage() {
                   }
                 }}
                 placeholder={t('storage.addModal.bagIdPlaceholder')}
-                className={`w-full px-3 py-2 bg-background-secondary border rounded-md text-foreground placeholder:text-muted-foreground/50 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-primary ${bagIdError ? 'border-destructive' : 'border-border'}`}
+                className={`w-full px-3 py-2 bg-background-secondary border rounded-full text-foreground placeholder:text-muted-foreground/50 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-primary ${bagIdError ? 'border-destructive' : 'border-border'}`}
                 autoFocus
               />
               {bagIdError && <p className="mt-2 text-destructive text-xs">{bagIdError}</p>}

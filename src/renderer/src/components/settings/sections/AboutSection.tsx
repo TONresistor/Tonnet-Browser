@@ -123,7 +123,7 @@ export const AboutSection = memo(function AboutSection() {
         return (
           <button
             disabled
-            className="flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-200 bg-green-500/15 border border-green-500/30 text-green-400"
+            className="flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-200 bg-success/15 border border-success/30 text-success"
           >
             <CircleCheckBig className="h-4 w-4" />
             {t('about.update.upToDate')}
@@ -161,7 +161,7 @@ export const AboutSection = memo(function AboutSection() {
         return (
           <button
             onClick={handleInstall}
-            className="flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-200 bg-green-500/90 text-white shadow-[0_4px_16px_rgba(34,197,94,0.3)] hover:bg-green-500"
+            className="flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-200 bg-success/90 text-white shadow-[0_4px_16px_hsl(var(--success)/0.3)] hover:bg-success"
           >
             <RefreshCw className="h-4 w-4" />
             {t('about.update.restart')}
@@ -189,7 +189,7 @@ export const AboutSection = memo(function AboutSection() {
   return (
     <div>
       <SectionHeader title={t('about.title')} />
-      <div className="bg-card rounded-xl border border-border p-6 text-center">
+      <div className="glass-card p-6 text-center">
         <div className="w-16 h-16 mx-auto mb-4">
           <img src={tonLogo} alt="TON" className="w-full h-full object-contain" />
         </div>

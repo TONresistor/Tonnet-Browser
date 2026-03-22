@@ -75,29 +75,36 @@ export class ProxyManager extends EventEmitter {
       this.process = spawn(binPath, ['--direct', '--listen', `127.0.0.1:${safePort}`], { windowsHide: true })
     }
 
-    this.process.stdout?.on('data', (data: Buffer) => {
+    // tonnet-proxy v0.6.0+ uses slog (structured logging) on stderr.
+    // Parse both stdout (legacy) and stderr (slog) for relay names and status.
+    const handleProxyOutput = (data: Buffer) => {
       const message = data.toString().trim()
+      if (!message) return
       log.debug(message)
       this.emit('log', message)
 
-      // Parse circuit relay names from tonnet-proxy output
+      // Parse circuit relay names (supports both legacy and slog formats)
       if (this.anonymousMode) {
-        const entryMatch = message.match(/Entry:\s+(\w+)/)
-        const middleMatch = message.match(/Middle:\s+(\w+)/)
-        const exitMatch = message.match(/Exit:\s+(\w+)/)
-        if (entryMatch) this.circuitRelays[0] = entryMatch[1]
-        if (middleMatch) this.circuitRelays[1] = middleMatch[1]
-        if (exitMatch) this.circuitRelays[2] = exitMatch[1]
-      }
-    })
+        // slog format: entry_name=relayer4
+        const entryName = message.match(/entry_name=(\w+)/)
+        const middleName = message.match(/middle_name=(\w+)/)
+        const exitName = message.match(/exit_name=(\w+)/)
+        // Legacy format: Entry:  relayer4
+        const entryLegacy = message.match(/Entry:\s+(\w+)/)
+        const middleLegacy = message.match(/Middle:\s+(\w+)/)
+        const exitLegacy = message.match(/Exit:\s+(\w+)/)
 
-    this.process.stderr?.on('data', (data: Buffer) => {
-      const message = data.toString().trim()
-      if (message) {
-        log.warn(message)
-        this.emit('error', message)
+        if (entryName) this.circuitRelays[0] = entryName[1]
+        else if (entryLegacy) this.circuitRelays[0] = entryLegacy[1]
+        if (middleName) this.circuitRelays[1] = middleName[1]
+        else if (middleLegacy) this.circuitRelays[1] = middleLegacy[1]
+        if (exitName) this.circuitRelays[2] = exitName[1]
+        else if (exitLegacy) this.circuitRelays[2] = exitLegacy[1]
       }
-    })
+    }
+
+    this.process.stdout?.on('data', handleProxyOutput)
+    this.process.stderr?.on('data', handleProxyOutput)
 
     this.process.on('exit', (code) => {
       log.info(`Proxy exited with code: ${code}`)
@@ -244,21 +251,23 @@ export class ProxyManager extends EventEmitter {
     const { network } = this.loadSettings()
     const maxAttempts = network.connectionTimeout // seconds
 
-    // Both modes now use tonnet-proxy which outputs "Proxy listening" when ready
+    // tonnet-proxy outputs "proxy listening" (slog structured) on stderr when ready
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
         reject(new Error('Proxy failed to start within timeout'))
       }, maxAttempts * 1000)
 
       const checkOutput = (data: Buffer) => {
-        if (data.toString().includes('Proxy listening')) {
+        if (data.toString().toLowerCase().includes('proxy listening')) {
           clearTimeout(timeout)
           this.process?.stdout?.off('data', checkOutput)
+          this.process?.stderr?.off('data', checkOutput)
           log.info('Proxy is ready')
           resolve()
         }
       }
       this.process?.stdout?.on('data', checkOutput)
+      this.process?.stderr?.on('data', checkOutput)
     })
   }
 }

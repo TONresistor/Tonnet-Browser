@@ -15,6 +15,8 @@ import { cn } from '@/lib/utils'
 import { processNavigationInput, stripHttpPrefix, getHostname } from '@/lib/url-utils'
 import tonIcon from '@/assets/ton.png'
 import { useTranslation } from 'react-i18next'
+import { TipButton } from './TipButton'
+import { useWalletStore } from '@/stores/wallet'
 
 interface HistorySuggestion {
   id: string
@@ -39,11 +41,31 @@ export const AddressBar = memo(function AddressBar() {
   const suggestionsRef = useRef<HTMLDivElement>(null)
 
   const isBookmarked = useMemo(() => bookmarks.some((b) => b.url === currentUrl), [bookmarks, currentUrl])
-  const isTonSite = useMemo(
-    () => currentUrl.includes('.ton') || currentUrl.includes('.adnl') || currentUrl.includes('.t.me'),
-    [currentUrl]
-  )
+  const isTonSite = useMemo(() => {
+    const supportedTLDs = [
+      '.ton',
+      '.adnl',
+      '.t.me',
+      '.eth',
+      '.sol',
+      '.crypto',
+      '.x',
+      '.wallet',
+      '.nft',
+      '.dao',
+      '.blockchain',
+      '.bitcoin',
+      '.zil',
+      '.bnb',
+      '.btc',
+    ]
+    return supportedTLDs.some((tld) => currentUrl.includes(tld))
+  }, [currentUrl])
   const isInternalPage = useMemo(() => currentUrl.startsWith('ton://'), [currentUrl])
+  const hostname = useMemo(() => getHostname(currentUrl), [currentUrl])
+  const isTonDomain = useMemo(() => hostname.endsWith('.ton'), [hostname])
+  const walletCreated = useWalletStore((s) => s.isCreated)
+  const showTipButton = isTonDomain && walletCreated
 
   // Display URL without http:// for TON sites
   useEffect(() => {
@@ -173,7 +195,7 @@ export const AddressBar = memo(function AddressBar() {
   return (
     <form onSubmit={handleSubmit} className="flex items-center gap-2 flex-1 min-w-[400px] no-drag" role="search">
       <div className="relative flex-1">
-        <div className="relative flex items-center rounded-full bg-surface border border-surface-hover backdrop-blur-[20px]">
+        <div className="relative flex items-center rounded-full glass-surface">
           {/* TON site badge */}
           {isTonSite && !isLoading ? (
             <div
@@ -207,7 +229,8 @@ export const AddressBar = memo(function AddressBar() {
             }}
             onKeyDown={handleKeyDown}
             className={cn(
-              'pr-10 h-8 bg-transparent border-0 rounded-full focus:ring-0 focus:outline-none',
+              'h-8 bg-transparent border-0 rounded-full focus:ring-0 focus:outline-none',
+              showTipButton ? 'pr-2' : 'pr-10',
               isTonSite && !isLoading ? 'pl-24' : 'pl-10'
             )}
             placeholder={t('addressBar.placeholder')}
@@ -217,11 +240,20 @@ export const AddressBar = memo(function AddressBar() {
             aria-expanded={showSuggestions}
           />
 
+          {showTipButton && (
+            <div className="flex-shrink-0 mr-0.5">
+              <TipButton domain={hostname} />
+            </div>
+          )}
+
           <Button
             type="button"
             variant="ghost"
             size="icon"
-            className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full"
+            className={cn(
+              'h-6 w-6 rounded-full flex-shrink-0',
+              showTipButton ? 'mr-1' : 'absolute right-1 top-1/2 -translate-y-1/2'
+            )}
             onClick={toggleBookmark}
             disabled={!currentUrl || isInternalPage}
             title={isBookmarked ? t('addressBar.removeBookmarkTitle') : t('addressBar.addBookmarkTitle')}
@@ -241,7 +273,7 @@ export const AddressBar = memo(function AddressBar() {
             ref={suggestionsRef}
             id="history-suggestions"
             role="listbox"
-            className="absolute top-full left-0 right-0 mt-2 bg-surface border border-surface-hover rounded-lg shadow-lg backdrop-blur-[20px] overflow-hidden z-50"
+            className="absolute top-full left-0 right-0 mt-2 glass-card overflow-hidden z-50"
           >
             {suggestions.map((suggestion, index) => (
               <button

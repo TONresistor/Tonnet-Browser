@@ -9,3 +9,8 @@ export function formatBytes(bytes: number): string {
 export function formatSpeed(bytesPerSecond: number): string {
   return `${formatBytes(bytesPerSecond)}/s`
 }
+
+export function truncateAddress(addr: string, headLen = 8, tailLen = 6): string {
+  if (addr.length <= headLen + tailLen + 3) return addr
+  return `${addr.slice(0, headLen)}...${addr.slice(-tailLen)}`
+}

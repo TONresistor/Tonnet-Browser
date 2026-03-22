@@ -7,6 +7,7 @@ import { WebContentsView, session } from 'electron'
 import { USER_AGENT } from '../../shared/constants'
 import { getSetting } from '../settings'
 import { contentFilterManager } from '../content-filter/filter-manager'
+import { paymentInterceptor } from '../wallet/payment-interceptor'
 import { createLogger } from '../../shared/logger'
 import antiFingerprint from './anti-fingerprinting.js?raw'
 const log = createLogger('browser-view')
@@ -68,6 +69,9 @@ export async function createTonSession(proxyPort: number, partitionName: string 
     callback({ requestHeaders: headers })
   })
 
+  // Register 402 payment interceptor on this session
+  paymentInterceptor.registerOnSession(ses)
+
   // Privacy: Enforce no-referrer policy and strip ETag from responses
   ses.webRequest.onHeadersReceived((details, callback) => {
     const headers = { ...details.responseHeaders }
@@ -96,6 +100,17 @@ export function createBrowserView(ses: Electron.Session): WebContentsView {
 
   // WebContentsView defaults to white background — prevent white flash
   view.setBackgroundColor('#0a0a0a')
+
+  // Expose this WebContentsView to CDP (Chrome DevTools Protocol)
+  // so agent-tonbrowser can inspect and interact with .ton page content.
+  // Only attaches when remote debugging is active (--remote-debugging-port).
+  if (process.argv.some((a) => a.startsWith('--remote-debugging-port'))) {
+    try {
+      view.webContents.debugger.attach('1.3')
+    } catch {
+      // Already attached or not available — safe to ignore
+    }
+  }
 
   // Privacy: Disable tracking APIs on every page load
   view.webContents.on('dom-ready', () => {

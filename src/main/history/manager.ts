@@ -26,6 +26,11 @@ export class HistoryManager extends EventEmitter {
   private readyPromise: Promise<void>
   private isReady: boolean = false
   private pendingEntries: Array<{ url: string; title: string; favicon?: string }> = []
+  private saveTimer: ReturnType<typeof setTimeout> | null = null
+  private lastVisitKey: string = ''
+  private lastVisitTime: number = 0
+  private static readonly SAVE_DEBOUNCE_MS = 500
+  private static readonly VISIT_DEDUP_MS = 1000
 
   constructor() {
     super()
@@ -119,9 +124,10 @@ export class HistoryManager extends EventEmitter {
   }
 
   /**
-   * Add entry to history
+   * Add or update a history entry.
+   * @param countVisit - if false, only updates title/favicon without incrementing visitCount
    */
-  addEntry(url: string, title: string, favicon?: string): void {
+  addEntry(url: string, title: string, favicon?: string, countVisit: boolean = true): void {
     // Buffer entry if manager not yet ready (readyPromise not resolved)
     if (!this.isReady) {
       log.debug(`HistoryManager not ready, buffering entry: ${url}`)
@@ -145,8 +151,16 @@ export class HistoryManager extends EventEmitter {
     if (existing) {
       // Update existing entry
       existing.title = title || existing.title
-      existing.visitedAt = Date.now()
-      existing.visitCount++
+      if (countVisit) {
+        const now = Date.now()
+        const isDuplicate = id === this.lastVisitKey && now - this.lastVisitTime < HistoryManager.VISIT_DEDUP_MS
+        if (!isDuplicate) {
+          existing.visitedAt = now
+          existing.visitCount++
+          this.lastVisitKey = id
+          this.lastVisitTime = now
+        }
+      }
       if (favicon) {
         existing.favicon = favicon
       }
@@ -172,11 +186,9 @@ export class HistoryManager extends EventEmitter {
 
     this.emit('entry-added', url)
 
-    // Auto-save if persistent mode
+    // Auto-save if persistent mode (debounced to batch rapid writes)
     if (this.mode === HistoryMode.PERSISTENT) {
-      this.savePersistent().catch((err) => {
-        log.error('Auto-save failed:', err)
-      })
+      this.debouncedSave()
     }
   }
 
@@ -258,11 +270,9 @@ export class HistoryManager extends EventEmitter {
       this.emit('entry-deleted', id)
       log.debug(`Deleted entry: ${id}`)
 
-      // Auto-save if persistent
+      // Auto-save if persistent (debounced)
       if (this.mode === HistoryMode.PERSISTENT) {
-        this.savePersistent().catch((err) => {
-          log.error('Auto-save after delete failed:', err)
-        })
+        this.debouncedSave()
       }
     }
 
@@ -315,13 +325,11 @@ export class HistoryManager extends EventEmitter {
 
     if (toDelete.length > 0) {
       this.emit('entries-deleted', toDelete.length)
-      log.info(`Deleted ${toDelete.length} entries matching pattern: ${pattern}`)
+      log.debug(`Deleted ${toDelete.length} entries matching pattern: ${pattern}`)
 
-      // Auto-save if persistent
+      // Auto-save if persistent (debounced)
       if (this.mode === HistoryMode.PERSISTENT) {
-        this.savePersistent().catch((err) => {
-          log.error('Auto-save after batch delete failed:', err)
-        })
+        this.debouncedSave()
       }
     }
 
@@ -374,6 +382,30 @@ export class HistoryManager extends EventEmitter {
   }
 
   /**
+   * Debounce save: batches rapid writes into a single disk write
+   */
+  private debouncedSave(): void {
+    if (this.saveTimer) clearTimeout(this.saveTimer)
+    this.saveTimer = setTimeout(() => {
+      this.saveTimer = null
+      this.savePersistent().catch((err) => {
+        log.error('Auto-save failed:', err)
+      })
+    }, HistoryManager.SAVE_DEBOUNCE_MS)
+  }
+
+  /**
+   * Flush any pending debounced save immediately
+   */
+  private async flushSave(): Promise<void> {
+    if (this.saveTimer) {
+      clearTimeout(this.saveTimer)
+      this.saveTimer = null
+      await this.savePersistent()
+    }
+  }
+
+  /**
    * Save to persistent storage (automatic encryption)
    */
   private async savePersistent(): Promise<void> {
@@ -395,7 +427,8 @@ export class HistoryManager extends EventEmitter {
       this.clear()
       log.info('Memory cleared on exit')
     } else if (this.mode === HistoryMode.PERSISTENT) {
-      // Final save
+      // Flush debounced save + final save
+      await this.flushSave()
       await this.savePersistent()
       log.info('Persistent history saved on exit')
     }

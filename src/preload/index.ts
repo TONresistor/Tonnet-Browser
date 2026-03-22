@@ -31,6 +31,11 @@ const VALID_EVENT_CHANNELS = [
   'updater:downloaded',
   'updater:error',
   'tab:history-reset',
+  'wallet:balance-updated',
+  'wallet:state-changed',
+  'wallet:payment-req',
+  'wallet:payment-made',
+  'wallet:payment-failed',
 ]
 
 // Custom APIs for renderer - exposed as window.electron
@@ -108,6 +113,7 @@ const electronAPI = {
 
   // Immediate sidebar width update (for real-time resize)
   updateSidebarWidth: (width: number) => ipcRenderer.invoke(IPC_CHANNELS.UPDATE_SIDEBAR_WIDTH, width),
+  updateWalletSidebarWidth: (width: number) => ipcRenderer.invoke(IPC_CHANNELS.UPDATE_WALLET_SIDEBAR_WIDTH, width),
 
   // Settings
   clearBrowsingData: () => ipcRenderer.invoke(IPC_CHANNELS.CLEAR_BROWSING_DATA),
@@ -133,6 +139,25 @@ const electronAPI = {
     clear: () => ipcRenderer.invoke(IPC_CHANNELS.HISTORY_CLEAR),
     getStats: () => ipcRenderer.invoke(IPC_CHANNELS.HISTORY_GET_STATS),
     hasPersistentFile: () => ipcRenderer.invoke(IPC_CHANNELS.HISTORY_HAS_PERSISTENT_FILE),
+  },
+
+  // Wallet
+  wallet: {
+    create: () => ipcRenderer.invoke(IPC_CHANNELS.WALLET_CREATE),
+    getState: () => ipcRenderer.invoke(IPC_CHANNELS.WALLET_GET_STATE),
+    getBalance: () => ipcRenderer.invoke(IPC_CHANNELS.WALLET_GET_BALANCE),
+    send: (to: string, amount: string) => ipcRenderer.invoke(IPC_CHANNELS.WALLET_SEND, to, amount),
+    getHistory: (limit?: number) => ipcRenderer.invoke(IPC_CHANNELS.WALLET_GET_HISTORY, limit),
+    clearHistory: () => ipcRenderer.invoke(IPC_CHANNELS.WALLET_CLEAR_HISTORY),
+    exportKey: () => ipcRenderer.invoke(IPC_CHANNELS.WALLET_EXPORT_KEY),
+    approvePayment: (paymentId: string) => ipcRenderer.invoke(IPC_CHANNELS.WALLET_APPROVE_PAYMENT, paymentId),
+    rejectPayment: (paymentId: string) => ipcRenderer.invoke(IPC_CHANNELS.WALLET_REJECT_PAYMENT, paymentId),
+    importWallet: (mnemonic: string[]) => ipcRenderer.invoke(IPC_CHANNELS.WALLET_IMPORT, mnemonic),
+    exportMnemonic: () => ipcRenderer.invoke(IPC_CHANNELS.WALLET_EXPORT_MNEMONIC),
+    resolveDomain: (domain: string) => ipcRenderer.invoke(IPC_CHANNELS.WALLET_RESOLVE_DOMAIN, domain),
+    getNfts: () => ipcRenderer.invoke(IPC_CHANNELS.WALLET_GET_NFTS),
+    getDomains: () => ipcRenderer.invoke(IPC_CHANNELS.WALLET_GET_DOMAINS),
+    lookupDomain: (domain: string) => ipcRenderer.invoke(IPC_CHANNELS.WALLET_LOOKUP_DOMAIN, domain),
   },
 
   // Updater

@@ -5,8 +5,8 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 
-const DIAGRAM_COLOR = 'rgba(255, 255, 255, 0.5)'
-const DIAGRAM_COLOR_ACTIVE = 'rgba(255, 255, 255, 0.8)'
+const DIAGRAM_COLOR = 'hsl(var(--foreground) / 0.5)'
+const DIAGRAM_COLOR_ACTIVE = 'hsl(var(--foreground) / 0.8)'
 
 export function GarlicRoutingDiagram() {
   const { t } = useTranslation('settings')
@@ -105,9 +105,8 @@ export function GarlicRoutingDiagram() {
   }
 
   return (
-    <div className="py-4">
-      <div className="flex items-center justify-between mb-3">
-        <p className="text-foreground text-base font-semibold">{t('general.howItWorks')}</p>
+    <div className="pb-4">
+      <div className="flex items-center justify-end mb-3">
         <button
           onClick={handlePlayPause}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm transition-all bg-surface-hover border border-border-medium text-foreground-secondary"
@@ -136,7 +135,7 @@ export function GarlicRoutingDiagram() {
 
             return (
               <g key={`segment-${i}`}>
-                <line x1={x1 + 18} y1={36} x2={x2 - 18} y2={36} stroke="rgba(255, 255, 255, 0.1)" strokeWidth="2" />
+                <line x1={x1 + 18} y1={36} x2={x2 - 18} y2={36} stroke="hsl(var(--foreground) / 0.1)" strokeWidth="2" />
                 <line
                   x1={x1 + 18}
                   y1={36}
@@ -164,20 +163,20 @@ export function GarlicRoutingDiagram() {
           })}
 
           <g>
-            <text x="50" y="12" textAnchor="middle" fill="rgba(255, 255, 255, 0.9)" fontSize="12" fontWeight="600">
+            <text x="50" y="12" textAnchor="middle" fill="hsl(var(--foreground) / 0.9)" fontSize="12" fontWeight="600">
               {t('general.you')}
             </text>
             <circle
               cx="50"
               cy="36"
               r="16"
-              fill={isNodeActive(0) ? 'rgba(255, 255, 255, 0.15)' : 'rgba(255, 255, 255, 0.08)'}
-              stroke={isNodeActive(0) ? 'rgba(255, 255, 255, 0.5)' : 'rgba(255, 255, 255, 0.2)'}
+              fill={isNodeActive(0) ? 'hsl(var(--foreground) / 0.15)' : 'hsl(var(--foreground) / 0.08)'}
+              stroke={isNodeActive(0) ? 'hsl(var(--foreground) / 0.5)' : 'hsl(var(--foreground) / 0.2)'}
               strokeWidth="2"
               style={{ transition: 'all 0.3s ease' }}
             />
             {isPlaying && (
-              <text x="50" y="68" textAnchor="middle" fill="rgba(255, 255, 255, 0.5)" fontSize="11">
+              <text x="50" y="68" textAnchor="middle" fill="hsl(var(--foreground) / 0.5)" fontSize="11">
                 {phase === 'forward' ? t('general.encrypts') : t('general.decrypts')}
               </text>
             )}
@@ -195,16 +194,16 @@ export function GarlicRoutingDiagram() {
                   cx={cx}
                   cy={36}
                   r="16"
-                  fill={isActive || isPassed ? 'rgba(255, 255, 255, 0.1)' : 'rgba(255, 255, 255, 0.04)'}
-                  stroke={isActive || isPassed ? DIAGRAM_COLOR : 'rgba(255, 255, 255, 0.15)'}
+                  fill={isActive || isPassed ? 'hsl(var(--foreground) / 0.1)' : 'hsl(var(--foreground) / 0.04)'}
+                  stroke={isActive || isPassed ? DIAGRAM_COLOR : 'hsl(var(--foreground) / 0.15)'}
                   strokeWidth="2"
                   style={{ transition: 'all 0.3s ease' }}
                 />
-                <text x={cx} y="68" textAnchor="middle" fill="rgba(255, 255, 255, 0.6)" fontSize="11">
+                <text x={cx} y="68" textAnchor="middle" fill="hsl(var(--foreground) / 0.6)" fontSize="11">
                   {t('general.relay')} {relayIds[i]}
                 </text>
                 {isPlaying && (isActive || isPassed) && (
-                  <text x={cx} y="84" textAnchor="middle" fill="rgba(255, 255, 255, 0.4)" fontSize="10">
+                  <text x={cx} y="84" textAnchor="middle" fill="hsl(var(--foreground) / 0.4)" fontSize="10">
                     {actionText}
                   </text>
                 )}
@@ -213,20 +212,20 @@ export function GarlicRoutingDiagram() {
           })}
 
           <g>
-            <text x="450" y="12" textAnchor="middle" fill="rgba(255, 255, 255, 0.9)" fontSize="12" fontWeight="600">
+            <text x="450" y="12" textAnchor="middle" fill="hsl(var(--foreground) / 0.9)" fontSize="12" fontWeight="600">
               .ton
             </text>
             <circle
               cx="450"
               cy="36"
               r="16"
-              fill={isNodeActive(4) ? 'rgba(255, 255, 255, 0.15)' : 'rgba(255, 255, 255, 0.08)'}
-              stroke={isNodeActive(4) ? 'rgba(255, 255, 255, 0.5)' : 'rgba(255, 255, 255, 0.2)'}
+              fill={isNodeActive(4) ? 'hsl(var(--foreground) / 0.15)' : 'hsl(var(--foreground) / 0.08)'}
+              stroke={isNodeActive(4) ? 'hsl(var(--foreground) / 0.5)' : 'hsl(var(--foreground) / 0.2)'}
               strokeWidth="2"
               style={{ transition: 'all 0.3s ease' }}
             />
             {isPlaying && (
-              <text x="450" y="68" textAnchor="middle" fill="rgba(255, 255, 255, 0.5)" fontSize="11">
+              <text x="450" y="68" textAnchor="middle" fill="hsl(var(--foreground) / 0.5)" fontSize="11">
                 {phase === 'forward' ? t('general.receives') : t('general.responds')}
               </text>
             )}

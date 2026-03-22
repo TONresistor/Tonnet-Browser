@@ -39,7 +39,7 @@ export const ContentFilteringSection = memo(function ContentFilteringSection({ d
   return (
     <div>
       <SectionHeader title={t('contentFiltering.title')} description={t('contentFiltering.description')} />
-      <div className="bg-card rounded-xl border border-border px-4">
+      <div className="glass-card px-4">
         <SettingRow
           label={t('contentFiltering.enableFiltering')}
           description={t('contentFiltering.enableFilteringDesc')}

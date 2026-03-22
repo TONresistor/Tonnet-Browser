@@ -305,7 +305,7 @@ export function HistoryPage() {
                 <h2 className="text-sm font-semibold text-muted-foreground mb-3 px-2">{label}</h2>
 
                 {/* Entries for this date */}
-                <div className="bg-card rounded-2xl border border-border divide-y divide-border overflow-hidden">
+                <div className="glass-card divide-y divide-border overflow-hidden">
                   {dateEntries.map((entry, index) => (
                     <div
                       key={entry.id}
@@ -344,18 +344,18 @@ export function HistoryPage() {
                           <div className="flex items-center gap-1">
                             <button
                               onClick={() => openInNewTab(entry.url)}
-                              className="p-2 hover:bg-surface-active rounded transition-colors"
+                              className="p-2 hover:bg-surface-active rounded-full transition-colors"
                               title={t('history.actions.openInNewTab')}
                             >
                               <ExternalLink className="w-4 h-4 text-foreground" />
                             </button>
                             <button
                               onClick={() => copyUrl(entry.url, entry.id)}
-                              className="p-2 hover:bg-surface-active rounded transition-colors relative"
+                              className="p-2 hover:bg-surface-active rounded-full transition-colors relative"
                               title={t('history.actions.copyUrl')}
                             >
                               {copiedId === entry.id ? (
-                                <span className="text-xs text-green-600 font-medium whitespace-nowrap">
+                                <span className="text-xs text-success font-medium whitespace-nowrap">
                                   {t('history.copied')}
                                 </span>
                               ) : (
@@ -376,7 +376,7 @@ export function HistoryPage() {
                             </button>
                             <button
                               onClick={() => handleDelete(entry.id)}
-                              className={`p-2 rounded transition-colors ${
+                              className={`p-2 rounded-full transition-colors ${
                                 pendingDeleteId === entry.id ? 'bg-destructive/20' : 'hover:bg-destructive/10'
                               }`}
                               title={t('history.actions.delete')}

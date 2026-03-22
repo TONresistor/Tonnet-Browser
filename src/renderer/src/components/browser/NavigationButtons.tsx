@@ -3,8 +3,9 @@
  * Back, forward, reload, home, and stop.
  */
 
-import { ArrowLeft, ArrowRight, RotateCw, House, X } from 'lucide-react'
+import { ArrowLeft, ArrowRight, RotateCw, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import homeIconSrc from '@/assets/home.svg'
 import { useBrowserStore } from '@/stores/browser'
 import { useTabsStore } from '@/stores/tabs'
 import { useTranslation } from 'react-i18next'
@@ -36,7 +37,7 @@ export function NavigationButtons() {
 
   return (
     <nav
-      className="flex items-center gap-0.5 rounded-full px-1 py-0.5 bg-surface border border-surface-hover backdrop-blur-[20px]"
+      className="flex items-center gap-0.5 rounded-full px-1 py-0.5 glass-surface"
       aria-label={t('navigation.pageNavigation')}
     >
       <Button
@@ -82,7 +83,13 @@ export function NavigationButtons() {
         title={t('navigation.home')}
         aria-label={t('navigation.goHomeAria')}
       >
-        <House className="h-4 w-4" aria-hidden="true" />
+        <img
+          src={homeIconSrc}
+          alt=""
+          className="h-4 w-4 text-foreground"
+          style={{ filter: 'brightness(0) invert(1)' }}
+          aria-hidden="true"
+        />
       </Button>
     </nav>
   )

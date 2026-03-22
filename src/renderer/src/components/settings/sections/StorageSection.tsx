@@ -26,7 +26,7 @@ export const StorageSection = memo(function StorageSection({
   return (
     <div>
       <SectionHeader title={t('storage.title')} description={t('storage.description')} />
-      <div className="bg-card rounded-xl border border-border px-4">
+      <div className="glass-card px-4">
         <SettingRow label={t('storage.downloadFolder')} description={t('storage.downloadFolderDesc')}>
           <div className="flex items-center gap-2">
             <div className="max-w-[200px] px-3 py-1.5 rounded-full text-sm text-muted-foreground truncate bg-surface-hover border border-border-medium">

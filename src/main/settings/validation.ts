@@ -13,6 +13,7 @@ import {
   PrivacySettingsPartialSchema,
   ContentFilteringSettingsPartialSchema,
   AdvancedSettingsPartialSchema,
+  WalletSettingsPartialSchema,
 } from '../../shared/types'
 import { DEFAULT_SETTINGS } from '../../shared/defaults'
 import { createLogger } from '../../shared/logger'
@@ -27,6 +28,7 @@ export const SETTINGS_CATEGORIES: ReadonlyArray<keyof AppSettings> = [
   'privacy',
   'contentFiltering',
   'advanced',
+  'wallet',
 ]
 
 /**
@@ -59,6 +61,7 @@ export function validateCategoryValues(
     privacy: PrivacySettingsPartialSchema,
     contentFiltering: ContentFilteringSettingsPartialSchema,
     advanced: AdvancedSettingsPartialSchema,
+    wallet: WalletSettingsPartialSchema,
   }
   const schema = schemas[category]
   if (!schema) {
@@ -203,6 +206,15 @@ export function getDefaultSettingsBase(): AppSettings {
       proxyVerbosity: d.proxyVerbosity,
       storageVerbosity: d.storageVerbosity,
       syncTestDomain: d.syncTestDomain,
+    },
+    wallet: {
+      paymentMode: d.wallet.paymentMode,
+      notificationStyle: d.wallet.notificationStyle,
+      limits: { ...d.wallet.limits },
+      sitePolicies: [...d.wallet.sitePolicies],
+      autoPayDomains: [...d.wallet.autoPayDomains],
+      toncenterApiKey: d.wallet.toncenterApiKey,
+      tonapiKey: d.wallet.tonapiKey,
     },
   }
 }

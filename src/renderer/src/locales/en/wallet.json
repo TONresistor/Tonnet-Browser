@@ -1,0 +1,152 @@
+{
+  "page": {
+    "title": "Wallet",
+    "refresh": "Refresh",
+    "noWalletTitle": "No Wallet",
+    "noWalletDesc": "Create a new wallet or import an existing one to get started.",
+    "createWallet": "Create Wallet"
+  },
+  "tabs": {
+    "overview": "Overview",
+    "send": "Send",
+    "receive": "Receive",
+    "history": "History"
+  },
+  "overview": {
+    "balance": "Balance",
+    "recent": "Recent Transactions",
+    "viewAll": "View All"
+  },
+  "send": {
+    "recipientLabel": "Recipient Address",
+    "recipientPlaceholder": "EQ... or 0:...",
+    "amountLabel": "Amount",
+    "feeNote": "Network fee: {{fee}} TON",
+    "reviewButton": "Review Transaction",
+    "confirm": "Confirm Transaction",
+    "to": "To",
+    "amount": "Amount",
+    "fee": "Fee",
+    "back": "Back",
+    "sending": "Sending...",
+    "success": "Transaction sent!",
+    "successDesc": "Your transaction has been broadcast to the network.",
+    "error": "Transaction failed",
+    "invalidAddress": "Invalid TON address",
+    "invalidAmount": "Invalid amount",
+    "max": "Max"
+  },
+  "receive": {
+    "addressLabel": "Your Wallet Address",
+    "copyButton": "Copy Address",
+    "copied": "Copied!"
+  },
+  "history": {
+    "empty": "No transactions yet",
+    "clear": "Clear History",
+    "types": {
+      "send": "Sent",
+      "receive": "Received",
+      "x402": "HTTP 402 Payment"
+    },
+    "status": {
+      "pending": "Pending",
+      "confirmed": "Confirmed",
+      "failed": "Failed"
+    }
+  },
+  "dropdown": {
+    "title": "Wallet",
+    "balance": "Balance",
+    "address": "Address",
+    "send": "Send",
+    "receive": "Receive",
+    "openWallet": "Open Wallet",
+    "copyAddress": "Copy Address",
+    "copyAddressAria": "Copy wallet address to clipboard",
+    "copied": "Copied!",
+    "noWallet": "No wallet yet. Create one to start.",
+    "createWallet": "Create Wallet",
+    "ariaLabel": "Wallet dropdown"
+  },
+  "import": {
+    "title": "Import Wallet",
+    "description": "Enter your 24-word recovery phrase",
+    "placeholder": "Enter 24 words separated by spaces...",
+    "button": "Import Wallet",
+    "importing": "Importing...",
+    "success": "Wallet imported successfully",
+    "error": "Invalid recovery phrase",
+    "confirm": "This will replace your current wallet. Are you sure?",
+    "confirmButton": "Yes, replace",
+    "cancelButton": "Cancel"
+  },
+  "export": {
+    "title": "Recovery Phrase",
+    "warning": "Never share these words. Anyone with them can access your funds.",
+    "showButton": "Show Recovery Phrase",
+    "hideButton": "Hide",
+    "copied": "Copied to clipboard"
+  },
+  "backup": {
+    "title": "Save Your Recovery Phrase",
+    "warning": "Write down these 24 words and keep them safe.",
+    "warningDesc": "This is the only way to recover your wallet. If you lose these words, your funds are lost forever. Never share them with anyone.",
+    "yourPhrase": "Your 24-word recovery phrase",
+    "copy": "Copy to Clipboard",
+    "confirm": "I have saved my recovery phrase"
+  },
+  "create": {
+    "title": "Create Wallet",
+    "description": "Create a new TON wallet to send, receive, and pay for content.",
+    "button": "Create Wallet",
+    "creating": "Creating...",
+    "orImport": "or import an existing wallet"
+  },
+  "statusBar": {
+    "balance": "{{amount}} TON"
+  },
+  "settings": {
+    "title": "Wallet Settings",
+    "walletManagement": "Wallet Management",
+    "paymentMode": "Default Payment Mode",
+    "paymentModeDescription": "How to handle HTTP 402 payment requests",
+    "modes": {
+      "off": "Off",
+      "manual": "Manual",
+      "auto": "Auto"
+    },
+    "notificationStyle": "Notification Style",
+    "notificationStyleDescription": "How payment requests are displayed",
+    "styles": {
+      "banner": "Banner",
+      "modal": "Modal",
+      "toast": "Toast",
+      "panel": "Panel"
+    },
+    "limits": {
+      "title": "Spending Limits",
+      "perRequest": "Per Request",
+      "perDay": "Per Day",
+      "perSitePerMonth": "Per Site / Month",
+      "placeholder": "0 = no limit",
+      "unit": "TON"
+    },
+    "sites": {
+      "title": "Site Permissions",
+      "empty": "No site-specific permissions configured",
+      "remove": "Remove"
+    }
+  },
+  "payment": {
+    "title": "Payment Request",
+    "domain": "Site",
+    "amount": "Amount",
+    "recipient": "Recipient",
+    "approve": "Pay",
+    "reject": "Decline",
+    "success": "Payment successful",
+    "failed": "Payment failed",
+    "limitReached": "Spending limit reached"
+  }
+}

@@ -18,6 +18,7 @@ export type SettingsSection =
   | 'shortcuts'
   | 'bookmarks'
   | 'advanced'
+  | 'wallet'
   | 'about'
 
 /**

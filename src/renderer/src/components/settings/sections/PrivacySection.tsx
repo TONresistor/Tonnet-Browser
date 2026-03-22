@@ -7,6 +7,7 @@ import { Trash2, CircleCheckBig } from 'lucide-react'
 import { SectionHeader } from '../shared/SectionHeader'
 import { SettingRow } from '../shared/SettingRow'
 import { Toggle } from '../shared/Toggle'
+import { StepperInput } from '../shared/StepperInput'
 import type { SectionProps } from '../types'
 import { useTranslation } from 'react-i18next'
 
@@ -28,7 +29,7 @@ export const PrivacySection = memo(function PrivacySection({
   return (
     <div>
       <SectionHeader title={t('privacy.title')} description={t('privacy.description')} />
-      <div className="bg-card rounded-xl border border-border px-4">
+      <div className="glass-card px-4">
         <SettingRow label={t('privacy.clearData')} description={t('privacy.clearDataDesc')}>
           <button
             onClick={onClearData}
@@ -77,19 +78,16 @@ export const PrivacySection = memo(function PrivacySection({
           />
         </SettingRow>
         {draft.cookieAutoDelete && (
-          <div className="ml-4 pl-4 border-l-2 border-border">
+          <div>
             <SettingRow label={t('privacy.autoDeleteTimeout')} description={t('privacy.autoDeleteTimeoutDesc')}>
-              <div className="flex items-center">
-                <input
-                  type="number"
-                  min={1}
-                  max={1440}
-                  value={draft.cookieAutoDeleteMinutes}
-                  onChange={(e) => setDraft('cookieAutoDeleteMinutes', parseInt(e.target.value) || 30)}
-                  className="w-20 px-3 py-1.5 rounded-lg border border-border bg-background text-foreground"
-                />
-                <span className="text-xs text-muted-foreground ml-1">min</span>
-              </div>
+              <StepperInput
+                value={draft.cookieAutoDeleteMinutes}
+                onChange={(v) => setDraft('cookieAutoDeleteMinutes', v)}
+                min={1}
+                max={1440}
+                step={5}
+                suffix=" min"
+              />
             </SettingRow>
           </div>
         )}

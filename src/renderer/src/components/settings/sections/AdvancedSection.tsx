@@ -6,7 +6,7 @@ import { memo } from 'react'
 import { RotateCcw } from 'lucide-react'
 import { SectionHeader } from '../shared/SectionHeader'
 import { SettingRow } from '../shared/SettingRow'
-import { SelectInput } from '../shared/SelectInput'
+import { ToggleGroup } from '../shared/ToggleGroup'
 import type { SectionProps } from '../types'
 import { useTranslation } from 'react-i18next'
 
@@ -26,9 +26,9 @@ export const AdvancedSection = memo(function AdvancedSection({
   return (
     <div>
       <SectionHeader title={t('advanced.title')} description={t('advanced.description')} />
-      <div className="bg-card rounded-xl border border-border px-4">
+      <div className="glass-card px-4">
         <SettingRow label={t('advanced.proxyVerbosity')} description={t('advanced.proxyVerbosityDesc')}>
-          <SelectInput
+          <ToggleGroup
             value={String(draft.proxyVerbosity)}
             onChange={(v) => setDraft('proxyVerbosity', Number(v))}
             options={[
@@ -40,7 +40,7 @@ export const AdvancedSection = memo(function AdvancedSection({
           />
         </SettingRow>
         <SettingRow label={t('advanced.storageVerbosity')} description={t('advanced.storageVerbosityDesc')}>
-          <SelectInput
+          <ToggleGroup
             value={String(draft.storageVerbosity)}
             onChange={(v) => setDraft('storageVerbosity', Number(v))}
             options={[

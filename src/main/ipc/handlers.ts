@@ -17,6 +17,7 @@ import {
   registerSettingsHandlers,
   registerHistoryHandlers,
   registerErrorHandlers,
+  registerWalletHandlers,
 } from './handlers/index'
 
 // Re-export secureHandle for use by other modules (e.g. updater.ts)
@@ -48,4 +49,5 @@ export function registerIpcHandlers(): void {
   registerSettingsHandlers()
   registerHistoryHandlers()
   registerErrorHandlers()
+  registerWalletHandlers()
 }

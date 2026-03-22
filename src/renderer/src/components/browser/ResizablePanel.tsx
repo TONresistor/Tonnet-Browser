@@ -12,6 +12,7 @@ interface ResizablePanelProps {
   maxWidth: number
   onResize: (width: number) => void
   className?: string
+  side?: 'left' | 'right'
 }
 
 export function ResizablePanel({
@@ -21,6 +22,7 @@ export function ResizablePanel({
   maxWidth,
   onResize,
   className = '',
+  side = 'left',
 }: ResizablePanelProps) {
   const [width, setWidth] = useState(defaultWidth)
   const [isResizing, setIsResizing] = useState(false)
@@ -54,7 +56,7 @@ export function ResizablePanel({
     const handleMouseMove = (e: MouseEvent) => {
       if (!panelRef.current) return
 
-      const newWidth = e.clientX
+      const newWidth = side === 'right' ? window.innerWidth - e.clientX : e.clientX
       const clampedWidth = Math.min(Math.max(newWidth, minWidth), maxWidth)
 
       // Update local state immediately for instant visual feedback
@@ -114,7 +116,7 @@ export function ResizablePanel({
         cancelAnimationFrame(rafId)
       }
     }
-  }, [isResizing, minWidth, maxWidth, onResize])
+  }, [isResizing, minWidth, maxWidth, onResize, side])
 
   const handleMouseDown = (e: React.MouseEvent) => {
     e.preventDefault()
@@ -127,7 +129,9 @@ export function ResizablePanel({
 
       {/* Resize handle */}
       <div
-        className="absolute top-0 right-0 bottom-0 w-1 cursor-ew-resize hover:bg-primary/50 transition-colors group"
+        className={`absolute top-0 bottom-0 w-1 cursor-ew-resize hover:bg-primary/50 transition-colors group ${
+          side === 'right' ? 'left-0' : 'right-0'
+        }`}
         onMouseDown={handleMouseDown}
       >
         {/* Wider invisible hit area for easier grabbing */}

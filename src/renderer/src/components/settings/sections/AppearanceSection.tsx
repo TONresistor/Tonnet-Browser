@@ -3,13 +3,14 @@
  */
 
 import { memo, useState, useRef, useEffect } from 'react'
-import { Plus, Upload } from 'lucide-react'
+import { Plus, Upload, Rows3, Columns3 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { SectionHeader } from '../shared/SectionHeader'
 import { SettingRow } from '../shared/SettingRow'
 import { Toggle } from '../shared/Toggle'
-import { NumberInput } from '../shared/NumberInput'
+import { SliderInput } from '../shared/SliderInput'
 import { SelectInput } from '../shared/SelectInput'
+import { ToggleGroup } from '../shared/ToggleGroup'
 import { ThemeEditor, ThemeList, ImportDialog, ExportDialog } from '@/components/theme-editor'
 import { useThemeStore } from '@/stores/themes'
 import type { SectionProps } from '../types'
@@ -108,14 +109,14 @@ export const AppearanceSection = memo(function AppearanceSection({ draft, setDra
       <SectionHeader title={t('appearance.title')} description={t('appearance.description')} />
 
       {/* Language selector */}
-      <div className="bg-card rounded-xl border border-border px-4">
+      <div className="glass-card px-4">
         <SettingRow label={t('appearance.language.label')} description={t('appearance.language.description')}>
           <SelectInput value={draft.language} onChange={(v) => setDraft('language', v)} options={languageOptions} />
         </SettingRow>
       </div>
 
       {/* Built-in themes */}
-      <div className="mt-6 bg-card rounded-xl border border-border px-4">
+      <div className="mt-6 glass-card px-4">
         <SettingRow label={t('appearance.theme.label')} description={t('appearance.theme.description')}>
           <div className="flex gap-2">
             {builtInThemes.map((theme) => (
@@ -138,7 +139,7 @@ export const AppearanceSection = memo(function AppearanceSection({ draft, setDra
       </div>
 
       {/* Custom themes section */}
-      <div className="mt-6 bg-card rounded-xl border border-border p-4">
+      <div className="mt-6 glass-card p-4">
         <div className="flex items-center justify-between mb-4">
           <div>
             <h4 className="text-sm font-semibold text-foreground">{t('appearance.customThemes.title')}</h4>
@@ -196,9 +197,9 @@ export const AppearanceSection = memo(function AppearanceSection({ draft, setDra
       </div>
 
       {/* Other appearance settings */}
-      <div className="mt-6 bg-card rounded-xl border border-border px-4">
+      <div className="mt-6 glass-card px-4">
         <SettingRow label={t('appearance.zoom.default')} description={t('appearance.zoom.defaultDesc')}>
-          <NumberInput
+          <SliderInput
             value={draft.defaultZoom}
             onChange={(v) => setDraft('defaultZoom', v)}
             min={30}
@@ -208,7 +209,7 @@ export const AppearanceSection = memo(function AppearanceSection({ draft, setDra
           />
         </SettingRow>
         <SettingRow label={t('appearance.zoom.min')} description={t('appearance.zoom.minDesc')}>
-          <NumberInput
+          <SliderInput
             value={draft.zoomMin}
             onChange={(v) => setDraft('zoomMin', v)}
             min={10}
@@ -218,7 +219,7 @@ export const AppearanceSection = memo(function AppearanceSection({ draft, setDra
           />
         </SettingRow>
         <SettingRow label={t('appearance.zoom.max')} description={t('appearance.zoom.maxDesc')}>
-          <NumberInput
+          <SliderInput
             value={draft.zoomMax}
             onChange={(v) => setDraft('zoomMax', v)}
             min={100}
@@ -243,12 +244,20 @@ export const AppearanceSection = memo(function AppearanceSection({ draft, setDra
           />
         </SettingRow>
         <SettingRow label={t('appearance.ui.tabOrientation')} description={t('appearance.ui.tabOrientationDesc')}>
-          <SelectInput
+          <ToggleGroup
             value={draft.tabOrientation}
             onChange={(v) => setDraft('tabOrientation', v as 'horizontal' | 'vertical')}
             options={[
-              { value: 'horizontal', label: t('appearance.ui.tabOrientationHorizontal') },
-              { value: 'vertical', label: t('appearance.ui.tabOrientationVertical') },
+              {
+                value: 'horizontal',
+                label: t('appearance.ui.tabOrientationHorizontal'),
+                icon: <Columns3 className="h-3.5 w-3.5" />,
+              },
+              {
+                value: 'vertical',
+                label: t('appearance.ui.tabOrientationVertical'),
+                icon: <Rows3 className="h-3.5 w-3.5" />,
+              },
             ]}
           />
         </SettingRow>
