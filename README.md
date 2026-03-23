@@ -164,12 +164,16 @@ Access settings via the gear icon or navigate to `ton://settings`.
 |----------|----------|
 | **General** | Homepage, Restore tabs, Anonymous mode, Circuit rotation |
 | **Network** | Proxy port, Storage port, Auto-connect, Connection timeout |
-| **Storage** | Download path, Update interval, Auto-seed |
-| **Appearance** | Zoom levels, Bookmarks bar, Status bar, Themes |
-| **Privacy** | Clear browsing data, Clear on exit, Cookie settings |
-| **History** | History mode, Maximum entries, View history |
-| **Bookmarks** | Manage bookmarks, Folders, Import/Export |
+| **Storage** | Download path, Update interval |
+| **Appearance** | Zoom levels, Bookmarks bar, Status bar, Tab orientation, Themes |
+| **Privacy** | Clear browsing data, Clear on exit, Cookie settings, First-party isolation |
+| **Content Filtering** | Block ads, trackers, miners, malware, annoyances |
+| **History** | History mode, Maximum entries |
+| **Shortcuts** | Keyboard shortcuts |
+| **Bookmarks** | Manage bookmarks |
 | **Advanced** | Verbosity levels, Sync test domain |
+| **Wallet** | Payment mode, Spending limits, Per-site policies, API keys |
+| **About** | Version, Links |
 
 ## Building
 
