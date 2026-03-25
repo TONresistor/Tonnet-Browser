@@ -5,6 +5,7 @@
 
 import { app } from 'electron'
 import path from 'path'
+import fs from 'fs'
 
 export function getBinaryPath(name: string): string {
   const platform = process.platform
@@ -18,7 +19,17 @@ export function getBinaryPath(name: string): string {
   }
 
   // In production
-  return path.join(process.resourcesPath, 'bin', binName)
+  const binPath = path.join(process.resourcesPath, 'bin', binName)
+
+  // NSIS installer may rename .exe to .exe_ — check both
+  if (platform === 'win32' && !fs.existsSync(binPath)) {
+    const altPath = `${binPath}_`
+    if (fs.existsSync(altPath)) {
+      fs.renameSync(altPath, binPath)
+    }
+  }
+
+  return binPath
 }
 
 export function getConfigPath(): string {
