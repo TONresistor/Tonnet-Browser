@@ -13,9 +13,13 @@ const log = createLogger('updater')
 import { secureHandle } from './ipc/handlers'
 
 let mainWindow: BrowserWindow | null = null
+let initialized = false
 
 export function initUpdater(win: BrowserWindow): void {
   mainWindow = win
+
+  if (initialized) return
+  initialized = true
 
   // Manual flow only — no auto-download, no install on quit
   autoUpdater.autoDownload = false

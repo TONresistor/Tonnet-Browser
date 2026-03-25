@@ -88,16 +88,17 @@ while IFS='|' read -r binary_name repo config_version asset_name dest; do
   # Write version marker
   echo "$version" > "$version_file"
   echo "    [ok]"
-done < <(python3 -c "
+done < <(cd "$SCRIPT_DIR" && python3 -c "
 import json, sys
-with open('$CONFIG') as f:
+with open('binary-versions.json') as f:
     config = json.load(f)
+platform = sys.argv[1]
 for name, info in config.items():
-    asset = info['assets'].get('$PLATFORM')
+    asset = info['assets'].get(platform)
     if not asset:
         continue
     print(f\"{name}|{info['repo']}|{info['version']}|{asset['name']}|{asset['dest']}\")
-")
+" "$PLATFORM")
 
 if [ "$FAILED" -ne 0 ]; then
   echo ""
