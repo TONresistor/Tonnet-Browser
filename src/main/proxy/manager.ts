@@ -251,14 +251,15 @@ export class ProxyManager extends EventEmitter {
     const { network } = this.loadSettings()
     const maxAttempts = network.connectionTimeout // seconds
 
-    // tonnet-proxy outputs "proxy listening" (slog structured) on stderr when ready
+    // tonnet-proxy v0.6.0+ outputs "Listening on <addr>" on stdout when ready
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
         reject(new Error('Proxy failed to start within timeout'))
       }, maxAttempts * 1000)
 
       const checkOutput = (data: Buffer) => {
-        if (data.toString().toLowerCase().includes('proxy listening')) {
+        const output = data.toString().toLowerCase()
+        if (output.includes('listening on') || output.includes('proxy listening')) {
           clearTimeout(timeout)
           this.process?.stdout?.off('data', checkOutput)
           this.process?.stderr?.off('data', checkOutput)
