@@ -1,0 +1,15 @@
+name: Publish to WinGet
+
+on:
+  release:
+    types: [released]
+
+jobs:
+  winget:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: vedantmgoyal9/winget-releaser@latest
+        with:
+          identifier: TONresistor.TONBrowser
+          installers-regex: '\.exe$'
+          token: ${{ secrets.WINGET_TOKEN }}
