@@ -66,15 +66,6 @@
     "anonymousMode": "Анонимный режим",
     "anonymousModeDesc": "Маршрутизация трафика через 3-узловой контур",
     "enableAnonymousMode": "Включить анонимный режим",
-    "circuitRotation": "Ротация контура",
-    "circuitRotationDesc": "Автоматическая смена контура для лучшей приватности",
-    "enableCircuitRotation": "Включить ротацию контура",
-    "rotationInterval": "Интервал ротации",
-    "rotationIntervalDesc": "Как часто создавать новый контур",
-    "5minutes": "5 минут",
-    "10minutes": "10 минут",
-    "15minutes": "15 минут",
-    "30minutes": "30 минут",
     "homepage": "Домашняя страница",
     "homepageDesc": "Страница для отображения при открытии новой вкладки",
     "startPage": "Стартовая страница",
@@ -93,8 +84,7 @@
     "peels": "снимает слой",
     "wraps": "добавляет слой",
     "receives": "получает",
-    "responds": "отвечает",
-    "newCircuit": "Новый контур при каждой ротации"
+    "responds": "отвечает"
   },
   "network": {
     "title": "Сеть",

@@ -24,8 +24,6 @@ export const DEFAULT_SETTINGS = {
   connectionTimeout: 30,
   syncCheckInterval: 3000,
   anonymousMode: false,
-  circuitRotation: true,
-  rotateInterval: '10m',
 
   // Storage
   downloadPath: '', // Main process will set actual path

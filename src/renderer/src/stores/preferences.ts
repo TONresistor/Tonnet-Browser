@@ -25,8 +25,6 @@ export interface AppPreferences {
   connectionTimeout: number
   syncCheckInterval: number
   anonymousMode: boolean
-  circuitRotation: boolean
-  rotateInterval: string
 
   // Storage
   downloadPath: string
@@ -97,8 +95,6 @@ export const defaultPreferences: AppPreferences = {
   connectionTimeout: DEFAULT_SETTINGS.connectionTimeout,
   syncCheckInterval: DEFAULT_SETTINGS.syncCheckInterval,
   anonymousMode: DEFAULT_SETTINGS.anonymousMode,
-  circuitRotation: DEFAULT_SETTINGS.circuitRotation,
-  rotateInterval: DEFAULT_SETTINGS.rotateInterval,
 
   // Storage
   downloadPath: DEFAULT_SETTINGS.downloadPath, // Will be loaded from main
@@ -149,8 +145,6 @@ const prefToCategory: Record<keyof AppPreferences, { category: string; field: st
   connectionTimeout: { category: 'network', field: 'connectionTimeout' },
   syncCheckInterval: { category: 'network', field: 'syncCheckInterval' },
   anonymousMode: { category: 'network', field: 'anonymousMode' },
-  circuitRotation: { category: 'network', field: 'circuitRotation' },
-  rotateInterval: { category: 'network', field: 'rotateInterval' },
   downloadPath: { category: 'storage', field: 'downloadPath' },
   storagePollingInterval: { category: 'storage', field: 'pollingInterval' },
   theme: { category: 'appearance', field: 'theme' },
@@ -192,8 +186,6 @@ function mainSettingsToPrefs(settings: AppSettings): AppPreferences {
     connectionTimeout: settings.network?.connectionTimeout ?? defaultPreferences.connectionTimeout,
     syncCheckInterval: settings.network?.syncCheckInterval ?? defaultPreferences.syncCheckInterval,
     anonymousMode: settings.network?.anonymousMode ?? defaultPreferences.anonymousMode,
-    circuitRotation: settings.network?.circuitRotation ?? defaultPreferences.circuitRotation,
-    rotateInterval: settings.network?.rotateInterval ?? defaultPreferences.rotateInterval,
     downloadPath: settings.storage?.downloadPath ?? defaultPreferences.downloadPath,
     storagePollingInterval: settings.storage?.pollingInterval ?? defaultPreferences.storagePollingInterval,
     theme: (settings.appearance?.theme ?? defaultPreferences.theme) as ThemeType,

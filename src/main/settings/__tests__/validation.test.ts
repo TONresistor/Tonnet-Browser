@@ -109,25 +109,6 @@ describe('isValidSettingsObject', () => {
         expect(isValidSettingsObject({ network: { autoConnect: true } })).toBe(true)
         expect(isValidSettingsObject({ network: { autoConnect: false } })).toBe(true)
       })
-
-      it('rejects if rotateInterval is not a string', () => {
-        expect(isValidSettingsObject({ network: { rotateInterval: 123 } })).toBe(false)
-        expect(isValidSettingsObject({ network: { rotateInterval: true } })).toBe(false)
-      })
-
-      it('rejects invalid rotateInterval format', () => {
-        expect(isValidSettingsObject({ network: { rotateInterval: 'invalid' } })).toBe(false)
-        expect(isValidSettingsObject({ network: { rotateInterval: '10' } })).toBe(false)
-        expect(isValidSettingsObject({ network: { rotateInterval: 'm10' } })).toBe(false)
-        expect(isValidSettingsObject({ network: { rotateInterval: '' } })).toBe(false)
-      })
-
-      it('accepts valid rotateInterval format', () => {
-        expect(isValidSettingsObject({ network: { rotateInterval: '10m' } })).toBe(true)
-        expect(isValidSettingsObject({ network: { rotateInterval: '5s' } })).toBe(true)
-        expect(isValidSettingsObject({ network: { rotateInterval: '1h' } })).toBe(true)
-        expect(isValidSettingsObject({ network: { rotateInterval: '30m' } })).toBe(true)
-      })
     })
 
     describe('privacy settings', () => {
@@ -272,22 +253,6 @@ describe('validateSettings', () => {
     })
   })
 
-  describe('rotateInterval regex validation', () => {
-    it('accepts valid duration strings', () => {
-      expect(validateSettings({ network: { rotateInterval: '10m' } }).valid).toBe(true)
-      expect(validateSettings({ network: { rotateInterval: '5s' } }).valid).toBe(true)
-      expect(validateSettings({ network: { rotateInterval: '1h' } }).valid).toBe(true)
-      expect(validateSettings({ network: { rotateInterval: '30m' } }).valid).toBe(true)
-    })
-
-    it('rejects invalid duration strings', () => {
-      expect(validateSettings({ network: { rotateInterval: 'invalid' } }).valid).toBe(false)
-      expect(validateSettings({ network: { rotateInterval: '10' } }).valid).toBe(false)
-      expect(validateSettings({ network: { rotateInterval: 'm10' } }).valid).toBe(false)
-      expect(validateSettings({ network: { rotateInterval: '' } }).valid).toBe(false)
-    })
-  })
-
   describe('theme validation', () => {
     it('accepts built-in theme names', () => {
       expect(validateSettings({ appearance: { theme: 'resistance-dog' } }).valid).toBe(true)
@@ -365,11 +330,6 @@ describe('validateCategoryValues', () => {
       expect(result.valid).toBe(false)
     })
 
-    it('rejects invalid rotateInterval format', () => {
-      const result = validateCategoryValues('network', { rotateInterval: 'invalid' })
-      expect(result.valid).toBe(false)
-    })
-
     it('rejects invalid theme in appearance', () => {
       const result = validateCategoryValues('appearance', { theme: 'invalid-theme' })
       expect(result.valid).toBe(false)
@@ -425,13 +385,6 @@ describe('getDefaultSettingsBase', () => {
     it('has correct syncCheckInterval default', () => {
       const defaults = getDefaultSettingsBase()
       expect(defaults.network.syncCheckInterval).toBe(3000)
-    })
-
-    it('has correct rotateInterval default format', () => {
-      const defaults = getDefaultSettingsBase()
-      // Default must be a valid duration string (number + unit)
-      expect(defaults.network.rotateInterval).toBe('10m')
-      expect(validateSettings({ network: { rotateInterval: defaults.network.rotateInterval } }).valid).toBe(true)
     })
   })
 

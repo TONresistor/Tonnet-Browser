@@ -66,15 +66,6 @@
     "anonymousMode": "Mode anonim",
     "anonymousModeDesc": "Rutekan lalu lintas melalui sirkuit 3-hop",
     "enableAnonymousMode": "Aktifkan mode anonim",
-    "circuitRotation": "Rotasi sirkuit",
-    "circuitRotationDesc": "Ubah sirkuit secara otomatis untuk privasi lebih baik",
-    "enableCircuitRotation": "Aktifkan rotasi sirkuit",
-    "rotationInterval": "Interval rotasi",
-    "rotationIntervalDesc": "Seberapa sering membuat sirkuit baru",
-    "5minutes": "5 menit",
-    "10minutes": "10 menit",
-    "15minutes": "15 menit",
-    "30minutes": "30 menit",
     "homepage": "Halaman beranda",
     "homepageDesc": "Halaman yang ditampilkan saat membuka tab baru",
     "startPage": "Halaman mulai",
@@ -93,8 +84,7 @@
     "peels": "mengupas",
     "wraps": "membungkus",
     "receives": "menerima",
-    "responds": "merespons",
-    "newCircuit": "Sirkuit baru pada setiap rotasi"
+    "responds": "merespons"
   },
   "network": {
     "title": "Jaringan",

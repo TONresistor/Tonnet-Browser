@@ -66,15 +66,6 @@
     "anonymousMode": "익명 모드",
     "anonymousModeDesc": "3홉 회로를 통해 트래픽 라우팅",
     "enableAnonymousMode": "익명 모드 활성화",
-    "circuitRotation": "회로 순환",
-    "circuitRotationDesc": "프라이버시 강화를 위해 회로를 자동으로 변경",
-    "enableCircuitRotation": "회로 순환 활성화",
-    "rotationInterval": "순환 간격",
-    "rotationIntervalDesc": "새 회로를 구축하는 빈도",
-    "5minutes": "5분",
-    "10minutes": "10분",
-    "15minutes": "15분",
-    "30minutes": "30분",
     "homepage": "홈페이지",
     "homepageDesc": "새 탭을 열 때 표시할 페이지",
     "startPage": "시작 페이지",
@@ -93,8 +84,7 @@
     "peels": "벗김",
     "wraps": "감쌈",
     "receives": "수신",
-    "responds": "응답",
-    "newCircuit": "각 순환마다 새 회로"
+    "responds": "응답"
   },
   "network": {
     "title": "네트워크",

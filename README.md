@@ -76,7 +76,7 @@ Tonnet Browser is a native desktop browser for the TON Network. It connects dire
     <td align="center" width="200"><br><b>Storage</b><br><br><sub>TON Storage client<br>Download and seed<br>Decentralized P2P</sub><br><br></td>
   </tr>
   <tr>
-    <td align="center"><br><b>Routing</b><br><br><sub>Auto circuit rotation<br>Direct mode for speed<br>Censorship-resistant</sub><br><br></td>
+    <td align="center"><br><b>Routing</b><br><br><sub>Automatic rerouting<br>Direct mode for speed<br>Censorship-resistant</sub><br><br></td>
     <td align="center"><br><b>Fingerprint</b><br><br><sub>Canvas, WebGL, Audio<br>WebRTC leak blocking<br>Generic User-Agent</sub><br><br></td>
     <td align="center"><br><b>Isolation</b><br><br><sub>Per-domain sessions<br>Cookie auto-delete<br>Encrypted history</sub><br><br></td>
     <td align="center"><br><b>Security</b><br><br><sub>Process sandboxing<br>Rate limiting<br>Open source, MIT</sub><br><br></td>
@@ -87,22 +87,22 @@ Tonnet Browser is a native desktop browser for the TON Network. It connects dire
 
 | Platform | Download |
 |----------|----------|
-| **Windows** | [Installer](https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON.Browser.Setup.1.4.2.exe) · [Portable](https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON.Browser.1.4.2.exe) |
-| **macOS** | [DMG (Universal)](https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON.Browser-1.4.2-universal.dmg) |
-| **Linux** | [AppImage](https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON.Browser-1.4.2.AppImage) · [.deb](https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/ton-browser_1.4.2_amd64.deb) |
+| **Windows** | [Installer](https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON.Browser.Setup.1.5.3.exe) · [Portable](https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON.Browser.1.5.3.exe) |
+| **macOS** | [DMG (Universal)](https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON.Browser-1.5.3-universal.dmg) |
+| **Linux** | [AppImage](https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON.Browser-1.5.3.AppImage) · [.deb](https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/ton-browser_1.5.3_amd64.deb) |
 
 ### Windows
 
 Your browser may warn that the file is from an unknown source. Click **"Keep"** to download.
 
-1. Download and run **TON.Browser.Setup.1.4.2.exe**
+1. Download and run **TON.Browser.Setup.1.5.3.exe**
 2. Follow the installation prompts
 3. Launch **TON Browser** from the Start menu
 
 **One-line install:** Open PowerShell and run:
 
 ```powershell
-irm https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON.Browser.Setup.1.4.2.exe -OutFile TonBrowser.exe; Unblock-File TonBrowser.exe; .\TonBrowser.exe
+irm https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON.Browser.Setup.1.5.3.exe -OutFile TonBrowser.exe; Unblock-File TonBrowser.exe; .\TonBrowser.exe
 ```
 
 ### macOS
@@ -117,28 +117,28 @@ xattr -cr /Applications/TON\ Browser.app
 **One-line install:** Open Terminal and run:
 
 ```bash
-curl -LO https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON.Browser-1.4.2-universal.dmg && hdiutil attach TON.Browser-1.4.2-universal.dmg && cp -R "/Volumes/TON Browser/TON Browser.app" /Applications/ && hdiutil detach "/Volumes/TON Browser" && xattr -cr /Applications/TON\ Browser.app && open /Applications/TON\ Browser.app
+curl -LO https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON.Browser-1.5.3-universal.dmg && hdiutil attach TON.Browser-1.5.3-universal.dmg && cp -R "/Volumes/TON Browser/TON Browser.app" /Applications/ && hdiutil detach "/Volumes/TON Browser" && xattr -cr /Applications/TON\ Browser.app && open /Applications/TON\ Browser.app
 ```
 
 ### Linux
 
 ```bash
 # AppImage
-chmod +x TON.Browser-1.4.2.AppImage
-./TON.Browser-1.4.2.AppImage
+chmod +x TON.Browser-1.5.3.AppImage
+./TON.Browser-1.5.3.AppImage
 
 # Debian/Ubuntu
-sudo dpkg -i ton-browser_1.4.2_amd64.deb
+sudo dpkg -i ton-browser_1.5.3_amd64.deb
 ```
 
 **One-line install:** Open Terminal and run:
 
 ```bash
 # AppImage
-curl -LO https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON.Browser-1.4.2.AppImage && chmod +x TON.Browser-1.4.2.AppImage && ./TON.Browser-1.4.2.AppImage
+curl -LO https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON.Browser-1.5.3.AppImage && chmod +x TON.Browser-1.5.3.AppImage && ./TON.Browser-1.5.3.AppImage
 
 # Debian/Ubuntu
-curl -LO https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/ton-browser_1.4.2_amd64.deb && sudo dpkg -i ton-browser_1.4.2_amd64.deb
+curl -LO https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/ton-browser_1.5.3_amd64.deb && sudo dpkg -i ton-browser_1.5.3_amd64.deb
 ```
 
 ## Usage
@@ -162,7 +162,7 @@ Access settings via the gear icon or navigate to `ton://settings`.
 
 | Category | Settings |
 |----------|----------|
-| **General** | Homepage, Restore tabs, Anonymous mode, Circuit rotation |
+| **General** | Homepage, Restore tabs, Anonymous mode |
 | **Network** | Proxy port, Storage port, Auto-connect, Connection timeout |
 | **Storage** | Download path, Update interval |
 | **Appearance** | Zoom levels, Bookmarks bar, Status bar, Tab orientation, Themes |
@@ -216,12 +216,13 @@ npm test
 
 | Component | Technology |
 |-----------|------------|
-| Framework | Electron 39 |
+| Framework | Electron 41 |
 | Frontend | React 19, TypeScript |
-| Styling | Tailwind CSS |
+| Styling | Tailwind CSS v4 |
 | State | Zustand |
-| TON Proxy | [tonnet-proxy](https://github.com/TONresistor/tonnet-proxy) |
+| TON Proxy | [Tonutils-Proxy](https://github.com/xssnick/Tonutils-Proxy) |
 | TON Storage | [tonutils-storage](https://github.com/xssnick/tonutils-storage) |
+| Anonymity | [adnl-tunnel](https://github.com/ton-blockchain/adnl-tunnel) garlic routing |
 | Transport | RLDP over ADNL over UDP |
 
 ## Contact
@@ -239,5 +240,6 @@ MIT License. See [LICENSE](LICENSE) for details.
 - [Tor Project](https://www.torproject.org/) - Inspiration for anonymous browsing
 - [BitTorrent](https://www.bittorrent.org/) - Inspiration for P2P file sharing
 - [tonutils-go](https://github.com/xssnick/tonutils-go) - TON protocol implementation
-- [tonnet-proxy](https://github.com/TONresistor/tonnet-proxy) - HTTP proxy with garlic routing for TON sites
+- [Tonutils-Proxy](https://github.com/xssnick/Tonutils-Proxy) - HTTP proxy for TON sites
+- [adnl-tunnel](https://github.com/ton-blockchain/adnl-tunnel) - Garlic routing relay for anonymous browsing
 - [tonutils-storage](https://github.com/xssnick/tonutils-storage) - TON Storage daemon

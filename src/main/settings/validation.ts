@@ -113,11 +113,6 @@ export function isValidSettingsObject(obj: unknown): obj is Partial<AppSettings>
     }
     if (network.autoConnect !== undefined && typeof network.autoConnect !== 'boolean') return false
     if (network.anonymousMode !== undefined && typeof network.anonymousMode !== 'boolean') return false
-    if (network.circuitRotation !== undefined && typeof network.circuitRotation !== 'boolean') return false
-    if (network.rotateInterval !== undefined) {
-      if (typeof network.rotateInterval !== 'string') return false
-      if (!/^\d+[smh]$/.test(network.rotateInterval)) return false
-    }
   }
 
   const privacy = settings.privacy as Record<string, unknown> | undefined
@@ -165,8 +160,6 @@ export function getDefaultSettingsBase(): AppSettings {
       connectionTimeout: d.connectionTimeout,
       syncCheckInterval: d.syncCheckInterval,
       anonymousMode: d.anonymousMode,
-      circuitRotation: d.circuitRotation,
-      rotateInterval: d.rotateInterval,
     },
     storage: {
       downloadPath: '/tmp/tonnet-storage',

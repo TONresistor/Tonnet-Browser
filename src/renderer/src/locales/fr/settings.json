@@ -66,15 +66,6 @@
     "anonymousMode": "Mode anonyme",
     "anonymousModeDesc": "Acheminer le trafic via un circuit à 3 sauts",
     "enableAnonymousMode": "Activer le mode anonyme",
-    "circuitRotation": "Rotation de circuit",
-    "circuitRotationDesc": "Changer automatiquement le circuit pour plus de confidentialité",
-    "enableCircuitRotation": "Activer la rotation de circuit",
-    "rotationInterval": "Intervalle de rotation",
-    "rotationIntervalDesc": "Fréquence de construction d'un nouveau circuit",
-    "5minutes": "5 minutes",
-    "10minutes": "10 minutes",
-    "15minutes": "15 minutes",
-    "30minutes": "30 minutes",
     "homepage": "Page d'accueil",
     "homepageDesc": "Page à afficher lors de l'ouverture d'un nouvel onglet",
     "startPage": "Page de démarrage",
@@ -93,8 +84,7 @@
     "peels": "épluche",
     "wraps": "enveloppe",
     "receives": "reçoit",
-    "responds": "répond",
-    "newCircuit": "Nouveau circuit à chaque rotation"
+    "responds": "répond"
   },
   "network": {
     "title": "Réseau",

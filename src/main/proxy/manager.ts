@@ -1,28 +1,30 @@
 /**
  * TON proxy manager.
- * Spawns and manages the tonnet-proxy process.
+ * Spawns and manages the tonutils-proxy process (Tonutils-Proxy CLI).
+ * Uses adnl-tunnel for multi-hop garlic routing via TON DHT discovery.
  */
 
 import { spawn, ChildProcess } from 'child_process'
 import { EventEmitter } from 'events'
-import http from 'http'
+import path from 'path'
+import fs from 'fs'
+import { app } from 'electron'
 import { getBinaryPath } from '../utils/paths'
 import { validatePort } from '../utils/validators'
 import { getSetting } from '../settings'
+import { randomBytes } from 'crypto'
+import { cpus } from 'os'
 import { createLogger } from '../../shared/logger'
 const log = createLogger('proxy')
 
-export type ProxyStatus = 'stopped' | 'starting' | 'syncing' | 'connected'
+export type ProxyStatus = 'stopped' | 'starting' | 'connected'
 
 export class ProxyManager extends EventEmitter {
   private process: ChildProcess | null = null
   private port: number = 0
   private status: ProxyStatus = 'stopped'
-  private syncCheckInterval: NodeJS.Timeout | null = null
   private anonymousMode: boolean = false
-  private circuitRotation: boolean = true
-  private rotateInterval: string = '10m'
-  private circuitRelays: string[] = [] // [entry, middle, exit]
+  private tunnelRoute: string = ''
 
   constructor() {
     super()
@@ -32,7 +34,7 @@ export class ProxyManager extends EventEmitter {
     const network = getSetting('network')
     const advanced = getSetting('advanced')
     this.port = network.proxyPort
-    return { network, advanced } // advanced still needed for syncTestDomain
+    return { network, advanced }
   }
 
   async start(): Promise<void> {
@@ -42,64 +44,56 @@ export class ProxyManager extends EventEmitter {
 
     const { network } = this.loadSettings()
 
-    // Security: Validate spawn arguments
     const safePort = validatePort(this.port)
     this.port = safePort
     this.anonymousMode = network.anonymousMode
-    this.circuitRotation = network.circuitRotation
-    this.rotateInterval = /^\d+[smh]$/.test(network.rotateInterval) ? network.rotateInterval : '10m'
-
     this.setStatus('starting')
 
+    const binPath = getBinaryPath('tonutils-proxy')
+    const proxyWorkDir = this.getProxyWorkDir()
+
+    // Write proxy config to control tunnel mode
+    this.writeProxyConfig(proxyWorkDir, this.anonymousMode)
+
     if (this.anonymousMode) {
-      // Anonymous mode: 3-hop garlic circuit via tonnet-proxy
-      const binPath = getBinaryPath('tonnet-proxy')
+      // Anonymous mode: multi-hop tunnel via adnl-tunnel (DHT discovery)
       log.info(`Starting anonymous proxy from: ${binPath}`)
-      log.info(`Port: ${safePort}, Mode: 3-hop circuit`)
+      log.info(`Port: ${safePort}, Mode: tunnel (DHT discovery)`)
+      this.process = spawn(binPath, ['-addr', `127.0.0.1:${safePort}`], {
+        windowsHide: true,
+        cwd: proxyWorkDir,
+      })
 
-      const args = ['--auto', '--listen', `127.0.0.1:${safePort}`]
-
-      // Add circuit rotation if enabled
-      if (network.circuitRotation && this.rotateInterval) {
-        args.push(`--rotate=${this.rotateInterval}`)
-        log.info(`Circuit rotation: ${network.rotateInterval}`)
-      }
-
-      this.process = spawn(binPath, args, { windowsHide: true })
+      // adnl-tunnel handles rerouting automatically when tunnel stalls (>45s no response)
+      // No need for forced rotation — it would kill the connection for 10-15s during reconfiguration
+      log.info('Tunnel auto-reroute: managed by adnl-tunnel (on stall)')
     } else {
-      // Direct mode: tonnet-proxy with --direct (faster, no anonymity)
-      const binPath = getBinaryPath('tonnet-proxy')
+      // Direct mode: no tunnel (faster, no anonymity)
       log.info(`Starting direct proxy from: ${binPath}`)
       log.info(`Port: ${safePort}, Mode: direct`)
-
-      this.process = spawn(binPath, ['--direct', '--listen', `127.0.0.1:${safePort}`], { windowsHide: true })
+      this.process = spawn(binPath, ['-addr', `127.0.0.1:${safePort}`], {
+        windowsHide: true,
+        cwd: proxyWorkDir,
+      })
     }
 
-    // tonnet-proxy v0.6.0+ uses slog (structured logging) on stderr.
-    // Parse both stdout (legacy) and stderr (slog) for relay names and status.
     const handleProxyOutput = (data: Buffer) => {
-      const message = data.toString().trim()
-      if (!message) return
-      log.debug(message)
-      this.emit('log', message)
+      const raw = data.toString().trim()
+      if (!raw) return
+      // Strip ANSI escape codes for parsing
+      // eslint-disable-next-line no-control-regex
+      const message = raw.replace(/\x1b\[[0-9;]*m/g, '')
+      log.debug(raw)
+      this.emit('log', raw)
 
-      // Parse circuit relay names (supports both legacy and slog formats)
+      // Parse tunnel route from Tonutils-Proxy logs
+      // Format: route="we -> KEY1 -> KEY2 -> KEY1 -> we"
       if (this.anonymousMode) {
-        // slog format: entry_name=relayer4
-        const entryName = message.match(/entry_name=(\w+)/)
-        const middleName = message.match(/middle_name=(\w+)/)
-        const exitName = message.match(/exit_name=(\w+)/)
-        // Legacy format: Entry:  relayer4
-        const entryLegacy = message.match(/Entry:\s+(\w+)/)
-        const middleLegacy = message.match(/Middle:\s+(\w+)/)
-        const exitLegacy = message.match(/Exit:\s+(\w+)/)
-
-        if (entryName) this.circuitRelays[0] = entryName[1]
-        else if (entryLegacy) this.circuitRelays[0] = entryLegacy[1]
-        if (middleName) this.circuitRelays[1] = middleName[1]
-        else if (middleLegacy) this.circuitRelays[1] = middleLegacy[1]
-        if (exitName) this.circuitRelays[2] = exitName[1]
-        else if (exitLegacy) this.circuitRelays[2] = exitLegacy[1]
+        const routeMatch = message.match(/route="([^"]+)"/)
+        if (routeMatch) {
+          this.tunnelRoute = routeMatch[1]
+          log.info(`Tunnel route: ${this.tunnelRoute}`)
+        }
       }
     }
 
@@ -110,10 +104,6 @@ export class ProxyManager extends EventEmitter {
       log.info(`Proxy exited with code: ${code}`)
       this.setStatus('stopped')
       this.process = null
-      if (this.syncCheckInterval) {
-        clearInterval(this.syncCheckInterval)
-        this.syncCheckInterval = null
-      }
       this.emit('exit', code)
     })
 
@@ -123,8 +113,83 @@ export class ProxyManager extends EventEmitter {
     })
 
     await this.waitForReady()
-    this.setStatus('syncing')
-    this.startSyncCheck()
+    this.setStatus('connected')
+  }
+
+  private getProxyWorkDir(): string {
+    const dir = path.join(app.getPath('userData'), 'proxy')
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true })
+    }
+    return dir
+  }
+
+  private writeProxyConfig(workDir: string, tunnelEnabled: boolean): void {
+    const configPath = path.join(workDir, 'config.json')
+    const nodesPoolPath = path.join(workDir, 'nodes-pool.json')
+
+    // Ensure nodes pool file exists for tunnel mode
+    if (tunnelEnabled && !fs.existsSync(nodesPoolPath)) {
+      // Seed with known relays — tunnel will discover more via DHT overlay
+      const nodesPool = {
+        NodesPool: [
+          { Key: Array.from(Buffer.from('0nAqzFCklgG1vJFgKHqU7Z87c7RHYn345e4jPnxqnxM=', 'base64')), Payment: null },
+          { Key: Array.from(Buffer.from('cOYXQd4ov4pc7OjX26wm90VF35e44NGL6SwGnepiVSE=', 'base64')), Payment: null },
+          { Key: Array.from(Buffer.from('DVXr339Go5qPh5eLvVtDWlw16hBrapUXb0u9acYGUiI=', 'base64')), Payment: null },
+          { Key: Array.from(Buffer.from('CYHphrvG8HL0CXfTk3egLBRxoS8NR40YtcWZdvl3HJw=', 'base64')), Payment: null },
+        ],
+      }
+      fs.writeFileSync(nodesPoolPath, JSON.stringify(nodesPool, null, 2))
+      log.info('Created nodes pool with seed relays')
+    }
+
+    if (fs.existsSync(configPath)) {
+      // Patch existing config
+      try {
+        const existing = JSON.parse(fs.readFileSync(configPath, 'utf-8'))
+        if (existing.TunnelConfig) {
+          existing.TunnelConfig.NodesPoolConfigPath = tunnelEnabled ? nodesPoolPath : ''
+          existing.TunnelConfig.TunnelSectionsNum = tunnelEnabled ? 2 : 1
+        }
+        fs.writeFileSync(configPath, JSON.stringify(existing, null, 2))
+        log.info(`Proxy config updated: tunnel=${tunnelEnabled}`)
+        return
+      } catch {
+        // Corrupted config — regenerate below
+      }
+    }
+
+    // First run: generate config with correct tunnel settings immediately
+    // This avoids the double-start (direct → restart → tunnel)
+    const generateKey = () => Array.from(randomBytes(32))
+    const config = {
+      Version: 1,
+      ADNLKey: generateKey(),
+      CustomTunnelNetworkConfigPath: '',
+      TunnelConfig: {
+        TunnelServerKey: generateKey(),
+        TunnelThreads: cpus().length,
+        TunnelSectionsNum: tunnelEnabled ? 2 : 1,
+        NodesPoolConfigPath: tunnelEnabled ? nodesPoolPath : '',
+        PaymentsEnabled: false,
+        Payments: {
+          ADNLServerKey: generateKey(),
+          PaymentsNodeKey: generateKey(),
+          WalletPrivateKey: generateKey(),
+          DBPath: './payments-db/',
+          SecureProofPolicy: false,
+          ChannelsConfig: {
+            SupportedCoins: { Ton: { Enabled: true }, Jettons: {}, ExtraCurrencies: {} },
+            BufferTimeToCommit: 10800,
+            QuarantineDurationSec: 21600,
+            ConditionalCloseDurationSec: 10800,
+            MinSafeVirtualChannelTimeoutSec: 300,
+          },
+        },
+      },
+    }
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2))
+    log.info(`Proxy config generated: tunnel=${tunnelEnabled}`)
   }
 
   private setStatus(status: ProxyStatus): void {
@@ -133,69 +198,15 @@ export class ProxyManager extends EventEmitter {
     log.info(`Status: ${status}`)
   }
 
-  private startSyncCheck(): void {
-    const { network, advanced } = this.loadSettings()
-    const testDomain = /^[a-zA-Z0-9.-]+$/.test(advanced.syncTestDomain) ? advanced.syncTestDomain : 'foundation.ton'
-    const interval = network.syncCheckInterval
-
-    const checkSync = (): Promise<boolean> => {
-      return new Promise((resolve) => {
-        const req = http.request(
-          {
-            hostname: '127.0.0.1',
-            port: this.port,
-            path: '/',
-            method: 'GET',
-            headers: { Host: testDomain },
-            timeout: 5000,
-          },
-          (res) => {
-            // If we get a response that's not 502, we're synced
-            if (res.statusCode !== 502) {
-              log.info(`Sync complete! ${testDomain} responded with ${res.statusCode}`)
-              resolve(true)
-            } else {
-              resolve(false)
-            }
-            res.resume()
-          }
-        )
-
-        req.on('error', () => resolve(false))
-        req.on('timeout', () => {
-          req.destroy()
-          resolve(false)
-        })
-        req.end()
-      })
-    }
-
-    this.syncCheckInterval = setInterval(async () => {
-      if (await checkSync()) {
-        this.setStatus('connected')
-        if (this.syncCheckInterval) {
-          clearInterval(this.syncCheckInterval)
-          this.syncCheckInterval = null
-          log.info('Sync check stopped')
-        }
-      }
-    }, interval)
-  }
-
   stop(): void {
-    if (this.syncCheckInterval) {
-      clearInterval(this.syncCheckInterval)
-      this.syncCheckInterval = null
-    }
     if (this.process) {
       log.info('Stopping proxy...')
-      // Clean up all listeners before killing to prevent memory leaks
       this.process.stdout?.removeAllListeners()
       this.process.stderr?.removeAllListeners()
       this.process.removeAllListeners()
       this.process.kill('SIGTERM')
       this.process = null
-      this.circuitRelays = []
+      this.tunnelRoute = ''
       this.setStatus('stopped')
       this.emit('disconnected')
     }
@@ -205,10 +216,9 @@ export class ProxyManager extends EventEmitter {
     return {
       status: this.status,
       connected: this.status === 'connected',
-      syncing: this.status === 'syncing',
       port: this.port,
       anonymousMode: this.anonymousMode,
-      circuitRelays: this.circuitRelays,
+      circuitRelays: this.tunnelRoute ? this.tunnelRoute.split(' -> ').filter((s) => s !== 'we') : [],
     }
   }
 
@@ -224,22 +234,16 @@ export class ProxyManager extends EventEmitter {
     return `http://127.0.0.1:${this.port}`
   }
 
-  // Restart proxy if anonymousMode changed
   async restart(): Promise<void> {
     log.info('Restarting proxy...')
     this.stop()
-    // Wait a bit for the process to fully stop
     await new Promise((r) => setTimeout(r, 500))
     await this.start()
   }
 
-  // Check if network settings changed and restart if needed
   async applySettingsChange(): Promise<void> {
     const { network } = this.loadSettings()
-    const needsRestart =
-      network.anonymousMode !== this.anonymousMode ||
-      (this.anonymousMode &&
-        (network.circuitRotation !== this.circuitRotation || network.rotateInterval !== this.rotateInterval))
+    const needsRestart = network.anonymousMode !== this.anonymousMode
 
     if (needsRestart) {
       log.info(`Network settings changed, restarting proxy...`)
@@ -249,17 +253,25 @@ export class ProxyManager extends EventEmitter {
 
   private async waitForReady(): Promise<void> {
     const { network } = this.loadSettings()
-    const maxAttempts = network.connectionTimeout // seconds
+    const maxAttempts = network.connectionTimeout
 
-    // tonnet-proxy v0.6.0+ outputs "Listening on <addr>" on stdout when ready
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
         reject(new Error('Proxy failed to start within timeout'))
       }, maxAttempts * 1000)
 
       const checkOutput = (data: Buffer) => {
-        const output = data.toString().toLowerCase()
-        if (output.includes('listening on') || output.includes('proxy listening')) {
+        const raw = data.toString()
+        // eslint-disable-next-line no-control-regex
+        const output = raw.replace(/\x1b\[[0-9;]*m/g, '').toLowerCase()
+        // In direct mode: "starting proxy server" comes immediately
+        // In tunnel mode: "starting proxy server" comes AFTER tunnel init (~10-15s)
+        // We must wait for the proxy to actually be listening before starting sync checks
+        if (
+          output.includes('starting proxy server') ||
+          output.includes('listening on') ||
+          output.includes('proxy listening')
+        ) {
           clearTimeout(timeout)
           this.process?.stdout?.off('data', checkOutput)
           this.process?.stderr?.off('data', checkOutput)

@@ -66,15 +66,6 @@
     "anonymousMode": "匿名模式",
     "anonymousModeDesc": "通过三跳加密回路路由流量",
     "enableAnonymousMode": "启用匿名模式",
-    "circuitRotation": "回路轮换",
-    "circuitRotationDesc": "自动更改回路以提高隐私",
-    "enableCircuitRotation": "启用回路轮换",
-    "rotationInterval": "轮换间隔",
-    "rotationIntervalDesc": "构建新回路的频率",
-    "5minutes": "5 分钟",
-    "10minutes": "10 分钟",
-    "15minutes": "15 分钟",
-    "30minutes": "30 分钟",
     "homepage": "主页",
     "homepageDesc": "打开新标签页时显示的页面",
     "startPage": "起始页",
@@ -93,8 +84,7 @@
     "peels": "剥离",
     "wraps": "包装",
     "receives": "接收",
-    "responds": "响应",
-    "newCircuit": "每次轮换时建立新回路"
+    "responds": "响应"
   },
   "network": {
     "title": "网络",

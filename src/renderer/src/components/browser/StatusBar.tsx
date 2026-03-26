@@ -111,7 +111,7 @@ export const StatusBar = memo(function StatusBar() {
   const getGarlicStatus = () => {
     if (!anonymousMode) return null
 
-    const isReady = circuitRelays.length === 3
+    const isReady = circuitRelays.length >= 2
 
     return (
       <span className="text-tonsite">{isReady ? t('statusBar.garlicRouting') : t('statusBar.buildingCircuit')}</span>

@@ -66,15 +66,6 @@
     "anonymousMode": "Anonymer Modus",
     "anonymousModeDesc": "Datenverkehr durch 3-Hop-Schaltkreis leiten",
     "enableAnonymousMode": "Anonymen Modus aktivieren",
-    "circuitRotation": "Schaltkreis-Rotation",
-    "circuitRotationDesc": "Automatisches Wechseln des Schaltkreises für mehr Privatsphäre",
-    "enableCircuitRotation": "Schaltkreis-Rotation aktivieren",
-    "rotationInterval": "Rotationsintervall",
-    "rotationIntervalDesc": "Häufigkeit zum Aufbau eines neuen Schaltkreises",
-    "5minutes": "5 Minuten",
-    "10minutes": "10 Minuten",
-    "15minutes": "15 Minuten",
-    "30minutes": "30 Minuten",
     "homepage": "Startseite",
     "homepageDesc": "Seite, die beim Öffnen eines neuen Tabs angezeigt wird",
     "startPage": "Startseite",
@@ -93,8 +84,7 @@
     "peels": "schält",
     "wraps": "umhüllt",
     "receives": "empfängt",
-    "responds": "antwortet",
-    "newCircuit": "Neuer Schaltkreis bei jeder Rotation"
+    "responds": "antwortet"
   },
   "network": {
     "title": "Netzwerk",

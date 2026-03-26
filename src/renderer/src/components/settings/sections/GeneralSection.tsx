@@ -37,40 +37,6 @@ export const GeneralSection = memo(function GeneralSection({ draft, setDraft }: 
           </div>
         </div>
 
-        {/* Circuit rotation - visible when anonymous mode is ON */}
-        {draft.anonymousMode && (
-          <>
-            <div className="py-4 border-b border-border">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-foreground font-medium">{t('general.circuitRotation')}</p>
-                  <p className="text-muted-foreground text-sm mt-0.5">{t('general.circuitRotationDesc')}</p>
-                </div>
-                <Toggle
-                  checked={draft.circuitRotation}
-                  onChange={(v) => setDraft('circuitRotation', v)}
-                  label={t('general.enableCircuitRotation')}
-                />
-              </div>
-            </div>
-
-            {draft.circuitRotation && (
-              <SettingRow label={t('general.rotationInterval')} description={t('general.rotationIntervalDesc')}>
-                <ToggleGroup
-                  value={draft.rotateInterval}
-                  onChange={(v) => setDraft('rotateInterval', v)}
-                  options={[
-                    { value: '5m', label: '5m' },
-                    { value: '10m', label: '10m' },
-                    { value: '15m', label: '15m' },
-                    { value: '30m', label: '30m' },
-                  ]}
-                />
-              </SettingRow>
-            )}
-          </>
-        )}
-
         {/* How it works - Garlic Routing Diagram (collapsible) */}
         <div className="border-t border-border">
           <button

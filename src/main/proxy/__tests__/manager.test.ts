@@ -1,6 +1,6 @@
 /**
  * ProxyManager Tests
- * Tests for proxy lifecycle, sync checking, and error handling
+ * Tests for proxy lifecycle and error handling
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { EventEmitter } from 'events'
@@ -23,34 +23,12 @@ const createMockProcess = () => {
   return proc
 }
 
-// Create mock HTTP response
-const createMockResponse = (statusCode: number) => {
-  const res = new EventEmitter() as EventEmitter & {
-    statusCode: number
-    resume: ReturnType<typeof vi.fn>
-  }
-  res.statusCode = statusCode
-  res.resume = vi.fn()
-  return res
-}
-
-// Create mock HTTP request
-const createMockRequest = () => {
-  const req = new EventEmitter() as EventEmitter & {
-    end: ReturnType<typeof vi.fn>
-    destroy: ReturnType<typeof vi.fn>
-  }
-  req.end = vi.fn()
-  req.destroy = vi.fn()
-  return req
-}
-
 // Mock settings
 const mockSettings = {
   network: {
     proxyPort: 8080,
     connectionTimeout: 5,
-    syncCheckInterval: 100,
+    anonymousMode: false,
   },
   advanced: {
     proxyVerbosity: 2,
@@ -63,24 +41,44 @@ vi.mock('child_process', () => ({
   spawn: vi.fn(),
 }))
 
-vi.mock('http', () => ({
-  default: {
-    request: vi.fn(),
-  },
-}))
-
 vi.mock('../../settings', () => ({
   getSetting: vi.fn((category: string) => mockSettings[category as keyof typeof mockSettings]),
 }))
 
 vi.mock('../../utils/paths', () => ({
-  getBinaryPath: vi.fn(() => '/mock/bin/tonnet-proxy'),
+  getBinaryPath: vi.fn(() => '/mock/bin/tonutils-proxy'),
+}))
+
+vi.mock('electron', () => ({
+  app: {
+    getPath: vi.fn(() => '/tmp/mock-userdata'),
+  },
+}))
+
+vi.mock('fs', () => ({
+  default: {
+    existsSync: vi.fn(() => true),
+    mkdirSync: vi.fn(),
+    readFileSync: vi.fn(() =>
+      JSON.stringify({
+        TunnelConfig: { NodesPoolConfigPath: '', TunnelSectionsNum: 1 },
+      })
+    ),
+    writeFileSync: vi.fn(),
+  },
+  existsSync: vi.fn(() => true),
+  mkdirSync: vi.fn(),
+  readFileSync: vi.fn(() =>
+    JSON.stringify({
+      TunnelConfig: { NodesPoolConfigPath: '', TunnelSectionsNum: 1 },
+    })
+  ),
+  writeFileSync: vi.fn(),
 }))
 
 // Import after mocks
 import { ProxyManager } from '../manager'
 import { spawn } from 'child_process'
-import http from 'http'
 
 describe('ProxyManager', () => {
   let manager: ProxyManager
@@ -113,17 +111,17 @@ describe('ProxyManager', () => {
 
   describe('start()', () => {
     it('spawns proxy process with correct arguments', async () => {
-      // Simulate "Proxy listening" output from tonnet-proxy
+      // Simulate "Starting proxy server" output from tonutils-proxy
       setImmediate(() => {
-        mockProcess.stdout.emit('data', Buffer.from('Proxy listening on http://localhost:8080'))
+        mockProcess.stderr.emit('data', Buffer.from('Starting proxy server'))
       })
 
       await manager.start()
 
       expect(spawn).toHaveBeenCalledWith(
-        '/mock/bin/tonnet-proxy',
-        expect.arrayContaining(['--direct', '--listen', '127.0.0.1:8080']),
-        { windowsHide: true }
+        '/mock/bin/tonutils-proxy',
+        ['-addr', '127.0.0.1:8080'],
+        expect.objectContaining({ windowsHide: true })
       )
 
       manager.stop()
@@ -131,7 +129,7 @@ describe('ProxyManager', () => {
 
     it('throws if proxy already running', async () => {
       setImmediate(() => {
-        mockProcess.stdout.emit('data', Buffer.from('Proxy listening on http://localhost:8080'))
+        mockProcess.stderr.emit('data', Buffer.from('Starting proxy server'))
       })
 
       await manager.start()
@@ -159,15 +157,17 @@ describe('ProxyManager', () => {
       vi.mocked(spawn).mockReturnValue(newMockProcess as any)
 
       setImmediate(() => {
-        newMockProcess.stdout.emit('data', Buffer.from('Proxy listening on http://localhost:8080'))
+        newMockProcess.stderr.emit('data', Buffer.from('Starting proxy server'))
       })
 
       const newManager = new ProxyManager()
       await newManager.start()
 
-      expect(spawn).toHaveBeenCalledWith(expect.any(String), expect.arrayContaining(['--listen', '127.0.0.1:8080']), {
-        windowsHide: true,
-      })
+      expect(spawn).toHaveBeenCalledWith(
+        expect.any(String),
+        ['-addr', '127.0.0.1:8080'],
+        expect.objectContaining({ windowsHide: true })
+      )
 
       newManager.stop()
       // Reset
@@ -178,7 +178,7 @@ describe('ProxyManager', () => {
   describe('stop()', () => {
     it('kills the process', async () => {
       setImmediate(() => {
-        mockProcess.stdout.emit('data', Buffer.from('Proxy listening'))
+        mockProcess.stderr.emit('data', Buffer.from('Starting proxy server'))
       })
 
       await manager.start()
@@ -189,7 +189,7 @@ describe('ProxyManager', () => {
 
     it('emits "disconnected" event', async () => {
       setImmediate(() => {
-        mockProcess.stdout.emit('data', Buffer.from('Proxy listening'))
+        mockProcess.stderr.emit('data', Buffer.from('Starting proxy server'))
       })
 
       const disconnectSpy = vi.fn()
@@ -203,7 +203,7 @@ describe('ProxyManager', () => {
 
     it('sets status to "stopped"', async () => {
       setImmediate(() => {
-        mockProcess.stdout.emit('data', Buffer.from('Proxy listening'))
+        mockProcess.stderr.emit('data', Buffer.from('Starting proxy server'))
       })
 
       await manager.start()
@@ -219,7 +219,7 @@ describe('ProxyManager', () => {
   })
 
   describe('waitForReady() timeout', () => {
-    it('throws timeout error if proxy never outputs "Proxy listening"', async () => {
+    it('throws timeout error if proxy never outputs ready signal', async () => {
       // Set short timeout for test
       mockSettings.network.connectionTimeout = 1
 
@@ -234,9 +234,9 @@ describe('ProxyManager', () => {
       mockSettings.network.connectionTimeout = 5
     }, 10000)
 
-    it('succeeds when proxy outputs "Proxy listening"', async () => {
+    it('succeeds when proxy outputs "Starting proxy server"', async () => {
       setImmediate(() => {
-        mockProcess.stdout.emit('data', Buffer.from('Proxy listening'))
+        mockProcess.stderr.emit('data', Buffer.from('Starting proxy server'))
       })
 
       await expect(manager.start()).resolves.toBeUndefined()
@@ -248,7 +248,7 @@ describe('ProxyManager', () => {
   describe('Process Events', () => {
     it('emits "log" on stdout data', async () => {
       setImmediate(() => {
-        mockProcess.stdout.emit('data', Buffer.from('Proxy listening'))
+        mockProcess.stderr.emit('data', Buffer.from('Starting proxy server'))
       })
 
       const logSpy = vi.fn()
@@ -262,9 +262,9 @@ describe('ProxyManager', () => {
       manager.stop()
     })
 
-    it('emits "log" on stderr data (slog output)', async () => {
+    it('emits "log" on stderr data', async () => {
       setImmediate(() => {
-        mockProcess.stdout.emit('data', Buffer.from('Proxy listening'))
+        mockProcess.stderr.emit('data', Buffer.from('Starting proxy server'))
       })
 
       const logSpy = vi.fn()
@@ -280,7 +280,7 @@ describe('ProxyManager', () => {
 
     it('handles process exit', async () => {
       setImmediate(() => {
-        mockProcess.stdout.emit('data', Buffer.from('Proxy listening'))
+        mockProcess.stderr.emit('data', Buffer.from('Starting proxy server'))
       })
 
       const exitSpy = vi.fn()
@@ -301,22 +301,21 @@ describe('ProxyManager', () => {
 
       expect(status).toHaveProperty('status')
       expect(status).toHaveProperty('connected')
-      expect(status).toHaveProperty('syncing')
+
       expect(status).toHaveProperty('port')
       expect(status.status).toBe('stopped')
       expect(status.connected).toBe(false)
-      expect(status.syncing).toBe(false)
     })
 
     it('returns correct status after start', async () => {
       setImmediate(() => {
-        mockProcess.stdout.emit('data', Buffer.from('Proxy listening'))
+        mockProcess.stderr.emit('data', Buffer.from('Starting proxy server'))
       })
 
       await manager.start()
 
       const status = manager.getStatus()
-      expect(status.status).toBe('syncing')
+      expect(status.status).toBe('connected')
       expect(status.port).toBe(8080)
 
       manager.stop()
@@ -326,7 +325,7 @@ describe('ProxyManager', () => {
   describe('getProxyUrl()', () => {
     it('returns correct proxy URL after start', async () => {
       setImmediate(() => {
-        mockProcess.stdout.emit('data', Buffer.from('Proxy listening'))
+        mockProcess.stderr.emit('data', Buffer.from('Starting proxy server'))
       })
 
       await manager.start()
@@ -358,7 +357,7 @@ describe('Port Validation', () => {
     vi.mocked(spawn).mockReturnValue(testMockProcess as any)
 
     setImmediate(() => {
-      testMockProcess.stdout.emit('data', Buffer.from('Proxy listening'))
+      testMockProcess.stderr.emit('data', Buffer.from('Starting proxy server'))
     })
 
     mockSettings.network.proxyPort = input
@@ -368,10 +367,9 @@ describe('Port Validation', () => {
 
     const spawnCall = vi.mocked(spawn).mock.calls[0]
     const args = spawnCall[1] as string[]
-    const listenIndex = args.indexOf('--listen')
-    const addr = args[listenIndex + 1]
+    const addrArg = args[args.indexOf('-addr') + 1]
 
-    expect(addr).toBe(`127.0.0.1:${expected}`)
+    expect(addrArg).toBe(`127.0.0.1:${expected}`)
 
     manager.stop()
 

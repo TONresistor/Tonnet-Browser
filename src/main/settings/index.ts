@@ -55,8 +55,6 @@ export function getDefaultSettings(): AppSettings {
       connectionTimeout: DEFAULT_SETTINGS.connectionTimeout,
       syncCheckInterval: DEFAULT_SETTINGS.syncCheckInterval,
       anonymousMode: DEFAULT_SETTINGS.anonymousMode,
-      circuitRotation: DEFAULT_SETTINGS.circuitRotation,
-      rotateInterval: DEFAULT_SETTINGS.rotateInterval,
     },
     storage: {
       downloadPath: getDefaultStoragePath(), // Platform-specific override

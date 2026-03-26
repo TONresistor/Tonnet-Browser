@@ -26,7 +26,7 @@ TEMP_DIR="/tmp/tonnet-build-$$"
 
 # Repository URLs
 TONUTILS_STORAGE_REPO="https://github.com/xssnick/tonutils-storage.git"
-TONNET_PROXY_REPO="https://github.com/TONresistor/tonnet-proxy.git"
+TONUTILS_PROXY_REPO="https://github.com/xssnick/Tonutils-Proxy.git"
 
 # Colors for output
 RED='\033[0;31m'
@@ -211,7 +211,7 @@ main() {
     setup_directories
 
     # Build each component
-    build_universal "tonnet-proxy" "$TONNET_PROXY_REPO" "./cmd/"
+    build_universal "tonutils-proxy" "$TONUTILS_PROXY_REPO" "./cmd/proxy-cli/"
     build_universal "tonutils-storage" "$TONUTILS_STORAGE_REPO" "./cmd/tonutils-storage"
 
     if [ "$VERIFY" = true ]; then

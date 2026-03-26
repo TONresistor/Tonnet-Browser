@@ -340,7 +340,7 @@ describe('bookmarks store', () => {
       expect(state.folders).toHaveLength(0)
       // Default bookmarks should be restored (3 default bookmarks)
       expect(state.bookmarks).toHaveLength(3)
-      expect(state.bookmarks[0].url).toBe('http://tonnet-sync-check.ton')
+      expect(state.bookmarks[0].url).toBe('http://foundation.ton')
     })
   })
 

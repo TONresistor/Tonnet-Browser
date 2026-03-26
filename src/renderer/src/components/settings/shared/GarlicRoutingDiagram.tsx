@@ -244,8 +244,6 @@ export function GarlicRoutingDiagram() {
           )}
         </svg>
       </div>
-
-      <p className="text-xs text-muted-foreground/60 text-center mt-4">{t('general.newCircuit')}</p>
     </div>
   )
 }

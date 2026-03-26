@@ -11,13 +11,7 @@ import { createLogger } from '../../shared/logger'
 const log = createLogger('proxy')
 
 /**
- * Runs the 5-step proxy startup sequence with progress notifications.
- * Used by both auto-connect (on app ready) and manual connect (IPC handler).
- *
- * @param sendProgress - Callback to send progress step updates to the renderer
- * @param proxyManager - The ProxyManager instance to start
- * @param storageManager - The StorageManager instance to start
- * @param mainWindow - The main BrowserWindow (may be null if not yet available)
+ * Runs the proxy startup sequence with real progress from tunnel logs.
  */
 export async function startProxySequence(
   sendProgress: (step: number, message: string) => void,
@@ -25,28 +19,34 @@ export async function startProxySequence(
   storageManager: StorageManager,
   mainWindow: BrowserWindow | null
 ): Promise<void> {
-  // Step 0: Starting proxy
+  // Step 0: Starting proxy binary
   sendProgress(0, 'Starting proxy...')
+
+  // Listen for tunnel progress events from proxy logs
+  const logListener = (message: string) => {
+    // eslint-disable-next-line no-control-regex
+    const clean = message.replace(/\x1b\[[0-9;]*m/g, '').toLowerCase()
+    if (clean.includes('fetching ton network config')) {
+      sendProgress(1, 'Fetching TON network config...')
+    } else if (clean.includes('initializing adnl tunnel') || clean.includes('initializing dht')) {
+      sendProgress(2, 'Connecting to TON DHT...')
+    } else if (clean.includes('configuring route')) {
+      sendProgress(2, 'Building tunnel route...')
+    } else if (clean.includes('tunnel is ready') || clean.includes('tunnel updated')) {
+      sendProgress(3, 'Tunnel connected!')
+    }
+  }
+  proxyManager.on('log', logListener)
+
   await proxyManager.start()
-
-  // Step 1: Loading configuration
-  sendProgress(1, 'Loading configuration...')
-  await new Promise((r) => setTimeout(r, 100)) // Small delay for visual feedback
-
-  // Step 2: Starting DHT
-  sendProgress(2, 'Starting DHT...')
-  await new Promise((r) => setTimeout(r, 100))
-
-  // Step 3: Connecting to network
-  sendProgress(3, 'Connecting to network...')
-  await new Promise((r) => setTimeout(r, 100))
+  proxyManager.off('log', logListener)
 
   // Initialize TabManager with proxy port
   if (mainWindow) {
     initTabManager(mainWindow, proxyManager.getStatus().port)
   }
 
-  // Start storage daemon (non-critical: continue even if it fails)
+  // Start storage daemon (non-critical)
   try {
     await storageManager.start()
     log.info('Storage daemon started')

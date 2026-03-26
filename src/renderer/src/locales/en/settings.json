@@ -71,15 +71,6 @@
     "anonymousMode": "Anonymous mode",
     "anonymousModeDesc": "Route traffic through 3-hop garlic circuit",
     "enableAnonymousMode": "Enable anonymous mode",
-    "circuitRotation": "Circuit rotation",
-    "circuitRotationDesc": "Automatically change circuit for better privacy",
-    "enableCircuitRotation": "Enable circuit rotation",
-    "rotationInterval": "Rotation interval",
-    "rotationIntervalDesc": "How often to build a new circuit",
-    "5minutes": "5 minutes",
-    "10minutes": "10 minutes",
-    "15minutes": "15 minutes",
-    "30minutes": "30 minutes",
     "homepage": "Homepage",
     "homepageDesc": "Page to show when opening a new tab",
     "startPage": "Start Page",
@@ -98,8 +89,7 @@
     "peels": "peels",
     "wraps": "wraps",
     "receives": "receives",
-    "responds": "responds",
-    "newCircuit": "New circuit every rotation"
+    "responds": "responds"
   },
   "network": {
     "title": "Network",

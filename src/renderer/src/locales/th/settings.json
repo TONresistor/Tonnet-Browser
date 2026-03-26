@@ -66,15 +66,6 @@
     "anonymousMode": "โหมดไม่เปิดเผยตัวตน",
     "anonymousModeDesc": "ส่งทราฟฟิกผ่านวงจร 3 ฮอป",
     "enableAnonymousMode": "เปิดใช้โหมดไม่เปิดเผยตัวตน",
-    "circuitRotation": "การหมุนเวียนวงจร",
-    "circuitRotationDesc": "เปลี่ยนวงจรอัตโนมัติเพื่อความเป็นส่วนตัว",
-    "enableCircuitRotation": "เปิดใช้การหมุนเวียนวงจร",
-    "rotationInterval": "ช่วงเวลาการหมุนเวียน",
-    "rotationIntervalDesc": "ความถี่ในการสร้างวงจรใหม่",
-    "5minutes": "5 นาที",
-    "10minutes": "10 นาที",
-    "15minutes": "15 นาที",
-    "30minutes": "30 นาที",
     "homepage": "หน้าแรก",
     "homepageDesc": "หน้าที่แสดงเมื่อเปิดแท็บใหม่",
     "startPage": "หน้าเริ่มต้น",
@@ -93,8 +84,7 @@
     "peels": "ลอก",
     "wraps": "ห่อ",
     "receives": "รับ",
-    "responds": "ตอบกลับ",
-    "newCircuit": "วงจรใหม่ในการหมุนเวียนแต่ละครั้ง"
+    "responds": "ตอบกลับ"
   },
   "network": {
     "title": "เครือข่าย",
