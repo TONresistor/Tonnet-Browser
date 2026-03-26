@@ -5,6 +5,7 @@
 
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { createLogger } from '@/logger'
+import { UI_COPY_FEEDBACK_MS, UI_NOTIFICATION_TIMEOUT_MS } from '@shared/constants'
 import { Search, Trash2, Clock, ExternalLink, Filter, History, TriangleAlert } from 'lucide-react'
 
 const log = createLogger('history')
@@ -94,7 +95,7 @@ export function HistoryPage() {
     } else {
       setPendingDeleteId(id)
       if (deleteTimerRef.current) clearTimeout(deleteTimerRef.current)
-      deleteTimerRef.current = setTimeout(() => setPendingDeleteId(null), 3000)
+      deleteTimerRef.current = setTimeout(() => setPendingDeleteId(null), UI_NOTIFICATION_TIMEOUT_MS)
     }
   }
 
@@ -109,7 +110,7 @@ export function HistoryPage() {
     } else {
       setPendingClearAll(true)
       if (clearAllTimerRef.current) clearTimeout(clearAllTimerRef.current)
-      clearAllTimerRef.current = setTimeout(() => setPendingClearAll(false), 3000)
+      clearAllTimerRef.current = setTimeout(() => setPendingClearAll(false), UI_NOTIFICATION_TIMEOUT_MS)
     }
   }
 
@@ -135,7 +136,7 @@ export function HistoryPage() {
     } else {
       setPendingClearRange(range)
       if (clearRangeTimerRef.current) clearTimeout(clearRangeTimerRef.current)
-      clearRangeTimerRef.current = setTimeout(() => setPendingClearRange(null), 3000)
+      clearRangeTimerRef.current = setTimeout(() => setPendingClearRange(null), UI_NOTIFICATION_TIMEOUT_MS)
     }
   }
 
@@ -146,7 +147,7 @@ export function HistoryPage() {
   const copyUrl = (url: string, id: string) => {
     navigator.clipboard.writeText(url)
     setCopiedId(id)
-    setTimeout(() => setCopiedId(null), 2000)
+    setTimeout(() => setCopiedId(null), UI_COPY_FEEDBACK_MS)
   }
 
   const formatDate = (timestamp: number) => {

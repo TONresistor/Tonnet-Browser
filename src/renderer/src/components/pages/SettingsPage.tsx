@@ -5,6 +5,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { createLogger } from '@/logger'
+import { UI_NOTIFICATION_TIMEOUT_MS, UI_ERROR_TIMEOUT_MS } from '@shared/constants'
 import { usePreferencesStore } from '@/stores/preferences'
 
 const log = createLogger('settings')
@@ -94,7 +95,7 @@ export function SettingsPage() {
     try {
       await window.electron.clearBrowsingData()
       setCleared(true)
-      clearTimeoutRef.current = setTimeout(() => setCleared(false), 3000)
+      clearTimeoutRef.current = setTimeout(() => setCleared(false), UI_NOTIFICATION_TIMEOUT_MS)
     } finally {
       setClearing(false)
     }
@@ -123,7 +124,7 @@ export function SettingsPage() {
     } else {
       setPendingReset(true)
       if (resetTimerRef.current) clearTimeout(resetTimerRef.current)
-      resetTimerRef.current = setTimeout(() => setPendingReset(false), 3000)
+      resetTimerRef.current = setTimeout(() => setPendingReset(false), UI_NOTIFICATION_TIMEOUT_MS)
     }
   }
 
@@ -148,12 +149,12 @@ export function SettingsPage() {
       } else {
         setHistoryError(`Failed to change history mode: ${result.error}`)
         if (historyErrorTimerRef.current) clearTimeout(historyErrorTimerRef.current)
-        historyErrorTimerRef.current = setTimeout(() => setHistoryError(null), 5000)
+        historyErrorTimerRef.current = setTimeout(() => setHistoryError(null), UI_ERROR_TIMEOUT_MS)
       }
     } catch (error) {
       setHistoryError(`Error changing history mode: ${(error as Error).message}`)
       if (historyErrorTimerRef.current) clearTimeout(historyErrorTimerRef.current)
-      historyErrorTimerRef.current = setTimeout(() => setHistoryError(null), 5000)
+      historyErrorTimerRef.current = setTimeout(() => setHistoryError(null), UI_ERROR_TIMEOUT_MS)
     } finally {
       setChangingHistoryMode(false)
     }

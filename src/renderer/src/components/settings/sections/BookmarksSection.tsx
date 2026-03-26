@@ -3,6 +3,7 @@
  */
 
 import { memo, useState, useMemo, useRef, useEffect } from 'react'
+import { UI_NOTIFICATION_TIMEOUT_MS } from '@shared/constants'
 import { ExternalLink, RotateCcw, Search, Plus, SquarePen, Trash2, Globe } from 'lucide-react'
 import { SectionHeader } from '../shared/SectionHeader'
 import { SettingRow } from '../shared/SettingRow'
@@ -98,7 +99,7 @@ export const BookmarksSection = memo(function BookmarksSection({
     } else {
       setPendingDeleteId(id)
       if (deleteTimerRef.current) clearTimeout(deleteTimerRef.current)
-      deleteTimerRef.current = setTimeout(() => setPendingDeleteId(null), 3000)
+      deleteTimerRef.current = setTimeout(() => setPendingDeleteId(null), UI_NOTIFICATION_TIMEOUT_MS)
     }
   }
 
@@ -107,7 +108,7 @@ export const BookmarksSection = memo(function BookmarksSection({
     if (depth >= 3) {
       setMaxDepthWarning(true)
       if (maxDepthTimerRef.current) clearTimeout(maxDepthTimerRef.current)
-      maxDepthTimerRef.current = setTimeout(() => setMaxDepthWarning(false), 3000)
+      maxDepthTimerRef.current = setTimeout(() => setMaxDepthWarning(false), UI_NOTIFICATION_TIMEOUT_MS)
       return
     }
     setCreatingFolder({ parentId, name: '' })

@@ -131,8 +131,8 @@ async function resolveTonApiFallback(domain: string): Promise<DnsResolveResult |
         return { address: addr.toString({ bounceable: false }), source: 'wallet-record', domain }
       }
     }
-  } catch {
-    // fall through
+  } catch (err) {
+    log.warn('TonAPI wallet-record lookup failed:', String(err))
   }
 
   try {
@@ -146,8 +146,8 @@ async function resolveTonApiFallback(domain: string): Promise<DnsResolveResult |
         return { address: addr.toString({ bounceable: false }), source: 'owner-fallback', domain }
       }
     }
-  } catch {
-    // exhausted
+  } catch (err) {
+    log.warn('TonAPI NFT-owner lookup failed:', String(err))
   }
 
   return null

@@ -3,6 +3,7 @@
  */
 
 import { memo, useState, useRef, useEffect } from 'react'
+import { UI_NOTIFICATION_TIMEOUT_MS } from '@shared/constants'
 import { Plus, Upload, Rows3, Columns3 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { SectionHeader } from '../shared/SectionHeader'
@@ -83,7 +84,7 @@ export const AppearanceSection = memo(function AppearanceSection({ draft, setDra
     } else {
       setPendingDeleteId(themeId)
       if (deleteTimerRef.current) clearTimeout(deleteTimerRef.current)
-      deleteTimerRef.current = setTimeout(() => setPendingDeleteId(null), 3000)
+      deleteTimerRef.current = setTimeout(() => setPendingDeleteId(null), UI_NOTIFICATION_TIMEOUT_MS)
     }
   }
 

@@ -4,6 +4,7 @@
  */
 
 import { useState, useEffect, memo } from 'react'
+import { UI_NOTIFICATION_TIMEOUT_MS } from '@shared/constants'
 import { Send, ArrowLeft, LoaderCircle, CheckCircle2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -123,7 +124,7 @@ export const SendForm = memo(function SendForm({ onSend, isSending, error, balan
       setConfirming(false)
       setTo('')
       setAmount('')
-      setTimeout(() => setSuccess(false), 3000)
+      setTimeout(() => setSuccess(false), UI_NOTIFICATION_TIMEOUT_MS)
     } catch {
       setConfirming(false)
     }

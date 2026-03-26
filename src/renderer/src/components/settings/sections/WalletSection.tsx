@@ -8,6 +8,7 @@ import { memo, useState, useEffect, useCallback } from 'react'
 import { SectionHeader } from '../shared/SectionHeader'
 import { SettingRow } from '../shared/SettingRow'
 import { ToggleGroup } from '../shared/ToggleGroup'
+import { UI_COPY_FEEDBACK_MS } from '@shared/constants'
 import { createLogger } from '@/logger'
 import { useTranslation } from 'react-i18next'
 import type { WalletSettings, PaymentMode, NotificationStyle, SitePolicy } from '@shared/types'
@@ -72,7 +73,7 @@ function WalletManagementSection() {
     if (!words) return
     navigator.clipboard.writeText(words.join(' '))
     setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+    setTimeout(() => setCopied(false), UI_COPY_FEEDBACK_MS)
   }, [words])
 
   const parseWords = (text: string): string[] =>

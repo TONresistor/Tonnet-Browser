@@ -36,3 +36,11 @@ export const TON_NATIVE_ASSET = 'native'
 export const X402_VERSION = 2
 export const RATE_LIMIT_MAX_PER_SECOND = 1
 export const RATE_LIMIT_BURST_PER_10S = 3
+
+// UI timing
+export const UI_COPY_FEEDBACK_MS = 2000
+export const UI_NOTIFICATION_TIMEOUT_MS = 3000
+export const UI_ERROR_TIMEOUT_MS = 5000
+
+// Security limits
+export const FAVICON_MAX_SIZE_BYTES = 50_000

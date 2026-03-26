@@ -4,6 +4,7 @@
  */
 
 import { useState, useRef, useEffect } from 'react'
+import { UI_NOTIFICATION_TIMEOUT_MS } from '@shared/constants'
 import { ChevronRight, ChevronDown, Folder, FolderOpen, Pen, Trash2 } from 'lucide-react'
 import { useBookmarksStore, BookmarkFolder } from '@/stores/bookmarks'
 import { cn } from '@/lib/utils'
@@ -52,7 +53,7 @@ export function FolderTree({ selectedFolderId, onSelectFolder, onEditFolder }: F
     } else {
       setPendingDeleteId(folder.id)
       if (deleteTimerRef.current) clearTimeout(deleteTimerRef.current)
-      deleteTimerRef.current = setTimeout(() => setPendingDeleteId(null), 3000)
+      deleteTimerRef.current = setTimeout(() => setPendingDeleteId(null), UI_NOTIFICATION_TIMEOUT_MS)
     }
   }
 

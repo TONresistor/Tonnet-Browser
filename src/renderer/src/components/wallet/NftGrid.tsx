@@ -4,6 +4,9 @@
 
 import { useState, useEffect, memo } from 'react'
 import { LoaderCircle, ImagePlus } from 'lucide-react'
+import { createLogger } from '@/logger'
+
+const log = createLogger('wallet:nfts')
 
 type NftItem = {
   address: string
@@ -24,7 +27,8 @@ export const NftGrid = memo(function NftGrid() {
         setNfts(items)
         setLoading(false)
       })
-      .catch(() => {
+      .catch((err) => {
+        log.warn('Failed to load NFTs:', err)
         setLoading(false)
       })
   }, [])

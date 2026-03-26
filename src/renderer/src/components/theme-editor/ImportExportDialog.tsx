@@ -3,6 +3,7 @@
  */
 
 import { useState } from 'react'
+import { UI_COPY_FEEDBACK_MS } from '@shared/constants'
 import { X, Upload, Download, CircleAlert, Check } from 'lucide-react'
 
 interface ImportDialogProps {
@@ -138,7 +139,7 @@ export function ExportDialog({ themeJson, themeName, onClose }: ExportDialogProp
   const handleCopy = async () => {
     await navigator.clipboard.writeText(themeJson)
     setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+    setTimeout(() => setCopied(false), UI_COPY_FEEDBACK_MS)
   }
 
   const handleDownload = () => {

@@ -5,7 +5,7 @@
 import { memo, useState, useEffect, useCallback, useRef } from 'react'
 import { ExternalLink, CircleCheckBig, Download, RefreshCw, LoaderCircle, CircleAlert } from 'lucide-react'
 import { SectionHeader } from '../shared/SectionHeader'
-import { APP_NAME, APP_VERSION } from '@shared/constants'
+import { APP_NAME, APP_VERSION, UI_NOTIFICATION_TIMEOUT_MS } from '@shared/constants'
 import tonLogo from '@/assets/ton.png'
 import { useTranslation } from 'react-i18next'
 
@@ -33,7 +33,7 @@ export const AboutSection = memo(function AboutSection() {
     unsubs.push(
       window.electron.on('updater:not-available', () => {
         setUpdateState('up-to-date')
-        upToDateTimer.current = setTimeout(() => setUpdateState('idle'), 3000)
+        upToDateTimer.current = setTimeout(() => setUpdateState('idle'), UI_NOTIFICATION_TIMEOUT_MS)
       })
     )
 
@@ -71,7 +71,7 @@ export const AboutSection = memo(function AboutSection() {
       // In dev mode, electron-updater can't check — events won't fire
       if (result?.reason === 'dev-mode') {
         setUpdateState('up-to-date')
-        upToDateTimer.current = setTimeout(() => setUpdateState('idle'), 3000)
+        upToDateTimer.current = setTimeout(() => setUpdateState('idle'), UI_NOTIFICATION_TIMEOUT_MS)
       }
       // Otherwise, state will be set by event listeners
     } catch {

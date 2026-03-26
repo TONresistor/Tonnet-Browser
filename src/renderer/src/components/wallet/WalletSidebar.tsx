@@ -15,7 +15,7 @@ import { SendForm } from '@/components/wallet/SendForm'
 import { ReceivePanel } from '@/components/wallet/ReceivePanel'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
-import { TON_WALLET_PAGE } from '@shared/constants'
+import { TON_WALLET_PAGE, UI_COPY_FEEDBACK_MS } from '@shared/constants'
 
 type SidebarView = 'overview' | 'send' | 'receive'
 
@@ -56,7 +56,7 @@ export function WalletSidebar({ onClose }: WalletSidebarProps) {
   const handleCopyAddress = useCallback(() => {
     navigator.clipboard.writeText(address)
     setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+    setTimeout(() => setCopied(false), UI_COPY_FEEDBACK_MS)
   }, [address])
 
   const handleOpenWallet = useCallback(() => {

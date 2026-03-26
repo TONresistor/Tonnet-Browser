@@ -7,6 +7,10 @@ import { Copy, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useTranslation } from 'react-i18next'
 import QRCode from 'qrcode'
+import { UI_COPY_FEEDBACK_MS } from '@shared/constants'
+import { createLogger } from '@/logger'
+
+const log = createLogger('wallet:receive')
 
 interface ReceivePanelProps {
   address: string
@@ -25,8 +29,8 @@ function AddressQR({ address }: { address: string }) {
         light: '#ffffff',
       },
       errorCorrectionLevel: 'M',
-    }).catch(() => {
-      // QR generation failed silently
+    }).catch((err) => {
+      log.warn('QR code generation failed:', err)
     })
   }, [address])
 
@@ -41,7 +45,7 @@ export const ReceivePanel = memo(function ReceivePanel({ address }: ReceivePanel
     try {
       await navigator.clipboard.writeText(address)
       setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
+      setTimeout(() => setCopied(false), UI_COPY_FEEDBACK_MS)
     } catch {
       // clipboard unavailable
     }

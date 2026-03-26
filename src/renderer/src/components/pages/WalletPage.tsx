@@ -30,6 +30,7 @@ import { TransactionList } from '@/components/wallet/TransactionList'
 import { DnsTab } from '@/components/wallet/DnsTab'
 import { NftGrid } from '@/components/wallet/NftGrid'
 import { cn } from '@/lib/utils'
+import { UI_COPY_FEEDBACK_MS } from '@shared/constants'
 import { useTranslation } from 'react-i18next'
 
 type Tab = 'overview' | 'send' | 'receive' | 'history' | 'dns' | 'nft'
@@ -93,7 +94,7 @@ export function WalletPage() {
     if (!newMnemonic) return
     navigator.clipboard.writeText(newMnemonic.join(' '))
     setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+    setTimeout(() => setCopied(false), UI_COPY_FEEDBACK_MS)
   }, [newMnemonic])
 
   if (isLoading && !isCreated) {

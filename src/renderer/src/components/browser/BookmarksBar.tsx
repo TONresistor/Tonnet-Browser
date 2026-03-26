@@ -6,6 +6,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { createLogger } from '@/logger'
+import { UI_NOTIFICATION_TIMEOUT_MS } from '@shared/constants'
 
 const log = createLogger('bookmarks')
 import {
@@ -214,7 +215,7 @@ export function BookmarksBar() {
       const folderId = args[0] as string
       setPendingFolderDeleteId(folderId)
       if (folderDeleteTimerRef.current) clearTimeout(folderDeleteTimerRef.current)
-      folderDeleteTimerRef.current = setTimeout(() => setPendingFolderDeleteId(null), 3000)
+      folderDeleteTimerRef.current = setTimeout(() => setPendingFolderDeleteId(null), UI_NOTIFICATION_TIMEOUT_MS)
     })
 
     const unsubFolderOpenAll = window.electron.on('folder:open-all', (...args: unknown[]) => {

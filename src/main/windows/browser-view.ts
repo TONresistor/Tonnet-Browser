@@ -4,7 +4,7 @@
  */
 
 import { WebContentsView, session } from 'electron'
-import { USER_AGENT } from '../../shared/constants'
+import { USER_AGENT, FAVICON_MAX_SIZE_BYTES } from '../../shared/constants'
 import { getSetting } from '../settings'
 import { contentFilterManager } from '../content-filter/filter-manager'
 import { paymentInterceptor } from '../wallet/payment-interceptor'
@@ -173,8 +173,7 @@ export async function extractFavicon(view: WebContentsView): Promise<string | nu
 
           const blob = await response.blob();
 
-          // Security: Limit favicon size to 50KB
-          if (blob.size > 50000) {
+          if (blob.size > FAVICON_MAX_SIZE_BYTES) {
             return null;
           }
 
