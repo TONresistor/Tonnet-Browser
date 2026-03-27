@@ -1,7 +1,7 @@
 {
   "tonutils-proxy": {
     "repo": "xssnick/Tonutils-Proxy",
-    "version": "latest",
+    "version": "v1.8.3",
     "assets": {
       "linux": { "name": "tonutils-proxy-cli-linux-amd64", "dest": "resources/bin/linux/tonutils-proxy" },
       "mac": { "name": "tonutils-proxy-cli-darwin-arm64", "dest": "resources/bin/mac/tonutils-proxy" },
@@ -10,7 +10,7 @@
   },
   "tonutils-storage": {
     "repo": "xssnick/tonutils-storage",
-    "version": "latest",
+    "version": "v1.4.0",
     "assets": {
       "linux": { "name": "tonutils-storage-linux-amd64", "dest": "resources/bin/linux/tonutils-storage" },
       "mac": { "name": "tonutils-storage-mac-amd64", "dest": "resources/bin/mac/tonutils-storage" },
