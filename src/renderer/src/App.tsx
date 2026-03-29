@@ -260,9 +260,22 @@ function App() {
     const unsubNavigate = window.electron.on('page:navigate', (...args: unknown[]) => {
       const data = args[0] as { tabId?: string; url: string; canGoBack: boolean; canGoForward: boolean }
       setNavigation(data.url, data.canGoBack, data.canGoForward)
-      // Update tab state
+      // Update tab state + push to history for bag file navigation
       if (data.tabId) {
-        updateTab(data.tabId, { url: data.url, canGoBack: data.canGoBack, canGoForward: data.canGoForward })
+        const tab = useTabsStore.getState().tabs.find((t) => t.id === data.tabId)
+        if (tab && data.url !== tab.url && data.url.startsWith('file:///') && data.url.includes('/storage/')) {
+          const newHistory = tab.history.slice(0, tab.historyIndex + 1)
+          newHistory.push(data.url)
+          updateTab(data.tabId, {
+            url: data.url,
+            canGoBack: true,
+            canGoForward: false,
+            history: newHistory,
+            historyIndex: newHistory.length - 1,
+          })
+        } else {
+          updateTab(data.tabId, { url: data.url, canGoBack: data.canGoBack, canGoForward: data.canGoForward })
+        }
       }
     })
 

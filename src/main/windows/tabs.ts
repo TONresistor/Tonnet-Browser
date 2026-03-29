@@ -3,8 +3,10 @@
  * Creates, switches, and manages WebContentsViews.
  */
 
+import { resolve, sep } from 'path'
 import { WebContentsView, BrowserWindow } from 'electron'
 import { createTonSession, createBrowserView, extractFavicon } from './browser-view'
+import { generateFileBrowserPage, generateLoadingPage } from './file-browser'
 import { DEFAULT_PROXY_PORT } from '../../shared/constants'
 import { getSetting, type PrivacySettings, type AppearanceSettings } from '../settings'
 import { createLogger } from '../../shared/logger'
@@ -12,6 +14,22 @@ const log = createLogger('tabs')
 import { historyManager } from '../history/manager'
 import { normalizeUrl } from '../../shared/utils/url'
 import { buildContextMenu } from '../utils/context-menu'
+import { storageManager } from '../storage/daemon'
+import { proxyManager } from '../proxy/manager'
+import type { BagDetails } from '../../shared/types'
+
+/** Cache of bag IDs detected by the proxy for .ton storage domains */
+const storageBagCache = new Map<string, string>()
+
+/** Prevent concurrent loadStorageBrowser calls per webContents */
+const storageBrowserLoading = new Set<number>()
+
+/** Cache file browser HTML per webContentsId for back navigation */
+export const fileBrowserCache = new Map<number, string>()
+
+proxyManager.on('storage-bag-detected', ({ bagId, domain }: { bagId: string; domain: string }) => {
+  storageBagCache.set(domain, bagId)
+})
 
 // Chrome component heights
 const TABBAR_HEIGHT = 44
@@ -316,6 +334,16 @@ function setupViewEvents(view: WebContentsView, tabId: string): void {
     // Add to history
     const title = view.webContents.getTitle()
     historyManager.addEntry(url, title)
+
+    // Re-show file browser when navigating back to a .ton storage root
+    try {
+      const parsed = new URL(url)
+      if (parsed.hostname.endsWith('.ton') && parsed.pathname === '/' && storageBagCache.has(parsed.hostname)) {
+        loadStorageBrowser(view, parsed.hostname, url).catch(() => {})
+      }
+    } catch {
+      /* ignore */
+    }
   })
 
   view.webContents.on('did-navigate-in-page', (_e, url) => {
@@ -339,7 +367,8 @@ function setupViewEvents(view: WebContentsView, tabId: string): void {
     historyManager.addEntry(url, title, undefined, false)
   })
 
-  // Extract and send favicon when page finishes loading
+  // Extract and send favicon when page finishes loading.
+  // Also detect empty storage bag pages (proxy serves 200 with no index.html).
   view.webContents.on('did-finish-load', async () => {
     try {
       const favicon = await extractFavicon(view)
@@ -348,6 +377,24 @@ function setupViewEvents(view: WebContentsView, tabId: string): void {
       }
     } catch (error) {
       log.debug(`Failed to extract favicon for tab ${tabId}:`, error)
+    }
+
+    // Check for empty .ton storage pages
+    try {
+      const pageUrl = view.webContents.getURL()
+      const url = new URL(pageUrl)
+      if (url.hostname.endsWith('.ton') && !pageUrl.startsWith('data:')) {
+        const bodyText = await view.webContents.executeJavaScript('document.body ? document.body.innerText.trim() : ""')
+        const bodyHtml = await view.webContents.executeJavaScript('document.body ? document.body.innerHTML.trim() : ""')
+        if (bodyHtml.length < 50 && bodyText.length < 10) {
+          log.info(`Empty page detected for ${url.hostname}, trying storage browser`)
+          loadStorageBrowser(view, url.hostname, pageUrl).catch(() => {
+            log.debug('Not a storage bag or no files available')
+          })
+        }
+      }
+    } catch {
+      /* ignore */
     }
   })
 
@@ -366,11 +413,64 @@ function setupViewEvents(view: WebContentsView, tabId: string): void {
     }
 
     log.warn(`Page load failed: ${errorDescription} (code: ${errorCode}) for ${validatedURL}`)
+
+    // Check if this is a .ton domain that may have a storage bag
+    try {
+      const url = new URL(validatedURL)
+      if (url.hostname.endsWith('.ton')) {
+        loadStorageBrowser(view, url.hostname, validatedURL).catch(() => {
+          loadErrorPage(view, `${errorDescription} (${errorCode})`, validatedURL)
+        })
+        return
+      }
+    } catch {
+      /* not a valid URL, fall through */
+    }
+
     loadErrorPage(view, `${errorDescription} (${errorCode})`, validatedURL)
   })
 
   // Security: Intercept navigation to validate URLs (blocks javascript:, data:, file:, etc.)
   view.webContents.on('will-navigate', (event, url) => {
+    // Handle bagfile:// links from file browser (load local storage files)
+    if (url.startsWith('bagfile://')) {
+      event.preventDefault()
+      // Only allow from file browser data: URL pages
+      const currentPageUrl = view.webContents.getURL()
+      if (!currentPageUrl.startsWith('data:text/html')) {
+        log.warn('Blocked bagfile:// from non-file-browser page')
+        return
+      }
+      const withoutScheme = url.slice('bagfile://'.length)
+      const slashIdx = withoutScheme.indexOf('/')
+      if (slashIdx !== -1) {
+        const bp = decodeURIComponent(withoutScheme.slice(0, slashIdx))
+        const fp = decodeURIComponent(withoutScheme.slice(slashIdx + 1))
+        const fullPath = resolve(`${bp}/${fp}`)
+        const safeBp = resolve(bp)
+        // Path confinement: ensure resolved path stays within the base path
+        if (!fullPath.startsWith(safeBp + sep) && fullPath !== safeBp) {
+          log.warn(`Blocked bagfile:// path traversal: ${fullPath}`)
+          return
+        }
+        view.webContents
+          .loadFile(fullPath)
+          .then(() => {
+            // Notify renderer so it updates tab history and enables back button
+            mainWindow?.webContents.send('page:navigate', {
+              tabId,
+              url: `file://${fullPath}`,
+              canGoBack: true,
+              canGoForward: false,
+            })
+          })
+          .catch((err) => {
+            log.error(`Failed to load bag file: ${fullPath}`, err)
+          })
+      }
+      return
+    }
+
     try {
       const normalized = normalizeUrl(url)
       const parsed = new URL(normalized)
@@ -477,9 +577,76 @@ export async function createTab(tabId: string, initialUrl?: string): Promise<boo
   }
 }
 
+/**
+ * Load a storage bag in an existing tab. Shows loading page,
+ * downloads bag if needed, then shows file browser or index.html.
+ */
+export async function loadStorageBagInTab(tabId: string, bagId: string): Promise<void> {
+  const view = views.get(tabId)
+  if (!view) throw new Error(`View not found for tab ${tabId}`)
+
+  // Check cache first (for back navigation)
+  const cached = fileBrowserCache.get(view.webContents.id)
+  if (cached) {
+    await view.webContents.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(cached)}`)
+    return
+  }
+
+  // Show loading page immediately
+  const loadingHtml = generateLoadingPage(bagId.slice(0, 16) + '.bag')
+  await view.webContents.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(loadingHtml)}`)
+
+  // Ensure bag is in daemon
+  let details: BagDetails | null = null
+  try {
+    details = await storageManager.getBagDetails(bagId)
+  } catch {
+    log.info(`Bag ${bagId} not in daemon, adding...`)
+    await storageManager.addBag(bagId)
+  }
+
+  // Wait for files (up to 60s)
+  if (!details || details.files.length === 0) {
+    for (let i = 0; i < 60; i++) {
+      await new Promise((r) => setTimeout(r, 1000))
+      try {
+        details = await storageManager.getBagDetails(bagId)
+        if (details.files.length > 0) break
+      } catch {
+        /* keep waiting */
+      }
+    }
+  }
+
+  if (!details || details.files.length === 0) {
+    loadErrorPage(view, 'Bag has no files or download timed out', `${bagId}.bag`)
+    return
+  }
+
+  const rawDirName = ((details as any).dir_name || '').replace(/\/$/, '')
+  // Strip path traversal sequences and path separators for safety
+  const dirName = rawDirName.replace(/\.\./g, '').replace(/[/\\]/g, '')
+  const basePath = dirName ? `${details.path}/${dirName}` : details.path
+
+  // If index.html exists, load as website
+  if (details.files.some((f) => f.name === 'index.html')) {
+    log.info(`Bag has index.html, loading as website`)
+    await view.webContents.loadFile(`${basePath}/index.html`)
+    return
+  }
+
+  // Show file browser
+  const html = generateFileBrowserPage(details.description || bagId.slice(0, 16), bagId, details.files, '/', basePath)
+  fileBrowserCache.set(view.webContents.id, html)
+  await view.webContents.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`)
+}
+
 export function closeTab(tabId: string): boolean {
   const view = views.get(tabId)
   if (!view) return false
+
+  // Clean up file browser cache for this tab
+  fileBrowserCache.delete(view.webContents.id)
 
   // Remove all event listeners to prevent memory leaks
   view.webContents.removeAllListeners()
@@ -583,6 +750,70 @@ export function showActiveView(): void {
 // Only http: is allowed - TON proxy doesn't support HTTPS tunneling
 // Security is handled by the TON network itself
 const ALLOWED_SCHEMES = ['http:']
+
+/**
+ * Attempt to load a TON Storage file browser for a .ton domain.
+ * Shows a loading page, resolves the DNS storage record, ensures the bag
+ * is in the storage daemon, then renders a file browser.
+ * Throws if no storage record or bag files are unavailable.
+ */
+async function loadStorageBrowser(view: WebContentsView, domain: string, _originalUrl: string): Promise<void> {
+  // Guard: prevent concurrent calls for the same webContents
+  const wcId = view.webContents.id
+  if (storageBrowserLoading.has(wcId)) return
+  storageBrowserLoading.add(wcId)
+
+  try {
+    return await loadStorageBrowserInner(view, domain)
+  } finally {
+    storageBrowserLoading.delete(wcId)
+  }
+}
+
+async function loadStorageBrowserInner(view: WebContentsView, domain: string): Promise<void> {
+  // Show loading page immediately
+  const loadingHtml = generateLoadingPage(domain)
+  await view.webContents.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(loadingHtml)}`)
+
+  // Get bag ID from proxy detection cache
+  const bagId = storageBagCache.get(domain)
+  if (!bagId) throw new Error('No storage bag detected for this domain')
+
+  // Ensure bag is in the storage daemon
+  let details: BagDetails | null = null
+  try {
+    details = await storageManager.getBagDetails(bagId)
+  } catch {
+    // Bag not in daemon yet, add it
+    await storageManager.addBag(bagId)
+  }
+
+  // Wait for files to become available (bag header + file list must load)
+  if (!details || details.files.length === 0) {
+    for (let i = 0; i < 30; i++) {
+      await new Promise((r) => setTimeout(r, 1000))
+      try {
+        details = await storageManager.getBagDetails(bagId)
+        if (details.files.length > 0) break
+      } catch {
+        /* keep waiting */
+      }
+    }
+  }
+
+  if (!details || details.files.length === 0) {
+    throw new Error('Bag has no files or failed to load')
+  }
+
+  // Render file browser
+  const rawDirName = ((details as any).dir_name || '').replace(/\/$/, '')
+  // Strip path traversal sequences and path separators for safety
+  const dirName = rawDirName.replace(/\.\./g, '').replace(/[/\\]/g, '')
+  const basePath = dirName ? `${details.path}/${dirName}` : details.path
+  const html = generateFileBrowserPage(domain, bagId, details.files, '/', basePath)
+  fileBrowserCache.set(view.webContents.id, html)
+  await view.webContents.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`)
+}
 
 // Build-time constants: lottie player + loading animation baked by electron-vite
 declare const __LOTTIE_PLAYER_JS__: string
@@ -807,6 +1038,8 @@ export async function navigateInTab(tabId: string, url: string): Promise<boolean
 
     // Navigate in new view (proxy is ready)
     newView.webContents.loadURL(navigateUrl).catch((err) => {
+      // Ignore ERR_ABORTED: happens when storage browser replaces the loading URL
+      if (String(err).includes('ERR_ABORTED')) return
       log.error('loadURL failed (new view):', err)
       loadErrorPage(newView, err.message, navigateUrl)
     })

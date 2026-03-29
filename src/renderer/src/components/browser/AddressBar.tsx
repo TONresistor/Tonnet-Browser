@@ -67,9 +67,30 @@ export const AddressBar = memo(function AddressBar() {
   const walletCreated = useWalletStore((s) => s.isCreated)
   const showTipButton = isTonDomain && walletCreated
 
-  // Display URL without http:// for TON sites
+  // Display URL without http:// for TON sites, and friendly names for bag files
   useEffect(() => {
-    if (isTonSite) {
+    // File browser (data: URL with bag ID in title)
+    if (currentUrl.startsWith('data:text/html')) {
+      const bagMatch = currentUrl.match(/bag-id%22%3E([a-fA-F0-9]{8})%.{3}([a-fA-F0-9]{8})/)
+      const fullBagMatch = currentUrl.match(/storage%2F([a-fA-F0-9]{64})/) || currentUrl.match(/"([a-fA-F0-9]{64})"/)
+      if (fullBagMatch) {
+        setInput(`${fullBagMatch[1]}.bag`)
+      } else if (bagMatch) {
+        setInput(`${bagMatch[1]}...${bagMatch[2]}.bag`)
+      } else {
+        setInput('File Browser')
+      }
+    }
+    // Local bag file (file:// URL from storage)
+    else if (currentUrl.startsWith('file:///') && currentUrl.includes('/storage/')) {
+      const match = currentUrl.match(/storage\/([a-fA-F0-9]{64})\/[^/]+\/(.+)$/)
+      if (match) {
+        setInput(`${match[1]}.bag/${decodeURIComponent(match[2])}`)
+      } else {
+        const fileName = decodeURIComponent(currentUrl.split('/').pop() || '')
+        setInput(fileName)
+      }
+    } else if (isTonSite) {
       setInput(stripHttpPrefix(currentUrl))
     } else {
       setInput(currentUrl)

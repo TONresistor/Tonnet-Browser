@@ -24,6 +24,21 @@ export function registerNavigationHandlers(): void {
       return { success: false, error: validation.error }
     }
 
+    // Intercept ton://storage/browse/<bagId> to download bag and show file browser
+    const browseMatch = url.match(/^ton:\/\/storage\/browse\/([a-fA-F0-9]{64})$/)
+    if (browseMatch) {
+      const bagId = browseMatch[1]
+      const targetTab = tabId || getActiveTabId()
+      log.info(`Browse bag: ${bagId}, tab: ${targetTab}`)
+      if (targetTab) {
+        const { loadStorageBagInTab } = await import('../../windows/tabs')
+        loadStorageBagInTab(targetTab, bagId).catch((err) => {
+          log.error('Failed to browse bag:', (err as Error).message)
+        })
+      }
+      return { success: true }
+    }
+
     // Don't load internal ton:// URLs in WebContentsView
     if (url.startsWith('ton://')) {
       log.debug('Internal URL, hiding views')
@@ -42,9 +57,22 @@ export function registerNavigationHandlers(): void {
     return { success: false, error: 'No active tab' }
   })
 
-  secureHandle(IPC_CHANNELS.GO_BACK, () => {
+  secureHandle(IPC_CHANNELS.GO_BACK, async () => {
     const view = getActiveView()
-    if (view?.webContents.navigationHistory.canGoBack()) {
+    if (!view) return { success: false }
+
+    // If viewing a local bag file, restore the file browser instead of goBack
+    const currentUrl = view.webContents.getURL()
+    if (currentUrl.startsWith('file:///') && currentUrl.includes('/storage/')) {
+      const { fileBrowserCache } = await import('../../windows/tabs')
+      const cached = fileBrowserCache.get(view.webContents.id)
+      if (cached) {
+        await view.webContents.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(cached)}`)
+        return { success: true }
+      }
+    }
+
+    if (view.webContents.navigationHistory.canGoBack()) {
       view.webContents.navigationHistory.goBack()
       return { success: true }
     }

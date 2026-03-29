@@ -12,6 +12,7 @@ import { useTranslation } from 'react-i18next'
 import type { StorageBag } from '@shared/types'
 import { cn } from '@/lib/utils'
 import { useBrowserStore } from '@/stores/browser'
+import { useTabsStore } from '@/stores/tabs'
 import { formatBytes, formatSpeed } from '@/lib/format'
 
 // Regex to validate TON Storage Bag ID (64 hex characters)
@@ -182,6 +183,10 @@ export function StoragePage() {
     if (!result.success) {
       log.error('Failed to open folder:', result.error)
     }
+  }
+
+  const handleBrowseFiles = (bagId: string) => {
+    useTabsStore.getState().addTab(`ton://storage/browse/${bagId}`)
   }
 
   const handleShowFile = async (bagId: string, fileName: string) => {
@@ -389,6 +394,15 @@ export function StoragePage() {
                     >
                       <span className="break-all">{bagDetails?.path || selectedBag.id}</span>
                       <FolderOpen className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+                    </button>
+                  </div>
+                  <div className="col-span-2 mt-2">
+                    <button
+                      onClick={() => handleBrowseFiles(selectedBag.id)}
+                      className="flex items-center gap-2 px-3 py-1.5 text-sm rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                    >
+                      <FileText className="h-3.5 w-3.5" />
+                      Browse Files
                     </button>
                   </div>
                 </div>

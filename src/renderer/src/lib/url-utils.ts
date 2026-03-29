@@ -17,6 +17,12 @@ export function processNavigationInput(input: string): string {
     return trimmed
   }
 
+  // Detect <64hex>.bag format -> redirect to internal storage browse
+  const bagMatch = trimmed.replace(/^https?:\/\//, '').match(/^([a-fA-F0-9]{64})\.bag(\/.*)?$/)
+  if (bagMatch) {
+    return `ton://storage/browse/${bagMatch[1].toLowerCase()}`
+  }
+
   // Remove protocol to analyze the domain
   const urlWithoutProtocol = trimmed.replace(/^https?:\/\//, '')
 

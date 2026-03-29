@@ -86,6 +86,17 @@ export class ProxyManager extends EventEmitter {
       log.debug(raw)
       this.emit('log', raw)
 
+      // Parse storage bag discovery from proxy logs
+      // Format: searching for bag id bag_id=<hex> host=<domain>
+      const bagMatch = message.match(/searching for bag id\s+bag_id=([a-fA-F0-9]{64})\s+host=(\S+)/)
+      if (bagMatch) {
+        const domain = bagMatch[2]
+        // Validate domain format to prevent log injection attacks
+        if (/^[a-zA-Z0-9][a-zA-Z0-9.-]*\.[a-zA-Z]{2,}$/.test(domain)) {
+          this.emit('storage-bag-detected', { bagId: bagMatch[1], domain })
+        }
+      }
+
       // Parse tunnel route from Tonutils-Proxy logs
       // Format: route="we -> KEY1 -> KEY2 -> KEY1 -> we"
       if (this.anonymousMode) {
@@ -149,7 +160,7 @@ export class ProxyManager extends EventEmitter {
         const existing = JSON.parse(fs.readFileSync(configPath, 'utf-8'))
         if (existing.TunnelConfig) {
           existing.TunnelConfig.NodesPoolConfigPath = tunnelEnabled ? nodesPoolPath : ''
-          existing.TunnelConfig.TunnelSectionsNum = tunnelEnabled ? 2 : 1
+          existing.TunnelConfig.TunnelSectionsNum = tunnelEnabled ? 2 : 0
         }
         fs.writeFileSync(configPath, JSON.stringify(existing, null, 2))
         log.info(`Proxy config updated: tunnel=${tunnelEnabled}`)
@@ -169,7 +180,7 @@ export class ProxyManager extends EventEmitter {
       TunnelConfig: {
         TunnelServerKey: generateKey(),
         TunnelThreads: cpus().length,
-        TunnelSectionsNum: tunnelEnabled ? 2 : 1,
+        TunnelSectionsNum: tunnelEnabled ? 2 : 0,
         NodesPoolConfigPath: tunnelEnabled ? nodesPoolPath : '',
         PaymentsEnabled: false,
         Payments: {

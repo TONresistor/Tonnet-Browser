@@ -61,7 +61,7 @@ vi.mock('fs', () => ({
     mkdirSync: vi.fn(),
     readFileSync: vi.fn(() =>
       JSON.stringify({
-        TunnelConfig: { NodesPoolConfigPath: '', TunnelSectionsNum: 1 },
+        TunnelConfig: { NodesPoolConfigPath: '', TunnelSectionsNum: 0 },
       })
     ),
     writeFileSync: vi.fn(),
@@ -70,7 +70,7 @@ vi.mock('fs', () => ({
   mkdirSync: vi.fn(),
   readFileSync: vi.fn(() =>
     JSON.stringify({
-      TunnelConfig: { NodesPoolConfigPath: '', TunnelSectionsNum: 1 },
+      TunnelConfig: { NodesPoolConfigPath: '', TunnelSectionsNum: 0 },
     })
   ),
   writeFileSync: vi.fn(),
