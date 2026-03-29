@@ -584,12 +584,21 @@ export function showActiveView(): void {
 // Security is handled by the TON network itself
 const ALLOWED_SCHEMES = ['http:']
 
+// Build-time constants: lottie player + loading animation baked by electron-vite
+declare const __LOTTIE_PLAYER_JS__: string
+declare const __LOADING_ANIMATION_JSON__: object
+
 /**
  * Loads error page in WebContentsView when navigation fails.
  * Uses inline data URL to avoid file path issues and infinite loops.
+ * Lottie player and animation data are injected at build time via define.
  */
 function loadErrorPage(view: WebContentsView, errorMessage: string, failedUrl: string): void {
-  // Use data URL with inline HTML to avoid file path issues
+  const safeError = errorMessage.replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  const safeUrl = failedUrl.replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  const encodedUrl = encodeURIComponent(failedUrl)
+  const animJson = JSON.stringify(__LOADING_ANIMATION_JSON__)
+
   const errorHtml = `
 <!DOCTYPE html>
 <html lang="en">
@@ -598,59 +607,129 @@ function loadErrorPage(view: WebContentsView, errorMessage: string, failedUrl: s
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Page Load Error</title>
   <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
-      background: linear-gradient(135deg, #1a1f2e 0%, #252b3d 100%);
-      color: #e4e7eb;
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background: #17212b;
+      color: #f5f5f5;
       display: flex;
       align-items: center;
       justify-content: center;
       min-height: 100vh;
       padding: 20px;
     }
-    .error-container { max-width: 600px; text-align: center; }
-    .error-icon {
-      width: 120px; height: 120px; margin: 0 auto 32px;
-      background: rgba(239, 68, 68, 0.1);
-      border-radius: 50%;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 60px;
+    .error-container {
+      max-width: 480px;
+      text-align: center;
+      background: rgba(255, 255, 255, 0.07);
+      backdrop-filter: blur(12px) saturate(1.4);
+      -webkit-backdrop-filter: blur(12px) saturate(1.4);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 20px;
+      padding: 40px 32px 32px;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.08);
     }
-    h1 { font-size: 32px; font-weight: 600; margin-bottom: 16px; color: #f9fafb; }
-    .error-message { font-size: 16px; line-height: 1.6; color: #9ca3af; margin-bottom: 24px; }
+    .lottie-wrapper {
+      width: 180px;
+      height: 180px;
+      margin: 0 auto 24px;
+    }
+    h1 {
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #f5f5f5;
+    }
+    .error-message {
+      font-size: 14px;
+      line-height: 1.6;
+      color: #708499;
+      margin-bottom: 20px;
+    }
     .error-details {
-      background: rgba(0, 0, 0, 0.2);
+      background: #0e1621;
       border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 8px; padding: 16px; margin-bottom: 32px; text-align: left;
+      border-radius: 10px;
+      padding: 12px 14px;
+      margin-bottom: 24px;
+      text-align: left;
     }
-    .error-code { font-family: monospace; font-size: 14px; color: #ef4444; word-break: break-all; }
-    .url { font-family: monospace; font-size: 13px; color: #6b7280; margin-top: 8px; word-break: break-all; }
-    .actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+    .error-code {
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 12px;
+      color: #ec3942;
+      word-break: break-all;
+      line-height: 1.5;
+    }
+    .url {
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 12px;
+      color: #708499;
+      margin-top: 6px;
+      word-break: break-all;
+      line-height: 1.5;
+    }
+    .actions {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+    }
     button {
-      padding: 12px 24px; font-size: 15px; font-weight: 500;
-      border: none; border-radius: 6px; cursor: pointer; transition: all 0.2s;
+      padding: 10px 24px;
+      font-family: 'Inter', system-ui, sans-serif;
+      font-size: 14px;
+      font-weight: 500;
+      border: none;
+      border-radius: 1000px;
+      cursor: pointer;
+      transition: all 0.2s;
     }
-    .btn-primary { background: #0ea5e9; color: white; }
-    .btn-primary:hover { background: #0284c7; }
-    .btn-secondary { background: rgba(255, 255, 255, 0.1); color: #e4e7eb; border: 1px solid rgba(255, 255, 255, 0.2); }
-    .btn-secondary:hover { background: rgba(255, 255, 255, 0.15); }
+    .btn-primary {
+      background: #0098ea;
+      color: #fff;
+      box-shadow: 0 2px 8px rgba(0, 152, 234, 0.3);
+    }
+    .btn-primary:hover {
+      background: #007bc7;
+      box-shadow: 0 4px 12px rgba(0, 152, 234, 0.4);
+    }
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.06);
+      color: #f5f5f5;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+    }
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
   </style>
 </head>
 <body>
   <div class="error-container">
-    <div class="error-icon">⚠️</div>
+    <div id="lottie" class="lottie-wrapper"></div>
     <h1>Unable to Load Page</h1>
     <p class="error-message">The page could not be loaded. Check your connection to the TON network.</p>
     <div class="error-details">
-      <div class="error-code">Error: ${errorMessage.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
-      <div class="url">URL: ${failedUrl.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
+      <div class="error-code">Error: ${safeError}</div>
+      <div class="url">URL: ${safeUrl}</div>
     </div>
     <div class="actions">
-      <button class="btn-primary" data-url="${encodeURIComponent(failedUrl)}" onclick="location.href=decodeURIComponent(this.dataset.url)">🔄 Retry</button>
-      <button class="btn-secondary" onclick="history.back()">← Go Back</button>
+      <button class="btn-primary" data-url="${encodedUrl}" onclick="location.href=decodeURIComponent(this.dataset.url)">Retry</button>
+      <button class="btn-secondary" onclick="history.back()">Go Back</button>
     </div>
   </div>
+  <script>${__LOTTIE_PLAYER_JS__}</script>
+  <script>
+    try {
+      lottie.loadAnimation({
+        container: document.getElementById('lottie'),
+        renderer: 'svg',
+        loop: true,
+        autoplay: true,
+        animationData: ${animJson}
+      });
+    } catch(e) {}
+  </script>
 </body>
 </html>`
 
