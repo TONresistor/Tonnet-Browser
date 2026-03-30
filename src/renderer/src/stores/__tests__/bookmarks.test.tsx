@@ -330,7 +330,7 @@ describe('bookmarks store', () => {
   })
 
   describe('resetBookmarks', () => {
-    it('restores default bookmarks and clears folders', () => {
+    it('clears all bookmarks and folders', () => {
       useBookmarksStore.getState().addFolder('Custom Folder', null)
       useBookmarksStore.getState().addBookmark('http://custom.ton', 'Custom')
 
@@ -338,9 +338,7 @@ describe('bookmarks store', () => {
 
       const state = useBookmarksStore.getState()
       expect(state.folders).toHaveLength(0)
-      // Default bookmarks should be restored (3 default bookmarks)
-      expect(state.bookmarks).toHaveLength(3)
-      expect(state.bookmarks[0].url).toBe('http://foundation.ton')
+      expect(state.bookmarks).toHaveLength(0)
     })
   })
 

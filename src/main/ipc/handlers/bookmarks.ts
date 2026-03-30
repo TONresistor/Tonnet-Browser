@@ -1,15 +1,30 @@
 /**
- * IPC handlers for bookmark and folder context menus.
+ * IPC handlers for bookmark and folder context menus,
+ * plus bookmark persistence (load/save).
  */
 
 import { Menu } from 'electron'
 import { IPC_CHANNELS } from '../../../shared/types'
 import { isValidNavigationUrl } from '../validation'
-import { secureHandleWithEvent } from './shared'
+import { secureHandle, secureHandleWithEvent } from './shared'
 import { getMainWindow } from '../../windows/main'
 import { navigateInTab, getActiveTabId } from '../../windows/tabs'
+import { loadBookmarks, saveBookmarks } from '../../bookmarks'
+import type { BookmarksData } from '../../bookmarks'
 
 export function registerBookmarkHandlers(): void {
+  // ===== Bookmark Persistence =====
+  secureHandle(IPC_CHANNELS.BOOKMARKS_LOAD, () => {
+    return loadBookmarks()
+  })
+
+  secureHandle(IPC_CHANNELS.BOOKMARKS_SAVE, (data: BookmarksData) => {
+    if (!data || !Array.isArray(data.bookmarks) || !Array.isArray(data.folders)) {
+      throw new Error('Invalid bookmarks data')
+    }
+    saveBookmarks(data)
+    return { success: true }
+  })
   // ===== Bookmark Context Menu =====
   secureHandleWithEvent(IPC_CHANNELS.BOOKMARK_SHOW_MENU, (_event, id: string, title: string, url: string) => {
     const win = getMainWindow()

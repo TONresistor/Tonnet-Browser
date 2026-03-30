@@ -31,6 +31,7 @@ import { Button } from '@/components/ui/button'
 import Lottie from 'lottie-react'
 import i18n, { loadLanguage } from '@/i18n'
 import { useTranslation } from 'react-i18next'
+import { loadBookmarksFromMain } from '@/stores/bookmarks'
 import { createLogger } from '@/logger'
 
 const log = createLogger('app')
@@ -71,6 +72,7 @@ function App() {
     usePreferencesStore.getState().loadFromMain()
     useThemeStore.getState().loadFromSettings()
     useWalletStore.getState().init()
+    loadBookmarksFromMain()
   }, [])
 
   // Sync current sidebar width with saved value when preferences load

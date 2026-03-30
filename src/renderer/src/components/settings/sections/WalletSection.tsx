@@ -244,8 +244,6 @@ const DEFAULT_WALLET_SETTINGS: WalletSettings = {
   limits: { perRequest: '0', perDay: '0', perSitePerMonth: '0' },
   sitePolicies: [],
   autoPayDomains: [],
-  toncenterApiKey: '',
-  tonapiKey: '',
 }
 
 function nanoToTonDisplay(nano: string): string {
@@ -500,32 +498,6 @@ export const WalletSection = memo(function WalletSection({ onDirtyChange, sectio
             onBlur={() => handleLimitBlur('perSitePerMonth', perSiteDisplay)}
             ariaLabel={t('wallet.perSitePerMonth')}
             step={1}
-          />
-        </SettingRow>
-      </div>
-
-      {/* API keys */}
-      <div className="mt-6 glass-card px-4">
-        <SettingRow label={t('wallet.apiKey')} description={t('wallet.apiKeyDesc')}>
-          <Input
-            type="password"
-            value={draft.toncenterApiKey}
-            onChange={(e) => updateDraft({ toncenterApiKey: e.target.value })}
-            placeholder={t('wallet.apiKeyPlaceholder')}
-            className="w-64"
-            aria-label={t('wallet.apiKey')}
-            autoComplete="off"
-          />
-        </SettingRow>
-        <SettingRow label="TonAPI key" description="Optional API key for tonapi.io (NFTs, DNS lookup)">
-          <Input
-            type="password"
-            value={draft.tonapiKey}
-            onChange={(e) => updateDraft({ tonapiKey: e.target.value })}
-            placeholder="AH..."
-            className="w-64"
-            aria-label="TonAPI key"
-            autoComplete="off"
           />
         </SettingRow>
       </div>

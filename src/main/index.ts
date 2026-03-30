@@ -355,7 +355,10 @@ app.whenReady().then(() => {
   })
 
   registerIpcHandlers()
-  walletManager.init().catch((e) => log.error('Wallet init failed:', e))
+  // Defer wallet init until WS bridge is ready (proxy must be running first)
+  proxyManager.once('ws-bridge-ready', () => {
+    walletManager.init().catch((e) => log.error('Wallet init failed:', e))
+  })
   createWindow()
 
   app.on('activate', () => {
@@ -389,6 +392,19 @@ async function runCleanup(): Promise<void> {
       log.info(`Cleared browsing data for ${sessions.length} session(s)`)
     } catch (error) {
       log.error(`Failed to clear browsing data: ${String(error)}`)
+    }
+
+    // Clear bookmarks file (privacy: leave no browsing trace)
+    try {
+      const { getBookmarksFile } = await import('./bookmarks')
+      const { unlinkSync, existsSync } = await import('fs')
+      const file = getBookmarksFile()
+      if (existsSync(file)) {
+        unlinkSync(file)
+        log.info('Cleared bookmarks file')
+      }
+    } catch (error) {
+      log.error(`Failed to clear bookmarks: ${String(error)}`)
     }
   }
 

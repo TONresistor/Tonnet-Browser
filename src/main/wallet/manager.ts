@@ -7,14 +7,11 @@ import { EventEmitter } from 'events'
 import { internal, beginCell, storeMessage, Address, SendMode, Cell } from '@ton/core'
 import { WalletContractV5R1 } from '@ton/ton'
 import { WalletKeyStorage } from './key-storage'
-import { TonRpcClient } from './rpc-client'
+import { WsBridgeClient } from './ws-bridge-client'
+import { NftIndexer } from './nft-indexer'
 import { resolveTonDomain, type DnsResolveResult } from './dns-resolver'
 import { getSetting } from '../settings'
-import {
-  WALLET_BALANCE_POLL_INTERVAL,
-  WALLET_SEQNO_SYNC_INTERVAL,
-  WALLET_MAX_TIMEOUT_SECONDS,
-} from '../../shared/constants'
+import { WALLET_MAX_TIMEOUT_SECONDS } from '../../shared/constants'
 import type {
   WalletState,
   WalletTransaction,
@@ -29,12 +26,13 @@ const log = createLogger('wallet')
 
 class WalletManager extends EventEmitter {
   private keyStorage: WalletKeyStorage
-  private rpcClient: TonRpcClient | null = null
+  private wsBridge: WsBridgeClient | null = null
   private walletContract: WalletContractV5R1 | null = null
   private keypair: { publicKey: Buffer; secretKey: Buffer } | null = null
   private localSeqno: number = 0
-  private balanceTimer: NodeJS.Timeout | null = null
-  private seqnoTimer: NodeJS.Timeout | null = null
+  private unsubAccountState: (() => void) | null = null
+  private unsubTransactions: (() => void) | null = null
+  private nftIndexer: NftIndexer | null = null
   private currentBalance: string = '0'
   private initialized: boolean = false
 
@@ -50,18 +48,18 @@ class WalletManager extends EventEmitter {
     if (this.initialized) return
 
     const network = getSetting('network')
-    const walletSettings = getSetting('wallet')
-    this.rpcClient = new TonRpcClient(network.proxyPort, walletSettings.toncenterApiKey || undefined)
+    this.wsBridge = new WsBridgeClient(network.wsPort)
+    await this.wsBridge.connect()
 
     if (await this.keyStorage.exists()) {
       try {
         this.keypair = await this.keyStorage.load()
         this.walletContract = WalletContractV5R1.create({ publicKey: this.keypair.publicKey, workchain: 0 })
-        // Stagger initial calls to avoid rate limiting on toncenter public API (1 req/s without key)
         await this.getBalance().catch((e) => log.error('Initial balance fetch failed:', e))
-        await new Promise((r) => setTimeout(r, 1500))
         await this.syncSeqno()
-        this.startPolling()
+        this.subscribeAccount()
+        this.nftIndexer = new NftIndexer(this.wsBridge!, this.getState().address)
+        this.nftIndexer.start().catch((e) => log.error('NFT indexer start failed:', e))
         log.info('Wallet loaded successfully')
       } catch (error) {
         log.error('Failed to load wallet:', error)
@@ -80,12 +78,18 @@ class WalletManager extends EventEmitter {
     if (this.keypair) {
       throw new Error('Wallet already exists')
     }
+    // Ensure bridge is initialized before creating wallet
+    if (!this.initialized) {
+      await this.init()
+    }
 
     const { keypair } = await this.keyStorage.generateFromMnemonic()
     this.keypair = keypair
     this.walletContract = WalletContractV5R1.create({ publicKey: this.keypair.publicKey, workchain: 0 })
     this.localSeqno = 0
-    this.startPolling()
+    this.subscribeAccount()
+    this.nftIndexer = new NftIndexer(this.wsBridge!, this.getState().address)
+    this.nftIndexer.start().catch((e) => log.error('NFT indexer start failed:', e))
 
     const state = this.getState()
     this.emit('state-changed', state)
@@ -98,8 +102,15 @@ class WalletManager extends EventEmitter {
    * Overwrites any existing wallet.
    */
   async importWallet(mnemonic: string[]): Promise<WalletState> {
-    // Stop existing polling and wipe old keys
-    this.stopPolling()
+    if (!this.initialized) {
+      await this.init()
+    }
+    // Unsubscribe existing account state, stop indexer, and wipe old keys
+    this.unsubscribeAccount()
+    if (this.nftIndexer) {
+      this.nftIndexer.stop()
+      this.nftIndexer = null
+    }
     if (this.keypair) {
       this.keypair.secretKey.fill(0)
       this.keypair.publicKey.fill(0)
@@ -114,7 +125,9 @@ class WalletManager extends EventEmitter {
     this.walletContract = WalletContractV5R1.create({ publicKey: this.keypair.publicKey, workchain: 0 })
     this.localSeqno = 0
     this.currentBalance = '0'
-    this.startPolling()
+    this.subscribeAccount()
+    this.nftIndexer = new NftIndexer(this.wsBridge!, this.getState().address)
+    this.nftIndexer.start().catch((e) => log.error('NFT indexer start failed:', e))
 
     const state = this.getState()
     this.emit('state-changed', state)
@@ -160,12 +173,12 @@ class WalletManager extends EventEmitter {
    * Fetch current balance from the network.
    */
   async getBalance(): Promise<string> {
-    if (!this.rpcClient || !this.walletContract) {
+    if (!this.wsBridge || !this.walletContract) {
       return '0'
     }
 
     try {
-      const fetched = await this.rpcClient.getBalance(this.walletContract.address.toRawString())
+      const fetched = await this.wsBridge.getBalance(this.walletContract.address.toString())
       if (fetched !== this.currentBalance) {
         this.currentBalance = fetched
         this.emit('balance-updated', this.currentBalance)
@@ -181,15 +194,15 @@ class WalletManager extends EventEmitter {
    * Fetch on-chain transaction history and convert to WalletTransaction format.
    */
   async fetchOnChainHistory(limit: number = 20): Promise<WalletTransaction[]> {
-    if (!this.rpcClient || !this.walletContract) return []
+    if (!this.wsBridge || !this.walletContract) return []
 
     try {
-      const rawTxs = await this.rpcClient.getTransactions(this.walletContract.address.toRawString(), limit)
+      const rawTxs = await this.wsBridge.getTransactions(this.walletContract.address.toString(), limit)
 
       return rawTxs
         .map((tx: any) => {
-          const inMsg = tx.inMessage
-          const outMsgs = tx.outMessages ? [...tx.outMessages.values()] : []
+          const inMsg = tx.in_msg
+          const outMsgs: any[] = tx.out_msgs ?? []
 
           let type: 'send' | 'receive' = 'receive'
           let amount = '0'
@@ -198,26 +211,24 @@ class WalletManager extends EventEmitter {
           if (outMsgs.length > 0) {
             type = 'send'
             const msg = outMsgs[0]
-            if (msg.info.type === 'internal') {
-              amount = msg.info.value.coins.toString()
-              counterparty = msg.info.dest?.toString({ bounceable: false }) ?? ''
-            }
-          } else if (inMsg && inMsg.info.type === 'internal') {
+            amount = msg.value ?? '0'
+            counterparty = msg.destination ?? ''
+          } else if (inMsg) {
             type = 'receive'
-            amount = inMsg.info.value.coins.toString()
-            counterparty = inMsg.info.src?.toString({ bounceable: false }) ?? ''
+            amount = inMsg.value ?? '0'
+            counterparty = inMsg.source ?? ''
           }
 
           if (amount === '0') return null
 
           return {
-            id: tx.hash().toString('hex'),
+            id: tx.hash ?? tx.lt ?? crypto.randomUUID(),
             type,
             amount,
             address: counterparty,
-            timestamp: tx.now * 1000,
+            timestamp: (tx.utime ?? tx.now ?? 0) * 1000,
             status: 'confirmed' as const,
-            hash: tx.hash().toString('hex'),
+            hash: tx.hash ?? '',
           }
         })
         .filter(Boolean) as WalletTransaction[]
@@ -231,9 +242,19 @@ class WalletManager extends EventEmitter {
    * Sign and broadcast a TON transfer.
    */
   async send(to: string, amount: string): Promise<WalletTransaction> {
+    await this.syncSeqno()
     const boc = await this.signTransfer(to, amount)
     const bocBuffer = Buffer.from(boc, 'base64')
-    await this.rpcClient!.broadcast(bocBuffer)
+
+    let txHash: string | undefined
+    let status: 'pending' | 'confirmed' = 'pending'
+    try {
+      txHash = await this.wsBridge!.sendAndWatch(bocBuffer)
+      status = 'confirmed'
+    } catch {
+      // Fallback: broadcast without waiting for confirmation
+      await this.wsBridge!.broadcast(bocBuffer)
+    }
 
     const tx: WalletTransaction = {
       id: crypto.randomUUID(),
@@ -241,7 +262,8 @@ class WalletManager extends EventEmitter {
       amount,
       address: to,
       timestamp: Date.now(),
-      status: 'pending',
+      status,
+      hash: txHash,
     }
 
     this.emit('state-changed', this.getState())
@@ -261,6 +283,7 @@ class WalletManager extends EventEmitter {
    */
   async signX402Payment(paymentReq: PaymentRequirements): Promise<ExactTonPayload> {
     if (!this.keypair || !this.walletContract) throw new Error('Wallet not initialized')
+    await this.syncSeqno()
     const { boc, seqno, validUntil } = this.buildBoc(
       Address.parseRaw(paymentReq.payTo),
       BigInt(paymentReq.amount),
@@ -311,117 +334,32 @@ class WalletManager extends EventEmitter {
   }
 
   async resolveDomain(domain: string): Promise<DnsResolveResult> {
-    if (!this.rpcClient) throw new Error('Wallet not initialized')
-    return resolveTonDomain(domain, this.rpcClient.getClient())
-  }
-
-  private static readonly TON_DNS_COLLECTION = '0:b774d95eb20543f186c06b371ab88ad704f7e256130caf96189368a7d0cb6ccf'
-
-  private tonapiFetch(path: string): Promise<Response> {
-    const apiKey = getSetting('wallet').tonapiKey
-    const headers: Record<string, string> = {}
-    if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`
-    return fetch(`https://tonapi.io/v2/${path}`, { headers })
+    if (!this.wsBridge) throw new Error('Wallet not initialized')
+    return resolveTonDomain(domain, this.wsBridge!)
   }
 
   async fetchNfts(): Promise<NftItem[]> {
-    if (!this.walletContract) return []
-    const addr = this.walletContract.address.toRawString()
-    try {
-      const res = await this.tonapiFetch(`accounts/${addr}/nfts?limit=100&indirect_ownership=true`)
-      if (!res.ok) return []
-      const data = await res.json()
-      const items: any[] = data.nft_items || []
-      return items
-        .filter((nft: any) => nft.collection?.address !== WalletManager.TON_DNS_COLLECTION)
-        .map((nft: any) => ({
-          address: nft.address,
-          name: nft.metadata?.name || nft.dns || 'Unknown',
-          description: nft.metadata?.description,
-          image: nft.previews?.find((p: any) => p.resolution === '500x500')?.url || nft.metadata?.image,
-          collection: nft.collection?.name,
-        }))
-    } catch (err) {
-      log.error('Failed to fetch NFTs:', err)
-      return []
-    }
+    return this.nftIndexer?.getNfts() ?? []
   }
 
   async fetchDomains(): Promise<TonDomain[]> {
-    if (!this.walletContract) return []
-    const addr = this.walletContract.address.toRawString()
-    try {
-      const res = await this.tonapiFetch(
-        `accounts/${addr}/nfts?collection=${WalletManager.TON_DNS_COLLECTION}&limit=100`
-      )
-      if (!res.ok) return []
-      const data = await res.json()
-      const items: any[] = data.nft_items || []
-      return items.map((nft: any) => ({
-        name: nft.dns || nft.metadata?.name || 'unknown.ton',
-        address: nft.address,
-        owner: addr,
-        expiresAt: nft.metadata?.expire_at || 0,
-      }))
-    } catch (err) {
-      log.error('Failed to fetch domains:', err)
-      return []
-    }
+    return this.nftIndexer?.getDomains() ?? []
   }
 
   async lookupDomain(domain: string): Promise<DomainLookupResult> {
-    const res = await this.tonapiFetch(`dns/${encodeURIComponent(domain)}`)
-    if (!res.ok) throw new Error(`Domain not found: ${domain}`)
-    const data = await res.json()
-
-    const records: DomainLookupResult['records'] = {}
-    try {
-      const resolveRes = await this.tonapiFetch(`dns/${encodeURIComponent(domain)}/resolve`)
-      if (resolveRes.ok) {
-        const r = await resolveRes.json()
-        if (r.wallet?.address) {
-          records.wallet = Address.parseRaw(r.wallet.address).toString({ bounceable: false })
-        }
-        if (r.sites?.length > 0) {
-          records.site = r.sites[0]
-        }
-        if (r.storage) {
-          records.storage = r.storage
-        }
-        if (r.next_resolver) {
-          records.nextResolver =
-            typeof r.next_resolver === 'string'
-              ? r.next_resolver
-              : r.next_resolver.address
-                ? Address.parseRaw(r.next_resolver.address).toString({ bounceable: false })
-                : undefined
-        }
-      }
-    } catch {
-      /* resolve failed */
-    }
-
-    // Try on-chain for site ADNL record if TonAPI didn't return it
-    if (!records.site && this.rpcClient) {
-      try {
-        const { resolveDnsRecord } = await import('./dns-resolver')
-        const siteAddr = await resolveDnsRecord(domain, 'site', this.rpcClient.getClient())
-        if (siteAddr) records.site = siteAddr
-      } catch {
-        /* on-chain site lookup failed */
-      }
-    }
-
-    const nftAddr = data.item?.address || ''
+    if (!this.wsBridge) throw new Error('Wallet not initialized')
+    const resolved = await this.wsBridge.resolveDomain(domain)
 
     return {
-      name: data.name || domain,
-      owner: data.item?.owner?.address
-        ? Address.parseRaw(data.item.owner.address).toString({ bounceable: false })
-        : 'unknown',
-      expiresAt: data.expiring_at || 0,
-      nftAddress: nftAddr ? Address.parseRaw(nftAddr).toString({ bounceable: false }) : '',
-      records,
+      name: domain,
+      owner: resolved.owner ? Address.parse(resolved.owner).toString({ bounceable: false }) : 'unknown',
+      expiresAt: resolved.expiring_at ?? 0,
+      nftAddress: resolved.nft_address ? Address.parse(resolved.nft_address).toString({ bounceable: false }) : '',
+      records: {
+        wallet: resolved.wallet ? Address.parse(resolved.wallet).toString({ bounceable: false }) : undefined,
+        site: resolved.site_adnl ?? undefined,
+        storage: resolved.has_storage ? domain : undefined,
+      },
     }
   }
 
@@ -429,44 +367,60 @@ class WalletManager extends EventEmitter {
    * Stop timers and wipe keys from memory.
    */
   destroy(): void {
-    this.stopPolling()
+    this.unsubscribeAccount()
+    if (this.nftIndexer) {
+      this.nftIndexer.stop()
+      this.nftIndexer = null
+    }
     this.keyStorage.destroy()
     if (this.keypair) {
       this.keypair.secretKey.fill(0)
       this.keypair.publicKey.fill(0)
       this.keypair = null
     }
+    if (this.wsBridge) {
+      this.wsBridge.disconnect()
+      this.wsBridge = null
+    }
     this.walletContract = null
     this.initialized = false
     log.info('Wallet manager destroyed')
   }
 
-  private stopPolling(): void {
-    if (this.balanceTimer) {
-      clearInterval(this.balanceTimer)
-      this.balanceTimer = null
-    }
-    if (this.seqnoTimer) {
-      clearInterval(this.seqnoTimer)
-      this.seqnoTimer = null
-    }
+  private subscribeAccount(): void {
+    if (!this.wsBridge || !this.walletContract) return
+    const address = this.walletContract.address.toString()
+
+    // Balance push
+    this.unsubAccountState = this.wsBridge.subscribeAccountState(address, (state: any) => {
+      const balance = state.balance ?? this.currentBalance
+      if (balance !== this.currentBalance) {
+        this.currentBalance = balance
+        this.emit('balance-updated', this.currentBalance)
+      }
+    })
+
+    // Transaction push
+    this.unsubTransactions = this.wsBridge.subscribeTransactions(address, (tx: any) => {
+      this.emit('new-transaction', tx)
+    })
   }
 
-  private startPolling(): void {
-    this.balanceTimer = setInterval(() => {
-      this.getBalance().catch((e) => log.error('Balance poll failed:', e))
-    }, WALLET_BALANCE_POLL_INTERVAL)
-
-    this.seqnoTimer = setInterval(() => {
-      this.syncSeqno().catch((e) => log.error('Seqno sync failed:', e))
-    }, WALLET_SEQNO_SYNC_INTERVAL)
+  private unsubscribeAccount(): void {
+    if (this.unsubAccountState) {
+      this.unsubAccountState()
+      this.unsubAccountState = null
+    }
+    if (this.unsubTransactions) {
+      this.unsubTransactions()
+      this.unsubTransactions = null
+    }
   }
 
   private async syncSeqno(): Promise<void> {
-    if (!this.rpcClient || !this.keypair) return
+    if (!this.wsBridge || !this.walletContract) return
     try {
-      const onChainSeqno = await this.rpcClient.getSeqno(this.keypair.publicKey)
-      // FIX 9: Use Math.max to avoid rolling back a locally-incremented seqno
+      const onChainSeqno = await this.wsBridge.getSeqno(this.getState().address)
       this.localSeqno = Math.max(this.localSeqno, onChainSeqno)
     } catch (error) {
       log.error('Seqno sync failed:', error)

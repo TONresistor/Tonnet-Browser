@@ -156,6 +156,7 @@ export function getDefaultSettingsBase(): AppSettings {
     network: {
       proxyPort: d.proxyPort,
       storagePort: d.storagePort,
+      wsPort: d.wsPort,
       autoConnect: d.autoConnect,
       connectionTimeout: d.connectionTimeout,
       syncCheckInterval: d.syncCheckInterval,
@@ -206,8 +207,6 @@ export function getDefaultSettingsBase(): AppSettings {
       limits: { ...d.wallet.limits },
       sitePolicies: [...d.wallet.sitePolicies],
       autoPayDomains: [...d.wallet.autoPayDomains],
-      toncenterApiKey: d.wallet.toncenterApiKey,
-      tonapiKey: d.wallet.tonapiKey,
     },
   }
 }

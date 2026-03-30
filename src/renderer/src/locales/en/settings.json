@@ -308,10 +308,6 @@
     "sitePolicies": "Site Permissions",
     "sitePoliciesDesc": "Per-site payment mode overrides",
     "spent": "Spent",
-    "removeSitePolicy": "Remove policy for {{domain}}",
-    "apiKey": "Toncenter API Key",
-    "apiKeyDesc": "Optional. Get a free key at toncenter.com for higher rate limits.",
-    "apiKeyPlaceholder": "Paste your API key here",
-    "apiKeySave": "Save"
+    "removeSitePolicy": "Remove policy for {{domain}}"
   }
 }

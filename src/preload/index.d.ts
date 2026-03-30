@@ -125,6 +125,27 @@ declare global {
         set: (category: string, values: object) => Promise<{ success: boolean; error?: string }>
         reset: () => Promise<{ success: boolean; error?: string }>
       }
+      bookmarks: {
+        load: () => Promise<{
+          bookmarks: Array<{
+            id: string
+            url: string
+            title: string
+            favicon?: string
+            folderId: string | null
+            createdAt: number
+            order: number
+          }>
+          folders: Array<{
+            id: string
+            name: string
+            parentId: string | null
+            createdAt: number
+            order: number
+          }>
+        }>
+        save: (data: { bookmarks: unknown[]; folders: unknown[] }) => Promise<{ success: boolean }>
+      }
       clearBrowsingData: () => Promise<{
         success: boolean
         error?: string

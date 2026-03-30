@@ -25,17 +25,15 @@ export const BookmarksSection = memo(function BookmarksSection({
   onReset,
 }: BookmarksSectionProps) {
   const { t } = useTranslation('settings')
-  const {
-    bookmarks,
-    folders,
-    searchBookmarks,
-    removeBookmark,
-    updateBookmark,
-    getBookmarksByFolder,
-    addFolder,
-    updateFolder,
-    getFolderDepth,
-  } = useBookmarksStore()
+  const bookmarks = useBookmarksStore((s) => s.bookmarks)
+  const folders = useBookmarksStore((s) => s.folders)
+  const searchBookmarks = useBookmarksStore((s) => s.searchBookmarks)
+  const removeBookmark = useBookmarksStore((s) => s.removeBookmark)
+  const updateBookmark = useBookmarksStore((s) => s.updateBookmark)
+  const getBookmarksByFolder = useBookmarksStore((s) => s.getBookmarksByFolder)
+  const addFolder = useBookmarksStore((s) => s.addFolder)
+  const updateFolder = useBookmarksStore((s) => s.updateFolder)
+  const getFolderDepth = useBookmarksStore((s) => s.getFolderDepth)
   const { navigateActiveTab, addTab } = useTabsStore()
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
   const deleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)

@@ -1,12 +1,10 @@
 /**
  * Bookmarks store.
- * Persisted bookmark management with Zustand.
+ * Persists to main-process JSON file via IPC (same pattern as settings).
  * Supports hierarchical folders (max 3 levels).
  */
 
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
-import { DEFAULT_BOOKMARKS } from '@shared/constants'
 
 export interface BookmarkFolder {
   id: string
@@ -57,255 +55,234 @@ interface BookmarksState {
 
 const generateId = () => crypto.randomUUID()
 
-const createDefaultBookmarks = (): Bookmark[] =>
-  DEFAULT_BOOKMARKS.map((b, idx) => ({
-    ...b,
-    folderId: null,
-    order: idx,
-  }))
+// Single-invocation create (no double ()() pattern, no persist middleware)
+export const useBookmarksStore = create<BookmarksState>((set, get) => ({
+  bookmarks: [],
+  folders: [],
 
-export const useBookmarksStore = create<BookmarksState>()(
-  persist(
-    (set, get) => ({
-      // Default bookmarks are unfiled (folderId: null) - like Chrome
-      bookmarks: createDefaultBookmarks(),
-      // No default folders - user creates them as needed
-      folders: [],
+  // Folder operations
+  addFolder: (name, parentId) => {
+    const depth = get().getFolderDepth(parentId)
+    if (depth >= 3) return null
 
-      // Folder operations
-      addFolder: (name, parentId) => {
-        // Check depth limit (max 3 levels)
-        const depth = get().getFolderDepth(parentId)
-        if (depth >= 3) {
-          return null // Max depth reached
-        }
-
-        const folder: BookmarkFolder = {
-          id: `folder-${generateId()}`,
-          name,
-          parentId,
-          createdAt: Date.now(),
-          order: get().getSubfolders(parentId).length,
-        }
-
-        set((state) => ({
-          folders: [...state.folders, folder],
-        }))
-
-        return folder.id
-      },
-
-      updateFolder: (id, data) => {
-        set((state) => ({
-          folders: state.folders.map((f) => (f.id === id ? { ...f, ...data } : f)),
-        }))
-      },
-
-      removeFolder: (id) => {
-        // Move bookmarks in this folder to unfiled
-        set((state) => ({
-          bookmarks: state.bookmarks.map((b) => (b.folderId === id ? { ...b, folderId: null } : b)),
-          folders: state.folders.filter((f) => {
-            // Remove folder and all subfolders
-            if (f.id === id) return false
-            // Check if parent chain includes deleted folder
-            let current = f
-            while (current.parentId) {
-              if (current.parentId === id) return false
-              const parent = state.folders.find((p) => p.id === current.parentId)
-              if (!parent) break
-              current = parent
-            }
-            return true
-          }),
-        }))
-      },
-
-      getFolderDepth: (folderId, visited: Set<string> = new Set()) => {
-        if (!folderId) return 0
-        if (visited.has(folderId)) return 10
-        visited.add(folderId)
-        const folder = get().folders.find((f) => f.id === folderId)
-        if (!folder) return 0
-        const depth = 1 + get().getFolderDepth(folder.parentId, visited)
-        return depth > 10 ? 10 : depth
-      },
-
-      getSubfolders: (parentId) => {
-        return get()
-          .folders.filter((f) => f.parentId === parentId)
-          .sort((a, b) => a.order - b.order)
-      },
-
-      // Bookmark operations
-      addBookmark: (url, title, folderId = null, favicon) => {
-        if (get().isBookmarked(url)) return
-
-        const bookmark: Bookmark = {
-          id: generateId(),
-          url,
-          title,
-          favicon,
-          folderId,
-          createdAt: Date.now(),
-          order: get().getBookmarksByFolder(folderId).length,
-        }
-
-        set((state) => ({
-          bookmarks: [...state.bookmarks, bookmark],
-        }))
-      },
-
-      updateBookmark: (id, data) => {
-        set((state) => ({
-          bookmarks: state.bookmarks.map((b) => (b.id === id ? { ...b, ...data } : b)),
-        }))
-      },
-
-      removeBookmark: (id) => {
-        set((state) => ({
-          bookmarks: state.bookmarks.filter((b) => b.id !== id),
-        }))
-      },
-
-      moveBookmark: (bookmarkId, folderId) => {
-        set((state) => ({
-          bookmarks: state.bookmarks.map((b) => (b.id === bookmarkId ? { ...b, folderId } : b)),
-        }))
-      },
-
-      getBookmarksByFolder: (folderId) => {
-        return get()
-          .bookmarks.filter((b) => b.folderId === folderId)
-          .sort((a, b) => a.order - b.order)
-      },
-
-      isBookmarked: (url) => {
-        return get().bookmarks.some((b) => b.url === url)
-      },
-
-      searchBookmarks: (query) => {
-        if (!query.trim()) return get().bookmarks
-        const q = query.toLowerCase()
-        return get().bookmarks.filter((b) => b.title.toLowerCase().includes(q) || b.url.toLowerCase().includes(q))
-      },
-
-      resetBookmarks: () => {
-        set({
-          bookmarks: createDefaultBookmarks(),
-          folders: [],
-        })
-      },
-
-      // Drag & drop operations
-      reorderBookmarks: (bookmarkId, targetFolderId, newIndex) => {
-        set((state) => {
-          // Find the bookmark being moved
-          const bookmark = state.bookmarks.find((b) => b.id === bookmarkId)
-          if (!bookmark) return state
-
-          const sourceFolderId = bookmark.folderId
-          const isSameFolder = sourceFolderId === targetFolderId
-
-          // Get all bookmarks in the target folder
-          let targetBookmarks = state.bookmarks
-            .filter((b) => b.folderId === targetFolderId)
-            .sort((a, b) => a.order - b.order)
-
-          // If same folder, remove the bookmark from its current position
-          if (isSameFolder) {
-            targetBookmarks = targetBookmarks.filter((b) => b.id !== bookmarkId)
-          }
-
-          // Insert at the new position
-          targetBookmarks.splice(newIndex, 0, bookmark)
-
-          // Recalculate order values (0, 1, 2, 3...)
-          const updatedBookmarks = targetBookmarks.map((b, idx) => ({
-            ...b,
-            order: idx,
-            folderId: targetFolderId,
-          }))
-
-          // Update the global state
-          return {
-            bookmarks: state.bookmarks.map((b) => {
-              const updated = updatedBookmarks.find((ub) => ub.id === b.id)
-              return updated || b
-            }),
-          }
-        })
-      },
-
-      reorderFolders: (folderId, newIndex, parentId) => {
-        set((state) => {
-          // Find the folder being moved
-          const folder = state.folders.find((f) => f.id === folderId)
-          if (!folder) return state
-
-          const sourceParentId = folder.parentId
-          const isSameParent = sourceParentId === parentId
-
-          // Get all folders with the target parent
-          let targetFolders = state.folders.filter((f) => f.parentId === parentId).sort((a, b) => a.order - b.order)
-
-          // If same parent, remove the folder from its current position
-          if (isSameParent) {
-            targetFolders = targetFolders.filter((f) => f.id !== folderId)
-          }
-
-          // Insert at the new position
-          targetFolders.splice(newIndex, 0, folder)
-
-          // Recalculate order values
-          const updatedFolders = targetFolders.map((f, idx) => ({
-            ...f,
-            order: idx,
-            parentId: parentId,
-          }))
-
-          // Update the global state
-          return {
-            folders: state.folders.map((f) => {
-              const updated = updatedFolders.find((uf) => uf.id === f.id)
-              return updated || f
-            }),
-          }
-        })
-      },
-    }),
-    {
-      name: 'ton-browser-bookmarks',
-      merge: (persistedState, currentState) => {
-        const persisted = persistedState as Partial<BookmarksState> | undefined
-
-        // Migration: Add folderId and order to old bookmarks
-        if (persisted?.bookmarks) {
-          const migratedBookmarks = persisted.bookmarks.map((b, idx) => ({
-            ...b,
-            // Migrate old folder references to unfiled (null)
-            folderId: b.folderId === 'folder-ton' || b.folderId === 'folder-unsorted' ? null : (b.folderId ?? null),
-            order: b.order ?? idx,
-          }))
-          persisted.bookmarks = migratedBookmarks
-        }
-
-        // Migration: Remove old default folders
-        if (persisted?.folders) {
-          persisted.folders = persisted.folders.filter((f) => f.id !== 'folder-ton' && f.id !== 'folder-unsorted')
-        }
-
-        // If no persisted data, use defaults
-        if (!persisted?.bookmarks || persisted.bookmarks.length === 0) {
-          return {
-            ...currentState,
-            bookmarks: createDefaultBookmarks(),
-            folders: [],
-          }
-        }
-
-        return { ...currentState, ...persisted }
-      },
+    const folder: BookmarkFolder = {
+      id: `folder-${generateId()}`,
+      name,
+      parentId,
+      createdAt: Date.now(),
+      order: get().getSubfolders(parentId).length,
     }
-  )
-)
+
+    set((state) => ({
+      folders: [...state.folders, folder],
+    }))
+
+    return folder.id
+  },
+
+  updateFolder: (id, data) => {
+    set((state) => ({
+      folders: state.folders.map((f) => (f.id === id ? { ...f, ...data } : f)),
+    }))
+  },
+
+  removeFolder: (id) => {
+    set((state) => ({
+      bookmarks: state.bookmarks.map((b) => (b.folderId === id ? { ...b, folderId: null } : b)),
+      folders: state.folders.filter((f) => {
+        if (f.id === id) return false
+        let current = f
+        while (current.parentId) {
+          if (current.parentId === id) return false
+          const parent = state.folders.find((p) => p.id === current.parentId)
+          if (!parent) break
+          current = parent
+        }
+        return true
+      }),
+    }))
+  },
+
+  getFolderDepth: (folderId, visited: Set<string> = new Set()) => {
+    if (!folderId) return 0
+    if (visited.has(folderId)) return 10
+    visited.add(folderId)
+    const folder = get().folders.find((f) => f.id === folderId)
+    if (!folder) return 0
+    const depth = 1 + get().getFolderDepth(folder.parentId, visited)
+    return depth > 10 ? 10 : depth
+  },
+
+  getSubfolders: (parentId) => {
+    return get()
+      .folders.filter((f) => f.parentId === parentId)
+      .sort((a, b) => a.order - b.order)
+  },
+
+  addBookmark: (url, title, folderId = null, favicon) => {
+    if (get().isBookmarked(url)) return
+
+    const bookmark: Bookmark = {
+      id: generateId(),
+      url,
+      title,
+      favicon,
+      folderId,
+      createdAt: Date.now(),
+      order: get().getBookmarksByFolder(folderId).length,
+    }
+
+    set((state) => ({
+      bookmarks: [...state.bookmarks, bookmark],
+    }))
+  },
+
+  updateBookmark: (id, data) => {
+    set((state) => ({
+      bookmarks: state.bookmarks.map((b) => (b.id === id ? { ...b, ...data } : b)),
+    }))
+  },
+
+  removeBookmark: (id) => {
+    set((state) => ({
+      bookmarks: state.bookmarks.filter((b) => b.id !== id),
+    }))
+  },
+
+  moveBookmark: (bookmarkId, folderId) => {
+    set((state) => ({
+      bookmarks: state.bookmarks.map((b) => (b.id === bookmarkId ? { ...b, folderId } : b)),
+    }))
+  },
+
+  getBookmarksByFolder: (folderId) => {
+    return get()
+      .bookmarks.filter((b) => b.folderId === folderId)
+      .sort((a, b) => a.order - b.order)
+  },
+
+  isBookmarked: (url) => {
+    return get().bookmarks.some((b) => b.url === url)
+  },
+
+  searchBookmarks: (query) => {
+    if (!query.trim()) return get().bookmarks
+    const q = query.toLowerCase()
+    return get().bookmarks.filter((b) => b.title.toLowerCase().includes(q) || b.url.toLowerCase().includes(q))
+  },
+
+  resetBookmarks: () => {
+    set({
+      bookmarks: [],
+      folders: [],
+    })
+  },
+
+  reorderBookmarks: (bookmarkId, targetFolderId, newIndex) => {
+    set((state) => {
+      const bookmark = state.bookmarks.find((b) => b.id === bookmarkId)
+      if (!bookmark) return state
+
+      const isSameFolder = bookmark.folderId === targetFolderId
+
+      let targetBookmarks = state.bookmarks
+        .filter((b) => b.folderId === targetFolderId)
+        .sort((a, b) => a.order - b.order)
+
+      if (isSameFolder) {
+        targetBookmarks = targetBookmarks.filter((b) => b.id !== bookmarkId)
+      }
+
+      targetBookmarks.splice(newIndex, 0, bookmark)
+
+      const updatedBookmarks = targetBookmarks.map((b, idx) => ({
+        ...b,
+        order: idx,
+        folderId: targetFolderId,
+      }))
+
+      return {
+        bookmarks: state.bookmarks.map((b) => {
+          const updated = updatedBookmarks.find((ub) => ub.id === b.id)
+          return updated || b
+        }),
+      }
+    })
+  },
+
+  reorderFolders: (folderId, newIndex, parentId) => {
+    set((state) => {
+      const folder = state.folders.find((f) => f.id === folderId)
+      if (!folder) return state
+
+      const isSameParent = folder.parentId === parentId
+
+      let targetFolders = state.folders.filter((f) => f.parentId === parentId).sort((a, b) => a.order - b.order)
+
+      if (isSameParent) {
+        targetFolders = targetFolders.filter((f) => f.id !== folderId)
+      }
+
+      targetFolders.splice(newIndex, 0, folder)
+
+      const updatedFolders = targetFolders.map((f, idx) => ({
+        ...f,
+        order: idx,
+        parentId: parentId,
+      }))
+
+      return {
+        folders: state.folders.map((f) => {
+          const updated = updatedFolders.find((uf) => uf.id === f.id)
+          return updated || f
+        }),
+      }
+    })
+  },
+}))
+
+// Load persisted data from main process (called once on app startup from App.tsx)
+export async function loadBookmarksFromMain(): Promise<void> {
+  try {
+    const data = await window.electron.bookmarks.load()
+    if (data?.bookmarks?.length > 0) {
+      useBookmarksStore.setState({
+        bookmarks: data.bookmarks,
+        folders: data.folders ?? [],
+      })
+    }
+  } catch (e) {
+    console.error('Failed to load bookmarks:', e)
+  }
+}
+
+// Persist to main process on every state change (debounced)
+let saveTimer: ReturnType<typeof setTimeout> | null = null
+useBookmarksStore.subscribe((state) => {
+  if (saveTimer) clearTimeout(saveTimer)
+  saveTimer = setTimeout(() => {
+    saveTimer = null
+    window.electron.bookmarks
+      .save({
+        bookmarks: state.bookmarks,
+        folders: state.folders,
+      })
+      .catch(() => {})
+  }, 300)
+})
+
+// Flush pending save before app exit
+window.addEventListener('beforeunload', () => {
+  if (saveTimer) {
+    clearTimeout(saveTimer)
+    saveTimer = null
+    const state = useBookmarksStore.getState()
+    // Use navigator.sendBeacon as last resort, but for Electron IPC just fire and forget
+    window.electron.bookmarks
+      .save({
+        bookmarks: state.bookmarks,
+        folders: state.folders,
+      })
+      .catch(() => {})
+  }
+})

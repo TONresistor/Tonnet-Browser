@@ -18,7 +18,9 @@ interface FolderTreeProps {
 
 export function FolderTree({ selectedFolderId, onSelectFolder, onEditFolder }: FolderTreeProps) {
   const { t } = useTranslation('settings')
-  const { getBookmarksByFolder, getSubfolders, removeFolder } = useBookmarksStore()
+  const getBookmarksByFolder = useBookmarksStore((s) => s.getBookmarksByFolder)
+  const getSubfolders = useBookmarksStore((s) => s.getSubfolders)
+  const removeFolder = useBookmarksStore((s) => s.removeFolder)
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set(['root']))
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
   const deleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)

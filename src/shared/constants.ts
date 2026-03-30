@@ -14,9 +14,8 @@ export const TON_STORAGE_PAGE = 'ton://storage'
 export const TON_SETTINGS_PAGE = 'ton://settings'
 
 export const DEFAULT_BOOKMARKS = [
-  { id: '0', url: 'http://foundation.ton', title: 'foundation.ton', createdAt: Date.now() },
-  { id: '1', url: 'http://boards.ton', title: 'boards.ton', createdAt: Date.now() },
-  { id: '2', url: 'http://piracy.ton', title: 'piracy.ton', createdAt: Date.now() },
+  { id: '0', url: 'http://manifesto.ton', title: 'manifesto.ton', createdAt: Date.now() },
+  { id: '1', url: 'http://dnslookup.ton', title: 'dnslookup.ton', createdAt: Date.now() },
 ]
 
 // Privacy: Generic User-Agent without TONBrowser identifier

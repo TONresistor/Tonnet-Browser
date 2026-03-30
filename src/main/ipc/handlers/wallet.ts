@@ -4,11 +4,28 @@
 
 import { IPC_CHANNELS } from '../../../shared/types'
 import { secureHandle, log } from './shared'
+import { getMainWindow } from '../../windows/main'
 import { walletManager } from '../../wallet/manager'
 import { walletHistoryManager } from '../../wallet/history'
 import { paymentInterceptor } from '../../wallet/payment-interceptor'
 
 export function registerWalletHandlers(): void {
+  // Forward wallet events to renderer
+  walletManager.on('balance-updated', (balance: string) => {
+    const win = getMainWindow()
+    if (win) win.webContents.send('wallet:balance-updated', balance)
+  })
+
+  walletManager.on('state-changed', (state: any) => {
+    const win = getMainWindow()
+    if (win) win.webContents.send('wallet:state-changed', state)
+  })
+
+  walletManager.on('new-transaction', (tx: any) => {
+    const win = getMainWindow()
+    if (win) win.webContents.send('wallet:new-transaction', tx)
+  })
+
   secureHandle(IPC_CHANNELS.WALLET_CREATE, async () => {
     return await walletManager.create()
   })

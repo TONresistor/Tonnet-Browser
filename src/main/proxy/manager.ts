@@ -22,6 +22,7 @@ export type ProxyStatus = 'stopped' | 'starting' | 'connected'
 export class ProxyManager extends EventEmitter {
   private process: ChildProcess | null = null
   private port: number = 0
+  private wsPort: number = 8081
   private status: ProxyStatus = 'stopped'
   private anonymousMode: boolean = false
   private tunnelRoute: string = ''
@@ -34,6 +35,7 @@ export class ProxyManager extends EventEmitter {
     const network = getSetting('network')
     const advanced = getSetting('advanced')
     this.port = network.proxyPort
+    this.wsPort = network.wsPort
     return { network, advanced }
   }
 
@@ -59,7 +61,7 @@ export class ProxyManager extends EventEmitter {
       // Anonymous mode: multi-hop tunnel via adnl-tunnel (DHT discovery)
       log.info(`Starting anonymous proxy from: ${binPath}`)
       log.info(`Port: ${safePort}, Mode: tunnel (DHT discovery)`)
-      this.process = spawn(binPath, ['-addr', `127.0.0.1:${safePort}`], {
+      this.process = spawn(binPath, ['-addr', `127.0.0.1:${safePort}`, '-ws-addr', `127.0.0.1:${this.wsPort}`], {
         windowsHide: true,
         cwd: proxyWorkDir,
       })
@@ -71,7 +73,7 @@ export class ProxyManager extends EventEmitter {
       // Direct mode: no tunnel (faster, no anonymity)
       log.info(`Starting direct proxy from: ${binPath}`)
       log.info(`Port: ${safePort}, Mode: direct`)
-      this.process = spawn(binPath, ['-addr', `127.0.0.1:${safePort}`], {
+      this.process = spawn(binPath, ['-addr', `127.0.0.1:${safePort}`, '-ws-addr', `127.0.0.1:${this.wsPort}`], {
         windowsHide: true,
         cwd: proxyWorkDir,
       })
@@ -105,6 +107,13 @@ export class ProxyManager extends EventEmitter {
           this.tunnelRoute = routeMatch[1]
           log.info(`Tunnel route: ${this.tunnelRoute}`)
         }
+      }
+
+      // Detect WS bridge readiness
+      // bridge.go: log.Info().Str("addr", addr).Msg("WebSocket-ADNL bridge started")
+      if (message.toLowerCase().includes('websocket-adnl bridge started')) {
+        log.info(`WS bridge ready on port ${this.wsPort}`)
+        this.emit('ws-bridge-ready', this.wsPort)
       }
     }
 
@@ -228,6 +237,7 @@ export class ProxyManager extends EventEmitter {
       status: this.status,
       connected: this.status === 'connected',
       port: this.port,
+      wsPort: this.wsPort,
       anonymousMode: this.anonymousMode,
       circuitRelays: this.tunnelRoute ? this.tunnelRoute.split(' -> ').filter((s) => s !== 'we') : [],
     }

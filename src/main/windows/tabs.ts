@@ -334,16 +334,6 @@ function setupViewEvents(view: WebContentsView, tabId: string): void {
     // Add to history
     const title = view.webContents.getTitle()
     historyManager.addEntry(url, title)
-
-    // Re-show file browser when navigating back to a .ton storage root
-    try {
-      const parsed = new URL(url)
-      if (parsed.hostname.endsWith('.ton') && parsed.pathname === '/' && storageBagCache.has(parsed.hostname)) {
-        loadStorageBrowser(view, parsed.hostname, url).catch(() => {})
-      }
-    } catch {
-      /* ignore */
-    }
   })
 
   view.webContents.on('did-navigate-in-page', (_e, url) => {

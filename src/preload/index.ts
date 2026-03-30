@@ -33,9 +33,11 @@ const VALID_EVENT_CHANNELS = [
   'tab:history-reset',
   'wallet:balance-updated',
   'wallet:state-changed',
+  'wallet:new-transaction',
   'wallet:payment-req',
   'wallet:payment-made',
   'wallet:payment-failed',
+  'bookmarks:changed',
 ]
 
 // Custom APIs for renderer - exposed as window.electron
@@ -124,6 +126,12 @@ const electronAPI = {
     get: (category: string) => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_GET, category),
     set: (category: string, values: object) => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_SET, category, values),
     reset: () => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_RESET),
+  },
+
+  // Bookmarks persistence
+  bookmarks: {
+    load: () => ipcRenderer.invoke(IPC_CHANNELS.BOOKMARKS_LOAD),
+    save: (data: { bookmarks: unknown[]; folders: unknown[] }) => ipcRenderer.invoke(IPC_CHANNELS.BOOKMARKS_SAVE, data),
   },
 
   // History

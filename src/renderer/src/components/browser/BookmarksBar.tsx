@@ -22,7 +22,6 @@ import {
 } from '@dnd-kit/core'
 import { SortableContext, horizontalListSortingStrategy, sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 import { useBookmarksStore, Bookmark, BookmarkFolder } from '@/stores/bookmarks'
-import { useBrowserStore } from '@/stores/browser'
 import { useTabsStore } from '@/stores/tabs'
 import { ErrorBoundary } from '../ErrorBoundary'
 import { SortableBookmarkItem } from './SortableBookmarkItem'
@@ -43,19 +42,15 @@ interface RenameModal {
 export function BookmarksBar() {
   const { t } = useTranslation('settings')
   const { t: tBrowser } = useTranslation('browser')
-  const {
-    bookmarks,
-    folders,
-    getBookmarksByFolder,
-    getSubfolders,
-    updateBookmark,
-    removeBookmark,
-    updateFolder,
-    removeFolder,
-    reorderBookmarks,
-    reorderFolders,
-  } = useBookmarksStore()
-  const { proxyConnected } = useBrowserStore()
+  const bookmarks = useBookmarksStore((s) => s.bookmarks)
+  const folders = useBookmarksStore((s) => s.folders)
+  const getBookmarksByFolder = useBookmarksStore((s) => s.getBookmarksByFolder)
+  const updateBookmark = useBookmarksStore((s) => s.updateBookmark)
+  const removeBookmark = useBookmarksStore((s) => s.removeBookmark)
+  const updateFolder = useBookmarksStore((s) => s.updateFolder)
+  const removeFolder = useBookmarksStore((s) => s.removeFolder)
+  const reorderBookmarks = useBookmarksStore((s) => s.reorderBookmarks)
+  const reorderFolders = useBookmarksStore((s) => s.reorderFolders)
   const { navigateActiveTab, addTab } = useTabsStore()
   const [editModal, setEditModal] = useState<EditModal | null>(null)
   const [renameModal, setRenameModal] = useState<RenameModal | null>(null)
@@ -235,11 +230,11 @@ export function BookmarksBar() {
     }
   }, []) // Empty deps - all callbacks use refs or state setters
 
-  if (!proxyConnected || (bookmarks.length === 0 && folders.length === 0)) return null
+  if (bookmarks.length === 0 && folders.length === 0) return null
 
-  // Get top-level items (bookmarks without folder + top-level folders)
-  const topLevelBookmarks = getBookmarksByFolder(null)
-  const topLevelFolders = getSubfolders(null)
+  // Compute top-level items directly from selected state (not via get())
+  const topLevelBookmarks = bookmarks.filter((b) => b.folderId === null).sort((a, b) => a.order - b.order)
+  const topLevelFolders = folders.filter((f) => f.parentId === null).sort((a, b) => a.order - b.order)
 
   const handleContextMenu = (e: React.MouseEvent, bookmark: Bookmark) => {
     e.preventDefault()

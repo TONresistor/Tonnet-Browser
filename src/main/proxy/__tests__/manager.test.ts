@@ -27,6 +27,7 @@ const createMockProcess = () => {
 const mockSettings = {
   network: {
     proxyPort: 8080,
+    wsPort: 8081,
     connectionTimeout: 5,
     anonymousMode: false,
   },
@@ -120,7 +121,7 @@ describe('ProxyManager', () => {
 
       expect(spawn).toHaveBeenCalledWith(
         '/mock/bin/tonutils-proxy',
-        ['-addr', '127.0.0.1:8080'],
+        ['-addr', '127.0.0.1:8080', '-ws-addr', '127.0.0.1:8081'],
         expect.objectContaining({ windowsHide: true })
       )
 
@@ -165,7 +166,7 @@ describe('ProxyManager', () => {
 
       expect(spawn).toHaveBeenCalledWith(
         expect.any(String),
-        ['-addr', '127.0.0.1:8080'],
+        ['-addr', '127.0.0.1:8080', '-ws-addr', '127.0.0.1:8081'],
         expect.objectContaining({ windowsHide: true })
       )
 

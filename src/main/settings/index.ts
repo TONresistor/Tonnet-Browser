@@ -51,6 +51,7 @@ export function getDefaultSettings(): AppSettings {
     network: {
       proxyPort: DEFAULT_SETTINGS.proxyPort,
       storagePort: DEFAULT_SETTINGS.storagePort,
+      wsPort: DEFAULT_SETTINGS.wsPort,
       autoConnect: DEFAULT_SETTINGS.autoConnect,
       connectionTimeout: DEFAULT_SETTINGS.connectionTimeout,
       syncCheckInterval: DEFAULT_SETTINGS.syncCheckInterval,
@@ -101,8 +102,6 @@ export function getDefaultSettings(): AppSettings {
       limits: { ...DEFAULT_SETTINGS.wallet.limits },
       sitePolicies: [...DEFAULT_SETTINGS.wallet.sitePolicies],
       autoPayDomains: [...DEFAULT_SETTINGS.wallet.autoPayDomains],
-      toncenterApiKey: DEFAULT_SETTINGS.wallet.toncenterApiKey,
-      tonapiKey: DEFAULT_SETTINGS.wallet.tonapiKey,
     },
   }
 }

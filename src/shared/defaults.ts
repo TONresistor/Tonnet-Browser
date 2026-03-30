@@ -20,6 +20,7 @@ export const DEFAULT_SETTINGS = {
   // Network
   proxyPort: 8080,
   storagePort: 5555,
+  wsPort: 8081,
   autoConnect: false,
   connectionTimeout: 30,
   syncCheckInterval: 3000,
@@ -77,7 +78,5 @@ export const DEFAULT_SETTINGS = {
     },
     sitePolicies: [] as SitePolicy[],
     autoPayDomains: [] as string[],
-    toncenterApiKey: '',
-    tonapiKey: '',
   },
 } as const

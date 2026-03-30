@@ -53,16 +53,23 @@ export const useWalletStore = create<WalletStore>((set, get) => {
   // IPC event listeners — stored for cleanup
   let unsubBalance: (() => void) | null = null
   let unsubState: (() => void) | null = null
+  let unsubNewTx: (() => void) | null = null
 
   const setupListeners = () => {
     if (unsubBalance) unsubBalance()
     if (unsubState) unsubState()
+    if (unsubNewTx) unsubNewTx()
 
     unsubBalance = window.electron.on('wallet:balance-updated', (...args: unknown[]) => {
       const balance = args[0] as string
       if (typeof balance === 'string') {
         set({ balance })
       }
+    })
+
+    unsubNewTx = window.electron.on('wallet:new-transaction', () => {
+      // Refresh history when a new transaction arrives via push
+      get().loadHistory()
     })
 
     unsubState = window.electron.on('wallet:state-changed', (...args: unknown[]) => {

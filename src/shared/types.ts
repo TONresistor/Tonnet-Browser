@@ -65,6 +65,7 @@ export const GeneralSettingsSchema = z.object({
 export const NetworkSettingsSchema = z.object({
   proxyPort: z.number().int().min(1024).max(65535).default(8080),
   storagePort: z.number().int().min(1024).max(65535).default(5555),
+  wsPort: z.number().int().min(1024).max(65535).default(8081),
   autoConnect: z.boolean().default(false),
   connectionTimeout: z.number().min(5).max(120).default(30),
   syncCheckInterval: z.number().min(500).max(60000).default(3000),
@@ -184,8 +185,6 @@ export const WalletSettingsSchema = z.object({
   }),
   sitePolicies: z.array(SitePolicySchema).default([]),
   autoPayDomains: z.array(z.string()).default([]),
-  toncenterApiKey: z.string().default(''),
-  tonapiKey: z.string().default(''),
 })
 
 export const WalletSettingsPartialSchema = z
@@ -195,8 +194,6 @@ export const WalletSettingsPartialSchema = z
     limits: SpendingLimitsSchema.partial(),
     sitePolicies: z.array(SitePolicySchema),
     autoPayDomains: z.array(z.string()),
-    toncenterApiKey: z.string(),
-    tonapiKey: z.string(),
   })
   .partial()
 
@@ -233,6 +230,7 @@ export const NetworkSettingsPartialSchema = z
   .object({
     proxyPort: z.number().int().min(1024).max(65535),
     storagePort: z.number().int().min(1024).max(65535),
+    wsPort: z.number().int().min(1024).max(65535),
     autoConnect: z.boolean(),
     connectionTimeout: z.number().min(5).max(120),
     syncCheckInterval: z.number().min(500).max(60000),
@@ -454,8 +452,6 @@ export interface WalletSettings {
   limits: SpendingLimits
   sitePolicies: SitePolicy[]
   autoPayDomains: string[]
-  toncenterApiKey: string
-  tonapiKey: string
 }
 
 // IPC Channel names
@@ -517,6 +513,8 @@ export const IPC_CHANNELS = {
 
   // Bookmarks
   BOOKMARK_SHOW_MENU: 'bookmark:show-menu',
+  BOOKMARKS_LOAD: 'bookmarks:load',
+  BOOKMARKS_SAVE: 'bookmarks:save',
 
   // Folders
   FOLDER_SHOW_MENU: 'folder:show-menu',
