@@ -146,29 +146,13 @@ export class ProxyManager extends EventEmitter {
 
   private writeProxyConfig(workDir: string, tunnelEnabled: boolean): void {
     const configPath = path.join(workDir, 'config.json')
-    const nodesPoolPath = path.join(workDir, 'nodes-pool.json')
-
-    // Ensure nodes pool file exists for tunnel mode
-    if (tunnelEnabled && !fs.existsSync(nodesPoolPath)) {
-      // Seed with known relays — tunnel will discover more via DHT overlay
-      const nodesPool = {
-        NodesPool: [
-          { Key: Array.from(Buffer.from('0nAqzFCklgG1vJFgKHqU7Z87c7RHYn345e4jPnxqnxM=', 'base64')), Payment: null },
-          { Key: Array.from(Buffer.from('cOYXQd4ov4pc7OjX26wm90VF35e44NGL6SwGnepiVSE=', 'base64')), Payment: null },
-          { Key: Array.from(Buffer.from('DVXr339Go5qPh5eLvVtDWlw16hBrapUXb0u9acYGUiI=', 'base64')), Payment: null },
-          { Key: Array.from(Buffer.from('CYHphrvG8HL0CXfTk3egLBRxoS8NR40YtcWZdvl3HJw=', 'base64')), Payment: null },
-        ],
-      }
-      fs.writeFileSync(nodesPoolPath, JSON.stringify(nodesPool, null, 2))
-      log.info('Created nodes pool with seed relays')
-    }
 
     if (fs.existsSync(configPath)) {
       // Patch existing config
       try {
         const existing = JSON.parse(fs.readFileSync(configPath, 'utf-8'))
         if (existing.TunnelConfig) {
-          existing.TunnelConfig.NodesPoolConfigPath = tunnelEnabled ? nodesPoolPath : ''
+          existing.TunnelConfig.NodesPoolConfigPath = ''
           existing.TunnelConfig.TunnelSectionsNum = tunnelEnabled ? 2 : 0
         }
         fs.writeFileSync(configPath, JSON.stringify(existing, null, 2))
@@ -190,7 +174,7 @@ export class ProxyManager extends EventEmitter {
         TunnelServerKey: generateKey(),
         TunnelThreads: cpus().length,
         TunnelSectionsNum: tunnelEnabled ? 2 : 0,
-        NodesPoolConfigPath: tunnelEnabled ? nodesPoolPath : '',
+        NodesPoolConfigPath: '',
         PaymentsEnabled: false,
         Payments: {
           ADNLServerKey: generateKey(),
