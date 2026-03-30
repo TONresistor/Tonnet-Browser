@@ -335,7 +335,9 @@ class WalletManager extends EventEmitter {
 
   async resolveDomain(domain: string): Promise<DnsResolveResult> {
     if (!this.wsBridge) throw new Error('Wallet not initialized')
-    return resolveTonDomain(domain, this.wsBridge!)
+    const result = await resolveTonDomain(domain, this.wsBridge!)
+    if (!result) throw new Error(`Could not resolve ${domain}`)
+    return result
   }
 
   async fetchNfts(): Promise<NftItem[]> {
