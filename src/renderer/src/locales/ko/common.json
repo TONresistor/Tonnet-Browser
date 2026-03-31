@@ -26,6 +26,9 @@
     "syncing": "동기화 중",
     "synced": "동기화됨"
   },
+  "loading": {
+    "settings": "설정 불러오는 중..."
+  },
   "errors": {
     "generic": "오류가 발생했습니다",
     "network": "네트워크 오류",
@@ -36,5 +39,10 @@
   "tooltips": {
     "storage": "Storage",
     "settings": "Settings"
+  },
+  "error": {
+    "title": "문제가 발생했습니다",
+    "description": "애플리케이션에 예기치 않은 오류가 발생했습니다. 새로 고침하여 복구해 보세요.",
+    "reload": "애플리케이션 새로 고침"
   }
 }

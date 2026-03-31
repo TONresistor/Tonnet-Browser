@@ -26,6 +26,9 @@
     "syncing": "同步中",
     "synced": "已同步"
   },
+  "loading": {
+    "settings": "加载设置..."
+  },
   "errors": {
     "generic": "出现错误",
     "network": "网络错误",
@@ -36,5 +39,10 @@
   "tooltips": {
     "storage": "Storage",
     "settings": "Settings"
+  },
+  "error": {
+    "title": "出现错误",
+    "description": "应用程序遇到意外错误。请尝试重新加载以恢复。",
+    "reload": "重新加载应用"
   }
 }

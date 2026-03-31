@@ -1,0 +1,26 @@
+{
+  "title": "ค้นหา DNS",
+  "searchPlaceholder": "ป้อนโดเมน .ton...",
+  "searching": "กำลังค้นหา...",
+  "empty": "ป้อนโดเมน .ton เพื่อค้นหาระเบียน",
+  "notFound": "ไม่พบโดเมนหรือไม่มีระเบียน",
+  "error": "ไม่สามารถค้นหาโดเมนได้",
+  "fields": {
+    "wallet": "กระเป๋าเงิน",
+    "owner": "เจ้าของ",
+    "siteAdnl": "ไซต์ ADNL",
+    "hasStorage": "พื้นที่จัดเก็บ",
+    "nftAddress": "ที่อยู่ NFT",
+    "collection": "คอลเลกชัน",
+    "editor": "ผู้แก้ไข",
+    "initialized": "เริ่มต้นแล้ว",
+    "expiringAt": "หมดอายุ",
+    "textRecords": "ระเบียนข้อความ"
+  },
+  "values": {
+    "yes": "ใช่",
+    "no": "ไม่",
+    "none": "ไม่ได้ตั้งค่า"
+  },
+  "copied": "คัดลอกแล้ว!"
+}

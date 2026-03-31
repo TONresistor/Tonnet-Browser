@@ -4,15 +4,13 @@
  */
 
 import { WebContentsView, session } from 'electron'
-import { USER_AGENT, FAVICON_MAX_SIZE_BYTES } from '../../shared/constants'
+import { USER_AGENT, FAVICON_MAX_SIZE_BYTES, SESSION_PARTITION } from '../../shared/constants'
 import { getSetting } from '../settings'
 import { contentFilterManager } from '../content-filter/filter-manager'
 import { paymentInterceptor } from '../wallet/payment-interceptor'
 import { createLogger } from '../../shared/logger'
 import antiFingerprint from './anti-fingerprinting.js?raw'
 const log = createLogger('browser-view')
-
-const SESSION_PARTITION = 'persist:ton-browser'
 
 export async function createTonSession(proxyPort: number, partitionName: string = SESSION_PARTITION) {
   const ses = session.fromPartition(partitionName)
@@ -173,7 +171,7 @@ export async function extractFavicon(view: WebContentsView): Promise<string | nu
 
           const blob = await response.blob();
 
-          if (blob.size > FAVICON_MAX_SIZE_BYTES) {
+          if (blob.size > ${FAVICON_MAX_SIZE_BYTES}) {
             return null;
           }
 

@@ -29,6 +29,7 @@ linux:
     - deb
   category: Network
   icon: resources/icons/icon.png
+  artifactName: "TON-Browser-${version}.${ext}"
 
 win:
   extraResources:
@@ -40,6 +41,7 @@ win:
     - nsis
     - portable
   icon: resources/icons/icon.ico
+  artifactName: "TON-Browser-Setup-${version}.${ext}"
 
 mac:
   extraResources:
@@ -51,6 +53,7 @@ mac:
     - target: dmg
       arch: universal
   icon: resources/icons/icon.icns
+  artifactName: "TON-Browser-${version}-${arch}.${ext}"
   hardenedRuntime: true
   gatekeeperAssess: false
   x64ArchFiles: "Contents/Resources/bin/*"

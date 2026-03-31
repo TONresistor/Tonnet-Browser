@@ -5,7 +5,8 @@
     "addBookmarkAria": "Adicionar aos favoritos",
     "removeBookmarkAria": "Remover dos favoritos",
     "addBookmarkTitle": "Adicionar favorito",
-    "removeBookmarkTitle": "Remover favorito"
+    "removeBookmarkTitle": "Remover favorito",
+    "fileBrowser": "Navegador de Arquivos"
   },
   "navigation": {
     "back": "Voltar",
@@ -33,20 +34,42 @@
     "dragCancelled": "Arrasto cancelado",
     "dragCancelledFull": "Arrasto cancelado. Aba {{title}} retornou à posição original."
   },
+  "windowControls": {
+    "group": "Controles da janela",
+    "minimize": "Minimizar",
+    "maximize": "Maximizar",
+    "close": "Fechar"
+  },
+  "dnd": {
+    "pickedUp": "{{type}} selecionado: {{name}}",
+    "movedOver": "{{name}} esta sobre {{target}}",
+    "droppedOn": "{{name}} solto em {{target}}",
+    "cancelled": "Arrasto cancelado",
+    "folderAriaLabel": "Pasta: {{name}}. Pressione espaço para começar a arrastar.",
+    "bookmarkAriaLabel": "Favorito: {{name}}. Pressione espaço para começar a arrastar."
+  },
   "bookmarksBar": {
     "title": "Favoritos"
+  },
+  "tip": {
+    "resolveError": "Não foi possível resolver o domínio",
+    "title": "Gorjeta de {{amount}} TON para {{domain}}"
   },
   "statusBar": {
     "connected": "Conectado à Rede TON",
     "disconnected": "Desconectado",
     "syncing": "Sincronizando...",
-    "syncingMultiHop": "Sincronizando com circuito multi-hop...",
+    "syncingMultiHop": "Descobrindo nós de túnel...",
     "garlicRouting": "Roteamento Garlic (3 saltos)",
     "buildingCircuit": "Construindo circuito...",
     "storage": "Armazenamento:",
     "bag": "bolsa",
     "bags": "bolsas",
     "session": "Sessão:",
-    "networkStatus": "Status da rede: {{status}}"
+    "networkStatus": "Status da rede: {{status}}",
+    "downloadSpeedAria": "Velocidade de download: {{speed}}",
+    "uploadSpeedAria": "Velocidade de upload: {{speed}}",
+    "walletTitle": "Saldo do wallet",
+    "walletAria": "Exibição do saldo do wallet"
   }
 }

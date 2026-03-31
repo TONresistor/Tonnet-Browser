@@ -4,10 +4,11 @@ This document describes how to build the platform binaries used by Tonnet Browse
 
 ## Overview
 
-Tonnet Browser requires two binary components:
+Tonnet Browser requires three binary components:
 
-1. **tonutils-proxy** - HTTP proxy for TON sites (from xssnick/Tonutils-Proxy)
+1. **tonutils-proxy** - HTTP proxy for TON sites (from TONresistor/Tonutils-Proxy)
 2. **tonutils-storage** - TON storage daemon (from xssnick/tonutils-storage)
+3. **tonutils-bridge** - standalone WebSocket-ADNL bridge (from TONresistor/tonutils-bridge)
 
 ## Supported Platforms
 
@@ -95,23 +96,33 @@ resources/
   bin/
     mac/
       tonutils-proxy        # Universal binary
-      tonutils-storage    # Universal binary
+      tonutils-storage      # Universal binary
+      tonutils-bridge       # Universal binary
     linux/
       tonutils-proxy
       tonutils-storage
+      tonutils-bridge
     win/
       tonutils-proxy.exe
       tonutils-storage.exe
+      tonutils-bridge.exe
 ```
 
 ## Building Individual Components
 
 ### tonutils-proxy
 
+Build from local source (preferred):
 ```bash
-git clone https://github.com/xssnick/Tonutils-Proxy.git
-cd Tonutils-Proxy
-go build -ldflags="-s -w" -o tonutils-proxy ./cmd/proxy-cli
+npm run build:proxy          # current platform only
+./scripts/build-proxy.sh --all  # all platforms
+```
+
+Or manually:
+```bash
+git clone https://github.com/TONresistor/Tonutils-Proxy.git ../Tonutils-Proxy
+cd ../Tonutils-Proxy
+go build -ldflags="-s -w -X main.GitCommit=$(git describe --tags --always)" -o tonutils-proxy ./cmd/proxy-cli
 ```
 
 ### tonutils-storage
@@ -120,6 +131,23 @@ go build -ldflags="-s -w" -o tonutils-proxy ./cmd/proxy-cli
 git clone https://github.com/xssnick/tonutils-storage.git
 cd tonutils-storage
 go build -ldflags="-s -w" -o tonutils-storage ./cmd/tonutils-storage
+```
+
+### tonutils-bridge
+
+Standalone WebSocket-ADNL bridge, separated from tonutils-proxy. Exposes a local WebSocket endpoint that the browser uses to communicate with the ADNL network directly.
+
+Build from local source (preferred):
+```bash
+npm run build:bridge          # current platform only
+./scripts/build-bridge.sh --all  # all platforms
+```
+
+Or manually:
+```bash
+git clone https://github.com/TONresistor/tonutils-bridge.git ../tonutils-bridge
+cd ../tonutils-bridge
+go build -ldflags="-s -w -X main.GitCommit=$(git describe --tags --always)" -o tonutils-bridge .
 ```
 
 ## Verifying Universal Binaries

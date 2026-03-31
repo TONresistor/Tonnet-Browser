@@ -5,7 +5,8 @@
     "addBookmarkAria": "Tambahkan ke penanda",
     "removeBookmarkAria": "Hapus dari penanda",
     "addBookmarkTitle": "Tambah penanda",
-    "removeBookmarkTitle": "Hapus penanda"
+    "removeBookmarkTitle": "Hapus penanda",
+    "fileBrowser": "Penjelajah Berkas"
   },
   "navigation": {
     "back": "Kembali",
@@ -33,6 +34,24 @@
     "dragCancelled": "Penyeretan dibatalkan",
     "dragCancelledFull": "Penyeretan dibatalkan. Tab {{title}} kembali ke posisi semula."
   },
+  "windowControls": {
+    "group": "Kontrol jendela",
+    "minimize": "Minimalkan",
+    "maximize": "Maksimalkan",
+    "close": "Tutup"
+  },
+  "dnd": {
+    "pickedUp": "{{type}} diambil: {{name}}",
+    "movedOver": "{{name}} berada di atas {{target}}",
+    "droppedOn": "{{name}} dijatuhkan ke {{target}}",
+    "cancelled": "Penyeretan dibatalkan",
+    "folderAriaLabel": "Folder: {{name}}. Tekan spasi untuk mulai menyeret.",
+    "bookmarkAriaLabel": "Penanda: {{name}}. Tekan spasi untuk mulai menyeret."
+  },
+  "tip": {
+    "resolveError": "Tidak dapat menyelesaikan domain",
+    "title": "Tip {{amount}} TON ke {{domain}}"
+  },
   "bookmarksBar": {
     "title": "Penanda"
   },
@@ -40,13 +59,17 @@
     "connected": "Terhubung ke Jaringan TON",
     "disconnected": "Terputus",
     "syncing": "Menyinkronkan...",
-    "syncingMultiHop": "Menyinkronkan dengan sirkuit multi-hop...",
+    "syncingMultiHop": "Mencari node tunnel...",
     "garlicRouting": "Garlic Routing (3-hop)",
     "buildingCircuit": "Membangun sirkuit...",
     "storage": "Penyimpanan:",
     "bag": "tas",
     "bags": "tas",
     "session": "Sesi:",
-    "networkStatus": "Status jaringan: {{status}}"
+    "networkStatus": "Status jaringan: {{status}}",
+    "downloadSpeedAria": "Kecepatan unduh: {{speed}}",
+    "uploadSpeedAria": "Kecepatan unggah: {{speed}}",
+    "walletTitle": "Saldo wallet",
+    "walletAria": "Tampilan saldo wallet"
   }
 }

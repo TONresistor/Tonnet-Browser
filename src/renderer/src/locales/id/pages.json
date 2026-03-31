@@ -1,7 +1,7 @@
 {
   "start": {
     "title": "Selamat Datang di Tonnet",
-    "subtitle": "Browse tonsites on TON Network, privately",
+    "subtitle": "Jelajahi tonsite di Jaringan TON secara pribadi",
     "searchPlaceholder": "Cari atau masukkan alamat .ton",
     "searchButton": "Kunjungi",
     "quickLinks": "Tautan cepat",
@@ -14,11 +14,13 @@
     "tabs": {
       "active": "Aktif",
       "completed": "Selesai",
-      "info": "Informasi"
+      "info": "Informasi",
+      "files": "File"
     },
     "filters": {
       "all": "Semua",
       "downloading": "Mengunduh",
+      "complete": "Selesai",
       "seeding": "Menyebarkan",
       "paused": "Dijeda"
     },
@@ -29,7 +31,10 @@
       "remove": "Hapus",
       "openFolder": "Buka folder",
       "copyBagId": "Salin ID bag",
-      "details": "Detail"
+      "details": "Detail",
+      "addBag": "Tambah Bag",
+      "settings": "Pengaturan",
+      "browseFiles": "Jelajahi Berkas"
     },
     "table": {
       "name": "Nama",
@@ -39,6 +44,7 @@
       "upload": "Unggah",
       "peers": "Rekan",
       "status": "Status",
+      "files": "File",
       "added": "Ditambahkan"
     },
     "status": {
@@ -56,8 +62,10 @@
       "bagIdPlaceholder": "Masukkan ID bag atau seret file torrent...",
       "downloadPathLabel": "Jalur unduhan",
       "autoStartLabel": "Mulai unduhan secara otomatis",
+      "bagIdDescription": "Masukkan Bag ID untuk mulai mengunduh. Anda dapat menemukan Bag ID di situs TON atau dari pengguna lain.",
       "cancel": "Batal",
-      "add": "Tambah",
+      "add": "Tambah Bag",
+      "adding": "Menambahkan...",
       "browse": "Jelajahi"
     },
     "info": {
@@ -69,8 +77,20 @@
       "uploadSpeed": "Kecepatan unggah",
       "ratio": "Rasio",
       "connectedPeers": "Rekan terhubung",
-      "diskSpace": "Ruang disk"
+      "diskSpace": "Ruang disk",
+      "id": "ID",
+      "size": "Ukuran",
+      "downloaded": "Diunduh",
+      "status": "Status",
+      "peers": "Rekan",
+      "files": "File",
+      "download": "Unduh",
+      "upload": "Unggah",
+      "path": "Jalur"
     },
+    "searchBags": "Cari bag...",
+    "loadingFiles": "Memuat file...",
+    "noFiles": "Tidak ada file ditemukan atau metadata belum dimuat",
     "empty": {
       "title": "Tidak ada unduhan aktif",
       "description": "Tambahkan konten berdasarkan ID bag atau file torrent untuk memulai",
@@ -88,6 +108,7 @@
     "title": "Riwayat Penjelajahan",
     "description": "Riwayat penjelajahan dan catatan kunjungan Anda",
     "search": "Cari di riwayat...",
+    "loading": "Memuat riwayat...",
     "filters": {
       "all": "Semua waktu",
       "today": "Hari ini",
@@ -98,9 +119,14 @@
     },
     "actions": {
       "clearAll": "Hapus semua riwayat",
+      "clearLastHour": "Hapus satu jam terakhir",
+      "clearLastDay": "Hapus satu hari terakhir",
       "clearToday": "Hapus hari ini",
       "clearSelected": "Hapus yang dipilih",
-      "export": "Ekspor riwayat"
+      "export": "Ekspor riwayat",
+      "openInNewTab": "Buka di tab baru",
+      "copyUrl": "Salin URL",
+      "delete": "Hapus"
     },
     "table": {
       "title": "Judul",
@@ -110,16 +136,30 @@
     },
     "empty": {
       "title": "Tidak ada riwayat",
+      "noResults": "Tidak ada hasil ditemukan",
       "description": "Situs web yang Anda kunjungi akan muncul di sini",
+      "tryDifferent": "Coba kata pencarian yang berbeda",
       "allCleared": "Semua riwayat telah dihapus"
     },
     "clearConfirm": {
       "title": "Hapus riwayat?",
       "message": "Tindakan ini tidak dapat dibatalkan.",
       "clearAll": "Ini akan menghapus semua riwayat penjelajahan Anda.",
+      "clearRange": "Hapus {{count}} {{entries}} dari {{range}} terakhir?",
       "clearSelected": "Ini akan menghapus {{count}} item yang dipilih.",
       "cancel": "Batal",
       "confirm": "Hapus"
+    },
+    "copied": "Disalin!",
+    "visitsCount": "({{count}} kunjungan)",
+    "entries": {
+      "singular": "entri",
+      "plural": "entri"
+    },
+    "timeRange": {
+      "hour": "jam",
+      "day": "hari",
+      "week": "minggu"
     },
     "stats": {
       "totalVisits": "Total kunjungan",
@@ -129,6 +169,8 @@
     },
     "timeFormat": {
       "justNow": "Baru saja",
+      "minuteAgo": "{{count}} menit lalu",
+      "hourAgo": "{{count}} jam lalu",
       "minutesAgo": "{{count}} menit yang lalu",
       "hoursAgo": "{{count}} jam yang lalu",
       "yesterday": "Kemarin",

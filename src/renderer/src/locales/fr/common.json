@@ -26,6 +26,9 @@
     "syncing": "Synchronisation",
     "synced": "Synchronisé"
   },
+  "loading": {
+    "settings": "Chargement des paramètres..."
+  },
   "errors": {
     "generic": "Une erreur s'est produite",
     "network": "Erreur réseau",

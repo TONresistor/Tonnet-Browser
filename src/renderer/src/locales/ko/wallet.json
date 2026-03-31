@@ -1,0 +1,156 @@
+{
+  "page": {
+    "title": "Wallet",
+    "refresh": "새로 고침",
+    "noWalletTitle": "Wallet 없음",
+    "noWalletDesc": "새 지갑을 만들거나 기존 지갑을 가져와서 시작하세요.",
+    "createWallet": "Wallet 만들기"
+  },
+  "tabs": {
+    "send": "보내기",
+    "receive": "받기",
+    "history": "내역"
+  },
+  "send": {
+    "recipientLabel": "수신자 주소",
+    "recipientPlaceholder": "EQ... 또는 0:...",
+    "amountLabel": "금액",
+    "feeNote": "네트워크 수수료: {{fee}} TON",
+    "reviewButton": "거래 확인",
+    "confirm": "거래 승인",
+    "to": "받는 분",
+    "amount": "금액",
+    "fee": "수수료",
+    "back": "뒤로",
+    "sending": "전송 중...",
+    "success": "거래가 전송되었습니다!",
+    "successDesc": "거래가 네트워크에 브로드캐스트되었습니다.",
+    "error": "거래 실패",
+    "invalidAddress": "유효하지 않은 TON 주소",
+    "invalidAmount": "유효하지 않은 금액",
+    "max": "최대",
+    "estimatedFee": "~0.01 TON"
+  },
+  "receive": {
+    "addressLabel": "내 Wallet 주소",
+    "copyButton": "주소 복사",
+    "copied": "복사됨!",
+    "copyTitle": "클립보드에 복사",
+    "copyAria": "지갑 주소를 클립보드에 복사"
+  },
+  "history": {
+    "empty": "아직 거래 내역이 없습니다",
+    "clear": "내역 지우기",
+    "types": {
+      "send": "보냄",
+      "receive": "받음",
+      "x402": "HTTP 402 결제"
+    },
+    "status": {
+      "pending": "대기 중",
+      "confirmed": "확인됨",
+      "failed": "실패"
+    },
+    "x402Payment": "HTTP 402 결제"
+  },
+  "dropdown": {
+    "title": "Wallet",
+    "balance": "잔액",
+    "address": "주소",
+    "send": "보내기",
+    "receive": "받기",
+    "openWallet": "Wallet 열기",
+    "copyAddress": "주소 복사",
+    "copyAddressAria": "지갑 주소를 클립보드에 복사",
+    "copied": "복사됨!",
+    "noWallet": "아직 지갑이 없습니다. 하나를 만들어 시작하세요.",
+    "createWallet": "Wallet 만들기",
+    "ariaLabel": "Wallet 드롭다운"
+  },
+  "import": {
+    "title": "Wallet 가져오기",
+    "description": "24개의 복구 문구를 입력하세요",
+    "placeholder": "공백으로 구분된 24개 단어 입력...",
+    "button": "Wallet 가져오기",
+    "importing": "가져오는 중...",
+    "success": "Wallet을 성공적으로 가져왔습니다",
+    "error": "유효하지 않은 복구 문구",
+    "confirm": "현재 지갑이 대체됩니다. 계속하시겠습니까?",
+    "confirmButton": "네, 대체합니다",
+    "cancelButton": "취소"
+  },
+  "export": {
+    "title": "복구 문구",
+    "warning": "이 단어를 절대 공유하지 마세요. 이 단어를 가진 누구든 자금에 접근할 수 있습니다.",
+    "showButton": "복구 문구 보기",
+    "hideButton": "숨기기",
+    "copied": "클립보드에 복사됨"
+  },
+  "backup": {
+    "title": "복구 문구를 저장하세요",
+    "warning": "이 24개 단어를 적어서 안전하게 보관하세요.",
+    "warningDesc": "이것이 지갑을 복구할 수 있는 유일한 방법입니다. 이 단어를 잃으면 자금을 영원히 잃게 됩니다. 절대 공유하지 마세요.",
+    "yourPhrase": "24개 복구 문구",
+    "copy": "클립보드에 복사",
+    "confirm": "복구 문구를 저장했습니다"
+  },
+  "create": {
+    "title": "Wallet 만들기",
+    "description": "TON 전송, 수신 및 콘텐츠 결제를 위한 새 TON 지갑을 만드세요.",
+    "button": "Wallet 만들기",
+    "creating": "생성 중...",
+    "orImport": "또는 기존 지갑 가져오기"
+  },
+  "statusBar": {
+    "balance": "{{amount}} TON"
+  },
+  "settings": {
+    "title": "Wallet 설정",
+    "walletManagement": "지갑 관리",
+    "paymentMode": "기본 결제 모드",
+    "paymentModeDescription": "HTTP 402 결제 요청 처리 방법",
+    "modes": {
+      "off": "끔",
+      "manual": "수동",
+      "auto": "자동"
+    },
+    "notificationStyle": "알림 스타일",
+    "notificationStyleDescription": "결제 요청 표시 방법",
+    "styles": {
+      "banner": "배너",
+      "modal": "모달",
+      "toast": "토스트",
+      "panel": "패널"
+    },
+    "limits": {
+      "title": "지출 한도",
+      "perRequest": "요청당",
+      "perDay": "일일",
+      "perSitePerMonth": "사이트당 / 월",
+      "placeholder": "0 = 제한 없음",
+      "unit": "TON",
+      "perRequestDesc": "단일 402 결제의 최대 금액",
+      "perDayDesc": "24시간 내 최대 총 지출",
+      "perSitePerMonthDesc": "도메인당 30일 내 최대 지출",
+      "unlimitedNote": "0으로 설정하면 무제한입니다. 한도는 모든 탭에 적용됩니다."
+    },
+    "sites": {
+      "title": "사이트 권한",
+      "empty": "사이트별 권한이 설정되지 않았습니다",
+      "remove": "제거",
+      "spent": "사용: {{amount}} TON",
+      "removePolicy": "사이트 정책 제거"
+    }
+  },
+  "payment": {
+    "title": "결제 요청",
+    "domain": "사이트",
+    "amount": "금액",
+    "recipient": "수신자",
+    "approve": "결제",
+    "reject": "거절",
+    "success": "결제 성공",
+    "failed": "결제 실패",
+    "limitReached": "지출 한도 도달"
+  }
+}

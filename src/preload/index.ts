@@ -162,10 +162,11 @@ const electronAPI = {
     rejectPayment: (paymentId: string) => ipcRenderer.invoke(IPC_CHANNELS.WALLET_REJECT_PAYMENT, paymentId),
     importWallet: (mnemonic: string[]) => ipcRenderer.invoke(IPC_CHANNELS.WALLET_IMPORT, mnemonic),
     exportMnemonic: () => ipcRenderer.invoke(IPC_CHANNELS.WALLET_EXPORT_MNEMONIC),
-    resolveDomain: (domain: string) => ipcRenderer.invoke(IPC_CHANNELS.WALLET_RESOLVE_DOMAIN, domain),
-    getNfts: () => ipcRenderer.invoke(IPC_CHANNELS.WALLET_GET_NFTS),
-    getDomains: () => ipcRenderer.invoke(IPC_CHANNELS.WALLET_GET_DOMAINS),
-    lookupDomain: (domain: string) => ipcRenderer.invoke(IPC_CHANNELS.WALLET_LOOKUP_DOMAIN, domain),
+  },
+
+  // DNS
+  dns: {
+    resolve: (domain: string) => ipcRenderer.invoke(IPC_CHANNELS.DNS_RESOLVE, domain),
   },
 
   // Updater

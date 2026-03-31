@@ -1,7 +1,7 @@
 {
   "start": {
     "title": "Tonnet에 오신 것을 환영합니다",
-    "subtitle": "Browse tonsites on TON Network, privately",
+    "subtitle": "TON 네트워크에서 tonsite를 비공개로 탐색하세요",
     "searchPlaceholder": "검색하거나 .ton 주소 입력",
     "searchButton": "이동",
     "quickLinks": "빠른 링크",
@@ -14,11 +14,13 @@
     "tabs": {
       "active": "활성",
       "completed": "완료됨",
-      "info": "정보"
+      "info": "정보",
+      "files": "파일"
     },
     "filters": {
       "all": "전체",
       "downloading": "다운로드 중",
+      "complete": "완료됨",
       "seeding": "시딩 중",
       "paused": "일시 중지됨"
     },
@@ -29,7 +31,10 @@
       "remove": "제거",
       "openFolder": "폴더 열기",
       "copyBagId": "백 ID 복사",
-      "details": "세부 정보"
+      "details": "세부 정보",
+      "addBag": "Bag 추가",
+      "settings": "설정",
+      "browseFiles": "파일 탐색"
     },
     "table": {
       "name": "이름",
@@ -39,6 +44,7 @@
       "upload": "업로드",
       "peers": "피어",
       "status": "상태",
+      "files": "파일",
       "added": "추가됨"
     },
     "status": {
@@ -56,8 +62,10 @@
       "bagIdPlaceholder": "백 ID 입력 또는 토렌트 파일 드래그...",
       "downloadPathLabel": "다운로드 경로",
       "autoStartLabel": "다운로드 자동 시작",
+      "bagIdDescription": "다운로드를 시작하려면 Bag ID를 입력하세요. TON 사이트나 다른 사용자에게서 Bag ID를 찾을 수 있습니다.",
       "cancel": "취소",
-      "add": "추가",
+      "add": "Bag 추가",
+      "adding": "추가 중...",
       "browse": "찾아보기"
     },
     "info": {
@@ -69,8 +77,20 @@
       "uploadSpeed": "업로드 속도",
       "ratio": "비율",
       "connectedPeers": "연결된 피어",
-      "diskSpace": "디스크 공간"
+      "diskSpace": "디스크 공간",
+      "id": "ID",
+      "size": "크기",
+      "downloaded": "다운로드됨",
+      "status": "상태",
+      "peers": "피어",
+      "files": "파일",
+      "download": "다운로드",
+      "upload": "업로드",
+      "path": "경로"
     },
+    "searchBags": "백 검색...",
+    "loadingFiles": "파일 로딩 중...",
+    "noFiles": "파일을 찾을 수 없거나 메타데이터가 아직 로드되지 않았습니다",
     "empty": {
       "title": "활성 다운로드 없음",
       "description": "백 ID 또는 토렌트 파일로 콘텐츠를 추가하여 시작하세요",
@@ -88,6 +108,7 @@
     "title": "방문 기록",
     "description": "브라우징 기록 및 방문 로그",
     "search": "방문 기록 검색...",
+    "loading": "방문 기록 로딩 중...",
     "filters": {
       "all": "전체 기간",
       "today": "오늘",
@@ -98,9 +119,14 @@
     },
     "actions": {
       "clearAll": "전체 방문 기록 지우기",
+      "clearLastHour": "최근 1시간 지우기",
+      "clearLastDay": "최근 1일 지우기",
       "clearToday": "오늘 방문 기록 지우기",
       "clearSelected": "선택한 항목 지우기",
-      "export": "방문 기록 내보내기"
+      "export": "방문 기록 내보내기",
+      "openInNewTab": "새 탭에서 열기",
+      "copyUrl": "URL 복사",
+      "delete": "삭제"
     },
     "table": {
       "title": "제목",
@@ -110,16 +136,30 @@
     },
     "empty": {
       "title": "방문 기록 없음",
+      "noResults": "결과를 찾을 수 없습니다",
       "description": "방문한 웹사이트가 여기에 표시됩니다",
+      "tryDifferent": "다른 검색어를 시도해 보세요",
       "allCleared": "모든 방문 기록이 지워졌습니다"
     },
     "clearConfirm": {
       "title": "방문 기록을 지우시겠습니까?",
       "message": "이 작업은 취소할 수 없습니다.",
       "clearAll": "모든 브라우징 기록이 삭제됩니다.",
+      "clearRange": "최근 {{range}} 동안의 {{count}}개 {{entries}}을(를) 지우시겠습니까?",
       "clearSelected": "선택한 {{count}}개 항목이 삭제됩니다.",
       "cancel": "취소",
       "confirm": "지우기"
+    },
+    "copied": "복사됨!",
+    "visitsCount": "({{count}}회 방문)",
+    "entries": {
+      "singular": "항목",
+      "plural": "항목"
+    },
+    "timeRange": {
+      "hour": "시간",
+      "day": "일",
+      "week": "주"
     },
     "stats": {
       "totalVisits": "총 방문 횟수",
@@ -129,6 +169,8 @@
     },
     "timeFormat": {
       "justNow": "방금",
+      "minuteAgo": "{{count}}분 전",
+      "hourAgo": "{{count}}시간 전",
       "minutesAgo": "{{count}}분 전",
       "hoursAgo": "{{count}}시간 전",
       "yesterday": "어제",

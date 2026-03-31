@@ -26,6 +26,9 @@
     "syncing": "Syncing",
     "synced": "Synced"
   },
+  "loading": {
+    "settings": "Loading settings..."
+  },
   "errors": {
     "generic": "An error occurred",
     "network": "Network error",

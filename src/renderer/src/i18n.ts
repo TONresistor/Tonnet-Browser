@@ -18,6 +18,7 @@ import settingsEn from './locales/en/settings.json'
 import storageEn from './locales/en/storage.json'
 import pagesEn from './locales/en/pages.json'
 import walletEn from './locales/en/wallet.json'
+import dnsEn from './locales/en/dns.json'
 
 // Track which languages have been loaded
 const loadedLanguages = new Set<string>(['en'])
@@ -33,12 +34,13 @@ i18n.use(initReactI18next).init({
       storage: storageEn,
       pages: pagesEn,
       wallet: walletEn,
+      dns: dnsEn,
     },
   },
   lng: 'en', // Default language (will be overridden by settings)
   fallbackLng: 'en',
   defaultNS: 'common',
-  ns: ['common', 'landing', 'browser', 'settings', 'storage', 'pages', 'wallet'],
+  ns: ['common', 'landing', 'browser', 'settings', 'storage', 'pages', 'wallet', 'dns'],
   interpolation: {
     escapeValue: false, // React already escapes
   },
@@ -61,7 +63,7 @@ export async function loadLanguage(lang: string): Promise<void> {
 
   try {
     // Dynamic imports for the requested language
-    const [common, landing, browser, settings, storage, pages, wallet] = await Promise.all([
+    const [common, landing, browser, settings, storage, pages, wallet, dns] = await Promise.all([
       import(`./locales/${lang}/common.json`),
       import(`./locales/${lang}/landing.json`),
       import(`./locales/${lang}/browser.json`),
@@ -69,6 +71,7 @@ export async function loadLanguage(lang: string): Promise<void> {
       import(`./locales/${lang}/storage.json`),
       import(`./locales/${lang}/pages.json`),
       import(`./locales/${lang}/wallet.json`).catch(() => ({ default: {} })),
+      import(`./locales/${lang}/dns.json`).catch(() => ({ default: {} })),
     ])
 
     // Add resources to i18next
@@ -79,6 +82,7 @@ export async function loadLanguage(lang: string): Promise<void> {
     i18n.addResourceBundle(lang, 'storage', storage.default)
     i18n.addResourceBundle(lang, 'pages', pages.default)
     i18n.addResourceBundle(lang, 'wallet', wallet.default)
+    i18n.addResourceBundle(lang, 'dns', dns.default)
 
     // Mark as loaded
     loadedLanguages.add(lang)

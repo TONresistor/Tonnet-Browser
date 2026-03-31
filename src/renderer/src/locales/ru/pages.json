@@ -1,7 +1,7 @@
 {
   "start": {
     "title": "Добро пожаловать в Tonnet",
-    "subtitle": "Browse tonsites on TON Network, privately",
+    "subtitle": "Просматривайте тонсайты в сети TON приватно",
     "searchPlaceholder": "Поиск или введите .ton адрес",
     "searchButton": "Перейти",
     "quickLinks": "Быстрые ссылки",
@@ -14,11 +14,13 @@
     "tabs": {
       "active": "Активные",
       "completed": "Завершённые",
-      "info": "Информация"
+      "info": "Информация",
+      "files": "Файлы"
     },
     "filters": {
       "all": "Все",
       "downloading": "Загружается",
+      "complete": "Завершено",
       "seeding": "Раздаётся",
       "paused": "Приостановлено"
     },
@@ -29,7 +31,10 @@
       "remove": "Удалить",
       "openFolder": "Открыть папку",
       "copyBagId": "Копировать Bag ID",
-      "details": "Подробности"
+      "details": "Подробности",
+      "addBag": "Добавить Bag",
+      "settings": "Настройки",
+      "browseFiles": "Просмотр файлов"
     },
     "table": {
       "name": "Название",
@@ -39,6 +44,7 @@
       "upload": "Отдача",
       "peers": "Пиры",
       "status": "Статус",
+      "files": "Файлы",
       "added": "Добавлено"
     },
     "status": {
@@ -56,8 +62,10 @@
       "bagIdPlaceholder": "Введите bag ID или перетащите торрент-файл...",
       "downloadPathLabel": "Путь загрузки",
       "autoStartLabel": "Начать загрузку автоматически",
+      "bagIdDescription": "Введите Bag ID для начала загрузки. Вы можете найти Bag ID на TON сайтах или у других пользователей.",
       "cancel": "Отмена",
-      "add": "Добавить",
+      "add": "Добавить Bag",
+      "adding": "Добавление...",
       "browse": "Обзор"
     },
     "info": {
@@ -69,8 +77,20 @@
       "uploadSpeed": "Скорость отдачи",
       "ratio": "Рейтинг",
       "connectedPeers": "Подключённые пиры",
-      "diskSpace": "Место на диске"
+      "diskSpace": "Место на диске",
+      "id": "ID",
+      "size": "Размер",
+      "downloaded": "Загружено",
+      "status": "Статус",
+      "peers": "Пиры",
+      "files": "Файлы",
+      "download": "Загрузка",
+      "upload": "Отдача",
+      "path": "Путь"
     },
+    "searchBags": "Поиск пакетов...",
+    "loadingFiles": "Загрузка файлов...",
+    "noFiles": "Файлы не найдены или метаданные ещё не загружены",
     "empty": {
       "title": "Нет активных загрузок",
       "description": "Добавьте контент через Bag ID или торрент-файл для начала",
@@ -88,6 +108,7 @@
     "title": "История просмотров",
     "description": "История ваших посещений и записей",
     "search": "Поиск в истории...",
+    "loading": "Загрузка истории...",
     "filters": {
       "all": "Всё время",
       "today": "Сегодня",
@@ -98,9 +119,14 @@
     },
     "actions": {
       "clearAll": "Очистить всю историю",
+      "clearLastHour": "Очистить последний час",
+      "clearLastDay": "Очистить последний день",
       "clearToday": "Очистить сегодня",
       "clearSelected": "Очистить выбранное",
-      "export": "Экспортировать историю"
+      "export": "Экспортировать историю",
+      "openInNewTab": "Открыть в новой вкладке",
+      "copyUrl": "Копировать URL",
+      "delete": "Удалить"
     },
     "table": {
       "title": "Заголовок",
@@ -110,16 +136,30 @@
     },
     "empty": {
       "title": "Нет истории",
+      "noResults": "Ничего не найдено",
       "description": "Посещённые вами сайты появятся здесь",
+      "tryDifferent": "Попробуйте другой поисковый запрос",
       "allCleared": "Вся история очищена"
     },
     "clearConfirm": {
       "title": "Очистить историю?",
       "message": "Это действие нельзя отменить.",
       "clearAll": "Это удалит всю историю просмотров.",
+      "clearRange": "Очистить {{count}} {{entries}} за последние {{range}}?",
       "clearSelected": "Это удалит {{count}} выбранных элементов.",
       "cancel": "Отмена",
       "confirm": "Очистить"
+    },
+    "copied": "Скопировано!",
+    "visitsCount": "({{count}} посещений)",
+    "entries": {
+      "singular": "запись",
+      "plural": "записей"
+    },
+    "timeRange": {
+      "hour": "час",
+      "day": "день",
+      "week": "неделя"
     },
     "stats": {
       "totalVisits": "Всего посещений",
@@ -129,6 +169,8 @@
     },
     "timeFormat": {
       "justNow": "Только что",
+      "minuteAgo": "{{count}} мин. назад",
+      "hourAgo": "{{count}} ч. назад",
       "minutesAgo": "{{count}} минут назад",
       "hoursAgo": "{{count}} часов назад",
       "yesterday": "Вчера",

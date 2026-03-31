@@ -1,0 +1,156 @@
+{
+  "page": {
+    "title": "Wallet",
+    "refresh": "Actualiser",
+    "noWalletTitle": "Pas de Wallet",
+    "noWalletDesc": "Crée un nouveau wallet ou importe un wallet existant pour commencer.",
+    "createWallet": "Créer un Wallet"
+  },
+  "tabs": {
+    "send": "Envoyer",
+    "receive": "Recevoir",
+    "history": "Historique"
+  },
+  "send": {
+    "recipientLabel": "Adresse du destinataire",
+    "recipientPlaceholder": "EQ... ou 0:...",
+    "amountLabel": "Montant",
+    "feeNote": "Frais réseau : {{fee}} TON",
+    "reviewButton": "Vérifier la transaction",
+    "confirm": "Confirmer la transaction",
+    "to": "Vers",
+    "amount": "Montant",
+    "fee": "Frais",
+    "back": "Retour",
+    "sending": "Envoi...",
+    "success": "Transaction envoyée !",
+    "successDesc": "Ta transaction a été diffusée sur le réseau.",
+    "error": "Transaction échouée",
+    "invalidAddress": "Adresse TON invalide",
+    "invalidAmount": "Montant invalide",
+    "max": "Max",
+    "estimatedFee": "~0,01 TON"
+  },
+  "receive": {
+    "addressLabel": "Ton adresse Wallet",
+    "copyButton": "Copier l'adresse",
+    "copied": "Copié !",
+    "copyTitle": "Copier dans le presse-papiers",
+    "copyAria": "Copier l'adresse du wallet dans le presse-papiers"
+  },
+  "history": {
+    "empty": "Aucune transaction pour le moment",
+    "clear": "Effacer l'historique",
+    "types": {
+      "send": "Envoyé",
+      "receive": "Reçu",
+      "x402": "Paiement HTTP 402"
+    },
+    "status": {
+      "pending": "En attente",
+      "confirmed": "Confirmé",
+      "failed": "Échoué"
+    },
+    "x402Payment": "Paiement HTTP 402"
+  },
+  "dropdown": {
+    "title": "Wallet",
+    "balance": "Solde",
+    "address": "Adresse",
+    "send": "Envoyer",
+    "receive": "Recevoir",
+    "openWallet": "Ouvrir le Wallet",
+    "copyAddress": "Copier l'adresse",
+    "copyAddressAria": "Copier l'adresse du wallet dans le presse-papiers",
+    "copied": "Copié !",
+    "noWallet": "Pas encore de wallet. Crée-en un pour commencer.",
+    "createWallet": "Créer un Wallet",
+    "ariaLabel": "Menu du wallet"
+  },
+  "import": {
+    "title": "Importer un Wallet",
+    "description": "Entre ta phrase de récupération de 24 mots",
+    "placeholder": "Entre 24 mots séparés par des espaces...",
+    "button": "Importer le Wallet",
+    "importing": "Importation...",
+    "success": "Wallet importé avec succès",
+    "error": "Phrase de récupération invalide",
+    "confirm": "Cela remplacera ton wallet actuel. Es-tu sûr ?",
+    "confirmButton": "Oui, remplacer",
+    "cancelButton": "Annuler"
+  },
+  "export": {
+    "title": "Phrase de récupération",
+    "warning": "Ne partage jamais ces mots. Quiconque les possède peut accéder à tes fonds.",
+    "showButton": "Afficher la phrase de récupération",
+    "hideButton": "Masquer",
+    "copied": "Copié dans le presse-papiers"
+  },
+  "backup": {
+    "title": "Sauvegarde ta phrase de récupération",
+    "warning": "Note ces 24 mots et conserve-les en lieu sûr.",
+    "warningDesc": "C'est le seul moyen de récupérer ton wallet. Si tu perds ces mots, tes fonds seront perdus définitivement. Ne les partage jamais avec personne.",
+    "yourPhrase": "Ta phrase de récupération de 24 mots",
+    "copy": "Copier dans le presse-papiers",
+    "confirm": "J'ai sauvegardé ma phrase de récupération"
+  },
+  "create": {
+    "title": "Créer un Wallet",
+    "description": "Crée un nouveau wallet TON pour envoyer, recevoir et payer du contenu.",
+    "button": "Créer un Wallet",
+    "creating": "Création...",
+    "orImport": "ou importer un wallet existant"
+  },
+  "statusBar": {
+    "balance": "{{amount}} TON"
+  },
+  "settings": {
+    "title": "Paramètres du Wallet",
+    "walletManagement": "Gestion du Wallet",
+    "paymentMode": "Mode de paiement par défaut",
+    "paymentModeDescription": "Comment gérer les requêtes de paiement HTTP 402",
+    "modes": {
+      "off": "Désactivé",
+      "manual": "Manuel",
+      "auto": "Automatique"
+    },
+    "notificationStyle": "Style de notification",
+    "notificationStyleDescription": "Comment les requêtes de paiement sont affichées",
+    "styles": {
+      "banner": "Bannière",
+      "modal": "Modal",
+      "toast": "Toast",
+      "panel": "Panneau"
+    },
+    "limits": {
+      "title": "Limites de dépenses",
+      "perRequest": "Par requête",
+      "perDay": "Par jour",
+      "perSitePerMonth": "Par site / mois",
+      "placeholder": "0 = pas de limite",
+      "unit": "TON",
+      "perRequestDesc": "Montant maximum pour un paiement 402 individuel",
+      "perDayDesc": "Dépense totale maximale sur une fenêtre glissante de 24 heures",
+      "perSitePerMonthDesc": "Dépense maximale par domaine sur une fenêtre glissante de 30 jours",
+      "unlimitedNote": "Mettre à 0 pour illimité. Les limites s'appliquent à tous les onglets."
+    },
+    "sites": {
+      "title": "Permissions par site",
+      "empty": "Aucune permission spécifique configurée",
+      "remove": "Supprimer",
+      "spent": "Dépensé : {{amount}} TON",
+      "removePolicy": "Supprimer la politique du site"
+    }
+  },
+  "payment": {
+    "title": "Demande de paiement",
+    "domain": "Site",
+    "amount": "Montant",
+    "recipient": "Destinataire",
+    "approve": "Payer",
+    "reject": "Refuser",
+    "success": "Paiement réussi",
+    "failed": "Paiement échoué",
+    "limitReached": "Limite de dépenses atteinte"
+  }
+}

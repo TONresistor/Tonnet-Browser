@@ -33,7 +33,8 @@
       "openFolder": "Open Folder",
       "copyBagId": "Copy Bag ID",
       "details": "Details",
-      "settings": "Settings"
+      "settings": "Settings",
+      "browseFiles": "Browse Files"
     },
     "table": {
       "name": "Name",

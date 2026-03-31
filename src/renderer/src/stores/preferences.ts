@@ -220,7 +220,9 @@ function mainSettingsToPrefs(settings: AppSettings): AppPreferences {
 // Check if two preferences objects are different
 function hasPreferencesChanged(a: AppPreferences, b: AppPreferences): boolean {
   for (const key of Object.keys(a) as (keyof AppPreferences)[]) {
-    if (a[key] !== b[key]) return true
+    if (Array.isArray(a[key]) && Array.isArray(b[key])) {
+      if (JSON.stringify(a[key]) !== JSON.stringify(b[key])) return true
+    } else if (a[key] !== b[key]) return true
   }
   return false
 }

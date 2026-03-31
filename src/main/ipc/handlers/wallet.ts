@@ -2,9 +2,8 @@
  * IPC handlers for wallet operations.
  */
 
-import { IPC_CHANNELS } from '../../../shared/types'
-import { secureHandle, log } from './shared'
-import { getMainWindow } from '../../windows/main'
+import { IPC_CHANNELS, type WalletState, type WalletTransaction } from '../../../shared/types'
+import { secureHandle, emitToRenderer, log } from './shared'
 import { walletManager } from '../../wallet/manager'
 import { walletHistoryManager } from '../../wallet/history'
 import { paymentInterceptor } from '../../wallet/payment-interceptor'
@@ -12,18 +11,15 @@ import { paymentInterceptor } from '../../wallet/payment-interceptor'
 export function registerWalletHandlers(): void {
   // Forward wallet events to renderer
   walletManager.on('balance-updated', (balance: string) => {
-    const win = getMainWindow()
-    if (win) win.webContents.send('wallet:balance-updated', balance)
+    emitToRenderer('wallet:balance-updated', balance)
   })
 
-  walletManager.on('state-changed', (state: any) => {
-    const win = getMainWindow()
-    if (win) win.webContents.send('wallet:state-changed', state)
+  walletManager.on('state-changed', (state: WalletState) => {
+    emitToRenderer('wallet:state-changed', state)
   })
 
-  walletManager.on('new-transaction', (tx: any) => {
-    const win = getMainWindow()
-    if (win) win.webContents.send('wallet:new-transaction', tx)
+  walletManager.on('new-transaction', (tx: WalletTransaction) => {
+    emitToRenderer('wallet:new-transaction', tx)
   })
 
   secureHandle(IPC_CHANNELS.WALLET_CREATE, async () => {
@@ -97,29 +93,29 @@ export function registerWalletHandlers(): void {
   })
 
   secureHandle(IPC_CHANNELS.WALLET_EXPORT_MNEMONIC, async () => {
+    const { dialog } = await import('electron')
+    const { response } = await dialog.showMessageBox({
+      type: 'warning',
+      title: 'Export Seed Phrase',
+      message: 'Your 24-word seed phrase will be displayed.',
+      detail:
+        'Anyone who sees these words can take full control of your wallet. Only proceed if you are in a safe environment.',
+      buttons: ['Cancel', 'Show Seed Phrase'],
+      defaultId: 0,
+      cancelId: 0,
+      noLink: true,
+    })
+    if (response === 0) {
+      throw new Error('Export cancelled by user')
+    }
     return await walletManager.exportMnemonic()
   })
 
-  secureHandle(IPC_CHANNELS.WALLET_RESOLVE_DOMAIN, async (domain: string) => {
-    if (!domain || typeof domain !== 'string' || !domain.endsWith('.ton')) {
-      throw new Error('Invalid .ton domain')
+  secureHandle(IPC_CHANNELS.DNS_RESOLVE, async (domain: string) => {
+    if (!domain || typeof domain !== 'string') {
+      throw new Error('Invalid domain')
     }
     return await walletManager.resolveDomain(domain)
-  })
-
-  secureHandle(IPC_CHANNELS.WALLET_GET_NFTS, async () => {
-    return await walletManager.fetchNfts()
-  })
-
-  secureHandle(IPC_CHANNELS.WALLET_GET_DOMAINS, async () => {
-    return await walletManager.fetchDomains()
-  })
-
-  secureHandle(IPC_CHANNELS.WALLET_LOOKUP_DOMAIN, async (domain: string) => {
-    if (!domain || typeof domain !== 'string' || !domain.endsWith('.ton')) {
-      throw new Error('Invalid .ton domain')
-    }
-    return await walletManager.lookupDomain(domain)
   })
 
   log.info('Wallet handlers registered')

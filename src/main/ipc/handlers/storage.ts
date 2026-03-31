@@ -6,10 +6,9 @@ import path from 'path'
 import { shell } from 'electron'
 import { IPC_CHANNELS } from '../../../shared/types'
 import { isValidBagId } from '../validation'
-import { secureHandle, secureHandleWithEvent, handleSecure, storageLimiter, log } from './shared'
+import { secureHandle, secureHandleWithEvent, emitToRenderer, storageLimiter, log } from './shared'
 import { storageManager } from '../../storage/daemon'
 import { addBag, removeBag, listBags, pauseBag, getBagDetails } from '../../storage/bags'
-import { getMainWindow } from '../../windows/main'
 import { getDownloadPath } from '../../settings'
 
 /**
@@ -41,24 +40,15 @@ function validateBagIdOrFail(bagId: string): { success: false; error: string } |
 export function registerStorageHandlers(): void {
   // ===== Storage Events =====
   storageManager.on('bags-updated', (bags) => {
-    const win = getMainWindow()
-    if (win) {
-      win.webContents.send('storage:bags-updated', bags)
-    }
+    emitToRenderer('storage:bags-updated', bags)
   })
 
   storageManager.on('started', () => {
-    const win = getMainWindow()
-    if (win) {
-      win.webContents.send('storage:status', { running: true })
-    }
+    emitToRenderer('storage:status', { running: true })
   })
 
   storageManager.on('stopped', () => {
-    const win = getMainWindow()
-    if (win) {
-      win.webContents.send('storage:status', { running: false })
-    }
+    emitToRenderer('storage:status', { running: false })
   })
 
   storageManager.on('error', (message) => {
@@ -66,7 +56,7 @@ export function registerStorageHandlers(): void {
   })
 
   // ===== Storage Handlers =====
-  handleSecure(IPC_CHANNELS.STORAGE_ADD_BAG, async (_event, bagId: string, name?: string) => {
+  secureHandle(IPC_CHANNELS.STORAGE_ADD_BAG, async (bagId: string, name?: string) => {
     // Rate limit storage operations
     if (!storageLimiter.check()) {
       return { success: false, error: 'Rate limited' }

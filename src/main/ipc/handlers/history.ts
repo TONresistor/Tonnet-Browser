@@ -6,6 +6,14 @@ import { IPC_CHANNELS } from '../../../shared/types'
 import { secureHandleWithEvent, log } from './shared'
 import { historyManager, HistoryMode } from '../../history/manager'
 
+/**
+ * IPC return format convention:
+ * - Query handlers (search, get_recent, get_top, get_by_date, get_stats, has_persistent_file):
+ *   return the data directly on success, or an empty default on error ([], false, etc.)
+ *   The renderer expects a result value, not a {success, error} wrapper.
+ * - Mutation handlers (change_mode, delete, delete_pattern, clear):
+ *   return { success: boolean, error?: string } to signal outcome.
+ */
 export function registerHistoryHandlers(): void {
   secureHandleWithEvent(IPC_CHANNELS.HISTORY_CHANGE_MODE, async (_event, mode: HistoryMode) => {
     const validModes = ['memory', 'persistent']

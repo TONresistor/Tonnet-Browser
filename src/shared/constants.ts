@@ -43,3 +43,18 @@ export const UI_ERROR_TIMEOUT_MS = 5000
 
 // Security limits
 export const FAVICON_MAX_SIZE_BYTES = 50_000
+
+// UI dimensions (used by main process for view bounds calculation)
+export const UI_DIMENSIONS = {
+  TABBAR_HEIGHT: 44,
+  NAVBAR_HEIGHT: 46,
+  BOOKMARKS_HEIGHT: 44,
+  STATUSBAR_HEIGHT: 24,
+  DEFAULT_SIDEBAR_WIDTH: 240,
+} as const
+
+// Session partition identifier (used in main process for session management)
+export const SESSION_PARTITION = 'persist:ton-browser'
+
+// Default background color for windows
+export const BACKGROUND_COLOR = '#0a0a0a'

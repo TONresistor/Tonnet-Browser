@@ -5,7 +5,8 @@
     "addBookmarkAria": "添加到书签",
     "removeBookmarkAria": "从书签中删除",
     "addBookmarkTitle": "添加书签",
-    "removeBookmarkTitle": "删除书签"
+    "removeBookmarkTitle": "删除书签",
+    "fileBrowser": "文件浏览器"
   },
   "navigation": {
     "back": "后退",
@@ -33,20 +34,42 @@
     "dragCancelled": "拖动已取消",
     "dragCancelledFull": "拖动已取消。标签页 {{title}} 已返回原位置。"
   },
+  "windowControls": {
+    "group": "窗口控制",
+    "minimize": "最小化",
+    "maximize": "最大化",
+    "close": "关闭"
+  },
+  "dnd": {
+    "pickedUp": "已选取 {{type}}: {{name}}",
+    "movedOver": "{{name}} 移至 {{target}} 上方",
+    "droppedOn": "{{name}} 放置于 {{target}}",
+    "cancelled": "拖动已取消",
+    "folderAriaLabel": "文件夹: {{name}}。按空格键开始拖动。",
+    "bookmarkAriaLabel": "书签: {{name}}。按空格键开始拖动。"
+  },
   "bookmarksBar": {
     "title": "书签"
+  },
+  "tip": {
+    "resolveError": "无法解析域名",
+    "title": "向 {{domain}} 打赏 {{amount}} TON"
   },
   "statusBar": {
     "connected": "已连接到 TON 网络",
     "disconnected": "已断开连接",
     "syncing": "同步中...",
-    "syncingMultiHop": "使用多跳电路同步中...",
+    "syncingMultiHop": "发现隧道节点中...",
     "garlicRouting": "大蒜路由（3跳）",
     "buildingCircuit": "构建电路中...",
     "storage": "存储：",
     "bag": "包",
     "bags": "包",
     "session": "会话：",
-    "networkStatus": "网络状态：{{status}}"
+    "networkStatus": "网络状态：{{status}}",
+    "downloadSpeedAria": "下载速度: {{speed}}",
+    "uploadSpeedAria": "上传速度: {{speed}}",
+    "walletTitle": "Wallet 余额",
+    "walletAria": "Wallet 余额显示"
   }
 }

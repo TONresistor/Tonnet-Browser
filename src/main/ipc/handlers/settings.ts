@@ -3,10 +3,11 @@
  */
 
 import { session, dialog } from 'electron'
+import { SESSION_PARTITION } from '../../../shared/constants'
 import { IPC_CHANNELS } from '../../../shared/types'
 import { isValidDownloadPath } from '../validation'
 import { SETTINGS_CATEGORIES, validateCategoryValues } from '../../settings/validation'
-import { secureHandle, secureHandleWithEvent, handleSecure, log } from './shared'
+import { secureHandle, secureHandleWithEvent, emitToRenderer, log } from './shared'
 import {
   loadSettings,
   getSetting,
@@ -24,8 +25,8 @@ import { onPrivacySettingsChanged, onAppearanceSettingsChanged } from '../../win
 
 export function registerSettingsHandlers(): void {
   // ===== Clear Browsing Data =====
-  handleSecure(IPC_CHANNELS.CLEAR_BROWSING_DATA, async () => {
-    const ses = session.fromPartition('persist:ton-browser')
+  secureHandle(IPC_CHANNELS.CLEAR_BROWSING_DATA, async () => {
+    const ses = session.fromPartition(SESSION_PARTITION)
     await ses.clearCache()
     await ses.clearStorageData({
       storages: ['cookies', 'localstorage', 'indexdb', 'websql', 'serviceworkers', 'cachestorage'],
@@ -111,10 +112,7 @@ export function registerSettingsHandlers(): void {
     }
     setSetting(category, validation.data as any)
     // Notify renderer of settings change
-    const win = getMainWindow()
-    if (win) {
-      win.webContents.send('settings:changed', { category, values })
-    }
+    emitToRenderer('settings:changed', { category, values })
     // If network settings changed, check if proxy needs restart
     if (category === 'network' && proxyManager.isRunning()) {
       await proxyManager.applySettingsChange()
@@ -136,10 +134,7 @@ export function registerSettingsHandlers(): void {
 
   secureHandle(IPC_CHANNELS.SETTINGS_RESET, () => {
     resetSettings()
-    const win = getMainWindow()
-    if (win) {
-      win.webContents.send('settings:changed', { reset: true })
-    }
+    emitToRenderer('settings:changed', { reset: true })
     // Restart cookie auto-delete timer with default settings
     onPrivacySettingsChanged()
     return { success: true }

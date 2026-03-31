@@ -5,7 +5,8 @@
     "addBookmarkAria": "Zu Lesezeichen hinzufügen",
     "removeBookmarkAria": "Aus Lesezeichen entfernen",
     "addBookmarkTitle": "Lesezeichen hinzufügen",
-    "removeBookmarkTitle": "Lesezeichen entfernen"
+    "removeBookmarkTitle": "Lesezeichen entfernen",
+    "fileBrowser": "Dateibrowser"
   },
   "navigation": {
     "back": "Zurück",
@@ -33,20 +34,42 @@
     "dragCancelled": "Ziehen abgebrochen",
     "dragCancelledFull": "Ziehen abgebrochen. Tab {{title}} wurde an die ursprüngliche Position zurückgesetzt."
   },
+  "windowControls": {
+    "group": "Fenstersteuerung",
+    "minimize": "Minimieren",
+    "maximize": "Maximieren",
+    "close": "Schließen"
+  },
+  "dnd": {
+    "pickedUp": "{{type}} ausgewählt: {{name}}",
+    "movedOver": "{{name}} ist über {{target}}",
+    "droppedOn": "{{name}} auf {{target}} abgelegt",
+    "cancelled": "Ziehen abgebrochen",
+    "folderAriaLabel": "Ordner: {{name}}. Leertaste drücken, um das Ziehen zu starten.",
+    "bookmarkAriaLabel": "Lesezeichen: {{name}}. Leertaste drücken, um das Ziehen zu starten."
+  },
   "bookmarksBar": {
     "title": "Lesezeichen"
+  },
+  "tip": {
+    "resolveError": "Domain konnte nicht aufgelöst werden",
+    "title": "{{amount}} TON an {{domain}} spenden"
   },
   "statusBar": {
     "connected": "Mit TON-Netzwerk verbunden",
     "disconnected": "Getrennt",
     "syncing": "Synchronisierung...",
-    "syncingMultiHop": "Synchronisierung mit Multi-Hop-Schaltung...",
+    "syncingMultiHop": "Tunnel-Knoten werden gesucht...",
     "garlicRouting": "Garlic Routing (3-Hop)",
     "buildingCircuit": "Schaltung wird aufgebaut...",
     "storage": "Speicher:",
     "bag": "Beutel",
     "bags": "Beutel",
     "session": "Sitzung:",
-    "networkStatus": "Netzwerkstatus: {{status}}"
+    "networkStatus": "Netzwerkstatus: {{status}}",
+    "downloadSpeedAria": "Download-Geschwindigkeit: {{speed}}",
+    "uploadSpeedAria": "Upload-Geschwindigkeit: {{speed}}",
+    "walletTitle": "Wallet-Guthaben",
+    "walletAria": "Anzeige des Wallet-Guthabens"
   }
 }

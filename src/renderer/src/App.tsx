@@ -17,6 +17,7 @@ const StoragePage = lazy(() => import('@/components/pages/StoragePage').then((m)
 const SettingsPage = lazy(() => import('@/components/pages/SettingsPage').then((m) => ({ default: m.SettingsPage })))
 const HistoryPage = lazy(() => import('@/components/pages/HistoryPage').then((m) => ({ default: m.HistoryPage })))
 const WalletPage = lazy(() => import('@/components/pages/WalletPage'))
+const DnsPage = lazy(() => import('@/components/pages/DnsPage'))
 import { useBrowserStore } from '@/stores/browser'
 import { useTabsStore } from '@/stores/tabs'
 import { usePreferencesStore } from '@/stores/preferences'
@@ -29,12 +30,21 @@ import walletIcon from '@/assets/wallet.svg'
 import storageIcon from '@/assets/storage.svg'
 import { Button } from '@/components/ui/button'
 import Lottie from 'lottie-react'
+import loadingDark from '@/assets/loading.json'
+import loadingLight from '@/assets/loading-yellow.json'
 import i18n, { loadLanguage } from '@/i18n'
 import { useTranslation } from 'react-i18next'
 import { loadBookmarksFromMain } from '@/stores/bookmarks'
 import { createLogger } from '@/logger'
 
 const log = createLogger('app')
+
+function isLightTheme(theme: string, customThemes: { id: string; isDark: boolean }[]): boolean {
+  return (
+    theme === 'utya-duck' ||
+    (theme.startsWith('custom:') && customThemes.find((t) => t.id === theme.replace('custom:', ''))?.isDark === false)
+  )
+}
 
 // Wallet pill button — simple click opens ton://wallet page
 
@@ -60,9 +70,10 @@ function App() {
   const [walletSidebarOpen, setWalletSidebarOpen] = useState(false)
   const [walletSidebarWidth, setWalletSidebarWidth] = useState(320)
 
-  // Preload both animations once, select based on theme
-  const animationsRef = useRef<{ dark: unknown; light: unknown } | null>(null)
-  const [animationData, setAnimationData] = useState<unknown>(null)
+  // Animation data selected based on theme (loaded synchronously, never null)
+  const [animationData, setAnimationData] = useState<unknown>(() =>
+    isLightTheme(theme, customThemes) ? loadingLight : loadingDark
+  )
 
   // Debounce timer for settings save
   const settingsSaveTimer = useRef<NodeJS.Timeout | null>(null)
@@ -122,27 +133,9 @@ function App() {
     }
   }, [theme, customThemes])
 
-  // Preload both animations once on mount
+  // Switch animation on theme change
   useEffect(() => {
-    Promise.all([import('@/assets/loading.json'), import('@/assets/loading-yellow.json')]).then(([dark, light]) => {
-      animationsRef.current = { dark: dark.default, light: light.default }
-      // Set initial animation based on current theme
-      const isLight =
-        theme === 'utya-duck' ||
-        (theme.startsWith('custom:') &&
-          customThemes.find((t) => t.id === theme.replace('custom:', ''))?.isDark === false)
-      setAnimationData(isLight ? light.default : dark.default)
-    })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  // Switch animation instantly on theme change (no re-import)
-  useEffect(() => {
-    if (!animationsRef.current) return
-    const isLight =
-      theme === 'utya-duck' ||
-      (theme.startsWith('custom:') && customThemes.find((t) => t.id === theme.replace('custom:', ''))?.isDark === false)
-    setAnimationData(isLight ? animationsRef.current.light : animationsRef.current.dark)
+    setAnimationData(isLightTheme(theme, customThemes) ? loadingLight : loadingDark)
   }, [theme, customThemes])
 
   // Create default tab when proxy connects + prefetch lazy pages
@@ -155,6 +148,7 @@ function App() {
         import('@/components/pages/StoragePage')
         import('@/components/pages/HistoryPage')
         import('@/components/pages/WalletPage')
+        import('@/components/pages/DnsPage')
       })
     }
   }, [proxyConnected, ensureDefaultTab])
@@ -369,6 +363,8 @@ function App() {
         return <HistoryPage />
       case 'wallet':
         return <WalletPage />
+      case 'dns':
+        return <DnsPage />
       case 'loading':
         return (
           <div className="w-full h-full flex flex-col items-center justify-center bg-background-secondary">

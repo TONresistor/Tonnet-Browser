@@ -5,7 +5,8 @@
     "addBookmarkAria": "Ajouter aux favoris",
     "removeBookmarkAria": "Retirer des favoris",
     "addBookmarkTitle": "Ajouter un favori",
-    "removeBookmarkTitle": "Retirer le favori"
+    "removeBookmarkTitle": "Retirer le favori",
+    "fileBrowser": "Explorateur de fichiers"
   },
   "navigation": {
     "back": "Précédent",
@@ -43,16 +44,22 @@
     "pickedUp": "{{type}} sélectionné : {{name}}",
     "movedOver": "{{name}} est au-dessus de {{target}}",
     "droppedOn": "{{name}} déposé sur {{target}}",
-    "cancelled": "Glissement annulé"
+    "cancelled": "Glissement annulé",
+    "folderAriaLabel": "Dossier : {{name}}. Appuie sur espace pour commencer le glissement.",
+    "bookmarkAriaLabel": "Favori : {{name}}. Appuie sur espace pour commencer le glissement."
   },
   "bookmarksBar": {
     "title": "Favoris"
+  },
+  "tip": {
+    "resolveError": "Impossible de résoudre le domaine",
+    "title": "Envoyer {{amount}} TON à {{domain}}"
   },
   "statusBar": {
     "connected": "Connecté au Réseau TON",
     "disconnected": "Déconnecté",
     "syncing": "Synchronisation...",
-    "syncingMultiHop": "Synchronisation avec circuit multi-sauts...",
+    "syncingMultiHop": "Recherche de noeuds tunnel...",
     "garlicRouting": "Routage Garlic (3 sauts)",
     "buildingCircuit": "Construction du circuit...",
     "storage": "Stockage :",
@@ -61,6 +68,8 @@
     "session": "Session :",
     "networkStatus": "État du réseau : {{status}}",
     "downloadSpeedAria": "Vitesse de téléchargement : {{speed}}",
-    "uploadSpeedAria": "Vitesse d'envoi : {{speed}}"
+    "uploadSpeedAria": "Vitesse d'envoi : {{speed}}",
+    "walletTitle": "Solde du wallet",
+    "walletAria": "Affichage du solde du wallet"
   }
 }

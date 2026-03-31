@@ -14,8 +14,23 @@ log.transports.file.format = '[{y}-{m}-{d} {h}:{i}:{s}.{ms}] [{level}] [{scope}]
 const envLevel = process.env.TONNET_LOG_LEVEL as any
 log.transports.console.level = envLevel || (process.env.NODE_ENV === 'development' ? 'debug' : 'warn')
 
-// Catch uncaught exceptions and unhandled rejections automatically
-log.errorHandler.startCatching()
+// Suppress EPIPE errors on stdout/stderr (pipe can break in Electron dev mode)
+for (const stream of [process.stdout, process.stderr]) {
+  stream?.on?.('error', (err: NodeJS.ErrnoException) => {
+    if (err.code !== 'EPIPE') throw err
+  })
+}
+
+// Catch uncaught exceptions and unhandled rejections, but filter EPIPE
+// (electron-log's default startCatching shows a dialog for every uncaught error,
+// including EPIPE which is harmless in Electron dev mode)
+process.on('uncaughtException', (err: NodeJS.ErrnoException) => {
+  if (err.code === 'EPIPE' || err.message === 'write EPIPE') return
+  log.error('Uncaught exception:', err)
+})
+process.on('unhandledRejection', (reason) => {
+  log.error('Unhandled rejection:', reason)
+})
 
 export default log
 

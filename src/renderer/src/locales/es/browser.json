@@ -5,7 +5,8 @@
     "addBookmarkAria": "Agregar a marcadores",
     "removeBookmarkAria": "Eliminar de marcadores",
     "addBookmarkTitle": "Agregar marcador",
-    "removeBookmarkTitle": "Eliminar marcador"
+    "removeBookmarkTitle": "Eliminar marcador",
+    "fileBrowser": "Explorador de archivos"
   },
   "navigation": {
     "back": "Atrás",
@@ -33,20 +34,42 @@
     "dragCancelled": "Arrastre cancelado",
     "dragCancelledFull": "Arrastre cancelado. La pestaña {{title}} volvió a su posición original."
   },
+  "windowControls": {
+    "group": "Controles de ventana",
+    "minimize": "Minimizar",
+    "maximize": "Maximizar",
+    "close": "Cerrar"
+  },
+  "dnd": {
+    "pickedUp": "{{type}} seleccionado: {{name}}",
+    "movedOver": "{{name}} está sobre {{target}}",
+    "droppedOn": "{{name}} soltado en {{target}}",
+    "cancelled": "Arrastre cancelado",
+    "folderAriaLabel": "Carpeta: {{name}}. Presiona espacio para comenzar a arrastrar.",
+    "bookmarkAriaLabel": "Marcador: {{name}}. Presiona espacio para comenzar a arrastrar."
+  },
   "bookmarksBar": {
     "title": "Marcadores"
+  },
+  "tip": {
+    "resolveError": "No se pudo resolver el dominio",
+    "title": "Propina de {{amount}} TON a {{domain}}"
   },
   "statusBar": {
     "connected": "Conectado a la Red TON",
     "disconnected": "Desconectado",
     "syncing": "Sincronizando...",
-    "syncingMultiHop": "Sincronizando con circuito multi-salto...",
+    "syncingMultiHop": "Buscando nodos de túnel...",
     "garlicRouting": "Enrutamiento Garlic (3 saltos)",
     "buildingCircuit": "Construyendo circuito...",
     "storage": "Almacenamiento:",
     "bag": "bolsa",
     "bags": "bolsas",
     "session": "Sesión:",
-    "networkStatus": "Estado de la red: {{status}}"
+    "networkStatus": "Estado de la red: {{status}}",
+    "downloadSpeedAria": "Velocidad de descarga: {{speed}}",
+    "uploadSpeedAria": "Velocidad de subida: {{speed}}",
+    "walletTitle": "Saldo del wallet",
+    "walletAria": "Visualización del saldo del wallet"
   }
 }

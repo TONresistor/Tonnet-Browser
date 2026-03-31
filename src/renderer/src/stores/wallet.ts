@@ -35,8 +35,6 @@ interface WalletStore {
   isLoading: boolean
   isSending: boolean
   error: string | null
-  activeTab: 'overview' | 'send' | 'receive' | 'history' | 'dns' | 'nft'
-
   init: () => Promise<void>
   create: () => Promise<void>
   importWallet: (mnemonic: string[]) => Promise<void>
@@ -46,7 +44,6 @@ interface WalletStore {
   loadHistory: (limit?: number) => Promise<void>
   clearHistory: () => Promise<void>
   setError: (error: string | null) => void
-  setActiveTab: (tab: 'overview' | 'send' | 'receive' | 'history' | 'dns' | 'nft') => void
 }
 
 export const useWalletStore = create<WalletStore>((set, get) => {
@@ -104,10 +101,8 @@ export const useWalletStore = create<WalletStore>((set, get) => {
     isLoading: false,
     isSending: false,
     error: null,
-    activeTab: 'overview',
 
     setError: (error) => set({ error }),
-    setActiveTab: (tab) => set({ activeTab: tab }),
 
     init: async () => {
       if (get().isCreated || get().isLoading) return

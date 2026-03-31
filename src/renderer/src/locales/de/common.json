@@ -26,6 +26,9 @@
     "syncing": "Synchronisierung läuft",
     "synced": "Synchronisiert"
   },
+  "loading": {
+    "settings": "Einstellungen werden geladen..."
+  },
   "errors": {
     "generic": "Ein Fehler ist aufgetreten",
     "network": "Netzwerkfehler",
@@ -36,5 +39,10 @@
   "tooltips": {
     "storage": "Storage",
     "settings": "Settings"
+  },
+  "error": {
+    "title": "Etwas ist schiefgelaufen",
+    "description": "Die Anwendung hat einen unerwarteten Fehler festgestellt. Versuchen Sie, neu zu laden.",
+    "reload": "Anwendung neu laden"
   }
 }

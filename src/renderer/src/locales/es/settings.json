@@ -11,6 +11,7 @@
     "shortcuts": "Atajos",
     "bookmarks": "Marcadores",
     "advanced": "Avanzado",
+    "wallet": "Wallet",
     "about": "Acerca de"
   },
   "appearance": {
@@ -43,7 +44,11 @@
       "showBookmarksBar": "Mostrar barra de marcadores",
       "showBookmarksBarDesc": "Mostrar acceso rápido a marcadores",
       "showStatusBar": "Mostrar barra de estado",
-      "showStatusBarDesc": "Mostrar estado de conexión en la parte inferior"
+      "showStatusBarDesc": "Mostrar estado de conexión en la parte inferior",
+      "tabOrientation": "Orientación de pestañas",
+      "tabOrientationDesc": "Mostrar pestañas horizontal o verticalmente",
+      "tabOrientationHorizontal": "Horizontal (arriba)",
+      "tabOrientationVertical": "Vertical (barra lateral)"
     },
     "language": {
       "label": "Idioma",
@@ -220,10 +225,11 @@
     "folderPlaceholder": "Introduce el nombre de la carpeta...",
     "create": "Crear",
     "renameFolder": "Renombrar carpeta",
+    "deleteFolder": "Eliminar carpeta",
     "deleteConfirm": "¿Eliminar \"{{name}}\"?",
     "maxDepthReached": "Profundidad máxima de carpeta alcanzada (3 niveles).",
-    "deleteFolderConfirm": "Delete this folder? Bookmarks will be moved to Unfiled.",
-    "confirm": "Confirm"
+    "deleteFolderConfirm": "¿Eliminar esta carpeta? Los marcadores se moverán a Sin clasificar.",
+    "confirm": "Confirmar"
   },
   "advanced": {
     "title": "Avanzado",
@@ -239,7 +245,7 @@
     "syncTestDomain": "Dominio de prueba de sincronización",
     "syncTestDomainDesc": "Dominio utilizado para verificar la sincronización DHT",
     "resetAll": "Restablecer toda la configuración a valores predeterminados",
-    "resetAllConfirm": "Click again to confirm"
+    "resetAllConfirm": "Haz clic de nuevo para confirmar"
   },
   "about": {
     "title": "Acerca de",
@@ -276,5 +282,131 @@
     "discard": "Descartar",
     "saveChanges": "Guardar cambios",
     "saving": "Guardando..."
+  },
+  "wallet": {
+    "title": "Wallet",
+    "description": "Configura tu wallet TON y los ajustes de pago HTTP 402",
+    "paymentMode": "Modo de pago predeterminado",
+    "paymentModeDesc": "Cómo gestionar las solicitudes de pago HTTP 402 de sitios .ton",
+    "modeOff": "Desactivado",
+    "modeManual": "Manual",
+    "modeAuto": "Automático",
+    "notificationStyle": "Estilo de notificación",
+    "notificationStyleDesc": "Cómo se muestran las solicitudes de pago",
+    "notifBanner": "Banner",
+    "notifModal": "Modal",
+    "notifToast": "Toast",
+    "notifPanel": "Panel",
+    "spendingLimits": "Límites de gasto",
+    "spendingLimitsDesc": "Establecer montos máximos para pagos automáticos (0 = sin límite)",
+    "perRequest": "Por solicitud",
+    "perRequestDesc": "Monto máximo por pago individual",
+    "perDay": "Por día",
+    "perDayDesc": "Gasto total máximo por día",
+    "perSitePerMonth": "Por sitio / mes",
+    "perSitePerMonthDesc": "Gasto máximo por sitio por mes",
+    "sitePolicies": "Permisos por sitio",
+    "sitePoliciesDesc": "Modos de pago específicos por sitio",
+    "spent": "Gastado",
+    "removeSitePolicy": "Eliminar política para {{domain}}"
+  },
+  "themeEditor": {
+    "colors": {
+      "background": "Fondo",
+      "backgroundDesc": "Fondo principal",
+      "backgroundSecondary": "Fondo secundario",
+      "backgroundSecondaryDesc": "Barra lateral, paneles",
+      "foreground": "Primer plano",
+      "foregroundDesc": "Color de texto principal",
+      "card": "Tarjeta",
+      "cardDesc": "Fondos de tarjeta",
+      "cardForeground": "Texto de tarjeta",
+      "primary": "Primario",
+      "primaryDesc": "Botones, enlaces",
+      "primaryForeground": "Texto primario",
+      "secondary": "Secundario",
+      "secondaryForeground": "Texto secundario",
+      "accent": "Acento",
+      "accentDesc": "Resaltados",
+      "accentForeground": "Texto de acento",
+      "muted": "Atenuado",
+      "mutedDesc": "Fondos sutiles",
+      "mutedForeground": "Texto atenuado",
+      "mutedForegroundDesc": "Texto secundario",
+      "destructive": "Destructivo",
+      "destructiveDesc": "Errores, eliminar",
+      "destructiveForeground": "Texto destructivo",
+      "success": "Correcto",
+      "successDesc": "Conectado, válido",
+      "successForeground": "Texto de éxito",
+      "warning": "Advertencia",
+      "warningDesc": "Estados de precaución",
+      "warningForeground": "Texto de advertencia",
+      "info": "Info",
+      "infoDesc": "Información",
+      "infoForeground": "Texto informativo",
+      "border": "Borde",
+      "borderDesc": "Bordes predeterminados",
+      "input": "Entrada",
+      "inputDesc": "Fondos de entrada",
+      "ring": "Anillo",
+      "ringDesc": "Anillo de enfoque"
+    },
+    "sections": {
+      "background": "Fondo",
+      "text": "Texto",
+      "primaryAccent": "Primario y acento",
+      "secondaryMuted": "Secundario y atenuado",
+      "statusColors": "Colores de estado",
+      "borderInput": "Borde y entrada"
+    },
+    "editor": {
+      "themeName": "Nombre del tema",
+      "descriptionPlaceholder": "Descripción (opcional)",
+      "themeType": "Tipo de tema:",
+      "dark": "Oscuro",
+      "light": "Claro",
+      "preview": "Vista previa",
+      "resetToBase": "Restablecer al tema base:",
+      "cancel": "Cancelar",
+      "saveTheme": "Guardar tema"
+    },
+    "preview": {
+      "tab1": "Pestaña 1",
+      "tab2": "Pestaña 2",
+      "cardTitle": "Título de tarjeta",
+      "cardDesc": "Vista previa de tu tema.",
+      "primary": "Primario",
+      "secondary": "Secundario",
+      "connected": "Conectado",
+      "syncing": "Sincronizando"
+    },
+    "list": {
+      "noThemes": "Aún no hay temas personalizados. Crea uno para comenzar.",
+      "darkTheme": "Tema oscuro",
+      "lightTheme": "Tema claro",
+      "editTheme": "Editar tema",
+      "duplicateTheme": "Duplicar tema",
+      "exportTheme": "Exportar tema",
+      "deleteTheme": "Eliminar tema",
+      "confirmDelete": "Haz clic de nuevo para confirmar"
+    },
+    "importDialog": {
+      "title": "Importar tema",
+      "themeJson": "JSON del tema",
+      "pastePrompt": "Pega el JSON del tema",
+      "invalidFormat": "Formato de tema no válido. Verifica la estructura JSON.",
+      "or": "O",
+      "uploadFile": "Subir archivo JSON",
+      "import": "Importar"
+    },
+    "exportDialog": {
+      "title": "Exportar tema",
+      "close": "Cerrar",
+      "copied": "Copiado",
+      "copy": "Copiar",
+      "download": "Descargar"
+    },
+    "customThemePrefix": "Tema personalizado"
   }
 }

@@ -47,10 +47,10 @@ export function validateSettings(data: unknown): { valid: true; data: AppSetting
  * Validate values for a specific settings category using Zod (partial schema).
  * Used by the SETTINGS_SET IPC handler to validate incoming updates.
  */
-export function validateCategoryValues(
-  category: keyof AppSettings,
+export function validateCategoryValues<K extends keyof AppSettings>(
+  category: K,
   values: unknown
-): { valid: true; data: unknown } | { valid: false; error: string } {
+): { valid: true; data: Partial<AppSettings[K]> } | { valid: false; error: string } {
   // Use partial schemas WITHOUT defaults so Zod only validates/strips provided fields.
   // This preserves the partial update semantics: only the supplied keys are returned.
   const schemas: Record<string, z.ZodSchema> = {
@@ -69,7 +69,7 @@ export function validateCategoryValues(
   }
   const result = schema.safeParse(values)
   if (result.success) {
-    return { valid: true, data: result.data }
+    return { valid: true, data: result.data as Partial<AppSettings[K]> }
   }
   return { valid: false, error: result.error.message }
 }

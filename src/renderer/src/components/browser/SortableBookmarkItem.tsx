@@ -7,6 +7,7 @@ import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { Bookmark } from '@/stores/bookmarks'
 import { Globe } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 interface SortableBookmarkItemProps {
   bookmark: Bookmark
@@ -15,6 +16,7 @@ interface SortableBookmarkItemProps {
 }
 
 export function SortableBookmarkItem({ bookmark, onNavigate, onContextMenu }: SortableBookmarkItemProps) {
+  const { t } = useTranslation('browser')
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: bookmark.id })
 
   const style = {
@@ -41,7 +43,7 @@ export function SortableBookmarkItem({ bookmark, onNavigate, onContextMenu }: So
         e.preventDefault()
         onContextMenu(e, bookmark)
       }}
-      aria-label={`Bookmark: ${bookmark.title}. Press space to start dragging.`}
+      aria-label={t('dnd.bookmarkAriaLabel', { name: bookmark.title })}
     >
       {bookmark.favicon ? (
         <img

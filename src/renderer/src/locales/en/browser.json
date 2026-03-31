@@ -5,7 +5,8 @@
     "addBookmarkAria": "Add to bookmarks",
     "removeBookmarkAria": "Remove from bookmarks",
     "addBookmarkTitle": "Add bookmark",
-    "removeBookmarkTitle": "Remove bookmark"
+    "removeBookmarkTitle": "Remove bookmark",
+    "fileBrowser": "File Browser"
   },
   "navigation": {
     "back": "Back",
@@ -39,11 +40,17 @@
     "maximize": "Maximize",
     "close": "Close"
   },
+  "tip": {
+    "resolveError": "Could not resolve domain",
+    "title": "Tip {{amount}} TON to {{domain}}"
+  },
   "dnd": {
     "pickedUp": "Picked up {{type}}: {{name}}",
     "movedOver": "{{name}} is over {{target}}",
     "droppedOn": "{{name}} dropped on {{target}}",
-    "cancelled": "Dragging cancelled"
+    "cancelled": "Dragging cancelled",
+    "folderAriaLabel": "Folder: {{name}}. Press space to start dragging.",
+    "bookmarkAriaLabel": "Bookmark: {{name}}. Press space to start dragging."
   },
   "bookmarksBar": {
     "title": "Bookmarks"
@@ -52,7 +59,7 @@
     "connected": "Connected to TON Network",
     "disconnected": "Disconnected",
     "syncing": "Syncing...",
-    "syncingMultiHop": "Syncing with multi-hop circuit...",
+    "syncingMultiHop": "Discovering tunnel nodes...",
     "garlicRouting": "Garlic Routing (3-hop)",
     "buildingCircuit": "Building circuit...",
     "storage": "Storage:",
@@ -61,6 +68,8 @@
     "session": "Session:",
     "networkStatus": "Network status: {{status}}",
     "downloadSpeedAria": "Download speed: {{speed}}",
-    "uploadSpeedAria": "Upload speed: {{speed}}"
+    "uploadSpeedAria": "Upload speed: {{speed}}",
+    "walletTitle": "Wallet balance",
+    "walletAria": "Wallet balance display"
   }
 }

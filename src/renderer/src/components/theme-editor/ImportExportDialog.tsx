@@ -5,6 +5,7 @@
 import { useState } from 'react'
 import { UI_COPY_FEEDBACK_MS } from '@shared/constants'
 import { X, Upload, Download, CircleAlert, Check } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 interface ImportDialogProps {
   onImport: (json: string) => boolean
@@ -12,12 +13,13 @@ interface ImportDialogProps {
 }
 
 export function ImportDialog({ onImport, onClose }: ImportDialogProps) {
+  const { t } = useTranslation('settings')
   const [json, setJson] = useState('')
   const [error, setError] = useState('')
 
   const handleImport = () => {
     if (!json.trim()) {
-      setError('Please paste theme JSON')
+      setError(t('themeEditor.importDialog.pastePrompt'))
       return
     }
 
@@ -25,7 +27,7 @@ export function ImportDialog({ onImport, onClose }: ImportDialogProps) {
     if (success) {
       onClose()
     } else {
-      setError('Invalid theme format. Please check the JSON structure.')
+      setError(t('themeEditor.importDialog.invalidFormat'))
     }
   }
 
@@ -53,7 +55,7 @@ export function ImportDialog({ onImport, onClose }: ImportDialogProps) {
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <div className="flex items-center gap-3">
             <Upload className="w-5 h-5 text-primary" />
-            <h2 className="text-lg font-semibold">Import Theme</h2>
+            <h2 className="text-lg font-semibold">{t('themeEditor.importDialog.title')}</h2>
           </div>
           <button
             onClick={onClose}
@@ -66,7 +68,7 @@ export function ImportDialog({ onImport, onClose }: ImportDialogProps) {
         {/* Content */}
         <div className="p-6 space-y-4">
           <div>
-            <label className="block text-sm font-medium mb-2">Theme JSON</label>
+            <label className="block text-sm font-medium mb-2">{t('themeEditor.importDialog.themeJson')}</label>
             <textarea
               value={json}
               onChange={(e) => {
@@ -89,10 +91,10 @@ export function ImportDialog({ onImport, onClose }: ImportDialogProps) {
 
           {/* File upload */}
           <div className="flex items-center gap-3">
-            <span className="text-sm text-muted-foreground">Or</span>
+            <span className="text-sm text-muted-foreground">{t('themeEditor.importDialog.or')}</span>
             <label className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface hover:bg-surface-hover cursor-pointer transition-colors">
               <Upload className="w-4 h-4" />
-              <span className="text-sm">Upload JSON file</span>
+              <span className="text-sm">{t('themeEditor.importDialog.uploadFile')}</span>
               <input type="file" accept=".json" onChange={handleFileUpload} className="hidden" />
             </label>
           </div>
@@ -112,14 +114,14 @@ export function ImportDialog({ onImport, onClose }: ImportDialogProps) {
             onClick={onClose}
             className="px-4 py-2 rounded-lg bg-surface hover:bg-surface-hover text-foreground transition-colors"
           >
-            Cancel
+            {t('themeEditor.editor.cancel')}
           </button>
           <button
             onClick={handleImport}
             className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:opacity-90 transition-opacity"
           >
             <Check className="w-4 h-4" />
-            Import
+            {t('themeEditor.importDialog.import')}
           </button>
         </div>
       </div>
@@ -134,6 +136,7 @@ interface ExportDialogProps {
 }
 
 export function ExportDialog({ themeJson, themeName, onClose }: ExportDialogProps) {
+  const { t } = useTranslation('settings')
   const [copied, setCopied] = useState(false)
 
   const handleCopy = async () => {
@@ -163,7 +166,7 @@ export function ExportDialog({ themeJson, themeName, onClose }: ExportDialogProp
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <div className="flex items-center gap-3">
             <Download className="w-5 h-5 text-primary" />
-            <h2 className="text-lg font-semibold">Export Theme</h2>
+            <h2 className="text-lg font-semibold">{t('themeEditor.exportDialog.title')}</h2>
           </div>
           <button
             onClick={onClose}
@@ -189,7 +192,7 @@ export function ExportDialog({ themeJson, themeName, onClose }: ExportDialogProp
             onClick={onClose}
             className="px-4 py-2 rounded-lg bg-surface hover:bg-surface-hover text-foreground transition-colors"
           >
-            Close
+            {t('themeEditor.exportDialog.close')}
           </button>
           <button
             onClick={handleCopy}
@@ -198,10 +201,10 @@ export function ExportDialog({ themeJson, themeName, onClose }: ExportDialogProp
             {copied ? (
               <>
                 <Check className="w-4 h-4 text-success" />
-                Copied
+                {t('themeEditor.exportDialog.copied')}
               </>
             ) : (
-              'Copy'
+              t('themeEditor.exportDialog.copy')
             )}
           </button>
           <button
@@ -209,7 +212,7 @@ export function ExportDialog({ themeJson, themeName, onClose }: ExportDialogProp
             className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:opacity-90 transition-opacity"
           >
             <Download className="w-4 h-4" />
-            Download
+            {t('themeEditor.exportDialog.download')}
           </button>
         </div>
       </div>

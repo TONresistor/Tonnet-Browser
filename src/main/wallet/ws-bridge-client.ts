@@ -1,11 +1,12 @@
 /**
  * WebSocket bridge client.
- * Communicates with the TON blockchain via the tonutils-proxy-ws bridge
+ * Communicates with the TON blockchain via the tonutils-bridge binary
  * over a local JSON-RPC 2.0 WebSocket connection.
  */
 
 import WebSocket from 'ws'
 import { createLogger } from '../../shared/logger'
+import type { DnsResolveResult } from '../../shared/types'
 
 const log = createLogger('wallet:ws-bridge')
 
@@ -15,17 +16,73 @@ const PONG_TIMEOUT_MS = 60_000
 const RECONNECT_BASE_MS = 1_000
 const RECONNECT_MAX_MS = 30_000
 
+// --- Bridge-specific types ---
+
+/** Account state from lite.getAccountState */
+export interface BridgeAccountState {
+  balance: string
+  last_transaction_lt: string
+  last_transaction_hash: string
+  seqno: number
+}
+
+/** Transaction from lite.getTransactions */
+export interface BridgeTransaction {
+  hash: string
+  lt: string
+  utime: number
+  fee: string
+  in_msg?: { source: string; destination: string; value: string; body?: string }
+  out_msgs?: Array<{ source: string; destination: string; value: string; body?: string }>
+}
+
+/** Result from lite.sendAndWatch */
+interface SendAndWatchResult {
+  subscription_id: string
+  msg_hash: string
+}
+
+/** Result from a subscription request */
+interface SubscriptionResult {
+  subscription_id: string
+}
+
+/** Event data for tx_confirmed push events */
+interface TxConfirmedEvent {
+  msg_hash: string
+  transaction?: { hash: string }
+}
+
+/** Event data for tx_timeout push events */
+interface TxTimeoutEvent {
+  msg_hash: string
+  reason?: string
+}
+
+/** JSON-RPC 2.0 message from the bridge (response or push event) */
+interface JsonRpcMessage {
+  jsonrpc?: string
+  id?: string | number
+  result?: unknown
+  error?: { code: number; message: string }
+  event?: string
+  data?: unknown
+}
+
+type RpcParams = Record<string, unknown>
+type EventCallback = (data: unknown) => void
+
 interface PendingRequest {
-  resolve: (value: any) => void
+  resolve: (value: unknown) => void
   reject: (reason: Error) => void
   timer: ReturnType<typeof setTimeout>
 }
 
 interface SubscriptionEntry {
   method: string
-  params: Record<string, any>
+  params: RpcParams
   event: string
-  callback: (data: any) => void
+  callback: EventCallback
 }
 
 export class WsBridgeClient {
@@ -34,10 +91,10 @@ export class WsBridgeClient {
   private nextId = 0
   private pending = new Map<string, PendingRequest>()
   private subscriptions = new Map<string, SubscriptionEntry>()
-  private eventListeners = new Map<string, Set<(data: any) => void>>()
+  private eventListeners = new Map<string, Set<EventCallback>>()
   private requestQueue: Array<{
     message: string
-    resolve: (v: any) => void
+    resolve: (v: unknown) => void
     reject: (e: Error) => void
     method: string
   }> = []
@@ -98,7 +155,7 @@ export class WsBridgeClient {
 
   async getBalance(address: string): Promise<string> {
     try {
-      const result = await this.request('lite.getAccountState', { address })
+      const result = (await this.request('lite.getAccountState', { address })) as BridgeAccountState
       const balance = result.balance ?? '0'
       this.cachedBalance = balance
       return balance
@@ -113,7 +170,7 @@ export class WsBridgeClient {
 
   async getSeqno(address: string): Promise<number> {
     try {
-      const result = await this.request('wallet.getSeqno', { address })
+      const result = (await this.request('wallet.getSeqno', { address })) as { seqno: number | string }
       const seqno = typeof result.seqno === 'number' ? result.seqno : Number(result.seqno)
       this.cachedSeqno = seqno
       return seqno
@@ -132,64 +189,29 @@ export class WsBridgeClient {
     log.info('Transaction broadcast successful')
   }
 
-  async getTransactions(address: string, limit: number = 20, lastLt?: string, lastHash?: string): Promise<any[]> {
-    const params: Record<string, any> = { address, limit }
+  async getTransactions(
+    address: string,
+    limit: number = 20,
+    lastLt?: string,
+    lastHash?: string
+  ): Promise<BridgeTransaction[]> {
+    const params: RpcParams = { address, limit }
     if (lastLt && lastHash) {
       params.last_lt = lastLt
       params.last_hash = lastHash
     }
-    const result = await this.request('lite.getTransactions', params)
+    const result = (await this.request('lite.getTransactions', params)) as { transactions?: BridgeTransaction[] }
     return result.transactions ?? []
-  }
-
-  // --- DNS ---
-
-  async resolveDomain(domain: string): Promise<{
-    wallet?: string
-    site_adnl?: string
-    has_storage?: boolean
-    owner?: string
-    nft_address?: string
-    collection?: string
-    editor?: string
-    initialized?: boolean
-    expiring_at?: number
-    text_records?: Record<string, string>
-  }> {
-    return await this.request('dns.resolve', { domain })
-  }
-
-  // --- NFT ---
-
-  async getNftData(address: string): Promise<{
-    initialized?: boolean
-    index?: string
-    collection?: string
-    owner?: string
-    content?: { type: string; uri?: string; name?: string; description?: string; image?: string; image_data?: string }
-  }> {
-    return await this.request('nft.getData', { address })
-  }
-
-  async getNftCollectionData(
-    address: string
-  ): Promise<{ next_item_index: string; owner?: string; content_uri?: string }> {
-    return await this.request('nft.getCollectionData', { address })
-  }
-
-  async getNftAddressByIndex(collection: string, index: string): Promise<string | null> {
-    const result = await this.request('nft.getAddressByIndex', { collection, index })
-    return result.address ?? null
   }
 
   // --- Subscriptions ---
 
-  subscribeAccountState(address: string, callback: (state: any) => void): () => void {
-    return this.subscribe('subscribe.accountState', { address }, 'account_state', callback)
+  subscribeAccountState(address: string, callback: (state: BridgeAccountState) => void): () => void {
+    return this.subscribe('subscribe.accountState', { address }, 'account_state', callback as EventCallback)
   }
 
-  subscribeTransactions(address: string, callback: (tx: any) => void): () => void {
-    return this.subscribe('subscribe.transactions', { address, last_lt: '0' }, 'transaction', callback)
+  subscribeTransactions(address: string, callback: (tx: BridgeTransaction) => void): () => void {
+    return this.subscribe('subscribe.transactions', { address, last_lt: '0' }, 'transaction', callback as EventCallback)
   }
 
   async unsubscribe(subscriptionId: string): Promise<void> {
@@ -207,20 +229,23 @@ export class WsBridgeClient {
     const b64 = boc.toString('base64')
     return new Promise<string>((resolve, reject) => {
       this.request('lite.sendAndWatch', { boc: b64 })
-        .then((result) => {
-          const subId = result.subscription_id as string
-          const msgHash = result.msg_hash as string
+        .then((raw) => {
+          const result = raw as SendAndWatchResult
+          const subId = result.subscription_id
+          const msgHash = result.msg_hash
 
-          const onConfirmed = (data: any) => {
-            if (data.msg_hash === msgHash) {
+          const onConfirmed = (data: unknown) => {
+            const event = data as TxConfirmedEvent
+            if (event.msg_hash === msgHash) {
               cleanup()
-              resolve(data.transaction?.hash ?? msgHash)
+              resolve(event.transaction?.hash ?? msgHash)
             }
           }
-          const onTimeout = (data: any) => {
-            if (data.msg_hash === msgHash) {
+          const onTimeout = (data: unknown) => {
+            const event = data as TxTimeoutEvent
+            if (event.msg_hash === msgHash) {
               cleanup()
-              reject(new Error(`Transaction timed out: ${data.reason ?? 'unknown'}`))
+              reject(new Error(`Transaction timed out: ${event.reason ?? 'unknown'}`))
             }
           }
 
@@ -244,15 +269,21 @@ export class WsBridgeClient {
     })
   }
 
+  // --- DNS ---
+
+  async resolveDomain(domain: string): Promise<DnsResolveResult> {
+    return (await this.request('dns.resolve', { domain })) as DnsResolveResult
+  }
+
   // --- Generic ---
 
-  async runMethod(address: string, method: string, params?: any[]): Promise<any> {
+  async runMethod(address: string, method: string, params?: unknown[]): Promise<unknown> {
     return await this.request('lite.runMethod', { address, method, params: params ?? [] })
   }
 
   // --- Internal: JSON-RPC transport ---
 
-  private request(method: string, params: Record<string, any>): Promise<any> {
+  private request(method: string, params: RpcParams): Promise<unknown> {
     const id = String(++this.nextId)
     const message = JSON.stringify({ jsonrpc: '2.0', id, method, params })
 
@@ -265,7 +296,7 @@ export class WsBridgeClient {
     return this.sendRequest(id, message, method)
   }
 
-  private sendRequest(id: string, message: string, method: string): Promise<any> {
+  private sendRequest(id: string, message: string, method: string): Promise<unknown> {
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
         this.pending.delete(id)
@@ -284,9 +315,9 @@ export class WsBridgeClient {
   }
 
   private handleMessage(raw: WebSocket.Data): void {
-    let msg: any
+    let msg: JsonRpcMessage
     try {
-      msg = JSON.parse(raw.toString())
+      msg = JSON.parse(raw.toString()) as JsonRpcMessage
     } catch {
       log.warn('Received non-JSON message from bridge')
       return
@@ -315,17 +346,13 @@ export class WsBridgeClient {
 
   // --- Internal: subscriptions ---
 
-  private subscribe(
-    method: string,
-    params: Record<string, any>,
-    eventName: string,
-    callback: (data: any) => void
-  ): () => void {
+  private subscribe(method: string, params: RpcParams, eventName: string, callback: EventCallback): () => void {
     let subId: string | null = null
     let unsubscribed = false
 
     this.request(method, params)
-      .then((result) => {
+      .then((raw) => {
+        const result = raw as SubscriptionResult
         if (unsubscribed) {
           // User already called unsubscribe before server responded
           if (result.subscription_id) {
@@ -350,7 +377,7 @@ export class WsBridgeClient {
     }
   }
 
-  private addEventListener(event: string, callback: (data: any) => void): void {
+  private addEventListener(event: string, callback: EventCallback): void {
     let set = this.eventListeners.get(event)
     if (!set) {
       set = new Set()
@@ -359,7 +386,7 @@ export class WsBridgeClient {
     set.add(callback)
   }
 
-  private removeEventListener(event: string, callback: (data: any) => void): void {
+  private removeEventListener(event: string, callback: EventCallback): void {
     const set = this.eventListeners.get(event)
     if (set) {
       set.delete(callback)
@@ -367,7 +394,7 @@ export class WsBridgeClient {
     }
   }
 
-  private dispatchEvent(event: string, data: any): void {
+  private dispatchEvent(event: string, data: unknown): void {
     const set = this.eventListeners.get(event)
     if (!set) return
     for (const cb of set) {

@@ -11,6 +11,7 @@
     "shortcuts": "Tastenkombinationen",
     "bookmarks": "Lesezeichen",
     "advanced": "Erweitert",
+    "wallet": "Wallet",
     "about": "Über"
   },
   "appearance": {
@@ -43,7 +44,11 @@
       "showBookmarksBar": "Lesezeichenleiste anzeigen",
       "showBookmarksBarDesc": "Schnellzugriff auf Lesezeichen anzeigen",
       "showStatusBar": "Statusleiste anzeigen",
-      "showStatusBarDesc": "Verbindungsstatus unten anzeigen"
+      "showStatusBarDesc": "Verbindungsstatus unten anzeigen",
+      "tabOrientation": "Tab-Ausrichtung",
+      "tabOrientationDesc": "Tabs horizontal oder vertikal anzeigen",
+      "tabOrientationHorizontal": "Horizontal (oben)",
+      "tabOrientationVertical": "Vertikal (Seitenleiste)"
     },
     "language": {
       "label": "Sprache",
@@ -220,10 +225,11 @@
     "folderPlaceholder": "Ordnernamen eingeben...",
     "create": "Erstellen",
     "renameFolder": "Ordner umbenennen",
+    "deleteFolder": "Ordner löschen",
     "deleteConfirm": "\"{{name}}\" löschen?",
     "maxDepthReached": "Maximale Ordnertiefe erreicht (3 Ebenen).",
-    "deleteFolderConfirm": "Delete this folder? Bookmarks will be moved to Unfiled.",
-    "confirm": "Confirm"
+    "deleteFolderConfirm": "Diesen Ordner löschen? Lesezeichen werden in Nicht abgelegt verschoben.",
+    "confirm": "Bestätigen"
   },
   "advanced": {
     "title": "Erweitert",
@@ -239,7 +245,7 @@
     "syncTestDomain": "Sync-Test-Domain",
     "syncTestDomainDesc": "Domain zur Überprüfung der DHT-Synchronisation",
     "resetAll": "Alle Einstellungen auf Standardwerte zurücksetzen",
-    "resetAllConfirm": "Click again to confirm"
+    "resetAllConfirm": "Erneut klicken zum Bestätigen"
   },
   "about": {
     "title": "Über",
@@ -276,5 +282,131 @@
     "discard": "Verwerfen",
     "saveChanges": "Änderungen speichern",
     "saving": "Speichern..."
+  },
+  "wallet": {
+    "title": "Wallet",
+    "description": "Konfigurieren Sie Ihr TON Wallet und die HTTP 402 Zahlungseinstellungen",
+    "paymentMode": "Standard-Zahlungsmodus",
+    "paymentModeDesc": "Umgang mit HTTP 402 Zahlungsanforderungen von .ton-Websites",
+    "modeOff": "Aus",
+    "modeManual": "Manuell",
+    "modeAuto": "Automatisch",
+    "notificationStyle": "Benachrichtigungsstil",
+    "notificationStyleDesc": "Anzeige von Zahlungsanforderungen",
+    "notifBanner": "Banner",
+    "notifModal": "Modal",
+    "notifToast": "Toast",
+    "notifPanel": "Panel",
+    "spendingLimits": "Ausgabenlimits",
+    "spendingLimitsDesc": "Maximale Beträge für automatische Zahlungen festlegen (0 = kein Limit)",
+    "perRequest": "Pro Anfrage",
+    "perRequestDesc": "Maximaler Betrag pro einzelner Zahlung",
+    "perDay": "Pro Tag",
+    "perDayDesc": "Maximale Gesamtausgaben pro Tag",
+    "perSitePerMonth": "Pro Website / Monat",
+    "perSitePerMonthDesc": "Maximale Ausgaben pro Website pro Monat",
+    "sitePolicies": "Website-Berechtigungen",
+    "sitePoliciesDesc": "Zahlungsmodus-Überschreibungen pro Website",
+    "spent": "Ausgegeben",
+    "removeSitePolicy": "Richtlinie für {{domain}} entfernen"
+  },
+  "themeEditor": {
+    "colors": {
+      "background": "Hintergrund",
+      "backgroundDesc": "Haupthintergrund",
+      "backgroundSecondary": "Sekundärer Hintergrund",
+      "backgroundSecondaryDesc": "Seitenleiste, Panels",
+      "foreground": "Vordergrund",
+      "foregroundDesc": "Haupttextfarbe",
+      "card": "Karte",
+      "cardDesc": "Kartenhintergründe",
+      "cardForeground": "Kartentext",
+      "primary": "Primär",
+      "primaryDesc": "Schaltflächen, Links",
+      "primaryForeground": "Primärtext",
+      "secondary": "Sekundär",
+      "secondaryForeground": "Sekundärtext",
+      "accent": "Akzent",
+      "accentDesc": "Hervorhebungen",
+      "accentForeground": "Akzenttext",
+      "muted": "Gedämpft",
+      "mutedDesc": "Dezente Hintergründe",
+      "mutedForeground": "Gedämpfter Text",
+      "mutedForegroundDesc": "Sekundärer Text",
+      "destructive": "Destruktiv",
+      "destructiveDesc": "Fehler, Löschen",
+      "destructiveForeground": "Destruktiver Text",
+      "success": "Erfolg",
+      "successDesc": "Verbunden, gültig",
+      "successForeground": "Erfolgstext",
+      "warning": "Warnung",
+      "warningDesc": "Warnzustände",
+      "warningForeground": "Warnungstext",
+      "info": "Info",
+      "infoDesc": "Information",
+      "infoForeground": "Infotext",
+      "border": "Rahmen",
+      "borderDesc": "Standardrahmen",
+      "input": "Eingabe",
+      "inputDesc": "Eingabehintergründe",
+      "ring": "Ring",
+      "ringDesc": "Fokusring"
+    },
+    "sections": {
+      "background": "Hintergrund",
+      "text": "Text",
+      "primaryAccent": "Primär & Akzent",
+      "secondaryMuted": "Sekundär & Gedämpft",
+      "statusColors": "Statusfarben",
+      "borderInput": "Rahmen & Eingabe"
+    },
+    "editor": {
+      "themeName": "Designname",
+      "descriptionPlaceholder": "Beschreibung (optional)",
+      "themeType": "Designtyp:",
+      "dark": "Dunkel",
+      "light": "Hell",
+      "preview": "Vorschau",
+      "resetToBase": "Auf Basisdesign zurücksetzen:",
+      "cancel": "Abbrechen",
+      "saveTheme": "Design speichern"
+    },
+    "preview": {
+      "tab1": "Tab 1",
+      "tab2": "Tab 2",
+      "cardTitle": "Kartentitel",
+      "cardDesc": "Vorschau Ihres Designs.",
+      "primary": "Primär",
+      "secondary": "Sekundär",
+      "connected": "Verbunden",
+      "syncing": "Synchronisierung"
+    },
+    "list": {
+      "noThemes": "Noch keine benutzerdefinierten Designs. Erstellen Sie eines, um zu beginnen.",
+      "darkTheme": "Dunkles Design",
+      "lightTheme": "Helles Design",
+      "editTheme": "Design bearbeiten",
+      "duplicateTheme": "Design duplizieren",
+      "exportTheme": "Design exportieren",
+      "deleteTheme": "Design löschen",
+      "confirmDelete": "Erneut klicken zum Bestätigen"
+    },
+    "importDialog": {
+      "title": "Design importieren",
+      "themeJson": "Design-JSON",
+      "pastePrompt": "Bitte fügen Sie Design-JSON ein",
+      "invalidFormat": "Ungültiges Designformat. Bitte überprüfen Sie die JSON-Struktur.",
+      "or": "Oder",
+      "uploadFile": "JSON-Datei hochladen",
+      "import": "Importieren"
+    },
+    "exportDialog": {
+      "title": "Design exportieren",
+      "close": "Schließen",
+      "copied": "Kopiert",
+      "copy": "Kopieren",
+      "download": "Herunterladen"
+    },
+    "customThemePrefix": "Benutzerdefiniertes Design"
   }
 }

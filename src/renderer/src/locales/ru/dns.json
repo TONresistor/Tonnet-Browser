@@ -1,0 +1,26 @@
+{
+  "title": "DNS-запрос",
+  "searchPlaceholder": "Введите домен .ton...",
+  "searching": "Разрешение...",
+  "empty": "Введите домен .ton для просмотра его записей",
+  "notFound": "Домен не найден или не имеет записей",
+  "error": "Не удалось разрешить домен",
+  "fields": {
+    "wallet": "Кошелёк",
+    "owner": "Владелец",
+    "siteAdnl": "Site ADNL",
+    "hasStorage": "Хранилище",
+    "nftAddress": "Адрес NFT",
+    "collection": "Коллекция",
+    "editor": "Редактор",
+    "initialized": "Инициализирован",
+    "expiringAt": "Истекает",
+    "textRecords": "Текстовые записи"
+  },
+  "values": {
+    "yes": "Да",
+    "no": "Нет",
+    "none": "Не задано"
+  },
+  "copied": "Скопировано!"
+}

@@ -14,22 +14,27 @@
     "tabs": {
       "active": "Ativo",
       "completed": "Concluído",
-      "info": "Informações"
+      "info": "Informações",
+      "files": "Arquivos"
     },
     "filters": {
       "all": "Todos",
       "downloading": "Baixando",
+      "complete": "Concluido",
       "seeding": "Compartilhando",
       "paused": "Pausado"
     },
     "actions": {
+      "addBag": "Adicionar Bag",
       "addTorrent": "Adicionar torrent",
       "pause": "Pausar",
       "resume": "Retomar",
       "remove": "Remover",
       "openFolder": "Abrir pasta",
       "copyBagId": "Copiar ID do bag",
-      "details": "Detalhes"
+      "details": "Detalhes",
+      "settings": "Configuracoes",
+      "browseFiles": "Navegar Arquivos"
     },
     "table": {
       "name": "Nome",
@@ -39,6 +44,7 @@
       "upload": "Upload",
       "peers": "Peers",
       "status": "Status",
+      "files": "Arquivos",
       "added": "Adicionado"
     },
     "status": {
@@ -58,6 +64,8 @@
       "autoStartLabel": "Iniciar download automaticamente",
       "cancel": "Cancelar",
       "add": "Adicionar",
+      "adding": "Adicionando...",
+      "bagIdDescription": "Digite o ID do Bag para iniciar o download. Voce pode encontrar IDs de Bag em sites TON ou de outros usuarios.",
       "browse": "Procurar"
     },
     "info": {
@@ -69,7 +77,16 @@
       "uploadSpeed": "Velocidade de upload",
       "ratio": "Proporção",
       "connectedPeers": "Peers conectados",
-      "diskSpace": "Espaço em disco"
+      "diskSpace": "Espaço em disco",
+      "id": "ID",
+      "size": "Tamanho",
+      "downloaded": "Baixado",
+      "status": "Status",
+      "peers": "Peers",
+      "files": "Arquivos",
+      "download": "Download",
+      "upload": "Upload",
+      "path": "Caminho"
     },
     "empty": {
       "title": "Nenhum download ativo",
@@ -82,12 +99,16 @@
       "addFailed": "Falha ao adicionar torrent",
       "removeFailed": "Falha ao remover",
       "noSpace": "Espaço em disco insuficiente"
-    }
+    },
+    "searchBags": "Pesquisar bags...",
+    "loadingFiles": "Carregando arquivos...",
+    "noFiles": "Nenhum arquivo encontrado ou metadados ainda nao carregados"
   },
   "history": {
     "title": "Histórico de navegação",
     "description": "Seu histórico de navegação e registros de visitas",
     "search": "Pesquisar no histórico...",
+    "loading": "Carregando historico...",
     "filters": {
       "all": "Todo o período",
       "today": "Hoje",
@@ -98,9 +119,14 @@
     },
     "actions": {
       "clearAll": "Limpar todo o histórico",
+      "clearLastHour": "Limpar ultima hora",
+      "clearLastDay": "Limpar ultimo dia",
       "clearToday": "Limpar hoje",
       "clearSelected": "Limpar selecionados",
-      "export": "Exportar histórico"
+      "export": "Exportar histórico",
+      "openInNewTab": "Abrir em nova aba",
+      "copyUrl": "Copiar URL",
+      "delete": "Excluir"
     },
     "table": {
       "title": "Título",
@@ -109,17 +135,31 @@
       "lastVisit": "Última visita"
     },
     "empty": {
-      "title": "Sem histórico",
-      "description": "Os sites que você visitar aparecerão aqui",
-      "allCleared": "Todo o histórico foi limpo"
+      "title": "Sem historico",
+      "noResults": "Nenhum resultado encontrado",
+      "description": "Os sites que voce visitar aparecerao aqui",
+      "tryDifferent": "Tente um termo de pesquisa diferente",
+      "allCleared": "Todo o historico foi limpo"
     },
     "clearConfirm": {
       "title": "Limpar histórico?",
       "message": "Esta ação não pode ser desfeita.",
-      "clearAll": "Isso removerá todo o seu histórico de navegação.",
-      "clearSelected": "Isso removerá {{count}} itens selecionados.",
+      "clearAll": "Isso removera todo o seu historico de navegacao.",
+      "clearRange": "Limpar {{count}} {{entries}} da ultima {{range}}?",
+      "clearSelected": "Isso removera {{count}} itens selecionados.",
       "cancel": "Cancelar",
       "confirm": "Limpar"
+    },
+    "copied": "Copiado!",
+    "visitsCount": "({{count}} visitas)",
+    "entries": {
+      "singular": "entrada",
+      "plural": "entradas"
+    },
+    "timeRange": {
+      "hour": "hora",
+      "day": "dia",
+      "week": "semana"
     },
     "stats": {
       "totalVisits": "Visitas totais",
@@ -129,7 +169,9 @@
     },
     "timeFormat": {
       "justNow": "Agora mesmo",
-      "minutesAgo": "{{count}} minutos atrás",
+      "minuteAgo": "{{count}} min atras",
+      "hourAgo": "{{count}}h atras",
+      "minutesAgo": "{{count}} minutos atras",
       "hoursAgo": "{{count}} horas atrás",
       "yesterday": "Ontem",
       "daysAgo": "{{count}} dias atrás"

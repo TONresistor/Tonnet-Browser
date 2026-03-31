@@ -47,7 +47,7 @@ vi.mock('../../settings', () => ({
 }))
 
 vi.mock('../../utils/paths', () => ({
-  getBinaryPath: vi.fn(() => '/mock/bin/tonutils-proxy'),
+  getBinaryPath: vi.fn((name: string) => `/mock/bin/${name}`),
 }))
 
 vi.mock('electron', () => ({
@@ -83,18 +83,31 @@ import { spawn } from 'child_process'
 
 describe('ProxyManager', () => {
   let manager: ProxyManager
-  let mockProcess: ReturnType<typeof createMockProcess>
+  let mockProxyProcess: ReturnType<typeof createMockProcess>
+  let mockBridgeProcess: ReturnType<typeof createMockProcess>
 
   beforeEach(() => {
     vi.clearAllMocks()
-    mockProcess = createMockProcess()
-    vi.mocked(spawn).mockReturnValue(mockProcess as any)
+    vi.mocked(spawn).mockReset()
+    mockProxyProcess = createMockProcess()
+    mockBridgeProcess = createMockProcess()
+    // First spawn call = proxy, second = bridge
+    vi.mocked(spawn)
+      .mockReturnValueOnce(mockProxyProcess as any)
+      .mockReturnValueOnce(mockBridgeProcess as any)
     manager = new ProxyManager()
   })
 
-  afterEach(() => {
-    manager.stop()
+  afterEach(async () => {
+    await manager.stop()
   })
+
+  /** Emit proxy ready signal so start() resolves */
+  const emitProxyReady = (proc = mockProxyProcess) => {
+    setImmediate(() => {
+      proc.stderr.emit('data', Buffer.from('Starting proxy server'))
+    })
+  }
 
   describe('Initial State', () => {
     it('starts with status "stopped"', () => {
@@ -111,27 +124,71 @@ describe('ProxyManager', () => {
   })
 
   describe('start()', () => {
-    it('spawns proxy process with correct arguments', async () => {
-      // Simulate "Starting proxy server" output from tonutils-proxy
-      setImmediate(() => {
-        mockProcess.stderr.emit('data', Buffer.from('Starting proxy server'))
-      })
+    it('spawns proxy process with correct arguments (no -ws-addr)', async () => {
+      emitProxyReady()
 
       await manager.start()
 
       expect(spawn).toHaveBeenCalledWith(
         '/mock/bin/tonutils-proxy',
-        ['-addr', '127.0.0.1:8080', '-ws-addr', '127.0.0.1:8081'],
+        ['-addr', '127.0.0.1:8080'],
+        expect.objectContaining({ windowsHide: true, cwd: expect.stringContaining('proxy') })
+      )
+
+      manager.stop()
+    })
+
+    it('spawns bridge process with correct arguments', async () => {
+      emitProxyReady()
+
+      await manager.start()
+
+      expect(spawn).toHaveBeenCalledWith(
+        '/mock/bin/tonutils-bridge',
+        ['-addr', '127.0.0.1:8081', '-data-dir', expect.stringContaining('bridge'), '-verbosity', '2'],
         expect.objectContaining({ windowsHide: true })
       )
 
       manager.stop()
     })
 
-    it('throws if proxy already running', async () => {
+    it('spawns both proxy and bridge (two spawn calls)', async () => {
+      emitProxyReady()
+
+      await manager.start()
+
+      expect(spawn).toHaveBeenCalledTimes(2)
+
+      manager.stop()
+    })
+
+    it('bridge has no tunnel flag even in anonymous mode', async () => {
+      mockSettings.network.anonymousMode = true
+
+      const proxyProc = createMockProcess()
+      const bridgeProc = createMockProcess()
+      vi.mocked(spawn)
+        .mockReset()
+        .mockReturnValueOnce(proxyProc as any)
+        .mockReturnValueOnce(bridgeProc as any)
+
       setImmediate(() => {
-        mockProcess.stderr.emit('data', Buffer.from('Starting proxy server'))
+        proxyProc.stderr.emit('data', Buffer.from('Starting proxy server'))
       })
+
+      const newManager = new ProxyManager()
+      await newManager.start()
+
+      const bridgeCall = vi.mocked(spawn).mock.calls[1]
+      const bridgeArgs = bridgeCall[1] as string[]
+      expect(bridgeArgs).not.toContain('-tunnel')
+
+      newManager.stop()
+      mockSettings.network.anonymousMode = false
+    })
+
+    it('throws if proxy already running', async () => {
+      emitProxyReady()
 
       await manager.start()
 
@@ -140,105 +197,106 @@ describe('ProxyManager', () => {
       manager.stop()
     })
 
-    it('emits "status" event with "starting"', () => {
+    it('emits "status" event with "starting"', async () => {
+      emitProxyReady()
+
       const statusSpy = vi.fn()
       manager.on('status', statusSpy)
 
-      // Don't await - just trigger start
-      manager.start().catch(() => {})
+      await manager.start()
 
       expect(statusSpy).toHaveBeenCalledWith('starting')
+
+      await manager.stop()
     })
 
     it('uses default port 8080 for invalid port below 1024', async () => {
-      // Set invalid port below minimum
       mockSettings.network.proxyPort = 123
 
-      const newMockProcess = createMockProcess()
-      vi.mocked(spawn).mockReturnValue(newMockProcess as any)
+      const proxyProc = createMockProcess()
+      const bridgeProc = createMockProcess()
+      vi.mocked(spawn)
+        .mockReset()
+        .mockReturnValueOnce(proxyProc as any)
+        .mockReturnValueOnce(bridgeProc as any)
 
       setImmediate(() => {
-        newMockProcess.stderr.emit('data', Buffer.from('Starting proxy server'))
+        proxyProc.stderr.emit('data', Buffer.from('Starting proxy server'))
       })
 
       const newManager = new ProxyManager()
       await newManager.start()
 
       expect(spawn).toHaveBeenCalledWith(
-        expect.any(String),
-        ['-addr', '127.0.0.1:8080', '-ws-addr', '127.0.0.1:8081'],
+        '/mock/bin/tonutils-proxy',
+        ['-addr', '127.0.0.1:8080'],
         expect.objectContaining({ windowsHide: true })
       )
 
       newManager.stop()
-      // Reset
       mockSettings.network.proxyPort = 8080
     })
   })
 
   describe('stop()', () => {
-    it('kills the process', async () => {
-      setImmediate(() => {
-        mockProcess.stderr.emit('data', Buffer.from('Starting proxy server'))
-      })
+    it('kills both processes', async () => {
+      emitProxyReady()
 
       await manager.start()
-      manager.stop()
+      await manager.stop()
 
-      expect(mockProcess.kill).toHaveBeenCalledWith('SIGTERM')
+      expect(mockProxyProcess.kill).toHaveBeenCalledWith('SIGTERM')
+      expect(mockBridgeProcess.kill).toHaveBeenCalledWith('SIGTERM')
     })
 
     it('emits "disconnected" event', async () => {
-      setImmediate(() => {
-        mockProcess.stderr.emit('data', Buffer.from('Starting proxy server'))
-      })
+      emitProxyReady()
 
       const disconnectSpy = vi.fn()
       manager.on('disconnected', disconnectSpy)
 
       await manager.start()
-      manager.stop()
+      await manager.stop()
 
       expect(disconnectSpy).toHaveBeenCalled()
     })
 
     it('sets status to "stopped"', async () => {
-      setImmediate(() => {
-        mockProcess.stderr.emit('data', Buffer.from('Starting proxy server'))
-      })
+      emitProxyReady()
 
       await manager.start()
-      manager.stop()
+      await manager.stop()
 
       expect(manager.getStatus().status).toBe('stopped')
     })
 
-    it('does nothing if not running', () => {
-      expect(() => manager.stop()).not.toThrow()
-      expect(mockProcess.kill).not.toHaveBeenCalled()
+    it('does nothing if not running', async () => {
+      await expect(manager.stop()).resolves.toBeUndefined()
+      expect(mockProxyProcess.kill).not.toHaveBeenCalled()
+      expect(mockBridgeProcess.kill).not.toHaveBeenCalled()
     })
   })
 
   describe('waitForReady() timeout', () => {
     it('throws timeout error if proxy never outputs ready signal', async () => {
-      // Set short timeout for test
       mockSettings.network.connectionTimeout = 1
 
-      const newMockProcess = createMockProcess()
-      vi.mocked(spawn).mockReturnValue(newMockProcess as any)
+      const proxyProc = createMockProcess()
+      const bridgeProc = createMockProcess()
+      vi.mocked(spawn)
+        .mockReset()
+        .mockReturnValueOnce(proxyProc as any)
+        .mockReturnValueOnce(bridgeProc as any)
 
       const newManager = new ProxyManager()
 
       await expect(newManager.start()).rejects.toThrow('Proxy failed to start within timeout')
 
-      // Reset
       mockSettings.network.connectionTimeout = 5
     }, 10000)
 
     it('succeeds when proxy outputs "Starting proxy server"', async () => {
-      setImmediate(() => {
-        mockProcess.stderr.emit('data', Buffer.from('Starting proxy server'))
-      })
+      emitProxyReady()
 
       await expect(manager.start()).resolves.toBeUndefined()
 
@@ -247,52 +305,87 @@ describe('ProxyManager', () => {
   })
 
   describe('Process Events', () => {
-    it('emits "log" on stdout data', async () => {
-      setImmediate(() => {
-        mockProcess.stderr.emit('data', Buffer.from('Starting proxy server'))
-      })
+    it('emits "log" on proxy stdout data', async () => {
+      emitProxyReady()
 
       const logSpy = vi.fn()
       manager.on('log', logSpy)
 
       await manager.start()
-      mockProcess.stdout.emit('data', Buffer.from('Test log message'))
+      mockProxyProcess.stdout.emit('data', Buffer.from('Test log message'))
 
       expect(logSpy).toHaveBeenCalledWith('Test log message')
 
       manager.stop()
     })
 
-    it('emits "log" on stderr data', async () => {
-      setImmediate(() => {
-        mockProcess.stderr.emit('data', Buffer.from('Starting proxy server'))
-      })
+    it('emits "log" on proxy stderr data', async () => {
+      emitProxyReady()
 
       const logSpy = vi.fn()
       manager.on('log', logSpy)
 
       await manager.start()
-      mockProcess.stderr.emit('data', Buffer.from('Error message'))
+      mockProxyProcess.stderr.emit('data', Buffer.from('Error message'))
 
       expect(logSpy).toHaveBeenCalledWith('Error message')
 
       manager.stop()
     })
 
-    it('handles process exit', async () => {
-      setImmediate(() => {
-        mockProcess.stderr.emit('data', Buffer.from('Starting proxy server'))
-      })
+    it('emits "log" on bridge stdout data with [bridge] prefix', async () => {
+      emitProxyReady()
+
+      const logSpy = vi.fn()
+      manager.on('log', logSpy)
+
+      await manager.start()
+      mockBridgeProcess.stdout.emit('data', Buffer.from('Bridge log'))
+
+      expect(logSpy).toHaveBeenCalledWith('[bridge] Bridge log')
+
+      manager.stop()
+    })
+
+    it('handles proxy process exit', async () => {
+      emitProxyReady()
 
       const exitSpy = vi.fn()
       manager.on('exit', exitSpy)
 
       await manager.start()
-      mockProcess.emit('exit', 1)
+      mockProxyProcess.emit('exit', 1)
 
       expect(exitSpy).toHaveBeenCalledWith(1)
       expect(manager.getStatus().status).toBe('stopped')
       expect(manager.isRunning()).toBe(false)
+    })
+
+    it('handles bridge process exit', async () => {
+      emitProxyReady()
+
+      const exitSpy = vi.fn()
+      manager.on('exit', exitSpy)
+
+      await manager.start()
+      mockBridgeProcess.emit('exit', 1)
+
+      expect(exitSpy).toHaveBeenCalledWith(1)
+      expect(manager.isRunning()).toBe(false)
+    })
+
+    it('emits ws-bridge-ready when bridge outputs readiness marker', async () => {
+      emitProxyReady()
+
+      const bridgeReadySpy = vi.fn()
+      manager.on('ws-bridge-ready', bridgeReadySpy)
+
+      await manager.start()
+      mockBridgeProcess.stdout.emit('data', Buffer.from('WebSocket-ADNL bridge started'))
+
+      expect(bridgeReadySpy).toHaveBeenCalledWith(8081)
+
+      manager.stop()
     })
   })
 
@@ -309,9 +402,7 @@ describe('ProxyManager', () => {
     })
 
     it('returns correct status after start', async () => {
-      setImmediate(() => {
-        mockProcess.stderr.emit('data', Buffer.from('Starting proxy server'))
-      })
+      emitProxyReady()
 
       await manager.start()
 
@@ -325,9 +416,7 @@ describe('ProxyManager', () => {
 
   describe('getProxyUrl()', () => {
     it('returns correct proxy URL after start', async () => {
-      setImmediate(() => {
-        mockProcess.stderr.emit('data', Buffer.from('Starting proxy server'))
-      })
+      emitProxyReady()
 
       await manager.start()
 
@@ -354,11 +443,16 @@ describe('Port Validation', () => {
     [8080, 8080], // Default valid
     [65535, 65535], // Maximum valid
   ])('port %s resolves to %s', async (input, expected) => {
-    const testMockProcess = createMockProcess()
-    vi.mocked(spawn).mockReturnValue(testMockProcess as any)
+    vi.mocked(spawn).mockReset()
+
+    const testProxyProcess = createMockProcess()
+    const testBridgeProcess = createMockProcess()
+    vi.mocked(spawn)
+      .mockReturnValueOnce(testProxyProcess as any)
+      .mockReturnValueOnce(testBridgeProcess as any)
 
     setImmediate(() => {
-      testMockProcess.stderr.emit('data', Buffer.from('Starting proxy server'))
+      testProxyProcess.stderr.emit('data', Buffer.from('Starting proxy server'))
     })
 
     mockSettings.network.proxyPort = input

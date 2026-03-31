@@ -39,3 +39,4 @@ resources/bin/
 # Claude
 .claude/
 tonnet-demo/
+list.md

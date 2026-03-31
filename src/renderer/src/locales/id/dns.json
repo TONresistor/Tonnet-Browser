@@ -1,0 +1,26 @@
+{
+  "title": "Pencarian DNS",
+  "searchPlaceholder": "Masukkan domain .ton...",
+  "searching": "Mencari...",
+  "empty": "Masukkan domain .ton untuk mencari catatannya",
+  "notFound": "Domain tidak ditemukan atau tidak memiliki catatan",
+  "error": "Gagal mencari domain",
+  "fields": {
+    "wallet": "Dompet",
+    "owner": "Pemilik",
+    "siteAdnl": "Situs ADNL",
+    "hasStorage": "Penyimpanan",
+    "nftAddress": "Alamat NFT",
+    "collection": "Koleksi",
+    "editor": "Editor",
+    "initialized": "Diinisialisasi",
+    "expiringAt": "Kedaluwarsa",
+    "textRecords": "Catatan Teks"
+  },
+  "values": {
+    "yes": "Ya",
+    "no": "Tidak",
+    "none": "Belum diatur"
+  },
+  "copied": "Disalin!"
+}

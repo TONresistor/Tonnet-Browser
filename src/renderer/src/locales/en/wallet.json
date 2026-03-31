@@ -7,15 +7,9 @@
     "createWallet": "Create Wallet"
   },
   "tabs": {
-    "overview": "Overview",
     "send": "Send",
     "receive": "Receive",
     "history": "History"
-  },
-  "overview": {
-    "balance": "Balance",
-    "recent": "Recent Transactions",
-    "viewAll": "View All"
   },
   "send": {
     "recipientLabel": "Recipient Address",
@@ -34,12 +28,15 @@
     "error": "Transaction failed",
     "invalidAddress": "Invalid TON address",
     "invalidAmount": "Invalid amount",
-    "max": "Max"
+    "max": "Max",
+    "estimatedFee": "~0.01 TON"
   },
   "receive": {
     "addressLabel": "Your Wallet Address",
     "copyButton": "Copy Address",
-    "copied": "Copied!"
+    "copied": "Copied!",
+    "copyTitle": "Copy to clipboard",
+    "copyAria": "Copy wallet address to clipboard"
   },
   "history": {
     "empty": "No transactions yet",
@@ -53,7 +50,8 @@
       "pending": "Pending",
       "confirmed": "Confirmed",
       "failed": "Failed"
-    }
+    },
+    "x402Payment": "HTTP 402 Payment"
   },
   "dropdown": {
     "title": "Wallet",
@@ -130,12 +128,18 @@
       "perDay": "Per Day",
       "perSitePerMonth": "Per Site / Month",
       "placeholder": "0 = no limit",
-      "unit": "TON"
+      "unit": "TON",
+      "perRequestDesc": "Maximum amount for a single 402 payment",
+      "perDayDesc": "Maximum total spending in a rolling 24-hour window",
+      "perSitePerMonthDesc": "Maximum spending per domain in a rolling 30-day window",
+      "unlimitedNote": "Set to 0 for unlimited. Limits are enforced across all tabs."
     },
     "sites": {
       "title": "Site Permissions",
       "empty": "No site-specific permissions configured",
-      "remove": "Remove"
+      "remove": "Remove",
+      "spent": "Spent: {{amount}} TON",
+      "removePolicy": "Remove site policy"
     }
   },
   "payment": {

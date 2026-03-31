@@ -1,7 +1,7 @@
 {
   "start": {
     "title": "欢迎使用 Tonnet",
-    "subtitle": "Browse tonsites on TON Network, privately",
+    "subtitle": "在 TON 网络上私密浏览 tonsite",
     "searchPlaceholder": "搜索或输入 .ton 地址",
     "searchButton": "前往",
     "quickLinks": "快速链接",
@@ -14,11 +14,13 @@
     "tabs": {
       "active": "活动",
       "completed": "已完成",
-      "info": "信息"
+      "info": "信息",
+      "files": "文件"
     },
     "filters": {
       "all": "全部",
       "downloading": "下载中",
+      "complete": "已完成",
       "seeding": "做种中",
       "paused": "已暂停"
     },
@@ -29,7 +31,10 @@
       "remove": "移除",
       "openFolder": "打开文件夹",
       "copyBagId": "复制 Bag ID",
-      "details": "详情"
+      "details": "详情",
+      "addBag": "添加 Bag",
+      "settings": "设置",
+      "browseFiles": "浏览文件"
     },
     "table": {
       "name": "名称",
@@ -39,6 +44,7 @@
       "upload": "上传",
       "peers": "节点",
       "status": "状态",
+      "files": "文件",
       "added": "添加时间"
     },
     "status": {
@@ -56,8 +62,10 @@
       "bagIdPlaceholder": "输入 bag ID 或拖放种子文件...",
       "downloadPathLabel": "下载路径",
       "autoStartLabel": "自动开始下载",
+      "bagIdDescription": "输入 Bag ID 以开始下载。您可以在 TON 网站或其他用户处找到 Bag ID。",
       "cancel": "取消",
-      "add": "添加",
+      "add": "添加 Bag",
+      "adding": "添加中...",
       "browse": "浏览"
     },
     "info": {
@@ -69,8 +77,20 @@
       "uploadSpeed": "上传速度",
       "ratio": "分享率",
       "connectedPeers": "已连接节点",
-      "diskSpace": "磁盘空间"
+      "diskSpace": "磁盘空间",
+      "id": "ID",
+      "size": "大小",
+      "downloaded": "已下载",
+      "status": "状态",
+      "peers": "节点",
+      "files": "文件",
+      "download": "下载",
+      "upload": "上传",
+      "path": "路径"
     },
+    "searchBags": "搜索包...",
+    "loadingFiles": "加载文件中...",
+    "noFiles": "未找到文件或元数据尚未加载",
     "empty": {
       "title": "没有活动的下载",
       "description": "通过 Bag ID 或种子文件添加内容以开始",
@@ -88,6 +108,7 @@
     "title": "浏览历史",
     "description": "您的浏览历史和访问记录",
     "search": "搜索历史记录...",
+    "loading": "加载历史记录...",
     "filters": {
       "all": "全部时间",
       "today": "今天",
@@ -98,9 +119,14 @@
     },
     "actions": {
       "clearAll": "清除所有历史记录",
+      "clearLastHour": "清除最近一小时",
+      "clearLastDay": "清除最近一天",
       "clearToday": "清除今天",
       "clearSelected": "清除所选",
-      "export": "导出历史记录"
+      "export": "导出历史记录",
+      "openInNewTab": "在新标签页中打开",
+      "copyUrl": "复制 URL",
+      "delete": "删除"
     },
     "table": {
       "title": "标题",
@@ -110,16 +136,30 @@
     },
     "empty": {
       "title": "没有历史记录",
+      "noResults": "未找到结果",
       "description": "您访问的网站将显示在这里",
+      "tryDifferent": "请尝试其他搜索词",
       "allCleared": "所有历史记录已清除"
     },
     "clearConfirm": {
       "title": "清除历史记录？",
       "message": "此操作无法撤销。",
       "clearAll": "这将删除所有浏览历史记录。",
+      "clearRange": "清除最近 {{range}} 的 {{count}} 条 {{entries}}?",
       "clearSelected": "这将删除 {{count}} 个选定的项目。",
       "cancel": "取消",
       "confirm": "清除"
+    },
+    "copied": "已复制!",
+    "visitsCount": "({{count}} 次访问)",
+    "entries": {
+      "singular": "条记录",
+      "plural": "条记录"
+    },
+    "timeRange": {
+      "hour": "小时",
+      "day": "天",
+      "week": "周"
     },
     "stats": {
       "totalVisits": "总访问次数",
@@ -129,6 +169,8 @@
     },
     "timeFormat": {
       "justNow": "刚刚",
+      "minuteAgo": "{{count}} 分钟前",
+      "hourAgo": "{{count}} 小时前",
       "minutesAgo": "{{count}} 分钟前",
       "hoursAgo": "{{count}} 小时前",
       "yesterday": "昨天",

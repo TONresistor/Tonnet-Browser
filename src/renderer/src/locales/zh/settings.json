@@ -11,6 +11,7 @@
     "shortcuts": "快捷键",
     "bookmarks": "书签",
     "advanced": "高级",
+    "wallet": "Wallet",
     "about": "关于"
   },
   "appearance": {
@@ -43,7 +44,11 @@
       "showBookmarksBar": "显示书签栏",
       "showBookmarksBarDesc": "显示快速访问书签",
       "showStatusBar": "显示状态栏",
-      "showStatusBarDesc": "在底部显示连接状态"
+      "showStatusBarDesc": "在底部显示连接状态",
+      "tabOrientation": "标签页方向",
+      "tabOrientationDesc": "水平或垂直显示标签页",
+      "tabOrientationHorizontal": "水平 (顶部)",
+      "tabOrientationVertical": "垂直 (侧边栏)"
     },
     "language": {
       "label": "语言",
@@ -220,10 +225,11 @@
     "folderPlaceholder": "输入文件夹名称...",
     "create": "创建",
     "renameFolder": "重命名文件夹",
+    "deleteFolder": "删除文件夹",
     "deleteConfirm": "删除 \"{{name}}\"？",
     "maxDepthReached": "已达到最大文件夹深度（3 层）。",
-    "deleteFolderConfirm": "Delete this folder? Bookmarks will be moved to Unfiled.",
-    "confirm": "Confirm"
+    "deleteFolderConfirm": "删除此文件夹？书签将移至未分类。",
+    "confirm": "确认"
   },
   "advanced": {
     "title": "高级",
@@ -239,7 +245,7 @@
     "syncTestDomain": "同步测试域名",
     "syncTestDomainDesc": "用于验证 DHT 同步的域名",
     "resetAll": "将所有设置重置为默认值",
-    "resetAllConfirm": "Click again to confirm"
+    "resetAllConfirm": "再次点击确认"
   },
   "about": {
     "title": "关于",
@@ -270,6 +276,132 @@
     "notSet": "未设置",
     "updateInterval": "更新间隔",
     "updateIntervalDesc": "刷新下载统计信息的频率"
+  },
+  "wallet": {
+    "title": "Wallet",
+    "description": "配置 TON 钱包和 HTTP 402 支付设置",
+    "paymentMode": "默认支付模式",
+    "paymentModeDesc": "如何处理来自 .ton 网站的 HTTP 402 支付请求",
+    "modeOff": "关闭",
+    "modeManual": "手动",
+    "modeAuto": "自动",
+    "notificationStyle": "通知样式",
+    "notificationStyleDesc": "支付请求的显示方式",
+    "notifBanner": "横幅",
+    "notifModal": "弹窗",
+    "notifToast": "浮动通知",
+    "notifPanel": "面板",
+    "spendingLimits": "支出限额",
+    "spendingLimitsDesc": "设置自动支付的最大金额 (0 = 无限制)",
+    "perRequest": "每次请求",
+    "perRequestDesc": "单次支付最大金额",
+    "perDay": "每天",
+    "perDayDesc": "每日最大支出",
+    "perSitePerMonth": "每站点 / 月",
+    "perSitePerMonthDesc": "每个站点每月最大支出",
+    "sitePolicies": "网站权限",
+    "sitePoliciesDesc": "各网站的支付模式覆盖",
+    "spent": "已花费",
+    "removeSitePolicy": "移除 {{domain}} 的策略"
+  },
+  "themeEditor": {
+    "colors": {
+      "background": "背景",
+      "backgroundDesc": "主背景",
+      "backgroundSecondary": "次要背景",
+      "backgroundSecondaryDesc": "侧边栏、面板",
+      "foreground": "前景",
+      "foregroundDesc": "主文本颜色",
+      "card": "卡片",
+      "cardDesc": "卡片背景",
+      "cardForeground": "卡片文本",
+      "primary": "主要",
+      "primaryDesc": "按钮、链接",
+      "primaryForeground": "主要文本",
+      "secondary": "次要",
+      "secondaryForeground": "次要文本",
+      "accent": "强调",
+      "accentDesc": "高亮",
+      "accentForeground": "强调文本",
+      "muted": "柔和",
+      "mutedDesc": "淡色背景",
+      "mutedForeground": "柔和文本",
+      "mutedForegroundDesc": "次要文本",
+      "destructive": "危险",
+      "destructiveDesc": "错误、删除",
+      "destructiveForeground": "危险文本",
+      "success": "成功",
+      "successDesc": "已连接、有效",
+      "successForeground": "成功文本",
+      "warning": "警告",
+      "warningDesc": "警示状态",
+      "warningForeground": "警告文本",
+      "info": "信息",
+      "infoDesc": "信息",
+      "infoForeground": "信息文本",
+      "border": "边框",
+      "borderDesc": "默认边框",
+      "input": "输入框",
+      "inputDesc": "输入框背景",
+      "ring": "聚焦环",
+      "ringDesc": "聚焦环"
+    },
+    "sections": {
+      "background": "背景",
+      "text": "文本",
+      "primaryAccent": "主要和强调",
+      "secondaryMuted": "次要和柔和",
+      "statusColors": "状态颜色",
+      "borderInput": "边框和输入"
+    },
+    "editor": {
+      "themeName": "主题名称",
+      "descriptionPlaceholder": "描述（可选）",
+      "themeType": "主题类型:",
+      "dark": "深色",
+      "light": "浅色",
+      "preview": "预览",
+      "resetToBase": "重置为基础主题:",
+      "cancel": "取消",
+      "saveTheme": "保存主题"
+    },
+    "preview": {
+      "tab1": "标签 1",
+      "tab2": "标签 2",
+      "cardTitle": "卡片标题",
+      "cardDesc": "主题预览。",
+      "primary": "主要",
+      "secondary": "次要",
+      "connected": "已连接",
+      "syncing": "同步中"
+    },
+    "list": {
+      "noThemes": "还没有自定义主题。创建一个开始使用。",
+      "darkTheme": "深色主题",
+      "lightTheme": "浅色主题",
+      "editTheme": "编辑主题",
+      "duplicateTheme": "复制主题",
+      "exportTheme": "导出主题",
+      "deleteTheme": "删除主题",
+      "confirmDelete": "再次点击确认"
+    },
+    "importDialog": {
+      "title": "导入主题",
+      "themeJson": "主题 JSON",
+      "pastePrompt": "请粘贴主题 JSON",
+      "invalidFormat": "无效的主题格式。请检查 JSON 结构。",
+      "or": "或",
+      "uploadFile": "上传 JSON 文件",
+      "import": "导入"
+    },
+    "exportDialog": {
+      "title": "导出主题",
+      "close": "关闭",
+      "copied": "已复制",
+      "copy": "复制",
+      "download": "下载"
+    },
+    "customThemePrefix": "自定义主题"
   },
   "actions": {
     "unsavedChanges": "有未保存的更改",

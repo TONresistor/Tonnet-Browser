@@ -53,6 +53,7 @@ export interface BagDetails {
   size: number
   active: boolean
   seeding: boolean
+  dir_name?: string // Directory name from storage daemon response
 }
 
 // --- Zod Schemas ---
@@ -417,41 +418,26 @@ export interface PaymentNotificationData {
   error?: string
 }
 
-export interface NftItem {
-  address: string
-  name: string
-  description?: string
-  image?: string
-  collection?: string
-}
-
-export interface TonDomain {
-  name: string
-  address: string
-  owner: string
-  expiresAt: number
-  walletRecord?: string
-}
-
-export interface DomainLookupResult {
-  name: string
-  owner: string
-  expiresAt: number
-  nftAddress: string
-  records: {
-    wallet?: string
-    site?: string
-    storage?: string
-    nextResolver?: string
-  }
-}
-
 export interface WalletSettings {
   paymentMode: PaymentMode
   notificationStyle: NotificationStyle
   limits: SpendingLimits
   sitePolicies: SitePolicy[]
   autoPayDomains: string[]
+}
+
+/** DNS resolve result from the bridge */
+export interface DnsResolveResult {
+  wallet: string | null
+  site_adnl: string | null
+  has_storage: boolean
+  owner: string | null
+  nft_address: string | null
+  collection: string | null
+  editor: string | null
+  initialized: boolean
+  expiring_at: number | null
+  text_records?: Record<string, string>
 }
 
 // IPC Channel names
@@ -553,8 +539,7 @@ export const IPC_CHANNELS = {
   WALLET_REJECT_PAYMENT: 'wallet:reject-payment',
   WALLET_IMPORT: 'wallet:import',
   WALLET_EXPORT_MNEMONIC: 'wallet:export-mnemonic',
-  WALLET_RESOLVE_DOMAIN: 'wallet:resolve-domain',
-  WALLET_GET_NFTS: 'wallet:get-nfts',
-  WALLET_GET_DOMAINS: 'wallet:get-domains',
-  WALLET_LOOKUP_DOMAIN: 'wallet:lookup-domain',
+
+  // DNS
+  DNS_RESOLVE: 'dns:resolve',
 } as const

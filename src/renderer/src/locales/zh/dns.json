@@ -1,0 +1,26 @@
+{
+  "title": "DNS 查询",
+  "searchPlaceholder": "输入 .ton 域名...",
+  "searching": "解析中...",
+  "empty": "输入 .ton 域名以查询其记录",
+  "notFound": "未找到域名或没有记录",
+  "error": "域名解析失败",
+  "fields": {
+    "wallet": "钱包",
+    "owner": "所有者",
+    "siteAdnl": "站点 ADNL",
+    "hasStorage": "存储",
+    "nftAddress": "NFT 地址",
+    "collection": "集合",
+    "editor": "编辑者",
+    "initialized": "已初始化",
+    "expiringAt": "到期时间",
+    "textRecords": "文本记录"
+  },
+  "values": {
+    "yes": "是",
+    "no": "否",
+    "none": "未设置"
+  },
+  "copied": "已复制!"
+}

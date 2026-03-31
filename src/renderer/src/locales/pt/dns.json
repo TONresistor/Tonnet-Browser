@@ -1,0 +1,26 @@
+{
+  "title": "Consulta DNS",
+  "searchPlaceholder": "Digite um dominio .ton...",
+  "searching": "Resolvendo...",
+  "empty": "Digite um dominio .ton para consultar seus registros",
+  "notFound": "Dominio nao encontrado ou sem registros",
+  "error": "Falha ao resolver o dominio",
+  "fields": {
+    "wallet": "Carteira",
+    "owner": "Proprietario",
+    "siteAdnl": "Site ADNL",
+    "hasStorage": "Armazenamento",
+    "nftAddress": "Endereco NFT",
+    "collection": "Colecao",
+    "editor": "Editor",
+    "initialized": "Inicializado",
+    "expiringAt": "Expira em",
+    "textRecords": "Registros de texto"
+  },
+  "values": {
+    "yes": "Sim",
+    "no": "Nao",
+    "none": "Nao definido"
+  },
+  "copied": "Copiado!"
+}

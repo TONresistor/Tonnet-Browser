@@ -26,6 +26,9 @@
     "syncing": "Sincronizando",
     "synced": "Sincronizado"
   },
+  "loading": {
+    "settings": "Carregando configurações..."
+  },
   "errors": {
     "generic": "Ocorreu um erro",
     "network": "Erro de rede",
@@ -36,5 +39,10 @@
   "tooltips": {
     "storage": "Storage",
     "settings": "Settings"
+  },
+  "error": {
+    "title": "Algo deu errado",
+    "description": "O aplicativo encontrou um erro inesperado. Tente recarregar para recuperar.",
+    "reload": "Recarregar aplicativo"
   }
 }

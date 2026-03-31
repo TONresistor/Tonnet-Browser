@@ -9,11 +9,12 @@ import { cn } from '@/lib/utils'
 import { isIpcError } from '@/lib/ipc-utils'
 import { formatTonAmount } from '@/stores/wallet'
 import type { SitePolicy, PaymentMode } from '@shared/types'
+import { useTranslation } from 'react-i18next'
 
-const MODE_LABELS: Record<PaymentMode, string> = {
-  off: 'Off',
-  manual: 'Manual',
-  auto: 'Auto',
+const MODE_LABEL_KEYS: Record<PaymentMode, string> = {
+  off: 'settings.modes.off',
+  manual: 'settings.modes.manual',
+  auto: 'settings.modes.auto',
 }
 
 const MODE_COLORS: Record<PaymentMode, string> = {
@@ -23,6 +24,7 @@ const MODE_COLORS: Record<PaymentMode, string> = {
 }
 
 export function SitePermissions() {
+  const { t } = useTranslation('wallet')
   const [policies, setPolicies] = useState<SitePolicy[]>([])
 
   const loadPolicies = useCallback(async () => {
@@ -60,7 +62,7 @@ export function SitePermissions() {
     return (
       <div className="flex flex-col items-center justify-center py-8 text-muted-foreground gap-2">
         <Globe className="h-6 w-6 opacity-40" />
-        <p className="text-sm">No site-specific policies configured</p>
+        <p className="text-sm">{t('settings.sites.empty')}</p>
       </div>
     )
   }
@@ -73,7 +75,9 @@ export function SitePermissions() {
 
           <div className="flex-1 min-w-0">
             <div className="text-sm font-medium text-foreground truncate">{policy.domain}</div>
-            <div className="text-xs text-muted-foreground">Spent: {formatTonAmount(policy.totalSpent)} TON</div>
+            <div className="text-xs text-muted-foreground">
+              {t('settings.sites.spent', { amount: formatTonAmount(policy.totalSpent) })}
+            </div>
           </div>
 
           <select
@@ -81,9 +85,9 @@ export function SitePermissions() {
             onChange={(e) => updateMode(policy.domain, e.target.value as PaymentMode)}
             className={cn('text-xs px-2 py-1 rounded border border-border bg-background', MODE_COLORS[policy.mode])}
           >
-            {Object.entries(MODE_LABELS).map(([value, label]) => (
+            {Object.entries(MODE_LABEL_KEYS).map(([value, key]) => (
               <option key={value} value={value}>
-                {label}
+                {t(key)}
               </option>
             ))}
           </select>
@@ -91,7 +95,7 @@ export function SitePermissions() {
           <button
             onClick={() => removeSite(policy.domain)}
             className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
-            title="Remove site policy"
+            title={t('settings.sites.removePolicy')}
           >
             <Trash2 className="h-3.5 w-3.5" />
           </button>

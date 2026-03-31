@@ -9,6 +9,7 @@ import { useThemeStore } from '../../stores/themes'
 import { RESISTANCE_DOG_COLORS, UTYA_DUCK_COLORS } from '../../lib/theme-utils'
 import { ColorSection } from './ColorSection'
 import { ThemePreview } from './ThemePreview'
+import { useTranslation } from 'react-i18next'
 
 interface ThemeEditorProps {
   themeId: string
@@ -19,23 +20,23 @@ interface ThemeEditorProps {
 // Color sections for organized editing
 const COLOR_SECTIONS = [
   {
-    title: 'Background',
+    titleKey: 'themeEditor.sections.background',
     keys: ['background', 'backgroundSecondary', 'card'] as (keyof ThemeColors)[],
   },
   {
-    title: 'Text',
+    titleKey: 'themeEditor.sections.text',
     keys: ['foreground', 'cardForeground', 'mutedForeground'] as (keyof ThemeColors)[],
   },
   {
-    title: 'Primary & Accent',
+    titleKey: 'themeEditor.sections.primaryAccent',
     keys: ['primary', 'primaryForeground', 'accent', 'accentForeground'] as (keyof ThemeColors)[],
   },
   {
-    title: 'Secondary & Muted',
+    titleKey: 'themeEditor.sections.secondaryMuted',
     keys: ['secondary', 'secondaryForeground', 'muted'] as (keyof ThemeColors)[],
   },
   {
-    title: 'Status Colors',
+    titleKey: 'themeEditor.sections.statusColors',
     keys: [
       'success',
       'successForeground',
@@ -48,12 +49,13 @@ const COLOR_SECTIONS = [
     ] as (keyof ThemeColors)[],
   },
   {
-    title: 'Border & Input',
+    titleKey: 'themeEditor.sections.borderInput',
     keys: ['border', 'input', 'ring'] as (keyof ThemeColors)[],
   },
 ]
 
 export function ThemeEditor({ themeId, onClose, onSave }: ThemeEditorProps) {
+  const { t } = useTranslation('settings')
   const { customThemes, updateTheme, saveToSettings } = useThemeStore()
   const theme = customThemes.find((t) => t.id === themeId)
 
@@ -112,14 +114,14 @@ export function ThemeEditor({ themeId, onClose, onSave }: ThemeEditorProps) {
               value={localName}
               onChange={(e) => setLocalName(e.target.value)}
               className="text-lg font-semibold bg-transparent border-none outline-none text-foreground w-full"
-              placeholder="Theme Name"
+              placeholder={t('themeEditor.editor.themeName')}
             />
             <input
               type="text"
               value={localDescription}
               onChange={(e) => setLocalDescription(e.target.value)}
               className="text-sm text-muted-foreground bg-transparent border-none outline-none w-full mt-1"
-              placeholder="Description (optional)"
+              placeholder={t('themeEditor.editor.descriptionPlaceholder')}
             />
           </div>
           <button
@@ -136,7 +138,7 @@ export function ThemeEditor({ themeId, onClose, onSave }: ThemeEditorProps) {
           <div className="flex-1 overflow-y-auto p-6 space-y-6">
             {/* Theme type toggle */}
             <div className="flex items-center gap-4 p-3 rounded-lg bg-surface">
-              <span className="text-sm font-medium">Theme Type:</span>
+              <span className="text-sm font-medium">{t('themeEditor.editor.themeType')}</span>
               <button
                 onClick={() => setLocalIsDark(true)}
                 className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm transition-colors ${
@@ -144,7 +146,7 @@ export function ThemeEditor({ themeId, onClose, onSave }: ThemeEditorProps) {
                 }`}
               >
                 <Moon className="w-4 h-4" />
-                Dark
+                {t('themeEditor.editor.dark')}
               </button>
               <button
                 onClick={() => setLocalIsDark(false)}
@@ -153,15 +155,15 @@ export function ThemeEditor({ themeId, onClose, onSave }: ThemeEditorProps) {
                 }`}
               >
                 <Sun className="w-4 h-4" />
-                Light
+                {t('themeEditor.editor.light')}
               </button>
             </div>
 
             {/* Color sections */}
             {COLOR_SECTIONS.map((section) => (
               <ColorSection
-                key={section.title}
-                title={section.title}
+                key={section.titleKey}
+                title={t(section.titleKey)}
                 colorKeys={section.keys}
                 colors={localColors}
                 onChange={handleColorChange}
@@ -171,27 +173,27 @@ export function ThemeEditor({ themeId, onClose, onSave }: ThemeEditorProps) {
 
           {/* Right: Preview */}
           <div className="w-[340px] border-l border-border p-6 flex flex-col gap-4 bg-background-secondary">
-            <h3 className="text-sm font-semibold">Preview</h3>
+            <h3 className="text-sm font-semibold">{t('themeEditor.editor.preview')}</h3>
 
             <ThemePreview colors={localColors} isDark={localIsDark} />
 
             {/* Reset buttons */}
             <div className="space-y-2">
-              <p className="text-xs text-muted-foreground">Reset to base theme:</p>
+              <p className="text-xs text-muted-foreground">{t('themeEditor.editor.resetToBase')}</p>
               <div className="flex gap-2">
                 <button
                   onClick={() => handleReset('resistance-dog')}
                   className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-surface hover:bg-surface-hover text-sm transition-colors"
                 >
                   <RotateCcw className="w-3 h-3" />
-                  Dark
+                  {t('themeEditor.editor.dark')}
                 </button>
                 <button
                   onClick={() => handleReset('utya-duck')}
                   className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-surface hover:bg-surface-hover text-sm transition-colors"
                 >
                   <RotateCcw className="w-3 h-3" />
-                  Light
+                  {t('themeEditor.editor.light')}
                 </button>
               </div>
             </div>
@@ -204,14 +206,14 @@ export function ThemeEditor({ themeId, onClose, onSave }: ThemeEditorProps) {
             onClick={onClose}
             className="px-4 py-2 rounded-lg bg-surface hover:bg-surface-hover text-foreground transition-colors"
           >
-            Cancel
+            {t('themeEditor.editor.cancel')}
           </button>
           <button
             onClick={handleSave}
             className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:opacity-90 transition-opacity"
           >
             <Check className="w-4 h-4" />
-            Save Theme
+            {t('themeEditor.editor.saveTheme')}
           </button>
         </div>
       </div>

@@ -26,6 +26,8 @@ import { useTabsStore } from '@/stores/tabs'
 import { ErrorBoundary } from '../ErrorBoundary'
 import { SortableBookmarkItem } from './SortableBookmarkItem'
 import { DroppableFolder } from './DroppableFolder'
+import { BookmarkEditModal } from './BookmarkEditModal'
+import { BookmarkRenameModal } from './BookmarkRenameModal'
 import { useTranslation } from 'react-i18next'
 
 interface EditModal {
@@ -57,8 +59,6 @@ export function BookmarksBar() {
   const [activeId, setActiveId] = useState<string | null>(null)
   const [pendingFolderDeleteId, setPendingFolderDeleteId] = useState<string | null>(null)
   const folderDeleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const editModalRef = useRef<HTMLDivElement>(null)
-  const renameModalRef = useRef<HTMLDivElement>(null)
 
   // Use refs to avoid re-registering listeners
   const addTabRef = useRef(addTab)
@@ -94,74 +94,6 @@ export function BookmarksBar() {
       window.electron.view.show()
     }
   }, [editModal, renameModal])
-
-  // Focus trap for edit modal
-  useEffect(() => {
-    if (!editModal) return
-
-    const modal = editModalRef.current
-    if (!modal) return
-
-    const focusableSelector = 'input, button, select, textarea, [tabindex]:not([tabindex="-1"])'
-    const focusableElements = modal.querySelectorAll<HTMLElement>(focusableSelector)
-    const firstFocusable = focusableElements[0]
-    const lastFocusable = focusableElements[focusableElements.length - 1]
-
-    firstFocusable?.focus()
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Tab') {
-        if (e.shiftKey) {
-          if (document.activeElement === firstFocusable) {
-            e.preventDefault()
-            lastFocusable?.focus()
-          }
-        } else {
-          if (document.activeElement === lastFocusable) {
-            e.preventDefault()
-            firstFocusable?.focus()
-          }
-        }
-      }
-    }
-
-    modal.addEventListener('keydown', handleKeyDown)
-    return () => modal.removeEventListener('keydown', handleKeyDown)
-  }, [editModal])
-
-  // Focus trap for rename modal
-  useEffect(() => {
-    if (!renameModal) return
-
-    const modal = renameModalRef.current
-    if (!modal) return
-
-    const focusableSelector = 'input, button, select, textarea, [tabindex]:not([tabindex="-1"])'
-    const focusableElements = modal.querySelectorAll<HTMLElement>(focusableSelector)
-    const firstFocusable = focusableElements[0]
-    const lastFocusable = focusableElements[focusableElements.length - 1]
-
-    firstFocusable?.focus()
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Tab') {
-        if (e.shiftKey) {
-          if (document.activeElement === firstFocusable) {
-            e.preventDefault()
-            lastFocusable?.focus()
-          }
-        } else {
-          if (document.activeElement === lastFocusable) {
-            e.preventDefault()
-            firstFocusable?.focus()
-          }
-        }
-      }
-    }
-
-    modal.addEventListener('keydown', handleKeyDown)
-    return () => modal.removeEventListener('keydown', handleKeyDown)
-  }, [renameModal])
 
   // Listen for IPC events from main process - only once
   useEffect(() => {
@@ -243,7 +175,6 @@ export function BookmarksBar() {
 
   const handleFolderClick = (folderId: string) => {
     const folderBookmarks = getBookmarksByFolder(folderId)
-    // Convert to simple objects for IPC
     const bookmarksData = folderBookmarks.map((b) => ({
       id: b.id,
       title: b.title,
@@ -254,13 +185,11 @@ export function BookmarksBar() {
 
   const handleFolderContextMenu = (e: React.MouseEvent, folderId: string, folderName: string) => {
     e.preventDefault()
-    e.stopPropagation() // Prevent normal click dropdown
+    e.stopPropagation()
     window.electron.showFolderContextMenu(folderId, folderName)
   }
 
-  const closeEditModal = () => {
-    setEditModal(null)
-  }
+  const closeEditModal = () => setEditModal(null)
 
   const handleSaveEdit = () => {
     if (editModal) {
@@ -269,6 +198,15 @@ export function BookmarksBar() {
         url: editModal.url.trim() || editModal.bookmark.url,
       })
       closeEditModal()
+    }
+  }
+
+  const handleSaveRename = () => {
+    if (renameModal) {
+      if (renameModal.name.trim()) {
+        updateFolder(renameModal.folderId, { name: renameModal.name.trim() })
+      }
+      setRenameModal(null)
     }
   }
 
@@ -286,53 +224,41 @@ export function BookmarksBar() {
     const activeId = active.id as string
     const overId = over.id as string
 
-    // Check if dragging a folder
     const isActiveFolder = activeId.startsWith('folder-')
     const isOverFolder = overId.startsWith('folder-') || overId.startsWith('droppable-')
 
-    // Case 1: Reordering folders
     if (isActiveFolder && isOverFolder && activeId !== overId) {
       const actualOverId = overId.startsWith('droppable-') ? overId.replace('droppable-', '') : overId
-
       if (activeId === actualOverId) return
-
       const oldIndex = topLevelFolders.findIndex((f) => f.id === activeId)
       const newIndex = topLevelFolders.findIndex((f) => f.id === actualOverId)
-
       if (oldIndex !== -1 && newIndex !== -1) {
         reorderFolders(activeId, newIndex, null)
       }
       return
     }
 
-    // Case 2: Dropping bookmark on a folder
     if (!isActiveFolder && over.data.current?.type === 'folder') {
       const targetFolderId = over.data.current.folderId
       reorderBookmarks(activeId, targetFolderId, 0)
       return
     }
 
-    // Case 3: Reordering bookmarks in the bar
     if (!isActiveFolder && !isOverFolder && activeId !== overId) {
       const oldIndex = topLevelBookmarks.findIndex((b) => b.id === activeId)
       const newIndex = topLevelBookmarks.findIndex((b) => b.id === overId)
-
       if (oldIndex !== -1 && newIndex !== -1) {
         reorderBookmarks(activeId, null, newIndex)
       }
     }
   }
 
-  // Get active item for drag overlay
   const getActiveItem = () => {
     if (!activeId) return null
-
     const bookmark = topLevelBookmarks.find((b) => b.id === activeId)
     if (bookmark) return { type: 'bookmark', item: bookmark }
-
     const folder = topLevelFolders.find((f) => f.id === activeId)
     if (folder) return { type: 'folder', item: folder }
-
     return null
   }
 
@@ -350,19 +276,15 @@ export function BookmarksBar() {
             onDragStart({ active }) {
               const bookmark = topLevelBookmarks.find((b) => b.id === active.id)
               if (bookmark) return tBrowser('dnd.pickedUp', { type: 'bookmark', name: bookmark.title })
-
               const folder = topLevelFolders.find((f) => f.id === active.id)
               if (folder) return tBrowser('dnd.pickedUp', { type: 'folder', name: folder.name })
-
               return tBrowser('dnd.pickedUp', { type: 'item', name: '' })
             },
             onDragOver({ active, over }) {
               if (!over) return ''
-
               const activeBookmark = topLevelBookmarks.find((b) => b.id === active.id)
               const overBookmark = topLevelBookmarks.find((b) => b.id === over.id)
               const overFolder = topLevelFolders.find((f) => f.id === over.id || `droppable-${f.id}` === over.id)
-
               if (activeBookmark && overBookmark) {
                 return tBrowser('dnd.movedOver', { name: activeBookmark.title, target: overBookmark.title })
               }
@@ -373,10 +295,8 @@ export function BookmarksBar() {
             },
             onDragEnd({ active, over }) {
               if (!over) return tBrowser('dnd.cancelled')
-
               const activeBookmark = topLevelBookmarks.find((b) => b.id === active.id)
               const overFolder = topLevelFolders.find((f) => f.id === over.id || `droppable-${f.id}` === over.id)
-
               if (activeBookmark && overFolder) {
                 return tBrowser('dnd.droppedOn', { name: activeBookmark.title, target: overFolder.name })
               }
@@ -388,17 +308,14 @@ export function BookmarksBar() {
             onDragCancel({ active }) {
               const bookmark = topLevelBookmarks.find((b) => b.id === active.id)
               if (bookmark) return tBrowser('dnd.cancelled', { name: bookmark.title })
-
               const folder = topLevelFolders.find((f) => f.id === active.id)
               if (folder) return tBrowser('dnd.cancelled', { name: folder.name })
-
               return tBrowser('dnd.cancelled')
             },
           },
         }}
       >
         <div className="flex items-center gap-1.5 px-2 pt-1 pb-2 overflow-x-auto">
-          {/* Sortable bookmarks context */}
           <SortableContext items={topLevelBookmarks.map((b) => b.id)} strategy={horizontalListSortingStrategy}>
             {topLevelBookmarks.map((bookmark) => (
               <SortableBookmarkItem
@@ -410,7 +327,6 @@ export function BookmarksBar() {
             ))}
           </SortableContext>
 
-          {/* Sortable folders context */}
           <SortableContext items={topLevelFolders.map((f) => f.id)} strategy={horizontalListSortingStrategy}>
             {topLevelFolders.map((folder) => (
               <DroppableFolder
@@ -423,7 +339,6 @@ export function BookmarksBar() {
           </SortableContext>
         </div>
 
-        {/* Drag Overlay */}
         <DragOverlay>
           {activeItem && activeItem.type === 'bookmark' && (
             <div className="px-2.5 py-1.5 rounded-full text-sm bg-surface text-foreground shadow-2xl opacity-90 flex items-center gap-2 border border-border-medium">
@@ -464,114 +379,22 @@ export function BookmarksBar() {
         </div>
       )}
 
-      {/* Edit Modal */}
       {editModal && (
-        <div
-          className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center"
-          onClick={closeEditModal}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="edit-bookmark-title"
-        >
-          <div
-            ref={editModalRef}
-            className="rounded-[var(--radius-container)] p-5 w-full max-w-sm mx-4 glass-surface shadow-2xl font-sans"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 id="edit-bookmark-title" className="text-foreground font-bold mb-4">
-              {t('bookmarks.editBookmark')}
-            </h3>
-            <div className="space-y-3">
-              <div>
-                <label className="text-muted-foreground text-xs block mb-1">{t('bookmarks.name')}</label>
-                <input
-                  value={editModal.name}
-                  onChange={(e) => setEditModal({ ...editModal, name: e.target.value })}
-                  className="w-full px-3 py-2 rounded-full text-sm text-foreground outline-none bg-surface-hover border border-border-medium"
-                  autoFocus
-                />
-              </div>
-              <div>
-                <label className="text-muted-foreground text-xs block mb-1">{t('bookmarks.url')}</label>
-                <input
-                  value={editModal.url}
-                  onChange={(e) => setEditModal({ ...editModal, url: e.target.value })}
-                  className="w-full px-3 py-2 rounded-full text-sm text-foreground outline-none bg-surface-hover border border-border-medium"
-                />
-              </div>
-            </div>
-            <div className="flex gap-3 mt-5">
-              <button
-                className="flex-1 py-2.5 rounded-full text-sm font-medium text-muted-foreground transition-all duration-200 hover:text-foreground bg-surface-hover border border-border-medium"
-                onClick={closeEditModal}
-              >
-                {t('bookmarks.cancel')}
-              </button>
-              <button
-                className="flex-1 py-2.5 rounded-full text-sm font-medium transition-all duration-200 hover:scale-[1.02] bg-primary/90 text-foreground shadow-primary/40 shadow-lg"
-                onClick={handleSaveEdit}
-              >
-                {t('bookmarks.save')}
-              </button>
-            </div>
-          </div>
-        </div>
+        <BookmarkEditModal
+          editModal={editModal}
+          onChangeModal={setEditModal}
+          onSave={handleSaveEdit}
+          onClose={closeEditModal}
+        />
       )}
 
-      {/* Rename Modal */}
       {renameModal && (
-        <div
-          className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center"
-          onClick={() => setRenameModal(null)}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="rename-folder-title"
-        >
-          <div
-            ref={renameModalRef}
-            className="rounded-[var(--radius-container)] p-5 w-full max-w-sm mx-4 glass-surface shadow-2xl font-sans"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 id="rename-folder-title" className="text-foreground font-bold mb-4">
-              {t('bookmarks.renameFolder')}
-            </h3>
-            <input
-              value={renameModal.name}
-              onChange={(e) => setRenameModal({ ...renameModal, name: e.target.value })}
-              className="w-full px-3 py-2 rounded-full text-sm text-foreground outline-none bg-surface-hover border border-border-medium"
-              autoFocus
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  if (renameModal.name.trim()) {
-                    updateFolder(renameModal.folderId, { name: renameModal.name.trim() })
-                  }
-                  setRenameModal(null)
-                } else if (e.key === 'Escape') {
-                  setRenameModal(null)
-                }
-              }}
-            />
-            <div className="flex gap-3 mt-5">
-              <button
-                className="flex-1 py-2.5 rounded-full text-sm font-medium text-muted-foreground transition-all duration-200 hover:text-foreground bg-surface-hover border border-border-medium"
-                onClick={() => setRenameModal(null)}
-              >
-                {t('bookmarks.cancel')}
-              </button>
-              <button
-                className="flex-1 py-2.5 rounded-full text-sm font-medium transition-all duration-200 hover:scale-[1.02] bg-primary/90 text-foreground shadow-primary/40 shadow-lg"
-                onClick={() => {
-                  if (renameModal.name.trim()) {
-                    updateFolder(renameModal.folderId, { name: renameModal.name.trim() })
-                  }
-                  setRenameModal(null)
-                }}
-              >
-                {t('bookmarks.save')}
-              </button>
-            </div>
-          </div>
-        </div>
+        <BookmarkRenameModal
+          renameModal={renameModal}
+          onChangeModal={setRenameModal}
+          onSave={handleSaveRename}
+          onClose={() => setRenameModal(null)}
+        />
       )}
     </ErrorBoundary>
   )

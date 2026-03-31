@@ -11,7 +11,7 @@ import { writeFile } from 'fs/promises'
 import { EventEmitter } from 'events'
 import { pathToFileURL } from 'url'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
-import { registerIpcHandlers } from './ipc/handlers'
+import { registerIpcHandlers, emitToRenderer } from './ipc/handlers'
 import { getActiveView } from './windows/tabs'
 import { proxyManager } from './proxy/manager'
 import { storageManager } from './storage/daemon'
@@ -204,19 +204,19 @@ function createWindow(): void {
       autoConnectStarted = true
       appLog.info('Auto-connect enabled, starting proxy...')
       const sendProgress = (step: number, message: string) => {
-        mainWindow.webContents.send('proxy:progress', { step, message })
+        emitToRenderer('proxy:progress', { step, message })
       }
       // Tell renderer to show loading state
-      mainWindow.webContents.send('proxy:auto-connect')
+      emitToRenderer('proxy:auto-connect')
       try {
         await startProxySequence(sendProgress, proxyManager, storageManager, mainWindow)
         appLog.info('Auto-connect complete')
         // Notify renderer of connection status
-        mainWindow.webContents.send('proxy:status', { ...proxyManager.getStatus(), status: 'connected' })
+        emitToRenderer('proxy:status', { ...proxyManager.getStatus(), status: 'connected' })
       } catch (error) {
         appLog.error(`Auto-connect failed: ${String(error)}`)
         // Notify renderer of connection failure (field name matches ProxyStatus.error)
-        mainWindow.webContents.send('proxy:status', {
+        emitToRenderer('proxy:status', {
           status: 'error',
           error: error instanceof Error ? error.message : String(error),
         })

@@ -8,7 +8,7 @@ import { webContents } from 'electron'
 import { paymentPolicyStore, normalizeToSecondLevel } from './payment-policy'
 import { walletManager } from './manager'
 import { walletHistoryManager } from './history'
-import { getMainWindow } from '../windows/main'
+import { emitToRenderer } from '../ipc/handlers'
 import { getSetting } from '../settings'
 import { WALLET_MAX_TIMEOUT_SECONDS, TON_MAINNET_CAIP2, TON_NATIVE_ASSET, X402_VERSION } from '../../shared/constants'
 import type { PaymentRequirements, PaymentNotificationData, WalletTransaction } from '../../shared/types'
@@ -100,13 +100,6 @@ function validatePaymentRequirements(
   }
 
   return { valid: true }
-}
-
-function emitToRenderer(channel: string, data: unknown): void {
-  const mainWindow = getMainWindow()
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send(channel, data)
-  }
 }
 
 /**

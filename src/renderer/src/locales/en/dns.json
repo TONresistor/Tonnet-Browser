@@ -1,0 +1,26 @@
+{
+  "title": "DNS Lookup",
+  "searchPlaceholder": "Enter .ton domain...",
+  "searching": "Resolving...",
+  "empty": "Enter a .ton domain to look up its records",
+  "notFound": "Domain not found or has no records",
+  "error": "Failed to resolve domain",
+  "fields": {
+    "wallet": "Wallet",
+    "owner": "Owner",
+    "siteAdnl": "Site ADNL",
+    "hasStorage": "Storage",
+    "nftAddress": "NFT Address",
+    "collection": "Collection",
+    "editor": "Editor",
+    "initialized": "Initialized",
+    "expiringAt": "Expires",
+    "textRecords": "Text Records"
+  },
+  "values": {
+    "yes": "Yes",
+    "no": "No",
+    "none": "Not set"
+  },
+  "copied": "Copied!"
+}

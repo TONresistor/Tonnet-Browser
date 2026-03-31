@@ -1,23 +1,11 @@
 /**
  * Wallet page at ton://wallet.
- * Full wallet UI with tabs: Overview, Send, Receive, History.
- * Supports mnemonic import/export for compatibility with Tonkeeper/MyTonWallet.
+ * Layout: balance + action buttons always visible, transaction history below.
+ * Send/Receive triggered via action buttons as inline views.
  */
 
 import { useEffect, useState, useCallback, memo } from 'react'
-import {
-  Send,
-  Download,
-  History,
-  RefreshCw,
-  Plus,
-  LoaderCircle,
-  AlertTriangle,
-  Check,
-  Copy,
-  Globe,
-  ImageIcon,
-} from 'lucide-react'
+import { Send, Download, RefreshCw, Plus, LoaderCircle, AlertTriangle, Check, Copy, ArrowLeft } from 'lucide-react'
 import Lottie from 'lottie-react'
 import explorerAnimation from '@/assets/explorer.json'
 import walletIcon from '@/assets/wallet.svg'
@@ -27,26 +15,10 @@ import { useWalletStore, formatTonAmount } from '@/stores/wallet'
 import { SendForm } from '@/components/wallet/SendForm'
 import { ReceivePanel } from '@/components/wallet/ReceivePanel'
 import { TransactionList } from '@/components/wallet/TransactionList'
-import { DnsTab } from '@/components/wallet/DnsTab'
-import { NftGrid } from '@/components/wallet/NftGrid'
-import { cn } from '@/lib/utils'
 import { UI_COPY_FEEDBACK_MS } from '@shared/constants'
 import { useTranslation } from 'react-i18next'
 
-type Tab = 'overview' | 'send' | 'receive' | 'history' | 'dns' | 'nft'
-
-const TABS: { id: Tab; label?: string; labelKey?: string; Icon: React.ElementType }[] = [
-  {
-    id: 'overview',
-    labelKey: 'tabs.overview',
-    Icon: ({ className }: { className?: string }) => <img src={walletIcon} alt="" className={className} />,
-  },
-  { id: 'send', labelKey: 'tabs.send', Icon: Send },
-  { id: 'receive', labelKey: 'tabs.receive', Icon: Download },
-  { id: 'history', labelKey: 'tabs.history', Icon: History },
-  { id: 'dns', label: 'TON DNS', Icon: Globe },
-  { id: 'nft', label: 'NFT', Icon: ImageIcon },
-]
+type ActionView = 'send' | 'receive' | null
 
 export function WalletPage() {
   const { t } = useTranslation('wallet')
@@ -64,11 +36,10 @@ export function WalletPage() {
     send,
     loadHistory,
     refreshBalance,
-    activeTab,
-    setActiveTab,
   } = useWalletStore()
   const [newMnemonic, setNewMnemonic] = useState<string[] | null>(null)
   const [copied, setCopied] = useState(false)
+  const [actionView, setActionView] = useState<ActionView>(null)
 
   useEffect(() => {
     init()
@@ -113,7 +84,6 @@ export function WalletPage() {
     return (
       <div className="h-full bg-background-secondary overflow-auto" style={{ fontFamily: 'Inter, sans-serif' }}>
         <div className="p-8 max-w-4xl mx-auto">
-          {/* Inline header */}
           <div className="mb-8">
             <div className="flex items-center gap-3">
               <img src={walletIcon} alt="" className="w-8 h-8" />
@@ -151,6 +121,28 @@ export function WalletPage() {
               {t('backup.confirm')}
             </Button>
           </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Send/Receive inline view
+  if (actionView) {
+    return (
+      <div className="h-full bg-background-secondary overflow-auto" style={{ fontFamily: 'Inter, sans-serif' }}>
+        <div className="p-5 max-w-md mx-auto">
+          <div className="mb-4">
+            <button
+              type="button"
+              onClick={() => setActionView(null)}
+              className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              {t('send.back')}
+            </button>
+          </div>
+          {actionView === 'send' && <SendForm onSend={send} isSending={isSending} error={error} balance={balance} />}
+          {actionView === 'receive' && <ReceivePanel address={address} />}
         </div>
       </div>
     )
@@ -202,118 +194,37 @@ export function WalletPage() {
             </Button>
           </div>
         ) : (
-          <>
-            {/* Tab nav */}
-            <div className="flex justify-center mb-4 mx-auto w-fit border-b border-border">
-              {TABS.map(({ id, label, labelKey, Icon }) => (
-                <button
-                  key={id}
-                  type="button"
-                  onClick={() => setActiveTab(id)}
-                  className={cn(
-                    'flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 transition-colors',
-                    activeTab === id
-                      ? 'border-primary text-primary'
-                      : 'border-transparent text-muted-foreground hover:text-foreground'
-                  )}
-                  aria-selected={activeTab === id}
-                  role="tab"
-                >
-                  <Icon className="h-3.5 w-3.5" aria-hidden="true" />
-                  {label || t(labelKey!)}
-                </button>
-              ))}
+          <div className="max-w-lg mx-auto">
+            {/* Balance: flat, large, single line */}
+            <div className="text-center mb-4">
+              <p className="text-4xl font-bold text-foreground tracking-tight">
+                {formatTonAmount(balance)} <span className="text-2xl font-semibold text-muted-foreground">TON</span>
+              </p>
             </div>
 
-            {/* Tab content */}
-            <div>
-              {activeTab === 'overview' && (
-                <div className="max-w-lg mx-auto space-y-3">
-                  {/* Balance card */}
-                  <div className="bg-card/85 backdrop-blur-[20px] rounded-2xl border border-border p-5 text-center shadow-[0_8px_32px_hsl(var(--shadow-color)/0.15)]">
-                    <p className="text-xs text-muted-foreground mb-1">{t('overview.balance')}</p>
-                    <p className="text-3xl font-bold text-foreground tracking-tight">{formatTonAmount(balance)}</p>
-                    <p className="text-sm text-muted-foreground mt-0.5">TON</p>
-                  </div>
-
-                  {/* Quick actions */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setActiveTab('send')}
-                      className="h-9 flex-1 flex items-center justify-center gap-2 rounded-full bg-surface-hover backdrop-blur-[10px] border border-border-medium text-sm font-medium text-foreground hover:bg-surface-active transition-all duration-200"
-                    >
-                      <Send className="h-3.5 w-3.5" />
-                      {t('tabs.send')}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setActiveTab('receive')}
-                      className="h-9 flex-1 flex items-center justify-center gap-2 rounded-full bg-surface-hover backdrop-blur-[10px] border border-border-medium text-sm font-medium text-foreground hover:bg-surface-active transition-all duration-200"
-                    >
-                      <Download className="h-3.5 w-3.5" />
-                      {t('tabs.receive')}
-                    </button>
-                  </div>
-
-                  {/* Recent transactions */}
-                  <div>
-                    <div className="flex items-center justify-between mb-3">
-                      <h3 className="text-sm font-medium text-foreground">{t('overview.recent')}</h3>
-                      {transactions.length > 5 && (
-                        <button
-                          type="button"
-                          className="text-xs text-primary hover:underline"
-                          onClick={() => setActiveTab('history')}
-                        >
-                          {t('overview.viewAll')}
-                        </button>
-                      )}
-                    </div>
-                    <div className="glass-card px-3">
-                      <TransactionList transactions={transactions.slice(0, 5)} />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {activeTab === 'send' && (
-                <div className="max-w-md mx-auto">
-                  <div className="glass-card p-4">
-                    <SendForm onSend={send} isSending={isSending} error={error} balance={balance} />
-                  </div>
-                </div>
-              )}
-
-              {activeTab === 'receive' && (
-                <div className="max-w-md mx-auto">
-                  <div className="glass-card p-4">
-                    <ReceivePanel address={address} />
-                  </div>
-                </div>
-              )}
-
-              {activeTab === 'history' && (
-                <div className="max-w-lg mx-auto">
-                  <div className="glass-card px-3">
-                    <TransactionList transactions={transactions} />
-                  </div>
-                </div>
-              )}
-
-              {activeTab === 'dns' && (
-                <div className="max-w-lg mx-auto">
-                  <DnsTab />
-                </div>
-              )}
-
-              {activeTab === 'nft' && (
-                <div className="max-w-lg mx-auto">
-                  <NftGrid />
-                </div>
-              )}
+            {/* Action buttons */}
+            <div className="grid grid-cols-2 gap-3 mb-6">
+              <button
+                type="button"
+                onClick={() => setActionView('send')}
+                className="h-9 flex items-center justify-center gap-2 rounded-full bg-surface-hover backdrop-blur-[10px] border border-border-medium text-sm font-medium text-foreground hover:bg-surface-active transition-all duration-200"
+              >
+                <Send className="h-3.5 w-3.5" />
+                {t('tabs.send')}
+              </button>
+              <button
+                type="button"
+                onClick={() => setActionView('receive')}
+                className="h-9 flex items-center justify-center gap-2 rounded-full bg-surface-hover backdrop-blur-[10px] border border-border-medium text-sm font-medium text-foreground hover:bg-surface-active transition-all duration-200"
+              >
+                <Download className="h-3.5 w-3.5" />
+                {t('tabs.receive')}
+              </button>
             </div>
-          </>
+
+            {/* Transaction history */}
+            <TransactionList transactions={transactions} />
+          </div>
         )}
       </div>
     </div>

@@ -20,8 +20,8 @@ import {
   registerWalletHandlers,
 } from './handlers/index'
 
-// Re-export secureHandle for use by other modules (e.g. updater.ts)
-export { secureHandle } from './handlers/shared'
+// Re-export for use by other modules (e.g. updater.ts, payment-interceptor.ts)
+export { secureHandle, emitToRenderer } from './handlers/shared'
 
 // Guard to prevent multiple listener registrations
 let handlersRegistered = false

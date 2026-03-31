@@ -1,7 +1,7 @@
 {
   "start": {
     "title": "Willkommen bei Tonnet",
-    "subtitle": "Browse tonsites on TON Network, privately",
+    "subtitle": "Tonsites im TON-Netzwerk privat durchsuchen",
     "searchPlaceholder": "Suchen oder .ton-Adresse eingeben",
     "searchButton": "Los",
     "quickLinks": "Schnellzugriffe",
@@ -14,22 +14,27 @@
     "tabs": {
       "active": "Aktiv",
       "completed": "Abgeschlossen",
-      "info": "Information"
+      "info": "Information",
+      "files": "Dateien"
     },
     "filters": {
       "all": "Alle",
       "downloading": "Download läuft",
+      "complete": "Abgeschlossen",
       "seeding": "Seeding",
       "paused": "Pausiert"
     },
     "actions": {
+      "addBag": "Bag hinzufügen",
       "addTorrent": "Torrent hinzufügen",
       "pause": "Pausieren",
       "resume": "Fortsetzen",
       "remove": "Entfernen",
       "openFolder": "Ordner öffnen",
       "copyBagId": "Bag-ID kopieren",
-      "details": "Details"
+      "details": "Details",
+      "settings": "Einstellungen",
+      "browseFiles": "Dateien durchsuchen"
     },
     "table": {
       "name": "Name",
@@ -39,6 +44,7 @@
       "upload": "Upload",
       "peers": "Peers",
       "status": "Status",
+      "files": "Dateien",
       "added": "Hinzugefügt"
     },
     "status": {
@@ -58,6 +64,8 @@
       "autoStartLabel": "Download automatisch starten",
       "cancel": "Abbrechen",
       "add": "Hinzufügen",
+      "adding": "Wird hinzugefügt...",
+      "bagIdDescription": "Geben Sie die Bag-ID ein, um den Download zu starten. Bag-IDs finden Sie auf TON-Websites oder von anderen Benutzern.",
       "browse": "Durchsuchen"
     },
     "info": {
@@ -69,7 +77,16 @@
       "uploadSpeed": "Upload-Geschwindigkeit",
       "ratio": "Verhältnis",
       "connectedPeers": "Verbundene Peers",
-      "diskSpace": "Festplattenspeicher"
+      "diskSpace": "Festplattenspeicher",
+      "id": "ID",
+      "size": "Größe",
+      "downloaded": "Heruntergeladen",
+      "status": "Status",
+      "peers": "Peers",
+      "files": "Dateien",
+      "download": "Download",
+      "upload": "Upload",
+      "path": "Pfad"
     },
     "empty": {
       "title": "Keine aktiven Downloads",
@@ -82,12 +99,16 @@
       "addFailed": "Hinzufügen des Torrents fehlgeschlagen",
       "removeFailed": "Entfernen fehlgeschlagen",
       "noSpace": "Nicht genügend Festplattenspeicher"
-    }
+    },
+    "searchBags": "Bags durchsuchen...",
+    "loadingFiles": "Dateien werden geladen...",
+    "noFiles": "Keine Dateien gefunden oder Metadaten noch nicht geladen"
   },
   "history": {
     "title": "Browserverlauf",
     "description": "Dein Browserverlauf und Besuchsprotokoll",
     "search": "Verlauf durchsuchen...",
+    "loading": "Verlauf wird geladen...",
     "filters": {
       "all": "Gesamte Zeit",
       "today": "Heute",
@@ -98,9 +119,14 @@
     },
     "actions": {
       "clearAll": "Gesamten Verlauf löschen",
+      "clearLastHour": "Letzte Stunde löschen",
+      "clearLastDay": "Letzten Tag löschen",
       "clearToday": "Heute löschen",
       "clearSelected": "Ausgewählte löschen",
-      "export": "Verlauf exportieren"
+      "export": "Verlauf exportieren",
+      "openInNewTab": "In neuem Tab öffnen",
+      "copyUrl": "URL kopieren",
+      "delete": "Löschen"
     },
     "table": {
       "title": "Titel",
@@ -110,16 +136,30 @@
     },
     "empty": {
       "title": "Kein Verlauf",
+      "noResults": "Keine Ergebnisse gefunden",
       "description": "Besuchte Websites werden hier angezeigt",
+      "tryDifferent": "Versuchen Sie einen anderen Suchbegriff",
       "allCleared": "Der gesamte Verlauf wurde gelöscht"
     },
     "clearConfirm": {
       "title": "Verlauf löschen?",
       "message": "Diese Aktion kann nicht rückgängig gemacht werden.",
       "clearAll": "Dies wird deinen gesamten Browserverlauf löschen.",
+      "clearRange": "{{count}} {{entries}} der letzten {{range}} löschen?",
       "clearSelected": "Dies wird {{count}} ausgewählte Elemente löschen.",
       "cancel": "Abbrechen",
       "confirm": "Löschen"
+    },
+    "copied": "Kopiert!",
+    "visitsCount": "({{count}} Besuche)",
+    "entries": {
+      "singular": "Eintrag",
+      "plural": "Einträge"
+    },
+    "timeRange": {
+      "hour": "Stunde",
+      "day": "Tag",
+      "week": "Woche"
     },
     "stats": {
       "totalVisits": "Besuche insgesamt",
@@ -129,6 +169,8 @@
     },
     "timeFormat": {
       "justNow": "Gerade eben",
+      "minuteAgo": "vor {{count}} Min",
+      "hourAgo": "vor {{count}}h",
       "minutesAgo": "vor {{count}} Minuten",
       "hoursAgo": "vor {{count}} Stunden",
       "yesterday": "Gestern",

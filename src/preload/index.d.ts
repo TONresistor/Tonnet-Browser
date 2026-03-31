@@ -237,41 +237,9 @@ declare global {
         rejectPayment: (id: string) => Promise<{ success: boolean }>
         importWallet: (mnemonic: string[]) => Promise<WalletState>
         exportMnemonic: () => Promise<{ mnemonic: string[] }>
-        resolveDomain: (domain: string) => Promise<{
-          address: string
-          source: 'wallet-record' | 'owner-fallback'
-          domain: string
-        }>
-        getNfts: () => Promise<
-          Array<{
-            address: string
-            name: string
-            description?: string
-            image?: string
-            collection?: string
-          }>
-        >
-        getDomains: () => Promise<
-          Array<{
-            name: string
-            address: string
-            owner: string
-            expiresAt: number
-            walletRecord?: string
-          }>
-        >
-        lookupDomain: (domain: string) => Promise<{
-          name: string
-          owner: string
-          expiresAt: number
-          nftAddress: string
-          records: {
-            wallet?: string
-            site?: string
-            storage?: string
-            nextResolver?: string
-          }
-        }>
+      }
+      dns: {
+        resolve(domain: string): Promise<import('../shared/types').DnsResolveResult>
       }
       on: (channel: string, callback: (...args: unknown[]) => void) => () => void
       off: (channel: string, callback?: (...args: unknown[]) => void) => void

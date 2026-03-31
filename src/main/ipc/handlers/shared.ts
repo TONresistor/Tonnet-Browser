@@ -3,7 +3,7 @@
  */
 
 import { ipcMain, IpcMainInvokeEvent } from 'electron'
-import { handleWithErrors } from '../error-handler'
+import { ipcErrorHandler } from '../error-handler'
 import { RateLimiter } from '../validation'
 import { createLogger } from '../../../shared/logger'
 import { getMainWindow } from '../../windows/main'
@@ -13,6 +13,15 @@ export const log = createLogger('ipc')
 // Lenient limits: 30 nav/sec, 10 storage ops/sec
 export const navLimiter = new RateLimiter(30, 1000)
 export const storageLimiter = new RateLimiter(10, 1000)
+
+/**
+ * Send a message to the renderer process via the main window.
+ * Replaces the pattern: const win = getMainWindow(); if (win) win.webContents.send(...)
+ */
+export function emitToRenderer(channel: string, ...args: unknown[]): void {
+  const win = getMainWindow()
+  if (win) win.webContents.send(channel, ...args)
+}
 
 /**
  * Security: Verify IPC call originates from the main window, not a compromised tab/WebContentsView
@@ -32,7 +41,7 @@ export function verifyIpcOrigin(event: IpcMainInvokeEvent): void {
 }
 
 /**
- * Secure ipcMain.handle wrapper - verifies origin + catches errors
+ * Secure ipcMain.handle wrapper - verifies origin + catches errors + logs to IpcErrorHandler
  * All IPC handlers should use this to prevent calls from compromised WebContentsViews
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -42,8 +51,9 @@ export function secureHandle(channel: string, handler: (...args: any[]) => any):
       verifyIpcOrigin(event)
       return await handler(...args)
     } catch (err) {
-      log.error(`Error in handler '${channel}': ${(err as Error).message}`)
-      return { success: false, error: (err as Error).message }
+      const error = err instanceof Error ? err : new Error(String(err))
+      ipcErrorHandler.logError(channel, error)
+      return { success: false, error: error.message }
     }
   })
 }
@@ -51,7 +61,7 @@ export function secureHandle(channel: string, handler: (...args: any[]) => any):
 /**
  * Secure ipcMain.handle wrapper for handlers that need the event parameter
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
 export function secureHandleWithEvent(
   channel: string,
   handler: (event: IpcMainInvokeEvent, ...args: any[]) => any
@@ -61,23 +71,9 @@ export function secureHandleWithEvent(
       verifyIpcOrigin(event)
       return await handler(event, ...args)
     } catch (err) {
-      log.error(`Error in handler '${channel}': ${(err as Error).message}`)
-      return { success: false, error: (err as Error).message }
+      const error = err instanceof Error ? err : new Error(String(err))
+      ipcErrorHandler.logError(channel, error)
+      return { success: false, error: error.message }
     }
-  })
-}
-
-/**
- * Wrapper for handleWithErrors that adds origin verification
- * Use for handlers that need the full error wrapping + origin check
- */
-export function handleSecure<T = unknown>(
-  channel: string,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  handler: (event: IpcMainInvokeEvent, ...args: any[]) => Promise<T> | T
-): void {
-  handleWithErrors(channel, async (event, ...args) => {
-    verifyIpcOrigin(event)
-    return await handler(event, ...args)
   })
 }

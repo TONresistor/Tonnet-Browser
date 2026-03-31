@@ -1,0 +1,156 @@
+{
+  "page": {
+    "title": "Wallet",
+    "refresh": "刷新",
+    "noWalletTitle": "无 Wallet",
+    "noWalletDesc": "创建新钱包或导入现有钱包以开始使用。",
+    "createWallet": "创建 Wallet"
+  },
+  "tabs": {
+    "send": "发送",
+    "receive": "接收",
+    "history": "历史"
+  },
+  "send": {
+    "recipientLabel": "收款地址",
+    "recipientPlaceholder": "EQ... 或 0:...",
+    "amountLabel": "金额",
+    "feeNote": "网络手续费: {{fee}} TON",
+    "reviewButton": "审核交易",
+    "confirm": "确认交易",
+    "to": "收款方",
+    "amount": "金额",
+    "fee": "手续费",
+    "back": "返回",
+    "sending": "发送中...",
+    "success": "交易已发送!",
+    "successDesc": "您的交易已广播到网络。",
+    "error": "交易失败",
+    "invalidAddress": "无效的 TON 地址",
+    "invalidAmount": "无效的金额",
+    "max": "最大",
+    "estimatedFee": "~0.01 TON"
+  },
+  "receive": {
+    "addressLabel": "您的 Wallet 地址",
+    "copyButton": "复制地址",
+    "copied": "已复制!",
+    "copyTitle": "复制到剪贴板",
+    "copyAria": "复制钱包地址到剪贴板"
+  },
+  "history": {
+    "empty": "暂无交易",
+    "clear": "清除历史",
+    "types": {
+      "send": "已发送",
+      "receive": "已接收",
+      "x402": "HTTP 402 支付"
+    },
+    "status": {
+      "pending": "待处理",
+      "confirmed": "已确认",
+      "failed": "失败"
+    },
+    "x402Payment": "HTTP 402 支付"
+  },
+  "dropdown": {
+    "title": "Wallet",
+    "balance": "余额",
+    "address": "地址",
+    "send": "发送",
+    "receive": "接收",
+    "openWallet": "打开 Wallet",
+    "copyAddress": "复制地址",
+    "copyAddressAria": "复制钱包地址到剪贴板",
+    "copied": "已复制!",
+    "noWallet": "还没有钱包。创建一个开始使用。",
+    "createWallet": "创建 Wallet",
+    "ariaLabel": "Wallet 下拉菜单"
+  },
+  "import": {
+    "title": "导入 Wallet",
+    "description": "输入您的 24 个助记词",
+    "placeholder": "输入以空格分隔的 24 个单词...",
+    "button": "导入 Wallet",
+    "importing": "导入中...",
+    "success": "Wallet 导入成功",
+    "error": "无效的助记词",
+    "confirm": "这将替换您当前的钱包。确定吗?",
+    "confirmButton": "是的, 替换",
+    "cancelButton": "取消"
+  },
+  "export": {
+    "title": "助记词",
+    "warning": "切勿分享这些单词。任何人拥有它们都可以访问您的资金。",
+    "showButton": "显示助记词",
+    "hideButton": "隐藏",
+    "copied": "已复制到剪贴板"
+  },
+  "backup": {
+    "title": "保存您的助记词",
+    "warning": "写下这 24 个单词并妥善保管。",
+    "warningDesc": "这是恢复钱包的唯一方式。如果您丢失了这些单词, 您的资金将永远丢失。切勿与任何人分享。",
+    "yourPhrase": "您的 24 个助记词",
+    "copy": "复制到剪贴板",
+    "confirm": "我已保存助记词"
+  },
+  "create": {
+    "title": "创建 Wallet",
+    "description": "创建新的 TON 钱包以发送、接收和支付内容。",
+    "button": "创建 Wallet",
+    "creating": "创建中...",
+    "orImport": "或导入现有钱包"
+  },
+  "statusBar": {
+    "balance": "{{amount}} TON"
+  },
+  "settings": {
+    "title": "Wallet 设置",
+    "walletManagement": "钱包管理",
+    "paymentMode": "默认支付模式",
+    "paymentModeDescription": "如何处理 HTTP 402 支付请求",
+    "modes": {
+      "off": "关闭",
+      "manual": "手动",
+      "auto": "自动"
+    },
+    "notificationStyle": "通知样式",
+    "notificationStyleDescription": "支付请求的显示方式",
+    "styles": {
+      "banner": "横幅",
+      "modal": "弹窗",
+      "toast": "浮动通知",
+      "panel": "面板"
+    },
+    "limits": {
+      "title": "支出限额",
+      "perRequest": "每次请求",
+      "perDay": "每天",
+      "perSitePerMonth": "每站点 / 月",
+      "placeholder": "0 = 无限制",
+      "unit": "TON",
+      "perRequestDesc": "单次 402 支付的最大金额",
+      "perDayDesc": "24 小时滚动窗口内的最大支出",
+      "perSitePerMonthDesc": "每个域名 30 天滚动窗口内的最大支出",
+      "unlimitedNote": "设为 0 表示无限制。限额在所有标签页中生效。"
+    },
+    "sites": {
+      "title": "网站权限",
+      "empty": "尚未配置特定网站的权限",
+      "remove": "移除",
+      "spent": "已花费: {{amount}} TON",
+      "removePolicy": "移除网站策略"
+    }
+  },
+  "payment": {
+    "title": "支付请求",
+    "domain": "网站",
+    "amount": "金额",
+    "recipient": "收款方",
+    "approve": "支付",
+    "reject": "拒绝",
+    "success": "支付成功",
+    "failed": "支付失败",
+    "limitReached": "已达支出限额"
+  }
+}

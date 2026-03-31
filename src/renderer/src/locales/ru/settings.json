@@ -11,6 +11,7 @@
     "shortcuts": "Горячие клавиши",
     "bookmarks": "Закладки",
     "advanced": "Дополнительно",
+    "wallet": "Wallet",
     "about": "О программе"
   },
   "appearance": {
@@ -43,7 +44,11 @@
       "showBookmarksBar": "Показывать панель закладок",
       "showBookmarksBarDesc": "Отображать быстрый доступ к закладкам",
       "showStatusBar": "Показывать строку состояния",
-      "showStatusBarDesc": "Отображать статус подключения внизу"
+      "showStatusBarDesc": "Отображать статус подключения внизу",
+      "tabOrientation": "Ориентация вкладок",
+      "tabOrientationDesc": "Отображать вкладки горизонтально или вертикально",
+      "tabOrientationHorizontal": "Горизонтально (сверху)",
+      "tabOrientationVertical": "Вертикально (боковая панель)"
     },
     "language": {
       "label": "Язык",
@@ -220,10 +225,11 @@
     "folderPlaceholder": "Введите имя папки...",
     "create": "Создать",
     "renameFolder": "Переименовать папку",
+    "deleteFolder": "Удалить папку",
     "deleteConfirm": "Удалить \"{{name}}\"?",
     "maxDepthReached": "Достигнута максимальная глубина вложенности (3 уровня).",
-    "deleteFolderConfirm": "Delete this folder? Bookmarks will be moved to Unfiled.",
-    "confirm": "Confirm"
+    "deleteFolderConfirm": "Удалить эту папку? Закладки будут перемещены в Несортированные.",
+    "confirm": "Подтвердить"
   },
   "advanced": {
     "title": "Дополнительно",
@@ -239,7 +245,7 @@
     "syncTestDomain": "Домен проверки синхронизации",
     "syncTestDomainDesc": "Домен для проверки синхронизации DHT",
     "resetAll": "Сбросить все настройки на значения по умолчанию",
-    "resetAllConfirm": "Click again to confirm"
+    "resetAllConfirm": "Нажмите ещё раз для подтверждения"
   },
   "about": {
     "title": "О программе",
@@ -270,6 +276,132 @@
     "notSet": "Не установлено",
     "updateInterval": "Интервал обновления",
     "updateIntervalDesc": "Как часто обновлять статистику загрузок"
+  },
+  "wallet": {
+    "title": "Wallet",
+    "description": "Настройка TON кошелька и параметров оплаты HTTP 402",
+    "paymentMode": "Режим оплаты по умолчанию",
+    "paymentModeDesc": "Как обрабатывать запросы оплаты HTTP 402 от .ton сайтов",
+    "modeOff": "Выкл",
+    "modeManual": "Вручную",
+    "modeAuto": "Авто",
+    "notificationStyle": "Стиль уведомлений",
+    "notificationStyleDesc": "Как отображаются запросы на оплату",
+    "notifBanner": "Баннер",
+    "notifModal": "Модальное окно",
+    "notifToast": "Всплывающее уведомление",
+    "notifPanel": "Панель",
+    "spendingLimits": "Лимиты расходов",
+    "spendingLimitsDesc": "Установите максимальные суммы для автоматических платежей (0 = без лимита)",
+    "perRequest": "За запрос",
+    "perRequestDesc": "Максимальная сумма за один платёж",
+    "perDay": "В день",
+    "perDayDesc": "Максимальные расходы за день",
+    "perSitePerMonth": "На сайт / месяц",
+    "perSitePerMonthDesc": "Максимальные расходы на сайт в месяц",
+    "sitePolicies": "Разрешения сайтов",
+    "sitePoliciesDesc": "Переопределение режима оплаты для отдельных сайтов",
+    "spent": "Потрачено",
+    "removeSitePolicy": "Удалить политику для {{domain}}"
+  },
+  "themeEditor": {
+    "colors": {
+      "background": "Фон",
+      "backgroundDesc": "Основной фон",
+      "backgroundSecondary": "Вторичный фон",
+      "backgroundSecondaryDesc": "Боковая панель, панели",
+      "foreground": "Передний план",
+      "foregroundDesc": "Основной цвет текста",
+      "card": "Карточка",
+      "cardDesc": "Фон карточек",
+      "cardForeground": "Текст карточки",
+      "primary": "Основной",
+      "primaryDesc": "Кнопки, ссылки",
+      "primaryForeground": "Основной текст",
+      "secondary": "Вторичный",
+      "secondaryForeground": "Вторичный текст",
+      "accent": "Акцент",
+      "accentDesc": "Выделения",
+      "accentForeground": "Текст акцента",
+      "muted": "Приглушённый",
+      "mutedDesc": "Неброские фоны",
+      "mutedForeground": "Приглушённый текст",
+      "mutedForegroundDesc": "Вторичный текст",
+      "destructive": "Деструктивный",
+      "destructiveDesc": "Ошибки, удаление",
+      "destructiveForeground": "Текст деструктивного",
+      "success": "Успех",
+      "successDesc": "Подключено, валидно",
+      "successForeground": "Текст успеха",
+      "warning": "Предупреждение",
+      "warningDesc": "Состояния осторожности",
+      "warningForeground": "Текст предупреждения",
+      "info": "Информация",
+      "infoDesc": "Информация",
+      "infoForeground": "Текст информации",
+      "border": "Граница",
+      "borderDesc": "Границы по умолчанию",
+      "input": "Поле ввода",
+      "inputDesc": "Фон полей ввода",
+      "ring": "Кольцо",
+      "ringDesc": "Кольцо фокуса"
+    },
+    "sections": {
+      "background": "Фон",
+      "text": "Текст",
+      "primaryAccent": "Основной и Акцент",
+      "secondaryMuted": "Вторичный и Приглушённый",
+      "statusColors": "Цвета статусов",
+      "borderInput": "Граница и Ввод"
+    },
+    "editor": {
+      "themeName": "Название темы",
+      "descriptionPlaceholder": "Описание (необязательно)",
+      "themeType": "Тип темы:",
+      "dark": "Тёмная",
+      "light": "Светлая",
+      "preview": "Предпросмотр",
+      "resetToBase": "Сбросить к базовой теме:",
+      "cancel": "Отмена",
+      "saveTheme": "Сохранить тему"
+    },
+    "preview": {
+      "tab1": "Вкладка 1",
+      "tab2": "Вкладка 2",
+      "cardTitle": "Заголовок карточки",
+      "cardDesc": "Предпросмотр вашей темы.",
+      "primary": "Основной",
+      "secondary": "Вторичный",
+      "connected": "Подключено",
+      "syncing": "Синхронизация"
+    },
+    "list": {
+      "noThemes": "Пользовательских тем пока нет. Создайте одну для начала.",
+      "darkTheme": "Тёмная тема",
+      "lightTheme": "Светлая тема",
+      "editTheme": "Редактировать тему",
+      "duplicateTheme": "Дублировать тему",
+      "exportTheme": "Экспортировать тему",
+      "deleteTheme": "Удалить тему",
+      "confirmDelete": "Нажмите ещё раз для подтверждения"
+    },
+    "importDialog": {
+      "title": "Импорт темы",
+      "themeJson": "JSON темы",
+      "pastePrompt": "Вставьте JSON темы",
+      "invalidFormat": "Неверный формат темы. Проверьте структуру JSON.",
+      "or": "Или",
+      "uploadFile": "Загрузить JSON файл",
+      "import": "Импортировать"
+    },
+    "exportDialog": {
+      "title": "Экспорт темы",
+      "close": "Закрыть",
+      "copied": "Скопировано",
+      "copy": "Копировать",
+      "download": "Скачать"
+    },
+    "customThemePrefix": "Пользовательская тема"
   },
   "actions": {
     "unsavedChanges": "Есть несохранённые изменения",

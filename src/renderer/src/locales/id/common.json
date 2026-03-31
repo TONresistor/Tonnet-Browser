@@ -26,6 +26,9 @@
     "syncing": "Menyinkronkan",
     "synced": "Tersinkronkan"
   },
+  "loading": {
+    "settings": "Memuat pengaturan..."
+  },
   "errors": {
     "generic": "Terjadi kesalahan",
     "network": "Kesalahan jaringan",
@@ -36,5 +39,10 @@
   "tooltips": {
     "storage": "Storage",
     "settings": "Settings"
+  },
+  "error": {
+    "title": "Terjadi kesalahan",
+    "description": "Aplikasi mengalami kesalahan yang tidak terduga. Coba muat ulang untuk memulihkan.",
+    "reload": "Muat Ulang Aplikasi"
   }
 }

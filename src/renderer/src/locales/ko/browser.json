@@ -5,7 +5,8 @@
     "addBookmarkAria": "북마크에 추가",
     "removeBookmarkAria": "북마크에서 제거",
     "addBookmarkTitle": "북마크 추가",
-    "removeBookmarkTitle": "북마크 제거"
+    "removeBookmarkTitle": "북마크 제거",
+    "fileBrowser": "파일 브라우저"
   },
   "navigation": {
     "back": "뒤로",
@@ -33,6 +34,24 @@
     "dragCancelled": "드래그 취소됨",
     "dragCancelledFull": "드래그가 취소되었습니다. 탭 {{title}}이(가) 원래 위치로 돌아갔습니다."
   },
+  "windowControls": {
+    "group": "창 컨트롤",
+    "minimize": "최소화",
+    "maximize": "최대화",
+    "close": "닫기"
+  },
+  "dnd": {
+    "pickedUp": "{{type}} 선택됨: {{name}}",
+    "movedOver": "{{name}}이(가) {{target}} 위에 있음",
+    "droppedOn": "{{name}}이(가) {{target}}에 놓임",
+    "cancelled": "드래그 취소됨",
+    "folderAriaLabel": "폴더: {{name}}. 스페이스바를 눌러 드래그를 시작하세요.",
+    "bookmarkAriaLabel": "북마크: {{name}}. 스페이스바를 눌러 드래그를 시작하세요."
+  },
+  "tip": {
+    "resolveError": "도메인을 확인할 수 없습니다",
+    "title": "{{domain}}에 {{amount}} TON 팁 보내기"
+  },
   "bookmarksBar": {
     "title": "북마크"
   },
@@ -40,13 +59,17 @@
     "connected": "TON 네트워크에 연결됨",
     "disconnected": "연결 끊김",
     "syncing": "동기화 중...",
-    "syncingMultiHop": "다중 홉 회로로 동기화 중...",
+    "syncingMultiHop": "터널 노드 검색 중...",
     "garlicRouting": "가릭 라우팅 (3-홉)",
     "buildingCircuit": "회로 구축 중...",
     "storage": "저장소:",
     "bag": "백",
     "bags": "백",
     "session": "세션:",
-    "networkStatus": "네트워크 상태: {{status}}"
+    "networkStatus": "네트워크 상태: {{status}}",
+    "downloadSpeedAria": "다운로드 속도: {{speed}}",
+    "uploadSpeedAria": "업로드 속도: {{speed}}",
+    "walletTitle": "Wallet 잔액",
+    "walletAria": "Wallet 잔액 표시"
   }
 }

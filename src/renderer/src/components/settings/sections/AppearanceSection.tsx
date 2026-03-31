@@ -52,7 +52,7 @@ export const AppearanceSection = memo(function AppearanceSection({ draft, setDra
   }, [])
 
   const handleCreateTheme = (base: 'resistance-dog' | 'utya-duck') => {
-    const theme = createTheme(base, `Custom Theme ${customThemes.length + 1}`)
+    const theme = createTheme(base, `${t('themeEditor.customThemePrefix')} ${customThemes.length + 1}`)
     setShowCreateMenu(false)
     setEditingThemeId(theme.id)
   }

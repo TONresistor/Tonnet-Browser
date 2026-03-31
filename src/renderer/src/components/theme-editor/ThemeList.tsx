@@ -5,6 +5,7 @@
 import { Pencil, Trash2, Copy, Download, Check, TriangleAlert } from 'lucide-react'
 import type { CustomTheme } from '@shared/types'
 import { hslToHex } from '../../lib/theme-utils'
+import { useTranslation } from 'react-i18next'
 
 interface ThemeListProps {
   themes: CustomTheme[]
@@ -27,12 +28,10 @@ export function ThemeList({
   onExport,
   onSelect,
 }: ThemeListProps) {
+  const { t } = useTranslation('settings')
+
   if (themes.length === 0) {
-    return (
-      <div className="py-8 text-center text-muted-foreground text-sm">
-        No custom themes yet. Create one to get started.
-      </div>
-    )
+    return <div className="py-8 text-center text-muted-foreground text-sm">{t('themeEditor.list.noThemes')}</div>
   }
 
   return (
@@ -69,7 +68,9 @@ export function ThemeList({
                 {isSelected && <Check className="w-4 h-4 text-primary flex-shrink-0" />}
               </div>
               {theme.description && <p className="text-xs text-muted-foreground truncate">{theme.description}</p>}
-              <p className="text-xs text-foreground-muted">{theme.isDark ? 'Dark' : 'Light'} theme</p>
+              <p className="text-xs text-foreground-muted">
+                {theme.isDark ? t('themeEditor.list.darkTheme') : t('themeEditor.list.lightTheme')}
+              </p>
             </div>
 
             {/* Actions */}
@@ -80,7 +81,7 @@ export function ThemeList({
                   onEdit(theme.id)
                 }}
                 className="p-1.5 rounded-md hover:bg-surface-active text-muted-foreground hover:text-foreground transition-colors"
-                title="Edit theme"
+                title={t('themeEditor.list.editTheme')}
               >
                 <Pencil className="w-4 h-4" />
               </button>
@@ -90,7 +91,7 @@ export function ThemeList({
                   onDuplicate(theme.id)
                 }}
                 className="p-1.5 rounded-md hover:bg-surface-active text-muted-foreground hover:text-foreground transition-colors"
-                title="Duplicate theme"
+                title={t('themeEditor.list.duplicateTheme')}
               >
                 <Copy className="w-4 h-4" />
               </button>
@@ -100,7 +101,7 @@ export function ThemeList({
                   onExport(theme.id)
                 }}
                 className="p-1.5 rounded-md hover:bg-surface-active text-muted-foreground hover:text-foreground transition-colors"
-                title="Export theme"
+                title={t('themeEditor.list.exportTheme')}
               >
                 <Download className="w-4 h-4" />
               </button>
@@ -114,7 +115,9 @@ export function ThemeList({
                     ? 'bg-destructive/20 text-destructive hover:bg-destructive/30'
                     : 'hover:bg-destructive/20 text-muted-foreground hover:text-destructive'
                 }`}
-                title={pendingDeleteId === theme.id ? 'Click again to confirm' : 'Delete theme'}
+                title={
+                  pendingDeleteId === theme.id ? t('themeEditor.list.confirmDelete') : t('themeEditor.list.deleteTheme')
+                }
               >
                 {pendingDeleteId === theme.id ? <TriangleAlert className="w-4 h-4" /> : <Trash2 className="w-4 h-4" />}
               </button>

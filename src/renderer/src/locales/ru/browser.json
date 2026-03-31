@@ -5,7 +5,8 @@
     "addBookmarkAria": "Добавить в закладки",
     "removeBookmarkAria": "Удалить из закладок",
     "addBookmarkTitle": "Добавить закладку",
-    "removeBookmarkTitle": "Удалить закладку"
+    "removeBookmarkTitle": "Удалить закладку",
+    "fileBrowser": "Файловый менеджер"
   },
   "navigation": {
     "back": "Назад",
@@ -33,20 +34,42 @@
     "dragCancelled": "Перемещение отменено",
     "dragCancelledFull": "Перемещение отменено. Вкладка {{title}} возвращена на исходное место."
   },
+  "windowControls": {
+    "group": "Управление окном",
+    "minimize": "Свернуть",
+    "maximize": "Развернуть",
+    "close": "Закрыть"
+  },
+  "dnd": {
+    "pickedUp": "Взят {{type}}: {{name}}",
+    "movedOver": "{{name}} над {{target}}",
+    "droppedOn": "{{name}} перемещён на {{target}}",
+    "cancelled": "Перетаскивание отменено",
+    "folderAriaLabel": "Папка: {{name}}. Нажмите пробел для начала перетаскивания.",
+    "bookmarkAriaLabel": "Закладка: {{name}}. Нажмите пробел для начала перетаскивания."
+  },
   "bookmarksBar": {
     "title": "Закладки"
+  },
+  "tip": {
+    "resolveError": "Не удалось разрешить домен",
+    "title": "Чаевые {{amount}} TON для {{domain}}"
   },
   "statusBar": {
     "connected": "Подключено к сети TON",
     "disconnected": "Отключено",
     "syncing": "Синхронизация...",
-    "syncingMultiHop": "Синхронизация с многоузловым контуром...",
+    "syncingMultiHop": "Поиск туннельных узлов...",
     "garlicRouting": "Garlic Routing (3 узла)",
     "buildingCircuit": "Создание контура...",
     "storage": "Хранилище:",
     "bag": "пакет",
     "bags": "пакетов",
     "session": "Сессия:",
-    "networkStatus": "Статус сети: {{status}}"
+    "networkStatus": "Статус сети: {{status}}",
+    "downloadSpeedAria": "Скорость загрузки: {{speed}}",
+    "uploadSpeedAria": "Скорость отдачи: {{speed}}",
+    "walletTitle": "Баланс кошелька",
+    "walletAria": "Отображение баланса кошелька"
   }
 }

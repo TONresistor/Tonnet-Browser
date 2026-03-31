@@ -1,0 +1,156 @@
+{
+  "page": {
+    "title": "Wallet",
+    "refresh": "Aktualisieren",
+    "noWalletTitle": "Kein Wallet",
+    "noWalletDesc": "Erstellen Sie ein neues Wallet oder importieren Sie ein vorhandenes, um loszulegen.",
+    "createWallet": "Wallet erstellen"
+  },
+  "tabs": {
+    "send": "Senden",
+    "receive": "Empfangen",
+    "history": "Verlauf"
+  },
+  "send": {
+    "recipientLabel": "Empfängeradresse",
+    "recipientPlaceholder": "EQ... oder 0:...",
+    "amountLabel": "Betrag",
+    "feeNote": "Netzwerkgebühr: {{fee}} TON",
+    "reviewButton": "Transaktion prüfen",
+    "confirm": "Transaktion bestätigen",
+    "to": "An",
+    "amount": "Betrag",
+    "fee": "Gebühr",
+    "back": "Zurück",
+    "sending": "Wird gesendet...",
+    "success": "Transaktion gesendet!",
+    "successDesc": "Ihre Transaktion wurde an das Netzwerk gesendet.",
+    "error": "Transaktion fehlgeschlagen",
+    "invalidAddress": "Ungültige TON-Adresse",
+    "invalidAmount": "Ungültiger Betrag",
+    "max": "Max",
+    "estimatedFee": "~0,01 TON"
+  },
+  "receive": {
+    "addressLabel": "Ihre Wallet-Adresse",
+    "copyButton": "Adresse kopieren",
+    "copied": "Kopiert!",
+    "copyTitle": "In Zwischenablage kopieren",
+    "copyAria": "Wallet-Adresse in Zwischenablage kopieren"
+  },
+  "history": {
+    "empty": "Noch keine Transaktionen",
+    "clear": "Verlauf löschen",
+    "types": {
+      "send": "Gesendet",
+      "receive": "Empfangen",
+      "x402": "HTTP 402 Zahlung"
+    },
+    "status": {
+      "pending": "Ausstehend",
+      "confirmed": "Bestätigt",
+      "failed": "Fehlgeschlagen"
+    },
+    "x402Payment": "HTTP 402 Zahlung"
+  },
+  "dropdown": {
+    "title": "Wallet",
+    "balance": "Guthaben",
+    "address": "Adresse",
+    "send": "Senden",
+    "receive": "Empfangen",
+    "openWallet": "Wallet öffnen",
+    "copyAddress": "Adresse kopieren",
+    "copyAddressAria": "Wallet-Adresse in Zwischenablage kopieren",
+    "copied": "Kopiert!",
+    "noWallet": "Noch kein Wallet. Erstellen Sie eines, um zu beginnen.",
+    "createWallet": "Wallet erstellen",
+    "ariaLabel": "Wallet-Dropdown"
+  },
+  "import": {
+    "title": "Wallet importieren",
+    "description": "Geben Sie Ihre 24-Wort-Wiederherstellungsphrase ein",
+    "placeholder": "24 Wörter durch Leerzeichen getrennt eingeben...",
+    "button": "Wallet importieren",
+    "importing": "Importieren...",
+    "success": "Wallet erfolgreich importiert",
+    "error": "Ungültige Wiederherstellungsphrase",
+    "confirm": "Dies ersetzt Ihr aktuelles Wallet. Sind Sie sicher?",
+    "confirmButton": "Ja, ersetzen",
+    "cancelButton": "Abbrechen"
+  },
+  "export": {
+    "title": "Wiederherstellungsphrase",
+    "warning": "Teilen Sie diese Wörter niemals. Jeder, der sie besitzt, kann auf Ihr Guthaben zugreifen.",
+    "showButton": "Wiederherstellungsphrase anzeigen",
+    "hideButton": "Ausblenden",
+    "copied": "In Zwischenablage kopiert"
+  },
+  "backup": {
+    "title": "Wiederherstellungsphrase speichern",
+    "warning": "Schreiben Sie diese 24 Wörter auf und bewahren Sie sie sicher auf.",
+    "warningDesc": "Dies ist die einzige Möglichkeit, Ihr Wallet wiederherzustellen. Wenn Sie diese Wörter verlieren, ist Ihr Guthaben unwiederbringlich verloren. Teilen Sie sie niemals mit jemandem.",
+    "yourPhrase": "Ihre 24-Wort-Wiederherstellungsphrase",
+    "copy": "In Zwischenablage kopieren",
+    "confirm": "Ich habe meine Wiederherstellungsphrase gespeichert"
+  },
+  "create": {
+    "title": "Wallet erstellen",
+    "description": "Erstellen Sie ein neues TON Wallet zum Senden, Empfangen und Bezahlen von Inhalten.",
+    "button": "Wallet erstellen",
+    "creating": "Wird erstellt...",
+    "orImport": "oder ein vorhandenes Wallet importieren"
+  },
+  "statusBar": {
+    "balance": "{{amount}} TON"
+  },
+  "settings": {
+    "title": "Wallet-Einstellungen",
+    "walletManagement": "Wallet-Verwaltung",
+    "paymentMode": "Standard-Zahlungsmodus",
+    "paymentModeDescription": "Umgang mit HTTP 402 Zahlungsanforderungen",
+    "modes": {
+      "off": "Aus",
+      "manual": "Manuell",
+      "auto": "Automatisch"
+    },
+    "notificationStyle": "Benachrichtigungsstil",
+    "notificationStyleDescription": "Anzeige von Zahlungsanforderungen",
+    "styles": {
+      "banner": "Banner",
+      "modal": "Modal",
+      "toast": "Toast",
+      "panel": "Panel"
+    },
+    "limits": {
+      "title": "Ausgabenlimits",
+      "perRequest": "Pro Anfrage",
+      "perDay": "Pro Tag",
+      "perSitePerMonth": "Pro Website / Monat",
+      "placeholder": "0 = kein Limit",
+      "unit": "TON",
+      "perRequestDesc": "Maximaler Betrag für eine einzelne 402-Zahlung",
+      "perDayDesc": "Maximale Gesamtausgaben in einem rollierenden 24-Stunden-Fenster",
+      "perSitePerMonthDesc": "Maximale Ausgaben pro Domain in einem rollierenden 30-Tage-Fenster",
+      "unlimitedNote": "Auf 0 setzen für unbegrenzt. Limits gelten über alle Tabs."
+    },
+    "sites": {
+      "title": "Website-Berechtigungen",
+      "empty": "Keine websitespezifischen Berechtigungen konfiguriert",
+      "remove": "Entfernen",
+      "spent": "Ausgegeben: {{amount}} TON",
+      "removePolicy": "Website-Richtlinie entfernen"
+    }
+  },
+  "payment": {
+    "title": "Zahlungsanforderung",
+    "domain": "Website",
+    "amount": "Betrag",
+    "recipient": "Empfänger",
+    "approve": "Bezahlen",
+    "reject": "Ablehnen",
+    "success": "Zahlung erfolgreich",
+    "failed": "Zahlung fehlgeschlagen",
+    "limitReached": "Ausgabenlimit erreicht"
+  }
+}

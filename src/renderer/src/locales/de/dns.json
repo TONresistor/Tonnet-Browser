@@ -1,0 +1,26 @@
+{
+  "title": "DNS-Abfrage",
+  "searchPlaceholder": ".ton-Domain eingeben...",
+  "searching": "Wird aufgeloest...",
+  "empty": "Geben Sie eine .ton-Domain ein, um ihre Eintraege abzurufen",
+  "notFound": "Domain nicht gefunden oder ohne Eintraege",
+  "error": "Domain konnte nicht aufgeloest werden",
+  "fields": {
+    "wallet": "Wallet",
+    "owner": "Eigentuemer",
+    "siteAdnl": "Site ADNL",
+    "hasStorage": "Speicher",
+    "nftAddress": "NFT-Adresse",
+    "collection": "Sammlung",
+    "editor": "Editor",
+    "initialized": "Initialisiert",
+    "expiringAt": "Ablaufdatum",
+    "textRecords": "Texteintraege"
+  },
+  "values": {
+    "yes": "Ja",
+    "no": "Nein",
+    "none": "Nicht gesetzt"
+  },
+  "copied": "Kopiert!"
+}

@@ -11,6 +11,7 @@
     "shortcuts": "Pintasan",
     "bookmarks": "Penanda",
     "advanced": "Lanjutan",
+    "wallet": "Wallet",
     "about": "Tentang"
   },
   "appearance": {
@@ -43,7 +44,11 @@
       "showBookmarksBar": "Tampilkan bilah penanda",
       "showBookmarksBarDesc": "Tampilkan akses cepat ke penanda",
       "showStatusBar": "Tampilkan bilah status",
-      "showStatusBarDesc": "Tampilkan status koneksi di bagian bawah"
+      "showStatusBarDesc": "Tampilkan status koneksi di bagian bawah",
+      "tabOrientation": "Orientasi tab",
+      "tabOrientationDesc": "Tampilkan tab secara horizontal atau vertikal",
+      "tabOrientationHorizontal": "Horizontal (Atas)",
+      "tabOrientationVertical": "Vertikal (Sidebar)"
     },
     "language": {
       "label": "Bahasa",
@@ -220,10 +225,11 @@
     "folderPlaceholder": "Masukkan nama folder...",
     "create": "Buat",
     "renameFolder": "Ubah nama folder",
+    "deleteFolder": "Hapus folder",
     "deleteConfirm": "Hapus \"{{name}}\"?",
     "maxDepthReached": "Kedalaman folder maksimal tercapai (3 tingkat).",
-    "deleteFolderConfirm": "Delete this folder? Bookmarks will be moved to Unfiled.",
-    "confirm": "Confirm"
+    "deleteFolderConfirm": "Hapus folder ini? Penanda akan dipindahkan ke Tanpa folder.",
+    "confirm": "Konfirmasi"
   },
   "advanced": {
     "title": "Lanjutan",
@@ -239,7 +245,7 @@
     "syncTestDomain": "Domain tes sinkronisasi",
     "syncTestDomainDesc": "Domain yang digunakan untuk memverifikasi sinkronisasi DHT",
     "resetAll": "Setel ulang semua pengaturan ke default",
-    "resetAllConfirm": "Click again to confirm"
+    "resetAllConfirm": "Klik lagi untuk konfirmasi"
   },
   "about": {
     "title": "Tentang",
@@ -270,6 +276,132 @@
     "notSet": "Belum diatur",
     "updateInterval": "Interval pembaruan",
     "updateIntervalDesc": "Seberapa sering memperbarui statistik unduhan"
+  },
+  "wallet": {
+    "title": "Wallet",
+    "description": "Konfigurasi dompet TON dan pengaturan pembayaran HTTP 402",
+    "paymentMode": "Mode Pembayaran Default",
+    "paymentModeDesc": "Cara menangani permintaan pembayaran HTTP 402 dari situs .ton",
+    "modeOff": "Mati",
+    "modeManual": "Manual",
+    "modeAuto": "Otomatis",
+    "notificationStyle": "Gaya Notifikasi",
+    "notificationStyleDesc": "Cara permintaan pembayaran ditampilkan",
+    "notifBanner": "Banner",
+    "notifModal": "Modal",
+    "notifToast": "Toast",
+    "notifPanel": "Panel",
+    "spendingLimits": "Batas Pengeluaran",
+    "spendingLimitsDesc": "Atur jumlah maksimum untuk pembayaran otomatis (0 = tanpa batas)",
+    "perRequest": "Per Permintaan",
+    "perRequestDesc": "Jumlah maksimum per pembayaran",
+    "perDay": "Per Hari",
+    "perDayDesc": "Total pengeluaran maksimum per hari",
+    "perSitePerMonth": "Per Situs / Bulan",
+    "perSitePerMonthDesc": "Pengeluaran maksimum per situs per bulan",
+    "sitePolicies": "Izin Situs",
+    "sitePoliciesDesc": "Penggantian mode pembayaran per situs",
+    "spent": "Dibelanjakan",
+    "removeSitePolicy": "Hapus kebijakan untuk {{domain}}"
+  },
+  "themeEditor": {
+    "colors": {
+      "background": "Latar Belakang",
+      "backgroundDesc": "Latar belakang utama",
+      "backgroundSecondary": "Latar Belakang Sekunder",
+      "backgroundSecondaryDesc": "Sidebar, panel",
+      "foreground": "Latar Depan",
+      "foregroundDesc": "Warna teks utama",
+      "card": "Kartu",
+      "cardDesc": "Latar belakang kartu",
+      "cardForeground": "Teks Kartu",
+      "primary": "Primer",
+      "primaryDesc": "Tombol, tautan",
+      "primaryForeground": "Teks Primer",
+      "secondary": "Sekunder",
+      "secondaryForeground": "Teks Sekunder",
+      "accent": "Aksen",
+      "accentDesc": "Sorotan",
+      "accentForeground": "Teks Aksen",
+      "muted": "Redup",
+      "mutedDesc": "Latar belakang halus",
+      "mutedForeground": "Teks Redup",
+      "mutedForegroundDesc": "Teks sekunder",
+      "destructive": "Destruktif",
+      "destructiveDesc": "Kesalahan, hapus",
+      "destructiveForeground": "Teks Destruktif",
+      "success": "Berhasil",
+      "successDesc": "Terhubung, valid",
+      "successForeground": "Teks Berhasil",
+      "warning": "Peringatan",
+      "warningDesc": "Status waspada",
+      "warningForeground": "Teks Peringatan",
+      "info": "Info",
+      "infoDesc": "Informasi",
+      "infoForeground": "Teks Info",
+      "border": "Batas",
+      "borderDesc": "Batas default",
+      "input": "Input",
+      "inputDesc": "Latar belakang input",
+      "ring": "Cincin",
+      "ringDesc": "Cincin fokus"
+    },
+    "sections": {
+      "background": "Latar Belakang",
+      "text": "Teks",
+      "primaryAccent": "Primer & Aksen",
+      "secondaryMuted": "Sekunder & Redup",
+      "statusColors": "Warna Status",
+      "borderInput": "Batas & Input"
+    },
+    "editor": {
+      "themeName": "Nama Tema",
+      "descriptionPlaceholder": "Deskripsi (opsional)",
+      "themeType": "Jenis Tema:",
+      "dark": "Gelap",
+      "light": "Terang",
+      "preview": "Pratinjau",
+      "resetToBase": "Setel ulang ke tema dasar:",
+      "cancel": "Batal",
+      "saveTheme": "Simpan Tema"
+    },
+    "preview": {
+      "tab1": "Tab 1",
+      "tab2": "Tab 2",
+      "cardTitle": "Judul Kartu",
+      "cardDesc": "Pratinjau tema Anda.",
+      "primary": "Primer",
+      "secondary": "Sekunder",
+      "connected": "Terhubung",
+      "syncing": "Menyinkronkan"
+    },
+    "list": {
+      "noThemes": "Belum ada tema kustom. Buat satu untuk memulai.",
+      "darkTheme": "Tema gelap",
+      "lightTheme": "Tema terang",
+      "editTheme": "Sunting tema",
+      "duplicateTheme": "Duplikat tema",
+      "exportTheme": "Ekspor tema",
+      "deleteTheme": "Hapus tema",
+      "confirmDelete": "Klik lagi untuk konfirmasi"
+    },
+    "importDialog": {
+      "title": "Impor Tema",
+      "themeJson": "JSON Tema",
+      "pastePrompt": "Silakan tempel JSON tema",
+      "invalidFormat": "Format tema tidak valid. Silakan periksa struktur JSON.",
+      "or": "Atau",
+      "uploadFile": "Unggah file JSON",
+      "import": "Impor"
+    },
+    "exportDialog": {
+      "title": "Ekspor Tema",
+      "close": "Tutup",
+      "copied": "Disalin",
+      "copy": "Salin",
+      "download": "Unduh"
+    },
+    "customThemePrefix": "Tema Kustom"
   },
   "actions": {
     "unsavedChanges": "Ada perubahan yang belum disimpan",

@@ -8,8 +8,6 @@ import { internal, beginCell, storeMessage, Address, SendMode, Cell } from '@ton
 import { WalletContractV5R1 } from '@ton/ton'
 import { WalletKeyStorage } from './key-storage'
 import { WsBridgeClient } from './ws-bridge-client'
-import { NftIndexer } from './nft-indexer'
-import { resolveTonDomain, type DnsResolveResult } from './dns-resolver'
 import { getSetting } from '../settings'
 import { WALLET_MAX_TIMEOUT_SECONDS } from '../../shared/constants'
 import type {
@@ -17,9 +15,7 @@ import type {
   WalletTransaction,
   PaymentRequirements,
   ExactTonPayload,
-  NftItem,
-  TonDomain,
-  DomainLookupResult,
+  DnsResolveResult,
 } from '../../shared/types'
 import { createLogger } from '../../shared/logger'
 const log = createLogger('wallet')
@@ -32,7 +28,6 @@ class WalletManager extends EventEmitter {
   private localSeqno: number = 0
   private unsubAccountState: (() => void) | null = null
   private unsubTransactions: (() => void) | null = null
-  private nftIndexer: NftIndexer | null = null
   private currentBalance: string = '0'
   private initialized: boolean = false
 
@@ -58,8 +53,6 @@ class WalletManager extends EventEmitter {
         await this.getBalance().catch((e) => log.error('Initial balance fetch failed:', e))
         await this.syncSeqno()
         this.subscribeAccount()
-        this.nftIndexer = new NftIndexer(this.wsBridge!, this.getState().address)
-        this.nftIndexer.start().catch((e) => log.error('NFT indexer start failed:', e))
         log.info('Wallet loaded successfully')
       } catch (error) {
         log.error('Failed to load wallet:', error)
@@ -88,8 +81,6 @@ class WalletManager extends EventEmitter {
     this.walletContract = WalletContractV5R1.create({ publicKey: this.keypair.publicKey, workchain: 0 })
     this.localSeqno = 0
     this.subscribeAccount()
-    this.nftIndexer = new NftIndexer(this.wsBridge!, this.getState().address)
-    this.nftIndexer.start().catch((e) => log.error('NFT indexer start failed:', e))
 
     const state = this.getState()
     this.emit('state-changed', state)
@@ -105,12 +96,8 @@ class WalletManager extends EventEmitter {
     if (!this.initialized) {
       await this.init()
     }
-    // Unsubscribe existing account state, stop indexer, and wipe old keys
+    // Unsubscribe existing account state and wipe old keys
     this.unsubscribeAccount()
-    if (this.nftIndexer) {
-      this.nftIndexer.stop()
-      this.nftIndexer = null
-    }
     if (this.keypair) {
       this.keypair.secretKey.fill(0)
       this.keypair.publicKey.fill(0)
@@ -126,8 +113,6 @@ class WalletManager extends EventEmitter {
     this.localSeqno = 0
     this.currentBalance = '0'
     this.subscribeAccount()
-    this.nftIndexer = new NftIndexer(this.wsBridge!, this.getState().address)
-    this.nftIndexer.start().catch((e) => log.error('NFT indexer start failed:', e))
 
     const state = this.getState()
     this.emit('state-changed', state)
@@ -300,6 +285,11 @@ class WalletManager extends EventEmitter {
     }
   }
 
+  async resolveDomain(domain: string): Promise<DnsResolveResult> {
+    if (!this.wsBridge) throw new Error('Bridge not connected')
+    return await this.wsBridge.resolveDomain(domain)
+  }
+
   private buildBoc(
     to: Address,
     amount: bigint,
@@ -333,47 +323,14 @@ class WalletManager extends EventEmitter {
     return { boc: extMsg.toBoc().toString('base64'), seqno, validUntil }
   }
 
-  async resolveDomain(domain: string): Promise<DnsResolveResult> {
-    if (!this.wsBridge) throw new Error('Wallet not initialized')
-    const result = await resolveTonDomain(domain, this.wsBridge!)
-    if (!result) throw new Error(`Could not resolve ${domain}`)
-    return result
-  }
-
-  async fetchNfts(): Promise<NftItem[]> {
-    return this.nftIndexer?.getNfts() ?? []
-  }
-
-  async fetchDomains(): Promise<TonDomain[]> {
-    return this.nftIndexer?.getDomains() ?? []
-  }
-
-  async lookupDomain(domain: string): Promise<DomainLookupResult> {
-    if (!this.wsBridge) throw new Error('Wallet not initialized')
-    const resolved = await this.wsBridge.resolveDomain(domain)
-
-    return {
-      name: domain,
-      owner: resolved.owner ? Address.parse(resolved.owner).toString({ bounceable: false }) : 'unknown',
-      expiresAt: resolved.expiring_at ?? 0,
-      nftAddress: resolved.nft_address ? Address.parse(resolved.nft_address).toString({ bounceable: false }) : '',
-      records: {
-        wallet: resolved.wallet ? Address.parse(resolved.wallet).toString({ bounceable: false }) : undefined,
-        site: resolved.site_adnl ?? undefined,
-        storage: resolved.has_storage ? domain : undefined,
-      },
-    }
-  }
-
   /**
    * Stop timers and wipe keys from memory.
    */
   destroy(): void {
-    this.unsubscribeAccount()
-    if (this.nftIndexer) {
-      this.nftIndexer.stop()
-      this.nftIndexer = null
-    }
+    // Skip RPC unsubscribe: disconnect() clears subscriptions locally
+    // and the server drops them when the WebSocket closes.
+    this.unsubAccountState = null
+    this.unsubTransactions = null
     this.keyStorage.destroy()
     if (this.keypair) {
       this.keypair.secretKey.fill(0)

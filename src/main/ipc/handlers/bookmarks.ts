@@ -6,7 +6,7 @@
 import { Menu } from 'electron'
 import { IPC_CHANNELS } from '../../../shared/types'
 import { isValidNavigationUrl } from '../validation'
-import { secureHandle, secureHandleWithEvent } from './shared'
+import { secureHandle, secureHandleWithEvent, emitToRenderer } from './shared'
 import { getMainWindow } from '../../windows/main'
 import { navigateInTab, getActiveTabId } from '../../windows/tabs'
 import { loadBookmarks, saveBookmarks } from '../../bookmarks'
@@ -35,18 +35,18 @@ export function registerBookmarkHandlers(): void {
         label: 'Open in new tab',
         click: () => {
           if (isValidNavigationUrl(url).valid) {
-            win.webContents.send('bookmark:open-new-tab', url)
+            emitToRenderer('bookmark:open-new-tab', url)
           }
         },
       },
       {
         label: 'Edit',
-        click: () => win.webContents.send('bookmark:edit', { id, title, url }),
+        click: () => emitToRenderer('bookmark:edit', { id, title, url }),
       },
       { type: 'separator' },
       {
         label: 'Delete',
-        click: () => win.webContents.send('bookmark:delete', id),
+        click: () => emitToRenderer('bookmark:delete', id),
       },
     ])
 
@@ -93,16 +93,16 @@ export function registerBookmarkHandlers(): void {
     const menu = Menu.buildFromTemplate([
       {
         label: 'Rename',
-        click: () => win.webContents.send('folder:rename', { folderId, folderName }),
+        click: () => emitToRenderer('folder:rename', { folderId, folderName }),
       },
       {
         label: 'Open all bookmarks',
-        click: () => win.webContents.send('folder:open-all', folderId),
+        click: () => emitToRenderer('folder:open-all', folderId),
       },
       { type: 'separator' },
       {
         label: 'Delete',
-        click: () => win.webContents.send('folder:delete', folderId),
+        click: () => emitToRenderer('folder:delete', folderId),
       },
     ])
 

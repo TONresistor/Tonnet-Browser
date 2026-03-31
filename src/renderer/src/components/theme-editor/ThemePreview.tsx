@@ -4,6 +4,7 @@
 
 import { Minus, Square, X } from 'lucide-react'
 import type { ThemeColors } from '@shared/types'
+import { useTranslation } from 'react-i18next'
 
 interface ThemePreviewProps {
   colors: ThemeColors
@@ -11,6 +12,7 @@ interface ThemePreviewProps {
 }
 
 export function ThemePreview({ colors, isDark }: ThemePreviewProps) {
+  const { t } = useTranslation('settings')
   // Generate CSS custom properties for isolated preview
   const style = {
     '--preview-background': `hsl(${colors.background})`,
@@ -44,7 +46,7 @@ export function ThemePreview({ colors, isDark }: ThemePreviewProps) {
               border: `1px solid var(--preview-border)`,
             }}
           >
-            <span>Tab 1</span>
+            <span>{t('themeEditor.preview.tab1')}</span>
             <X className="w-3 h-3" style={{ color: 'var(--preview-muted-foreground)' }} />
           </div>
           <div
@@ -55,7 +57,7 @@ export function ThemePreview({ colors, isDark }: ThemePreviewProps) {
               border: `1px solid transparent`,
             }}
           >
-            Tab 2
+            {t('themeEditor.preview.tab2')}
           </div>
         </div>
 
@@ -98,10 +100,10 @@ export function ThemePreview({ colors, isDark }: ThemePreviewProps) {
           }}
         >
           <h3 className="text-sm font-semibold mb-1" style={{ color: 'var(--preview-card-foreground)' }}>
-            Card Title
+            {t('themeEditor.preview.cardTitle')}
           </h3>
           <p className="text-xs" style={{ color: 'var(--preview-muted-foreground)' }}>
-            Preview of your theme.
+            {t('themeEditor.preview.cardDesc')}
           </p>
         </div>
 
@@ -114,7 +116,7 @@ export function ThemePreview({ colors, isDark }: ThemePreviewProps) {
               color: 'var(--preview-primary-foreground)',
             }}
           >
-            Primary
+            {t('themeEditor.preview.primary')}
           </button>
           <button
             className="px-3 py-1.5 rounded-full text-xs font-medium"
@@ -124,7 +126,7 @@ export function ThemePreview({ colors, isDark }: ThemePreviewProps) {
               border: `1px solid var(--preview-border)`,
             }}
           >
-            Secondary
+            {t('themeEditor.preview.secondary')}
           </button>
         </div>
 
@@ -132,11 +134,11 @@ export function ThemePreview({ colors, isDark }: ThemePreviewProps) {
         <div className="flex gap-3 text-xs">
           <span className="flex items-center gap-1" style={{ color: 'var(--preview-success)' }}>
             <span className="w-2 h-2 rounded-full" style={{ backgroundColor: 'currentColor' }} />
-            Connected
+            {t('themeEditor.preview.connected')}
           </span>
           <span className="flex items-center gap-1" style={{ color: 'var(--preview-warning)' }}>
             <span className="w-2 h-2 rounded-full" style={{ backgroundColor: 'currentColor' }} />
-            Syncing
+            {t('themeEditor.preview.syncing')}
           </span>
         </div>
       </div>

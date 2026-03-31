@@ -1,0 +1,156 @@
+{
+  "page": {
+    "title": "Wallet",
+    "refresh": "รีเฟรช",
+    "noWalletTitle": "ไม่มี Wallet",
+    "noWalletDesc": "สร้างกระเป๋าเงินใหม่หรือนำเข้ากระเป๋าที่มีอยู่เพื่อเริ่มต้น",
+    "createWallet": "สร้าง Wallet"
+  },
+  "tabs": {
+    "send": "ส่ง",
+    "receive": "รับ",
+    "history": "ประวัติ"
+  },
+  "send": {
+    "recipientLabel": "ที่อยู่ผู้รับ",
+    "recipientPlaceholder": "EQ... หรือ 0:...",
+    "amountLabel": "จำนวน",
+    "feeNote": "ค่าธรรมเนียมเครือข่าย: {{fee}} TON",
+    "reviewButton": "ตรวจสอบธุรกรรม",
+    "confirm": "ยืนยันธุรกรรม",
+    "to": "ถึง",
+    "amount": "จำนวน",
+    "fee": "ค่าธรรมเนียม",
+    "back": "ย้อนกลับ",
+    "sending": "กำลังส่ง...",
+    "success": "ส่งธุรกรรมแล้ว!",
+    "successDesc": "ธุรกรรมของคุณถูกส่งไปยังเครือข่ายแล้ว",
+    "error": "ธุรกรรมล้มเหลว",
+    "invalidAddress": "ที่อยู่ TON ไม่ถูกต้อง",
+    "invalidAmount": "จำนวนไม่ถูกต้อง",
+    "max": "สูงสุด",
+    "estimatedFee": "~0.01 TON"
+  },
+  "receive": {
+    "addressLabel": "ที่อยู่ Wallet ของคุณ",
+    "copyButton": "คัดลอกที่อยู่",
+    "copied": "คัดลอกแล้ว!",
+    "copyTitle": "คัดลอกไปยังคลิปบอร์ด",
+    "copyAria": "คัดลอกที่อยู่กระเป๋าเงินไปยังคลิปบอร์ด"
+  },
+  "history": {
+    "empty": "ยังไม่มีธุรกรรม",
+    "clear": "ล้างประวัติ",
+    "types": {
+      "send": "ส่งแล้ว",
+      "receive": "ได้รับ",
+      "x402": "การชำระเงิน HTTP 402"
+    },
+    "status": {
+      "pending": "รอดำเนินการ",
+      "confirmed": "ยืนยันแล้ว",
+      "failed": "ล้มเหลว"
+    },
+    "x402Payment": "การชำระเงิน HTTP 402"
+  },
+  "dropdown": {
+    "title": "Wallet",
+    "balance": "ยอดคงเหลือ",
+    "address": "ที่อยู่",
+    "send": "ส่ง",
+    "receive": "รับ",
+    "openWallet": "เปิด Wallet",
+    "copyAddress": "คัดลอกที่อยู่",
+    "copyAddressAria": "คัดลอกที่อยู่กระเป๋าเงินไปยังคลิปบอร์ด",
+    "copied": "คัดลอกแล้ว!",
+    "noWallet": "ยังไม่มีกระเป๋าเงิน สร้างเพื่อเริ่มต้นใช้งาน",
+    "createWallet": "สร้าง Wallet",
+    "ariaLabel": "เมนู Wallet"
+  },
+  "import": {
+    "title": "นำเข้า Wallet",
+    "description": "ป้อนคำกู้คืน 24 คำของคุณ",
+    "placeholder": "ป้อน 24 คำโดยคั่นด้วยช่องว่าง...",
+    "button": "นำเข้า Wallet",
+    "importing": "กำลังนำเข้า...",
+    "success": "นำเข้า Wallet สำเร็จ",
+    "error": "คำกู้คืนไม่ถูกต้อง",
+    "confirm": "การดำเนินการนี้จะแทนที่กระเป๋าเงินปัจจุบันของคุณ คุณแน่ใจหรือไม่?",
+    "confirmButton": "ใช่, แทนที่",
+    "cancelButton": "ยกเลิก"
+  },
+  "export": {
+    "title": "คำกู้คืน",
+    "warning": "ห้ามแชร์คำเหล่านี้ ใครก็ตามที่มีคำเหล่านี้สามารถเข้าถึงเงินของคุณได้",
+    "showButton": "แสดงคำกู้คืน",
+    "hideButton": "ซ่อน",
+    "copied": "คัดลอกไปยังคลิปบอร์ดแล้ว"
+  },
+  "backup": {
+    "title": "บันทึกคำกู้คืนของคุณ",
+    "warning": "จดคำ 24 คำเหล่านี้และเก็บไว้อย่างปลอดภัย",
+    "warningDesc": "นี่เป็นวิธีเดียวในการกู้คืนกระเป๋าเงินของคุณ หากคุณสูญเสียคำเหล่านี้ เงินของคุณจะสูญหายตลอดกาล ห้ามแชร์กับใคร",
+    "yourPhrase": "คำกู้คืน 24 คำของคุณ",
+    "copy": "คัดลอกไปยังคลิปบอร์ด",
+    "confirm": "ฉันได้บันทึกคำกู้คืนแล้ว"
+  },
+  "create": {
+    "title": "สร้าง Wallet",
+    "description": "สร้างกระเป๋าเงิน TON ใหม่สำหรับส่ง รับ และชำระเงินค่าเนื้อหา",
+    "button": "สร้าง Wallet",
+    "creating": "กำลังสร้าง...",
+    "orImport": "หรือนำเข้ากระเป๋าเงินที่มีอยู่"
+  },
+  "statusBar": {
+    "balance": "{{amount}} TON"
+  },
+  "settings": {
+    "title": "การตั้งค่า Wallet",
+    "walletManagement": "การจัดการกระเป๋าเงิน",
+    "paymentMode": "โหมดการชำระเงินเริ่มต้น",
+    "paymentModeDescription": "วิธีจัดการคำขอชำระเงิน HTTP 402",
+    "modes": {
+      "off": "ปิด",
+      "manual": "ด้วยตนเอง",
+      "auto": "อัตโนมัติ"
+    },
+    "notificationStyle": "รูปแบบการแจ้งเตือน",
+    "notificationStyleDescription": "วิธีแสดงคำขอชำระเงิน",
+    "styles": {
+      "banner": "แบนเนอร์",
+      "modal": "หน้าต่างป๊อปอัพ",
+      "toast": "การแจ้งเตือนแบบลอย",
+      "panel": "แผงควบคุม"
+    },
+    "limits": {
+      "title": "วงเงินการใช้จ่าย",
+      "perRequest": "ต่อคำขอ",
+      "perDay": "ต่อวัน",
+      "perSitePerMonth": "ต่อเว็บไซต์ / เดือน",
+      "placeholder": "0 = ไม่จำกัด",
+      "unit": "TON",
+      "perRequestDesc": "จำนวนสูงสุดสำหรับการชำระเงิน 402 หนึ่งครั้ง",
+      "perDayDesc": "การใช้จ่ายสูงสุดในช่วง 24 ชั่วโมง",
+      "perSitePerMonthDesc": "การใช้จ่ายสูงสุดต่อโดเมนในช่วง 30 วัน",
+      "unlimitedNote": "ตั้งเป็น 0 สำหรับไม่จำกัด วงเงินมีผลในทุกแท็บ"
+    },
+    "sites": {
+      "title": "สิทธิ์ของเว็บไซต์",
+      "empty": "ยังไม่มีการกำหนดสิทธิ์เฉพาะเว็บไซต์",
+      "remove": "ลบ",
+      "spent": "ใช้จ่ายแล้ว: {{amount}} TON",
+      "removePolicy": "ลบนโยบายเว็บไซต์"
+    }
+  },
+  "payment": {
+    "title": "คำขอชำระเงิน",
+    "domain": "เว็บไซต์",
+    "amount": "จำนวน",
+    "recipient": "ผู้รับ",
+    "approve": "ชำระเงิน",
+    "reject": "ปฏิเสธ",
+    "success": "ชำระเงินสำเร็จ",
+    "failed": "ชำระเงินล้มเหลว",
+    "limitReached": "ถึงวงเงินการใช้จ่ายแล้ว"
+  }
+}

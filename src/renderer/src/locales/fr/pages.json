@@ -14,22 +14,27 @@
     "tabs": {
       "active": "Actif",
       "completed": "Terminé",
-      "info": "Informations"
+      "info": "Informations",
+      "files": "Fichiers"
     },
     "filters": {
       "all": "Tout",
       "downloading": "Téléchargement",
+      "complete": "Termine",
       "seeding": "Partage",
       "paused": "En pause"
     },
     "actions": {
+      "addBag": "Ajouter un Bag",
       "addTorrent": "Ajouter un torrent",
       "pause": "Pause",
       "resume": "Reprendre",
       "remove": "Supprimer",
       "openFolder": "Ouvrir le dossier",
       "copyBagId": "Copier l'ID de sac",
-      "details": "Détails"
+      "details": "Détails",
+      "settings": "Parametres",
+      "browseFiles": "Parcourir les fichiers"
     },
     "table": {
       "name": "Nom",
@@ -39,6 +44,7 @@
       "upload": "Envoi",
       "peers": "Pairs",
       "status": "État",
+      "files": "Fichiers",
       "added": "Ajouté"
     },
     "status": {
@@ -58,6 +64,8 @@
       "autoStartLabel": "Démarrer le téléchargement automatiquement",
       "cancel": "Annuler",
       "add": "Ajouter",
+      "adding": "Ajout...",
+      "bagIdDescription": "Entre l'ID du Bag pour demarrer le telechargement. Tu peux trouver des IDs de Bag sur les sites TON ou aupres d'autres utilisateurs.",
       "browse": "Parcourir"
     },
     "info": {
@@ -69,7 +77,16 @@
       "uploadSpeed": "Vitesse d'envoi",
       "ratio": "Ratio",
       "connectedPeers": "Pairs connectés",
-      "diskSpace": "Espace disque"
+      "diskSpace": "Espace disque",
+      "id": "ID",
+      "size": "Taille",
+      "downloaded": "Telecharge",
+      "status": "État",
+      "peers": "Pairs",
+      "files": "Fichiers",
+      "download": "Telechargement",
+      "upload": "Envoi",
+      "path": "Chemin"
     },
     "empty": {
       "title": "Aucun téléchargement actif",
@@ -82,12 +99,16 @@
       "addFailed": "Échec de l'ajout du torrent",
       "removeFailed": "Échec de la suppression",
       "noSpace": "Espace disque insuffisant"
-    }
+    },
+    "searchBags": "Rechercher des bags...",
+    "loadingFiles": "Chargement des fichiers...",
+    "noFiles": "Aucun fichier trouve ou metadonnees pas encore chargees"
   },
   "history": {
     "title": "Historique de navigation",
     "description": "Votre historique de navigation et journaux de visites",
     "search": "Rechercher dans l'historique...",
+    "loading": "Chargement de l'historique...",
     "filters": {
       "all": "Tout le temps",
       "today": "Aujourd'hui",
@@ -98,9 +119,14 @@
     },
     "actions": {
       "clearAll": "Effacer tout l'historique",
+      "clearLastHour": "Effacer la derniere heure",
+      "clearLastDay": "Effacer le dernier jour",
       "clearToday": "Effacer aujourd'hui",
       "clearSelected": "Effacer la sélection",
-      "export": "Exporter l'historique"
+      "export": "Exporter l'historique",
+      "openInNewTab": "Ouvrir dans un nouvel onglet",
+      "copyUrl": "Copier l'URL",
+      "delete": "Supprimer"
     },
     "table": {
       "title": "Titre",
@@ -110,16 +136,30 @@
     },
     "empty": {
       "title": "Aucun historique",
-      "description": "Les sites web que vous visitez apparaîtront ici",
-      "allCleared": "Tout l'historique a été effacé"
+      "noResults": "Aucun resultat trouve",
+      "description": "Les sites web que tu visites apparaitront ici",
+      "tryDifferent": "Essaie un autre terme de recherche",
+      "allCleared": "Tout l'historique a ete efface"
     },
     "clearConfirm": {
       "title": "Effacer l'historique ?",
       "message": "Cette action ne peut pas être annulée.",
-      "clearAll": "Cela supprimera tout votre historique de navigation.",
-      "clearSelected": "Cela supprimera {{count}} éléments sélectionnés.",
+      "clearAll": "Cela supprimera tout ton historique de navigation.",
+      "clearRange": "Effacer {{count}} {{entries}} de la derniere {{range}} ?",
+      "clearSelected": "Cela supprimera {{count}} elements selectionnes.",
       "cancel": "Annuler",
       "confirm": "Effacer"
+    },
+    "copied": "Copie !",
+    "visitsCount": "({{count}} visites)",
+    "entries": {
+      "singular": "entree",
+      "plural": "entrees"
+    },
+    "timeRange": {
+      "hour": "heure",
+      "day": "jour",
+      "week": "semaine"
     },
     "stats": {
       "totalVisits": "Visites totales",
@@ -128,7 +168,9 @@
       "averageDaily": "Moyenne quotidienne"
     },
     "timeFormat": {
-      "justNow": "À l'instant",
+      "justNow": "A l'instant",
+      "minuteAgo": "il y a {{count}} min",
+      "hourAgo": "il y a {{count}}h",
       "minutesAgo": "il y a {{count}} minutes",
       "hoursAgo": "il y a {{count}} heures",
       "yesterday": "Hier",

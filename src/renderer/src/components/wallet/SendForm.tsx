@@ -3,13 +3,14 @@
  * NEVER uses parseFloat — all amounts handled via BigInt.
  */
 
-import { useState, useEffect, memo } from 'react'
+import { useState, memo } from 'react'
 import { UI_NOTIFICATION_TIMEOUT_MS } from '@shared/constants'
 import { Send, ArrowLeft, LoaderCircle, CheckCircle2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { tonToNano, formatTonAmount } from '@/stores/wallet'
+import { isValidTonAddress } from '@/lib/ton-utils'
 import { useTranslation } from 'react-i18next'
 
 interface SendFormProps {
@@ -17,27 +18,6 @@ interface SendFormProps {
   isSending: boolean
   error: string | null
   balance: string // nanoTON
-}
-
-// Detects a .ton DNS domain
-function isTonDomain(input: string): boolean {
-  return /^[a-zA-Z0-9][a-zA-Z0-9-]*\.ton$/.test(input)
-}
-
-// Truncates an address to first 6 + last 4 chars
-function truncateAddress(addr: string): string {
-  if (addr.length <= 12) return addr
-  return `${addr.slice(0, 6)}...${addr.slice(-4)}`
-}
-
-// Validates a TON address (EQ/UQ prefix or raw 0:hex format)
-function isValidTonAddress(addr: string): boolean {
-  if (!addr) return false
-  // EQ/UQ bounceable/non-bounceable user-friendly
-  if (/^[EeUu][Qq][A-Za-z0-9_-]{46}$/.test(addr)) return true
-  // Raw 0:<64hex>
-  if (/^(-1|0):[0-9a-fA-F]{64}$/.test(addr)) return true
-  return false
 }
 
 // Validates a TON amount string (non-zero, positive, valid decimal)
@@ -58,38 +38,8 @@ export const SendForm = memo(function SendForm({ onSend, isSending, error, balan
   const [amount, setAmount] = useState('')
   const [confirming, setConfirming] = useState(false)
   const [success, setSuccess] = useState(false)
-  const [resolvedAddress, setResolvedAddress] = useState<string | null>(null)
-  const [resolveSource, setResolveSource] = useState<'wallet-record' | 'owner-fallback' | null>(null)
-  const [resolving, setResolving] = useState(false)
-  const [resolveError, setResolveError] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (!isTonDomain(to)) {
-      setResolvedAddress(null)
-      setResolveSource(null)
-      setResolveError(null)
-      return
-    }
-    const timer = setTimeout(() => {
-      setResolving(true)
-      setResolveError(null)
-      window.electron.wallet
-        .resolveDomain(to)
-        .then((result) => {
-          setResolvedAddress(result.address)
-          setResolveSource(result.source)
-        })
-        .catch((err) => {
-          setResolveError(err.message || 'Resolution failed')
-          setResolvedAddress(null)
-          setResolveSource(null)
-        })
-        .finally(() => setResolving(false))
-    }, 500)
-    return () => clearTimeout(timer)
-  }, [to])
-
-  const toValid = isValidTonAddress(to) || (isTonDomain(to) && !!resolvedAddress)
+  const toValid = isValidTonAddress(to)
   const amountValid = isValidAmount(amount)
   const canProceed = toValid && amountValid
 
@@ -118,8 +68,7 @@ export const SendForm = memo(function SendForm({ onSend, isSending, error, balan
   const handleSend = async () => {
     try {
       const nanoAmount = tonToNano(amount)
-      const actualAddress = resolvedAddress || to
-      await onSend(actualAddress, nanoAmount)
+      await onSend(to, nanoAmount)
       setSuccess(true)
       setConfirming(false)
       setTo('')
@@ -148,23 +97,7 @@ export const SendForm = memo(function SendForm({ onSend, isSending, error, balan
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
               <span className="text-muted-foreground">{t('send.to')}</span>
-              <div className="text-right">
-                {resolvedAddress ? (
-                  <div className="flex flex-col items-end gap-1">
-                    <span className="font-mono text-foreground text-xs">{to}</span>
-                    <div className="flex items-center gap-1.5">
-                      <span className="font-mono text-muted-foreground text-xs">
-                        {truncateAddress(resolvedAddress)}
-                      </span>
-                      <span className="px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground text-[10px] font-medium">
-                        {resolveSource === 'wallet-record' ? 'DNS wallet' : 'owner'}
-                      </span>
-                    </div>
-                  </div>
-                ) : (
-                  <span className="font-mono text-foreground text-xs break-all max-w-[200px]">{to}</span>
-                )}
-              </div>
+              <span className="font-mono text-foreground text-xs break-all max-w-[200px]">{to}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">{t('send.amount')}</span>
@@ -172,7 +105,7 @@ export const SendForm = memo(function SendForm({ onSend, isSending, error, balan
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">{t('send.fee')}</span>
-              <span className="text-muted-foreground">~0.01 TON</span>
+              <span className="text-muted-foreground">{t('send.estimatedFee')}</span>
             </div>
           </div>
         </div>
@@ -214,29 +147,10 @@ export const SendForm = memo(function SendForm({ onSend, isSending, error, balan
           value={to}
           onChange={(e) => setTo(e.target.value.trim())}
           placeholder={t('send.recipientPlaceholder')}
-          className={cn(
-            to && !isValidTonAddress(to) && !isTonDomain(to) && 'border-destructive focus-visible:ring-destructive'
-          )}
-          aria-invalid={to ? !isValidTonAddress(to) && !isTonDomain(to) : undefined}
+          className={cn(to && !isValidTonAddress(to) && 'border-destructive focus-visible:ring-destructive')}
+          aria-invalid={to ? !isValidTonAddress(to) : undefined}
         />
-        {to && !isValidTonAddress(to) && !isTonDomain(to) && (
-          <p className="text-xs text-destructive">{t('send.invalidAddress')}</p>
-        )}
-        {resolving && (
-          <p className="text-xs text-muted-foreground flex items-center gap-1">
-            <LoaderCircle className="h-3 w-3 animate-spin" aria-hidden="true" />
-            Resolving {to}...
-          </p>
-        )}
-        {!resolving && resolveError && <p className="text-xs text-destructive">{resolveError}</p>}
-        {!resolving && resolvedAddress && (
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-muted-foreground font-mono">{truncateAddress(resolvedAddress)}</span>
-            <span className="px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground text-[10px] font-medium">
-              {resolveSource === 'wallet-record' ? 'DNS wallet' : 'owner'}
-            </span>
-          </div>
-        )}
+        {to && !isValidTonAddress(to) && <p className="text-xs text-destructive">{t('send.invalidAddress')}</p>}
       </div>
 
       <div className="space-y-2">

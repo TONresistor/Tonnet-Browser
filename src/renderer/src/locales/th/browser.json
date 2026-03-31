@@ -5,7 +5,8 @@
     "addBookmarkAria": "เพิ่มไปยังบุ๊กมาร์ก",
     "removeBookmarkAria": "ลบออกจากบุ๊กมาร์ก",
     "addBookmarkTitle": "เพิ่มบุ๊กมาร์ก",
-    "removeBookmarkTitle": "ลบบุ๊กมาร์ก"
+    "removeBookmarkTitle": "ลบบุ๊กมาร์ก",
+    "fileBrowser": "ตัวจัดการไฟล์"
   },
   "navigation": {
     "back": "ย้อนกลับ",
@@ -33,6 +34,24 @@
     "dragCancelled": "ยกเลิกการลากแล้ว",
     "dragCancelledFull": "ยกเลิกการลากแล้ว แท็บ {{title}} กลับไปยังตำแหน่งเดิม"
   },
+  "windowControls": {
+    "group": "การควบคุมหน้าต่าง",
+    "minimize": "ย่อ",
+    "maximize": "ขยาย",
+    "close": "ปิด"
+  },
+  "dnd": {
+    "pickedUp": "เลือก {{type}}: {{name}}",
+    "movedOver": "{{name}} อยู่เหนือ {{target}}",
+    "droppedOn": "{{name}} วางบน {{target}}",
+    "cancelled": "ยกเลิกการลากแล้ว",
+    "folderAriaLabel": "โฟลเดอร์: {{name}} กดสเปซบาร์เพื่อเริ่มลาก",
+    "bookmarkAriaLabel": "บุ๊กมาร์ก: {{name}} กดสเปซบาร์เพื่อเริ่มลาก"
+  },
+  "tip": {
+    "resolveError": "ไม่สามารถแก้ไขโดเมนได้",
+    "title": "ทิป {{amount}} TON ให้ {{domain}}"
+  },
   "bookmarksBar": {
     "title": "บุ๊กมาร์ก"
   },
@@ -40,13 +59,17 @@
     "connected": "เชื่อมต่อกับเครือข่าย TON แล้ว",
     "disconnected": "ตัดการเชื่อมต่อแล้ว",
     "syncing": "กำลังซิงค์...",
-    "syncingMultiHop": "กำลังซิงค์ด้วยวงจรหลายฮอป...",
+    "syncingMultiHop": "กำลังค้นหาโหนดอุโมงค์...",
     "garlicRouting": "Garlic Routing (3-hop)",
     "buildingCircuit": "กำลังสร้างวงจร...",
     "storage": "พื้นที่เก็บข้อมูล:",
     "bag": "ถุง",
     "bags": "ถุง",
     "session": "เซสชัน:",
-    "networkStatus": "สถานะเครือข่าย: {{status}}"
+    "networkStatus": "สถานะเครือข่าย: {{status}}",
+    "downloadSpeedAria": "ความเร็วดาวน์โหลด: {{speed}}",
+    "uploadSpeedAria": "ความเร็วอัปโหลด: {{speed}}",
+    "walletTitle": "ยอดคงเหลือ Wallet",
+    "walletAria": "แสดงยอดคงเหลือ Wallet"
   }
 }

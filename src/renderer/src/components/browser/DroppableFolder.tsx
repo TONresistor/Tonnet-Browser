@@ -8,6 +8,7 @@ import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { BookmarkFolder } from '@/stores/bookmarks'
 import { ChevronDown } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 interface DroppableFolderProps {
   folder: BookmarkFolder
@@ -16,6 +17,7 @@ interface DroppableFolderProps {
 }
 
 export function DroppableFolder({ folder, onClick, onContextMenu }: DroppableFolderProps) {
+  const { t } = useTranslation('browser')
   // Make folder sortable (can be reordered)
   const {
     attributes,
@@ -74,7 +76,7 @@ export function DroppableFolder({ folder, onClick, onContextMenu }: DroppableFol
         e.stopPropagation()
         onContextMenu(e)
       }}
-      aria-label={`Folder: ${folder.name}. Press space to start dragging.`}
+      aria-label={t('dnd.folderAriaLabel', { name: folder.name })}
     >
       {folder.name}
       <ChevronDown className="w-3 h-3" />

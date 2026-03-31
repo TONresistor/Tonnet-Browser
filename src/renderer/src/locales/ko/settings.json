@@ -11,6 +11,7 @@
     "shortcuts": "단축키",
     "bookmarks": "북마크",
     "advanced": "고급",
+    "wallet": "Wallet",
     "about": "정보"
   },
   "appearance": {
@@ -43,7 +44,11 @@
       "showBookmarksBar": "북마크 바 표시",
       "showBookmarksBarDesc": "북마크에 빠르게 액세스 표시",
       "showStatusBar": "상태 바 표시",
-      "showStatusBarDesc": "하단에 연결 상태 표시"
+      "showStatusBarDesc": "하단에 연결 상태 표시",
+      "tabOrientation": "탭 방향",
+      "tabOrientationDesc": "탭을 가로 또는 세로로 표시",
+      "tabOrientationHorizontal": "가로 (상단)",
+      "tabOrientationVertical": "세로 (사이드바)"
     },
     "language": {
       "label": "언어",
@@ -220,10 +225,11 @@
     "folderPlaceholder": "폴더 이름 입력...",
     "create": "만들기",
     "renameFolder": "폴더 이름 바꾸기",
+    "deleteFolder": "폴더 삭제",
     "deleteConfirm": "\"{{name}}\"을(를) 삭제하시겠습니까?",
     "maxDepthReached": "최대 폴더 깊이에 도달했습니다 (3단계).",
-    "deleteFolderConfirm": "Delete this folder? Bookmarks will be moved to Unfiled.",
-    "confirm": "Confirm"
+    "deleteFolderConfirm": "이 폴더를 삭제하시겠습니까? 북마크는 미분류로 이동됩니다.",
+    "confirm": "확인"
   },
   "advanced": {
     "title": "고급",
@@ -239,7 +245,7 @@
     "syncTestDomain": "동기화 테스트 도메인",
     "syncTestDomainDesc": "DHT 동기화를 확인하는 데 사용되는 도메인",
     "resetAll": "모든 설정을 기본값으로 재설정",
-    "resetAllConfirm": "Click again to confirm"
+    "resetAllConfirm": "확인하려면 다시 클릭하세요"
   },
   "about": {
     "title": "정보",
@@ -270,6 +276,132 @@
     "notSet": "설정되지 않음",
     "updateInterval": "업데이트 간격",
     "updateIntervalDesc": "다운로드 통계를 업데이트하는 빈도"
+  },
+  "wallet": {
+    "title": "Wallet",
+    "description": "TON 지갑 및 HTTP 402 결제 설정 구성",
+    "paymentMode": "기본 결제 모드",
+    "paymentModeDesc": ".ton 사이트의 HTTP 402 결제 요청 처리 방법",
+    "modeOff": "끔",
+    "modeManual": "수동",
+    "modeAuto": "자동",
+    "notificationStyle": "알림 스타일",
+    "notificationStyleDesc": "결제 요청 표시 방법",
+    "notifBanner": "배너",
+    "notifModal": "모달",
+    "notifToast": "토스트",
+    "notifPanel": "패널",
+    "spendingLimits": "지출 한도",
+    "spendingLimitsDesc": "자동 결제의 최대 금액 설정 (0 = 제한 없음)",
+    "perRequest": "요청당",
+    "perRequestDesc": "단일 결제 최대 금액",
+    "perDay": "일일",
+    "perDayDesc": "하루 최대 지출",
+    "perSitePerMonth": "사이트당 / 월",
+    "perSitePerMonthDesc": "사이트당 월 최대 지출",
+    "sitePolicies": "사이트 권한",
+    "sitePoliciesDesc": "사이트별 결제 모드 재정의",
+    "spent": "사용",
+    "removeSitePolicy": "{{domain}}의 정책 제거"
+  },
+  "themeEditor": {
+    "colors": {
+      "background": "배경",
+      "backgroundDesc": "기본 배경",
+      "backgroundSecondary": "보조 배경",
+      "backgroundSecondaryDesc": "사이드바, 패널",
+      "foreground": "전경",
+      "foregroundDesc": "기본 텍스트 색상",
+      "card": "카드",
+      "cardDesc": "카드 배경",
+      "cardForeground": "카드 텍스트",
+      "primary": "기본",
+      "primaryDesc": "버튼, 링크",
+      "primaryForeground": "기본 텍스트",
+      "secondary": "보조",
+      "secondaryForeground": "보조 텍스트",
+      "accent": "강조",
+      "accentDesc": "하이라이트",
+      "accentForeground": "강조 텍스트",
+      "muted": "약한",
+      "mutedDesc": "은은한 배경",
+      "mutedForeground": "약한 텍스트",
+      "mutedForegroundDesc": "보조 텍스트",
+      "destructive": "삭제",
+      "destructiveDesc": "오류, 삭제",
+      "destructiveForeground": "삭제 텍스트",
+      "success": "성공",
+      "successDesc": "연결됨, 유효",
+      "successForeground": "성공 텍스트",
+      "warning": "경고",
+      "warningDesc": "주의 상태",
+      "warningForeground": "경고 텍스트",
+      "info": "정보",
+      "infoDesc": "정보",
+      "infoForeground": "정보 텍스트",
+      "border": "테두리",
+      "borderDesc": "기본 테두리",
+      "input": "입력",
+      "inputDesc": "입력 배경",
+      "ring": "링",
+      "ringDesc": "포커스 링"
+    },
+    "sections": {
+      "background": "배경",
+      "text": "텍스트",
+      "primaryAccent": "기본 및 강조",
+      "secondaryMuted": "보조 및 약한",
+      "statusColors": "상태 색상",
+      "borderInput": "테두리 및 입력"
+    },
+    "editor": {
+      "themeName": "테마 이름",
+      "descriptionPlaceholder": "설명 (선택 사항)",
+      "themeType": "테마 유형:",
+      "dark": "다크",
+      "light": "라이트",
+      "preview": "미리보기",
+      "resetToBase": "기본 테마로 재설정:",
+      "cancel": "취소",
+      "saveTheme": "테마 저장"
+    },
+    "preview": {
+      "tab1": "탭 1",
+      "tab2": "탭 2",
+      "cardTitle": "카드 제목",
+      "cardDesc": "테마 미리보기입니다.",
+      "primary": "기본",
+      "secondary": "보조",
+      "connected": "연결됨",
+      "syncing": "동기화 중"
+    },
+    "list": {
+      "noThemes": "아직 사용자 정의 테마가 없습니다. 하나를 만들어 시작하세요.",
+      "darkTheme": "다크 테마",
+      "lightTheme": "라이트 테마",
+      "editTheme": "테마 편집",
+      "duplicateTheme": "테마 복제",
+      "exportTheme": "테마 내보내기",
+      "deleteTheme": "테마 삭제",
+      "confirmDelete": "확인하려면 다시 클릭하세요"
+    },
+    "importDialog": {
+      "title": "테마 가져오기",
+      "themeJson": "테마 JSON",
+      "pastePrompt": "테마 JSON을 붙여넣으세요",
+      "invalidFormat": "잘못된 테마 형식입니다. JSON 구조를 확인하세요.",
+      "or": "또는",
+      "uploadFile": "JSON 파일 업로드",
+      "import": "가져오기"
+    },
+    "exportDialog": {
+      "title": "테마 내보내기",
+      "close": "닫기",
+      "copied": "복사됨",
+      "copy": "복사",
+      "download": "다운로드"
+    },
+    "customThemePrefix": "사용자 정의 테마"
   },
   "actions": {
     "unsavedChanges": "저장되지 않은 변경사항",

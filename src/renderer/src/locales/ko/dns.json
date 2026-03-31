@@ -1,0 +1,26 @@
+{
+  "title": "DNS 조회",
+  "searchPlaceholder": ".ton 도메인 입력...",
+  "searching": "확인 중...",
+  "empty": ".ton 도메인을 입력하여 레코드를 조회하세요",
+  "notFound": "도메인을 찾을 수 없거나 레코드가 없습니다",
+  "error": "도메인 확인 실패",
+  "fields": {
+    "wallet": "지갑",
+    "owner": "소유자",
+    "siteAdnl": "사이트 ADNL",
+    "hasStorage": "스토리지",
+    "nftAddress": "NFT 주소",
+    "collection": "컬렉션",
+    "editor": "편집자",
+    "initialized": "초기화됨",
+    "expiringAt": "만료일",
+    "textRecords": "텍스트 레코드"
+  },
+  "values": {
+    "yes": "예",
+    "no": "아니오",
+    "none": "설정되지 않음"
+  },
+  "copied": "복사됨!"
+}

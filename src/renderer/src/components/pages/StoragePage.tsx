@@ -3,20 +3,18 @@
  * Add, remove, pause, and monitor bags.
  */
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { createLogger } from '@/logger'
-import { Plus, Search, HardDrive, X, Settings, FileText, Info, Folder, FolderOpen } from 'lucide-react'
+import { Plus, Search, HardDrive, X, Settings } from 'lucide-react'
 
 const log = createLogger('storage')
 import { useTranslation } from 'react-i18next'
 import type { StorageBag } from '@shared/types'
 import { cn } from '@/lib/utils'
-import { useBrowserStore } from '@/stores/browser'
 import { useTabsStore } from '@/stores/tabs'
-import { formatBytes, formatSpeed } from '@/lib/format'
-
-// Regex to validate TON Storage Bag ID (64 hex characters)
-const BAG_ID_REGEX = /^[a-fA-F0-9]{64}$/
+import { formatBytes } from '@/lib/format'
+import { BagDetailPanel } from './storage/BagDetailPanel'
+import { AddBagModal } from './storage/AddBagModal'
 
 type FilterType = 'all' | 'downloading' | 'complete'
 
@@ -40,17 +38,11 @@ export function StoragePage() {
   const [loadingDetails, setLoadingDetails] = useState(false)
   const [detailTab, setDetailTab] = useState<'info' | 'files'>('info')
   const [showAddModal, setShowAddModal] = useState(false)
-  const [newBagId, setNewBagId] = useState('')
-  const [bagIdError, setBagIdError] = useState('')
-  const [isAdding, setIsAdding] = useState(false)
-  const addModalRef = useRef<HTMLDivElement>(null)
 
   // Load bags on mount and listen for real-time updates
   useEffect(() => {
     loadBags()
 
-    // Listen for real-time bag updates from storage daemon
-    // Use the unsubscribe function to clean up only THIS listener (not all listeners)
     const unsubscribe = window.electron.on('storage:bags-updated', (...args: unknown[]) => {
       const updatedBags = args[0] as StorageBag[]
       setBags(updatedBags)
@@ -61,40 +53,6 @@ export function StoragePage() {
     }
   }, [])
 
-  // Focus trap for add bag modal
-  useEffect(() => {
-    if (!showAddModal) return
-
-    const modal = addModalRef.current
-    if (!modal) return
-
-    const focusableSelector = 'input, button, select, textarea, [tabindex]:not([tabindex="-1"])'
-    const focusableElements = modal.querySelectorAll<HTMLElement>(focusableSelector)
-    const firstFocusable = focusableElements[0]
-    const lastFocusable = focusableElements[focusableElements.length - 1]
-
-    firstFocusable?.focus()
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Tab') {
-        if (e.shiftKey) {
-          if (document.activeElement === firstFocusable) {
-            e.preventDefault()
-            lastFocusable?.focus()
-          }
-        } else {
-          if (document.activeElement === lastFocusable) {
-            e.preventDefault()
-            firstFocusable?.focus()
-          }
-        }
-      }
-    }
-
-    modal.addEventListener('keydown', handleKeyDown)
-    return () => modal.removeEventListener('keydown', handleKeyDown)
-  }, [showAddModal])
-
   const loadBags = async () => {
     try {
       const result = await window.electron.storage.listBags()
@@ -103,37 +61,6 @@ export function StoragePage() {
       }
     } catch (err) {
       log.error('Failed to load bags:', err)
-    }
-  }
-
-  const handleAddBag = async () => {
-    const trimmedId = newBagId.trim()
-    setBagIdError('')
-
-    if (!trimmedId) return
-
-    // Validate bag ID format
-    if (!BAG_ID_REGEX.test(trimmedId)) {
-      setBagIdError(t('storage.errors.invalidBagId'))
-      return
-    }
-
-    setIsAdding(true)
-    try {
-      const result = await window.electron.storage.addBag(trimmedId)
-      if (result.success) {
-        await loadBags()
-        setNewBagId('')
-        setBagIdError('')
-        setShowAddModal(false)
-      } else if (result.error) {
-        setBagIdError(result.error)
-      }
-    } catch (err) {
-      log.error('Failed to add bag:', err)
-      setBagIdError(t('storage.errors.addFailed'))
-    } finally {
-      setIsAdding(false)
     }
   }
 
@@ -174,7 +101,6 @@ export function StoragePage() {
   const handleSelectBag = (bag: StorageBag) => {
     setSelectedBag(bag)
     setBagDetails(null)
-    // Load details when selecting a bag
     loadBagDetails(bag.id)
   }
 
@@ -197,17 +123,14 @@ export function StoragePage() {
   }
 
   const navigateToSettings = () => {
-    window.electron.navigate('ton://settings')
-    useBrowserStore.getState().setNavigation('ton://settings', false, false)
+    useTabsStore.getState().navigateActiveTab('ton://settings')
   }
 
   // Filter bags
   const filteredBags = bags.filter((bag) => {
-    // Apply status filter
     if (filter === 'downloading' && bag.status !== 'downloading') return false
     if (filter === 'complete' && bag.status !== 'seeding') return false
 
-    // Apply search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase()
       return bag.name.toLowerCase().includes(query) || bag.id.toLowerCase().includes(query)
@@ -215,7 +138,6 @@ export function StoragePage() {
     return true
   })
 
-  // Count by status
   const counts = {
     all: bags.length,
     downloading: bags.filter((b) => b.status === 'downloading').length,
@@ -319,215 +241,21 @@ export function StoragePage() {
 
         {/* Detail Panel */}
         {selectedBag && (
-          <div className="border-t border-border bg-background-secondary">
-            {/* Tabs */}
-            <div className="flex border-b border-border">
-              <button
-                onClick={() => setDetailTab('info')}
-                className={cn(
-                  'px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors',
-                  detailTab === 'info'
-                    ? 'text-primary border-primary'
-                    : 'text-muted-foreground border-transparent hover:text-foreground'
-                )}
-              >
-                <Info className="h-4 w-4 inline mr-2" />
-                {t('storage.tabs.info')}
-              </button>
-              <button
-                onClick={() => setDetailTab('files')}
-                className={cn(
-                  'px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors',
-                  detailTab === 'files'
-                    ? 'text-primary border-primary'
-                    : 'text-muted-foreground border-transparent hover:text-foreground'
-                )}
-              >
-                <FileText className="h-4 w-4 inline mr-2" />
-                {t('storage.tabs.files')}
-              </button>
-            </div>
-
-            {/* Tab Content */}
-            <div className="p-4 max-h-48 overflow-auto">
-              {detailTab === 'info' ? (
-                <div className="grid grid-cols-2 gap-x-8 gap-y-2 text-sm">
-                  <div className="flex">
-                    <span className="text-muted-foreground w-24">{t('storage.info.id')}</span>
-                    <span className="text-foreground/80 font-mono text-xs break-all">{selectedBag.id}</span>
-                  </div>
-                  <div className="flex">
-                    <span className="text-muted-foreground w-24">{t('storage.info.size')}</span>
-                    <span className="text-foreground">{formatBytes(selectedBag.size)}</span>
-                  </div>
-                  <div className="flex">
-                    <span className="text-muted-foreground w-24">{t('storage.info.downloaded')}</span>
-                    <span className="text-foreground">{formatBytes(selectedBag.downloaded)}</span>
-                  </div>
-                  <div className="flex">
-                    <span className="text-muted-foreground w-24">{t('storage.info.status')}</span>
-                    <span className="text-foreground">
-                      {t(`storage.status.${selectedBag.status}`, selectedBag.status)}
-                    </span>
-                  </div>
-                  <div className="flex">
-                    <span className="text-muted-foreground w-24">{t('storage.info.peers')}</span>
-                    <span className="text-foreground">{selectedBag.peers}</span>
-                  </div>
-                  <div className="flex">
-                    <span className="text-muted-foreground w-24">{t('storage.info.files')}</span>
-                    <span className="text-foreground">{selectedBag.filesCount ?? '-'}</span>
-                  </div>
-                  <div className="flex">
-                    <span className="text-muted-foreground w-24">{t('storage.info.download')}</span>
-                    <span className="text-foreground">{formatSpeed(selectedBag.downloadSpeed)}</span>
-                  </div>
-                  <div className="flex">
-                    <span className="text-muted-foreground w-24">{t('storage.info.upload')}</span>
-                    <span className="text-foreground">{formatSpeed(selectedBag.uploadSpeed)}</span>
-                  </div>
-                  <div className="flex col-span-2">
-                    <span className="text-muted-foreground w-24 flex-shrink-0">{t('storage.info.path')}</span>
-                    <button
-                      onClick={() => handleOpenFolder(selectedBag.id)}
-                      className="flex items-center gap-2 text-muted-foreground text-xs hover:text-primary transition-colors cursor-pointer group text-left"
-                    >
-                      <span className="break-all">{bagDetails?.path || selectedBag.id}</span>
-                      <FolderOpen className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
-                    </button>
-                  </div>
-                  <div className="col-span-2 mt-2">
-                    <button
-                      onClick={() => handleBrowseFiles(selectedBag.id)}
-                      className="flex items-center gap-2 px-3 py-1.5 text-sm rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-                    >
-                      <FileText className="h-3.5 w-3.5" />
-                      Browse Files
-                    </button>
-                  </div>
-                </div>
-              ) : loadingDetails ? (
-                <div className="text-muted-foreground text-sm flex items-center gap-2">
-                  <Folder className="h-4 w-4 animate-pulse" />
-                  <span>{t('storage.loadingFiles')}</span>
-                </div>
-              ) : bagDetails && bagDetails.files.length > 0 ? (
-                <div className="space-y-1">
-                  {bagDetails.files.map((file, idx) => (
-                    <div
-                      key={idx}
-                      onClick={() => handleShowFile(selectedBag.id, file.name)}
-                      className="flex items-center gap-3 text-sm py-1 px-2 rounded hover:bg-background cursor-pointer group"
-                    >
-                      <FileText className="h-4 w-4 text-primary flex-shrink-0" />
-                      <span className="text-foreground truncate flex-1">{file.name}</span>
-                      <FolderOpen className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
-                      <span className="text-muted-foreground text-xs">{formatBytes(file.size)}</span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-muted-foreground text-sm flex items-center gap-2">
-                  <Folder className="h-4 w-4" />
-                  <span>{t('storage.noFiles')}</span>
-                </div>
-              )}
-            </div>
-          </div>
+          <BagDetailPanel
+            bag={selectedBag}
+            bagDetails={bagDetails}
+            loadingDetails={loadingDetails}
+            detailTab={detailTab}
+            onTabChange={setDetailTab}
+            onOpenFolder={handleOpenFolder}
+            onBrowseFiles={handleBrowseFiles}
+            onShowFile={handleShowFile}
+          />
         )}
       </div>
 
       {/* Add Bag Modal */}
-      {showAddModal && (
-        <div
-          className="fixed inset-0 bg-black/60 flex items-center justify-center z-50"
-          onClick={() => {
-            setShowAddModal(false)
-            setBagIdError('')
-            setNewBagId('')
-          }}
-          onKeyDown={(e) => {
-            if (e.key === 'Escape') {
-              setShowAddModal(false)
-              setBagIdError('')
-              setNewBagId('')
-            }
-          }}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="add-bag-title"
-        >
-          <div
-            ref={addModalRef}
-            className="rounded-[var(--radius-container)] p-6 w-full max-w-md mx-4 glass-card shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between mb-4">
-              <h3 id="add-bag-title" className="text-foreground font-semibold text-lg">
-                {t('storage.addModal.title')}
-              </h3>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowAddModal(false)
-                  setBagIdError('')
-                  setNewBagId('')
-                }}
-                className="text-muted-foreground hover:text-foreground p-1"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <p className="text-muted-foreground text-sm mb-4">{t('storage.addModal.bagIdDescription')}</p>
-
-            <div className="mb-4">
-              <label className="block text-muted-foreground text-xs uppercase tracking-wider mb-2">
-                {t('storage.addModal.bagIdLabel')}
-              </label>
-              <input
-                type="text"
-                value={newBagId}
-                onChange={(e) => {
-                  setNewBagId(e.target.value)
-                  setBagIdError('')
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && newBagId.trim() && !isAdding) {
-                    handleAddBag()
-                  }
-                }}
-                placeholder={t('storage.addModal.bagIdPlaceholder')}
-                className={`w-full px-3 py-2 bg-background-secondary border rounded-full text-foreground placeholder:text-muted-foreground/50 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-primary ${bagIdError ? 'border-destructive' : 'border-border'}`}
-                autoFocus
-              />
-              {bagIdError && <p className="mt-2 text-destructive text-xs">{bagIdError}</p>}
-            </div>
-
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowAddModal(false)
-                  setBagIdError('')
-                  setNewBagId('')
-                }}
-                className="flex-1 py-2.5 rounded-full text-sm font-medium text-muted-foreground transition-all duration-200 hover:text-foreground bg-surface-hover backdrop-blur-[10px] border border-border-medium"
-              >
-                {t('storage.addModal.cancel')}
-              </button>
-              <button
-                type="button"
-                onClick={handleAddBag}
-                disabled={!newBagId.trim() || isAdding}
-                className="flex-1 py-2.5 rounded-full text-sm font-medium transition-all duration-200 hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 bg-primary/90 backdrop-blur-[10px] text-primary-foreground shadow-[0_4px_16px_hsl(var(--primary)/0.4),inset_0_1px_0_hsl(var(--foreground)/0.2)]"
-              >
-                {isAdding ? t('storage.addModal.adding') : t('storage.addModal.add')}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <AddBagModal isOpen={showAddModal} onClose={() => setShowAddModal(false)} onBagAdded={loadBags} />
     </div>
   )
 }

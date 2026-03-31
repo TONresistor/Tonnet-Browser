@@ -1,0 +1,156 @@
+{
+  "page": {
+    "title": "Wallet",
+    "refresh": "Segarkan",
+    "noWalletTitle": "Tidak Ada Wallet",
+    "noWalletDesc": "Buat dompet baru atau impor yang sudah ada untuk memulai.",
+    "createWallet": "Buat Wallet"
+  },
+  "tabs": {
+    "send": "Kirim",
+    "receive": "Terima",
+    "history": "Riwayat"
+  },
+  "send": {
+    "recipientLabel": "Alamat Penerima",
+    "recipientPlaceholder": "EQ... atau 0:...",
+    "amountLabel": "Jumlah",
+    "feeNote": "Biaya jaringan: {{fee}} TON",
+    "reviewButton": "Tinjau Transaksi",
+    "confirm": "Konfirmasi Transaksi",
+    "to": "Kepada",
+    "amount": "Jumlah",
+    "fee": "Biaya",
+    "back": "Kembali",
+    "sending": "Mengirim...",
+    "success": "Transaksi terkirim!",
+    "successDesc": "Transaksi Anda telah disiarkan ke jaringan.",
+    "error": "Transaksi gagal",
+    "invalidAddress": "Alamat TON tidak valid",
+    "invalidAmount": "Jumlah tidak valid",
+    "max": "Maks",
+    "estimatedFee": "~0,01 TON"
+  },
+  "receive": {
+    "addressLabel": "Alamat Wallet Anda",
+    "copyButton": "Salin Alamat",
+    "copied": "Disalin!",
+    "copyTitle": "Salin ke clipboard",
+    "copyAria": "Salin alamat wallet ke clipboard"
+  },
+  "history": {
+    "empty": "Belum ada transaksi",
+    "clear": "Hapus Riwayat",
+    "types": {
+      "send": "Terkirim",
+      "receive": "Diterima",
+      "x402": "Pembayaran HTTP 402"
+    },
+    "status": {
+      "pending": "Menunggu",
+      "confirmed": "Dikonfirmasi",
+      "failed": "Gagal"
+    },
+    "x402Payment": "Pembayaran HTTP 402"
+  },
+  "dropdown": {
+    "title": "Wallet",
+    "balance": "Saldo",
+    "address": "Alamat",
+    "send": "Kirim",
+    "receive": "Terima",
+    "openWallet": "Buka Wallet",
+    "copyAddress": "Salin Alamat",
+    "copyAddressAria": "Salin alamat dompet ke clipboard",
+    "copied": "Disalin!",
+    "noWallet": "Belum ada dompet. Buat satu untuk memulai.",
+    "createWallet": "Buat Wallet",
+    "ariaLabel": "Dropdown Wallet"
+  },
+  "import": {
+    "title": "Impor Wallet",
+    "description": "Masukkan 24 kata frasa pemulihan Anda",
+    "placeholder": "Masukkan 24 kata dipisahkan dengan spasi...",
+    "button": "Impor Wallet",
+    "importing": "Mengimpor...",
+    "success": "Wallet berhasil diimpor",
+    "error": "Frasa pemulihan tidak valid",
+    "confirm": "Ini akan mengganti dompet Anda saat ini. Anda yakin?",
+    "confirmButton": "Ya, ganti",
+    "cancelButton": "Batal"
+  },
+  "export": {
+    "title": "Frasa Pemulihan",
+    "warning": "Jangan pernah membagikan kata-kata ini. Siapa pun yang memilikinya dapat mengakses dana Anda.",
+    "showButton": "Tampilkan Frasa Pemulihan",
+    "hideButton": "Sembunyikan",
+    "copied": "Disalin ke clipboard"
+  },
+  "backup": {
+    "title": "Simpan Frasa Pemulihan Anda",
+    "warning": "Tulis 24 kata ini dan simpan dengan aman.",
+    "warningDesc": "Ini satu-satunya cara untuk memulihkan dompet Anda. Jika Anda kehilangan kata-kata ini, dana Anda hilang selamanya. Jangan pernah membagikannya.",
+    "yourPhrase": "24 kata frasa pemulihan Anda",
+    "copy": "Salin ke Clipboard",
+    "confirm": "Saya telah menyimpan frasa pemulihan saya"
+  },
+  "create": {
+    "title": "Buat Wallet",
+    "description": "Buat dompet TON baru untuk mengirim, menerima, dan membayar konten.",
+    "button": "Buat Wallet",
+    "creating": "Membuat...",
+    "orImport": "atau impor dompet yang sudah ada"
+  },
+  "statusBar": {
+    "balance": "{{amount}} TON"
+  },
+  "settings": {
+    "title": "Pengaturan Wallet",
+    "walletManagement": "Manajemen Dompet",
+    "paymentMode": "Mode Pembayaran Default",
+    "paymentModeDescription": "Cara menangani permintaan pembayaran HTTP 402",
+    "modes": {
+      "off": "Mati",
+      "manual": "Manual",
+      "auto": "Otomatis"
+    },
+    "notificationStyle": "Gaya Notifikasi",
+    "notificationStyleDescription": "Cara permintaan pembayaran ditampilkan",
+    "styles": {
+      "banner": "Banner",
+      "modal": "Modal",
+      "toast": "Toast",
+      "panel": "Panel"
+    },
+    "limits": {
+      "title": "Batas Pengeluaran",
+      "perRequest": "Per Permintaan",
+      "perDay": "Per Hari",
+      "perSitePerMonth": "Per Situs / Bulan",
+      "placeholder": "0 = tanpa batas",
+      "unit": "TON",
+      "perRequestDesc": "Jumlah maksimum untuk satu pembayaran 402",
+      "perDayDesc": "Total pengeluaran maksimum dalam jendela 24 jam bergulir",
+      "perSitePerMonthDesc": "Pengeluaran maksimum per domain dalam jendela 30 hari bergulir",
+      "unlimitedNote": "Atur ke 0 untuk tanpa batas. Batas berlaku di semua tab."
+    },
+    "sites": {
+      "title": "Izin Situs",
+      "empty": "Belum ada izin khusus situs yang dikonfigurasi",
+      "remove": "Hapus",
+      "spent": "Dibelanjakan: {{amount}} TON",
+      "removePolicy": "Hapus kebijakan situs"
+    }
+  },
+  "payment": {
+    "title": "Permintaan Pembayaran",
+    "domain": "Situs",
+    "amount": "Jumlah",
+    "recipient": "Penerima",
+    "approve": "Bayar",
+    "reject": "Tolak",
+    "success": "Pembayaran berhasil",
+    "failed": "Pembayaran gagal",
+    "limitReached": "Batas pengeluaran tercapai"
+  }
+}

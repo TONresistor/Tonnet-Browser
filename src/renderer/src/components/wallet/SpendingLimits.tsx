@@ -8,6 +8,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Shield } from 'lucide-react'
 import { tonToNano, formatTonAmount } from '@/stores/wallet'
 import type { SpendingLimits as SpendingLimitsType } from '@shared/types'
+import { useTranslation } from 'react-i18next'
 
 interface LimitFieldProps {
   label: string
@@ -66,6 +67,7 @@ function LimitField({ label, description, value, onChange }: LimitFieldProps) {
 }
 
 export function SpendingLimits() {
+  const { t } = useTranslation('wallet')
   const [limits, setLimits] = useState<SpendingLimitsType>({
     perRequest: '0',
     perDay: '0',
@@ -92,33 +94,33 @@ export function SpendingLimits() {
     <div className="space-y-6">
       <div className="flex items-center gap-2">
         <Shield className="h-4 w-4 text-primary" />
-        <h3 className="text-sm font-semibold text-foreground">Spending Limits</h3>
+        <h3 className="text-sm font-semibold text-foreground">{t('settings.limits.title')}</h3>
       </div>
 
       <div className="space-y-4">
         <LimitField
-          label="Per request"
-          description="Maximum amount for a single 402 payment"
+          label={t('settings.limits.perRequest')}
+          description={t('settings.limits.perRequestDesc')}
           value={limits.perRequest}
           onChange={(v) => updateLimit('perRequest', v)}
         />
 
         <LimitField
-          label="Per day"
-          description="Maximum total spending in a rolling 24-hour window"
+          label={t('settings.limits.perDay')}
+          description={t('settings.limits.perDayDesc')}
           value={limits.perDay}
           onChange={(v) => updateLimit('perDay', v)}
         />
 
         <LimitField
-          label="Per site per month"
-          description="Maximum spending per domain in a rolling 30-day window"
+          label={t('settings.limits.perSitePerMonth')}
+          description={t('settings.limits.perSitePerMonthDesc')}
           value={limits.perSitePerMonth}
           onChange={(v) => updateLimit('perSitePerMonth', v)}
         />
       </div>
 
-      <p className="text-xs text-muted-foreground">Set to 0 for unlimited. Limits are enforced across all tabs.</p>
+      <p className="text-xs text-muted-foreground">{t('settings.limits.unlimitedNote')}</p>
     </div>
   )
 }

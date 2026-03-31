@@ -17,10 +17,11 @@ import { cpus } from 'os'
 import { createLogger } from '../../shared/logger'
 const log = createLogger('proxy')
 
-export type ProxyStatus = 'stopped' | 'starting' | 'connected'
+export type ProxyStatus = 'stopped' | 'starting' | 'syncing' | 'connected'
 
 export class ProxyManager extends EventEmitter {
   private process: ChildProcess | null = null
+  private bridgeProcess: ChildProcess | null = null
   private port: number = 0
   private wsPort: number = 8081
   private status: ProxyStatus = 'stopped'
@@ -39,7 +40,30 @@ export class ProxyManager extends EventEmitter {
     return { network, advanced }
   }
 
+  private static MAX_START_RETRIES = 3
+  private static RETRY_DELAY_MS = 2000
+
   async start(): Promise<void> {
+    for (let attempt = 1; attempt <= ProxyManager.MAX_START_RETRIES; attempt++) {
+      try {
+        await this.startOnce()
+        return
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err)
+        if (attempt < ProxyManager.MAX_START_RETRIES && message.includes('exited before ready')) {
+          log.warn(`Proxy start failed (attempt ${attempt}/${ProxyManager.MAX_START_RETRIES}): ${message}`)
+          log.info(`Retrying in ${ProxyManager.RETRY_DELAY_MS}ms...`)
+          this.process = null
+          this.bridgeProcess = null
+          await new Promise((r) => setTimeout(r, ProxyManager.RETRY_DELAY_MS))
+        } else {
+          throw err
+        }
+      }
+    }
+  }
+
+  private async startOnce(): Promise<void> {
     if (this.process) {
       throw new Error('Proxy already running')
     }
@@ -51,34 +75,41 @@ export class ProxyManager extends EventEmitter {
     this.anonymousMode = network.anonymousMode
     this.setStatus('starting')
 
-    const binPath = getBinaryPath('tonutils-proxy')
+    const proxyBinPath = getBinaryPath('tonutils-proxy')
+    const bridgeBinPath = getBinaryPath('tonutils-bridge')
     const proxyWorkDir = this.getProxyWorkDir()
+    const bridgeWorkDir = this.getBridgeWorkDir()
 
     // Write proxy config to control tunnel mode
     this.writeProxyConfig(proxyWorkDir, this.anonymousMode)
 
+    // Spawn proxy process (HTTP proxy for .ton sites)
     if (this.anonymousMode) {
-      // Anonymous mode: multi-hop tunnel via adnl-tunnel (DHT discovery)
-      log.info(`Starting anonymous proxy from: ${binPath}`)
+      log.info(`Starting anonymous proxy from: ${proxyBinPath}`)
       log.info(`Port: ${safePort}, Mode: tunnel (DHT discovery)`)
-      this.process = spawn(binPath, ['-addr', `127.0.0.1:${safePort}`, '-ws-addr', `127.0.0.1:${this.wsPort}`], {
-        windowsHide: true,
-        cwd: proxyWorkDir,
-      })
-
-      // adnl-tunnel handles rerouting automatically when tunnel stalls (>45s no response)
-      // No need for forced rotation — it would kill the connection for 10-15s during reconfiguration
       log.info('Tunnel auto-reroute: managed by adnl-tunnel (on stall)')
     } else {
-      // Direct mode: no tunnel (faster, no anonymity)
-      log.info(`Starting direct proxy from: ${binPath}`)
+      log.info(`Starting direct proxy from: ${proxyBinPath}`)
       log.info(`Port: ${safePort}, Mode: direct`)
-      this.process = spawn(binPath, ['-addr', `127.0.0.1:${safePort}`, '-ws-addr', `127.0.0.1:${this.wsPort}`], {
-        windowsHide: true,
-        cwd: proxyWorkDir,
-      })
     }
 
+    this.process = spawn(proxyBinPath, ['-addr', `127.0.0.1:${safePort}`], {
+      windowsHide: true,
+      cwd: proxyWorkDir,
+    })
+
+    // Spawn bridge process (WS-ADNL bridge for wallet)
+    // Bridge runs without tunnel: liteserver queries go direct (public nodes)
+    // Tunnel is only for the HTTP proxy (browsing .ton sites)
+    const bridgeArgs = ['-addr', `127.0.0.1:${this.wsPort}`, '-data-dir', bridgeWorkDir, '-verbosity', '2']
+    log.info(`Starting bridge from: ${bridgeBinPath}`)
+    log.info(`Bridge WS port: ${this.wsPort}`)
+
+    this.bridgeProcess = spawn(bridgeBinPath, bridgeArgs, {
+      windowsHide: true,
+    })
+
+    // Proxy output handler
     const handleProxyOutput = (data: Buffer) => {
       const raw = data.toString().trim()
       if (!raw) return
@@ -87,6 +118,19 @@ export class ProxyManager extends EventEmitter {
       const message = raw.replace(/\x1b\[[0-9;]*m/g, '')
       log.debug(raw)
       this.emit('log', raw)
+
+      // Transition to syncing once DHT/tunnel work begins
+      if (this.status === 'starting') {
+        const lower = message.toLowerCase()
+        if (
+          lower.includes('discovering tunnel relay') ||
+          lower.includes('initializing dht') ||
+          lower.includes('initializing adnl tunnel') ||
+          lower.includes('initializing dns resolver')
+        ) {
+          this.setStatus('syncing')
+        }
+      }
 
       // Parse storage bag discovery from proxy logs
       // Format: searching for bag id bag_id=<hex> host=<domain>
@@ -108,9 +152,17 @@ export class ProxyManager extends EventEmitter {
           log.info(`Tunnel route: ${this.tunnelRoute}`)
         }
       }
+    }
 
-      // Detect WS bridge readiness
-      // bridge.go: log.Info().Str("addr", addr).Msg("WebSocket-ADNL bridge started")
+    // Bridge output handler
+    const handleBridgeOutput = (data: Buffer) => {
+      const raw = data.toString().trim()
+      if (!raw) return
+      // eslint-disable-next-line no-control-regex
+      const message = raw.replace(/\x1b\[[0-9;]*m/g, '')
+      log.debug(`[bridge] ${raw}`)
+      this.emit('log', `[bridge] ${raw}`)
+
       if (message.toLowerCase().includes('websocket-adnl bridge started')) {
         log.info(`WS bridge ready on port ${this.wsPort}`)
         this.emit('ws-bridge-ready', this.wsPort)
@@ -119,6 +171,9 @@ export class ProxyManager extends EventEmitter {
 
     this.process.stdout?.on('data', handleProxyOutput)
     this.process.stderr?.on('data', handleProxyOutput)
+
+    this.bridgeProcess.stdout?.on('data', handleBridgeOutput)
+    this.bridgeProcess.stderr?.on('data', handleBridgeOutput)
 
     this.process.on('exit', (code) => {
       log.info(`Proxy exited with code: ${code}`)
@@ -132,12 +187,31 @@ export class ProxyManager extends EventEmitter {
       this.emit('error', err.message)
     })
 
+    this.bridgeProcess.on('exit', (code) => {
+      log.info(`Bridge exited with code: ${code}`)
+      this.bridgeProcess = null
+      this.emit('exit', code)
+    })
+
+    this.bridgeProcess.on('error', (err) => {
+      log.error(`Failed to start bridge:`, err)
+      this.emit('error', err.message)
+    })
+
     await this.waitForReady()
     this.setStatus('connected')
   }
 
   private getProxyWorkDir(): string {
     const dir = path.join(app.getPath('userData'), 'proxy')
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true })
+    }
+    return dir
+  }
+
+  private getBridgeWorkDir(): string {
+    const dir = path.join(app.getPath('userData'), 'bridge')
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true })
     }
@@ -202,18 +276,52 @@ export class ProxyManager extends EventEmitter {
     log.info(`Status: ${status}`)
   }
 
-  stop(): void {
-    if (this.process) {
-      log.info('Stopping proxy...')
-      this.process.stdout?.removeAllListeners()
-      this.process.stderr?.removeAllListeners()
-      this.process.removeAllListeners()
-      this.process.kill('SIGTERM')
-      this.process = null
-      this.tunnelRoute = ''
-      this.setStatus('stopped')
-      this.emit('disconnected')
+  async stop(): Promise<void> {
+    if (!this.process && !this.bridgeProcess) return
+
+    log.info('Stopping proxy and bridge...')
+    this.tunnelRoute = ''
+
+    const killProcess = (proc: ChildProcess): Promise<void> => {
+      return new Promise((resolve) => {
+        proc.stdout?.removeAllListeners()
+        proc.stderr?.removeAllListeners()
+        proc.removeAllListeners()
+
+        const forceKill = setTimeout(() => {
+          try {
+            proc.kill('SIGKILL')
+          } catch {
+            /* process already dead */
+          }
+          resolve()
+        }, 5000)
+
+        proc.once('exit', () => {
+          clearTimeout(forceKill)
+          resolve()
+        })
+        proc.kill('SIGTERM')
+      })
     }
+
+    const promises: Promise<void>[] = []
+
+    if (this.bridgeProcess) {
+      const bridgeProc = this.bridgeProcess
+      this.bridgeProcess = null
+      promises.push(killProcess(bridgeProc))
+    }
+
+    if (this.process) {
+      const proxyProc = this.process
+      this.process = null
+      promises.push(killProcess(proxyProc))
+    }
+
+    await Promise.allSettled(promises)
+    this.setStatus('stopped')
+    this.emit('disconnected')
   }
 
   getStatus() {
@@ -228,7 +336,7 @@ export class ProxyManager extends EventEmitter {
   }
 
   isRunning(): boolean {
-    return this.process !== null
+    return this.process !== null && this.bridgeProcess !== null
   }
 
   isSynced(): boolean {
@@ -241,8 +349,7 @@ export class ProxyManager extends EventEmitter {
 
   async restart(): Promise<void> {
     log.info('Restarting proxy...')
-    this.stop()
-    await new Promise((r) => setTimeout(r, 500))
+    await this.stop()
     await this.start()
   }
 
@@ -261,9 +368,24 @@ export class ProxyManager extends EventEmitter {
     const maxAttempts = network.connectionTimeout
 
     return new Promise((resolve, reject) => {
+      const cleanup = () => {
+        clearTimeout(timeout)
+        this.process?.stdout?.off('data', checkOutput)
+        this.process?.stderr?.off('data', checkOutput)
+        this.process?.off('exit', onExit)
+      }
+
       const timeout = setTimeout(() => {
+        cleanup()
         reject(new Error('Proxy failed to start within timeout'))
       }, maxAttempts * 1000)
+
+      // Fail-fast if process exits before being ready (e.g. DHT discovery failure)
+      const onExit = (code: number | null) => {
+        cleanup()
+        reject(new Error(`Proxy exited before ready (code: ${code})`))
+      }
+      this.process?.on('exit', onExit)
 
       const checkOutput = (data: Buffer) => {
         const raw = data.toString()
@@ -277,9 +399,7 @@ export class ProxyManager extends EventEmitter {
           output.includes('listening on') ||
           output.includes('proxy listening')
         ) {
-          clearTimeout(timeout)
-          this.process?.stdout?.off('data', checkOutput)
-          this.process?.stderr?.off('data', checkOutput)
+          cleanup()
           log.info('Proxy is ready')
           resolve()
         }

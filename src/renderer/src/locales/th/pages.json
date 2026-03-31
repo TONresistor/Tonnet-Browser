@@ -1,7 +1,7 @@
 {
   "start": {
     "title": "ยินดีต้อนรับสู่ Tonnet",
-    "subtitle": "Browse tonsites on TON Network, privately",
+    "subtitle": "เรียกดู tonsite บนเครือข่าย TON อย่างเป็นส่วนตัว",
     "searchPlaceholder": "ค้นหาหรือป้อนที่อยู่ .ton",
     "searchButton": "ไป",
     "quickLinks": "ลิงก์ด่วน",
@@ -14,11 +14,13 @@
     "tabs": {
       "active": "ใช้งานอยู่",
       "completed": "เสร็จสิ้น",
-      "info": "ข้อมูล"
+      "info": "ข้อมูล",
+      "files": "ไฟล์"
     },
     "filters": {
       "all": "ทั้งหมด",
       "downloading": "กำลังดาวน์โหลด",
+      "complete": "เสร็จสิ้น",
       "seeding": "กำลังแชร์",
       "paused": "หยุดชั่วคราว"
     },
@@ -29,7 +31,10 @@
       "remove": "ลบ",
       "openFolder": "เปิดโฟลเดอร์",
       "copyBagId": "คัดลอกรหัส Bag",
-      "details": "รายละเอียด"
+      "details": "รายละเอียด",
+      "addBag": "เพิ่ม Bag",
+      "settings": "การตั้งค่า",
+      "browseFiles": "เรียกดูไฟล์"
     },
     "table": {
       "name": "ชื่อ",
@@ -39,6 +44,7 @@
       "upload": "อัปโหลด",
       "peers": "เพียร์",
       "status": "สถานะ",
+      "files": "ไฟล์",
       "added": "เพิ่มแล้ว"
     },
     "status": {
@@ -56,8 +62,10 @@
       "bagIdPlaceholder": "ป้อนรหัส Bag หรือลากไฟล์ทอร์เรนต์...",
       "downloadPathLabel": "เส้นทางดาวน์โหลด",
       "autoStartLabel": "เริ่มดาวน์โหลดอัตโนมัติ",
+      "bagIdDescription": "ป้อนรหัส Bag เพื่อเริ่มดาวน์โหลด คุณสามารถค้นหารหัส Bag ได้จากเว็บไซต์ TON หรือจากผู้ใช้คนอื่น",
       "cancel": "ยกเลิก",
-      "add": "เพิ่ม",
+      "add": "เพิ่ม Bag",
+      "adding": "กำลังเพิ่ม...",
       "browse": "เรียกดู"
     },
     "info": {
@@ -69,8 +77,20 @@
       "uploadSpeed": "ความเร็วอัปโหลด",
       "ratio": "อัตราส่วน",
       "connectedPeers": "เพียร์ที่เชื่อมต่อ",
-      "diskSpace": "พื้นที่ดิสก์"
+      "diskSpace": "พื้นที่ดิสก์",
+      "id": "ID",
+      "size": "ขนาด",
+      "downloaded": "ดาวน์โหลดแล้ว",
+      "status": "สถานะ",
+      "peers": "เพียร์",
+      "files": "ไฟล์",
+      "download": "ดาวน์โหลด",
+      "upload": "อัปโหลด",
+      "path": "เส้นทาง"
     },
+    "searchBags": "ค้นหา bag...",
+    "loadingFiles": "กำลังโหลดไฟล์...",
+    "noFiles": "ไม่พบไฟล์หรือยังไม่ได้โหลดข้อมูลเมตา",
     "empty": {
       "title": "ไม่มีการดาวน์โหลดที่ใช้งานอยู่",
       "description": "เพิ่มเนื้อหาโดยรหัส Bag หรือไฟล์ทอร์เรนต์เพื่อเริ่มต้น",
@@ -88,6 +108,7 @@
     "title": "ประวัติการท่องเว็บ",
     "description": "ประวัติการท่องเว็บและบันทึกการเข้าชมของคุณ",
     "search": "ค้นหาประวัติ...",
+    "loading": "กำลังโหลดประวัติ...",
     "filters": {
       "all": "ทั้งหมด",
       "today": "วันนี้",
@@ -98,9 +119,14 @@
     },
     "actions": {
       "clearAll": "ล้างประวัติทั้งหมด",
+      "clearLastHour": "ล้างชั่วโมงที่ผ่านมา",
+      "clearLastDay": "ล้างวันที่ผ่านมา",
       "clearToday": "ล้างวันนี้",
       "clearSelected": "ล้างที่เลือก",
-      "export": "ส่งออกประวัติ"
+      "export": "ส่งออกประวัติ",
+      "openInNewTab": "เปิดในแท็บใหม่",
+      "copyUrl": "คัดลอก URL",
+      "delete": "ลบ"
     },
     "table": {
       "title": "ชื่อ",
@@ -110,16 +136,30 @@
     },
     "empty": {
       "title": "ไม่มีประวัติ",
+      "noResults": "ไม่พบผลลัพธ์",
       "description": "เว็บไซต์ที่คุณเข้าชมจะปรากฏที่นี่",
+      "tryDifferent": "ลองใช้คำค้นหาอื่น",
       "allCleared": "ประวัติทั้งหมดถูกล้างแล้ว"
     },
     "clearConfirm": {
       "title": "ล้างประวัติหรือไม่",
       "message": "การกระทำนี้ไม่สามารถยกเลิกได้",
       "clearAll": "การดำเนินการนี้จะลบประวัติการท่องเว็บทั้งหมดของคุณ",
+      "clearRange": "ล้าง {{count}} {{entries}} จาก {{range}} ที่ผ่านมาหรือไม่?",
       "clearSelected": "การดำเนินการนี้จะลบ {{count}} รายการที่เลือก",
       "cancel": "ยกเลิก",
       "confirm": "ล้าง"
+    },
+    "copied": "คัดลอกแล้ว!",
+    "visitsCount": "({{count}} ครั้ง)",
+    "entries": {
+      "singular": "รายการ",
+      "plural": "รายการ"
+    },
+    "timeRange": {
+      "hour": "ชั่วโมง",
+      "day": "วัน",
+      "week": "สัปดาห์"
     },
     "stats": {
       "totalVisits": "การเข้าชมทั้งหมด",
@@ -129,6 +169,8 @@
     },
     "timeFormat": {
       "justNow": "เมื่อสักครู่",
+      "minuteAgo": "{{count}} นาทีที่แล้ว",
+      "hourAgo": "{{count}} ชม. ที่แล้ว",
       "minutesAgo": "{{count}} นาทีที่แล้ว",
       "hoursAgo": "{{count}} ชั่วโมงที่แล้ว",
       "yesterday": "เมื่อวาน",

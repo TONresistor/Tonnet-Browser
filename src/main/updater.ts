@@ -10,14 +10,11 @@ const { autoUpdater } = pkg
 import { IPC_CHANNELS } from '../shared/types'
 import { createLogger } from '../shared/logger'
 const log = createLogger('updater')
-import { secureHandle } from './ipc/handlers'
+import { secureHandle, emitToRenderer } from './ipc/handlers'
 
-let mainWindow: BrowserWindow | null = null
 let initialized = false
 
-export function initUpdater(win: BrowserWindow): void {
-  mainWindow = win
-
+export function initUpdater(_win: BrowserWindow): void {
   if (initialized) return
   initialized = true
 
@@ -27,18 +24,18 @@ export function initUpdater(win: BrowserWindow): void {
 
   // Forward updater events to renderer
   autoUpdater.on('update-available', (info) => {
-    mainWindow?.webContents.send('updater:available', {
+    emitToRenderer('updater:available', {
       version: info.version,
       releaseDate: info.releaseDate,
     })
   })
 
   autoUpdater.on('update-not-available', () => {
-    mainWindow?.webContents.send('updater:not-available')
+    emitToRenderer('updater:not-available')
   })
 
   autoUpdater.on('download-progress', (progress) => {
-    mainWindow?.webContents.send('updater:progress', {
+    emitToRenderer('updater:progress', {
       percent: progress.percent,
       bytesPerSecond: progress.bytesPerSecond,
       transferred: progress.transferred,
@@ -47,12 +44,12 @@ export function initUpdater(win: BrowserWindow): void {
   })
 
   autoUpdater.on('update-downloaded', () => {
-    mainWindow?.webContents.send('updater:downloaded')
+    emitToRenderer('updater:downloaded')
   })
 
   autoUpdater.on('error', (error) => {
     log.error(`Update error: ${error.message}`)
-    mainWindow?.webContents.send('updater:error', error.message)
+    emitToRenderer('updater:error', error.message)
   })
 
   // IPC handlers — use secureHandle to verify origin and catch errors

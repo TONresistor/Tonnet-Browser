@@ -11,6 +11,7 @@
     "shortcuts": "แป้นลัด",
     "bookmarks": "บุ๊กมาร์ก",
     "advanced": "ขั้นสูง",
+    "wallet": "Wallet",
     "about": "เกี่ยวกับ"
   },
   "appearance": {
@@ -43,7 +44,11 @@
       "showBookmarksBar": "แสดงแถบบุ๊กมาร์ก",
       "showBookmarksBarDesc": "แสดงการเข้าถึงบุ๊กมาร์กอย่างรวดเร็ว",
       "showStatusBar": "แสดงแถบสถานะ",
-      "showStatusBarDesc": "แสดงสถานะการเชื่อมต่อที่ด้านล่าง"
+      "showStatusBarDesc": "แสดงสถานะการเชื่อมต่อที่ด้านล่าง",
+      "tabOrientation": "ทิศทางแท็บ",
+      "tabOrientationDesc": "แสดงแท็บแนวนอนหรือแนวตั้ง",
+      "tabOrientationHorizontal": "แนวนอน (ด้านบน)",
+      "tabOrientationVertical": "แนวตั้ง (แถบข้าง)"
     },
     "language": {
       "label": "ภาษา",
@@ -220,10 +225,11 @@
     "folderPlaceholder": "ป้อนชื่อโฟลเดอร์...",
     "create": "สร้าง",
     "renameFolder": "เปลี่ยนชื่อโฟลเดอร์",
+    "deleteFolder": "ลบโฟลเดอร์",
     "deleteConfirm": "ลบ \"{{name}}\" หรือไม่",
     "maxDepthReached": "ถึงความลึกสูงสุดของโฟลเดอร์แล้ว (3 ระดับ)",
-    "deleteFolderConfirm": "Delete this folder? Bookmarks will be moved to Unfiled.",
-    "confirm": "Confirm"
+    "deleteFolderConfirm": "ลบโฟลเดอร์นี้หรือไม่? บุ๊กมาร์กจะถูกย้ายไปยังไม่ได้จัดเรียง",
+    "confirm": "ยืนยัน"
   },
   "advanced": {
     "title": "ขั้นสูง",
@@ -239,7 +245,7 @@
     "syncTestDomain": "โดเมนทดสอบการซิงค์",
     "syncTestDomainDesc": "โดเมนที่ใช้ตรวจสอบการซิงค์ DHT",
     "resetAll": "รีเซ็ตการตั้งค่าทั้งหมดเป็นค่าเริ่มต้น",
-    "resetAllConfirm": "Click again to confirm"
+    "resetAllConfirm": "คลิกอีกครั้งเพื่อยืนยัน"
   },
   "about": {
     "title": "เกี่ยวกับ",
@@ -270,6 +276,132 @@
     "notSet": "ไม่ได้ตั้งค่า",
     "updateInterval": "ช่วงเวลาอัปเดต",
     "updateIntervalDesc": "ความถี่ในการอัปเดตสถิติการดาวน์โหลด"
+  },
+  "wallet": {
+    "title": "Wallet",
+    "description": "กำหนดค่ากระเป๋าเงิน TON และการตั้งค่าการชำระเงิน HTTP 402",
+    "paymentMode": "โหมดการชำระเงินเริ่มต้น",
+    "paymentModeDesc": "วิธีจัดการคำขอชำระเงิน HTTP 402 จากเว็บไซต์ .ton",
+    "modeOff": "ปิด",
+    "modeManual": "ด้วยตนเอง",
+    "modeAuto": "อัตโนมัติ",
+    "notificationStyle": "รูปแบบการแจ้งเตือน",
+    "notificationStyleDesc": "วิธีแสดงคำขอชำระเงิน",
+    "notifBanner": "แบนเนอร์",
+    "notifModal": "หน้าต่างป๊อปอัพ",
+    "notifToast": "การแจ้งเตือนแบบลอย",
+    "notifPanel": "แผงควบคุม",
+    "spendingLimits": "วงเงินการใช้จ่าย",
+    "spendingLimitsDesc": "กำหนดจำนวนสูงสุดสำหรับการชำระเงินอัตโนมัติ (0 = ไม่จำกัด)",
+    "perRequest": "ต่อคำขอ",
+    "perRequestDesc": "จำนวนสูงสุดต่อการชำระเงินหนึ่งครั้ง",
+    "perDay": "ต่อวัน",
+    "perDayDesc": "การใช้จ่ายสูงสุดต่อวัน",
+    "perSitePerMonth": "ต่อเว็บไซต์ / เดือน",
+    "perSitePerMonthDesc": "การใช้จ่ายสูงสุดต่อเว็บไซต์ต่อเดือน",
+    "sitePolicies": "สิทธิ์ของเว็บไซต์",
+    "sitePoliciesDesc": "การแทนที่โหมดการชำระเงินสำหรับแต่ละเว็บไซต์",
+    "spent": "ใช้จ่ายแล้ว",
+    "removeSitePolicy": "ลบนโยบายสำหรับ {{domain}}"
+  },
+  "themeEditor": {
+    "colors": {
+      "background": "พื้นหลัง",
+      "backgroundDesc": "พื้นหลังหลัก",
+      "backgroundSecondary": "พื้นหลังรอง",
+      "backgroundSecondaryDesc": "แถบข้าง, แผงควบคุม",
+      "foreground": "พื้นหน้า",
+      "foregroundDesc": "สีข้อความหลัก",
+      "card": "การ์ด",
+      "cardDesc": "พื้นหลังการ์ด",
+      "cardForeground": "ข้อความการ์ด",
+      "primary": "หลัก",
+      "primaryDesc": "ปุ่ม, ลิงก์",
+      "primaryForeground": "ข้อความหลัก",
+      "secondary": "รอง",
+      "secondaryForeground": "ข้อความรอง",
+      "accent": "เน้น",
+      "accentDesc": "ไฮไลท์",
+      "accentForeground": "ข้อความเน้น",
+      "muted": "จาง",
+      "mutedDesc": "พื้นหลังอ่อน",
+      "mutedForeground": "ข้อความจาง",
+      "mutedForegroundDesc": "ข้อความรอง",
+      "destructive": "ทำลาย",
+      "destructiveDesc": "ข้อผิดพลาด, ลบ",
+      "destructiveForeground": "ข้อความทำลาย",
+      "success": "สำเร็จ",
+      "successDesc": "เชื่อมต่อแล้ว, ถูกต้อง",
+      "successForeground": "ข้อความสำเร็จ",
+      "warning": "คำเตือน",
+      "warningDesc": "สถานะระวัง",
+      "warningForeground": "ข้อความคำเตือน",
+      "info": "ข้อมูล",
+      "infoDesc": "ข้อมูล",
+      "infoForeground": "ข้อความข้อมูล",
+      "border": "เส้นขอบ",
+      "borderDesc": "เส้นขอบเริ่มต้น",
+      "input": "อินพุต",
+      "inputDesc": "พื้นหลังอินพุต",
+      "ring": "วงแหวน",
+      "ringDesc": "วงแหวนโฟกัส"
+    },
+    "sections": {
+      "background": "พื้นหลัง",
+      "text": "ข้อความ",
+      "primaryAccent": "หลักและเน้น",
+      "secondaryMuted": "รองและจาง",
+      "statusColors": "สีสถานะ",
+      "borderInput": "เส้นขอบและอินพุต"
+    },
+    "editor": {
+      "themeName": "ชื่อธีม",
+      "descriptionPlaceholder": "คำอธิบาย (ไม่บังคับ)",
+      "themeType": "ประเภทธีม:",
+      "dark": "มืด",
+      "light": "สว่าง",
+      "preview": "ตัวอย่าง",
+      "resetToBase": "รีเซ็ตเป็นธีมพื้นฐาน:",
+      "cancel": "ยกเลิก",
+      "saveTheme": "บันทึกธีม"
+    },
+    "preview": {
+      "tab1": "แท็บ 1",
+      "tab2": "แท็บ 2",
+      "cardTitle": "ชื่อการ์ด",
+      "cardDesc": "ตัวอย่างธีมของคุณ",
+      "primary": "หลัก",
+      "secondary": "รอง",
+      "connected": "เชื่อมต่อแล้ว",
+      "syncing": "กำลังซิงค์"
+    },
+    "list": {
+      "noThemes": "ยังไม่มีธีมที่กำหนดเอง สร้างเพื่อเริ่มต้นใช้งาน",
+      "darkTheme": "ธีมมืด",
+      "lightTheme": "ธีมสว่าง",
+      "editTheme": "แก้ไขธีม",
+      "duplicateTheme": "ทำสำเนาธีม",
+      "exportTheme": "ส่งออกธีม",
+      "deleteTheme": "ลบธีม",
+      "confirmDelete": "คลิกอีกครั้งเพื่อยืนยัน"
+    },
+    "importDialog": {
+      "title": "นำเข้าธีม",
+      "themeJson": "JSON ธีม",
+      "pastePrompt": "กรุณาวาง JSON ธีม",
+      "invalidFormat": "รูปแบบธีมไม่ถูกต้อง กรุณาตรวจสอบโครงสร้าง JSON",
+      "or": "หรือ",
+      "uploadFile": "อัปโหลดไฟล์ JSON",
+      "import": "นำเข้า"
+    },
+    "exportDialog": {
+      "title": "ส่งออกธีม",
+      "close": "ปิด",
+      "copied": "คัดลอกแล้ว",
+      "copy": "คัดลอก",
+      "download": "ดาวน์โหลด"
+    },
+    "customThemePrefix": "ธีมที่กำหนดเอง"
   },
   "actions": {
     "unsavedChanges": "มีการเปลี่ยนแปลงที่ยังไม่ได้บันทึก",
