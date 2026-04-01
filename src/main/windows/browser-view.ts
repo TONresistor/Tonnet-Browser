@@ -10,7 +10,6 @@ import { getSetting } from '../settings'
 import { contentFilterManager } from '../content-filter/filter-manager'
 import { paymentInterceptor } from '../wallet/payment-interceptor'
 import { createLogger } from '../../shared/logger'
-import antiFingerprint from './anti-fingerprinting.js?raw'
 const log = createLogger('browser-view')
 
 export async function createTonSession(proxyPort: number, partitionName: string = SESSION_PARTITION) {
@@ -40,7 +39,7 @@ export async function createTonSession(proxyPort: number, partitionName: string 
     const { url, resourceType } = details
 
     // Block direct WS connections to bridge (force tonsites to use window.tonBridge)
-    if (/^wss?:\/\/(127\.0\.0\.1|localhost)(:\d+)?(\/|$)/.test(url)) {
+    if (/^wss?:\/\/(\[?::1\]?|127\.0\.0\.1|0\.0\.0\.0|localhost)(:\d+)?(\/|$)/.test(url)) {
       log.info(`Blocked direct WS to bridge: ${url}`)
       callback({ cancel: true })
       return
@@ -66,6 +65,14 @@ export async function createTonSession(proxyPort: number, partitionName: string 
     // Strip ETag-related headers to prevent tracking (but allow local cache)
     delete headers['If-None-Match']
     delete headers['If-Modified-Since']
+    // Strip Client Hints headers to prevent platform/version fingerprinting
+    delete headers['Sec-CH-UA']
+    delete headers['Sec-CH-UA-Platform']
+    delete headers['Sec-CH-UA-Mobile']
+    delete headers['Sec-CH-UA-Full-Version-List']
+    delete headers['Sec-CH-UA-Arch']
+    delete headers['Sec-CH-UA-Bitness']
+    delete headers['Sec-CH-UA-Model']
     // Optional: Force no-cache for maximum privacy (user setting)
     const { disableCache } = getSetting('privacy')
     if (disableCache) {
@@ -122,13 +129,6 @@ export function createBrowserView(ses: Electron.Session): WebContentsView {
   // Log preload errors
   view.webContents.on('preload-error', (event, preloadPath, error) => {
     log.error(`[preload-error] ${preloadPath}: ${error.message}`)
-  })
-
-  // Privacy: Disable tracking APIs on every page load
-  view.webContents.on('dom-ready', () => {
-    view.webContents.executeJavaScript(antiFingerprint, true).catch((error) => {
-      log.error('[Privacy] Failed to inject anti-fingerprinting code:', error)
-    })
   })
 
   return view

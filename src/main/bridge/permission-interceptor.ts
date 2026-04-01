@@ -20,6 +20,7 @@ class BridgePermissionInterceptor {
   private pendingRpc = new Map<string, PendingRpc>()
   private pendingPermissionByKey = new Map<string, Promise<boolean>>()
   private activeSenders = new Set<Electron.WebContents>()
+  private subscribedSenders = new Set<Electron.WebContents>()
   private wsPort = 8081
 
   init(): void {
@@ -38,7 +39,10 @@ class BridgePermissionInterceptor {
   ): Promise<void> {
     if (sender && !this.activeSenders.has(sender)) {
       this.activeSenders.add(sender)
-      sender.once('destroyed', () => this.activeSenders.delete(sender))
+      sender.once('destroyed', () => {
+        this.activeSenders.delete(sender)
+        this.subscribedSenders.delete(sender)
+      })
     }
 
     let parsed: { id?: string | number; method?: string; [key: string]: unknown }
@@ -102,6 +106,10 @@ class BridgePermissionInterceptor {
         )
         return
       }
+    }
+
+    if (sender && method.startsWith('subscribe.')) {
+      this.subscribedSenders.add(sender)
     }
 
     this.forwardToBridge(parsed, sendResponse)
@@ -201,9 +209,9 @@ class BridgePermissionInterceptor {
           }
         }
 
-        // If no pending RPC match, this is a push notification -- forward to all active tonsites
+        // If no pending RPC match, this is a push notification -- forward to subscribed senders only
         if (parsed.method && !parsed.id) {
-          for (const sender of this.activeSenders) {
+          for (const sender of this.subscribedSenders) {
             if (!sender.isDestroyed()) {
               sender.send('bridge:message', data)
             }

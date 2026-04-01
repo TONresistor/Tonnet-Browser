@@ -237,9 +237,19 @@ export class WalletKeyStorage {
         return { type: 'seed', seed: decrypted }
       }
 
-      // Unencrypted fallback (32 raw bytes)
+      // Unencrypted fallback (32 raw bytes) — migrate to encrypted format
       if (buffer.length === 32) {
-        return { type: 'seed', seed: buffer.toString('hex') }
+        const seedHex = buffer.toString('hex')
+        if (safeStorage.isEncryptionAvailable() && !this.isBasicTextBackend()) {
+          try {
+            const data: SeedStorageData = { type: 'seed', seed: seedHex }
+            await this.storeData(data)
+            log.info('Migrated legacy unencrypted seed to encrypted format')
+          } catch (err) {
+            log.error('Failed to migrate legacy seed:', err)
+          }
+        }
+        return { type: 'seed', seed: seedHex }
       }
 
       log.error('Unknown wallet file format')

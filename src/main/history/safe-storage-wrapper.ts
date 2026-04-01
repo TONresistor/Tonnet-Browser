@@ -41,6 +41,10 @@ export class SafeStorageWrapper {
       if (!this.isAvailable()) {
         log.warn('Encryption not available, storing unencrypted')
         await fs.writeFile(this.filePath, json, 'utf-8')
+        // Restrict file permissions when encryption is unavailable
+        if (process.platform !== 'win32') {
+          await fs.chmod(this.filePath, 0o600)
+        }
         return
       }
 

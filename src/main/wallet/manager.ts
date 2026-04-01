@@ -298,7 +298,7 @@ class WalletManager extends EventEmitter {
     if (!this.keypair || !this.walletContract) throw new Error('Wallet not initialized')
 
     const seqno = this.localSeqno
-    const validUntil = seqno === 0 ? 0xffffffff : Math.floor(Date.now() / 1000) + maxTimeout
+    const validUntil = seqno === 0 ? Math.floor(Date.now() / 1000) + 3600 : Math.floor(Date.now() / 1000) + maxTimeout
 
     const internalMsg = internal({ to, value: amount, bounce: false })
     const transfer = this.walletContract.createTransfer({

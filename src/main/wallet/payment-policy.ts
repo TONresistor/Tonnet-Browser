@@ -2,13 +2,14 @@
  * Payment policy store.
  * Manages per-site payment modes, spending limits, and rate limiting.
  * Singleton, shared across all tabs/sessions (cross-tab global).
- * Spending data is in-memory only, resets on restart.
+ * Spending data is persisted to disk via SafeStorageWrapper (debounced 5s).
  */
 
 import { getSetting } from '../settings'
 import { RATE_LIMIT_MAX_PER_SECOND, RATE_LIMIT_BURST_PER_10S } from '../../shared/constants'
 import type { PaymentMode, SitePolicy } from '../../shared/types'
 import { createLogger } from '../../shared/logger'
+import { SafeStorageWrapper } from '../history/safe-storage-wrapper'
 const log = createLogger('payment-policy')
 
 interface SpendingRecord {
@@ -38,10 +39,41 @@ export class PaymentPolicyStore {
   private spending: Map<string, SpendingRecord[]> = new Map()
   private rateLimits: Map<string, RateLimitEntry> = new Map()
   private cleanupTimer: ReturnType<typeof setInterval> | null = null
+  private storage = new SafeStorageWrapper('payment-spending')
+  private saveTimer: ReturnType<typeof setTimeout> | null = null
 
   constructor() {
     // FIX 7: Periodic cleanup of stale entries every 5 minutes
     this.cleanupTimer = setInterval(() => this.cleanup(), 5 * 60 * 1000)
+  }
+
+  async init(): Promise<void> {
+    try {
+      const saved = await this.storage.read<Record<string, SpendingRecord[]>>()
+      if (saved) {
+        for (const [domain, records] of Object.entries(saved)) {
+          this.spending.set(domain, records)
+        }
+      }
+    } catch (err) {
+      log.error('Failed to load spending records:', err)
+    }
+  }
+
+  private scheduleSave(): void {
+    if (this.saveTimer) return
+    this.saveTimer = setTimeout(async () => {
+      this.saveTimer = null
+      try {
+        const data: Record<string, SpendingRecord[]> = {}
+        for (const [domain, records] of this.spending) {
+          data[domain] = records
+        }
+        await this.storage.write(data)
+      } catch (err) {
+        log.error('Failed to save spending records:', err)
+      }
+    }, 5000)
   }
 
   /**
@@ -70,6 +102,10 @@ export class PaymentPolicyStore {
   }
 
   destroy(): void {
+    if (this.saveTimer) {
+      clearTimeout(this.saveTimer)
+      this.saveTimer = null
+    }
     if (this.cleanupTimer) {
       clearInterval(this.cleanupTimer)
       this.cleanupTimer = null
@@ -153,6 +189,7 @@ export class PaymentPolicyStore {
     this.rateLimits.set(normalized, entry)
 
     log.info(`Payment recorded: ${normalized}, ${amount} nanoTON`)
+    this.scheduleSave()
   }
 
   getSpending(domain: string): { day: string; month: string } {
