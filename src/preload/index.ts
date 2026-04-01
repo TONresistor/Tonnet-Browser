@@ -164,6 +164,13 @@ const electronAPI = {
     exportMnemonic: () => ipcRenderer.invoke(IPC_CHANNELS.WALLET_EXPORT_MNEMONIC),
   },
 
+  // Bridge permissions
+  bridge: {
+    getPermissions: () => ipcRenderer.invoke(IPC_CHANNELS.BRIDGE_GET_PERMISSIONS),
+    revokePermission: (domain: string, scope: string) =>
+      ipcRenderer.invoke(IPC_CHANNELS.BRIDGE_REVOKE_PERMISSION, domain, scope),
+  },
+
   // DNS
   dns: {
     resolve: (domain: string) => ipcRenderer.invoke(IPC_CHANNELS.DNS_RESOLVE, domain),

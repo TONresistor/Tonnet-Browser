@@ -4,6 +4,7 @@
  */
 
 import { WebContentsView, session } from 'electron'
+import { join } from 'path'
 import { USER_AGENT, FAVICON_MAX_SIZE_BYTES, SESSION_PARTITION } from '../../shared/constants'
 import { getSetting } from '../settings'
 import { contentFilterManager } from '../content-filter/filter-manager'
@@ -34,11 +35,18 @@ export async function createTonSession(proxyPort: number, partitionName: string 
   // Sync content filter settings from user preferences
   contentFilterManager.applySettings(getSetting('contentFiltering'))
 
-  // Content Filtering: Block ads, trackers, miners, and malicious content
-  ses.webRequest.onBeforeRequest({ urls: ['http://*/*'] }, (details, callback) => {
+  // Content Filtering + WS blocking: single handler for all request types
+  ses.webRequest.onBeforeRequest((details, callback) => {
     const { url, resourceType } = details
 
-    // Check if request should be blocked
+    // Block direct WS connections to bridge (force tonsites to use window.tonBridge)
+    if (/^wss?:\/\/(127\.0\.0\.1|localhost)(:\d+)?(\/|$)/.test(url)) {
+      log.info(`Blocked direct WS to bridge: ${url}`)
+      callback({ cancel: true })
+      return
+    }
+
+    // Check if request should be blocked by content filter
     if (contentFilterManager.isBlocked(url, resourceType)) {
       callback({ cancel: true })
       return
@@ -86,6 +94,7 @@ export async function createTonSession(proxyPort: number, partitionName: string 
 export function createBrowserView(ses: Electron.Session): WebContentsView {
   const view = new WebContentsView({
     webPreferences: {
+      preload: join(__dirname, '../../resources/preload/tonsite.js'),
       session: ses,
       sandbox: true,
       contextIsolation: true,
@@ -109,6 +118,11 @@ export function createBrowserView(ses: Electron.Session): WebContentsView {
       // Already attached or not available — safe to ignore
     }
   }
+
+  // Log preload errors
+  view.webContents.on('preload-error', (event, preloadPath, error) => {
+    log.error(`[preload-error] ${preloadPath}: ${error.message}`)
+  })
 
   // Privacy: Disable tracking APIs on every page load
   view.webContents.on('dom-ready', () => {

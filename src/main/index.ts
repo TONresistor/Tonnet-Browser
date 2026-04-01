@@ -22,6 +22,7 @@ import { walletManager } from './wallet/manager'
 import { startProxySequence } from './proxy/startup'
 import { buildContextMenu } from './utils/context-menu'
 import { initUpdater } from './updater'
+import { bridgeInterceptor } from './bridge/permission-interceptor'
 
 // Initialize electron-log IPC bridge so renderer can also log via electron-log
 log.initialize()
@@ -355,9 +356,10 @@ app.whenReady().then(() => {
   })
 
   registerIpcHandlers()
-  // Defer wallet init until WS bridge is ready (proxy must be running first)
+  // Defer wallet + bridge interceptor init until WS bridge is ready (proxy must be running first)
   proxyManager.once('ws-bridge-ready', () => {
     walletManager.init().catch((e) => log.error('Wallet init failed:', e))
+    bridgeInterceptor.init()
   })
   createWindow()
 
@@ -408,6 +410,7 @@ async function runCleanup(): Promise<void> {
     }
   }
 
+  bridgeInterceptor.destroy()
   proxyManager.stop()
   storageManager.stop()
   walletManager.destroy()

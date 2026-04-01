@@ -238,6 +238,19 @@ declare global {
         importWallet: (mnemonic: string[]) => Promise<WalletState>
         exportMnemonic: () => Promise<{ mnemonic: string[] }>
       }
+      bridge: {
+        approvePermission: (id: string, remember: boolean) => Promise<{ success: boolean; error?: string }>
+        denyPermission: (id: string, remember: boolean) => Promise<{ success: boolean }>
+        getPermissions: () => Promise<
+          Array<{
+            domain: string
+            scope: 'blockchain' | 'p2p' | 'write'
+            decision: 'granted' | 'denied' | 'session'
+            grantedAt: number
+          }>
+        >
+        revokePermission: (domain: string, scope: string) => Promise<{ success: boolean }>
+      }
       dns: {
         resolve(domain: string): Promise<import('../shared/types').DnsResolveResult>
       }

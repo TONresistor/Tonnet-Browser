@@ -29,6 +29,7 @@ import { BookmarksSection } from '@/components/settings/sections/BookmarksSectio
 import { AdvancedSection } from '@/components/settings/sections/AdvancedSection'
 import { AboutSection } from '@/components/settings/sections/AboutSection'
 import { WalletSection } from '@/components/settings/sections/WalletSection'
+import { BridgeSection } from '@/components/settings/sections/BridgeSection'
 import type { WalletSectionHandle } from '@/components/settings/sections/WalletSection'
 
 export function SettingsPage() {
@@ -223,6 +224,9 @@ export function SettingsPage() {
 
       case 'wallet':
         return <WalletSection onDirtyChange={setWalletDirty} sectionRef={walletSectionRef} />
+
+      case 'bridge':
+        return <BridgeSection />
 
       case 'about':
         return <AboutSection />

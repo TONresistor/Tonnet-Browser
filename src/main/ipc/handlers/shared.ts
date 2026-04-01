@@ -77,3 +77,34 @@ export function secureHandleWithEvent(
     }
   })
 }
+
+/**
+ * IPC handler for tonsite WebContentsViews (NOT the main window).
+ * Extracts domain from sender URL. Rejects calls from the main renderer.
+ */
+export function tonsiteHandle(
+  channel: string,
+  handler: (domain: string, event: IpcMainInvokeEvent, ...args: any[]) => any
+): void {
+  ipcMain.handle(channel, async (event: IpcMainInvokeEvent, ...args: unknown[]) => {
+    try {
+      const mainWindow = getMainWindow()
+      if (mainWindow && event.sender === mainWindow.webContents) {
+        throw new Error('Unauthorized: this channel is for tonsites only')
+      }
+      const url = event.sender.getURL()
+      let hostname: string
+      try {
+        hostname = new URL(url).hostname
+      } catch {
+        hostname = ''
+      }
+      if (!hostname) hostname = 'local'
+      return await handler(hostname, event, ...args)
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err))
+      ipcErrorHandler.logError(channel, error)
+      return { success: false, error: error.message }
+    }
+  })
+}

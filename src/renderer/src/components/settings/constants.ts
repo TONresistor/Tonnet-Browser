@@ -2,7 +2,7 @@
  * Constantes pour les composants Settings
  */
 
-import { Globe, HardDrive, Shield, History as HistoryIcon, Wrench, Info } from 'lucide-react'
+import { Globe, HardDrive, Shield, History as HistoryIcon, Wrench, Info, Cable } from 'lucide-react'
 import type { SectionInfo, Shortcut } from './types'
 import walletIconSrc from '@/assets/wallet.svg'
 import privacyIconSrc from '@/assets/privacy.svg'
@@ -56,6 +56,7 @@ export const SECTIONS: SectionInfo[] = [
   { id: 'bookmarks', label: 'Bookmarks', icon: BookmarkIcon },
   { id: 'advanced', label: 'Advanced', icon: Wrench },
   { id: 'wallet', label: 'Wallet', icon: WalletIcon },
+  { id: 'bridge', label: 'Bridge', icon: Cable },
   { id: 'about', label: 'About', icon: Info },
 ]
 

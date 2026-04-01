@@ -103,6 +103,10 @@ export function getDefaultSettings(): AppSettings {
       sitePolicies: [...DEFAULT_SETTINGS.wallet.sitePolicies],
       autoPayDomains: [...DEFAULT_SETTINGS.wallet.autoPayDomains],
     },
+    bridge: {
+      permissions: [],
+      defaultPolicy: 'ask',
+    },
   }
 }
 

@@ -198,6 +198,31 @@ export const WalletSettingsPartialSchema = z
   })
   .partial()
 
+// Bridge permission system
+const BridgePermissionSchema = z.object({
+  domain: z.string(),
+  scope: z.enum(['blockchain', 'p2p', 'write']),
+  decision: z.enum(['granted', 'denied', 'session']),
+  grantedAt: z.number(),
+})
+
+export const BridgeSettingsSchema = z.object({
+  permissions: z.array(BridgePermissionSchema).default([]),
+  defaultPolicy: z.enum(['ask', 'deny']).default('ask'),
+})
+
+export const BridgeSettingsPartialSchema = z
+  .object({
+    permissions: z.array(BridgePermissionSchema),
+    defaultPolicy: z.enum(['ask', 'deny']),
+  })
+  .partial()
+
+export type BridgePermission = z.infer<typeof BridgePermissionSchema>
+export type BridgeSettings = z.infer<typeof BridgeSettingsSchema>
+export type BridgeScope = 'blockchain' | 'p2p' | 'write'
+export type BridgeDecision = 'granted' | 'denied' | 'session'
+
 /**
  * Helper that makes a category schema optional (absent key = use all defaults).
  * In Zod v4, `.default({})` on a nested object does not apply inner field defaults,
@@ -216,6 +241,7 @@ export const AppSettingsSchema = z.object({
   contentFiltering: withCategoryDefaults(ContentFilteringSettingsSchema),
   advanced: withCategoryDefaults(AdvancedSettingsSchema),
   wallet: withCategoryDefaults(WalletSettingsSchema),
+  bridge: withCategoryDefaults(BridgeSettingsSchema),
 })
 
 // Partial validation schemas (no defaults) — used to validate SETTINGS_SET updates.
@@ -542,4 +568,10 @@ export const IPC_CHANNELS = {
 
   // DNS
   DNS_RESOLVE: 'dns:resolve',
+
+  // Bridge permissions
+  BRIDGE_SEND: 'bridge:send',
+  BRIDGE_MESSAGE: 'bridge:message',
+  BRIDGE_GET_PERMISSIONS: 'bridge:get-permissions',
+  BRIDGE_REVOKE_PERMISSION: 'bridge:revoke-permission',
 } as const

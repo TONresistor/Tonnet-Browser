@@ -18,6 +18,7 @@ import {
   registerHistoryHandlers,
   registerErrorHandlers,
   registerWalletHandlers,
+  registerBridgeHandlers,
 } from './handlers/index'
 
 // Re-export for use by other modules (e.g. updater.ts, payment-interceptor.ts)
@@ -50,4 +51,5 @@ export function registerIpcHandlers(): void {
   registerHistoryHandlers()
   registerErrorHandlers()
   registerWalletHandlers()
+  registerBridgeHandlers()
 }

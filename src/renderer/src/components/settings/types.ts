@@ -19,6 +19,7 @@ export type SettingsSection =
   | 'bookmarks'
   | 'advanced'
   | 'wallet'
+  | 'bridge'
   | 'about'
 
 /**

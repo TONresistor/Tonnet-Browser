@@ -14,6 +14,7 @@ import {
   ContentFilteringSettingsPartialSchema,
   AdvancedSettingsPartialSchema,
   WalletSettingsPartialSchema,
+  BridgeSettingsPartialSchema,
 } from '../../shared/types'
 import { DEFAULT_SETTINGS } from '../../shared/defaults'
 import { createLogger } from '../../shared/logger'
@@ -29,6 +30,7 @@ export const SETTINGS_CATEGORIES: ReadonlyArray<keyof AppSettings> = [
   'contentFiltering',
   'advanced',
   'wallet',
+  'bridge',
 ]
 
 /**
@@ -62,6 +64,7 @@ export function validateCategoryValues<K extends keyof AppSettings>(
     contentFiltering: ContentFilteringSettingsPartialSchema,
     advanced: AdvancedSettingsPartialSchema,
     wallet: WalletSettingsPartialSchema,
+    bridge: BridgeSettingsPartialSchema,
   }
   const schema = schemas[category]
   if (!schema) {
@@ -207,6 +210,10 @@ export function getDefaultSettingsBase(): AppSettings {
       limits: { ...d.wallet.limits },
       sitePolicies: [...d.wallet.sitePolicies],
       autoPayDomains: [...d.wallet.autoPayDomains],
+    },
+    bridge: {
+      permissions: [],
+      defaultPolicy: 'ask',
     },
   }
 }
