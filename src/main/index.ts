@@ -13,7 +13,7 @@ import { EventEmitter } from 'events'
 import { pathToFileURL } from 'url'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { registerIpcHandlers, emitToRenderer } from './ipc/handlers'
-import { getActiveView } from './windows/tabs'
+import { getActiveView, getAllSessions } from './windows/tabs'
 import { setMainWindow } from './windows/main'
 import { getSetting } from './settings'
 import { startProxySequence } from './proxy/startup'
@@ -487,7 +487,6 @@ async function runCleanup(): Promise<void> {
   if (clearOnExit) {
     log.info('Clearing browsing data on exit...')
     try {
-      const { getAllSessions } = await import('./windows/tabs')
       const sessions = getAllSessions()
 
       for (const ses of sessions) {

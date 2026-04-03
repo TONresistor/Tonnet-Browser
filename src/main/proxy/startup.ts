@@ -39,6 +39,12 @@ export async function startProxySequence(
   }
   proxyManager.on('log', logListener)
 
+  // Storage has no dependency on proxy: start in parallel
+  const storagePromise = storageManager
+    .start()
+    .then(() => log.info('Storage daemon started'))
+    .catch((err) => log.error(`Failed to start storage: ${String(err)}`))
+
   await proxyManager.start()
   proxyManager.off('log', logListener)
 
@@ -47,13 +53,8 @@ export async function startProxySequence(
     initTabManager(mainWindow, proxyManager.getStatus().port, tabDeps)
   }
 
-  // Start storage daemon (non-critical)
-  try {
-    await storageManager.start()
-    log.info('Storage daemon started')
-  } catch (storageError) {
-    log.error(`Failed to start storage: ${String(storageError)}`)
-  }
+  // Wait for storage to finish (likely already done)
+  await storagePromise
 
   // Step 4: Ready
   sendProgress(4, 'Ready!')

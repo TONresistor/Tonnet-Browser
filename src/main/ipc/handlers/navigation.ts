@@ -6,7 +6,14 @@ import { IPC_CHANNELS } from '../../../shared/types'
 import { isValidNavigationUrl } from '../validation'
 import { secureHandle, secureHandleWithEvent, navLimiter, log } from './shared'
 import { getSetting } from '../../settings'
-import { getActiveView, hideAllViews, navigateInTab, getActiveTabId } from '../../windows/tabs'
+import {
+  getActiveView,
+  hideAllViews,
+  navigateInTab,
+  getActiveTabId,
+  loadStorageBagInTab,
+  fileBrowserCache,
+} from '../../windows/tabs'
 
 export function registerNavigationHandlers(): void {
   secureHandleWithEvent(IPC_CHANNELS.NAVIGATE, async (_event, url: string, tabId?: string) => {
@@ -31,7 +38,6 @@ export function registerNavigationHandlers(): void {
       const targetTab = tabId || getActiveTabId()
       log.info(`Browse bag: ${bagId}, tab: ${targetTab}`)
       if (targetTab) {
-        const { loadStorageBagInTab } = await import('../../windows/tabs')
         loadStorageBagInTab(targetTab, bagId).catch((err) => {
           log.error('Failed to browse bag:', (err as Error).message)
         })
@@ -64,7 +70,6 @@ export function registerNavigationHandlers(): void {
     // If viewing a local bag file, restore the file browser instead of goBack
     const currentUrl = view.webContents.getURL()
     if (currentUrl.startsWith('file:///') && currentUrl.includes('/storage/')) {
-      const { fileBrowserCache } = await import('../../windows/tabs')
       const cached = fileBrowserCache.get(view.webContents.id)
       if (cached) {
         await view.webContents.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(cached)}`)

@@ -135,20 +135,42 @@ export class StorageManager extends EventEmitter {
   }
 
   private async waitForReady(maxAttempts = PING_MAX_ATTEMPTS): Promise<void> {
-    for (let i = 0; i < maxAttempts; i++) {
-      if (!this.client) break
-      try {
-        if (await this.client.ping()) {
-          log.info(`API ready after ${i + 1} attempts`)
-          return
+    return new Promise((resolve, reject) => {
+      let settled = false
+
+      // Fail-fast if the daemon crashes before becoming ready
+      const onExit = (code: number | null) => {
+        if (!settled) {
+          settled = true
+          reject(new Error(`Storage daemon exited before ready (code: ${code})`))
         }
-      } catch (error) {
-        // Log ping errors but continue retrying (daemon may still be starting)
-        log.debug(`Ping attempt ${i + 1} failed:`, error)
       }
-      await new Promise((resolve) => setTimeout(resolve, PING_RETRY_DELAY_MS))
-    }
-    throw new Error(`Storage daemon API did not become ready after ${maxAttempts} attempts`)
+      this.process?.once('exit', onExit)
+
+      const poll = async () => {
+        for (let i = 0; i < maxAttempts; i++) {
+          if (settled || !this.client) return
+          try {
+            if (await this.client.ping()) {
+              settled = true
+              this.process?.off('exit', onExit)
+              log.info(`API ready after ${i + 1} attempts`)
+              resolve()
+              return
+            }
+          } catch (error) {
+            log.debug(`Ping attempt ${i + 1} failed:`, error)
+          }
+          await new Promise((r) => setTimeout(r, PING_RETRY_DELAY_MS))
+        }
+        if (!settled) {
+          settled = true
+          this.process?.off('exit', onExit)
+          reject(new Error(`Storage daemon API did not become ready after ${maxAttempts} attempts`))
+        }
+      }
+      poll()
+    })
   }
 
   private startPolling(): void {
