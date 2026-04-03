@@ -6,7 +6,16 @@
  */
 
 import { getSetting } from '../settings'
-import { RATE_LIMIT_MAX_PER_SECOND, RATE_LIMIT_BURST_PER_10S } from '../../shared/constants'
+import {
+  RATE_LIMIT_MAX_PER_SECOND,
+  RATE_LIMIT_BURST_PER_10S,
+  POLICY_CLEANUP_INTERVAL_MS,
+  POLICY_SAVE_DEBOUNCE_MS,
+  SPENDING_RETENTION_MS,
+  ONE_DAY_MS,
+  RATE_LIMIT_WINDOW_MS,
+  RATE_LIMIT_ONE_SECOND_MS,
+} from './constants'
 import type { PaymentMode, SitePolicy } from '../../shared/types'
 import { createLogger } from '../../shared/logger'
 import { SafeStorageWrapper } from '../history/safe-storage-wrapper'
@@ -44,8 +53,8 @@ export class PaymentPolicyStore {
   private saveTimer: ReturnType<typeof setTimeout> | null = null
 
   constructor() {
-    // FIX 7: Periodic cleanup of stale entries every 5 minutes
-    this.cleanupTimer = setInterval(() => this.cleanup(), 5 * 60 * 1000)
+    // FIX 7: Periodic cleanup of stale entries
+    this.cleanupTimer = setInterval(() => this.cleanup(), POLICY_CLEANUP_INTERVAL_MS)
   }
 
   async init(): Promise<void> {
@@ -74,7 +83,7 @@ export class PaymentPolicyStore {
       } catch (err) {
         log.error('Failed to save spending records:', err)
       }
-    }, 5000)
+    }, POLICY_SAVE_DEBOUNCE_MS)
   }
 
   /**
@@ -82,7 +91,7 @@ export class PaymentPolicyStore {
    */
   cleanup(): void {
     const now = Date.now()
-    const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000
+    const thirtyDaysMs = SPENDING_RETENTION_MS
 
     for (const [domain, records] of this.spending) {
       const filtered = records.filter((r) => now - r.timestamp < thirtyDaysMs)
@@ -157,7 +166,7 @@ export class PaymentPolicyStore {
 
     // Per-day limit: rolling 24h
     if (limits.perDay !== '0') {
-      const dayAgo = now - 24 * 60 * 60 * 1000
+      const dayAgo = now - ONE_DAY_MS
       const dayTotal = records.filter((r) => r.timestamp >= dayAgo).reduce((sum, r) => sum + BigInt(r.amount), 0n)
       if (dayTotal + BigInt(amount) > BigInt(limits.perDay)) {
         log.warn(`Per-day limit exceeded for ${normalized}`)
@@ -167,7 +176,7 @@ export class PaymentPolicyStore {
 
     // Per-site-per-month limit: rolling 30d
     if (limits.perSitePerMonth !== '0') {
-      const monthAgo = now - 30 * 24 * 60 * 60 * 1000
+      const monthAgo = now - SPENDING_RETENTION_MS
       const monthTotal = records.filter((r) => r.timestamp >= monthAgo).reduce((sum, r) => sum + BigInt(r.amount), 0n)
       if (monthTotal + BigInt(amount) > BigInt(limits.perSitePerMonth)) {
         log.warn(`Per-site-per-month limit exceeded for ${normalized}`)
@@ -247,8 +256,8 @@ export class PaymentPolicyStore {
     const records = this.spending.get(normalized) || []
     const now = Date.now()
 
-    const dayAgo = now - 24 * 60 * 60 * 1000
-    const monthAgo = now - 30 * 24 * 60 * 60 * 1000
+    const dayAgo = now - ONE_DAY_MS
+    const monthAgo = now - SPENDING_RETENTION_MS
 
     const day = records
       .filter((r) => r.timestamp >= dayAgo)
@@ -269,11 +278,11 @@ export class PaymentPolicyStore {
 
     const now = Date.now()
 
-    // Clean old timestamps (older than 10s)
-    entry.timestamps = entry.timestamps.filter((t) => now - t < 10000)
+    // Clean old timestamps (older than rate limit window)
+    entry.timestamps = entry.timestamps.filter((t) => now - t < RATE_LIMIT_WINDOW_MS)
 
     // Max 1 per second
-    const oneSecAgo = now - 1000
+    const oneSecAgo = now - RATE_LIMIT_ONE_SECOND_MS
     const recentCount = entry.timestamps.filter((t) => t >= oneSecAgo).length
     if (recentCount >= RATE_LIMIT_MAX_PER_SECOND) return false
 
@@ -284,4 +293,4 @@ export class PaymentPolicyStore {
   }
 }
 
-export const paymentPolicyStore = new PaymentPolicyStore()
+// Singleton removed: use ServiceRegistry from services.ts

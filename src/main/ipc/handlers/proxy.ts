@@ -4,12 +4,14 @@
 
 import { IPC_CHANNELS } from '../../../shared/types'
 import { secureHandle, emitToRenderer, log } from './shared'
-import { proxyManager } from '../../proxy/manager'
-import { storageManager } from '../../storage/daemon'
 import { startProxySequence } from '../../proxy/startup'
 import { getMainWindow } from '../../windows/main'
+import type { ServiceRegistry } from '../../services'
 
-export function registerProxyHandlers(): void {
+export function registerProxyHandlers(registry: ServiceRegistry): void {
+  const { proxyManager, storageManager, overlayManager, historyManager, contentFilterManager, paymentInterceptor } =
+    registry
+
   // ===== Proxy Status Events =====
   proxyManager.on('status', (status) => {
     emitToRenderer('proxy:status', proxyManager.getStatus())
@@ -34,7 +36,15 @@ export function registerProxyHandlers(): void {
       emitToRenderer('proxy:progress', { step, message })
     }
 
-    await startProxySequence(sendProgress, proxyManager, storageManager, win)
+    const tabDeps = {
+      overlayManager,
+      proxyManager,
+      storageManager,
+      historyManager,
+      contentFilterManager,
+      paymentInterceptor,
+    }
+    await startProxySequence(sendProgress, proxyManager, storageManager, win, tabDeps)
 
     return { success: true, ...proxyManager.getStatus() }
   })

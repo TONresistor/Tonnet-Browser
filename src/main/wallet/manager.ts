@@ -7,9 +7,10 @@ import { EventEmitter } from 'events'
 import { internal, beginCell, storeMessage, Address, SendMode, Cell } from '@ton/core'
 import { WalletContractV5R1 } from '@ton/ton'
 import { WalletKeyStorage, WalletDecryptionError } from './key-storage'
+import type { ISecureStorage } from '../ports/secure-storage'
 import { WsBridgeClient } from './ws-bridge-client'
 import { getSetting } from '../settings'
-import { WALLET_MAX_TIMEOUT_SECONDS } from '../../shared/constants'
+import { WALLET_MAX_TIMEOUT_S } from './constants'
 import type {
   WalletState,
   WalletTransaction,
@@ -20,7 +21,7 @@ import type {
 import { createLogger } from '../../shared/logger'
 const log = createLogger('wallet')
 
-class WalletManager extends EventEmitter {
+export class WalletManager extends EventEmitter {
   private keyStorage: WalletKeyStorage
   private wsBridge: WsBridgeClient | null = null
   private walletContract: WalletContractV5R1 | null = null
@@ -34,9 +35,9 @@ class WalletManager extends EventEmitter {
   private decryptFailed: boolean = false
   private weakEncryption: boolean = false
 
-  constructor() {
+  constructor(secureStorage?: ISecureStorage) {
     super()
-    this.keyStorage = new WalletKeyStorage()
+    this.keyStorage = secureStorage ? new WalletKeyStorage(secureStorage) : new WalletKeyStorage()
   }
 
   /**
@@ -327,7 +328,7 @@ class WalletManager extends EventEmitter {
    * Sign a transfer and return the BOC as base64.
    */
   async signTransfer(to: string, amount: string): Promise<string> {
-    const { boc } = await this.buildBoc(Address.parse(to), BigInt(amount), WALLET_MAX_TIMEOUT_SECONDS)
+    const { boc } = await this.buildBoc(Address.parse(to), BigInt(amount), WALLET_MAX_TIMEOUT_S)
     return boc
   }
 
@@ -480,4 +481,4 @@ class WalletManager extends EventEmitter {
   }
 }
 
-export const walletManager = new WalletManager()
+// Singleton removed: use ServiceRegistry from services.ts

@@ -4,13 +4,28 @@
  */
 
 import { WebContentsView } from 'electron'
+import { EventEmitter } from 'events'
 import { generateFileBrowserPage, generateLoadingPage } from './file-browser'
-import { storageManager } from '../storage/daemon'
-import { proxyManager } from '../proxy/manager'
+import type { StorageManager } from '../storage/daemon'
 import { createLogger } from '../../shared/logger'
 import type { BagDetails } from '../../shared/types'
+import type { IDisposable } from '../utils/disposable'
 
 const log = createLogger('tabs-storage')
+
+// Module-level storage manager reference, set via setStorageManager()
+let _storageManager: StorageManager | null = null
+
+/** Set the StorageManager instance. Called once during tab manager initialization. */
+export function setTabStorageManager(sm: StorageManager): void {
+  _storageManager = sm
+}
+
+function getStorageManager(): StorageManager {
+  if (!_storageManager)
+    throw new Error('StorageManager not initialized in tabs-storage. Call setTabStorageManager() first.')
+  return _storageManager
+}
 
 // Build-time constants: lottie player + loading animation baked by electron-vite
 declare const __LOTTIE_PLAYER_JS__: string
@@ -25,9 +40,18 @@ const storageBrowserLoading = new Set<number>()
 /** Cache file browser HTML per webContentsId for back navigation */
 export const fileBrowserCache = new Map<number, string>()
 
-proxyManager.on('storage-bag-detected', ({ bagId, domain }: { bagId: string; domain: string }) => {
-  storageBagCache.set(domain, bagId)
-})
+/** Initialize the storage-bag-detected listener on the proxy manager. Returns a disposable to remove it. */
+export function initStorageListener(proxyMgr: EventEmitter): IDisposable {
+  const handler = ({ bagId, domain }: { bagId: string; domain: string }): void => {
+    storageBagCache.set(domain, bagId)
+  }
+  proxyMgr.on('storage-bag-detected', handler)
+  return {
+    dispose(): void {
+      proxyMgr.removeListener('storage-bag-detected', handler)
+    },
+  }
+}
 
 // --- Helpers ---
 
@@ -227,10 +251,10 @@ export async function loadStorageBag(view: WebContentsView, opts: LoadStorageBag
   // Ensure bag is in daemon
   let details: BagDetails | null = null
   try {
-    details = await storageManager.getBagDetails(bagId)
+    details = await getStorageManager().getBagDetails(bagId)
   } catch {
     log.debug(`Bag ${bagId} not in daemon, adding`)
-    await storageManager.addBag(bagId)
+    await getStorageManager().addBag(bagId)
   }
 
   // Wait for files
@@ -238,7 +262,7 @@ export async function loadStorageBag(view: WebContentsView, opts: LoadStorageBag
     for (let i = 0; i < timeout; i++) {
       await new Promise((r) => setTimeout(r, 1000))
       try {
-        details = await storageManager.getBagDetails(bagId)
+        details = await getStorageManager().getBagDetails(bagId)
         if (details.files.length > 0) break
       } catch {
         log.debug(`Waiting for bag ${bagId} files (${i + 1}/${timeout})`)

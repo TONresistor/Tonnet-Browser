@@ -410,5 +410,4 @@ export class ProxyManager extends EventEmitter {
   }
 }
 
-// Singleton instance
-export const proxyManager = new ProxyManager()
+// Singleton removed: use ServiceRegistry from services.ts

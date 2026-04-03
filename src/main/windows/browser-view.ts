@@ -5,14 +5,31 @@
 
 import { WebContentsView, session } from 'electron'
 import { join } from 'path'
-import { USER_AGENT, FAVICON_MAX_SIZE_BYTES, SESSION_PARTITION } from '../../shared/constants'
+import { USER_AGENT, FAVICON_MAX_SIZE_BYTES, SESSION_PARTITION } from './constants'
 import { getSetting } from '../settings'
-import { contentFilterManager } from '../content-filter/filter-manager'
-import { paymentInterceptor } from '../wallet/payment-interceptor'
+import type { ContentFilterManager } from '../content-filter/filter-manager'
+import type { PaymentInterceptor } from '../wallet/payment-interceptor'
 import { createLogger } from '../../shared/logger'
 const log = createLogger('browser-view')
 
+/** Dependencies needed by createTonSession */
+export interface SessionDeps {
+  contentFilterManager: ContentFilterManager
+  paymentInterceptor: PaymentInterceptor
+}
+
+// Module-level deps, set once via setSessionDeps()
+let sessionDeps: SessionDeps | null = null
+
+/** Set the shared session dependencies. Called once from initTabManager(). */
+export function setSessionDeps(deps: SessionDeps): void {
+  sessionDeps = deps
+}
+
 export async function createTonSession(proxyPort: number, partitionName: string = SESSION_PARTITION) {
+  if (!sessionDeps) throw new Error('Session dependencies not initialized. Call setSessionDeps() first.')
+  const { contentFilterManager, paymentInterceptor } = sessionDeps
+
   const ses = session.fromPartition(partitionName)
 
   // Configure proxy - route ALL requests through proxy (no bypass)
@@ -112,7 +129,7 @@ export function createBrowserView(ses: Electron.Session): WebContentsView {
     },
   })
 
-  // WebContentsView defaults to white background — prevent white flash
+  // WebContentsView defaults to white background -- prevent white flash
   view.setBackgroundColor('#0a0a0a')
 
   // Expose this WebContentsView to CDP (Chrome DevTools Protocol)
@@ -122,14 +139,9 @@ export function createBrowserView(ses: Electron.Session): WebContentsView {
     try {
       view.webContents.debugger.attach('1.3')
     } catch {
-      // Already attached or not available — safe to ignore
+      // Already attached or not available -- safe to ignore
     }
   }
-
-  // Log preload errors
-  view.webContents.on('preload-error', (event, preloadPath, error) => {
-    log.error(`[preload-error] ${preloadPath}: ${error.message}`)
-  })
 
   return view
 }

@@ -435,5 +435,4 @@ export class HistoryManager extends EventEmitter {
   }
 }
 
-// Singleton
-export const historyManager = new HistoryManager()
+// Singleton removed: use ServiceRegistry from services.ts

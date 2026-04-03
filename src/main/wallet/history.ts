@@ -5,7 +5,7 @@
 
 import { Address } from '@ton/core'
 import { SafeStorageWrapper } from '../history/safe-storage-wrapper'
-import { WALLET_HISTORY_FILE_NAME } from '../../shared/constants'
+import { WALLET_HISTORY_FILE_NAME } from './constants'
 import type { WalletTransaction } from '../../shared/types'
 import { createLogger } from '../../shared/logger'
 const log = createLogger('wallet:history')
@@ -133,4 +133,4 @@ export class WalletHistoryManager {
   }
 }
 
-export const walletHistoryManager = new WalletHistoryManager()
+// Singleton removed: use ServiceRegistry from services.ts

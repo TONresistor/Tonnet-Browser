@@ -3,7 +3,7 @@
  * Extracted from tabs.ts to separate domain session lifecycle from tab lifecycle.
  */
 
-import { SESSION_PARTITION } from '../../shared/constants'
+import { SESSION_PARTITION } from './constants'
 import { createTonSession } from './browser-view'
 import { getSetting, type PrivacySettings } from '../settings'
 import { createLogger } from '../../shared/logger'

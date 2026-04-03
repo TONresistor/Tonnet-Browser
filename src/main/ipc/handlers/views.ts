@@ -6,9 +6,11 @@ import { ipcMain, IpcMainInvokeEvent } from 'electron'
 import { IPC_CHANNELS } from '../../../shared/types'
 import { secureHandle, emitToRenderer, log } from './shared'
 import { hideAllViews, showActiveView } from '../../windows/tabs'
-import { overlayManager } from '../../windows/overlay-manager'
+import type { ServiceRegistry } from '../../services'
 
-export function registerViewsHandlers(): void {
+export function registerViewsHandlers(registry: ServiceRegistry): void {
+  const { overlayManager } = registry
+
   // Overlay action forwarding (from overlay views to main renderer)
   // Cannot use secureHandle because sender is an overlay WebContentsView, not main window
   ipcMain.handle('overlay:action', (event: IpcMainInvokeEvent, actionType: string, actionData: unknown) => {

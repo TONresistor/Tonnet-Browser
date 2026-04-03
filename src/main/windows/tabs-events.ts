@@ -8,21 +8,46 @@ import { loadStorageBrowser, loadErrorPage } from './tabs-storage'
 import { extractFavicon } from './browser-view'
 import { createLogger } from '../../shared/logger'
 import { emitToRenderer } from '../ipc/handlers/shared'
-import { historyManager } from '../history/manager'
-import { overlayManager } from './overlay-manager'
+import { CONTEXT_MENU_WIDTH } from './constants'
 import { clipboard } from 'electron'
+import { DisposableStore, onWebContents } from '../utils/disposable'
+import type { HistoryManager } from '../history/manager'
+import type { OverlayManager } from './overlay-manager'
 
 const log = createLogger('tabs-events')
 
-/** Set up non-security event listeners on a view (loading, navigation, favicon, context menu). */
-export function setupViewEventListeners(view: WebContentsView, tabId: string): void {
-  view.webContents.on('did-start-loading', () => {
-    emitToRenderer('page:loading', true, tabId)
-  })
+/** Dependencies needed by setupViewEventListeners */
+export interface TabEventDeps {
+  historyManager: HistoryManager
+  overlayManager: OverlayManager
+}
 
-  view.webContents.on('did-stop-loading', () => {
-    emitToRenderer('page:loading', false, tabId)
-  })
+// Module-level deps, set once via setTabEventDeps()
+let tabEventDeps: TabEventDeps | null = null
+
+/** Set the shared event dependencies. Called once from initTabManager(). */
+export function setTabEventDeps(deps: TabEventDeps): void {
+  tabEventDeps = deps
+}
+
+/** Set up non-security event listeners on a view (loading, navigation, favicon, context menu). */
+export function setupViewEventListeners(view: WebContentsView, tabId: string): DisposableStore {
+  if (!tabEventDeps) throw new Error('Tab event dependencies not initialized. Call setTabEventDeps() first.')
+  const { historyManager, overlayManager } = tabEventDeps
+
+  const store = new DisposableStore()
+
+  store.add(
+    onWebContents(view.webContents, 'did-start-loading', () => {
+      emitToRenderer('page:loading', true, tabId)
+    })
+  )
+
+  store.add(
+    onWebContents(view.webContents, 'did-stop-loading', () => {
+      emitToRenderer('page:loading', false, tabId)
+    })
+  )
 
   const handleNavigate = (_e: unknown, url: string): void => {
     emitToRenderer('page:navigate', {
@@ -33,179 +58,203 @@ export function setupViewEventListeners(view: WebContentsView, tabId: string): v
     })
     historyManager.addEntry(url, view.webContents.getTitle())
   }
-  view.webContents.on('did-navigate', handleNavigate)
-  view.webContents.on('did-navigate-in-page', handleNavigate)
+  store.add(onWebContents(view.webContents, 'did-navigate', handleNavigate))
+  store.add(onWebContents(view.webContents, 'did-navigate-in-page', handleNavigate))
 
-  view.webContents.on('page-title-updated', (_e, title) => {
-    emitToRenderer('page:title', title, tabId)
+  store.add(
+    onWebContents(view.webContents, 'page-title-updated', (_e: unknown, title: string) => {
+      emitToRenderer('page:title', title, tabId)
 
-    const url = view.webContents.getURL()
-    historyManager.addEntry(url, title, undefined, false)
-  })
+      const url = view.webContents.getURL()
+      historyManager.addEntry(url, title, undefined, false)
+    })
+  )
 
   // Extract favicon and detect empty storage bag pages
-  view.webContents.on('did-finish-load', async () => {
-    try {
-      const favicon = await extractFavicon(view)
-      if (favicon) {
-        emitToRenderer('page:favicon', favicon, tabId)
-      }
-    } catch (error) {
-      log.debug(`Failed to extract favicon for tab ${tabId}:`, error)
-    }
-
-    try {
-      const pageUrl = view.webContents.getURL()
-      const url = new URL(pageUrl)
-      if (url.hostname.endsWith('.ton') && !pageUrl.startsWith('data:')) {
-        const { textLen, htmlLen } = await view.webContents.executeJavaScript(
-          '({ textLen: document.body ? document.body.innerText.trim().length : 0, htmlLen: document.body ? document.body.innerHTML.trim().length : 0 })'
-        )
-        if (htmlLen < 50 && textLen < 10) {
-          log.info(`Empty page detected for ${url.hostname}, trying storage browser`)
-          loadStorageBrowser(view, url.hostname).catch(() => {
-            log.debug('Not a storage bag or no files available')
-          })
+  store.add(
+    onWebContents(view.webContents, 'did-finish-load', async () => {
+      try {
+        const favicon = await extractFavicon(view)
+        if (view.webContents.isDestroyed()) return
+        if (favicon) {
+          emitToRenderer('page:favicon', favicon, tabId)
         }
+      } catch (error) {
+        log.debug(`Failed to extract favicon for tab ${tabId}:`, error)
       }
-    } catch (err) {
-      log.debug('Empty page detection failed:', err)
-    }
-  })
+
+      try {
+        if (view.webContents.isDestroyed()) return
+        const pageUrl = view.webContents.getURL()
+        const url = new URL(pageUrl)
+        if (url.hostname.endsWith('.ton') && !pageUrl.startsWith('data:')) {
+          const { textLen, htmlLen } = await view.webContents.executeJavaScript(
+            '({ textLen: document.body ? document.body.innerText.trim().length : 0, htmlLen: document.body ? document.body.innerHTML.trim().length : 0 })'
+          )
+          if (view.webContents.isDestroyed()) return
+          if (htmlLen < 50 && textLen < 10) {
+            log.info(`Empty page detected for ${url.hostname}, trying storage browser`)
+            loadStorageBrowser(view, url.hostname).catch(() => {
+              log.debug('Not a storage bag or no files available')
+            })
+          }
+        }
+      } catch (err) {
+        log.debug('Empty page detection failed:', err)
+      }
+    })
+  )
 
   // Handle load failures
-  view.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
-    if (errorCode === -3 || errorCode === -2 || errorCode === 0) {
-      return
-    }
+  store.add(
+    onWebContents(
+      view.webContents,
+      'did-fail-load',
+      (_event: unknown, errorCode: number, errorDescription: string, validatedURL: string) => {
+        if (errorCode === -3 || errorCode === -2 || errorCode === 0) {
+          return
+        }
 
-    if (validatedURL.startsWith('data:') || validatedURL.startsWith('file:')) {
-      return
-    }
+        if (validatedURL.startsWith('data:') || validatedURL.startsWith('file:')) {
+          return
+        }
 
-    log.warn(`Page load failed: ${errorDescription} (code: ${errorCode}) for ${validatedURL}`)
+        log.warn(`Page load failed: ${errorDescription} (code: ${errorCode}) for ${validatedURL}`)
 
-    try {
-      const url = new URL(validatedURL)
-      if (url.hostname.endsWith('.ton')) {
-        loadStorageBrowser(view, url.hostname).catch(() => {
-          loadErrorPage(view, `${errorDescription} (${errorCode})`, validatedURL)
-        })
-        return
+        try {
+          const url = new URL(validatedURL)
+          if (url.hostname.endsWith('.ton')) {
+            loadStorageBrowser(view, url.hostname).catch(() => {
+              loadErrorPage(view, `${errorDescription} (${errorCode})`, validatedURL)
+            })
+            return
+          }
+        } catch (err) {
+          log.debug('URL parse failed in did-fail-load:', err)
+        }
+
+        loadErrorPage(view, `${errorDescription} (${errorCode})`, validatedURL)
       }
-    } catch (err) {
-      log.debug('URL parse failed in did-fail-load:', err)
-    }
-
-    loadErrorPage(view, `${errorDescription} (${errorCode})`, validatedURL)
-  })
+    )
+  )
 
   // Context menu for web pages (overlay instead of native menu)
-  view.webContents.on('context-menu', (_e, params) => {
-    const items: Array<{
-      id: string
-      label: string
-      separator?: boolean
-      disabled?: boolean
-      destructive?: boolean
-      data?: Record<string, string>
-    }> = []
+  store.add(
+    onWebContents(view.webContents, 'context-menu', (_e: unknown, params: Electron.ContextMenuParams) => {
+      const items: Array<{
+        id: string
+        label: string
+        separator?: boolean
+        disabled?: boolean
+        destructive?: boolean
+        data?: Record<string, string>
+      }> = []
 
-    // Text editing options
-    if (params.isEditable) {
-      items.push(
-        { id: 'cut', label: 'Cut', disabled: !params.editFlags.canCut },
-        { id: 'copy', label: 'Copy', disabled: !params.editFlags.canCopy },
-        { id: 'paste', label: 'Paste', disabled: !params.editFlags.canPaste },
-        { id: '_sep1', label: '', separator: true },
-        { id: 'select-all', label: 'Select All' }
-      )
-    } else if (params.selectionText) {
-      items.push({ id: 'copy', label: 'Copy' })
-    }
-
-    // Link options
-    if (params.linkURL) {
-      if (items.length > 0) items.push({ id: '_sep2', label: '', separator: true })
-      items.push(
-        { id: 'open-link-new-tab', label: 'Open Link in New Tab', data: { url: params.linkURL } },
-        { id: 'copy-link', label: 'Copy Link Address', data: { url: params.linkURL } }
-      )
-    }
-
-    // Image options
-    if (params.hasImageContents && params.srcURL) {
-      if (items.length > 0) items.push({ id: '_sep3', label: '', separator: true })
-      items.push({ id: 'copy-image-url', label: 'Copy Image Address', data: { url: params.srcURL } })
-    }
-
-    // Navigation options
-    if (items.length > 0) items.push({ id: '_sep4', label: '', separator: true })
-    items.push(
-      { id: 'back', label: 'Back', disabled: !view.webContents.navigationHistory.canGoBack() },
-      { id: 'forward', label: 'Forward', disabled: !view.webContents.navigationHistory.canGoForward() },
-      { id: 'reload', label: 'Reload' }
-    )
-
-    if (items.length === 0) return
-
-    // Calculate menu height: ~36px per item, 1px per separator, 8px padding
-    const visibleItems = items.filter((i) => !i.separator).length
-    const separators = items.filter((i) => i.separator).length
-    const menuH = visibleItems * 36 + separators * 9 + 8
-    const menuW = 220
-
-    // Clamp to window bounds
-    const winBounds = view.getBounds()
-    const menuX = Math.max(0, Math.min(params.x, winBounds.width - menuW))
-    const menuY = Math.max(0, Math.min(params.y, winBounds.height - menuH))
-
-    // Offset by view position in window
-    const offsetX = winBounds.x + menuX
-    const offsetY = winBounds.y + menuY
-
-    overlayManager.show(
-      'page-context-menu',
-      { x: offsetX, y: offsetY, width: menuW, height: menuH },
-      { type: 'menu', items },
-      (actionType, actionData) => {
-        const d = actionData as Record<string, string>
-        switch (actionType) {
-          case 'cut':
-            view.webContents.cut()
-            break
-          case 'copy':
-            view.webContents.copy()
-            break
-          case 'paste':
-            view.webContents.paste()
-            break
-          case 'select-all':
-            view.webContents.selectAll()
-            break
-          case 'open-link-new-tab':
-            emitToRenderer('context:open-link', d.url)
-            break
-          case 'copy-link':
-            clipboard.writeText(d.url)
-            break
-          case 'copy-image-url':
-            clipboard.writeText(d.url)
-            break
-          case 'back':
-            view.webContents.navigationHistory.goBack()
-            break
-          case 'forward':
-            view.webContents.navigationHistory.goForward()
-            break
-          case 'reload':
-            view.webContents.reload()
-            break
-          case 'dismiss':
-            break
-        }
-        overlayManager.hide('page-context-menu')
+      // Text editing options
+      if (params.isEditable) {
+        items.push(
+          { id: 'cut', label: 'Cut', disabled: !params.editFlags.canCut },
+          { id: 'copy', label: 'Copy', disabled: !params.editFlags.canCopy },
+          { id: 'paste', label: 'Paste', disabled: !params.editFlags.canPaste },
+          { id: '_sep1', label: '', separator: true },
+          { id: 'select-all', label: 'Select All' }
+        )
+      } else if (params.selectionText) {
+        items.push({ id: 'copy', label: 'Copy' })
       }
-    )
-  })
+
+      // Link options
+      if (params.linkURL) {
+        if (items.length > 0) items.push({ id: '_sep2', label: '', separator: true })
+        items.push(
+          { id: 'open-link-new-tab', label: 'Open Link in New Tab', data: { url: params.linkURL } },
+          { id: 'copy-link', label: 'Copy Link Address', data: { url: params.linkURL } }
+        )
+      }
+
+      // Image options
+      if (params.hasImageContents && params.srcURL) {
+        if (items.length > 0) items.push({ id: '_sep3', label: '', separator: true })
+        items.push({ id: 'copy-image-url', label: 'Copy Image Address', data: { url: params.srcURL } })
+      }
+
+      // Navigation options
+      if (items.length > 0) items.push({ id: '_sep4', label: '', separator: true })
+      items.push(
+        { id: 'back', label: 'Back', disabled: !view.webContents.navigationHistory.canGoBack() },
+        { id: 'forward', label: 'Forward', disabled: !view.webContents.navigationHistory.canGoForward() },
+        { id: 'reload', label: 'Reload' }
+      )
+
+      if (items.length === 0) return
+
+      // Calculate menu height: ~36px per item, 1px per separator, 8px padding
+      const visibleItems = items.filter((i) => !i.separator).length
+      const separators = items.filter((i) => i.separator).length
+      const menuH = visibleItems * 36 + separators * 9 + 8
+      const menuW = CONTEXT_MENU_WIDTH
+
+      // Clamp to window bounds
+      const winBounds = view.getBounds()
+      const menuX = Math.max(0, Math.min(params.x, winBounds.width - menuW))
+      const menuY = Math.max(0, Math.min(params.y, winBounds.height - menuH))
+
+      // Offset by view position in window
+      const offsetX = winBounds.x + menuX
+      const offsetY = winBounds.y + menuY
+
+      overlayManager.show(
+        'page-context-menu',
+        { x: offsetX, y: offsetY, width: menuW, height: menuH },
+        { type: 'menu', items },
+        (actionType, actionData) => {
+          const d = actionData as Record<string, string>
+          switch (actionType) {
+            case 'cut':
+              view.webContents.cut()
+              break
+            case 'copy':
+              view.webContents.copy()
+              break
+            case 'paste':
+              view.webContents.paste()
+              break
+            case 'select-all':
+              view.webContents.selectAll()
+              break
+            case 'open-link-new-tab':
+              emitToRenderer('context:open-link', d.url)
+              break
+            case 'copy-link':
+              clipboard.writeText(d.url)
+              break
+            case 'copy-image-url':
+              clipboard.writeText(d.url)
+              break
+            case 'back':
+              view.webContents.navigationHistory.goBack()
+              break
+            case 'forward':
+              view.webContents.navigationHistory.goForward()
+              break
+            case 'reload':
+              view.webContents.reload()
+              break
+            case 'dismiss':
+              break
+          }
+          overlayManager.hide('page-context-menu')
+        }
+      )
+    })
+  )
+
+  // Log preload errors (moved from browser-view.ts for lifecycle management)
+  store.add(
+    onWebContents(view.webContents, 'preload-error', (_event: unknown, preloadPath: string, error: Error) => {
+      log.error(`[preload-error] ${preloadPath}: ${error.message}`)
+    })
+  )
+
+  return store
 }

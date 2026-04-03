@@ -3,18 +3,18 @@ import * as path from 'path'
 import { app } from 'electron'
 import { IPC_CHANNELS } from '../../../shared/types'
 import { secureHandle, tonsiteHandle, log } from './shared'
-import { bridgeInterceptor } from '../../bridge/permission-interceptor'
-import { bridgePermissionStore } from '../../bridge/permission-store'
-import { proxyManager } from '../../proxy/manager'
 import { REQUIRED_NAMESPACES } from '../../../shared/bridge-config'
 import type { BridgeScope } from '../../../shared/types'
 import type { BridgeConfig } from '../../../shared/bridge-config'
+import type { ServiceRegistry } from '../../services'
 
 function getBridgeConfigPath(): string {
   return path.join(app.getPath('userData'), 'bridge', 'config.json')
 }
 
-export function registerBridgeHandlers(): void {
+export function registerBridgeHandlers(registry: ServiceRegistry): void {
+  const { bridgeInterceptor, bridgePermissionStore, proxyManager } = registry
+
   tonsiteHandle(IPC_CHANNELS.BRIDGE_SEND, async (domain, event, data: string) => {
     return new Promise<void>((resolve) => {
       bridgeInterceptor.handleRequest(

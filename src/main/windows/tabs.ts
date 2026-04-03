@@ -4,7 +4,7 @@
  */
 
 import { WebContentsView, BrowserWindow } from 'electron'
-import { createBrowserView } from './browser-view'
+import { createBrowserView, setSessionDeps } from './browser-view'
 import {
   extractDomain,
   getSessionForDomain,
@@ -20,15 +20,23 @@ import {
   loadStorageBrowser,
   loadErrorPage,
   fileBrowserCache as _fileBrowserCache,
+  initStorageListener,
+  setTabStorageManager,
 } from './tabs-storage'
 import { updateViewBounds, updateSidebarBounds, invalidateAppearanceCache } from './tabs-bounds'
 import { setupSecurityHandlers, ALLOWED_SCHEMES } from './tabs-security'
-import { setupViewEventListeners } from './tabs-events'
-import { overlayManager } from './overlay-manager'
+import { setupViewEventListeners, setTabEventDeps } from './tabs-events'
+import { DisposableStore, IDisposable } from '../utils/disposable'
+import type { OverlayManager } from './overlay-manager'
+import type { ProxyManager } from '../proxy/manager'
+import type { StorageManager } from '../storage/daemon'
+import type { HistoryManager } from '../history/manager'
+import type { ContentFilterManager } from '../content-filter/filter-manager'
+import type { PaymentInterceptor } from '../wallet/payment-interceptor'
 
 // Re-export for backward compatibility (used by navigation.ts dynamic import)
 export const fileBrowserCache = _fileBrowserCache
-import { DEFAULT_PROXY_PORT } from '../../shared/constants'
+import { DEFAULT_PROXY_PORT } from './constants'
 import { createLogger } from '../../shared/logger'
 import { emitToRenderer } from '../ipc/handlers/shared'
 import { normalizeUrl } from '../../shared/utils/url'
@@ -37,14 +45,19 @@ const log = createLogger('tabs')
 
 // Map of all WebContentsViews by tabId
 const views = new Map<string, WebContentsView>()
+const viewDisposables = new Map<string, DisposableStore>()
 let activeViewId: string | null = null
 let mainWindow: BrowserWindow | null = null
 let proxyPort = DEFAULT_PROXY_PORT
 
 // Store resize handler reference to prevent listener accumulation on reconnect
 let resizeHandler: (() => void) | null = null
+let storageListenerDisposable: IDisposable | null = null
 
 let currentWalletSidebarWidth = 0
+
+// Module-level overlay manager reference, set via initTabManager
+let _overlayManager: OverlayManager | null = null
 
 // Re-export for settings.ts
 export function onPrivacySettingsChanged(): void {
@@ -78,7 +91,17 @@ export function updateWalletSidebarWidth(width: number): void {
   }
 }
 
-export function initTabManager(win: BrowserWindow, port: number): void {
+/** Dependencies needed to initialize the tab manager */
+export interface TabManagerDeps {
+  overlayManager: OverlayManager
+  proxyManager: ProxyManager
+  storageManager: StorageManager
+  historyManager: HistoryManager
+  contentFilterManager: ContentFilterManager
+  paymentInterceptor: PaymentInterceptor
+}
+
+export function initTabManager(win: BrowserWindow, port: number, deps?: TabManagerDeps): void {
   if (resizeHandler && mainWindow) {
     mainWindow.off('resize', resizeHandler)
   }
@@ -86,7 +109,27 @@ export function initTabManager(win: BrowserWindow, port: number): void {
   mainWindow = win
   proxyPort = port
 
+  // Wire up sub-module dependencies if provided
+  if (deps) {
+    _overlayManager = deps.overlayManager
+    setTabEventDeps({
+      historyManager: deps.historyManager,
+      overlayManager: deps.overlayManager,
+    })
+    setSessionDeps({
+      contentFilterManager: deps.contentFilterManager,
+      paymentInterceptor: deps.paymentInterceptor,
+    })
+    setTabStorageManager(deps.storageManager)
+  }
+
   initCookieAutoDelete()
+
+  // Initialize storage listener (dispose previous if re-initializing)
+  storageListenerDisposable?.dispose()
+  if (deps) {
+    storageListenerDisposable = initStorageListener(deps.proxyManager)
+  }
 
   resizeHandler = () => {
     const activeView = getActiveView()
@@ -99,8 +142,11 @@ export function initTabManager(win: BrowserWindow, port: number): void {
 }
 
 function setupViewEvents(view: WebContentsView, tabId: string): void {
-  setupViewEventListeners(view, tabId)
-  setupSecurityHandlers(view, tabId)
+  const store = new DisposableStore()
+  store.add(setupViewEventListeners(view, tabId))
+  store.add(setupSecurityHandlers(view, tabId))
+  viewDisposables.get(tabId)?.dispose()
+  viewDisposables.set(tabId, store)
 }
 
 export async function createTab(tabId: string, initialUrl?: string): Promise<boolean> {
@@ -148,7 +194,8 @@ export function closeTab(tabId: string): boolean {
   if (!view) return false
 
   fileBrowserCache.delete(view.webContents.id)
-  view.webContents.removeAllListeners()
+  viewDisposables.get(tabId)?.dispose()
+  viewDisposables.delete(tabId)
 
   if (mainWindow) {
     try {
@@ -172,7 +219,7 @@ export function closeTab(tabId: string): boolean {
 
 export function switchTab(tabId: string): boolean {
   if (!mainWindow) return false
-  overlayManager.hideAll()
+  _overlayManager?.hideAll()
 
   const view = views.get(tabId)
   if (!view) return false
@@ -203,7 +250,7 @@ export function getActiveTabId(): string | null {
 
 export function hideAllViews(): void {
   if (!mainWindow) return
-  overlayManager.hideAll()
+  _overlayManager?.hideAll()
 
   const activeView = activeViewId ? views.get(activeViewId) : null
   if (activeView) {
@@ -258,7 +305,8 @@ export async function navigateInTab(tabId: string, url: string): Promise<boolean
   if (currentDomain && currentDomain !== domain) {
     log.info(`Domain changed: ${currentDomain} -> ${domain}, recreating view`)
 
-    view.webContents.removeAllListeners()
+    viewDisposables.get(tabId)?.dispose()
+    viewDisposables.delete(tabId)
     if (mainWindow) {
       try {
         mainWindow.contentView.removeChildView(view)

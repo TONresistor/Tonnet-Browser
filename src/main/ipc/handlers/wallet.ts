@@ -4,13 +4,12 @@
 
 import { IPC_CHANNELS, type WalletState, type WalletTransaction } from '../../../shared/types'
 import { secureHandle, emitToRenderer, log } from './shared'
-import { walletManager } from '../../wallet/manager'
-import { walletHistoryManager } from '../../wallet/history'
-import { paymentInterceptor } from '../../wallet/payment-interceptor'
-import { overlayManager } from '../../windows/overlay-manager'
 import { getMainWindow } from '../../windows/main'
+import type { ServiceRegistry } from '../../services'
 
-export function registerWalletHandlers(): void {
+export function registerWalletHandlers(registry: ServiceRegistry): void {
+  const { walletManager, walletHistoryManager, paymentInterceptor, overlayManager } = registry
+
   // Forward wallet events to renderer
   walletManager.on('balance-updated', (balance: string) => {
     emitToRenderer('wallet:balance-updated', balance)

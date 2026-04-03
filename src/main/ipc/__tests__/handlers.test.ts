@@ -59,44 +59,15 @@ vi.mock('electron', () => ({
   IpcMainInvokeEvent: {},
 }))
 
-// Mock proxy manager - must be inside vi.mock factory
-vi.mock('../../proxy/manager', () => {
-  const emitter = new EventEmitter()
-  return {
-    proxyManager: Object.assign(emitter, {
-      start: vi.fn(() => Promise.resolve()),
-      stop: vi.fn(),
-      getStatus: vi.fn(() => ({
-        status: 'connected',
-        connected: true,
-        syncing: false,
-        port: 8080,
-      })),
-      isRunning: vi.fn(() => false),
-      applySettingsChange: vi.fn(() => Promise.resolve()),
-      on: emitter.on.bind(emitter),
-      emit: emitter.emit.bind(emitter),
-    }),
-  }
-})
+// Mock proxy manager (class export only, singleton removed)
+vi.mock('../../proxy/manager', () => ({
+  ProxyManager: vi.fn(),
+}))
 
-// Mock storage manager
-vi.mock('../../storage/daemon', () => {
-  const emitter = new EventEmitter()
-  return {
-    storageManager: Object.assign(emitter, {
-      start: vi.fn(() => Promise.resolve()),
-      stop: vi.fn(),
-      getStatus: vi.fn(() => ({
-        running: true,
-        port: 5555,
-        storagePath: '/mock/downloads',
-      })),
-      on: emitter.on.bind(emitter),
-      emit: emitter.emit.bind(emitter),
-    }),
-  }
-})
+// Mock storage manager (class export only, singleton removed)
+vi.mock('../../storage/daemon', () => ({
+  StorageManager: vi.fn(),
+}))
 
 // Mock storage bags
 vi.mock('../../storage/bags', () => ({
@@ -106,6 +77,7 @@ vi.mock('../../storage/bags', () => ({
   pauseBag: vi.fn(() => Promise.resolve(true)),
   resumeBag: vi.fn(() => Promise.resolve(true)),
   getBagDetails: vi.fn(() => Promise.resolve({ id: 'test-bag', files: [] })),
+  setBagsStorageManager: vi.fn(),
 }))
 
 // Mock settings
@@ -209,20 +181,141 @@ vi.mock('../validation', () => {
   }
 })
 
+// Mock wallet manager
+vi.mock('../../wallet/manager', () => ({
+  WalletManager: vi.fn(),
+}))
+
+// Mock wallet history
+vi.mock('../../wallet/history', () => ({
+  WalletHistoryManager: vi.fn(),
+}))
+
+// Mock payment interceptor
+vi.mock('../../wallet/payment-interceptor', () => ({
+  PaymentInterceptor: vi.fn(),
+}))
+
+// Mock payment policy
+vi.mock('../../wallet/payment-policy', () => ({
+  PaymentPolicyStore: vi.fn(),
+}))
+
+// Mock overlay manager
+vi.mock('../../windows/overlay-manager', () => ({
+  OverlayManager: vi.fn(),
+}))
+
+// Mock bridge interceptor
+vi.mock('../../bridge/permission-interceptor', () => ({
+  BridgePermissionInterceptor: vi.fn(),
+}))
+
+// Mock bridge permission store
+vi.mock('../../bridge/permission-store', () => ({
+  BridgePermissionStore: vi.fn(),
+}))
+
 // Import after mocks
 import { registerIpcHandlers, _resetHandlersForTesting } from '../handlers'
 import { IPC_CHANNELS } from '../../../shared/types'
-import { proxyManager } from '../../proxy/manager'
-import { storageManager } from '../../storage/daemon'
 import { addBag, removeBag, listBags } from '../../storage/bags'
 import { setSetting, resetSettings } from '../../settings'
 import { createTab, closeTab, switchTab, navigateInTab } from '../../windows/tabs'
+import type { ServiceRegistry } from '../../services'
+
+// Build mock service registry from the mock emitters
+const mockProxyManager = (() => {
+  const emitter = new EventEmitter()
+  return Object.assign(emitter, {
+    start: vi.fn(() => Promise.resolve()),
+    stop: vi.fn(),
+    getStatus: vi.fn(() => ({
+      status: 'connected',
+      connected: true,
+      syncing: false,
+      port: 8080,
+    })),
+    isRunning: vi.fn(() => false),
+    applySettingsChange: vi.fn(() => Promise.resolve()),
+    restart: vi.fn(() => Promise.resolve()),
+    on: emitter.on.bind(emitter),
+    emit: emitter.emit.bind(emitter),
+  })
+})()
+
+const mockStorageManager = (() => {
+  const emitter = new EventEmitter()
+  return Object.assign(emitter, {
+    start: vi.fn(() => Promise.resolve()),
+    stop: vi.fn(),
+    getStatus: vi.fn(() => ({
+      running: true,
+      port: 5555,
+      storagePath: '/mock/downloads',
+    })),
+    setStoragePath: vi.fn(),
+    on: emitter.on.bind(emitter),
+    emit: emitter.emit.bind(emitter),
+  })
+})()
+
+function createMockRegistry(): ServiceRegistry {
+  return {
+    pathProvider: { getUserDataPath: () => '/tmp/test', isPackaged: () => false },
+    secureStorage: { isAvailable: () => false, encrypt: vi.fn(), decrypt: vi.fn(), getBackendName: () => 'mock' },
+    proxyManager: mockProxyManager as any,
+    storageManager: mockStorageManager as any,
+    walletManager: {
+      on: vi.fn(),
+      getState: vi.fn(() => ({ isCreated: false })),
+      setAutoLockMinutes: vi.fn(),
+    } as any,
+    walletHistoryManager: { add: vi.fn(), getRecent: vi.fn(), merge: vi.fn(), clear: vi.fn() } as any,
+    paymentInterceptor: { approvePayment: vi.fn(), rejectPayment: vi.fn(), registerOnSession: vi.fn() } as any,
+    paymentPolicyStore: { destroy: vi.fn(), init: vi.fn() } as any,
+    overlayManager: {
+      show: vi.fn(),
+      hide: vi.fn(),
+      hideAll: vi.fn(),
+      updateBounds: vi.fn(),
+      isOverlayView: vi.fn(() => false),
+      handleAction: vi.fn(() => false),
+      getOverlayId: vi.fn(() => null),
+      updateTheme: vi.fn(),
+      destroy: vi.fn(),
+      init: vi.fn(),
+    } as any,
+    bridgeInterceptor: { handleRequest: vi.fn(), init: vi.fn(), destroy: vi.fn() } as any,
+    bridgePermissionStore: { getAllPermissions: vi.fn(() => []), revokePermission: vi.fn() } as any,
+    historyManager: {
+      changeMode: vi.fn(() => Promise.resolve({ success: true })),
+      search: vi.fn(() => []),
+      getRecent: vi.fn(() => []),
+      getTopVisited: vi.fn(() => []),
+      getByDateRange: vi.fn(() => []),
+      deleteEntry: vi.fn(() => true),
+      deleteByPattern: vi.fn(() => 0),
+      clear: vi.fn(),
+      getStats: vi.fn(() => ({ total: 0, mode: 'memory', isLocked: false })),
+      hasPersistentFile: vi.fn(() => false),
+    } as any,
+    contentFilterManager: {
+      setEnabled: vi.fn(),
+      setWhitelist: vi.fn(),
+      setCategoryEnabled: vi.fn(),
+      applySettings: vi.fn(),
+    } as any,
+  }
+}
 
 // Helper to create a mock IPC event that passes origin verification
 const createMockEvent = () => {
   // Event sender must match mainWindow.webContents for origin check
   return { sender: mockMainWindow?.webContents } as any
 }
+
+let mockRegistry: ServiceRegistry
 
 describe('IPC Handlers', () => {
   beforeEach(() => {
@@ -236,7 +329,8 @@ describe('IPC Handlers', () => {
       getBounds: vi.fn(() => ({ x: 0, y: 0, width: 1024, height: 768 })),
       setTitle: vi.fn(),
     }
-    registerIpcHandlers()
+    mockRegistry = createMockRegistry()
+    registerIpcHandlers(mockRegistry)
   })
 
   describe('Handler Registration', () => {
@@ -264,11 +358,11 @@ describe('IPC Handlers', () => {
       const result = await handler!(createMockEvent())
 
       expect(result.success).toBe(true)
-      expect(proxyManager.start).toHaveBeenCalled()
+      expect(mockRegistry.proxyManager.start).toHaveBeenCalled()
     })
 
     it('PROXY_CONNECT handles errors gracefully', async () => {
-      vi.mocked(proxyManager.start).mockRejectedValueOnce(new Error('Proxy failed'))
+      vi.mocked(mockRegistry.proxyManager.start).mockRejectedValueOnce(new Error('Proxy failed'))
 
       const handler = mockHandlers.get(IPC_CHANNELS.PROXY_CONNECT)
       const result = await handler!(createMockEvent())
@@ -281,8 +375,8 @@ describe('IPC Handlers', () => {
       const handler = mockHandlers.get(IPC_CHANNELS.PROXY_DISCONNECT)
       const result = await handler!(createMockEvent())
 
-      expect(storageManager.stop).toHaveBeenCalled()
-      expect(proxyManager.stop).toHaveBeenCalled()
+      expect(mockRegistry.storageManager.stop).toHaveBeenCalled()
+      expect(mockRegistry.proxyManager.stop).toHaveBeenCalled()
       expect(result.success).toBe(true)
     })
 
@@ -387,7 +481,7 @@ describe('IPC Handlers', () => {
   describe('Event Forwarding', () => {
     it('forwards proxy status events to renderer', () => {
       // Emit event on proxy manager
-      ;(proxyManager as EventEmitter).emit('status', 'connected')
+      ;(mockRegistry.proxyManager as EventEmitter).emit('status', 'connected')
 
       expect(mockMainWindow.webContents.send).toHaveBeenCalledWith(
         'proxy:status',
@@ -397,19 +491,19 @@ describe('IPC Handlers', () => {
 
     it('forwards storage bags-updated events to renderer', () => {
       const bags = [{ id: 'bag1', name: 'Test' }]
-      ;(storageManager as EventEmitter).emit('bags-updated', bags)
+      ;(mockRegistry.storageManager as EventEmitter).emit('bags-updated', bags)
 
       expect(mockMainWindow.webContents.send).toHaveBeenCalledWith('storage:bags-updated', bags)
     })
 
     it('forwards storage started event to renderer', () => {
-      ;(storageManager as EventEmitter).emit('started')
+      ;(mockRegistry.storageManager as EventEmitter).emit('started')
 
       expect(mockMainWindow.webContents.send).toHaveBeenCalledWith('storage:status', { running: true })
     })
 
     it('forwards storage stopped event to renderer', () => {
-      ;(storageManager as EventEmitter).emit('stopped')
+      ;(mockRegistry.storageManager as EventEmitter).emit('stopped')
 
       expect(mockMainWindow.webContents.send).toHaveBeenCalledWith('storage:status', { running: false })
     })
@@ -426,7 +520,8 @@ describe('Security - Input Validation', () => {
       getBounds: vi.fn(() => ({ x: 0, y: 0, width: 1024, height: 768 })),
       setTitle: vi.fn(),
     }
-    registerIpcHandlers()
+    mockRegistry = createMockRegistry()
+    registerIpcHandlers(mockRegistry)
   })
 
   it('navigation handler rejects javascript: URLs', async () => {

@@ -4,6 +4,7 @@
  */
 
 import type { BagDetails } from '../../shared/types'
+import { HTTP_TIMEOUT_MS, ERROR_TRUNCATE_LENGTH } from './constants'
 export type { BagDetails }
 
 export interface BagInfo {
@@ -59,13 +60,12 @@ export class StorageHTTPClient {
     const response = await fetch(url, {
       ...options,
       headers,
-      signal: AbortSignal.timeout(10000), // 10s timeout to prevent indefinite blocking
+      signal: AbortSignal.timeout(HTTP_TIMEOUT_MS),
     })
 
     if (!response.ok) {
       const text = await response.text()
-      // Truncate error message to prevent sensitive data leakage
-      const truncated = text.length > 200 ? text.substring(0, 200) + '...' : text
+      const truncated = text.length > ERROR_TRUNCATE_LENGTH ? text.substring(0, ERROR_TRUNCATE_LENGTH) + '...' : text
       throw new Error(`HTTP ${response.status}: ${truncated}`)
     }
 

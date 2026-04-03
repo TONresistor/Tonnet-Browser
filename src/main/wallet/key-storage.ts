@@ -4,13 +4,14 @@
  * Supports both legacy raw-seed wallets and mnemonic-based wallets.
  */
 
-import { safeStorage } from 'electron'
 import { promises as fs } from 'fs'
 import { join } from 'path'
 import { app } from 'electron'
 import { keyPairFromSeed, mnemonicNew, mnemonicToPrivateKey, mnemonicValidate } from '@ton/crypto'
 import { WalletContractV5R1 } from '@ton/ton'
-import { WALLET_FILE_NAME } from '../../shared/constants'
+import { WALLET_FILE_NAME, AUTO_LOCK_DEFAULT_MS } from './constants'
+import type { ISecureStorage } from '../ports/secure-storage'
+import { ElectronSafeStorageAdapter } from '../adapters/electron-secure-storage'
 import { createLogger } from '../../shared/logger'
 const log = createLogger('wallet:keys')
 
@@ -36,15 +37,17 @@ interface SeedStorageData {
 type StorageData = MnemonicStorageData | SeedStorageData
 
 export class WalletKeyStorage {
+  private storage: ISecureStorage
   private filePath: string
   private cachedPublicKey: Buffer | null = null
   private cachedSecretKey: Buffer | null = null
   private lockTimer: ReturnType<typeof setTimeout> | null = null
-  private autoLockMs: number = 5 * 60 * 1000 // default 5 minutes
+  private autoLockMs: number = AUTO_LOCK_DEFAULT_MS
 
-  constructor() {
-    const userDataPath = app.getPath('userData')
-    this.filePath = join(userDataPath, `${WALLET_FILE_NAME}.dat`)
+  constructor(storage: ISecureStorage = new ElectronSafeStorageAdapter(), basePath?: string) {
+    this.storage = storage
+    const dir = basePath ?? app.getPath('userData')
+    this.filePath = join(dir, `${WALLET_FILE_NAME}.dat`)
   }
 
   /**
@@ -52,7 +55,7 @@ export class WalletKeyStorage {
    */
   isBasicTextBackend(): boolean {
     try {
-      const backend = safeStorage.getSelectedStorageBackend()
+      const backend = this.storage.getBackendName()
       return backend === 'basic_text'
     } catch {
       return false
@@ -60,7 +63,7 @@ export class WalletKeyStorage {
   }
 
   private ensureEncryptionAvailable(): void {
-    if (!safeStorage.isEncryptionAvailable()) {
+    if (!this.storage.isAvailable()) {
       throw new Error('Secure storage is not available. Install a keyring (gnome-keyring, kwallet) to use the wallet.')
     }
   }
@@ -279,7 +282,7 @@ export class WalletKeyStorage {
   private async storeData(data: StorageData): Promise<void> {
     this.ensureEncryptionAvailable()
     const json = JSON.stringify(data)
-    const encrypted = safeStorage.encryptString(json)
+    const encrypted = this.storage.encrypt(json)
     const markedBuffer = Buffer.concat([ENCRYPTED_MARKER, encrypted])
     await fs.writeFile(this.filePath, markedBuffer)
   }
@@ -298,7 +301,7 @@ export class WalletKeyStorage {
       if (buffer.subarray(0, 4).equals(ENCRYPTED_MARKER)) {
         let decrypted: string
         try {
-          decrypted = safeStorage.decryptString(buffer.subarray(4))
+          decrypted = this.storage.decrypt(buffer.subarray(4))
         } catch (err) {
           log.error('safeStorage.decryptString failed:', err)
           throw new WalletDecryptionError((err as Error).message)
@@ -321,7 +324,7 @@ export class WalletKeyStorage {
       // Unencrypted fallback (32 raw bytes) — migrate to encrypted format
       if (buffer.length === 32) {
         const seedHex = buffer.toString('hex')
-        if (safeStorage.isEncryptionAvailable() && !this.isBasicTextBackend()) {
+        if (this.storage.isAvailable() && !this.isBasicTextBackend()) {
           try {
             const data: SeedStorageData = { type: 'seed', seed: seedHex }
             await this.storeData(data)

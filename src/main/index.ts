@@ -5,25 +5,29 @@
 
 import log from '../shared/logger'
 import { app, BrowserWindow, shell, screen, Menu, protocol, net, clipboard } from 'electron'
-import { join, resolve } from 'path'
+import { join, resolve, dirname } from 'path'
 import { existsSync, readFileSync, writeFileSync } from 'fs'
+import { migrateUserData } from './utils/migrate-userdata'
 import { writeFile } from 'fs/promises'
 import { EventEmitter } from 'events'
 import { pathToFileURL } from 'url'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { registerIpcHandlers, emitToRenderer } from './ipc/handlers'
 import { getActiveView } from './windows/tabs'
-import { proxyManager } from './proxy/manager'
-import { storageManager } from './storage/daemon'
 import { setMainWindow } from './windows/main'
 import { getSetting } from './settings'
-import { historyManager } from './history/manager'
-import { walletManager } from './wallet/manager'
 import { startProxySequence } from './proxy/startup'
 import { initUpdater } from './updater'
-import { bridgeInterceptor } from './bridge/permission-interceptor'
-import { paymentPolicyStore } from './wallet/payment-policy'
-import { overlayManager } from './windows/overlay-manager'
+import { createServices, destroyServices, type ServiceRegistry } from './services'
+import {
+  DEFAULT_WINDOW_WIDTH,
+  DEFAULT_WINDOW_HEIGHT,
+  MIN_WINDOW_WIDTH,
+  MIN_WINDOW_HEIGHT,
+  WINDOW_BACKGROUND_COLOR,
+  CONTEXT_MENU_WIDTH,
+  BOUNDS_SAVE_DEBOUNCE_MS,
+} from './windows/constants'
 
 // Initialize electron-log IPC bridge so renderer can also log via electron-log
 log.initialize()
@@ -32,7 +36,7 @@ log.initialize()
 EventEmitter.defaultMaxListeners = 20
 
 // Register custom protocol for serving renderer in production
-// MUST be called before app.ready — silently fails otherwise
+// MUST be called before app.ready -- silently fails otherwise
 protocol.registerSchemesAsPrivileged([
   {
     scheme: 'app',
@@ -60,17 +64,40 @@ process.on('unhandledRejection', (reason) => {
   appLog.error(`Unhandled promise rejection: ${String(reason)}`)
 })
 
-// Catch uncaught exceptions in the main process — process state is corrupted, exit after logging
+// Catch uncaught exceptions in the main process -- process state is corrupted, exit after logging
 process.on('uncaughtException', (error: NodeJS.ErrnoException) => {
   if (error.code === 'EPIPE' || error.message === 'write EPIPE') return
   appLog.error(`Uncaught exception: ${String(error)}`)
+  // Force-kill child processes to prevent zombies
+  if (services) {
+    try {
+      services.proxyManager.stop().catch(() => {})
+      services.storageManager.stop()
+    } catch {
+      /* ignore */
+    }
+  }
   process.exit(1)
 })
 
-// App identity: set name and WM_CLASS for Linux taskbar
-app.name = 'TON Browser'
+// WM_CLASS for Linux taskbar (display name only, does not affect userData path)
 if (process.platform === 'linux') {
   app.commandLine.appendSwitch('class', 'TON Browser')
+}
+
+// App identity: keep "TON Browser" as app.name for safeStorage keyring compatibility.
+// Linux libsecret and macOS Keychain use app.name as the key to find the encryption
+// secret. Changing it would make existing encrypted wallet data unreadable.
+app.setName('TON Browser')
+
+// Force userData to canonical "ton-browser" directory (no spaces, lowercase).
+// app.setPath decouples the filesystem path from app.name, so safeStorage
+// keeps using "TON Browser" in the keyring while files go to ton-browser/.
+{
+  const userDataParent = dirname(app.getPath('userData'))
+  const canonicalUserData = join(userDataParent, 'ton-browser')
+  migrateUserData(canonicalUserData)
+  app.setPath('userData', canonicalUserData)
 }
 
 // Privacy: Disable WebRTC to prevent IP leaks
@@ -144,22 +171,25 @@ function saveWindowBounds(win: BrowserWindow): void {
     } catch (err) {
       appLog.error(`Failed to save bounds: ${String(err)}`)
     }
-  }, 500)
+  }, BOUNDS_SAVE_DEBOUNCE_MS)
 }
+
+// Service registry -- populated in app.whenReady()
+let services: ServiceRegistry
 
 function createWindow(): void {
   const savedBounds = loadWindowBounds()
 
   const mainWindow = new BrowserWindow({
-    width: savedBounds.width || 1280,
-    height: savedBounds.height || 800,
+    width: savedBounds.width || DEFAULT_WINDOW_WIDTH,
+    height: savedBounds.height || DEFAULT_WINDOW_HEIGHT,
     x: savedBounds.x,
     y: savedBounds.y,
-    minWidth: 800,
-    minHeight: 600,
+    minWidth: MIN_WINDOW_WIDTH,
+    minHeight: MIN_WINDOW_HEIGHT,
     frame: false,
     icon: join(app.getAppPath(), 'resources/icons/icon.png'),
-    backgroundColor: '#0a0a0a',
+    backgroundColor: WINDOW_BACKGROUND_COLOR,
     show: false,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
@@ -171,7 +201,7 @@ function createWindow(): void {
 
   // Register window with our module for IPC handlers
   setMainWindow(mainWindow)
-  overlayManager.init(mainWindow)
+  services.overlayManager.init(mainWindow)
 
   // Initialize manual update checker
   initUpdater(mainWindow)
@@ -202,7 +232,7 @@ function createWindow(): void {
       mainWindow.webContents.openDevTools({ mode: 'detach' })
     }
 
-    // Auto-connect if enabled — reuse same progress events as manual connect
+    // Auto-connect if enabled -- reuse same progress events as manual connect
     const { autoConnect } = getSetting('network')
     if (autoConnect && !autoConnectStarted) {
       autoConnectStarted = true
@@ -213,10 +243,18 @@ function createWindow(): void {
       // Tell renderer to show loading state
       emitToRenderer('proxy:auto-connect')
       try {
-        await startProxySequence(sendProgress, proxyManager, storageManager, mainWindow)
+        const tabDeps = {
+          overlayManager: services.overlayManager,
+          proxyManager: services.proxyManager,
+          storageManager: services.storageManager,
+          historyManager: services.historyManager,
+          contentFilterManager: services.contentFilterManager,
+          paymentInterceptor: services.paymentInterceptor,
+        }
+        await startProxySequence(sendProgress, services.proxyManager, services.storageManager, mainWindow, tabDeps)
         appLog.info('Auto-connect complete')
         // Notify renderer of connection status
-        emitToRenderer('proxy:status', { ...proxyManager.getStatus(), status: 'connected' })
+        emitToRenderer('proxy:status', { ...services.proxyManager.getStatus(), status: 'connected' })
       } catch (error) {
         appLog.error(`Auto-connect failed: ${String(error)}`)
         // Notify renderer of connection failure (field name matches ProxyStatus.error)
@@ -264,13 +302,13 @@ function createWindow(): void {
     const visibleItems = items.filter((i) => !i.separator).length
     const separators = items.filter((i) => i.separator).length
     const menuH = visibleItems * 36 + separators * 9 + 8
-    const menuW = 220
+    const menuW = CONTEXT_MENU_WIDTH
 
     const [winW, winH] = mainWindow.getContentSize()
     const menuX = Math.max(0, Math.min(params.x, winW - menuW))
     const menuY = Math.max(0, Math.min(params.y, winH - menuH))
 
-    overlayManager.show(
+    services.overlayManager.show(
       'main-context-menu',
       { x: menuX, y: menuY, width: menuW, height: menuH },
       { type: 'menu', items },
@@ -294,7 +332,7 @@ function createWindow(): void {
           case 'dismiss':
             break
         }
-        overlayManager.hide('main-context-menu')
+        services.overlayManager.hide('main-context-menu')
       }
     )
   })
@@ -420,12 +458,14 @@ app.whenReady().then(() => {
     return net.fetch(pathToFileURL(filePath).toString())
   })
 
-  registerIpcHandlers()
+  services = createServices()
+  registerIpcHandlers(services)
+
   // Defer wallet + bridge interceptor init until WS bridge is ready (proxy must be running first)
-  proxyManager.once('ws-bridge-ready', () => {
-    walletManager.init().catch((e) => log.error('Wallet init failed:', e))
-    paymentPolicyStore.init().catch((e) => log.error('Payment policy init failed:', e))
-    bridgeInterceptor.init()
+  services.proxyManager.once('ws-bridge-ready', () => {
+    services.walletManager.init().catch((e) => log.error('Wallet init failed:', e))
+    services.paymentPolicyStore.init().catch((e) => log.error('Payment policy init failed:', e))
+    services.bridgeInterceptor.init()
   })
   createWindow()
 
@@ -476,12 +516,7 @@ async function runCleanup(): Promise<void> {
     }
   }
 
-  overlayManager.destroy()
-  bridgeInterceptor.destroy()
-  paymentPolicyStore.destroy()
-  await proxyManager.stop()
-  await storageManager.stop()
-  walletManager.destroy()
+  await destroyServices(services)
 }
 
 app.on('window-all-closed', async () => {
@@ -515,8 +550,8 @@ app.on('before-quit', (event) => {
     }
   }
 
-  // Cleanup history before quit — must await, so use Promise chain
-  historyManager
+  // Cleanup history before quit -- must await, so use Promise chain
+  services.historyManager
     .onAppExit()
     .then(() => runCleanup())
     .catch(() => runCleanup())

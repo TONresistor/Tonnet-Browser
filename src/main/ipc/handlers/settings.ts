@@ -3,7 +3,7 @@
  */
 
 import { session, dialog } from 'electron'
-import { SESSION_PARTITION } from '../../../shared/constants'
+import { SESSION_PARTITION } from '../../windows/constants'
 import { IPC_CHANNELS } from '../../../shared/types'
 import { isValidDownloadPath } from '../validation'
 import { SETTINGS_CATEGORIES, validateCategoryValues } from '../../settings/validation'
@@ -17,14 +17,13 @@ import {
   setDownloadPath,
   AppSettings,
 } from '../../settings'
-import { proxyManager } from '../../proxy/manager'
-import { storageManager } from '../../storage/daemon'
-import { contentFilterManager } from '../../content-filter/filter-manager'
-import { walletManager } from '../../wallet/manager'
 import { getMainWindow } from '../../windows/main'
 import { onPrivacySettingsChanged, onAppearanceSettingsChanged } from '../../windows/tabs'
+import type { ServiceRegistry } from '../../services'
 
-export function registerSettingsHandlers(): void {
+export function registerSettingsHandlers(registry: ServiceRegistry): void {
+  const { proxyManager, storageManager, contentFilterManager, walletManager } = registry
+
   // ===== Clear Browsing Data =====
   secureHandle(IPC_CHANNELS.CLEAR_BROWSING_DATA, async () => {
     const ses = session.fromPartition(SESSION_PARTITION)

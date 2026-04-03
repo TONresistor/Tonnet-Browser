@@ -7,9 +7,9 @@ import { shell } from 'electron'
 import { IPC_CHANNELS } from '../../../shared/types'
 import { isValidBagId } from '../validation'
 import { secureHandle, secureHandleWithEvent, emitToRenderer, storageLimiter, log } from './shared'
-import { storageManager } from '../../storage/daemon'
-import { addBag, removeBag, listBags, pauseBag, getBagDetails } from '../../storage/bags'
+import { addBag, removeBag, listBags, pauseBag, getBagDetails, setBagsStorageManager } from '../../storage/bags'
 import { getDownloadPath } from '../../settings'
+import type { ServiceRegistry } from '../../services'
 
 /**
  * Validate that a resolved path is within the configured download directory.
@@ -37,7 +37,10 @@ function validateBagIdOrFail(bagId: string): { success: false; error: string } |
   return null
 }
 
-export function registerStorageHandlers(): void {
+export function registerStorageHandlers(registry: ServiceRegistry): void {
+  const { storageManager } = registry
+  setBagsStorageManager(storageManager)
+
   // ===== Storage Events =====
   storageManager.on('bags-updated', (bags) => {
     emitToRenderer('storage:bags-updated', bags)

@@ -10,6 +10,7 @@ import { validatePort, validateVerbosity } from '../utils/validators'
 import { StorageHTTPClient, BagInfo } from './http-client'
 import type { StorageBag } from '../../shared/types'
 import { getSetting, getDownloadPath } from '../settings'
+import { PING_RETRY_DELAY_MS, PING_MAX_ATTEMPTS } from './constants'
 import { createLogger } from '../../shared/logger'
 const log = createLogger('storage')
 import fs from 'fs'
@@ -133,11 +134,10 @@ export class StorageManager extends EventEmitter {
     this.startPolling()
   }
 
-  private async waitForReady(maxAttempts = 30): Promise<void> {
+  private async waitForReady(maxAttempts = PING_MAX_ATTEMPTS): Promise<void> {
     for (let i = 0; i < maxAttempts; i++) {
       if (!this.client) break
       try {
-        // ping() has 10s timeout built-in via fetch AbortSignal
         if (await this.client.ping()) {
           log.info(`API ready after ${i + 1} attempts`)
           return
@@ -146,9 +146,9 @@ export class StorageManager extends EventEmitter {
         // Log ping errors but continue retrying (daemon may still be starting)
         log.debug(`Ping attempt ${i + 1} failed:`, error)
       }
-      await new Promise((resolve) => setTimeout(resolve, 500))
+      await new Promise((resolve) => setTimeout(resolve, PING_RETRY_DELAY_MS))
     }
-    throw new Error('Storage daemon API did not become ready after 30 attempts (15s total)')
+    throw new Error(`Storage daemon API did not become ready after ${maxAttempts} attempts`)
   }
 
   private startPolling(): void {
@@ -287,4 +287,4 @@ export class StorageManager extends EventEmitter {
   }
 }
 
-export const storageManager = new StorageManager()
+// Singleton removed: use ServiceRegistry from services.ts

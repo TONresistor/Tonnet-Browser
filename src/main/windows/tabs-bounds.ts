@@ -16,7 +16,7 @@ interface AppearanceCache {
   timestamp: number
 }
 let appearanceCache: AppearanceCache | null = null
-const CACHE_VALIDITY_MS = 500
+import { APPEARANCE_CACHE_VALIDITY_MS as CACHE_VALIDITY_MS } from './constants'
 
 /** Invalidate the appearance cache (call when settings change). */
 export function invalidateAppearanceCache(): void {

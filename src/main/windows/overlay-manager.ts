@@ -5,6 +5,7 @@
 
 import { WebContentsView, BrowserWindow } from 'electron'
 import { join } from 'path'
+import { OVERLAY_SETUP_DELAY_MS, OVERLAY_DISMISS_DEBOUNCE_MS, OVERLAY_POOL_SIZE } from './constants'
 import { createLogger } from '../../shared/logger'
 
 const log = createLogger('overlay')
@@ -32,11 +33,11 @@ interface OverlayBounds {
 
 type OverlayContent = { type: string; [key: string]: unknown }
 
-class OverlayManager {
+export class OverlayManager {
   private mainWindow: BrowserWindow | null = null
   private pool: WebContentsView[] = []
   private active = new Map<string, OverlayInstance>()
-  private readonly POOL_SIZE = 2
+  private readonly POOL_SIZE = OVERLAY_POOL_SIZE
   private resizeHandler: (() => void) | null = null
   private clickOutsideHandlers = new Map<string, () => void>()
 
@@ -124,22 +125,26 @@ class OverlayManager {
     const instance = this.active.get(id)
     if (!instance) return
 
+    let dismissTimer: ReturnType<typeof setTimeout> | null = null
+
     const handler = (): void => {
-      setTimeout(() => {
+      dismissTimer = setTimeout(() => {
+        dismissTimer = null
         if (this.active.has(id)) {
           this.emitDismiss(id)
         }
-      }, 50)
+      }, OVERLAY_DISMISS_DEBOUNCE_MS)
     }
 
     // Delay listener registration to let focus stabilize after show+focus
     const setupTimer = setTimeout(() => {
       if (!this.active.has(id)) return
       instance.view.webContents.on('blur', handler)
-    }, 200)
+    }, OVERLAY_SETUP_DELAY_MS)
 
     this.clickOutsideHandlers.set(id, () => {
       clearTimeout(setupTimer)
+      if (dismissTimer !== null) clearTimeout(dismissTimer)
       instance.view.webContents.removeListener('blur', handler)
     })
   }
@@ -238,4 +243,4 @@ class OverlayManager {
   }
 }
 
-export const overlayManager = new OverlayManager()
+// Singleton removed: use ServiceRegistry from services.ts

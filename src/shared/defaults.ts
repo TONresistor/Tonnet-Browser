@@ -4,6 +4,7 @@
  */
 
 import type { CustomTheme, SitePolicy } from './types'
+import { UI_DIMENSIONS } from './constants'
 
 export type BuiltInTheme = 'resistance-dog' | 'utya-duck'
 export type ThemeType = BuiltInTheme | `custom:${string}`
@@ -40,7 +41,7 @@ export const DEFAULT_SETTINGS = {
   showBookmarksBar: true,
   showStatusBar: true,
   tabOrientation: 'horizontal' as 'horizontal' | 'vertical',
-  sidebarWidth: 240, // Default sidebar width in pixels
+  sidebarWidth: UI_DIMENSIONS.DEFAULT_SIDEBAR_WIDTH, // Default sidebar width in pixels
 
   // Privacy
   clearOnExit: true, // Privacy-first: clear data on exit by default

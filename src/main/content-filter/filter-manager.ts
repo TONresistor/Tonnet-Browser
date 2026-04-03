@@ -345,5 +345,4 @@ export class ContentFilterManager extends EventEmitter {
   }
 }
 
-// Singleton instance
-export const contentFilterManager = new ContentFilterManager()
+// Singleton removed: use ServiceRegistry from services.ts

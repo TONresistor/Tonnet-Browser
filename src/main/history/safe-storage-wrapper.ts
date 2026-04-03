@@ -3,10 +3,11 @@
  * Uses Electron's safeStorage API (OS keychain: Keychain on macOS, DPAPI on Windows, libsecret on Linux)
  */
 
-import { safeStorage } from 'electron'
 import { promises as fs } from 'fs'
 import { join } from 'path'
 import { app } from 'electron'
+import type { ISecureStorage } from '../ports/secure-storage'
+import { ElectronSafeStorageAdapter } from '../adapters/electron-secure-storage'
 import { createLogger } from '../../shared/logger'
 const log = createLogger('history')
 
@@ -14,11 +15,13 @@ const log = createLogger('history')
 const ENCRYPTED_MARKER = Buffer.from('SENC')
 
 export class SafeStorageWrapper {
+  private storage: ISecureStorage
   private filePath: string
 
-  constructor(name: string) {
-    const userDataPath = app.getPath('userData')
-    this.filePath = join(userDataPath, `${name}.dat`)
+  constructor(name: string, storage: ISecureStorage = new ElectronSafeStorageAdapter(), basePath?: string) {
+    this.storage = storage
+    const dir = basePath ?? app.getPath('userData')
+    this.filePath = join(dir, `${name}.dat`)
     log.info(`Storage path: ${this.filePath}`)
   }
 
@@ -26,7 +29,7 @@ export class SafeStorageWrapper {
    * Check if encryption is available on this platform
    */
   isAvailable(): boolean {
-    return safeStorage.isEncryptionAvailable()
+    return this.storage.isAvailable()
   }
 
   /**
@@ -48,7 +51,7 @@ export class SafeStorageWrapper {
         return
       }
 
-      const encrypted = safeStorage.encryptString(json)
+      const encrypted = this.storage.encrypt(json)
       // Prepend the SENC marker so the read path can detect the format
       const markedBuffer = Buffer.concat([ENCRYPTED_MARKER, encrypted])
       await fs.writeFile(this.filePath, markedBuffer)
@@ -73,7 +76,7 @@ export class SafeStorageWrapper {
       // New encrypted format: SENC marker prefix
       if (buffer.subarray(0, 4).equals(ENCRYPTED_MARKER)) {
         try {
-          const decrypted = safeStorage.decryptString(buffer.subarray(4))
+          const decrypted = this.storage.decrypt(buffer.subarray(4))
           return JSON.parse(decrypted)
         } catch (decryptError) {
           // Defense in depth: if decryption fails, attempt to parse as plaintext
@@ -97,7 +100,7 @@ export class SafeStorageWrapper {
       // Legacy encrypted format (written before SENC marker was introduced)
       log.info('Detected legacy encrypted file (no SENC marker), attempting decrypt')
       try {
-        const decrypted = safeStorage.decryptString(buffer)
+        const decrypted = this.storage.decrypt(buffer)
         return JSON.parse(decrypted)
       } catch (legacyError) {
         log.error('Legacy encrypted file could not be decrypted:', legacyError)

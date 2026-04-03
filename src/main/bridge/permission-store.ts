@@ -51,7 +51,7 @@ export const SCOPE_DESCRIPTIONS: Record<BridgeScope, string> = {
   write: 'broadcast data to the network',
 }
 
-class BridgePermissionStore {
+export class BridgePermissionStore {
   private cache = new Map<string, BridgeDecision>()
 
   private key(domain: string, scope: BridgeScope): string {
@@ -129,4 +129,4 @@ class BridgePermissionStore {
   }
 }
 
-export const bridgePermissionStore = new BridgePermissionStore()
+// Singleton removed: use ServiceRegistry from services.ts

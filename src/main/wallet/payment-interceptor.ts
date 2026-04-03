@@ -5,21 +5,24 @@
  */
 
 import { webContents } from 'electron'
-import { paymentPolicyStore, normalizeToSecondLevel } from './payment-policy'
-import { walletManager } from './manager'
-import { walletHistoryManager } from './history'
+import { normalizeToSecondLevel, PaymentPolicyStore } from './payment-policy'
+import { WalletManager } from './manager'
+import { WalletHistoryManager } from './history'
 import { emitToRenderer } from '../ipc/handlers'
 import { getSetting } from '../settings'
-import { WALLET_MAX_TIMEOUT_SECONDS, TON_MAINNET_CAIP2, TON_NATIVE_ASSET, X402_VERSION } from '../../shared/constants'
+import {
+  WALLET_MAX_TIMEOUT_S,
+  TON_MAINNET_CAIP2,
+  TON_NATIVE_ASSET,
+  X402_VERSION,
+  MAX_SINGLE_PAYMENT,
+  FETCH_TIMEOUT_MS,
+  ERROR_TRUNCATE_LENGTH,
+  DEFAULT_APPROVAL_TIMEOUT_S,
+} from './constants'
 import type { PaymentRequirements, PaymentNotificationData, WalletTransaction } from '../../shared/types'
 import { createLogger } from '../../shared/logger'
 const log = createLogger('payment-interceptor')
-
-/** Hard cap on a single payment: 1 TON in nanoTON */
-const MAX_SINGLE_PAYMENT = 1_000_000_000n
-
-/** Default fetch timeout in milliseconds */
-const FETCH_TIMEOUT_MS = 30_000
 
 /** Stored context for a 402 interception */
 interface InterceptedRequest {
@@ -47,7 +50,8 @@ function validatePaymentRequirements(
   req: PaymentRequirements,
   originalDomain: string,
   finalDomain: string,
-  isAutoMode: boolean
+  isAutoMode: boolean,
+  walletManager: WalletManager
 ): { valid: boolean; reason?: string } {
   if (req.scheme !== 'exact') {
     return { valid: false, reason: `Invalid scheme: ${req.scheme}` }
@@ -88,7 +92,7 @@ function validatePaymentRequirements(
     return { valid: false, reason: `Invalid payTo address: ${req.payTo}` }
   }
 
-  if (req.maxTimeoutSeconds <= 0 || req.maxTimeoutSeconds > WALLET_MAX_TIMEOUT_SECONDS) {
+  if (req.maxTimeoutSeconds <= 0 || req.maxTimeoutSeconds > WALLET_MAX_TIMEOUT_S) {
     return { valid: false, reason: `Invalid maxTimeoutSeconds: ${req.maxTimeoutSeconds}` }
   }
 
@@ -120,7 +124,21 @@ async function sessionFetch(session: Electron.Session, url: string, options?: Re
   }
 }
 
-class PaymentInterceptor {
+export class PaymentInterceptor {
+  private walletManager: WalletManager
+  private paymentPolicyStore: PaymentPolicyStore
+  private walletHistoryManager: WalletHistoryManager
+
+  constructor(
+    walletManager: WalletManager,
+    paymentPolicyStore: PaymentPolicyStore,
+    walletHistoryManager: WalletHistoryManager
+  ) {
+    this.walletManager = walletManager
+    this.paymentPolicyStore = paymentPolicyStore
+    this.walletHistoryManager = walletHistoryManager
+  }
+
   registerOnSession(session: Electron.Session): void {
     session.webRequest.onCompleted({ urls: ['*://*/*'] }, (details) => {
       if (details.resourceType !== 'mainFrame') return
@@ -140,7 +158,7 @@ class PaymentInterceptor {
   }
 
   private async handle402(request: InterceptedRequest): Promise<void> {
-    const walletState = walletManager.getState()
+    const walletState = this.walletManager.getState()
     if (!walletState.isCreated) {
       log.warn('402 received but no wallet created, ignoring')
       return
@@ -192,21 +210,27 @@ class PaymentInterceptor {
 
     // Cross-domain redirect = force manual
     const isCrossDomain = finalDomain !== originalDomain
-    const mode = isCrossDomain ? 'manual' : paymentPolicyStore.getSiteMode(originalDomain)
+    const mode = isCrossDomain ? 'manual' : this.paymentPolicyStore.getSiteMode(originalDomain)
 
     if (mode === 'off') {
       log.info(`Payment mode is off for ${originalDomain}, ignoring 402`)
       return
     }
 
-    const validation = validatePaymentRequirements(paymentReq, originalDomain, finalDomain, mode === 'auto')
+    const validation = validatePaymentRequirements(
+      paymentReq,
+      originalDomain,
+      finalDomain,
+      mode === 'auto',
+      this.walletManager
+    )
 
     if (!validation.valid) {
       log.warn(`PaymentRequirements validation failed: ${validation.reason}`)
       return
     }
 
-    const reservationId = paymentPolicyStore.reservePayment(originalDomain, paymentReq.amount)
+    const reservationId = this.paymentPolicyStore.reservePayment(originalDomain, paymentReq.amount)
     if (!reservationId) {
       const notification: PaymentNotificationData = {
         id: crypto.randomUUID(),
@@ -232,7 +256,7 @@ class PaymentInterceptor {
           const pending = pendingApprovals.get(paymentId)
           if (pending) {
             pendingApprovals.delete(paymentId)
-            if (pending.reservationId) paymentPolicyStore.rollbackPayment(pending.reservationId)
+            if (pending.reservationId) this.paymentPolicyStore.rollbackPayment(pending.reservationId)
             const notification: PaymentNotificationData = {
               id: paymentId,
               domain: originalDomain,
@@ -246,7 +270,7 @@ class PaymentInterceptor {
             log.info(`Payment approval timed out for ${originalDomain}`)
           }
         },
-        (paymentReq.maxTimeoutSeconds || 60) * 1000
+        (paymentReq.maxTimeoutSeconds || DEFAULT_APPROVAL_TIMEOUT_S) * 1_000
       )
 
       pendingApprovals.set(paymentId, { request, paymentReq, domain: originalDomain, ttl: ttlTimeout, reservationId })
@@ -284,10 +308,10 @@ class PaymentInterceptor {
         x402Domain: domain,
         x402Url: request.url,
       }
-      await walletHistoryManager.add(pendingTx)
+      await this.walletHistoryManager.add(pendingTx)
 
       // Sign BOC
-      const payload = await walletManager.signX402Payment(paymentReq)
+      const payload = await this.walletManager.signX402Payment(paymentReq)
 
       // Build X-PAYMENT header (JSON.stringify, NOT base64)
       const xPaymentHeader = JSON.stringify({
@@ -302,9 +326,9 @@ class PaymentInterceptor {
       })
 
       if (retryResponse.ok) {
-        if (reservationId) paymentPolicyStore.confirmPayment(reservationId)
+        if (reservationId) this.paymentPolicyStore.confirmPayment(reservationId)
 
-        await walletHistoryManager.updateStatus(paymentId, 'confirmed')
+        await this.walletHistoryManager.updateStatus(paymentId, 'confirmed')
 
         const notification: PaymentNotificationData = {
           id: paymentId,
@@ -329,9 +353,9 @@ class PaymentInterceptor {
 
         log.info(`402 payment completed for ${domain}`)
       } else {
-        if (reservationId) paymentPolicyStore.rollbackPayment(reservationId)
+        if (reservationId) this.paymentPolicyStore.rollbackPayment(reservationId)
         const errorText = await retryResponse.text()
-        await walletHistoryManager.updateStatus(paymentId, 'failed')
+        await this.walletHistoryManager.updateStatus(paymentId, 'failed')
 
         const notification: PaymentNotificationData = {
           id: paymentId,
@@ -340,15 +364,15 @@ class PaymentInterceptor {
           amount: paymentReq.amount,
           payTo: paymentReq.payTo,
           status: 'failed',
-          error: `Server returned ${retryResponse.status}: ${errorText.slice(0, 200)}`,
+          error: `Server returned ${retryResponse.status}: ${errorText.slice(0, ERROR_TRUNCATE_LENGTH)}`,
         }
         emitToRenderer('wallet:payment-failed', notification)
 
         log.warn(`402 payment retry failed for ${domain}: ${retryResponse.status}`)
       }
     } catch (err) {
-      if (reservationId) paymentPolicyStore.rollbackPayment(reservationId)
-      await walletHistoryManager
+      if (reservationId) this.paymentPolicyStore.rollbackPayment(reservationId)
+      await this.walletHistoryManager
         .updateStatus(paymentId, 'failed')
         .catch((err) => log.debug('Failed to update payment history status:', err))
 
@@ -392,7 +416,7 @@ class PaymentInterceptor {
 
     clearTimeout(pending.ttl)
     pendingApprovals.delete(paymentId)
-    if (pending.reservationId) paymentPolicyStore.rollbackPayment(pending.reservationId)
+    if (pending.reservationId) this.paymentPolicyStore.rollbackPayment(pending.reservationId)
 
     const notification: PaymentNotificationData = {
       id: paymentId,
@@ -407,4 +431,4 @@ class PaymentInterceptor {
   }
 }
 
-export const paymentInterceptor = new PaymentInterceptor()
+// Singleton removed: use ServiceRegistry from services.ts

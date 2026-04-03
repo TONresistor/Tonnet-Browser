@@ -4,7 +4,8 @@
 
 import { IPC_CHANNELS } from '../../../shared/types'
 import { secureHandleWithEvent, log } from './shared'
-import { historyManager, HistoryMode } from '../../history/manager'
+import { HistoryMode } from '../../history/manager'
+import type { ServiceRegistry } from '../../services'
 
 /**
  * IPC return format convention:
@@ -14,7 +15,9 @@ import { historyManager, HistoryMode } from '../../history/manager'
  * - Mutation handlers (change_mode, delete, delete_pattern, clear):
  *   return { success: boolean, error?: string } to signal outcome.
  */
-export function registerHistoryHandlers(): void {
+export function registerHistoryHandlers(registry: ServiceRegistry): void {
+  const { historyManager } = registry
+
   secureHandleWithEvent(IPC_CHANNELS.HISTORY_CHANGE_MODE, async (_event, mode: HistoryMode) => {
     const validModes = ['memory', 'persistent']
     if (!validModes.includes(mode)) {

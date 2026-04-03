@@ -6,6 +6,7 @@
 import { createLogger } from '../../shared/logger'
 const log = createLogger('ipc')
 
+import type { ServiceRegistry } from '../services'
 import {
   registerProxyHandlers,
   registerTabsHandlers,
@@ -32,7 +33,7 @@ export function _resetHandlersForTesting(): void {
   handlersRegistered = false
 }
 
-export function registerIpcHandlers(): void {
+export function registerIpcHandlers(registry: ServiceRegistry): void {
   // Prevent duplicate listener registration (causes memory leaks)
   if (handlersRegistered) {
     log.warn('Handlers already registered, skipping duplicate registration')
@@ -40,16 +41,16 @@ export function registerIpcHandlers(): void {
   }
   handlersRegistered = true
 
-  registerProxyHandlers()
+  registerProxyHandlers(registry)
   registerTabsHandlers()
-  registerViewsHandlers()
+  registerViewsHandlers(registry)
   registerNavigationHandlers()
-  registerStorageHandlers()
+  registerStorageHandlers(registry)
   registerBookmarkHandlers()
   registerWindowHandlers()
-  registerSettingsHandlers()
-  registerHistoryHandlers()
+  registerSettingsHandlers(registry)
+  registerHistoryHandlers(registry)
   registerErrorHandlers()
-  registerWalletHandlers()
-  registerBridgeHandlers()
+  registerWalletHandlers(registry)
+  registerBridgeHandlers(registry)
 }

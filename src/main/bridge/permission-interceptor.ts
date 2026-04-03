@@ -1,9 +1,10 @@
 import { randomUUID } from 'crypto'
 import WebSocket from 'ws'
 import { getSetting } from '../settings'
-import { bridgePermissionStore, methodToScope, SCOPE_DESCRIPTIONS } from './permission-store'
+import { RECONNECT_DELAY_MS, RPC_TIMEOUT_MS } from './constants'
+import { BridgePermissionStore, methodToScope, SCOPE_DESCRIPTIONS } from './permission-store'
 import { getMainWindow } from '../windows/main'
-import { overlayManager } from '../windows/overlay-manager'
+import { OverlayManager } from '../windows/overlay-manager'
 import type { BridgeScope } from '../../shared/types'
 import { createLogger } from '../../shared/logger'
 const log = createLogger('bridge-interceptor')
@@ -14,20 +15,29 @@ interface PendingRpc {
   timer: ReturnType<typeof setTimeout>
 }
 
-class BridgePermissionInterceptor {
+export class BridgePermissionInterceptor {
   private ws: WebSocket | null = null
   private wsConnecting = false
+  private destroyed = false
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null
   private pendingRpc = new Map<string, PendingRpc>()
   private pendingPermissionByKey = new Map<string, Promise<boolean>>()
   private activeSenders = new Set<Electron.WebContents>()
   private subscribedSenders = new Set<Electron.WebContents>()
   private wsPort = 8081
+  private bridgePermissionStore: BridgePermissionStore
+  private overlayManager: OverlayManager
+
+  constructor(bridgePermissionStore: BridgePermissionStore, overlayManager: OverlayManager) {
+    this.bridgePermissionStore = bridgePermissionStore
+    this.overlayManager = overlayManager
+  }
 
   init(): void {
     const network = getSetting('network')
     this.wsPort = network.wsPort
-    bridgePermissionStore.init()
-    bridgePermissionStore.clearSessionGrants()
+    this.bridgePermissionStore.init()
+    this.bridgePermissionStore.clearSessionGrants()
     this.connectToBridge()
   }
 
@@ -69,7 +79,7 @@ class BridgePermissionInterceptor {
       return
     }
 
-    const decision = bridgePermissionStore.getPermission(domain, scope)
+    const decision = this.bridgePermissionStore.getPermission(domain, scope)
 
     if (decision === 'denied') {
       sendResponse(
@@ -83,7 +93,7 @@ class BridgePermissionInterceptor {
     }
 
     if (decision === 'unknown') {
-      const defaultPolicy = bridgePermissionStore.getDefaultPolicy()
+      const defaultPolicy = this.bridgePermissionStore.getDefaultPolicy()
       if (defaultPolicy === 'deny') {
         sendResponse(
           JSON.stringify({
@@ -133,7 +143,7 @@ class BridgePermissionInterceptor {
       const x = Math.round(bounds.width / 2 - menuW / 2)
       const y = Math.round(bounds.height / 3)
 
-      overlayManager.show(
+      this.overlayManager.show(
         `bridge-permission-${key}`,
         { x, y, width: menuW, height: menuH },
         {
@@ -149,12 +159,12 @@ class BridgePermissionInterceptor {
           ],
         },
         (actionType) => {
-          overlayManager.hide(`bridge-permission-${key}`)
+          this.overlayManager.hide(`bridge-permission-${key}`)
           if (actionType === 'deny' || actionType === 'dismiss') {
             resolve(false)
           } else {
             const remember = actionType === 'always-allow'
-            bridgePermissionStore.setPermission(domain, scope, remember ? 'granted' : 'session')
+            this.bridgePermissionStore.setPermission(domain, scope, remember ? 'granted' : 'session')
             resolve(true)
           }
         }
@@ -190,7 +200,7 @@ class BridgePermissionInterceptor {
       sendResponse(
         JSON.stringify({ jsonrpc: '2.0', id: originalId, error: { code: -32000, message: 'Bridge timeout' } })
       )
-    }, 60_000)
+    }, RPC_TIMEOUT_MS)
 
     this.pendingRpc.set(internalId, { resolve: sendResponse, originalId, timer })
     this.ws.send(rewritten)
@@ -241,10 +251,11 @@ class BridgePermissionInterceptor {
     })
 
     ws.on('close', () => {
-      log.info('Bridge connection closed, reconnecting in 2s...')
       this.ws = null
       this.wsConnecting = false
-      setTimeout(() => this.connectToBridge(), 2000)
+      if (this.destroyed) return
+      log.info('Bridge connection closed, reconnecting in 2s...')
+      this.reconnectTimer = setTimeout(() => this.connectToBridge(), RECONNECT_DELAY_MS)
     })
 
     ws.on('error', (err) => {
@@ -254,6 +265,11 @@ class BridgePermissionInterceptor {
   }
 
   destroy(): void {
+    this.destroyed = true
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer)
+      this.reconnectTimer = null
+    }
     for (const [, pending] of this.pendingRpc) {
       clearTimeout(pending.timer)
     }
@@ -264,4 +280,4 @@ class BridgePermissionInterceptor {
   }
 }
 
-export const bridgeInterceptor = new BridgePermissionInterceptor()
+// Singleton removed: use ServiceRegistry from services.ts
