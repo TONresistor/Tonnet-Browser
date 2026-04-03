@@ -11,10 +11,16 @@ const log = createLogger('overlay')
 
 type OverlayActionHandler = (actionType: string, actionData: unknown) => void
 
+interface OverlayOptions {
+  /** If true (default), overlay auto-dismisses on blur (click outside). Set false for suggestion-style overlays. */
+  autoDismiss?: boolean
+}
+
 interface OverlayInstance {
   view: WebContentsView
   id: string
   onAction?: OverlayActionHandler
+  autoDismiss: boolean
 }
 
 interface OverlayBounds {
@@ -68,22 +74,28 @@ class OverlayManager {
     return view
   }
 
-  show(id: string, bounds: OverlayBounds, content: OverlayContent, onAction?: OverlayActionHandler): void {
+  show(
+    id: string,
+    bounds: OverlayBounds,
+    content: OverlayContent,
+    onAction?: OverlayActionHandler,
+    options?: OverlayOptions
+  ): void {
     if (!this.mainWindow) return
+    const autoDismiss = options?.autoDismiss !== false
 
-    // Hide existing overlay with same id (reuse same view for transitions like menu -> form)
+    // Reuse existing overlay with same id (transitions like menu -> form)
     const existing = this.active.get(id)
     if (existing) {
-      // Reuse the same view — just reposition and update content
       existing.view.setBounds(bounds)
       existing.view.webContents.send('overlay:content', content)
-      // Re-add to ensure it's on top
+      if (onAction) existing.onAction = onAction
       try {
         this.mainWindow.contentView.addChildView(existing.view)
       } catch {
         // Already attached
       }
-      existing.view.webContents.focus()
+      if (autoDismiss) existing.view.webContents.focus()
       return
     }
 
@@ -94,18 +106,16 @@ class OverlayManager {
       log.warn('Pool empty, created overlay on-demand')
     }
 
-    // Position and show
     view.setBounds(bounds)
     this.mainWindow.contentView.addChildView(view)
-
-    // Send content to overlay
     view.webContents.send('overlay:content', content)
 
-    this.active.set(id, { view, id, onAction })
+    this.active.set(id, { view, id, onAction, autoDismiss })
 
-    // Focus the overlay so blur detection works for click-outside
-    view.webContents.focus()
-    this.setupClickOutside(id)
+    if (autoDismiss) {
+      view.webContents.focus()
+      this.setupClickOutside(id)
+    }
 
     log.info(`Overlay shown: ${id}`)
   }
@@ -114,11 +124,7 @@ class OverlayManager {
     const instance = this.active.get(id)
     if (!instance) return
 
-    // When the overlay WebContentsView loses focus (user clicked anywhere else),
-    // dismiss it. This works because Electron fires blur/focus on WebContents
-    // when focus changes between different WebContents in the same window.
     const handler = (): void => {
-      // Small delay to let any pending action IPC arrive first
       setTimeout(() => {
         if (this.active.has(id)) {
           this.emitDismiss(id)
@@ -126,8 +132,14 @@ class OverlayManager {
       }, 50)
     }
 
-    instance.view.webContents.on('blur', handler)
+    // Delay listener registration to let focus stabilize after show+focus
+    const setupTimer = setTimeout(() => {
+      if (!this.active.has(id)) return
+      instance.view.webContents.on('blur', handler)
+    }, 200)
+
     this.clickOutsideHandlers.set(id, () => {
+      clearTimeout(setupTimer)
       instance.view.webContents.removeListener('blur', handler)
     })
   }

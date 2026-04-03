@@ -2,8 +2,8 @@ import { randomUUID } from 'crypto'
 import WebSocket from 'ws'
 import { getSetting } from '../settings'
 import { bridgePermissionStore, methodToScope, SCOPE_DESCRIPTIONS } from './permission-store'
-import { dialog } from 'electron'
 import { getMainWindow } from '../windows/main'
+import { overlayManager } from '../windows/overlay-manager'
 import type { BridgeScope } from '../../shared/types'
 import { createLogger } from '../../shared/logger'
 const log = createLogger('bridge-interceptor')
@@ -120,29 +120,46 @@ class BridgePermissionInterceptor {
     const existing = this.pendingPermissionByKey.get(key)
     if (existing) return existing
 
-    const promise = (async () => {
+    const promise = new Promise<boolean>((resolve) => {
       const win = getMainWindow()
-      if (!win) return false
-      const result = await dialog.showMessageBox(win, {
-        type: 'question',
-        title: 'Bridge Permission',
-        message: `This site wants to ${SCOPE_DESCRIPTIONS[scope]}`,
-        detail: method,
-        buttons: ['Deny', 'Allow', 'Always Allow'],
-        defaultId: 1,
-        cancelId: 0,
-        noLink: true,
-      })
-
-      // 0 = Deny, 1 = Allow (session), 2 = Always Allow
-      if (result.response === 0) {
-        return false
+      if (!win) {
+        resolve(false)
+        return
       }
 
-      const remember = result.response === 2
-      bridgePermissionStore.setPermission(domain, scope, remember ? 'granted' : 'session')
-      return true
-    })()
+      const bounds = win.getContentBounds()
+      const menuW = 400
+      const menuH = 240
+      const x = Math.round(bounds.width / 2 - menuW / 2)
+      const y = Math.round(bounds.height / 3)
+
+      overlayManager.show(
+        `bridge-permission-${key}`,
+        { x, y, width: menuW, height: menuH },
+        {
+          type: 'form',
+          title: `Bridge Permission: ${domain}`,
+          fields: [
+            { id: '_info', label: `This site wants to ${SCOPE_DESCRIPTIONS[scope]}`, value: method, readonly: true },
+          ],
+          actions: [
+            { id: 'deny', label: 'Deny' },
+            { id: 'allow', label: 'Allow', primary: true },
+            { id: 'always-allow', label: 'Always Allow' },
+          ],
+        },
+        (actionType) => {
+          overlayManager.hide(`bridge-permission-${key}`)
+          if (actionType === 'deny' || actionType === 'dismiss') {
+            resolve(false)
+          } else {
+            const remember = actionType === 'always-allow'
+            bridgePermissionStore.setPermission(domain, scope, remember ? 'granted' : 'session')
+            resolve(true)
+          }
+        }
+      )
+    })
 
     this.pendingPermissionByKey.set(key, promise)
     promise.finally(() => this.pendingPermissionByKey.delete(key))
@@ -230,8 +247,8 @@ class BridgePermissionInterceptor {
       setTimeout(() => this.connectToBridge(), 2000)
     })
 
-    ws.on('error', () => {
-      log.error('Bridge connection error')
+    ws.on('error', (err) => {
+      log.error('Bridge connection error:', err.message)
       this.wsConnecting = false
     })
   }

@@ -171,7 +171,7 @@
     .form-input {
       width: 100%;
       padding: 8px 12px;
-      border-radius: 9999px;
+      border-radius: 10px;
       background: rgba(255, 255, 255, 0.06);
       border: 1px solid rgba(255, 255, 255, 0.12);
       color: var(--text);
@@ -186,6 +186,17 @@
       border-color: var(--primary);
     }
 
+    .form-readonly {
+      opacity: 0.8;
+      cursor: default;
+      font-size: 12px;
+      line-height: 1.5;
+      white-space: normal;
+      border: none;
+      background: transparent;
+      padding: 0;
+    }
+
     .form-actions {
       display: flex;
       gap: 12px;
@@ -195,7 +206,7 @@
     .form-btn {
       flex: 1;
       padding: 10px 0;
-      border-radius: 9999px;
+      border-radius: 10px;
       font-size: 13px;
       font-weight: 500;
       font-family: inherit;
@@ -336,20 +347,27 @@
         label.textContent = field.label || ''
         fieldEl.appendChild(label)
 
-        const input = document.createElement('input')
-        input.className = 'form-input'
-        input.value = field.value || ''
-        input.addEventListener('keydown', (e) => {
-          if (e.key === 'Enter') {
-            e.preventDefault()
-            collectAndSend('save')
-          } else if (e.key === 'Escape') {
-            e.preventDefault()
-            window.overlayBridge.sendAction('dismiss', {})
-          }
-        })
-        fieldEl.appendChild(input)
-        inputs[field.id] = input
+        if (field.readonly) {
+          const text = document.createElement('div')
+          text.className = 'form-input form-readonly'
+          text.textContent = field.value || ''
+          fieldEl.appendChild(text)
+        } else {
+          const input = document.createElement('input')
+          input.className = 'form-input'
+          input.value = field.value || ''
+          input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              collectAndSend('save')
+            } else if (e.key === 'Escape') {
+              e.preventDefault()
+              window.overlayBridge.sendAction('dismiss', {})
+            }
+          })
+          fieldEl.appendChild(input)
+          inputs[field.id] = input
+        }
 
         container.appendChild(fieldEl)
       }
@@ -410,6 +428,9 @@
 
       if (content.type === 'suggestions' && content.items) {
         renderSuggestions(content.items)
+        if (typeof content.selectedIndex === 'number') {
+          updateSelection(content.selectedIndex)
+        }
       } else if (content.type === 'menu' && content.items) {
         renderMenu(content.items)
       } else if (content.type === 'form') {

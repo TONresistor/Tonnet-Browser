@@ -37,8 +37,8 @@ export function useOverlay(id: string, onAction?: OverlayActionCallback) {
   }, [id])
 
   const show = useCallback(
-    (bounds: OverlayBounds, content: { type: string; [key: string]: unknown }) => {
-      window.electron.overlay.show(id, bounds, content)
+    (bounds: OverlayBounds, content: { type: string; [key: string]: unknown }, options?: { autoDismiss?: boolean }) => {
+      window.electron.overlay.show(id, bounds, content, options)
       activeRef.current = true
     },
     [id]

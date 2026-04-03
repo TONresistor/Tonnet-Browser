@@ -3,9 +3,8 @@
  * Exposes safe IPC methods to the renderer process.
  */
 
-import log from 'electron-log'
 import { contextBridge, ipcRenderer } from 'electron'
-import { IPC_CHANNELS } from '../shared/types'
+import { IPC_CHANNELS } from '../shared/ipc-channels'
 
 const VALID_EVENT_CHANNELS = [
   'page:loading',
@@ -80,6 +79,8 @@ const electronAPI = {
     ) => ipcRenderer.invoke(IPC_CHANNELS.OVERLAY_SHOW, id, bounds, content, options),
     hide: (id: string) => ipcRenderer.invoke(IPC_CHANNELS.OVERLAY_HIDE, id),
     hideAll: () => ipcRenderer.invoke(IPC_CHANNELS.OVERLAY_HIDE_ALL),
+    updateBounds: (id: string, bounds: { x: number; y: number; width: number; height: number }) =>
+      ipcRenderer.invoke(IPC_CHANNELS.OVERLAY_UPDATE_BOUNDS, id, bounds),
   },
 
   // Bookmark context menu
@@ -221,7 +222,7 @@ const electronAPI = {
     if (callback) {
       ipcRenderer.removeListener(channel, callback)
     } else {
-      log.warn(
+      console.warn(
         `[preload] off('${channel}') without a callback removes ALL listeners. Use the unsubscribe function returned by on() instead.`
       )
       ipcRenderer.removeAllListeners(channel)
@@ -234,6 +235,6 @@ if (process.contextIsolated) {
   try {
     contextBridge.exposeInMainWorld('electron', electronAPI)
   } catch (error) {
-    log.error(error)
+    console.error(error)
   }
 }

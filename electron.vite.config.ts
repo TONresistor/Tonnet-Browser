@@ -30,12 +30,16 @@ export default defineConfig({
     }
   },
   preload: {
-    plugins: [externalizeDepsPlugin()],
+    plugins: [],
     define: { __APP_VERSION__: JSON.stringify(pkg.version) },
     build: {
       rollupOptions: {
         input: {
           index: resolve(__dirname, 'src/preload/index.ts')
+        },
+        output: {
+          format: 'cjs',
+          entryFileNames: '[name].js',
         }
       }
     },

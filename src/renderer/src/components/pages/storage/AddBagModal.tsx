@@ -75,7 +75,14 @@ export function AddBagModal({ isOpen, onClose, onBagAdded }: AddBagModalProps) {
     >
       <div
         ref={addModalRef}
-        className="rounded-[var(--radius-container)] p-6 w-full max-w-md mx-4 glass-card shadow-2xl"
+        className="rounded-[14px] p-6 w-full max-w-md mx-4 shadow-2xl"
+        style={{
+          background: 'rgba(20, 20, 22, 0.85)',
+          backdropFilter: 'blur(24px) saturate(1.6)',
+          WebkitBackdropFilter: 'blur(24px) saturate(1.6)',
+          border: '1px solid rgba(255, 255, 255, 0.15)',
+          boxShadow: '0 8px 40px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.12)',
+        }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
@@ -106,7 +113,7 @@ export function AddBagModal({ isOpen, onClose, onBagAdded }: AddBagModalProps) {
               }
             }}
             placeholder={t('storage.addModal.bagIdPlaceholder')}
-            className={`w-full px-3 py-2 bg-background-secondary border rounded-full text-foreground placeholder:text-muted-foreground/50 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-primary ${bagIdError ? 'border-destructive' : 'border-border'}`}
+            className={`w-full px-3 py-2 bg-surface-hover border rounded-full text-foreground placeholder:text-muted-foreground/50 font-mono text-sm focus:outline-none focus:border-primary transition-colors ${bagIdError ? 'border-destructive' : 'border-border-medium'}`}
             autoFocus
           />
           {bagIdError && <p className="mt-2 text-destructive text-xs">{bagIdError}</p>}

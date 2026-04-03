@@ -128,6 +128,10 @@ declare global {
         ) => Promise<{ success: boolean }>
         hide: (id: string) => Promise<{ success: boolean }>
         hideAll: () => Promise<{ success: boolean }>
+        updateBounds: (
+          id: string,
+          bounds: { x: number; y: number; width: number; height: number }
+        ) => Promise<{ success: boolean }>
       }
       settings: {
         getAll: () => Promise<AppSettings>
@@ -161,9 +165,7 @@ declare global {
         error?: string
       }>
       history: {
-        unlock: (password: string) => Promise<{ success: boolean; error?: string }>
-        lock: () => Promise<{ success: boolean }>
-        changeMode: (mode: string, password?: string) => Promise<{ success: boolean; error?: string }>
+        changeMode: (mode: string) => Promise<{ success: boolean; error?: string }>
         search: (
           query: string,
           limit?: number
@@ -236,7 +238,7 @@ declare global {
         install: () => void
       }
       wallet: {
-        create: () => Promise<WalletState>
+        create: () => Promise<WalletState & { mnemonic?: string[] }>
         getState: () => Promise<WalletState>
         getBalance: () => Promise<string>
         send: (to: string, amount: string) => Promise<{ success: boolean; txHash?: string; error?: string }>
@@ -247,10 +249,9 @@ declare global {
         rejectPayment: (id: string) => Promise<{ success: boolean }>
         importWallet: (mnemonic: string[]) => Promise<WalletState>
         exportMnemonic: () => Promise<{ mnemonic: string[] }>
+        deleteWallet: () => Promise<WalletState>
       }
       bridge: {
-        approvePermission: (id: string, remember: boolean) => Promise<{ success: boolean; error?: string }>
-        denyPermission: (id: string, remember: boolean) => Promise<{ success: boolean }>
         getPermissions: () => Promise<
           Array<{
             domain: string

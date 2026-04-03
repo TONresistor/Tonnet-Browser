@@ -16,6 +16,8 @@ import { processNavigationInput, stripHttpPrefix, getHostname } from '@/lib/url-
 import tonIcon from '@/assets/ton.png'
 import { useTranslation } from 'react-i18next'
 import { useOverlay } from '@/hooks/useOverlay'
+import { TipButton } from './TipButton'
+import { useWalletStore } from '@/stores/wallet'
 
 interface HistorySuggestion {
   id: string
@@ -93,6 +95,8 @@ export const AddressBar = memo(function AddressBar() {
   )
 
   const isBookmarked = useMemo(() => bookmarks.some((b) => b.url === currentUrl), [bookmarks, currentUrl])
+  const isInternalPage = useMemo(() => currentUrl.startsWith('ton://'), [currentUrl])
+  const hostname = useMemo(() => getHostname(currentUrl), [currentUrl])
   const isTonSite = useMemo(() => {
     const supportedTLDs = [
       '.ton',
@@ -111,9 +115,11 @@ export const AddressBar = memo(function AddressBar() {
       '.bnb',
       '.btc',
     ]
-    return supportedTLDs.some((tld) => currentUrl.includes(tld))
-  }, [currentUrl])
-  const isInternalPage = useMemo(() => currentUrl.startsWith('ton://'), [currentUrl])
+    return supportedTLDs.some((tld) => hostname.endsWith(tld))
+  }, [hostname])
+  const isTonDomain = useMemo(() => hostname.endsWith('.ton'), [hostname])
+  const walletCreated = useWalletStore((s) => s.isCreated)
+  const showTipButton = isTonDomain && walletCreated
 
   // Display URL without http:// for TON sites, and friendly names for bag files
   useEffect(() => {
@@ -180,7 +186,8 @@ export const AddressBar = memo(function AddressBar() {
           width: Math.round(rect.width),
           height: Math.min(suggestions.length * 52 + 8, 220),
         },
-        { type: 'suggestions', items: suggestions, selectedIndex }
+        { type: 'suggestions', items: suggestions, selectedIndex },
+        { autoDismiss: false }
       )
     } else {
       overlay.hide()
@@ -292,7 +299,7 @@ export const AddressBar = memo(function AddressBar() {
             onContextMenu={handleInputContextMenu}
             className={cn(
               'h-8 bg-transparent border-0 rounded-full focus:ring-0 focus:outline-none',
-              'pr-10',
+              showTipButton ? 'pr-2' : 'pr-10',
               isTonSite && !isLoading ? 'pl-24' : 'pl-10'
             )}
             placeholder={t('addressBar.placeholder')}
@@ -302,11 +309,20 @@ export const AddressBar = memo(function AddressBar() {
             aria-expanded={showSuggestions}
           />
 
+          {showTipButton && (
+            <div className="flex-shrink-0 mr-0.5">
+              <TipButton domain={hostname} />
+            </div>
+          )}
+
           <Button
             type="button"
             variant="ghost"
             size="icon"
-            className="h-6 w-6 rounded-full flex-shrink-0 absolute right-1 top-1/2 -translate-y-1/2"
+            className={cn(
+              'h-6 w-6 rounded-full flex-shrink-0',
+              showTipButton ? 'mr-1' : 'absolute right-1 top-1/2 -translate-y-1/2'
+            )}
             onClick={toggleBookmark}
             disabled={!currentUrl || isInternalPage}
             title={isBookmarked ? t('addressBar.removeBookmarkTitle') : t('addressBar.addBookmarkTitle')}

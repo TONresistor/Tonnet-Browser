@@ -61,7 +61,8 @@ process.on('unhandledRejection', (reason) => {
 })
 
 // Catch uncaught exceptions in the main process — process state is corrupted, exit after logging
-process.on('uncaughtException', (error) => {
+process.on('uncaughtException', (error: NodeJS.ErrnoException) => {
+  if (error.code === 'EPIPE' || error.message === 'write EPIPE') return
   appLog.error(`Uncaught exception: ${String(error)}`)
   process.exit(1)
 })
@@ -161,10 +162,10 @@ function createWindow(): void {
     backgroundColor: '#0a0a0a',
     show: false,
     webPreferences: {
-      preload: join(__dirname, '../preload/index.mjs'),
+      preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false, // Main window loads trusted local UI only; WebContentsView has sandbox: true for untrusted content
+      sandbox: true,
     },
   })
 
@@ -478,8 +479,8 @@ async function runCleanup(): Promise<void> {
   overlayManager.destroy()
   bridgeInterceptor.destroy()
   paymentPolicyStore.destroy()
-  proxyManager.stop()
-  storageManager.stop()
+  await proxyManager.stop()
+  await storageManager.stop()
   walletManager.destroy()
 }
 

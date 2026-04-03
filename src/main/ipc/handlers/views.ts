@@ -41,9 +41,10 @@ export function registerViewsHandlers(): void {
     (
       id: string,
       bounds: { x: number; y: number; width: number; height: number },
-      content: { type: string; [key: string]: unknown }
+      content: { type: string; [key: string]: unknown },
+      options?: { autoDismiss?: boolean }
     ) => {
-      overlayManager.show(id, bounds, content)
+      overlayManager.show(id, bounds, content, undefined, options)
       return { success: true }
     }
   )

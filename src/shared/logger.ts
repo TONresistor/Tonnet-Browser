@@ -1,6 +1,7 @@
 /**
  * Centralized logging system.
  * Thin wrapper around electron-log v5 providing scoped loggers.
+ * Used by main process modules. Renderer uses electron-log/renderer via src/renderer/src/logger.ts.
  */
 
 import log from 'electron-log'
@@ -20,17 +21,6 @@ for (const stream of [process.stdout, process.stderr]) {
     if (err.code !== 'EPIPE') throw err
   })
 }
-
-// Catch uncaught exceptions and unhandled rejections, but filter EPIPE
-// (electron-log's default startCatching shows a dialog for every uncaught error,
-// including EPIPE which is harmless in Electron dev mode)
-process.on('uncaughtException', (err: NodeJS.ErrnoException) => {
-  if (err.code === 'EPIPE' || err.message === 'write EPIPE') return
-  log.error('Uncaught exception:', err)
-})
-process.on('unhandledRejection', (reason) => {
-  log.error('Unhandled rejection:', reason)
-})
 
 export default log
 

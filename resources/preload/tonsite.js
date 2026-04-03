@@ -464,6 +464,8 @@
 // === TON BRIDGE API ===
 const { contextBridge, ipcRenderer } = require('electron')
 
+if (!process.contextIsolated) throw new Error('contextIsolation must be enabled')
+
 contextBridge.exposeInMainWorld('tonBridge', {
   send: function (data) {
     if (typeof data !== 'string' || data.length > 65536) return

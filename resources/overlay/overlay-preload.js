@@ -1,5 +1,7 @@
 const { contextBridge, ipcRenderer } = require('electron')
 
+if (!process.contextIsolated) throw new Error('contextIsolation must be enabled')
+
 contextBridge.exposeInMainWorld('overlayBridge', {
   onContent: (callback) => {
     ipcRenderer.on('overlay:content', (_event, content) => callback(content))

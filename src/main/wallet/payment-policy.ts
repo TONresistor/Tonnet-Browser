@@ -38,6 +38,7 @@ export class PaymentPolicyStore {
   private siteModes: Map<string, PaymentMode> = new Map()
   private spending: Map<string, SpendingRecord[]> = new Map()
   private rateLimits: Map<string, RateLimitEntry> = new Map()
+  private reservations: Map<string, { domain: string; record: SpendingRecord }> = new Map()
   private cleanupTimer: ReturnType<typeof setInterval> | null = null
   private storage = new SafeStorageWrapper('payment-spending')
   private saveTimer: ReturnType<typeof setTimeout> | null = null
@@ -177,18 +178,67 @@ export class PaymentPolicyStore {
     return true
   }
 
-  recordPayment(domain: string, amount: string): void {
+  /**
+   * Atomically check limits and reserve the payment amount.
+   * Returns a reservationId if successful, or null if limits exceeded.
+   * Use rollbackPayment() to undo if the payment fails.
+   */
+  reservePayment(domain: string, amount: string): string | null {
+    if (!this.canPay(domain, amount)) return null
+
     const normalized = normalizeToSecondLevel(domain)
+    const now = Date.now()
+    const reservationId = `${normalized}:${now}:${Math.random().toString(36).slice(2, 8)}`
+    const record: SpendingRecord = { amount, timestamp: now }
+
     const records = this.spending.get(normalized) || []
-    records.push({ amount, timestamp: Date.now() })
+    records.push(record)
     this.spending.set(normalized, records)
 
-    // Update rate limit timestamps
+    // Update rate limit timestamps (same timestamp as record for rollback correlation)
     const entry = this.rateLimits.get(normalized) || { timestamps: [] }
-    entry.timestamps.push(Date.now())
+    entry.timestamps.push(now)
     this.rateLimits.set(normalized, entry)
 
-    log.info(`Payment recorded: ${normalized}, ${amount} nanoTON`)
+    this.reservations.set(reservationId, { domain: normalized, record })
+    log.info(`Payment reserved: ${normalized}, ${amount} nanoTON (${reservationId})`)
+    this.scheduleSave()
+    return reservationId
+  }
+
+  /**
+   * Confirm a reservation (payment succeeded). Clears the reservation tracking.
+   */
+  confirmPayment(reservationId: string): void {
+    const reservation = this.reservations.get(reservationId)
+    if (!reservation) return
+    this.reservations.delete(reservationId)
+    log.info(`Payment confirmed: ${reservation.domain}, ${reservation.record.amount} nanoTON`)
+  }
+
+  /**
+   * Roll back a reservation (payment failed). Removes the spending record.
+   */
+  rollbackPayment(reservationId: string): void {
+    const reservation = this.reservations.get(reservationId)
+    if (!reservation) return
+    this.reservations.delete(reservationId)
+
+    const records = this.spending.get(reservation.domain)
+    if (records) {
+      const idx = records.indexOf(reservation.record)
+      if (idx !== -1) records.splice(idx, 1)
+      if (records.length === 0) this.spending.delete(reservation.domain)
+    }
+
+    // Roll back the rate-limit timestamp added during reservation
+    const entry = this.rateLimits.get(reservation.domain)
+    if (entry) {
+      const tsIdx = entry.timestamps.lastIndexOf(reservation.record.timestamp)
+      if (tsIdx !== -1) entry.timestamps.splice(tsIdx, 1)
+    }
+
+    log.info(`Payment rolled back: ${reservation.domain}, ${reservation.record.amount} nanoTON`)
     this.scheduleSave()
   }
 

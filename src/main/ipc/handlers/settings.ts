@@ -20,6 +20,7 @@ import {
 import { proxyManager } from '../../proxy/manager'
 import { storageManager } from '../../storage/daemon'
 import { contentFilterManager } from '../../content-filter/filter-manager'
+import { walletManager } from '../../wallet/manager'
 import { getMainWindow } from '../../windows/main'
 import { onPrivacySettingsChanged, onAppearanceSettingsChanged } from '../../windows/tabs'
 
@@ -128,6 +129,11 @@ export function registerSettingsHandlers(): void {
     // If content filtering settings changed, apply immediately to filter manager
     if (category === 'contentFiltering') {
       contentFilterManager.applySettings(getSetting('contentFiltering'))
+    }
+    // If wallet settings changed, update auto-lock timer
+    if (category === 'wallet') {
+      const walletSettings = getSetting('wallet')
+      walletManager.setAutoLockMinutes(walletSettings.autoLockMinutes)
     }
     return { success: true }
   })

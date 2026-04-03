@@ -102,6 +102,7 @@ export function getDefaultSettings(): AppSettings {
       limits: { ...DEFAULT_SETTINGS.wallet.limits },
       sitePolicies: [...DEFAULT_SETTINGS.wallet.sitePolicies],
       autoPayDomains: [...DEFAULT_SETTINGS.wallet.autoPayDomains],
+      autoLockMinutes: DEFAULT_SETTINGS.wallet.autoLockMinutes,
     },
     bridge: {
       permissions: [],

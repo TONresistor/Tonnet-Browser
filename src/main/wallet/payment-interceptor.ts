@@ -36,6 +36,7 @@ const pendingApprovals = new Map<
     paymentReq: PaymentRequirements
     domain: string
     ttl: ReturnType<typeof setTimeout>
+    reservationId?: string
   }
 >()
 
@@ -205,7 +206,8 @@ class PaymentInterceptor {
       return
     }
 
-    if (!paymentPolicyStore.canPay(originalDomain, paymentReq.amount)) {
+    const reservationId = paymentPolicyStore.reservePayment(originalDomain, paymentReq.amount)
+    if (!reservationId) {
       const notification: PaymentNotificationData = {
         id: crypto.randomUUID(),
         domain: originalDomain,
@@ -220,7 +222,7 @@ class PaymentInterceptor {
     }
 
     if (mode === 'auto') {
-      await this.executePayment(request, paymentReq, originalDomain)
+      await this.executePayment(request, paymentReq, originalDomain, reservationId)
     } else {
       const paymentId = crypto.randomUUID()
 
@@ -230,6 +232,7 @@ class PaymentInterceptor {
           const pending = pendingApprovals.get(paymentId)
           if (pending) {
             pendingApprovals.delete(paymentId)
+            if (pending.reservationId) paymentPolicyStore.rollbackPayment(pending.reservationId)
             const notification: PaymentNotificationData = {
               id: paymentId,
               domain: originalDomain,
@@ -246,7 +249,7 @@ class PaymentInterceptor {
         (paymentReq.maxTimeoutSeconds || 60) * 1000
       )
 
-      pendingApprovals.set(paymentId, { request, paymentReq, domain: originalDomain, ttl: ttlTimeout })
+      pendingApprovals.set(paymentId, { request, paymentReq, domain: originalDomain, ttl: ttlTimeout, reservationId })
 
       const notification: PaymentNotificationData = {
         id: paymentId,
@@ -263,7 +266,8 @@ class PaymentInterceptor {
   private async executePayment(
     request: InterceptedRequest,
     paymentReq: PaymentRequirements,
-    domain: string
+    domain: string,
+    reservationId?: string
   ): Promise<void> {
     const paymentId = crypto.randomUUID()
     const session = request.session
@@ -298,8 +302,7 @@ class PaymentInterceptor {
       })
 
       if (retryResponse.ok) {
-        // FIX 5: Record spending AFTER server confirms payment
-        paymentPolicyStore.recordPayment(domain, paymentReq.amount)
+        if (reservationId) paymentPolicyStore.confirmPayment(reservationId)
 
         await walletHistoryManager.updateStatus(paymentId, 'confirmed')
 
@@ -326,6 +329,7 @@ class PaymentInterceptor {
 
         log.info(`402 payment completed for ${domain}`)
       } else {
+        if (reservationId) paymentPolicyStore.rollbackPayment(reservationId)
         const errorText = await retryResponse.text()
         await walletHistoryManager.updateStatus(paymentId, 'failed')
 
@@ -343,7 +347,10 @@ class PaymentInterceptor {
         log.warn(`402 payment retry failed for ${domain}: ${retryResponse.status}`)
       }
     } catch (err) {
-      await walletHistoryManager.updateStatus(paymentId, 'failed').catch(() => {})
+      if (reservationId) paymentPolicyStore.rollbackPayment(reservationId)
+      await walletHistoryManager
+        .updateStatus(paymentId, 'failed')
+        .catch((err) => log.debug('Failed to update payment history status:', err))
 
       const notification: PaymentNotificationData = {
         id: paymentId,
@@ -373,7 +380,7 @@ class PaymentInterceptor {
 
     clearTimeout(pending.ttl)
     pendingApprovals.delete(paymentId)
-    await this.executePayment(pending.request, pending.paymentReq, pending.domain)
+    await this.executePayment(pending.request, pending.paymentReq, pending.domain, pending.reservationId)
   }
 
   /**
@@ -385,6 +392,7 @@ class PaymentInterceptor {
 
     clearTimeout(pending.ttl)
     pendingApprovals.delete(paymentId)
+    if (pending.reservationId) paymentPolicyStore.rollbackPayment(pending.reservationId)
 
     const notification: PaymentNotificationData = {
       id: paymentId,

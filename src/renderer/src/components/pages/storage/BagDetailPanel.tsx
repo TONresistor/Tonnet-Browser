@@ -39,8 +39,8 @@ export function BagDetailPanel({
 
   return (
     <div className="border-t border-border bg-background-secondary">
-      {/* Tabs */}
-      <div className="flex border-b border-border">
+      {/* Tabs + Browse Files button */}
+      <div className="flex items-center border-b border-border">
         <button
           onClick={() => onTabChange('info')}
           className={cn(
@@ -75,9 +75,16 @@ export function BagDetailPanel({
               <span className="text-muted-foreground w-24">{t('storage.info.id')}</span>
               <span className="text-foreground/80 font-mono text-xs break-all">{bag.id}</span>
             </div>
-            <div className="flex">
+            <div className="flex items-center">
               <span className="text-muted-foreground w-24">{t('storage.info.size')}</span>
               <span className="text-foreground">{formatBytes(bag.size)}</span>
+              <button
+                onClick={() => onBrowseFiles(bag.id)}
+                className="flex items-center gap-1.5 ml-auto px-3 py-1 text-xs rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+              >
+                <FileText className="h-3 w-3" />
+                {t('storage.actions.browseFiles')}
+              </button>
             </div>
             <div className="flex">
               <span className="text-muted-foreground w-24">{t('storage.info.downloaded')}</span>
@@ -111,15 +118,6 @@ export function BagDetailPanel({
               >
                 <span className="break-all">{bagDetails?.path || bag.id}</span>
                 <FolderOpen className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
-              </button>
-            </div>
-            <div className="col-span-2 mt-2">
-              <button
-                onClick={() => onBrowseFiles(bag.id)}
-                className="flex items-center gap-2 px-3 py-1.5 text-sm rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-              >
-                <FileText className="h-3.5 w-3.5" />
-                {t('storage.actions.browseFiles')}
               </button>
             </div>
           </div>
