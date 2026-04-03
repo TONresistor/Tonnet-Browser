@@ -36,7 +36,7 @@ import type { PaymentInterceptor } from '../wallet/payment-interceptor'
 
 // Re-export for backward compatibility (used by navigation.ts dynamic import)
 export const fileBrowserCache = _fileBrowserCache
-import { DEFAULT_PROXY_PORT } from './constants'
+import { DEFAULT_SETTINGS } from '../../shared/defaults'
 import { createLogger } from '../../shared/logger'
 import { emitToRenderer } from '../ipc/handlers/shared'
 import { normalizeUrl } from '../../shared/utils/url'
@@ -48,7 +48,7 @@ const views = new Map<string, WebContentsView>()
 const viewDisposables = new Map<string, DisposableStore>()
 let activeViewId: string | null = null
 let mainWindow: BrowserWindow | null = null
-let proxyPort = DEFAULT_PROXY_PORT
+let proxyPort: number = DEFAULT_SETTINGS.proxyPort
 
 // Store resize handler reference to prevent listener accumulation on reconnect
 let resizeHandler: (() => void) | null = null
@@ -269,6 +269,40 @@ export function showActiveView(): void {
     mainWindow.contentView.addChildView(view)
     updateViewBounds(view, mainWindow, currentWalletSidebarWidth)
   }
+}
+
+/**
+ * Clean up all tab state on app exit.
+ * Closes all WebContentsViews, disposes listeners, removes resize handler.
+ */
+export function cleanupTabManager(): void {
+  hideAllViews()
+
+  for (const [tabId, view] of views) {
+    viewDisposables.get(tabId)?.dispose()
+    if (mainWindow) {
+      try {
+        mainWindow.contentView.removeChildView(view)
+      } catch {
+        // View may not be attached
+      }
+    }
+    view.webContents.close()
+  }
+  views.clear()
+  viewDisposables.clear()
+
+  storageListenerDisposable?.dispose()
+  storageListenerDisposable = null
+
+  if (resizeHandler && mainWindow) {
+    mainWindow.off('resize', resizeHandler)
+  }
+  resizeHandler = null
+  activeViewId = null
+  currentWalletSidebarWidth = 0
+  mainWindow = null
+  _overlayManager = null
 }
 
 export async function navigateInTab(tabId: string, url: string): Promise<boolean> {

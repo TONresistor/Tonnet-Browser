@@ -17,9 +17,9 @@ import {
   X402_VERSION,
   MAX_SINGLE_PAYMENT,
   FETCH_TIMEOUT_MS,
-  ERROR_TRUNCATE_LENGTH,
   DEFAULT_APPROVAL_TIMEOUT_S,
 } from './constants'
+import { ERROR_TRUNCATE_LENGTH } from '../../shared/constants'
 import type { PaymentRequirements, PaymentNotificationData, WalletTransaction } from '../../shared/types'
 import { createLogger } from '../../shared/logger'
 const log = createLogger('payment-interceptor')
@@ -428,6 +428,20 @@ export class PaymentInterceptor {
     }
     emitToRenderer('wallet:payment-failed', notification)
     log.info(`Payment rejected for ${pending.domain}`)
+  }
+
+  /**
+   * Clean up all pending approvals and their TTL timers.
+   * Called on app exit via destroyServices().
+   */
+  destroy(): void {
+    for (const [, pending] of pendingApprovals) {
+      clearTimeout(pending.ttl)
+      if (pending.reservationId) {
+        this.paymentPolicyStore.rollbackPayment(pending.reservationId)
+      }
+    }
+    pendingApprovals.clear()
   }
 }
 

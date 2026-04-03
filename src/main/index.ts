@@ -13,7 +13,7 @@ import { EventEmitter } from 'events'
 import { pathToFileURL } from 'url'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { registerIpcHandlers, emitToRenderer } from './ipc/handlers'
-import { getActiveView, getAllSessions } from './windows/tabs'
+import { getActiveView, getAllSessions, cleanupTabManager } from './windows/tabs'
 import { setMainWindow } from './windows/main'
 import { getSetting } from './settings'
 import { startProxySequence } from './proxy/startup'
@@ -28,6 +28,7 @@ import {
   CONTEXT_MENU_WIDTH,
   BOUNDS_SAVE_DEBOUNCE_MS,
 } from './windows/constants'
+import { IPC_CHANNELS } from '../shared/ipc-channels'
 
 // Initialize electron-log IPC bridge so renderer can also log via electron-log
 log.initialize()
@@ -238,7 +239,7 @@ function createWindow(): void {
       autoConnectStarted = true
       appLog.info('Auto-connect enabled, starting proxy...')
       const sendProgress = (step: number, message: string) => {
-        emitToRenderer('proxy:progress', { step, message })
+        emitToRenderer(IPC_CHANNELS.PROXY_PROGRESS, { step, message })
       }
       // Tell renderer to show loading state
       emitToRenderer('proxy:auto-connect')
@@ -515,6 +516,7 @@ async function runCleanup(): Promise<void> {
     }
   }
 
+  cleanupTabManager()
   await destroyServices(services)
 }
 

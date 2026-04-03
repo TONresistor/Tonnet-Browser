@@ -10,6 +10,7 @@ contextBridge.exposeInMainWorld('overlayBridge', {
     ipcRenderer.on('overlay:theme', (_event, theme) => callback(theme))
   },
   sendAction: (type, data) => {
+    // Mirrors IPC_CHANNELS.OVERLAY_ACTION (plain JS, cannot import TS constants)
     ipcRenderer.invoke('overlay:action', type, data)
   },
 })

@@ -13,7 +13,7 @@ export function registerViewsHandlers(registry: ServiceRegistry): void {
 
   // Overlay action forwarding (from overlay views to main renderer)
   // Cannot use secureHandle because sender is an overlay WebContentsView, not main window
-  ipcMain.handle('overlay:action', (event: IpcMainInvokeEvent, actionType: string, actionData: unknown) => {
+  ipcMain.handle(IPC_CHANNELS.OVERLAY_ACTION, (event: IpcMainInvokeEvent, actionType: string, actionData: unknown) => {
     if (!overlayManager.isOverlayView(event.sender)) {
       log.error('Unauthorized overlay:action from non-overlay sender')
       return
@@ -25,7 +25,7 @@ export function registerViewsHandlers(registry: ServiceRegistry): void {
     // Fall back to forwarding to renderer
     const overlayId = overlayManager.getOverlayId(event.sender)
     if (overlayId) {
-      emitToRenderer('overlay:action', overlayId, actionType, actionData)
+      emitToRenderer(IPC_CHANNELS.OVERLAY_ACTION, overlayId, actionType, actionData)
     }
   })
   secureHandle(IPC_CHANNELS.VIEW_HIDE, () => {

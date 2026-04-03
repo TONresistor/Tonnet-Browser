@@ -33,7 +33,7 @@ export function registerProxyHandlers(registry: ServiceRegistry): void {
 
     // Helper to send progress updates
     const sendProgress = (step: number, message: string) => {
-      emitToRenderer('proxy:progress', { step, message })
+      emitToRenderer(IPC_CHANNELS.PROXY_PROGRESS, { step, message })
     }
 
     const tabDeps = {

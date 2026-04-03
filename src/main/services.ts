@@ -72,8 +72,12 @@ export function createServices(): ServiceRegistry {
 }
 
 export async function destroyServices(registry: ServiceRegistry): Promise<void> {
+  // Flush history before anything else (idempotent, safe if already called by before-quit)
+  await registry.historyManager.onAppExit()
+
   registry.overlayManager.destroy()
   registry.bridgeInterceptor.destroy()
+  registry.paymentInterceptor.destroy()
   registry.paymentPolicyStore.destroy()
   await registry.proxyManager.stop()
   registry.storageManager.stop()

@@ -29,7 +29,6 @@ export const OVERLAY_POOL_SIZE = 2
 export const APPEARANCE_CACHE_VALIDITY_MS = 500
 
 // --- Session and identity (main-only) ---
-export const DEFAULT_PROXY_PORT = 8_080
 export const SESSION_PARTITION = 'persist:ton-browser'
 
 /**

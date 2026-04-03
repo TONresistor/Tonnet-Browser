@@ -4,6 +4,7 @@
  */
 
 import { useEffect, useCallback, useRef } from 'react'
+import { IPC_CHANNELS } from '@shared/ipc-channels'
 
 interface OverlayBounds {
   x: number
@@ -19,7 +20,7 @@ export function useOverlay(id: string, onAction?: OverlayActionCallback) {
 
   useEffect(() => {
     if (!onAction) return
-    const unsub = window.electron.on('overlay:action', (...args: unknown[]) => {
+    const unsub = window.electron.on(IPC_CHANNELS.OVERLAY_ACTION, (...args: unknown[]) => {
       const [actionId, actionType, actionData] = args as [string, string, unknown]
       if (actionId === id) {
         onAction(actionType, actionData)

@@ -6,6 +6,7 @@
 import { WebContentsView, BrowserWindow } from 'electron'
 import { join } from 'path'
 import { OVERLAY_SETUP_DELAY_MS, OVERLAY_DISMISS_DEBOUNCE_MS, OVERLAY_POOL_SIZE } from './constants'
+import { IPC_CHANNELS } from '../../shared/ipc-channels'
 import { createLogger } from '../../shared/logger'
 
 const log = createLogger('overlay')
@@ -151,7 +152,7 @@ export class OverlayManager {
 
   private emitDismiss(id: string): void {
     if (!this.mainWindow) return
-    this.mainWindow.webContents.send('overlay:action', id, 'dismiss', {})
+    this.mainWindow.webContents.send(IPC_CHANNELS.OVERLAY_ACTION, id, 'dismiss', {})
     this.hide(id)
   }
 

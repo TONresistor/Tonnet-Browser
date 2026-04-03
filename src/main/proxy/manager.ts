@@ -14,6 +14,7 @@ import { validatePort } from '../utils/validators'
 import { getSetting } from '../settings'
 import { randomBytes } from 'crypto'
 import { cpus } from 'os'
+import { DEFAULT_SETTINGS } from '../../shared/defaults'
 import { createLogger } from '../../shared/logger'
 const log = createLogger('proxy')
 
@@ -23,7 +24,7 @@ export class ProxyManager extends EventEmitter {
   private process: ChildProcess | null = null
   private bridgeProcess: ChildProcess | null = null
   private port: number = 0
-  private wsPort: number = 8081
+  private wsPort: number = DEFAULT_SETTINGS.wsPort
   private status: ProxyStatus = 'stopped'
   private anonymousMode: boolean = false
   private tunnelRoute: string = ''

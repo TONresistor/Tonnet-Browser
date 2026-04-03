@@ -12,7 +12,7 @@ const VALID_EVENT_CHANNELS = [
   'page:title',
   'page:favicon',
   'proxy:status',
-  'proxy:progress',
+  IPC_CHANNELS.PROXY_PROGRESS,
   'proxy:auto-connect',
   'storage:bags-updated',
   'storage:status',
@@ -37,7 +37,7 @@ const VALID_EVENT_CHANNELS = [
   'wallet:payment-made',
   'wallet:payment-failed',
   'bookmarks:changed',
-  'overlay:action',
+  IPC_CHANNELS.OVERLAY_ACTION,
 ]
 
 // Custom APIs for renderer - exposed as window.electron

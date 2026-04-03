@@ -29,3 +29,7 @@ export const UI_DIMENSIONS = {
   STATUSBAR_HEIGHT: 24,
   DEFAULT_SIDEBAR_WIDTH: 240,
 } as const
+
+// Error truncation
+/** Max characters of error text to include in user-facing messages */
+export const ERROR_TRUNCATE_LENGTH = 200

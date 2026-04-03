@@ -4,7 +4,8 @@
  */
 
 import type { BagDetails } from '../../shared/types'
-import { HTTP_TIMEOUT_MS, ERROR_TRUNCATE_LENGTH } from './constants'
+import { HTTP_TIMEOUT_MS } from './constants'
+import { ERROR_TRUNCATE_LENGTH } from '../../shared/constants'
 export type { BagDetails }
 
 export interface BagInfo {

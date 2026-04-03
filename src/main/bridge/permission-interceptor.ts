@@ -6,6 +6,7 @@ import { BridgePermissionStore, methodToScope, SCOPE_DESCRIPTIONS } from './perm
 import { getMainWindow } from '../windows/main'
 import { OverlayManager } from '../windows/overlay-manager'
 import type { BridgeScope } from '../../shared/types'
+import { DEFAULT_SETTINGS } from '../../shared/defaults'
 import { createLogger } from '../../shared/logger'
 const log = createLogger('bridge-interceptor')
 
@@ -24,7 +25,7 @@ export class BridgePermissionInterceptor {
   private pendingPermissionByKey = new Map<string, Promise<boolean>>()
   private activeSenders = new Set<Electron.WebContents>()
   private subscribedSenders = new Set<Electron.WebContents>()
-  private wsPort = 8081
+  private wsPort: number = DEFAULT_SETTINGS.wsPort
   private bridgePermissionStore: BridgePermissionStore
   private overlayManager: OverlayManager
 

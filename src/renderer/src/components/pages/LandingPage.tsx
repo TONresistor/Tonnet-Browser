@@ -11,6 +11,7 @@ import welcomeYellowAnimation from '@/assets/welcome-yellow.json'
 import loadingAnimation from '@/assets/loading.json'
 import loadingYellowAnimation from '@/assets/loading-yellow.json'
 import { APP_VERSION } from '@shared/constants'
+import { IPC_CHANNELS } from '@shared/ipc-channels'
 import { usePreferences } from '@/stores/preferences'
 import { useTranslation } from 'react-i18next'
 
@@ -36,7 +37,7 @@ export function LandingPage() {
 
   // Listen for proxy progress events and auto-connect trigger
   useEffect(() => {
-    const unsubProgress = window.electron.on('proxy:progress', (...args: unknown[]) => {
+    const unsubProgress = window.electron.on(IPC_CHANNELS.PROXY_PROGRESS, (...args: unknown[]) => {
       const data = args[0] as { step: number; message: string }
       setCurrentStep(data.step)
       setStepMessage(data.message)

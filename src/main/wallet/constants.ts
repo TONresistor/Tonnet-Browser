@@ -22,8 +22,6 @@ export const RATE_LIMIT_BURST_PER_10S = 3
 export const MAX_SINGLE_PAYMENT = 1_000_000_000n
 /** Fetch timeout for session re-fetch of 402 URLs */
 export const FETCH_TIMEOUT_MS = 30_000
-/** Max characters of server error text to include in notifications */
-export const ERROR_TRUNCATE_LENGTH = 200
 /** Default maxTimeoutSeconds when server omits the field */
 export const DEFAULT_APPROVAL_TIMEOUT_S = 60
 

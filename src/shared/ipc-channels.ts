@@ -4,6 +4,7 @@ export const IPC_CHANNELS = {
   PROXY_CONNECT: 'proxy:connect',
   PROXY_DISCONNECT: 'proxy:disconnect',
   PROXY_STATUS: 'proxy:status',
+  PROXY_PROGRESS: 'proxy:progress',
 
   // Tabs
   TAB_CREATE: 'tab:create',
@@ -118,4 +119,5 @@ export const IPC_CHANNELS = {
   OVERLAY_HIDE: 'overlay:hide',
   OVERLAY_HIDE_ALL: 'overlay:hide-all',
   OVERLAY_UPDATE_BOUNDS: 'overlay:update-bounds',
+  OVERLAY_ACTION: 'overlay:action',
 } as const
