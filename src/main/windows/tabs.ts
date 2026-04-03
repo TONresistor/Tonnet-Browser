@@ -3,7 +3,6 @@
  * Creates, switches, and manages WebContentsViews.
  */
 
-import { resolve, sep } from 'path'
 import { WebContentsView, BrowserWindow } from 'electron'
 import { createBrowserView } from './browser-view'
 import {
@@ -22,21 +21,19 @@ import {
   loadErrorPage,
   fileBrowserCache as _fileBrowserCache,
 } from './tabs-storage'
+import { updateViewBounds, updateSidebarBounds, invalidateAppearanceCache } from './tabs-bounds'
+import { setupSecurityHandlers, ALLOWED_SCHEMES } from './tabs-security'
+import { setupViewEventListeners } from './tabs-events'
+import { overlayManager } from './overlay-manager'
 
 // Re-export for backward compatibility (used by navigation.ts dynamic import)
 export const fileBrowserCache = _fileBrowserCache
-import { UI_DIMENSIONS, DEFAULT_PROXY_PORT } from '../../shared/constants'
-import { getSetting, type AppearanceSettings } from '../settings'
+import { DEFAULT_PROXY_PORT } from '../../shared/constants'
 import { createLogger } from '../../shared/logger'
 import { emitToRenderer } from '../ipc/handlers/shared'
-import { historyManager } from '../history/manager'
 import { normalizeUrl } from '../../shared/utils/url'
-import { buildContextMenu } from '../utils/context-menu'
-import { extractFavicon } from './browser-view'
 
 const log = createLogger('tabs')
-
-const { TABBAR_HEIGHT, NAVBAR_HEIGHT, BOOKMARKS_HEIGHT, STATUSBAR_HEIGHT, DEFAULT_SIDEBAR_WIDTH } = UI_DIMENSIONS
 
 // Map of all WebContentsViews by tabId
 const views = new Map<string, WebContentsView>()
@@ -49,15 +46,6 @@ let resizeHandler: (() => void) | null = null
 
 let currentWalletSidebarWidth = 0
 
-// Cache for appearance settings to avoid redundant getSetting() calls during resize
-interface AppearanceCache {
-  showBookmarksBar: boolean
-  isVertical: boolean
-  timestamp: number
-}
-let appearanceCache: AppearanceCache | null = null
-const CACHE_VALIDITY_MS = 500
-
 // Re-export for settings.ts
 export function onPrivacySettingsChanged(): void {
   sessionPrivacyChanged()
@@ -65,29 +53,11 @@ export function onPrivacySettingsChanged(): void {
 
 // Update view bounds when appearance settings change (called from IPC handlers)
 export function onAppearanceSettingsChanged(): void {
-  appearanceCache = null
+  invalidateAppearanceCache()
   const activeView = getActiveView()
-  if (activeView) {
-    updateViewBounds(activeView)
+  if (activeView && mainWindow) {
+    updateViewBounds(activeView, mainWindow, currentWalletSidebarWidth)
   }
-}
-
-// Get cached appearance settings or refresh cache
-function getAppearanceSettings(): AppearanceCache {
-  const now = Date.now()
-
-  if (appearanceCache && now - appearanceCache.timestamp < CACHE_VALIDITY_MS) {
-    return appearanceCache
-  }
-
-  const appearance: AppearanceSettings = getSetting('appearance')
-  appearanceCache = {
-    showBookmarksBar: appearance.showBookmarksBar ?? false,
-    isVertical: appearance.tabOrientation === 'vertical',
-    timestamp: now,
-  }
-
-  return appearanceCache
 }
 
 // Immediate sidebar width update (for real-time resize without settings persistence)
@@ -95,22 +65,7 @@ export function updateSidebarWidth(width: number): void {
   const activeView = getActiveView()
   if (!activeView || !mainWindow) return
 
-  const bounds = mainWindow.getContentBounds()
-  const { isVertical, showBookmarksBar } = getAppearanceSettings()
-
-  if (!isVertical) return
-
-  let chromeHeight = NAVBAR_HEIGHT
-  if (showBookmarksBar) {
-    chromeHeight += BOOKMARKS_HEIGHT
-  }
-
-  activeView.setBounds({
-    x: width,
-    y: chromeHeight,
-    width: bounds.width - width,
-    height: bounds.height - chromeHeight - STATUSBAR_HEIGHT,
-  })
+  updateSidebarBounds(activeView, mainWindow, width)
 }
 
 export function updateWalletSidebarWidth(width: number): void {
@@ -118,7 +73,7 @@ export function updateWalletSidebarWidth(width: number): void {
   if (!mainWindow) return
   for (const view of mainWindow.contentView.children) {
     if (view instanceof WebContentsView) {
-      updateViewBounds(view as WebContentsView)
+      updateViewBounds(view as WebContentsView, mainWindow!, currentWalletSidebarWidth)
     }
   }
 }
@@ -136,254 +91,16 @@ export function initTabManager(win: BrowserWindow, port: number): void {
   resizeHandler = () => {
     const activeView = getActiveView()
     if (mainWindow && activeView) {
-      updateViewBounds(activeView)
+      updateViewBounds(activeView, mainWindow, currentWalletSidebarWidth)
     }
   }
 
   mainWindow.on('resize', resizeHandler)
 }
 
-function updateViewBounds(view: WebContentsView): void {
-  if (!mainWindow) return
-  const bounds = mainWindow.getContentBounds()
-
-  const appearance: AppearanceSettings = getSetting('appearance')
-  const isVertical = appearance.tabOrientation === 'vertical'
-  const sidebarWidth = appearance.sidebarWidth ?? DEFAULT_SIDEBAR_WIDTH
-  const showBookmarksBar = appearance.showBookmarksBar ?? false
-
-  let chromeHeight = NAVBAR_HEIGHT
-  if (!isVertical) {
-    chromeHeight += TABBAR_HEIGHT
-  }
-  if (showBookmarksBar) {
-    chromeHeight += BOOKMARKS_HEIGHT
-  }
-
-  const x = isVertical ? sidebarWidth : 0
-  const width = (isVertical ? bounds.width - sidebarWidth : bounds.width) - currentWalletSidebarWidth
-
-  view.setBounds({
-    x,
-    y: chromeHeight,
-    width,
-    height: bounds.height - chromeHeight - STATUSBAR_HEIGHT,
-  })
-}
-
-// Allowed URL schemes for security
-const ALLOWED_SCHEMES = ['http:']
-
 function setupViewEvents(view: WebContentsView, tabId: string): void {
-  view.webContents.on('did-start-loading', () => {
-    emitToRenderer('page:loading', true, tabId)
-  })
-
-  view.webContents.on('did-stop-loading', () => {
-    emitToRenderer('page:loading', false, tabId)
-  })
-
-  view.webContents.on('did-navigate', (_e, url) => {
-    emitToRenderer('page:navigate', {
-      tabId,
-      url,
-      canGoBack: view.webContents.navigationHistory.canGoBack(),
-      canGoForward: view.webContents.navigationHistory.canGoForward(),
-    })
-
-    const title = view.webContents.getTitle()
-    historyManager.addEntry(url, title)
-  })
-
-  view.webContents.on('did-navigate-in-page', (_e, url) => {
-    emitToRenderer('page:navigate', {
-      tabId,
-      url,
-      canGoBack: view.webContents.navigationHistory.canGoBack(),
-      canGoForward: view.webContents.navigationHistory.canGoForward(),
-    })
-
-    const title = view.webContents.getTitle()
-    historyManager.addEntry(url, title)
-  })
-
-  view.webContents.on('page-title-updated', (_e, title) => {
-    emitToRenderer('page:title', title, tabId)
-
-    const url = view.webContents.getURL()
-    historyManager.addEntry(url, title, undefined, false)
-  })
-
-  // Extract favicon and detect empty storage bag pages
-  view.webContents.on('did-finish-load', async () => {
-    try {
-      const favicon = await extractFavicon(view)
-      if (favicon) {
-        emitToRenderer('page:favicon', favicon, tabId)
-      }
-    } catch (error) {
-      log.debug(`Failed to extract favicon for tab ${tabId}:`, error)
-    }
-
-    try {
-      const pageUrl = view.webContents.getURL()
-      const url = new URL(pageUrl)
-      if (url.hostname.endsWith('.ton') && !pageUrl.startsWith('data:')) {
-        const bodyText = await view.webContents.executeJavaScript('document.body ? document.body.innerText.trim() : ""')
-        const bodyHtml = await view.webContents.executeJavaScript('document.body ? document.body.innerHTML.trim() : ""')
-        if (bodyHtml.length < 50 && bodyText.length < 10) {
-          log.info(`Empty page detected for ${url.hostname}, trying storage browser`)
-          loadStorageBrowser(view, url.hostname).catch(() => {
-            log.debug('Not a storage bag or no files available')
-          })
-        }
-      }
-    } catch (err) {
-      log.debug('Empty page detection failed:', err)
-    }
-  })
-
-  // Handle load failures
-  view.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
-    if (errorCode === -3 || errorCode === -2 || errorCode === 0) {
-      return
-    }
-
-    if (validatedURL.startsWith('data:') || validatedURL.startsWith('file:')) {
-      return
-    }
-
-    log.warn(`Page load failed: ${errorDescription} (code: ${errorCode}) for ${validatedURL}`)
-
-    try {
-      const url = new URL(validatedURL)
-      if (url.hostname.endsWith('.ton')) {
-        loadStorageBrowser(view, url.hostname).catch(() => {
-          loadErrorPage(view, `${errorDescription} (${errorCode})`, validatedURL)
-        })
-        return
-      }
-    } catch (err) {
-      log.debug('URL parse failed in did-fail-load:', err)
-    }
-
-    loadErrorPage(view, `${errorDescription} (${errorCode})`, validatedURL)
-  })
-
-  // Security: Intercept navigation to validate URLs
-  view.webContents.on('will-navigate', (event, url) => {
-    // Handle bagfile:// links from file browser
-    if (url.startsWith('bagfile://')) {
-      event.preventDefault()
-      const currentPageUrl = view.webContents.getURL()
-      if (!currentPageUrl.startsWith('data:text/html')) {
-        log.warn('Blocked bagfile:// from non-file-browser page')
-        return
-      }
-      const withoutScheme = url.slice('bagfile://'.length)
-      const slashIdx = withoutScheme.indexOf('/')
-      if (slashIdx !== -1) {
-        const bp = decodeURIComponent(withoutScheme.slice(0, slashIdx))
-        const fp = decodeURIComponent(withoutScheme.slice(slashIdx + 1))
-        const fullPath = resolve(`${bp}/${fp}`)
-        const safeBp = resolve(bp)
-        if (!fullPath.startsWith(safeBp + sep) && fullPath !== safeBp) {
-          log.warn(`Blocked bagfile:// path traversal: ${fullPath}`)
-          return
-        }
-        view.webContents
-          .loadFile(fullPath)
-          .then(() => {
-            emitToRenderer('page:navigate', {
-              tabId,
-              url: `file://${fullPath}`,
-              canGoBack: true,
-              canGoForward: false,
-            })
-          })
-          .catch((err) => {
-            log.error(`Failed to load bag file: ${fullPath}`, err)
-          })
-      }
-      return
-    }
-
-    try {
-      const normalized = normalizeUrl(url)
-      const parsed = new URL(normalized)
-
-      if (normalized !== url) {
-        event.preventDefault()
-        log.debug(`Normalizing URL: ${url} -> ${normalized}`)
-        view.webContents.loadURL(normalized).catch((err) => {
-          log.error('loadURL failed (normalization):', err)
-          loadErrorPage(view, err.message, normalized)
-        })
-        return
-      }
-
-      if (!ALLOWED_SCHEMES.includes(parsed.protocol)) {
-        log.warn(`Blocked navigation to unsafe URL: ${url}`)
-        event.preventDefault()
-      }
-    } catch (err) {
-      log.debug('URL validation failed in will-navigate:', err)
-      log.warn(`Blocked navigation to invalid URL: ${url}`)
-      event.preventDefault()
-    }
-  })
-
-  // Security: Control popup windows - open in new tab instead
-  view.webContents.setWindowOpenHandler(({ url }) => {
-    try {
-      const targetUrl = normalizeUrl(url)
-      const parsed = new URL(targetUrl)
-
-      if (ALLOWED_SCHEMES.includes(parsed.protocol)) {
-        if (targetUrl !== url) {
-          log.debug(`Normalizing popup URL: ${url} -> ${targetUrl}`)
-        }
-        emitToRenderer('context:open-link', targetUrl)
-      } else {
-        log.warn(`Blocked popup to unsafe URL: ${url}`)
-      }
-    } catch (err) {
-      log.debug('URL validation failed in popup handler:', err)
-      log.warn(`Blocked popup to invalid URL: ${url}`)
-    }
-    return { action: 'deny' }
-  })
-
-  // Fallback: Close any window that somehow gets created
-  view.webContents.on('did-create-window', (childWindow, { url }) => {
-    log.warn(`Unexpected child window created, closing and redirecting: ${url}`)
-    childWindow.close()
-    if (url && url !== 'about:blank') {
-      try {
-        const targetUrl = normalizeUrl(url)
-        const parsed = new URL(targetUrl)
-
-        if (parsed.protocol === 'http:') {
-          emitToRenderer('context:open-link', targetUrl)
-        }
-      } catch {
-        log.debug(`Invalid URL in child window: ${url}`)
-      }
-    }
-  })
-
-  // Context menu for web pages
-  view.webContents.on('context-menu', (_e, params) => {
-    buildContextMenu(params, {
-      webContents: view.webContents,
-      onOpenLink: (url) => emitToRenderer('context:open-link', url),
-      onNavigateBack: () => view.webContents.navigationHistory.goBack(),
-      onNavigateForward: () => view.webContents.navigationHistory.goForward(),
-      onReload: () => view.webContents.reload(),
-      canGoBack: view.webContents.navigationHistory.canGoBack(),
-      canGoForward: view.webContents.navigationHistory.canGoForward(),
-    })
-  })
+  setupViewEventListeners(view, tabId)
+  setupSecurityHandlers(view, tabId)
 }
 
 export async function createTab(tabId: string, initialUrl?: string): Promise<boolean> {
@@ -455,6 +172,7 @@ export function closeTab(tabId: string): boolean {
 
 export function switchTab(tabId: string): boolean {
   if (!mainWindow) return false
+  overlayManager.hideAll()
 
   const view = views.get(tabId)
   if (!view) return false
@@ -468,7 +186,7 @@ export function switchTab(tabId: string): boolean {
     }
   }
   mainWindow.contentView.addChildView(view)
-  updateViewBounds(view)
+  updateViewBounds(view, mainWindow, currentWalletSidebarWidth)
   activeViewId = tabId
 
   return true
@@ -485,6 +203,7 @@ export function getActiveTabId(): string | null {
 
 export function hideAllViews(): void {
   if (!mainWindow) return
+  overlayManager.hideAll()
 
   const activeView = activeViewId ? views.get(activeViewId) : null
   if (activeView) {
@@ -500,16 +219,8 @@ export function showActiveView(): void {
   if (!mainWindow) return
   const view = getActiveView()
   if (view) {
-    const currentView = activeViewId ? views.get(activeViewId) : null
-    if (currentView) {
-      try {
-        mainWindow.contentView.removeChildView(currentView)
-      } catch {
-        log.debug('View not attached during showActiveView')
-      }
-    }
     mainWindow.contentView.addChildView(view)
-    updateViewBounds(view)
+    updateViewBounds(view, mainWindow, currentWalletSidebarWidth)
   }
 }
 
@@ -566,7 +277,7 @@ export async function navigateInTab(tabId: string, url: string): Promise<boolean
 
     if (isActive && mainWindow) {
       mainWindow.contentView.addChildView(newView)
-      updateViewBounds(newView)
+      updateViewBounds(newView, mainWindow, currentWalletSidebarWidth)
     }
 
     emitToRenderer('tab:history-reset', tabId)
@@ -587,7 +298,7 @@ export async function navigateInTab(tabId: string, url: string): Promise<boolean
         log.debug('View not attached during same-domain navigate')
       }
       mainWindow.contentView.addChildView(view)
-      updateViewBounds(view)
+      updateViewBounds(view, mainWindow, currentWalletSidebarWidth)
     }
 
     view.webContents.loadURL(navigateUrl).catch((err) => {

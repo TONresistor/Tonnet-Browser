@@ -38,6 +38,7 @@ const VALID_EVENT_CHANNELS = [
   'wallet:payment-made',
   'wallet:payment-failed',
   'bookmarks:changed',
+  'overlay:action',
 ]
 
 // Custom APIs for renderer - exposed as window.electron
@@ -67,6 +68,18 @@ const electronAPI = {
   view: {
     hide: () => ipcRenderer.invoke(IPC_CHANNELS.VIEW_HIDE),
     show: () => ipcRenderer.invoke(IPC_CHANNELS.VIEW_SHOW),
+  },
+
+  // Overlay (floating UI above WebContentsView)
+  overlay: {
+    show: (
+      id: string,
+      bounds: { x: number; y: number; width: number; height: number },
+      content: unknown,
+      options?: { autoDismiss?: boolean }
+    ) => ipcRenderer.invoke(IPC_CHANNELS.OVERLAY_SHOW, id, bounds, content, options),
+    hide: (id: string) => ipcRenderer.invoke(IPC_CHANNELS.OVERLAY_HIDE, id),
+    hideAll: () => ipcRenderer.invoke(IPC_CHANNELS.OVERLAY_HIDE_ALL),
   },
 
   // Bookmark context menu
@@ -162,13 +175,17 @@ const electronAPI = {
     rejectPayment: (paymentId: string) => ipcRenderer.invoke(IPC_CHANNELS.WALLET_REJECT_PAYMENT, paymentId),
     importWallet: (mnemonic: string[]) => ipcRenderer.invoke(IPC_CHANNELS.WALLET_IMPORT, mnemonic),
     exportMnemonic: () => ipcRenderer.invoke(IPC_CHANNELS.WALLET_EXPORT_MNEMONIC),
+    deleteWallet: () => ipcRenderer.invoke(IPC_CHANNELS.WALLET_DELETE),
   },
 
-  // Bridge permissions
+  // Bridge
   bridge: {
     getPermissions: () => ipcRenderer.invoke(IPC_CHANNELS.BRIDGE_GET_PERMISSIONS),
     revokePermission: (domain: string, scope: string) =>
       ipcRenderer.invoke(IPC_CHANNELS.BRIDGE_REVOKE_PERMISSION, domain, scope),
+    getConfig: () => ipcRenderer.invoke(IPC_CHANNELS.BRIDGE_GET_CONFIG),
+    setConfig: (config: object) => ipcRenderer.invoke(IPC_CHANNELS.BRIDGE_SET_CONFIG, config),
+    restart: () => ipcRenderer.invoke(IPC_CHANNELS.BRIDGE_RESTART),
   },
 
   // DNS

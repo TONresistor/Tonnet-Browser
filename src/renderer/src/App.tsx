@@ -36,6 +36,8 @@ import i18n, { loadLanguage } from '@/i18n'
 import { useTranslation } from 'react-i18next'
 import { loadBookmarksFromMain } from '@/stores/bookmarks'
 import { createLogger } from '@/logger'
+import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
+import { useIpcEvents } from '@/hooks/useIpcEvents'
 
 const log = createLogger('app')
 
@@ -153,184 +155,11 @@ function App() {
     }
   }, [proxyConnected, ensureDefaultTab])
 
-  // Keyboard shortcuts
-  useEffect(() => {
-    const { addTab, closeTab } = useTabsStore.getState()
+  // Keyboard shortcuts (extracted to hook)
+  useKeyboardShortcuts(openOrSwitchToTab)
 
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const mod = e.ctrlKey || e.metaKey
-      // Ctrl/Cmd+T: New tab
-      if (mod && !e.shiftKey && e.key === 't') {
-        e.preventDefault()
-        addTab()
-      }
-      // Ctrl/Cmd+Shift+T: Reopen last closed tab
-      else if (mod && e.shiftKey && e.key === 'T') {
-        e.preventDefault()
-        useTabsStore.getState().reopenLastClosedTab()
-      }
-      // Ctrl+Tab: Next tab (Ctrl even on macOS, same as Chrome)
-      else if (e.ctrlKey && !e.shiftKey && e.key === 'Tab') {
-        e.preventDefault()
-        useTabsStore.getState().nextTab()
-      }
-      // Ctrl+Shift+Tab: Previous tab (Ctrl even on macOS, same as Chrome)
-      else if (e.ctrlKey && e.shiftKey && e.key === 'Tab') {
-        e.preventDefault()
-        useTabsStore.getState().previousTab()
-      }
-      // Ctrl/Cmd+1-9: Go to tab N
-      else if (mod && !e.shiftKey && /^[1-9]$/.test(e.key)) {
-        e.preventDefault()
-        useTabsStore.getState().goToTabByIndex(parseInt(e.key, 10))
-      }
-      // Ctrl/Cmd+H: History
-      else if (mod && e.key === 'h') {
-        e.preventDefault()
-        openOrSwitchToTab('ton://history')
-      }
-      // Ctrl/Cmd+W: Close tab
-      else if (mod && e.key === 'w') {
-        e.preventDefault()
-        const currentTabId = useTabsStore.getState().activeTabId
-        if (currentTabId) {
-          closeTab(currentTabId)
-        }
-      }
-      // Ctrl/Cmd+L: Focus address bar
-      else if (mod && e.key === 'l') {
-        e.preventDefault()
-        const addressInput = document.querySelector('input[placeholder*="ton"]') as HTMLInputElement
-        addressInput?.focus()
-        addressInput?.select()
-      }
-      // Ctrl/Cmd+R or F5: Reload
-      else if ((mod && e.key === 'r') || e.key === 'F5') {
-        e.preventDefault()
-        window.electron.reload()
-      }
-      // Alt+Left: Back
-      else if (e.altKey && e.key === 'ArrowLeft') {
-        e.preventDefault()
-        useTabsStore.getState().goBack()
-      }
-      // Alt+Right: Forward
-      else if (e.altKey && e.key === 'ArrowRight') {
-        e.preventDefault()
-        useTabsStore.getState().goForward()
-      }
-      // Escape: Stop loading
-      else if (e.key === 'Escape') {
-        window.electron.stop()
-      }
-      // Ctrl/Cmd++: Zoom in
-      else if (mod && (e.key === '+' || e.key === '=')) {
-        e.preventDefault()
-        window.electron.zoomIn()
-      }
-      // Ctrl/Cmd+-: Zoom out
-      else if (mod && e.key === '-') {
-        e.preventDefault()
-        window.electron.zoomOut()
-      }
-      // Ctrl/Cmd+0: Reset zoom
-      else if (mod && e.key === '0') {
-        e.preventDefault()
-        window.electron.zoomReset()
-      }
-      // F12: Toggle DevTools (Ctrl+Shift+I is handled in main process)
-      else if (e.key === 'F12') {
-        e.preventDefault()
-        window.electron.toggleDevTools()
-      }
-    }
-
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [])
-
-  // Listen for IPC events from main process (navigation state updates)
-  useEffect(() => {
-    const { setNavigation, setLoading, setTitle } = useBrowserStore.getState()
-
-    const unsubNavigate = window.electron.on('page:navigate', (...args: unknown[]) => {
-      const data = args[0] as { tabId?: string; url: string; canGoBack: boolean; canGoForward: boolean }
-      setNavigation(data.url, data.canGoBack, data.canGoForward)
-      // Update tab state + push to history for bag file navigation
-      if (data.tabId) {
-        const tab = useTabsStore.getState().tabs.find((t) => t.id === data.tabId)
-        if (tab && data.url !== tab.url && data.url.startsWith('file:///') && data.url.includes('/storage/')) {
-          const newHistory = tab.history.slice(0, tab.historyIndex + 1)
-          newHistory.push(data.url)
-          updateTab(data.tabId, {
-            url: data.url,
-            canGoBack: true,
-            canGoForward: false,
-            history: newHistory,
-            historyIndex: newHistory.length - 1,
-          })
-        } else {
-          updateTab(data.tabId, { url: data.url, canGoBack: data.canGoBack, canGoForward: data.canGoForward })
-        }
-      }
-    })
-
-    const unsubLoading = window.electron.on('page:loading', (...args: unknown[]) => {
-      const loading = args[0] as boolean
-      const tabId = args[1] as string | undefined
-      setLoading(loading)
-      if (tabId) {
-        updateTab(tabId, { isLoading: loading })
-      }
-    })
-
-    const unsubTitle = window.electron.on('page:title', (...args: unknown[]) => {
-      const title = args[0] as string
-      const tabId = args[1] as string | undefined
-      setTitle(title)
-      if (tabId) {
-        updateTab(tabId, { title })
-      }
-    })
-
-    const unsubFavicon = window.electron.on('page:favicon', (...args: unknown[]) => {
-      const favicon = args[0] as string
-      const tabId = args[1] as string | undefined
-      if (tabId) {
-        updateTab(tabId, { favicon })
-      }
-    })
-
-    // Handle "Open Link in New Tab" from context menu
-    const unsubOpenLink = window.electron.on('context:open-link', (...args: unknown[]) => {
-      const url = args[0] as string
-      useTabsStore.getState().addTab(url)
-    })
-
-    // Handle first-party isolation view recreation: reset renderer history so
-    // back/forward buttons don't point to URLs of a destroyed WebContentsView
-    const unsubHistoryReset = window.electron.on('tab:history-reset', (...args: unknown[]) => {
-      const tabId = args[0] as string
-      const tab = useTabsStore.getState().tabs.find((t) => t.id === tabId)
-      if (tab) {
-        useTabsStore.getState().updateTab(tabId, {
-          history: [tab.url],
-          historyIndex: 0,
-          canGoBack: false,
-          canGoForward: false,
-        })
-      }
-    })
-
-    return () => {
-      unsubNavigate()
-      unsubLoading()
-      unsubTitle()
-      unsubFavicon()
-      unsubOpenLink()
-      unsubHistoryReset()
-    }
-  }, [updateTab])
+  // IPC events from main process (extracted to hook)
+  useIpcEvents(updateTab)
 
   // Determine which internal page to show
   const isInternalPage = currentUrl.startsWith('ton://')

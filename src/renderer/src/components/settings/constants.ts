@@ -54,9 +54,9 @@ export const SECTIONS: SectionInfo[] = [
   { id: 'history', label: 'History', icon: HistoryIcon },
   { id: 'shortcuts', label: 'Shortcuts', icon: KeyboardIcon },
   { id: 'bookmarks', label: 'Bookmarks', icon: BookmarkIcon },
-  { id: 'advanced', label: 'Advanced', icon: Wrench },
   { id: 'wallet', label: 'Wallet', icon: WalletIcon },
   { id: 'bridge', label: 'Bridge', icon: Cable },
+  { id: 'advanced', label: 'Advanced', icon: Wrench },
   { id: 'about', label: 'About', icon: Info },
 ]
 

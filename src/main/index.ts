@@ -4,7 +4,7 @@
  */
 
 import log from '../shared/logger'
-import { app, BrowserWindow, shell, screen, Menu, protocol, net } from 'electron'
+import { app, BrowserWindow, shell, screen, Menu, protocol, net, clipboard } from 'electron'
 import { join, resolve } from 'path'
 import { existsSync, readFileSync, writeFileSync } from 'fs'
 import { writeFile } from 'fs/promises'
@@ -20,10 +20,10 @@ import { getSetting } from './settings'
 import { historyManager } from './history/manager'
 import { walletManager } from './wallet/manager'
 import { startProxySequence } from './proxy/startup'
-import { buildContextMenu } from './utils/context-menu'
 import { initUpdater } from './updater'
 import { bridgeInterceptor } from './bridge/permission-interceptor'
 import { paymentPolicyStore } from './wallet/payment-policy'
+import { overlayManager } from './windows/overlay-manager'
 
 // Initialize electron-log IPC bridge so renderer can also log via electron-log
 log.initialize()
@@ -170,6 +170,7 @@ function createWindow(): void {
 
   // Register window with our module for IPC handlers
   setMainWindow(mainWindow)
+  overlayManager.init(mainWindow)
 
   // Initialize manual update checker
   initUpdater(mainWindow)
@@ -230,9 +231,71 @@ function createWindow(): void {
   mainWindow.on('resized', () => saveWindowBounds(mainWindow))
   mainWindow.on('moved', () => saveWindowBounds(mainWindow))
 
-  // Context menu for internal pages (ton://)
+  // Context menu for internal pages (overlay instead of native menu)
   mainWindow.webContents.on('context-menu', (_e, params) => {
-    buildContextMenu(params, { webContents: mainWindow.webContents })
+    const items: Array<{
+      id: string
+      label: string
+      separator?: boolean
+      disabled?: boolean
+      data?: Record<string, string>
+    }> = []
+
+    if (params.isEditable) {
+      items.push(
+        { id: 'cut', label: 'Cut', disabled: !params.editFlags.canCut },
+        { id: 'copy', label: 'Copy', disabled: !params.editFlags.canCopy },
+        { id: 'paste', label: 'Paste', disabled: !params.editFlags.canPaste },
+        { id: '_sep1', label: '', separator: true },
+        { id: 'select-all', label: 'Select All' }
+      )
+    } else if (params.selectionText) {
+      items.push({ id: 'copy', label: 'Copy' })
+    }
+
+    if (params.linkURL) {
+      if (items.length > 0) items.push({ id: '_sep2', label: '', separator: true })
+      items.push({ id: 'copy-link', label: 'Copy Link Address', data: { url: params.linkURL } })
+    }
+
+    if (items.length === 0) return
+
+    const visibleItems = items.filter((i) => !i.separator).length
+    const separators = items.filter((i) => i.separator).length
+    const menuH = visibleItems * 36 + separators * 9 + 8
+    const menuW = 220
+
+    const [winW, winH] = mainWindow.getContentSize()
+    const menuX = Math.max(0, Math.min(params.x, winW - menuW))
+    const menuY = Math.max(0, Math.min(params.y, winH - menuH))
+
+    overlayManager.show(
+      'main-context-menu',
+      { x: menuX, y: menuY, width: menuW, height: menuH },
+      { type: 'menu', items },
+      (actionType, actionData) => {
+        switch (actionType) {
+          case 'cut':
+            mainWindow.webContents.cut()
+            break
+          case 'copy':
+            mainWindow.webContents.copy()
+            break
+          case 'paste':
+            mainWindow.webContents.paste()
+            break
+          case 'select-all':
+            mainWindow.webContents.selectAll()
+            break
+          case 'copy-link':
+            clipboard.writeText((actionData as Record<string, string>).url)
+            break
+          case 'dismiss':
+            break
+        }
+        overlayManager.hide('main-context-menu')
+      }
+    )
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
@@ -412,6 +475,7 @@ async function runCleanup(): Promise<void> {
     }
   }
 
+  overlayManager.destroy()
   bridgeInterceptor.destroy()
   paymentPolicyStore.destroy()
   proxyManager.stop()

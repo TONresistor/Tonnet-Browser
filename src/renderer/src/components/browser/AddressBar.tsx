@@ -5,7 +5,7 @@
  */
 
 import { useState, useEffect, FormEvent, useRef, useMemo, memo, useCallback } from 'react'
-import { Lock, Star, LoaderCircle, Clock, History } from 'lucide-react'
+import { Lock, Star, LoaderCircle } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { useBrowserStore } from '@/stores/browser'
@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils'
 import { processNavigationInput, stripHttpPrefix, getHostname } from '@/lib/url-utils'
 import tonIcon from '@/assets/ton.png'
 import { useTranslation } from 'react-i18next'
+import { useOverlay } from '@/hooks/useOverlay'
 
 interface HistorySuggestion {
   id: string
@@ -38,7 +39,58 @@ export const AddressBar = memo(function AddressBar() {
   const [selectedIndex, setSelectedIndex] = useState(-1)
   const [isFocused, setIsFocused] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
-  const suggestionsRef = useRef<HTMLDivElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  const handleOverlayAction = useCallback(
+    (actionType: string, data: unknown) => {
+      if (actionType === 'select') {
+        const { url } = data as { url: string }
+        navigateActiveTab(url)
+        setShowSuggestions(false)
+        setInput(stripHttpPrefix(url))
+      } else if (actionType === 'dismiss') {
+        setShowSuggestions(false)
+      }
+    },
+    [navigateActiveTab]
+  )
+
+  const overlay = useOverlay('suggestions', handleOverlayAction)
+
+  const inputContextMenuRef = useRef<{ hide: () => void } | null>(null)
+
+  const handleInputContextAction = useCallback((actionType: string) => {
+    inputContextMenuRef.current?.hide()
+    if (actionType === 'dismiss') return
+    inputRef.current?.focus()
+    setTimeout(() => {
+      document.execCommand(actionType === 'select-all' ? 'selectAll' : actionType)
+    }, 50)
+  }, [])
+
+  const inputContextMenu = useOverlay('input-context-menu', handleInputContextAction)
+  inputContextMenuRef.current = inputContextMenu
+
+  const handleInputContextMenu = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault()
+      const sel = window.getSelection()
+      const hasSelection = !!(sel && sel.toString().length > 0)
+      const items: Array<{ id: string; label: string; separator?: boolean; disabled?: boolean }> = [
+        { id: 'cut', label: 'Cut', disabled: !hasSelection },
+        { id: 'copy', label: 'Copy', disabled: !hasSelection },
+        { id: 'paste', label: 'Paste' },
+        { id: '_sep', label: '', separator: true },
+        { id: 'select-all', label: 'Select All' },
+      ]
+      const menuW = 180
+      const menuH = 4 * 36 + 1 * 9 + 8
+      const menuX = Math.max(4, Math.min(e.clientX, window.innerWidth - menuW - 4))
+      const menuY = Math.max(4, Math.min(e.clientY, window.innerHeight - menuH - 4))
+      inputContextMenu.show({ x: menuX, y: menuY, width: menuW, height: menuH }, { type: 'menu', items })
+    },
+    [inputContextMenu]
+  )
 
   const isBookmarked = useMemo(() => bookmarks.some((b) => b.url === currentUrl), [bookmarks, currentUrl])
   const isTonSite = useMemo(() => {
@@ -117,22 +169,23 @@ export const AddressBar = memo(function AddressBar() {
     return () => clearTimeout(debounce)
   }, [input, isFocused, currentUrl])
 
-  // Handle click outside to close suggestions
+  // Show/hide overlay when suggestions change
   useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (
-        suggestionsRef.current &&
-        !suggestionsRef.current.contains(e.target as Node) &&
-        inputRef.current &&
-        !inputRef.current.contains(e.target as Node)
-      ) {
-        setShowSuggestions(false)
-      }
+    if (showSuggestions && suggestions.length > 0 && containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect()
+      overlay.show(
+        {
+          x: Math.round(rect.left),
+          y: Math.round(rect.bottom + 8),
+          width: Math.round(rect.width),
+          height: Math.min(suggestions.length * 52 + 8, 220),
+        },
+        { type: 'suggestions', items: suggestions, selectedIndex }
+      )
+    } else {
+      overlay.hide()
     }
-
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
+  }, [showSuggestions, suggestions, selectedIndex])
 
   const handleSubmit = useCallback(
     (e: FormEvent) => {
@@ -184,15 +237,6 @@ export const AddressBar = memo(function AddressBar() {
     [showSuggestions, suggestions.length]
   )
 
-  const handleSuggestionClick = useCallback(
-    (suggestion: HistorySuggestion) => {
-      navigateActiveTab(suggestion.url)
-      setShowSuggestions(false)
-      setInput(stripHttpPrefix(suggestion.url))
-    },
-    [navigateActiveTab]
-  )
-
   const toggleBookmark = useCallback(() => {
     if (isBookmarked) {
       const bookmark = bookmarks.find((b) => b.url === currentUrl)
@@ -211,7 +255,7 @@ export const AddressBar = memo(function AddressBar() {
 
   return (
     <form onSubmit={handleSubmit} className="flex items-center gap-2 flex-1 min-w-[400px] no-drag" role="search">
-      <div className="relative flex-1">
+      <div ref={containerRef} className="relative flex-1">
         <div className="relative flex items-center rounded-full glass-surface">
           {/* TON site badge */}
           {isTonSite && !isLoading ? (
@@ -245,6 +289,7 @@ export const AddressBar = memo(function AddressBar() {
               setTimeout(() => setIsFocused(false), 200)
             }}
             onKeyDown={handleKeyDown}
+            onContextMenu={handleInputContextMenu}
             className={cn(
               'h-8 bg-transparent border-0 rounded-full focus:ring-0 focus:outline-none',
               'pr-10',
@@ -274,43 +319,6 @@ export const AddressBar = memo(function AddressBar() {
             />
           </Button>
         </div>
-
-        {/* History suggestions dropdown */}
-        {showSuggestions && suggestions.length > 0 && (
-          <div
-            ref={suggestionsRef}
-            id="history-suggestions"
-            role="listbox"
-            className="absolute top-full left-0 right-0 mt-2 glass-card overflow-hidden z-50"
-          >
-            {suggestions.map((suggestion, index) => (
-              <button
-                key={suggestion.id}
-                type="button"
-                role="option"
-                aria-selected={index === selectedIndex}
-                onClick={() => handleSuggestionClick(suggestion)}
-                className={cn(
-                  'w-full px-3 py-2 flex items-center gap-3 text-left transition-colors',
-                  'hover:bg-surface-hover',
-                  index === selectedIndex && 'bg-surface-hover'
-                )}
-              >
-                <History className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <div className="font-medium text-sm truncate">{suggestion.title}</div>
-                  <div className="text-xs text-muted-foreground truncate">{stripHttpPrefix(suggestion.url)}</div>
-                </div>
-                {suggestion.visitCount > 1 && (
-                  <div className="text-xs text-muted-foreground flex items-center gap-1 flex-shrink-0">
-                    <Clock className="h-3 w-3" />
-                    <span>{suggestion.visitCount}</span>
-                  </div>
-                )}
-              </button>
-            ))}
-          </div>
-        )}
       </div>
     </form>
   )

@@ -4,14 +4,12 @@
 
 import { memo, useState, useRef, useEffect } from 'react'
 import { UI_NOTIFICATION_TIMEOUT_MS } from '@shared/constants'
-import { Plus, Upload, Rows3, Columns3 } from 'lucide-react'
+import { Plus, Upload } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { SectionHeader } from '../shared/SectionHeader'
 import { SettingRow } from '../shared/SettingRow'
 import { Toggle } from '../shared/Toggle'
 import { SliderInput } from '../shared/SliderInput'
-import { SelectInput } from '../shared/SelectInput'
-import { ToggleGroup } from '../shared/ToggleGroup'
 import { ThemeEditor, ThemeList, ImportDialog, ExportDialog } from '@/components/theme-editor'
 import { useThemeStore } from '@/stores/themes'
 import type { SectionProps } from '../types'
@@ -92,32 +90,12 @@ export const AppearanceSection = memo(function AppearanceSection({ draft, setDra
     setEditingThemeId(null)
   }
 
-  const languageOptions = [
-    { value: 'en', label: t('appearance.language.english') },
-    { value: 'ru', label: t('appearance.language.russian') },
-    { value: 'zh', label: t('appearance.language.chinese') },
-    { value: 'es', label: t('appearance.language.spanish') },
-    { value: 'id', label: t('appearance.language.indonesian') },
-    { value: 'th', label: t('appearance.language.thai') },
-    { value: 'de', label: t('appearance.language.german') },
-    { value: 'fr', label: t('appearance.language.french') },
-    { value: 'pt', label: t('appearance.language.portuguese') },
-    { value: 'ko', label: t('appearance.language.korean') },
-  ]
-
   return (
     <div>
       <SectionHeader title={t('appearance.title')} description={t('appearance.description')} />
 
-      {/* Language selector */}
-      <div className="glass-card px-4">
-        <SettingRow label={t('appearance.language.label')} description={t('appearance.language.description')}>
-          <SelectInput value={draft.language} onChange={(v) => setDraft('language', v)} options={languageOptions} />
-        </SettingRow>
-      </div>
-
       {/* Built-in themes */}
-      <div className="mt-6 glass-card px-4">
+      <div className="glass-card px-4">
         <SettingRow label={t('appearance.theme.label')} description={t('appearance.theme.description')}>
           <div className="flex gap-2">
             {builtInThemes.map((theme) => (
@@ -242,24 +220,6 @@ export const AppearanceSection = memo(function AppearanceSection({ draft, setDra
             checked={draft.showStatusBar}
             onChange={(v) => setDraft('showStatusBar', v)}
             label={t('appearance.ui.showStatusBar')}
-          />
-        </SettingRow>
-        <SettingRow label={t('appearance.ui.tabOrientation')} description={t('appearance.ui.tabOrientationDesc')}>
-          <ToggleGroup
-            value={draft.tabOrientation}
-            onChange={(v) => setDraft('tabOrientation', v as 'horizontal' | 'vertical')}
-            options={[
-              {
-                value: 'horizontal',
-                label: t('appearance.ui.tabOrientationHorizontal'),
-                icon: <Columns3 className="h-3.5 w-3.5" />,
-              },
-              {
-                value: 'vertical',
-                label: t('appearance.ui.tabOrientationVertical'),
-                icon: <Rows3 className="h-3.5 w-3.5" />,
-              },
-            ]}
           />
         </SettingRow>
       </div>

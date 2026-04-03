@@ -31,6 +31,7 @@ import { AboutSection } from '@/components/settings/sections/AboutSection'
 import { WalletSection } from '@/components/settings/sections/WalletSection'
 import { BridgeSection } from '@/components/settings/sections/BridgeSection'
 import type { WalletSectionHandle } from '@/components/settings/sections/WalletSection'
+import type { BridgeSectionHandle } from '@/components/settings/sections/BridgeSection'
 
 export function SettingsPage() {
   // State
@@ -41,12 +42,14 @@ export function SettingsPage() {
   const [pendingReset, setPendingReset] = useState(false)
   const [historyError, setHistoryError] = useState<string | null>(null)
   const [walletDirty, setWalletDirty] = useState(false)
+  const [bridgeDirty, setBridgeDirty] = useState(false)
 
   // Refs
   const clearTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const historyErrorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const walletSectionRef = useRef<WalletSectionHandle | null>(null)
+  const bridgeSectionRef = useRef<BridgeSectionHandle | null>(null)
 
   // Stores
   const {
@@ -62,7 +65,7 @@ export function SettingsPage() {
   } = usePreferencesStore()
   const { bookmarks, resetBookmarks } = useBookmarksStore()
 
-  const hasChanges = prefsHasChanges || walletDirty
+  const hasChanges = prefsHasChanges || walletDirty || bridgeDirty
 
   // Load settings on mount
   useEffect(() => {
@@ -134,11 +137,15 @@ export function SettingsPage() {
     if (walletSectionRef.current?.hasChanges) {
       await walletSectionRef.current.save()
     }
+    if (bridgeSectionRef.current?.hasChanges) {
+      await bridgeSectionRef.current.save()
+    }
   }
 
   const handleDiscard = () => {
     discard()
     walletSectionRef.current?.discard()
+    bridgeSectionRef.current?.discard()
   }
 
   const handleHistoryModeChange = async (newMode: string) => {
@@ -226,7 +233,7 @@ export function SettingsPage() {
         return <WalletSection onDirtyChange={setWalletDirty} sectionRef={walletSectionRef} />
 
       case 'bridge':
-        return <BridgeSection />
+        return <BridgeSection onDirtyChange={setBridgeDirty} sectionRef={bridgeSectionRef} />
 
       case 'about':
         return <AboutSection />

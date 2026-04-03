@@ -3,11 +3,12 @@
  */
 
 import { memo, useState } from 'react'
-import { Home, HardDrive, ChevronDown } from 'lucide-react'
+import { Home, HardDrive, ChevronDown, Rows3, Columns3 } from 'lucide-react'
 import { SectionHeader } from '../shared/SectionHeader'
 import { SettingRow } from '../shared/SettingRow'
 import { Toggle } from '../shared/Toggle'
 import { ToggleGroup } from '../shared/ToggleGroup'
+import { SelectInput } from '../shared/SelectInput'
 import { GarlicRoutingDiagram } from '../shared/GarlicRoutingDiagram'
 import type { SectionProps } from '../types'
 import { useTranslation } from 'react-i18next'
@@ -70,6 +71,42 @@ export const GeneralSection = memo(function GeneralSection({ draft, setDraft }: 
             checked={draft.restoreTabs}
             onChange={(v) => setDraft('restoreTabs', v)}
             label={t('general.restoreTabsLabel')}
+          />
+        </SettingRow>
+        <SettingRow label={t('appearance.language.label')} description={t('appearance.language.description')}>
+          <SelectInput
+            value={draft.language}
+            onChange={(v) => setDraft('language', v)}
+            options={[
+              { value: 'en', label: t('appearance.language.english') },
+              { value: 'ru', label: t('appearance.language.russian') },
+              { value: 'zh', label: t('appearance.language.chinese') },
+              { value: 'es', label: t('appearance.language.spanish') },
+              { value: 'id', label: t('appearance.language.indonesian') },
+              { value: 'th', label: t('appearance.language.thai') },
+              { value: 'de', label: t('appearance.language.german') },
+              { value: 'fr', label: t('appearance.language.french') },
+              { value: 'pt', label: t('appearance.language.portuguese') },
+              { value: 'ko', label: t('appearance.language.korean') },
+            ]}
+          />
+        </SettingRow>
+        <SettingRow label={t('appearance.ui.tabOrientation')} description={t('appearance.ui.tabOrientationDesc')}>
+          <ToggleGroup
+            value={draft.tabOrientation}
+            onChange={(v) => setDraft('tabOrientation', v as 'horizontal' | 'vertical')}
+            options={[
+              {
+                value: 'horizontal',
+                label: t('appearance.ui.tabOrientationHorizontal'),
+                icon: <Columns3 className="h-3.5 w-3.5" />,
+              },
+              {
+                value: 'vertical',
+                label: t('appearance.ui.tabOrientationVertical'),
+                icon: <Rows3 className="h-3.5 w-3.5" />,
+              },
+            ]}
           />
         </SettingRow>
       </div>

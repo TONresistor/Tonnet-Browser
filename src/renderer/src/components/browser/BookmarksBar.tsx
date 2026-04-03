@@ -4,11 +4,8 @@
  * Includes drag & drop functionality for reordering.
  */
 
-import { useState, useEffect, useRef } from 'react'
-import { createLogger } from '@/logger'
+import { useState, useRef, useCallback } from 'react'
 import { UI_NOTIFICATION_TIMEOUT_MS } from '@shared/constants'
-
-const log = createLogger('bookmarks')
 import {
   DndContext,
   DragEndEvent,
@@ -26,20 +23,8 @@ import { useTabsStore } from '@/stores/tabs'
 import { ErrorBoundary } from '../ErrorBoundary'
 import { SortableBookmarkItem } from './SortableBookmarkItem'
 import { DroppableFolder } from './DroppableFolder'
-import { BookmarkEditModal } from './BookmarkEditModal'
-import { BookmarkRenameModal } from './BookmarkRenameModal'
 import { useTranslation } from 'react-i18next'
-
-interface EditModal {
-  bookmark: Bookmark
-  name: string
-  url: string
-}
-
-interface RenameModal {
-  folderId: string
-  name: string
-}
+import { useOverlay } from '@/hooks/useOverlay'
 
 export function BookmarksBar() {
   const { t } = useTranslation('settings')
@@ -54,25 +39,122 @@ export function BookmarksBar() {
   const reorderBookmarks = useBookmarksStore((s) => s.reorderBookmarks)
   const reorderFolders = useBookmarksStore((s) => s.reorderFolders)
   const { navigateActiveTab, addTab } = useTabsStore()
-  const [editModal, setEditModal] = useState<EditModal | null>(null)
-  const [renameModal, setRenameModal] = useState<RenameModal | null>(null)
   const [activeId, setActiveId] = useState<string | null>(null)
   const [pendingFolderDeleteId, setPendingFolderDeleteId] = useState<string | null>(null)
   const folderDeleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const editingBookmarkIdRef = useRef<string | null>(null)
+  const editingFolderIdRef = useRef<string | null>(null)
+  const lastClickPosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
+  const menuRef = useRef<{
+    show: (
+      bounds: { x: number; y: number; width: number; height: number },
+      content: { type: string; [key: string]: unknown }
+    ) => void
+    hide: () => void
+  } | null>(null)
 
-  // Use refs to avoid re-registering listeners
-  const addTabRef = useRef(addTab)
-  const removeBookmarkRef = useRef(removeBookmark)
-  const removeFolderRef = useRef(removeFolder)
-  const getBookmarksByFolderRef = useRef(getBookmarksByFolder)
+  // Overlay menu action handler
+  const handleMenuAction = useCallback(
+    (actionType: string, data: unknown) => {
+      const d = data as Record<string, string>
+      switch (actionType) {
+        case 'open-new-tab':
+          menuRef.current?.hide()
+          addTab(d.url)
+          break
+        case 'navigate':
+          menuRef.current?.hide()
+          navigateActiveTab(d.url)
+          break
+        case 'edit': {
+          // Transition menu -> form, positioned below the original right-click, clamped to window
+          editingBookmarkIdRef.current = d.id
+          const editW = 320,
+            editH = 270
+          const editX = Math.max(4, Math.min(lastClickPosRef.current.x - editW / 2, window.innerWidth - editW - 4))
+          const editY = Math.max(4, Math.min(lastClickPosRef.current.y + 8, window.innerHeight - editH - 4))
+          menuRef.current?.show(
+            { x: Math.round(editX), y: Math.round(editY), width: editW, height: editH },
+            {
+              type: 'form',
+              title: 'Edit Bookmark',
+              fields: [
+                { id: 'name', label: 'Name', value: d.title },
+                { id: 'url', label: 'URL', value: d.url },
+              ],
+              actions: [
+                { id: 'dismiss', label: 'Cancel' },
+                { id: 'save-edit', label: 'Save', primary: true },
+              ],
+            }
+          )
+          break
+        }
+        case 'save-edit':
+          menuRef.current?.hide()
+          if (editingBookmarkIdRef.current) {
+            updateBookmark(editingBookmarkIdRef.current, {
+              title: (d.name as string)?.trim() || '',
+              url: (d.url as string)?.trim() || '',
+            })
+            editingBookmarkIdRef.current = null
+          }
+          break
+        case 'delete-bookmark':
+          menuRef.current?.hide()
+          removeBookmark(d.id)
+          break
+        case 'rename-folder': {
+          // Transition menu -> form, positioned below the original right-click, clamped to window
+          editingFolderIdRef.current = d.folderId
+          const renameW = 320,
+            renameH = 170
+          const renameX = Math.max(
+            4,
+            Math.min(lastClickPosRef.current.x - renameW / 2, window.innerWidth - renameW - 4)
+          )
+          const renameY = Math.max(4, Math.min(lastClickPosRef.current.y + 8, window.innerHeight - renameH - 4))
+          menuRef.current?.show(
+            { x: Math.round(renameX), y: Math.round(renameY), width: renameW, height: renameH },
+            {
+              type: 'form',
+              title: 'Rename Folder',
+              fields: [{ id: 'name', label: 'Name', value: d.folderName }],
+              actions: [
+                { id: 'dismiss', label: 'Cancel' },
+                { id: 'save-rename', label: 'Save', primary: true },
+              ],
+            }
+          )
+          break
+        }
+        case 'save-rename':
+          menuRef.current?.hide()
+          if (editingFolderIdRef.current) {
+            updateFolder(editingFolderIdRef.current, { name: (d.name as string)?.trim() || '' })
+            editingFolderIdRef.current = null
+          }
+          break
+        case 'open-all':
+          menuRef.current?.hide()
+          getBookmarksByFolder(d.folderId).forEach((b) => addTab(b.url))
+          break
+        case 'delete-folder':
+          menuRef.current?.hide()
+          setPendingFolderDeleteId(d.folderId)
+          if (folderDeleteTimerRef.current) clearTimeout(folderDeleteTimerRef.current)
+          folderDeleteTimerRef.current = setTimeout(() => setPendingFolderDeleteId(null), UI_NOTIFICATION_TIMEOUT_MS)
+          break
+        case 'dismiss':
+          menuRef.current?.hide()
+          break
+      }
+    },
+    [addTab, navigateActiveTab, removeBookmark, getBookmarksByFolder, updateBookmark, updateFolder]
+  )
 
-  // Keep refs updated
-  useEffect(() => {
-    addTabRef.current = addTab
-    removeBookmarkRef.current = removeBookmark
-    removeFolderRef.current = removeFolder
-    getBookmarksByFolderRef.current = getBookmarksByFolder
-  }, [addTab, removeBookmark, removeFolder, getBookmarksByFolder])
+  const menu = useOverlay('bookmark-menu', handleMenuAction)
+  menuRef.current = menu
 
   // Configure drag & drop sensors
   const sensors = useSensors(
@@ -86,82 +168,6 @@ export function BookmarksBar() {
     })
   )
 
-  // Hide/show WebContentsView when modals open/close
-  useEffect(() => {
-    if (editModal || renameModal) {
-      window.electron.view.hide()
-    } else {
-      window.electron.view.show()
-    }
-  }, [editModal, renameModal])
-
-  // Listen for IPC events from main process - only once
-  useEffect(() => {
-    const unsubOpenNewTab = window.electron.on('bookmark:open-new-tab', (...args: unknown[]) => {
-      const url = args[0] as string
-      addTabRef.current(url)
-    })
-
-    const unsubEdit = window.electron.on('bookmark:edit', (...args: unknown[]) => {
-      const data = args[0]
-      // Runtime validation
-      if (!data || typeof data !== 'object') {
-        log.error('Invalid bookmark:edit data:', data)
-        return
-      }
-      const bookmark = data as { id: string; title: string; url: string }
-      if (!bookmark.id || !bookmark.title || !bookmark.url) {
-        log.error('Missing required fields in bookmark:edit')
-        return
-      }
-      setEditModal({
-        bookmark: {
-          id: bookmark.id,
-          title: bookmark.title,
-          url: bookmark.url,
-          folderId: null,
-          order: 0,
-          createdAt: Date.now(),
-        },
-        name: bookmark.title,
-        url: bookmark.url,
-      })
-    })
-
-    const unsubDelete = window.electron.on('bookmark:delete', (...args: unknown[]) => {
-      const id = args[0] as string
-      removeBookmarkRef.current(id)
-    })
-
-    const unsubFolderRename = window.electron.on('folder:rename', (...args: unknown[]) => {
-      const { folderId, folderName } = args[0] as { folderId: string; folderName: string }
-      setRenameModal({ folderId, name: folderName })
-    })
-
-    const unsubFolderDelete = window.electron.on('folder:delete', (...args: unknown[]) => {
-      const folderId = args[0] as string
-      setPendingFolderDeleteId(folderId)
-      if (folderDeleteTimerRef.current) clearTimeout(folderDeleteTimerRef.current)
-      folderDeleteTimerRef.current = setTimeout(() => setPendingFolderDeleteId(null), UI_NOTIFICATION_TIMEOUT_MS)
-    })
-
-    const unsubFolderOpenAll = window.electron.on('folder:open-all', (...args: unknown[]) => {
-      const folderId = args[0] as string
-      const bookmarks = getBookmarksByFolderRef.current(folderId)
-      bookmarks.forEach((b) => addTabRef.current(b.url))
-    })
-
-    return () => {
-      unsubOpenNewTab()
-      unsubEdit()
-      unsubDelete()
-      unsubFolderRename()
-      unsubFolderDelete()
-      unsubFolderOpenAll()
-      if (folderDeleteTimerRef.current) clearTimeout(folderDeleteTimerRef.current)
-    }
-  }, []) // Empty deps - all callbacks use refs or state setters
-
   if (bookmarks.length === 0 && folders.length === 0) return null
 
   // Compute top-level items directly from selected state (not via get())
@@ -170,44 +176,67 @@ export function BookmarksBar() {
 
   const handleContextMenu = (e: React.MouseEvent, bookmark: Bookmark) => {
     e.preventDefault()
-    window.electron.showBookmarkMenu(bookmark.id, bookmark.title, bookmark.url)
+    lastClickPosRef.current = { x: e.clientX, y: e.clientY }
+    const menuW = 200,
+      menuH = 160
+    const menuX = Math.max(4, Math.min(e.clientX, window.innerWidth - menuW - 4))
+    const menuY = Math.max(4, Math.min(e.clientY, window.innerHeight - menuH - 4))
+    menu.show(
+      { x: menuX, y: menuY, width: menuW, height: menuH },
+      {
+        type: 'menu',
+        items: [
+          { id: 'open-new-tab', label: 'Open in new tab', data: { url: bookmark.url } },
+          { id: 'edit', label: 'Edit', data: { id: bookmark.id, title: bookmark.title, url: bookmark.url } },
+          { id: '_sep1', label: '', separator: true },
+          { id: 'delete-bookmark', label: 'Delete', data: { id: bookmark.id }, destructive: true },
+        ],
+      }
+    )
   }
 
-  const handleFolderClick = (folderId: string) => {
+  const handleFolderClick = (e: React.MouseEvent, folderId: string) => {
     const folderBookmarks = getBookmarksByFolder(folderId)
-    const bookmarksData = folderBookmarks.map((b) => ({
-      id: b.id,
-      title: b.title,
-      url: b.url,
+    const items = folderBookmarks.map((b) => ({
+      id: 'navigate',
+      label: b.title || b.url,
+      data: { url: b.url },
     }))
-    window.electron.showFolderMenu(folderId, bookmarksData)
+    if (items.length === 0) {
+      items.push({ id: 'empty', label: 'Empty folder', disabled: true, data: {} } as unknown as (typeof items)[0])
+    }
+    const target = e.currentTarget.getBoundingClientRect()
+    menu.show(
+      {
+        x: Math.round(target.left),
+        y: Math.round(target.bottom + 4),
+        width: 220,
+        height: Math.min(items.length * 40 + 8, 300),
+      },
+      { type: 'menu', items }
+    )
   }
 
   const handleFolderContextMenu = (e: React.MouseEvent, folderId: string, folderName: string) => {
     e.preventDefault()
     e.stopPropagation()
-    window.electron.showFolderContextMenu(folderId, folderName)
-  }
-
-  const closeEditModal = () => setEditModal(null)
-
-  const handleSaveEdit = () => {
-    if (editModal) {
-      updateBookmark(editModal.bookmark.id, {
-        title: editModal.name.trim() || editModal.bookmark.title,
-        url: editModal.url.trim() || editModal.bookmark.url,
-      })
-      closeEditModal()
-    }
-  }
-
-  const handleSaveRename = () => {
-    if (renameModal) {
-      if (renameModal.name.trim()) {
-        updateFolder(renameModal.folderId, { name: renameModal.name.trim() })
+    lastClickPosRef.current = { x: e.clientX, y: e.clientY }
+    const fMenuW = 200,
+      fMenuH = 160
+    const fMenuX = Math.max(4, Math.min(e.clientX, window.innerWidth - fMenuW - 4))
+    const fMenuY = Math.max(4, Math.min(e.clientY, window.innerHeight - fMenuH - 4))
+    menu.show(
+      { x: fMenuX, y: fMenuY, width: fMenuW, height: fMenuH },
+      {
+        type: 'menu',
+        items: [
+          { id: 'rename-folder', label: 'Rename', data: { folderId, folderName } },
+          { id: 'open-all', label: 'Open all bookmarks', data: { folderId } },
+          { id: '_sep1', label: '', separator: true },
+          { id: 'delete-folder', label: 'Delete', data: { folderId }, destructive: true },
+        ],
       }
-      setRenameModal(null)
-    }
+    )
   }
 
   // Drag & drop handlers
@@ -332,7 +361,7 @@ export function BookmarksBar() {
               <DroppableFolder
                 key={folder.id}
                 folder={folder}
-                onClick={() => handleFolderClick(folder.id)}
+                onClick={(e) => handleFolderClick(e, folder.id)}
                 onContextMenu={(e) => handleFolderContextMenu(e, folder.id, folder.name)}
               />
             ))}
@@ -359,7 +388,7 @@ export function BookmarksBar() {
           <span className="flex-1">{t('bookmarks.deleteFolderConfirm')}</span>
           <button
             onClick={() => {
-              removeFolderRef.current(pendingFolderDeleteId)
+              removeFolder(pendingFolderDeleteId)
               setPendingFolderDeleteId(null)
               if (folderDeleteTimerRef.current) clearTimeout(folderDeleteTimerRef.current)
             }}
@@ -377,24 +406,6 @@ export function BookmarksBar() {
             {t('bookmarks.cancel')}
           </button>
         </div>
-      )}
-
-      {editModal && (
-        <BookmarkEditModal
-          editModal={editModal}
-          onChangeModal={setEditModal}
-          onSave={handleSaveEdit}
-          onClose={closeEditModal}
-        />
-      )}
-
-      {renameModal && (
-        <BookmarkRenameModal
-          renameModal={renameModal}
-          onChangeModal={setRenameModal}
-          onSave={handleSaveRename}
-          onClose={() => setRenameModal(null)}
-        />
       )}
     </ErrorBoundary>
   )

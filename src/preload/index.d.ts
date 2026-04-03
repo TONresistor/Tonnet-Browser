@@ -119,6 +119,16 @@ declare global {
         hide: () => Promise<void>
         show: () => Promise<void>
       }
+      overlay: {
+        show: (
+          id: string,
+          bounds: { x: number; y: number; width: number; height: number },
+          content: unknown,
+          options?: { autoDismiss?: boolean }
+        ) => Promise<{ success: boolean }>
+        hide: (id: string) => Promise<{ success: boolean }>
+        hideAll: () => Promise<{ success: boolean }>
+      }
       settings: {
         getAll: () => Promise<AppSettings>
         get: <K extends keyof AppSettings>(category: K) => Promise<AppSettings[K]>
@@ -250,6 +260,9 @@ declare global {
           }>
         >
         revokePermission: (domain: string, scope: string) => Promise<{ success: boolean }>
+        getConfig: () => Promise<import('../shared/bridge-config').BridgeConfig | null>
+        setConfig: (config: object) => Promise<{ success: boolean; error?: string }>
+        restart: () => Promise<{ success: boolean; error?: string }>
       }
       dns: {
         resolve(domain: string): Promise<import('../shared/types').DnsResolveResult>

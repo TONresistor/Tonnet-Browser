@@ -12,7 +12,7 @@ import { useTranslation } from 'react-i18next'
 
 interface DroppableFolderProps {
   folder: BookmarkFolder
-  onClick: () => void
+  onClick: (e: React.MouseEvent) => void
   onContextMenu: (e: React.MouseEvent) => void
 }
 
@@ -65,10 +65,10 @@ export function DroppableFolder({ folder, onClick, onContextMenu }: DroppableFol
             : 'bg-surface text-foreground-muted hover:bg-surface-active hover:text-foreground'
         }
       `}
-      onClick={(_e) => {
+      onClick={(e) => {
         // Only open dropdown if not dragging
         if (!isDragging) {
-          onClick()
+          onClick(e)
         }
       }}
       onContextMenu={(e) => {

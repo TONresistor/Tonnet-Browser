@@ -3,7 +3,7 @@
  * Create, switch, and close tabs with drag & drop support.
  */
 
-import { useState, useEffect, useRef, useCallback, memo, useMemo } from 'react'
+import { useState, useRef, useCallback, memo, useMemo } from 'react'
 import {
   DndContext,
   DragEndEvent,
@@ -28,12 +28,7 @@ import { useTabsStore } from '@/stores/tabs'
 import { SortableTab } from './SortableTab'
 import { useTranslation } from 'react-i18next'
 import { usePreferencesStore } from '@/stores/preferences'
-
-interface ContextMenuState {
-  tabId: string
-  x: number
-  y: number
-}
+import { useOverlay } from '@/hooks/useOverlay'
 
 interface TabBarProps {
   sidebarWidth?: number
@@ -44,50 +39,41 @@ export const TabBar = memo(function TabBar({ sidebarWidth }: TabBarProps) {
   const { tabs, activeTabId, addTab, closeTab, setActiveTab, duplicateTab, closeOtherTabs, reorderTabs } =
     useTabsStore()
   const tabOrientation = usePreferencesStore((s) => s.saved.tabOrientation)
-  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
   const [activeId, setActiveId] = useState<string | null>(null)
-  const menuRef = useRef<HTMLDivElement>(null)
   const tabRefs = useRef<Map<string, HTMLDivElement>>(new Map())
+  const menuRef = useRef<{
+    show: ReturnType<typeof useOverlay>['show']
+    hide: ReturnType<typeof useOverlay>['hide']
+  } | null>(null)
 
   const isVertical = tabOrientation === 'vertical'
 
   // Memoize tab IDs array to avoid recalculation on every render
   const tabIds = useMemo(() => tabs.map((t) => t.id), [tabs])
 
-  // Close context menu on click outside
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setContextMenu(null)
+  const handleOverlayAction = useCallback(
+    (actionType: string, data: unknown) => {
+      const d = data as Record<string, string>
+      menuRef.current?.hide()
+      switch (actionType) {
+        case 'duplicate':
+          duplicateTab(d.tabId)
+          break
+        case 'close-others':
+          closeOtherTabs(d.tabId)
+          break
+        case 'close':
+          closeTab(d.tabId)
+          break
+        case 'dismiss':
+          break
       }
-    }
-    if (contextMenu) {
-      document.addEventListener('mousedown', handleClickOutside)
-      return () => document.removeEventListener('mousedown', handleClickOutside)
-    }
-  }, [contextMenu])
+    },
+    [duplicateTab, closeOtherTabs, closeTab]
+  )
 
-  const handleContextMenu = (e: React.MouseEvent, tabId: string) => {
-    e.preventDefault()
-    setContextMenu({ tabId, x: e.clientX, y: e.clientY })
-  }
-
-  const handleMenuAction = (action: 'close' | 'closeOthers' | 'duplicate') => {
-    if (!contextMenu) return
-
-    switch (action) {
-      case 'close':
-        closeTab(contextMenu.tabId)
-        break
-      case 'closeOthers':
-        closeOtherTabs(contextMenu.tabId)
-        break
-      case 'duplicate':
-        duplicateTab(contextMenu.tabId)
-        break
-    }
-    setContextMenu(null)
-  }
+  const menu = useOverlay('tab-context-menu', handleOverlayAction)
+  menuRef.current = menu
 
   // Configure drag & drop sensors
   const sensors = useSensors(
@@ -163,7 +149,28 @@ export const TabBar = memo(function TabBar({ sidebarWidth }: TabBarProps) {
     },
     [closeTab]
   )
-  const handleContextMenuCb = useCallback((e: React.MouseEvent, tabId: string) => handleContextMenu(e, tabId), [])
+  const handleContextMenuCb = useCallback(
+    (e: React.MouseEvent, tabId: string) => {
+      e.preventDefault()
+      const menuW = 200,
+        menuH = 160
+      const menuX = Math.max(4, Math.min(e.clientX, window.innerWidth - menuW - 4))
+      const menuY = Math.max(4, Math.min(e.clientY, window.innerHeight - menuH - 4))
+      menu.show(
+        { x: menuX, y: menuY, width: menuW, height: menuH },
+        {
+          type: 'menu',
+          items: [
+            { id: 'duplicate', label: t('tabs.duplicateTab'), data: { tabId } },
+            { id: '_sep1', label: '', separator: true },
+            { id: 'close-others', label: t('tabs.closeOtherTabs'), data: { tabId }, disabled: tabs.length <= 1 },
+            { id: 'close', label: t('tabs.closeTab'), data: { tabId }, destructive: true },
+          ],
+        }
+      )
+    },
+    [menu, t, tabs.length]
+  )
   const handleKeyDownCb = useCallback(
     (e: React.KeyboardEvent, tabId: string) => handleTabKeyDown(e, tabId),
     [handleTabKeyDown]
@@ -255,39 +262,6 @@ export const TabBar = memo(function TabBar({ sidebarWidth }: TabBarProps) {
       >
         <Plus className="h-4 w-4" />
       </button>
-
-      {/* Context Menu */}
-      {contextMenu && (
-        <div
-          ref={menuRef}
-          className="fixed z-50 rounded-[var(--radius-container)] py-1.5 min-w-[160px] glass-surface shadow-lg"
-          style={{
-            left: contextMenu.x,
-            top: contextMenu.y,
-          }}
-        >
-          <button
-            className="w-full px-3 py-1.5 text-left text-sm transition-colors text-foreground-secondary hover:bg-surface-hover hover:text-foreground"
-            onClick={() => handleMenuAction('duplicate')}
-          >
-            {t('tabs.duplicateTab')}
-          </button>
-          <div className="my-1 mx-2 border-t border-surface-hover" />
-          <button
-            className="w-full px-3 py-1.5 text-left text-sm transition-colors disabled:opacity-50 text-foreground-secondary hover:bg-surface-hover hover:text-foreground disabled:hover:bg-transparent disabled:hover:text-foreground-secondary"
-            onClick={() => handleMenuAction('closeOthers')}
-            disabled={tabs.length <= 1}
-          >
-            {t('tabs.closeOtherTabs')}
-          </button>
-          <button
-            className="w-full px-3 py-1.5 text-left text-sm transition-colors text-destructive hover:bg-destructive/15"
-            onClick={() => handleMenuAction('close')}
-          >
-            {t('tabs.closeTab')}
-          </button>
-        </div>
-      )}
     </div>
   )
 })
