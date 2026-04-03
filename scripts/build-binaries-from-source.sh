@@ -1,0 +1,120 @@
+#!/usr/bin/env bash
+# Build all Go binaries from source using pinned tags from binary-versions.json.
+# Usage: ./scripts/build-binaries-from-source.sh [linux|mac|win]
+# Requires: go, git, python3, jq (optional, uses python3 fallback)
+# On macOS builds: also requires lipo for universal binaries.
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+CONFIG="$SCRIPT_DIR/binary-versions.json"
+TMPDIR_BASE="${TMPDIR:-/tmp}/tonnet-build-$$"
+
+# Determine target platform
+if [ -n "${1:-}" ]; then
+  PLATFORM="$1"
+else
+  case "$(uname -s)" in
+    Linux*)  PLATFORM="linux" ;;
+    Darwin*) PLATFORM="mac" ;;
+    MINGW*|MSYS*|CYGWIN*) PLATFORM="win" ;;
+    *) echo "ERROR: Unknown OS, specify platform: linux, mac, or win"; exit 1 ;;
+  esac
+fi
+
+echo "=== Building binaries from source for: $PLATFORM ==="
+
+# Parse config with python3
+GO_VERSION=$(python3 -c "import json; print(json.load(open('$CONFIG'))['go_version'])")
+BINARY_COUNT=$(python3 -c "import json; print(len(json.load(open('$CONFIG'))['binaries']))")
+
+# Verify Go is available
+if ! command -v go &>/dev/null; then
+  echo "ERROR: Go is not installed. Required version: $GO_VERSION"
+  exit 1
+fi
+echo "Go version: $(go version)"
+
+# Map platform to GOOS
+case "$PLATFORM" in
+  linux) GOOS="linux" ;;
+  mac)   GOOS="darwin" ;;
+  win)   GOOS="windows" ;;
+  *) echo "ERROR: Invalid platform: $PLATFORM"; exit 1 ;;
+esac
+
+# Platform-specific binary extension
+EXT=""
+[ "$GOOS" = "windows" ] && EXT=".exe"
+
+# Create temp dir for clones
+mkdir -p "$TMPDIR_BASE"
+trap 'rm -rf "$TMPDIR_BASE"' EXIT
+
+# Build each binary
+for i in $(seq 0 $((BINARY_COUNT - 1))); do
+  NAME=$(python3 -c "import json; b=json.load(open('$CONFIG'))['binaries'][$i]; print(b['name'])")
+  REPO=$(python3 -c "import json; b=json.load(open('$CONFIG'))['binaries'][$i]; print(b['repo'])")
+  VERSION=$(python3 -c "import json; b=json.load(open('$CONFIG'))['binaries'][$i]; print(b['version'])")
+  ENTRY=$(python3 -c "import json; b=json.load(open('$CONFIG'))['binaries'][$i]; print(b['entry_point'])")
+  LDFLAGS_TMPL=$(python3 -c "import json; b=json.load(open('$CONFIG'))['binaries'][$i]; print(b['ldflags'])")
+
+  echo ""
+  echo "--- $NAME ($REPO @ $VERSION) ---"
+
+  # Destination directory
+  DEST_DIR="$PROJECT_DIR/resources/bin/$PLATFORM"
+  mkdir -p "$DEST_DIR"
+
+  # Check if already built at this version
+  VERSION_FILE="$DEST_DIR/.${NAME}.version"
+  if [ -f "$VERSION_FILE" ] && [ "$(cat "$VERSION_FILE")" = "$VERSION" ] && [ -f "$DEST_DIR/${NAME}${EXT}" ]; then
+    echo "Already built $NAME $VERSION, skipping"
+    continue
+  fi
+
+  # Shallow clone at pinned tag
+  CLONE_DIR="$TMPDIR_BASE/$NAME"
+  echo "Cloning https://github.com/$REPO.git @ $VERSION"
+  git clone --depth 1 --branch "$VERSION" "https://github.com/$REPO.git" "$CLONE_DIR" 2>&1 | tail -2
+
+  # Log exact commit for transparency
+  COMMIT_SHA=$(git -C "$CLONE_DIR" rev-parse HEAD)
+  echo "Commit: $COMMIT_SHA"
+
+  # Resolve ldflags template
+  LDFLAGS="${LDFLAGS_TMPL//\$\{VERSION\}/$VERSION}"
+
+  cd "$CLONE_DIR"
+
+  if [ "$PLATFORM" = "mac" ]; then
+    # macOS: build universal binary (arm64 + amd64)
+    echo "Building arm64..."
+    CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -ldflags="$LDFLAGS" -o "${NAME}-arm64" $ENTRY
+
+    echo "Building amd64..."
+    CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -ldflags="$LDFLAGS" -o "${NAME}-amd64" $ENTRY
+
+    echo "Creating universal binary with lipo..."
+    lipo -create -output "$DEST_DIR/$NAME" "${NAME}-arm64" "${NAME}-amd64"
+    echo "Architectures: $(lipo -archs "$DEST_DIR/$NAME")"
+  else
+    # Linux/Windows: single architecture (amd64)
+    echo "Building ${GOOS}/amd64..."
+    CGO_ENABLED=0 GOOS="$GOOS" GOARCH=amd64 go build -ldflags="$LDFLAGS" -o "$DEST_DIR/${NAME}${EXT}" $ENTRY
+  fi
+
+  cd "$PROJECT_DIR"
+
+  # Set executable permission
+  [ "$GOOS" != "windows" ] && chmod +x "$DEST_DIR/${NAME}${EXT}"
+
+  # Write version marker
+  echo "$VERSION" > "$VERSION_FILE"
+
+  echo "Built $NAME $VERSION -> $DEST_DIR/${NAME}${EXT}"
+done
+
+echo ""
+echo "=== All binaries built successfully ==="
+ls -la "$PROJECT_DIR/resources/bin/$PLATFORM/"

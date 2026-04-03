@@ -36,13 +36,26 @@ jobs:
           path: |
             ~/.cache/electron
             ~/.cache/electron-builder
-            ~/Library/Caches/electron
-            ~/Library/Caches/electron-builder
-            ~/AppData/Local/electron/Cache
-            ~/AppData/Local/electron-builder/Cache
           key: electron-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
           restore-keys: |
             electron-${{ runner.os }}-
+
+      - name: Cache Go binaries
+        id: go-bin-cache
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v4
+        with:
+          path: resources/bin/linux
+          key: go-binaries-linux-${{ hashFiles('scripts/binary-versions.json') }}
+
+      - name: Setup Go
+        if: steps.go-bin-cache.outputs.cache-hit != 'true'
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5
+        with:
+          go-version: '1.24'
+
+      - name: Build Go binaries from source
+        if: steps.go-bin-cache.outputs.cache-hit != 'true'
+        run: bash scripts/build-binaries-from-source.sh linux
 
       - name: Install dependencies
         run: npm ci
@@ -67,11 +80,6 @@ jobs:
           path: coverage/
           retention-days: 30
           if-no-files-found: ignore
-
-      - name: Download platform binaries
-        run: bash scripts/download-binaries.sh linux
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Verify build compiles
         run: npm run build

@@ -1,29 +1,26 @@
 {
-  "tonutils-proxy": {
-    "repo": "TONresistor/Tonutils-Proxy",
-    "version": "v1.9.0",
-    "assets": {
-      "linux": { "name": "tonutils-proxy-linux-amd64", "dest": "resources/bin/linux/tonutils-proxy" },
-      "mac": { "name": "tonutils-proxy-darwin-arm64", "dest": "resources/bin/mac/tonutils-proxy" },
-      "win": { "name": "tonutils-proxy-windows-amd64.exe", "dest": "resources/bin/win/tonutils-proxy.exe" }
+  "go_version": "1.24",
+  "binaries": [
+    {
+      "name": "tonutils-proxy",
+      "repo": "TONresistor/Tonutils-Proxy",
+      "version": "v1.9.0",
+      "entry_point": "./cmd/proxy-cli/",
+      "ldflags": "-s -w -X main.GitCommit=${VERSION}"
+    },
+    {
+      "name": "tonutils-bridge",
+      "repo": "TONresistor/tonutils-bridge",
+      "version": "v0.1.0",
+      "entry_point": ".",
+      "ldflags": "-s -w"
+    },
+    {
+      "name": "tonutils-storage",
+      "repo": "xssnick/tonutils-storage",
+      "version": "v1.4.0",
+      "entry_point": "./cli/",
+      "ldflags": "-s -w"
     }
-  },
-  "tonutils-storage": {
-    "repo": "xssnick/tonutils-storage",
-    "version": "v1.4.0",
-    "assets": {
-      "linux": { "name": "tonutils-storage-linux-amd64", "dest": "resources/bin/linux/tonutils-storage" },
-      "mac": { "name": "tonutils-storage-mac-amd64", "dest": "resources/bin/mac/tonutils-storage" },
-      "win": { "name": "tonutils-storage-x64.exe", "dest": "resources/bin/win/tonutils-storage.exe" }
-    }
-  },
-  "tonutils-bridge": {
-    "repo": "TONresistor/tonutils-bridge",
-    "version": "v0.1.0",
-    "assets": {
-      "linux": { "name": "tonutils-bridge-linux-amd64", "dest": "resources/bin/linux/tonutils-bridge" },
-      "mac": { "name": "tonutils-bridge-darwin-arm64", "dest": "resources/bin/mac/tonutils-bridge" },
-      "win": { "name": "tonutils-bridge-windows-amd64.exe", "dest": "resources/bin/win/tonutils-bridge.exe" }
-    }
-  }
+  ]
 }
