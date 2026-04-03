@@ -16,6 +16,13 @@ const log = createLogger('wallet:keys')
 
 const ENCRYPTED_MARKER = Buffer.from('SENC')
 
+export class WalletDecryptionError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'WalletDecryptionError'
+  }
+}
+
 interface MnemonicStorageData {
   type: 'mnemonic'
   mnemonic: string[]
@@ -30,7 +37,10 @@ type StorageData = MnemonicStorageData | SeedStorageData
 
 export class WalletKeyStorage {
   private filePath: string
-  private cachedKeypair: { publicKey: Buffer; secretKey: Buffer } | null = null
+  private cachedPublicKey: Buffer | null = null
+  private cachedSecretKey: Buffer | null = null
+  private lockTimer: ReturnType<typeof setTimeout> | null = null
+  private autoLockMs: number = 5 * 60 * 1000 // default 5 minutes
 
   constructor() {
     const userDataPath = app.getPath('userData')
@@ -84,7 +94,9 @@ export class WalletKeyStorage {
     const data: MnemonicStorageData = { type: 'mnemonic', mnemonic }
     await this.storeData(data)
 
-    this.cachedKeypair = keypair
+    this.cachedPublicKey = keypair.publicKey
+    this.cachedSecretKey = keypair.secretKey
+    this.resetLockTimer()
     log.info('Generated new mnemonic-based wallet keypair')
     return { keypair, mnemonic }
   }
@@ -108,7 +120,9 @@ export class WalletKeyStorage {
     const data: MnemonicStorageData = { type: 'mnemonic', mnemonic: words }
     await this.storeData(data)
 
-    this.cachedKeypair = keypair
+    this.cachedPublicKey = keypair.publicKey
+    this.cachedSecretKey = keypair.secretKey
+    this.resetLockTimer()
     log.info('Imported wallet from mnemonic')
     return keypair
   }
@@ -133,8 +147,8 @@ export class WalletKeyStorage {
    * Handles both legacy hex-seed format and new JSON mnemonic format.
    */
   async load(): Promise<{ publicKey: Buffer; secretKey: Buffer }> {
-    if (this.cachedKeypair) {
-      return this.cachedKeypair
+    if (this.cachedPublicKey && this.cachedSecretKey) {
+      return { publicKey: this.cachedPublicKey, secretKey: this.cachedSecretKey }
     }
 
     const data = await this.readData()
@@ -151,8 +165,10 @@ export class WalletKeyStorage {
       seed.fill(0)
     }
 
-    this.cachedKeypair = keypair
-    return keypair
+    this.cachedPublicKey = keypair.publicKey
+    this.cachedSecretKey = keypair.secretKey
+    this.resetLockTimer()
+    return { publicKey: this.cachedPublicKey!, secretKey: this.cachedSecretKey! }
   }
 
   /**
@@ -180,13 +196,63 @@ export class WalletKeyStorage {
   }
 
   /**
+   * Configure auto-lock timer duration. 0 = disabled.
+   */
+  setAutoLockMinutes(minutes: number): void {
+    this.autoLockMs = minutes * 60 * 1000
+    if (this.cachedSecretKey && this.autoLockMs > 0) {
+      this.resetLockTimer()
+    }
+    if (this.autoLockMs === 0 && this.lockTimer) {
+      clearTimeout(this.lockTimer)
+      this.lockTimer = null
+    }
+  }
+
+  /**
+   * Clear secret key from memory. Public key remains for read operations.
+   */
+  lock(): void {
+    if (this.cachedSecretKey) {
+      this.cachedSecretKey.fill(0)
+      this.cachedSecretKey = null
+      log.info('Wallet locked: secret key cleared from memory')
+    }
+    if (this.lockTimer) {
+      clearTimeout(this.lockTimer)
+      this.lockTimer = null
+    }
+  }
+
+  /**
+   * Check if wallet exists but secret key is not in memory.
+   */
+  isLocked(): boolean {
+    return this.cachedPublicKey !== null && this.cachedSecretKey === null
+  }
+
+  /**
+   * Get cached public key without decryption.
+   */
+  getPublicKey(): Buffer | null {
+    return this.cachedPublicKey
+  }
+
+  /**
    * Wipe cached keys from memory.
    */
   destroy(): void {
-    if (this.cachedKeypair) {
-      this.cachedKeypair.secretKey.fill(0)
-      this.cachedKeypair.publicKey.fill(0)
-      this.cachedKeypair = null
+    if (this.lockTimer) {
+      clearTimeout(this.lockTimer)
+      this.lockTimer = null
+    }
+    if (this.cachedSecretKey) {
+      this.cachedSecretKey.fill(0)
+      this.cachedSecretKey = null
+    }
+    if (this.cachedPublicKey) {
+      this.cachedPublicKey.fill(0)
+      this.cachedPublicKey = null
     }
   }
 
@@ -198,6 +264,15 @@ export class WalletKeyStorage {
       await fs.unlink(this.filePath)
     } catch (error: any) {
       if (error.code !== 'ENOENT') throw error
+    }
+  }
+
+  private resetLockTimer(): void {
+    if (this.lockTimer) {
+      clearTimeout(this.lockTimer)
+    }
+    if (this.autoLockMs > 0) {
+      this.lockTimer = setTimeout(() => this.lock(), this.autoLockMs)
     }
   }
 
@@ -221,7 +296,13 @@ export class WalletKeyStorage {
       const buffer = await fs.readFile(this.filePath)
 
       if (buffer.subarray(0, 4).equals(ENCRYPTED_MARKER)) {
-        const decrypted = safeStorage.decryptString(buffer.subarray(4))
+        let decrypted: string
+        try {
+          decrypted = safeStorage.decryptString(buffer.subarray(4))
+        } catch (err) {
+          log.error('safeStorage.decryptString failed:', err)
+          throw new WalletDecryptionError((err as Error).message)
+        }
 
         // Try parsing as JSON first (new format)
         if (decrypted.startsWith('{')) {

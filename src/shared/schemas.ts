@@ -135,6 +135,7 @@ export const WalletSettingsSchema = z.object({
   }),
   sitePolicies: z.array(SitePolicySchema).default([]),
   autoPayDomains: z.array(z.string()).default([]),
+  autoLockMinutes: z.number().min(0).max(1440).default(5),
 })
 
 export const WalletSettingsPartialSchema = z
@@ -144,6 +145,7 @@ export const WalletSettingsPartialSchema = z
     limits: SpendingLimitsSchema.partial(),
     sitePolicies: z.array(SitePolicySchema),
     autoPayDomains: z.array(z.string()),
+    autoLockMinutes: z.number().min(0).max(1440),
   })
   .partial()
 

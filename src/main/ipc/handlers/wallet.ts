@@ -7,6 +7,8 @@ import { secureHandle, emitToRenderer, log } from './shared'
 import { walletManager } from '../../wallet/manager'
 import { walletHistoryManager } from '../../wallet/history'
 import { paymentInterceptor } from '../../wallet/payment-interceptor'
+import { overlayManager } from '../../windows/overlay-manager'
+import { getMainWindow } from '../../windows/main'
 
 export function registerWalletHandlers(): void {
   // Forward wallet events to renderer
@@ -92,20 +94,57 @@ export function registerWalletHandlers(): void {
     return await walletManager.importWallet(mnemonic)
   })
 
+  secureHandle(IPC_CHANNELS.WALLET_DELETE, async () => {
+    const state = walletManager.getState()
+    if (!state.isCreated && !state.decryptFailed) {
+      throw new Error('No wallet to delete')
+    }
+    return await walletManager.deleteWallet()
+  })
+
   secureHandle(IPC_CHANNELS.WALLET_EXPORT_MNEMONIC, async () => {
-    const { dialog } = await import('electron')
-    const { response } = await dialog.showMessageBox({
-      type: 'warning',
-      title: 'Export Seed Phrase',
-      message: 'Your 24-word seed phrase will be displayed.',
-      detail:
-        'Anyone who sees these words can take full control of your wallet. Only proceed if you are in a safe environment.',
-      buttons: ['Cancel', 'Show Seed Phrase'],
-      defaultId: 0,
-      cancelId: 0,
-      noLink: true,
+    const confirmed = await new Promise<boolean>((resolve) => {
+      const win = getMainWindow()
+      if (!win) {
+        resolve(false)
+        return
+      }
+
+      const bounds = win.getContentBounds()
+      const w = 420
+      const h = 260
+      const x = Math.round(bounds.width / 2 - w / 2)
+      const y = Math.round(bounds.height / 3)
+      const overlayId = 'wallet-export-confirm'
+
+      overlayManager.show(
+        overlayId,
+        { x, y, width: w, height: h },
+        {
+          type: 'form',
+          title: 'Export Seed Phrase',
+          fields: [
+            {
+              id: '_warning',
+              label: 'Your 24-word seed phrase will be displayed.',
+              value:
+                'Anyone who sees these words can take full control of your wallet. Only proceed if you are in a safe environment.',
+              readonly: true,
+            },
+          ],
+          actions: [
+            { id: 'cancel', label: 'Cancel' },
+            { id: 'show', label: 'Show Seed Phrase', primary: true },
+          ],
+        },
+        (actionType) => {
+          overlayManager.hide(overlayId)
+          resolve(actionType === 'show')
+        }
+      )
     })
-    if (response === 0) {
+
+    if (!confirmed) {
       throw new Error('Export cancelled by user')
     }
     return await walletManager.exportMnemonic()

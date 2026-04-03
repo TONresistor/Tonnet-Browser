@@ -117,6 +117,9 @@ export interface WalletState {
   addressRaw: string
   publicKey: string
   balance: string
+  decryptFailed?: boolean
+  weakEncryption?: boolean
+  isLocked?: boolean
 }
 
 export interface WalletTransaction {
@@ -170,6 +173,7 @@ export interface WalletSettings {
   limits: SpendingLimits
   sitePolicies: SitePolicy[]
   autoPayDomains: string[]
+  autoLockMinutes: number
 }
 
 /** DNS resolve result from the bridge */

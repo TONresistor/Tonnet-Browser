@@ -92,7 +92,8 @@
     "warningDesc": "这是恢复钱包的唯一方式。如果您丢失了这些单词, 您的资金将永远丢失。切勿与任何人分享。",
     "yourPhrase": "您的 24 个助记词",
     "copy": "复制到剪贴板",
-    "confirm": "我已保存助记词"
+    "acknowledgement": "我确认已安全保存 24 个助记词。我理解如果丢失助记词, 将无法恢复钱包和资金。",
+    "confirm": "继续"
   },
   "create": {
     "title": "创建 Wallet",
@@ -152,5 +153,21 @@
     "success": "支付成功",
     "failed": "支付失败",
     "limitReached": "已达支出限额"
+  },
+  "recovery": {
+    "title": "需要恢复 Wallet",
+    "description": "系统密钥环已更改。钱包数据仍在磁盘上但无法解密。请导入 24 个助记词以恢复访问。",
+    "importButton": "恢复 Wallet",
+    "orCreateNew": "或创建新钱包",
+    "weakEncryption": "加密较弱：未检测到系统密钥环。您的钱包仅受基本加密保护。"
+  },
+  "delete": {
+    "button": "删除钱包",
+    "title": "删除钱包",
+    "warning": "此操作将从本设备永久删除钱包。请确保已备份 24 个助记词。没有助记词将无法恢复资金。",
+    "description": "将从此设备永久删除钱包。请确保已保存助记词后再继续。"
+  },
+  "overview": {
+    "recent": "最近"
   }
 }

@@ -4,13 +4,27 @@
  * Send/Receive triggered via action buttons as inline views.
  */
 
-import { useEffect, useState, useCallback, memo } from 'react'
-import { Send, Download, RefreshCw, Plus, LoaderCircle, AlertTriangle, Check, Copy, ArrowLeft } from 'lucide-react'
+import { useEffect, useRef, useState, useCallback, memo } from 'react'
+import {
+  Send,
+  Download,
+  RefreshCw,
+  Plus,
+  LoaderCircle,
+  AlertTriangle,
+  Check,
+  Copy,
+  ArrowLeft,
+  Upload,
+  Eye,
+  EyeOff,
+} from 'lucide-react'
 import Lottie from 'lottie-react'
 import explorerAnimation from '@/assets/explorer.json'
 import walletIcon from '@/assets/wallet.svg'
 import { Button } from '@/components/ui/button'
 import { truncateAddress } from '@/lib/format'
+import { cn } from '@/lib/utils'
 import { useWalletStore, formatTonAmount } from '@/stores/wallet'
 import { SendForm } from '@/components/wallet/SendForm'
 import { ReceivePanel } from '@/components/wallet/ReceivePanel'
@@ -30,9 +44,11 @@ export function WalletPage() {
     isLoading,
     isSending,
     error,
+    decryptFailed,
+    weakEncryption,
     init,
     create,
-    exportMnemonic,
+    importWallet,
     send,
     loadHistory,
     refreshBalance,
@@ -40,6 +56,46 @@ export function WalletPage() {
   const [newMnemonic, setNewMnemonic] = useState<string[] | null>(null)
   const [copied, setCopied] = useState(false)
   const [actionView, setActionView] = useState<ActionView>(null)
+  const [recoveryInput, setRecoveryInput] = useState('')
+  const [recoveryError, setRecoveryError] = useState<string | null>(null)
+  const [backupAcknowledged, setBackupAcknowledged] = useState(false)
+  const [mnemonicRevealed, setMnemonicRevealed] = useState(false)
+  const mnemonicTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Auto-clear mnemonic from memory after 60s
+  useEffect(() => {
+    if (newMnemonic) {
+      mnemonicTimerRef.current = setTimeout(() => {
+        setNewMnemonic(null)
+        setBackupAcknowledged(false)
+        setMnemonicRevealed(false)
+      }, 60_000)
+    }
+    return () => {
+      if (mnemonicTimerRef.current) clearTimeout(mnemonicTimerRef.current)
+    }
+  }, [newMnemonic])
+
+  const parseWords = (text: string): string[] =>
+    text
+      .trim()
+      .split(/[\s,]+/)
+      .filter((w) => w.length > 0)
+
+  const handleRecoveryImport = useCallback(async () => {
+    const parsed = parseWords(recoveryInput)
+    if (parsed.length !== 24) {
+      setRecoveryError(t('import.error'))
+      return
+    }
+    setRecoveryError(null)
+    try {
+      await importWallet(parsed)
+      setRecoveryInput('')
+    } catch (err) {
+      setRecoveryError((err as Error).message)
+    }
+  }, [recoveryInput, importWallet, t])
 
   useEffect(() => {
     init()
@@ -52,18 +108,14 @@ export function WalletPage() {
   }
 
   const handleCreate = useCallback(async () => {
-    await create()
-    try {
-      const words = await exportMnemonic()
-      setNewMnemonic(words)
-    } catch {
-      // wallet created but mnemonic export failed, user can export later from settings
-    }
-  }, [create, exportMnemonic])
+    const words = await create()
+    if (words) setNewMnemonic(words)
+  }, [create])
 
   const handleCopyMnemonic = useCallback(() => {
     if (!newMnemonic) return
     navigator.clipboard.writeText(newMnemonic.join(' '))
+    setTimeout(() => navigator.clipboard.writeText(''), 30_000)
     setCopied(true)
     setTimeout(() => setCopied(false), UI_COPY_FEEDBACK_MS)
   }, [newMnemonic])
@@ -75,6 +127,84 @@ export function WalletPage() {
         style={{ fontFamily: 'Inter, sans-serif' }}
       >
         <LoaderCircle className="h-8 w-8 text-muted-foreground animate-spin" aria-hidden="true" />
+      </div>
+    )
+  }
+
+  // Recovery screen when system keyring changed and wallet cannot be decrypted
+  if (decryptFailed) {
+    const recoveryWordCount = parseWords(recoveryInput).length
+    return (
+      <div className="h-full bg-background-secondary overflow-auto" style={{ fontFamily: 'Inter, sans-serif' }}>
+        <div className="p-8 max-w-4xl mx-auto">
+          <div className="mb-8">
+            <div className="flex items-center gap-3">
+              <img src={walletIcon} alt="" className="w-8 h-8" />
+              <h1 className="text-3xl font-bold text-foreground">{t('page.title')}</h1>
+            </div>
+          </div>
+
+          <div className="max-w-lg mx-auto space-y-6">
+            <div className="flex items-start gap-3 p-4 bg-muted border border-border rounded-2xl">
+              <AlertTriangle className="h-5 w-5 text-warning mt-0.5 shrink-0" aria-hidden="true" />
+              <div>
+                <p className="text-sm font-semibold text-foreground">{t('recovery.title')}</p>
+                <p className="text-xs text-muted-foreground mt-1">{t('recovery.description')}</p>
+              </div>
+            </div>
+
+            <div className="glass-card p-5 space-y-3">
+              <textarea
+                className={cn(
+                  'w-full h-24 p-3 text-sm rounded-lg border bg-background text-foreground resize-none',
+                  'focus:outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground'
+                )}
+                placeholder={t('import.placeholder')}
+                value={recoveryInput}
+                onChange={(e) => {
+                  setRecoveryInput(e.target.value)
+                  setRecoveryError(null)
+                }}
+                spellCheck={false}
+                autoComplete="off"
+              />
+              <div className="flex items-center justify-between">
+                <span className={cn('text-xs', recoveryWordCount === 24 ? 'text-success' : 'text-muted-foreground')}>
+                  {recoveryWordCount}/24
+                </span>
+                {recoveryError && <span className="text-xs text-destructive">{recoveryError}</span>}
+              </div>
+              <Button
+                type="button"
+                onClick={handleRecoveryImport}
+                disabled={isLoading || recoveryWordCount !== 24}
+                className="w-full"
+              >
+                {isLoading ? (
+                  <LoaderCircle className="h-4 w-4 mr-2 animate-spin" aria-hidden="true" />
+                ) : (
+                  <Upload className="h-4 w-4 mr-2" aria-hidden="true" />
+                )}
+                {isLoading ? t('import.importing') : t('recovery.importButton')}
+              </Button>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="flex-1 h-px bg-border" />
+              <span className="text-xs text-muted-foreground">{t('recovery.orCreateNew')}</span>
+              <div className="flex-1 h-px bg-border" />
+            </div>
+
+            <Button type="button" variant="outline" onClick={handleCreate} disabled={isLoading} className="w-full">
+              {isLoading ? (
+                <LoaderCircle className="h-4 w-4 mr-2 animate-spin" aria-hidden="true" />
+              ) : (
+                <Plus className="h-4 w-4 mr-2" aria-hidden="true" />
+              )}
+              {t('page.createWallet')}
+            </Button>
+          </div>
+        </div>
       </div>
     )
   }
@@ -101,12 +231,24 @@ export function WalletPage() {
             </div>
 
             <div className="glass-card p-5">
-              <p className="text-sm font-medium text-foreground mb-4">{t('backup.yourPhrase')}</p>
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-sm font-medium text-foreground">{t('backup.yourPhrase')}</p>
+                <Button type="button" variant="ghost" size="sm" onClick={() => setMnemonicRevealed(!mnemonicRevealed)}>
+                  {mnemonicRevealed ? (
+                    <EyeOff className="h-3.5 w-3.5 mr-1.5" aria-hidden="true" />
+                  ) : (
+                    <Eye className="h-3.5 w-3.5 mr-1.5" aria-hidden="true" />
+                  )}
+                  {mnemonicRevealed ? t('export.hideButton') : t('export.showButton')}
+                </Button>
+              </div>
               <div className="grid grid-cols-3 gap-2">
                 {newMnemonic.map((word, i) => (
                   <div key={i} className="flex items-center gap-2 px-3 py-2 bg-muted rounded-lg text-sm">
                     <span className="text-muted-foreground w-6 text-right font-mono text-xs">{i + 1}.</span>
-                    <span className="font-mono text-foreground">{word}</span>
+                    <span className="font-mono text-foreground">
+                      {mnemonicRevealed ? word : '\u2022\u2022\u2022\u2022\u2022'}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -117,7 +259,25 @@ export function WalletPage() {
               </Button>
             </div>
 
-            <Button type="button" onClick={() => setNewMnemonic(null)} className="w-full">
+            <label className="flex items-start gap-3 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={backupAcknowledged}
+                onChange={(e) => setBackupAcknowledged(e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-border accent-primary shrink-0"
+              />
+              <span className="text-xs text-muted-foreground leading-relaxed">{t('backup.acknowledgement')}</span>
+            </label>
+
+            <Button
+              type="button"
+              onClick={() => {
+                setNewMnemonic(null)
+                setBackupAcknowledged(false)
+              }}
+              disabled={!backupAcknowledged}
+              className="w-full"
+            >
               {t('backup.confirm')}
             </Button>
           </div>
@@ -195,6 +355,14 @@ export function WalletPage() {
           </div>
         ) : (
           <div className="max-w-lg mx-auto">
+            {/* Weak encryption banner */}
+            {weakEncryption && (
+              <div className="flex items-center gap-2 px-3 py-2 mb-4 bg-muted rounded-lg border border-border">
+                <AlertTriangle className="h-3.5 w-3.5 text-warning shrink-0" aria-hidden="true" />
+                <p className="text-xs text-muted-foreground">{t('recovery.weakEncryption')}</p>
+              </div>
+            )}
+
             {/* Balance: flat, large, single line */}
             <div className="text-center mb-4">
               <p className="text-4xl font-bold text-foreground tracking-tight">

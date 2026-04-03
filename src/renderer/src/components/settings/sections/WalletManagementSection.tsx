@@ -1,16 +1,17 @@
 import { useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { UI_COPY_FEEDBACK_MS } from '@shared/constants'
-import { LoaderCircle, Eye, EyeOff, Upload, KeyRound, Copy, Check, AlertTriangle } from 'lucide-react'
+import { LoaderCircle, Eye, EyeOff, Upload, KeyRound, Copy, Check, AlertTriangle, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useWalletStore } from '@/stores/wallet'
+import { useOverlay } from '@/hooks/useOverlay'
 import { cn } from '@/lib/utils'
 
 const MNEMONIC_CLEAR_TIMEOUT = 60_000
 
 export function WalletManagementSection() {
   const { t } = useTranslation('wallet')
-  const { isCreated, importWallet, exportMnemonic, isLoading } = useWalletStore()
+  const { isCreated, importWallet, exportMnemonic, deleteWallet, isLoading } = useWalletStore()
   const [words, setWords] = useState<string[] | null>(null)
   const [isRevealed, setIsRevealed] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -20,6 +21,38 @@ export function WalletManagementSection() {
   const [importInput, setImportInput] = useState('')
   const [importError, setImportError] = useState<string | null>(null)
   const [showConfirm, setShowConfirm] = useState(false)
+
+  const handleDeleteAction = useCallback(
+    async (actionType: string) => {
+      deleteOverlay.hide()
+      if (actionType === 'confirm-delete') {
+        await deleteWallet()
+      }
+    },
+    [deleteWallet]
+  )
+
+  const deleteOverlay = useOverlay('wallet-delete-confirm', handleDeleteAction)
+
+  const showDeleteOverlay = useCallback(() => {
+    const w = 380
+    const h = 280
+    const x = Math.round((window.innerWidth - w) / 2)
+    const y = Math.max(8, Math.round((window.innerHeight - h) / 2))
+    deleteOverlay.show(
+      { x, y, width: w, height: h },
+      {
+        type: 'form',
+        title: t('delete.title'),
+        fields: [{ id: '_warning', label: '', value: t('delete.warning'), readonly: true }],
+        actions: [
+          { id: 'dismiss', label: t('import.cancelButton') },
+          { id: 'confirm-delete', label: t('delete.button'), primary: true },
+        ],
+      },
+      { autoDismiss: true }
+    )
+  }, [deleteOverlay, t])
 
   const handleReveal = useCallback(async () => {
     if (isRevealed) {
@@ -47,6 +80,7 @@ export function WalletManagementSection() {
   const handleCopy = useCallback(() => {
     if (!words) return
     navigator.clipboard.writeText(words.join(' '))
+    setTimeout(() => navigator.clipboard.writeText(''), 30_000)
     setCopied(true)
     setTimeout(() => setCopied(false), UI_COPY_FEEDBACK_MS)
   }, [words])
@@ -209,6 +243,21 @@ export function WalletManagementSection() {
           </div>
         )}
       </div>
+
+      {/* Delete wallet */}
+      {isCreated && (
+        <div className="border-t border-border pt-4">
+          <button
+            type="button"
+            className="text-sm text-destructive hover:underline flex items-center gap-2"
+            onClick={showDeleteOverlay}
+          >
+            <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+            {t('delete.button')}
+          </button>
+          <p className="text-xs text-muted-foreground mt-1">{t('delete.description')}</p>
+        </div>
+      )}
     </div>
   )
 }

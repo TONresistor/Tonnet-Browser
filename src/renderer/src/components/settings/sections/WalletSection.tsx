@@ -25,6 +25,7 @@ const DEFAULT_WALLET_SETTINGS: WalletSettings = {
   limits: { perRequest: '0', perDay: '0', perSitePerMonth: '0' },
   sitePolicies: [],
   autoPayDomains: [],
+  autoLockMinutes: 5,
 }
 
 function nanoToTonDisplay(nano: string): string {

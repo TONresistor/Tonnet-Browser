@@ -4,8 +4,20 @@
  * Send and Receive views are inline, no page navigation.
  */
 
-import { useEffect, useState, useCallback } from 'react'
-import { X, Send, Download, RefreshCw, ExternalLink, Copy, Check, ArrowLeft } from 'lucide-react'
+import { useEffect, useRef, useState, useCallback } from 'react'
+import {
+  X,
+  Send,
+  Download,
+  RefreshCw,
+  ExternalLink,
+  Copy,
+  Check,
+  ArrowLeft,
+  AlertTriangle,
+  Eye,
+  EyeOff,
+} from 'lucide-react'
 import walletIcon from '@/assets/wallet.svg'
 import { useWalletStore, formatTonAmount } from '@/stores/wallet'
 import { useTabsStore } from '@/stores/tabs'
@@ -41,7 +53,26 @@ export function WalletSidebar({ onClose }: WalletSidebarProps) {
   } = useWalletStore()
   const openOrSwitchToTab = useTabsStore((s) => s.openOrSwitchToTab)
   const [copied, setCopied] = useState(false)
+  const [mnemonicCopied, setMnemonicCopied] = useState(false)
   const [view, setView] = useState<SidebarView>('overview')
+  const [newMnemonic, setNewMnemonic] = useState<string[] | null>(null)
+  const [backupAcknowledged, setBackupAcknowledged] = useState(false)
+  const [mnemonicRevealed, setMnemonicRevealed] = useState(false)
+  const mnemonicTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Auto-clear mnemonic from memory after 60s
+  useEffect(() => {
+    if (newMnemonic) {
+      mnemonicTimerRef.current = setTimeout(() => {
+        setNewMnemonic(null)
+        setBackupAcknowledged(false)
+        setMnemonicRevealed(false)
+      }, 60_000)
+    }
+    return () => {
+      if (mnemonicTimerRef.current) clearTimeout(mnemonicTimerRef.current)
+    }
+  }, [newMnemonic])
 
   useEffect(() => {
     init()
@@ -59,10 +90,101 @@ export function WalletSidebar({ onClose }: WalletSidebarProps) {
     setTimeout(() => setCopied(false), UI_COPY_FEEDBACK_MS)
   }, [address])
 
+  const handleCreate = useCallback(async () => {
+    const words = await create()
+    if (words) setNewMnemonic(words)
+  }, [create])
+
+  const handleCopyMnemonic = useCallback(() => {
+    if (!newMnemonic) return
+    navigator.clipboard.writeText(newMnemonic.join(' '))
+    setTimeout(() => navigator.clipboard.writeText(''), 30_000)
+    setMnemonicCopied(true)
+    setTimeout(() => setMnemonicCopied(false), UI_COPY_FEEDBACK_MS)
+  }, [newMnemonic])
+
   const handleOpenWallet = useCallback(() => {
     openOrSwitchToTab(TON_WALLET_PAGE)
     onClose()
   }, [openOrSwitchToTab, onClose])
+
+  // Mnemonic backup screen after wallet creation
+  if (newMnemonic) {
+    return (
+      <div className="flex flex-col h-full bg-[hsl(var(--elevation-1))] border-l border-border">
+        <div className="px-4 py-3 border-b border-border flex items-center gap-2">
+          <img src={walletIcon} alt="" className="h-4 w-4" />
+          <span className="text-sm font-semibold text-foreground">{t('backup.title')}</span>
+        </div>
+
+        <div className="flex-1 overflow-auto px-4 py-4 space-y-4">
+          <div className="flex items-start gap-2 p-3 bg-warning/10 border border-warning/20 rounded-lg">
+            <AlertTriangle className="h-4 w-4 text-warning mt-0.5 shrink-0" aria-hidden="true" />
+            <div>
+              <p className="text-xs font-medium text-foreground">{t('backup.warning')}</p>
+              <p className="text-[11px] text-muted-foreground mt-1">{t('backup.warningDesc')}</p>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-medium text-foreground">{t('backup.yourPhrase')}</p>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-6 text-xs"
+              onClick={() => setMnemonicRevealed(!mnemonicRevealed)}
+            >
+              {mnemonicRevealed ? (
+                <EyeOff className="h-3 w-3 mr-1" aria-hidden="true" />
+              ) : (
+                <Eye className="h-3 w-3 mr-1" aria-hidden="true" />
+              )}
+              {mnemonicRevealed ? t('export.hideButton') : t('export.showButton')}
+            </Button>
+          </div>
+          <div className="grid grid-cols-3 gap-1.5">
+            {newMnemonic.map((word, i) => (
+              <div key={i} className="flex items-center gap-1 px-2 py-1.5 bg-muted rounded text-xs">
+                <span className="text-muted-foreground w-4 text-right font-mono text-[10px]">{i + 1}.</span>
+                <span className="font-mono text-foreground text-[11px]">
+                  {mnemonicRevealed ? word : '\u2022\u2022\u2022\u2022\u2022'}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          <Button type="button" variant="outline" size="sm" onClick={handleCopyMnemonic} className="w-full">
+            {mnemonicCopied ? <Check className="h-3.5 w-3.5 mr-1.5" /> : <Copy className="h-3.5 w-3.5 mr-1.5" />}
+            {mnemonicCopied ? t('export.copied') : t('backup.copy')}
+          </Button>
+
+          <label className="flex items-start gap-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={backupAcknowledged}
+              onChange={(e) => setBackupAcknowledged(e.target.checked)}
+              className="mt-0.5 h-3.5 w-3.5 rounded border-border accent-primary shrink-0"
+            />
+            <span className="text-[11px] text-muted-foreground leading-relaxed">{t('backup.acknowledgement')}</span>
+          </label>
+
+          <Button
+            type="button"
+            size="sm"
+            onClick={() => {
+              setNewMnemonic(null)
+              setBackupAcknowledged(false)
+            }}
+            disabled={!backupAcknowledged}
+            className="w-full"
+          >
+            {t('backup.confirm')}
+          </Button>
+        </div>
+      </div>
+    )
+  }
 
   if (!isCreated) {
     return (
@@ -85,7 +207,7 @@ export function WalletSidebar({ onClose }: WalletSidebarProps) {
             <p className="text-sm font-medium text-foreground mb-1">{t('page.noWalletTitle')}</p>
             <p className="text-xs text-muted-foreground">{t('page.noWalletDesc')}</p>
           </div>
-          <Button type="button" onClick={() => create()} disabled={isLoading} className="w-full max-w-[200px]">
+          <Button type="button" onClick={handleCreate} disabled={isLoading} className="w-full max-w-[200px]">
             {t('page.createWallet')}
           </Button>
         </div>

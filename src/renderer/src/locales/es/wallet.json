@@ -92,7 +92,8 @@
     "warningDesc": "Esta es la única forma de recuperar tu wallet. Si pierdes estas palabras, tus fondos se perderán para siempre. Nunca las compartas con nadie.",
     "yourPhrase": "Tu frase de recuperación de 24 palabras",
     "copy": "Copiar al portapapeles",
-    "confirm": "He guardado mi frase de recuperación"
+    "acknowledgement": "Confirmo que he guardado de forma segura mi frase de recuperación de 24 palabras. Entiendo que sin ella no podré recuperar mi wallet ni mis fondos.",
+    "confirm": "Continuar"
   },
   "create": {
     "title": "Crear Wallet",
@@ -152,5 +153,21 @@
     "success": "Pago exitoso",
     "failed": "Pago fallido",
     "limitReached": "Límite de gasto alcanzado"
+  },
+  "recovery": {
+    "title": "Recuperación de Wallet requerida",
+    "description": "Tu llavero del sistema ha cambiado. Los datos de tu wallet siguen en el disco pero no pueden descifrarse. Importa tu frase de 24 palabras para recuperar el acceso.",
+    "importButton": "Restaurar Wallet",
+    "orCreateNew": "o crear un nuevo wallet",
+    "weakEncryption": "Cifrado débil: no se detectó llavero del sistema. Tu wallet está protegido solo con cifrado básico."
+  },
+  "delete": {
+    "button": "Eliminar wallet",
+    "title": "Eliminar wallet",
+    "warning": "Esto eliminara permanentemente tu wallet de este dispositivo. Asegurate de haber guardado tu frase de recuperacion de 24 palabras. Sin ella, tus fondos se perderan para siempre.",
+    "description": "Elimina permanentemente el wallet de este dispositivo. Asegúrate de tener tu frase de recuperación antes de continuar."
+  },
+  "overview": {
+    "recent": "Recientes"
   }
 }

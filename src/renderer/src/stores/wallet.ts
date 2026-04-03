@@ -35,14 +35,17 @@ interface WalletStore {
   isLoading: boolean
   isSending: boolean
   error: string | null
+  decryptFailed: boolean
+  weakEncryption: boolean
   init: () => Promise<void>
-  create: () => Promise<void>
+  create: () => Promise<string[] | null>
   importWallet: (mnemonic: string[]) => Promise<void>
   exportMnemonic: () => Promise<string[]>
   refreshBalance: () => Promise<void>
   send: (to: string, amount: string) => Promise<void>
   loadHistory: (limit?: number) => Promise<void>
   clearHistory: () => Promise<void>
+  deleteWallet: () => Promise<void>
   setError: (error: string | null) => void
 }
 
@@ -76,6 +79,8 @@ export const useWalletStore = create<WalletStore>((set, get) => {
         addressRaw?: string
         publicKey?: string
         balance?: string
+        decryptFailed?: boolean
+        weakEncryption?: boolean
       }
       if (state && typeof state === 'object') {
         set({
@@ -84,6 +89,8 @@ export const useWalletStore = create<WalletStore>((set, get) => {
           addressRaw: state.addressRaw ?? get().addressRaw,
           publicKey: state.publicKey ?? get().publicKey,
           balance: state.balance ?? get().balance,
+          decryptFailed: state.decryptFailed ?? get().decryptFailed,
+          weakEncryption: state.weakEncryption ?? get().weakEncryption,
         })
       }
     })
@@ -101,6 +108,8 @@ export const useWalletStore = create<WalletStore>((set, get) => {
     isLoading: false,
     isSending: false,
     error: null,
+    decryptFailed: false,
+    weakEncryption: false,
 
     setError: (error) => set({ error }),
 
@@ -118,6 +127,8 @@ export const useWalletStore = create<WalletStore>((set, get) => {
             addressRaw: state.addressRaw ?? '',
             publicKey: state.publicKey ?? '',
             balance: state.balance ?? '0',
+            decryptFailed: state.decryptFailed ?? false,
+            weakEncryption: state.weakEncryption ?? false,
           })
         }
       } catch (err) {
@@ -130,20 +141,23 @@ export const useWalletStore = create<WalletStore>((set, get) => {
     create: async () => {
       set({ isLoading: true, error: null })
       try {
-        const state = await window.electron.wallet.create()
-        const createErr = getIpcError(state)
+        const result = await window.electron.wallet.create()
+        const createErr = getIpcError(result)
         if (createErr) throw new Error(createErr)
-        if (state) {
+        if (result) {
           set({
-            isCreated: state.isCreated ?? true,
-            address: state.address ?? '',
-            addressRaw: state.addressRaw ?? '',
-            publicKey: state.publicKey ?? '',
-            balance: state.balance ?? '0',
+            isCreated: result.isCreated ?? true,
+            address: result.address ?? '',
+            addressRaw: result.addressRaw ?? '',
+            publicKey: result.publicKey ?? '',
+            balance: result.balance ?? '0',
           })
+          return result.mnemonic ?? null
         }
+        return null
       } catch (err) {
         set({ error: (err as Error).message })
+        return null
       } finally {
         set({ isLoading: false })
       }
@@ -161,6 +175,8 @@ export const useWalletStore = create<WalletStore>((set, get) => {
           addressRaw: result.addressRaw ?? '',
           publicKey: result.publicKey ?? '',
           balance: result.balance ?? '0',
+          decryptFailed: false,
+          weakEncryption: false,
         })
       } catch (err) {
         set({ error: (err as Error).message })
@@ -216,6 +232,27 @@ export const useWalletStore = create<WalletStore>((set, get) => {
         if (Array.isArray(result)) {
           set({ transactions: result })
         }
+      } catch (err) {
+        set({ error: (err as Error).message })
+      }
+    },
+
+    deleteWallet: async () => {
+      try {
+        const result = await window.electron.wallet.deleteWallet()
+        const err = getIpcError(result)
+        if (err) throw new Error(err)
+        set({
+          isCreated: false,
+          address: '',
+          addressRaw: '',
+          publicKey: '',
+          balance: '0',
+          transactions: [],
+          decryptFailed: false,
+          weakEncryption: false,
+          error: null,
+        })
       } catch (err) {
         set({ error: (err as Error).message })
       }

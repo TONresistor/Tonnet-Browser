@@ -78,5 +78,6 @@ export const DEFAULT_SETTINGS = {
     },
     sitePolicies: [] as SitePolicy[],
     autoPayDomains: [] as string[],
+    autoLockMinutes: 5,
   },
 } as const

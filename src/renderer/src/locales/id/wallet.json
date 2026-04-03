@@ -92,7 +92,8 @@
     "warningDesc": "Ini satu-satunya cara untuk memulihkan dompet Anda. Jika Anda kehilangan kata-kata ini, dana Anda hilang selamanya. Jangan pernah membagikannya.",
     "yourPhrase": "24 kata frasa pemulihan Anda",
     "copy": "Salin ke Clipboard",
-    "confirm": "Saya telah menyimpan frasa pemulihan saya"
+    "acknowledgement": "Saya mengonfirmasi telah menyimpan 24 kata frasa pemulihan dengan aman. Saya memahami bahwa tanpa frasa ini, dompet dan dana saya tidak dapat dipulihkan.",
+    "confirm": "Lanjutkan"
   },
   "create": {
     "title": "Buat Wallet",
@@ -152,5 +153,21 @@
     "success": "Pembayaran berhasil",
     "failed": "Pembayaran gagal",
     "limitReached": "Batas pengeluaran tercapai"
+  },
+  "recovery": {
+    "title": "Pemulihan Wallet Diperlukan",
+    "description": "Gantungan kunci sistem Anda telah berubah. Data dompet masih ada di disk tetapi tidak dapat didekripsi. Impor 24 kata frasa pemulihan untuk memulihkan akses.",
+    "importButton": "Pulihkan Wallet",
+    "orCreateNew": "atau buat dompet baru",
+    "weakEncryption": "Enkripsi lemah: tidak ada gantungan kunci sistem yang terdeteksi. Dompet Anda hanya dilindungi dengan enkripsi dasar."
+  },
+  "delete": {
+    "button": "Hapus Dompet",
+    "title": "Hapus Dompet",
+    "warning": "Dompet akan dihapus secara permanen dari perangkat ini. Pastikan Anda telah mencadangkan 24 kata frasa pemulihan. Tanpa frasa tersebut, dana Anda tidak dapat dipulihkan.",
+    "description": "Menghapus dompet secara permanen dari perangkat ini. Pastikan Anda memiliki frasa pemulihan sebelum melanjutkan."
+  },
+  "overview": {
+    "recent": "Terbaru"
   }
 }

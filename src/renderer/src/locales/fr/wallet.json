@@ -92,7 +92,8 @@
     "warningDesc": "C'est le seul moyen de récupérer ton wallet. Si tu perds ces mots, tes fonds seront perdus définitivement. Ne les partage jamais avec personne.",
     "yourPhrase": "Ta phrase de récupération de 24 mots",
     "copy": "Copier dans le presse-papiers",
-    "confirm": "J'ai sauvegardé ma phrase de récupération"
+    "acknowledgement": "Je confirme avoir enregistré ma phrase de récupération de 24 mots en lieu sûr. Je comprends que sans elle, il sera impossible de récupérer mon wallet ou mes fonds.",
+    "confirm": "Continuer"
   },
   "create": {
     "title": "Créer un Wallet",
@@ -152,5 +153,21 @@
     "success": "Paiement réussi",
     "failed": "Paiement échoué",
     "limitReached": "Limite de dépenses atteinte"
+  },
+  "recovery": {
+    "title": "Récupération du Wallet requise",
+    "description": "Votre trousseau système a changé. Vos données sont toujours sur le disque mais ne peuvent pas être déchiffrées. Importez vos 24 mots de récupération pour restaurer l'accès.",
+    "importButton": "Restaurer le Wallet",
+    "orCreateNew": "ou créer un nouveau wallet",
+    "weakEncryption": "Chiffrement faible : aucun trousseau système détecté. Votre wallet n'est protégé que par un chiffrement basique."
+  },
+  "delete": {
+    "button": "Supprimer le Wallet",
+    "title": "Supprimer le Wallet",
+    "warning": "Cette action supprimera definitivement votre wallet de cet appareil. Assurez-vous d'avoir sauvegarde votre phrase de recuperation de 24 mots. Sans elle, vos fonds seront perdus a jamais.",
+    "description": "Supprime définitivement le wallet de cet appareil. Assurez-vous d'avoir votre phrase de récupération avant de continuer."
+  },
+  "overview": {
+    "recent": "Récentes"
   }
 }

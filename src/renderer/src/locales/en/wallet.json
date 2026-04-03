@@ -92,7 +92,8 @@
     "warningDesc": "This is the only way to recover your wallet. If you lose these words, your funds are lost forever. Never share them with anyone.",
     "yourPhrase": "Your 24-word recovery phrase",
     "copy": "Copy to Clipboard",
-    "confirm": "I have saved my recovery phrase"
+    "acknowledgement": "I confirm that I have securely recorded my 24-word recovery phrase. I understand that without it, there is no way to recover my wallet or funds.",
+    "confirm": "Continue"
   },
   "create": {
     "title": "Create Wallet",
@@ -142,6 +143,13 @@
       "removePolicy": "Remove site policy"
     }
   },
+  "recovery": {
+    "title": "Wallet Recovery Required",
+    "description": "Your system keyring has changed. Your wallet data is still on disk but cannot be decrypted. Import your 24-word recovery phrase to restore access.",
+    "importButton": "Import Wallet",
+    "orCreateNew": "or create a new wallet",
+    "weakEncryption": "Weak encryption: no system keyring detected. Your wallet is protected with basic encryption only."
+  },
   "payment": {
     "title": "Payment Request",
     "domain": "Site",
@@ -152,5 +160,14 @@
     "success": "Payment successful",
     "failed": "Payment failed",
     "limitReached": "Spending limit reached"
+  },
+  "delete": {
+    "button": "Delete Wallet",
+    "title": "Delete Wallet",
+    "warning": "This will permanently delete your wallet from this device. Make sure you have backed up your 24-word recovery phrase. Without it, your funds will be lost forever.",
+    "description": "Permanently removes the wallet from this device. Make sure you have your recovery phrase before proceeding."
+  },
+  "overview": {
+    "recent": "Recent"
   }
 }
