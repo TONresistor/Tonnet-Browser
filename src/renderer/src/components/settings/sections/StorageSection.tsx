@@ -29,12 +29,23 @@ export const StorageSection = memo(function StorageSection({
       <div className="glass-card px-4">
         <SettingRow label={t('storage.downloadFolder')} description={t('storage.downloadFolderDesc')}>
           <div className="flex items-center gap-2">
-            <div className="max-w-[200px] px-3 py-1.5 rounded-full text-sm text-muted-foreground truncate bg-surface-hover border border-border-medium">
-              {!isLoaded ? t('storage.loading') : draft.downloadPath || t('storage.notSet')}
-            </div>
+            <input
+              type="text"
+              defaultValue={draft.downloadPath || ''}
+              onBlur={(e) => setDraft('downloadPath', e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.currentTarget.blur()
+                }
+              }}
+              placeholder="/path/to/folder"
+              disabled={!isLoaded}
+              className="w-56 px-3 py-1.5 rounded-full text-sm text-foreground outline-none bg-surface-hover border border-border-medium disabled:opacity-50"
+            />
             <button
               onClick={onSelectFolder}
               className="shrink-0 p-2 rounded-full transition-all duration-200 hover:text-foreground bg-surface-hover border border-border-medium text-foreground-muted"
+              title="Browse"
             >
               <FolderOpen className="h-4 w-4" />
             </button>
