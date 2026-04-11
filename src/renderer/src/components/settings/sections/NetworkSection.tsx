@@ -23,13 +23,6 @@ export const NetworkSection = memo(function NetworkSection({ draft, setDraft }: 
         <SettingRow label={t('network.storageApiPort')} description={t('network.storageApiPortDesc')}>
           <NumberInput value={draft.storagePort} onChange={(v) => setDraft('storagePort', v)} min={1024} max={65535} />
         </SettingRow>
-        <SettingRow label={t('network.autoConnect')} description={t('network.autoConnectDesc')}>
-          <Toggle
-            checked={draft.autoConnect}
-            onChange={(v) => setDraft('autoConnect', v)}
-            label={t('network.autoConnectLabel')}
-          />
-        </SettingRow>
         <SettingRow label={t('network.connectionTimeout')} description={t('network.connectionTimeoutDesc')}>
           <NumberInput
             value={draft.connectionTimeout}

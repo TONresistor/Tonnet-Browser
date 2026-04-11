@@ -2,14 +2,13 @@
  * Constantes pour les composants Settings
  */
 
-import { Globe, HardDrive, Shield, History as HistoryIcon, Wrench, Info, Cable } from 'lucide-react'
+import { Globe, HardDrive, History as HistoryIcon, Wrench, Info, Cable } from 'lucide-react'
 import type { SectionInfo, Shortcut } from './types'
 import walletIconSrc from '@/assets/wallet.svg'
 import privacyIconSrc from '@/assets/privacy.svg'
 import networkIconSrc from '@/assets/network.svg'
 import appearanceIconSrc from '@/assets/appearance.svg'
 import bookmarkIconSrc from '@/assets/bookmark.svg'
-import keyboardIconSrc from '@/assets/keyboard.svg'
 
 // SVG icon component using asset (no JSX in .ts, use createElement)
 import { createElement } from 'react'
@@ -29,7 +28,6 @@ const PrivacyIcon = SvgIcon(privacyIconSrc)
 const NetworkIcon = SvgIcon(networkIconSrc)
 const AppearanceIcon = SvgIcon(appearanceIconSrc)
 const BookmarkIcon = SvgIcon(bookmarkIconSrc)
-const KeyboardIcon = SvgIcon(keyboardIconSrc)
 
 const isMac =
   ((navigator as Navigator & { userAgentData?: { platform?: string } }).userAgentData?.platform || navigator.platform)
@@ -46,16 +44,13 @@ const mod = (key: string): string => {
  */
 export const SECTIONS: SectionInfo[] = [
   { id: 'general', label: 'General', icon: Globe },
-  { id: 'network', label: 'Network', icon: NetworkIcon },
-  { id: 'storage', label: 'Storage', icon: HardDrive },
-  { id: 'appearance', label: 'Appearance', icon: AppearanceIcon },
   { id: 'privacy', label: 'Privacy', icon: PrivacyIcon },
-  { id: 'content-filtering', label: 'Content Filtering', icon: Shield },
-  { id: 'history', label: 'History', icon: HistoryIcon },
-  { id: 'shortcuts', label: 'Shortcuts', icon: KeyboardIcon },
-  { id: 'bookmarks', label: 'Bookmarks', icon: BookmarkIcon },
+  { id: 'appearance', label: 'Appearance', icon: AppearanceIcon },
   { id: 'wallet', label: 'Wallet', icon: WalletIcon },
   { id: 'bridge', label: 'Bridge', icon: Cable },
+  { id: 'storage', label: 'Storage', icon: HardDrive },
+  { id: 'bookmarks', label: 'Bookmarks', icon: BookmarkIcon },
+  { id: 'network', label: 'Network', icon: NetworkIcon },
   { id: 'advanced', label: 'Advanced', icon: Wrench },
   { id: 'about', label: 'About', icon: Info },
 ]

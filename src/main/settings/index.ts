@@ -50,7 +50,6 @@ export function getDefaultSettings(): AppSettings {
   return {
     general: {
       homepage: DEFAULT_SETTINGS.homepage,
-      restoreTabs: DEFAULT_SETTINGS.restoreTabs,
     },
     network: {
       proxyPort: DEFAULT_SETTINGS.proxyPort,

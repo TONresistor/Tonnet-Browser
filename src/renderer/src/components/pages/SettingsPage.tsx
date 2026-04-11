@@ -22,9 +22,6 @@ import { NetworkSection } from '@/components/settings/sections/NetworkSection'
 import { StorageSection } from '@/components/settings/sections/StorageSection'
 import { AppearanceSection } from '@/components/settings/sections/AppearanceSection'
 import { PrivacySection } from '@/components/settings/sections/PrivacySection'
-import { ContentFilteringSection } from '@/components/settings/sections/ContentFilteringSection'
-import { HistorySection } from '@/components/settings/sections/HistorySection'
-import { ShortcutsSection } from '@/components/settings/sections/ShortcutsSection'
 import { BookmarksSection } from '@/components/settings/sections/BookmarksSection'
 import { AdvancedSection } from '@/components/settings/sections/AdvancedSection'
 import { AboutSection } from '@/components/settings/sections/AboutSection'
@@ -63,7 +60,7 @@ export function SettingsPage() {
     discard,
     resetToDefaults,
   } = usePreferencesStore()
-  const { bookmarks, resetBookmarks } = useBookmarksStore()
+  const { bookmarks } = useBookmarksStore()
 
   const hasChanges = prefsHasChanges || walletDirty || bridgeDirty
 
@@ -103,21 +100,6 @@ export function SettingsPage() {
     } finally {
       setClearing(false)
     }
-  }
-
-  const handleExportBookmarks = () => {
-    const data = JSON.stringify(bookmarks, null, 2)
-    const blob = new Blob([data], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'ton-browser-bookmarks.json'
-    a.click()
-    URL.revokeObjectURL(url)
-  }
-
-  const handleResetBookmarks = () => {
-    resetBookmarks()
   }
 
   const handleResetAll = () => {
@@ -187,24 +169,13 @@ export function SettingsPage() {
 
       case 'privacy':
         return (
-          <PrivacySection
-            draft={draft}
-            setDraft={setDraft}
-            clearing={clearing}
-            cleared={cleared}
-            onClearData={handleClearData}
-          />
-        )
-
-      case 'content-filtering':
-        return <ContentFilteringSection draft={draft} setDraft={setDraft} />
-
-      case 'history':
-        return (
           <div>
-            <HistorySection
+            <PrivacySection
               draft={draft}
               setDraft={setDraft}
+              clearing={clearing}
+              cleared={cleared}
+              onClearData={handleClearData}
               changingHistoryMode={changingHistoryMode}
               onHistoryModeChange={handleHistoryModeChange}
             />
@@ -212,17 +183,8 @@ export function SettingsPage() {
           </div>
         )
 
-      case 'shortcuts':
-        return <ShortcutsSection />
-
       case 'bookmarks':
-        return (
-          <BookmarksSection
-            bookmarksCount={bookmarks.length}
-            onExport={handleExportBookmarks}
-            onReset={handleResetBookmarks}
-          />
-        )
+        return <BookmarksSection />
 
       case 'advanced':
         return (

@@ -154,7 +154,6 @@ export function getDefaultSettingsBase(): AppSettings {
   return {
     general: {
       homepage: d.homepage,
-      restoreTabs: d.restoreTabs,
     },
     network: {
       proxyPort: d.proxyPort,

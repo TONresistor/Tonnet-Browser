@@ -70,7 +70,7 @@
     "title": "常规",
     "description": "基本浏览器设置",
     "anonymousMode": "匿名模式",
-    "anonymousModeDesc": "通过三跳加密回路路由流量",
+    "anonymousModeDesc": "通过 TON 中继节点的多跳加密隧道路由 ADNL 流量",
     "enableAnonymousMode": "启用匿名模式",
     "homepage": "主页",
     "homepageDesc": "打开新标签页时显示的页面",

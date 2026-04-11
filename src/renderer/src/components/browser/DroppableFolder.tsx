@@ -28,7 +28,7 @@ export function DroppableFolder({ folder, onClick, onContextMenu }: DroppableFol
     isDragging,
   } = useSortable({
     id: folder.id,
-    data: { type: 'folder' },
+    data: { type: 'folder', folderId: folder.id },
   })
 
   // Also make it droppable (can receive bookmarks)

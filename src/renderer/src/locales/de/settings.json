@@ -70,7 +70,7 @@
     "title": "Allgemein",
     "description": "Grundlegende Browser-Einstellungen",
     "anonymousMode": "Anonymer Modus",
-    "anonymousModeDesc": "Datenverkehr durch 3-Hop-Schaltkreis leiten",
+    "anonymousModeDesc": "ADNL-Verkehr über einen verschlüsselten Multi-Hop-Tunnel über TON-Relay-Knoten leiten",
     "enableAnonymousMode": "Anonymen Modus aktivieren",
     "homepage": "Startseite",
     "homepageDesc": "Seite, die beim Öffnen eines neuen Tabs angezeigt wird",

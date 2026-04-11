@@ -70,7 +70,7 @@
     "title": "ทั่วไป",
     "description": "การตั้งค่าเบราว์เซอร์พื้นฐาน",
     "anonymousMode": "โหมดไม่เปิดเผยตัวตน",
-    "anonymousModeDesc": "ส่งทราฟฟิกผ่านวงจร 3 ฮอป",
+    "anonymousModeDesc": "ส่งทราฟฟิก ADNL ผ่านอุโมงค์เข้ารหัสหลายฮอปผ่านโหนดรีเลย์ TON",
     "enableAnonymousMode": "เปิดใช้โหมดไม่เปิดเผยตัวตน",
     "homepage": "หน้าแรก",
     "homepageDesc": "หน้าที่แสดงเมื่อเปิดแท็บใหม่",

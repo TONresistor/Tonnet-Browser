@@ -70,7 +70,7 @@
     "title": "General",
     "description": "Basic browser settings",
     "anonymousMode": "Anonymous mode",
-    "anonymousModeDesc": "Route traffic through 3-hop garlic circuit",
+    "anonymousModeDesc": "Route ADNL traffic through multi-hop encrypted tunnel via TON relay nodes",
     "enableAnonymousMode": "Enable anonymous mode",
     "homepage": "Homepage",
     "homepageDesc": "Page to show when opening a new tab",

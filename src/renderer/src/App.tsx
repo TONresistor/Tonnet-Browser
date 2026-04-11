@@ -16,6 +16,7 @@ import { StartPage } from '@/components/pages/StartPage'
 const StoragePage = lazy(() => import('@/components/pages/StoragePage').then((m) => ({ default: m.StoragePage })))
 const SettingsPage = lazy(() => import('@/components/pages/SettingsPage').then((m) => ({ default: m.SettingsPage })))
 const HistoryPage = lazy(() => import('@/components/pages/HistoryPage').then((m) => ({ default: m.HistoryPage })))
+const BookmarksPage = lazy(() => import('@/components/pages/BookmarksPage').then((m) => ({ default: m.BookmarksPage })))
 const WalletPage = lazy(() => import('@/components/pages/WalletPage'))
 const DnsPage = lazy(() => import('@/components/pages/DnsPage'))
 import { useBrowserStore } from '@/stores/browser'
@@ -149,6 +150,7 @@ function App() {
         import('@/components/pages/SettingsPage')
         import('@/components/pages/StoragePage')
         import('@/components/pages/HistoryPage')
+        import('@/components/pages/BookmarksPage')
         import('@/components/pages/WalletPage')
         import('@/components/pages/DnsPage')
       })
@@ -190,6 +192,8 @@ function App() {
         return <SettingsPage key={`settings-${activeTabId}`} />
       case 'history':
         return <HistoryPage />
+      case 'bookmarks':
+        return <BookmarksPage />
       case 'wallet':
         return <WalletPage />
       case 'dns':

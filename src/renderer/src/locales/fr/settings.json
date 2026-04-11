@@ -70,7 +70,7 @@
     "title": "Général",
     "description": "Configuration de base du navigateur",
     "anonymousMode": "Mode anonyme",
-    "anonymousModeDesc": "Acheminer le trafic via un circuit à 3 sauts",
+    "anonymousModeDesc": "Acheminer le trafic ADNL via un tunnel chiffré multi-saut à travers les relais TON",
     "enableAnonymousMode": "Activer le mode anonyme",
     "homepage": "Page d'accueil",
     "homepageDesc": "Page à afficher lors de l'ouverture d'un nouvel onglet",

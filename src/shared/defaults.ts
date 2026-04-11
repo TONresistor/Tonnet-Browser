@@ -16,7 +16,6 @@ export type ThemeType = BuiltInTheme | `custom:${string}`
 export const DEFAULT_SETTINGS = {
   // General
   homepage: 'ton://start',
-  restoreTabs: false,
 
   // Network
   proxyPort: 8080,
@@ -50,7 +49,7 @@ export const DEFAULT_SETTINGS = {
   cookieAutoDelete: true, // Auto-delete cookies after inactivity (Tier A)
   cookieAutoDeleteMinutes: 30, // Minutes of inactivity before auto-delete
   historyMode: 'memory' as const, // History mode: 'memory' (RAM only) | 'persistent' (auto-encrypted disk)
-  historyMaxEntries: 1000, // Maximum history entries
+  historyMaxEntries: 100, // Maximum history entries
 
   // Content Filtering
   contentFiltering: {

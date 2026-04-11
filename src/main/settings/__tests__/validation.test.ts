@@ -354,11 +354,6 @@ describe('getDefaultSettingsBase', () => {
       const defaults = getDefaultSettingsBase()
       expect(defaults.general.homepage).toBe('ton://start')
     })
-
-    it('has correct restoreTabs default', () => {
-      const defaults = getDefaultSettingsBase()
-      expect(defaults.general.restoreTabs).toBe(false)
-    })
   })
 
   describe('network settings defaults', () => {

@@ -70,7 +70,7 @@
     "title": "General",
     "description": "Configuración básica del navegador",
     "anonymousMode": "Modo anónimo",
-    "anonymousModeDesc": "Enrutar el tráfico a través de un circuito de 3 saltos",
+    "anonymousModeDesc": "Enrutar tráfico ADNL a través de un túnel cifrado multi-salto vía nodos relay TON",
     "enableAnonymousMode": "Activar modo anónimo",
     "homepage": "Página de inicio",
     "homepageDesc": "Página a mostrar al abrir una nueva pestaña",

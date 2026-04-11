@@ -70,7 +70,7 @@
     "title": "Umum",
     "description": "Pengaturan peramban dasar",
     "anonymousMode": "Mode anonim",
-    "anonymousModeDesc": "Rutekan lalu lintas melalui sirkuit 3-hop",
+    "anonymousModeDesc": "Rutekan lalu lintas ADNL melalui tunnel terenkripsi multi-hop via node relay TON",
     "enableAnonymousMode": "Aktifkan mode anonim",
     "homepage": "Halaman beranda",
     "homepageDesc": "Halaman yang ditampilkan saat membuka tab baru",

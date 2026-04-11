@@ -9,7 +9,6 @@ import { z } from 'zod'
 
 export const GeneralSettingsSchema = z.object({
   homepage: z.string().default('ton://start'),
-  restoreTabs: z.boolean().default(false),
 })
 
 export const NetworkSettingsSchema = z.object({
@@ -90,7 +89,7 @@ export const PrivacySettingsSchema = z.object({
   cookieAutoDelete: z.boolean().default(true),
   cookieAutoDeleteMinutes: z.number().min(1).max(1440).default(30),
   historyMode: z.enum(['memory', 'persistent']).default('memory'),
-  historyMaxEntries: z.number().min(100).max(100000).default(1000),
+  historyMaxEntries: z.number().min(100).max(100000).default(100),
 })
 
 export const ContentFilteringSettingsSchema = z.object({
@@ -200,7 +199,6 @@ export const AppSettingsSchema = z.object({
 export const GeneralSettingsPartialSchema = z
   .object({
     homepage: z.string(),
-    restoreTabs: z.boolean(),
   })
   .partial()
 

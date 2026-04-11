@@ -16,7 +16,6 @@ export type { ThemeType }
 export interface AppPreferences {
   // General
   homepage: string
-  restoreTabs: boolean
 
   // Network
   proxyPort: number
@@ -86,7 +85,6 @@ interface PreferencesState {
 export const defaultPreferences: AppPreferences = {
   // General
   homepage: DEFAULT_SETTINGS.homepage,
-  restoreTabs: DEFAULT_SETTINGS.restoreTabs,
 
   // Network
   proxyPort: DEFAULT_SETTINGS.proxyPort,
@@ -138,7 +136,6 @@ export const defaultPreferences: AppPreferences = {
 // Map flat preferences to categorized main process structure
 const prefToCategory: Record<keyof AppPreferences, { category: string; field: string }> = {
   homepage: { category: 'general', field: 'homepage' },
-  restoreTabs: { category: 'general', field: 'restoreTabs' },
   proxyPort: { category: 'network', field: 'proxyPort' },
   storagePort: { category: 'network', field: 'storagePort' },
   autoConnect: { category: 'network', field: 'autoConnect' },
@@ -179,7 +176,6 @@ const prefToCategory: Record<keyof AppPreferences, { category: string; field: st
 function mainSettingsToPrefs(settings: AppSettings): AppPreferences {
   return {
     homepage: settings.general?.homepage ?? defaultPreferences.homepage,
-    restoreTabs: settings.general?.restoreTabs ?? defaultPreferences.restoreTabs,
     proxyPort: settings.network?.proxyPort ?? defaultPreferences.proxyPort,
     storagePort: settings.network?.storagePort ?? defaultPreferences.storagePort,
     autoConnect: settings.network?.autoConnect ?? defaultPreferences.autoConnect,

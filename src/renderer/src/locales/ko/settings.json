@@ -70,7 +70,7 @@
     "title": "일반",
     "description": "브라우저 기본 설정",
     "anonymousMode": "익명 모드",
-    "anonymousModeDesc": "3홉 회로를 통해 트래픽 라우팅",
+    "anonymousModeDesc": "TON 릴레이 노드를 통한 다중 홉 암호화 터널로 ADNL 트래픽 라우팅",
     "enableAnonymousMode": "익명 모드 활성화",
     "homepage": "홈페이지",
     "homepageDesc": "새 탭을 열 때 표시할 페이지",
