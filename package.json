@@ -46,7 +46,7 @@
     "electron-updater": "^6.6.2",
     "i18next": "^26.0.4",
     "lottie-react": "^2.4.1",
-    "lucide-react": "^0.577.0",
+    "lucide-react": "^1.8.0",
     "qrcode": "1.5.4",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
