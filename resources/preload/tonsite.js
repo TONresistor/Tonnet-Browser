@@ -168,6 +168,22 @@
       }
     };
     patchedFunctions.set(WebGLRenderingContext.prototype.readPixels, 'readPixels');
+
+    // WebGL2: noise readPixels (same as WebGL1)
+    if (window.WebGL2RenderingContext) {
+      const originalReadPixels2 = WebGL2RenderingContext.prototype.readPixels;
+      WebGL2RenderingContext.prototype.readPixels = function(...args) {
+        originalReadPixels2.apply(this, args);
+        var pixels = args[6];
+        if (pixels) {
+          for (var i = 0; i < pixels.length; i++) {
+            var noise = ((sessionSeed * (i % 233)) % 3) - 1;
+            pixels[i] = Math.max(0, Math.min(255, pixels[i] + noise));
+          }
+        }
+      };
+      patchedFunctions.set(WebGL2RenderingContext.prototype.readPixels, 'readPixels');
+    }
   });
 
   // === AUDIOCONTEXT FINGERPRINT PROTECTION ===
@@ -383,14 +399,16 @@
   });
 
   // === FONT FINGERPRINTING PROTECTION ===
+  // Shared font whitelist (used by both JS API filter and CSS enumeration protection)
+  const ALLOWED_FONTS = [
+    'Arial', 'Arial Black', 'Comic Sans MS', 'Courier New', 'Georgia',
+    'Impact', 'Times New Roman', 'Trebuchet MS', 'Verdana',
+    'Helvetica', 'Helvetica Neue', 'Lucida Console', 'Lucida Sans Unicode',
+    'Palatino Linotype', 'Tahoma', 'serif', 'sans-serif', 'monospace',
+    'cursive', 'fantasy', 'system-ui', '-apple-system', 'BlinkMacSystemFont'
+  ];
+
   protect('FontFingerprint', () => {
-    const ALLOWED_FONTS = [
-      'Arial', 'Arial Black', 'Comic Sans MS', 'Courier New', 'Georgia',
-      'Impact', 'Times New Roman', 'Trebuchet MS', 'Verdana',
-      'Helvetica', 'Helvetica Neue', 'Lucida Console', 'Lucida Sans Unicode',
-      'Palatino Linotype', 'Tahoma', 'serif', 'sans-serif', 'monospace',
-      'cursive', 'fantasy', 'system-ui', '-apple-system', 'BlinkMacSystemFont'
-    ];
 
     if (document.fonts) {
       const originalCheck = document.fonts.check.bind(document.fonts);
@@ -426,6 +444,82 @@
         configurable: true
       });
     }
+  });
+
+  // === OFFSCREENCANVAS FINGERPRINT PROTECTION ===
+  protect('OffscreenCanvasFingerprint', () => {
+    if (typeof OffscreenCanvas !== 'undefined') {
+      var origGetContext = OffscreenCanvas.prototype.getContext;
+      OffscreenCanvas.prototype.getContext = function(type) {
+        var ctx = origGetContext.apply(this, arguments);
+        if (ctx && type === '2d') {
+          var origGetImageData = ctx.getImageData;
+          ctx.getImageData = function() {
+            var imageData = origGetImageData.apply(this, arguments);
+            imageData.data.set(noisifyCanvasData(imageData.data, arguments[2], arguments[3]));
+            return imageData;
+          };
+          patchedFunctions.set(ctx.getImageData, 'getImageData');
+        }
+        return ctx;
+      };
+      patchedFunctions.set(OffscreenCanvas.prototype.getContext, 'getContext');
+    }
+  });
+
+  // === CSS FONT ENUMERATION PROTECTION ===
+  protect('CSSFontEnumeration', () => {
+    var ALLOWED_SET = new Set(ALLOWED_FONTS.map(function(f) { return f.toLowerCase(); }));
+    var GENERIC_FAMILIES = ['serif', 'sans-serif', 'monospace', 'cursive', 'fantasy', 'system-ui', '-apple-system', 'blinkmacsystemfont'];
+
+    // Check if element uses only allowed fonts via computed style
+    var usesAllowedFonts = function(el) {
+      try {
+        var computed = getComputedStyle(el).fontFamily;
+        var families = computed.split(',');
+        for (var i = 0; i < families.length; i++) {
+          var f = families[i].trim().replace(/['"]/g, '').toLowerCase();
+          if (!ALLOWED_SET.has(f) && GENERIC_FAMILIES.indexOf(f) === -1) return false;
+        }
+        return true;
+      } catch(e) { return true; }
+    };
+
+    // Bucket dimensions to 8px grid for non-allowed fonts
+    var origOffsetWidth = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetWidth');
+    var origOffsetHeight = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetHeight');
+
+    if (origOffsetWidth) {
+      Object.defineProperty(HTMLElement.prototype, 'offsetWidth', {
+        get: function() {
+          var w = origOffsetWidth.get.call(this);
+          if (!usesAllowedFonts(this)) return Math.round(w / 8) * 8;
+          return w;
+        },
+        configurable: true
+      });
+    }
+
+    if (origOffsetHeight) {
+      Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
+        get: function() {
+          var h = origOffsetHeight.get.call(this);
+          if (!usesAllowedFonts(this)) return Math.round(h / 8) * 8;
+          return h;
+        },
+        configurable: true
+      });
+    }
+
+    var origGetBCR = Element.prototype.getBoundingClientRect;
+    Element.prototype.getBoundingClientRect = function() {
+      var rect = origGetBCR.call(this);
+      if (!usesAllowedFonts(this)) {
+        return new DOMRect(rect.x, rect.y, Math.round(rect.width / 8) * 8, Math.round(rect.height / 8) * 8);
+      }
+      return rect;
+    };
+    patchedFunctions.set(Element.prototype.getBoundingClientRect, 'getBoundingClientRect');
   });
 
   // === VIEWPORT DIMENSION SPOOFING ===

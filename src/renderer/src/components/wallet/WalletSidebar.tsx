@@ -74,6 +74,15 @@ export function WalletSidebar({ onClose }: WalletSidebarProps) {
     }
   }, [newMnemonic])
 
+  // Wipe mnemonic on component unmount
+  useEffect(() => {
+    return () => {
+      setNewMnemonic(null)
+      setBackupAcknowledged(false)
+      setMnemonicRevealed(false)
+    }
+  }, [])
+
   useEffect(() => {
     init()
     loadHistory()

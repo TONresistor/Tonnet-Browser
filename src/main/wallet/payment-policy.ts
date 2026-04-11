@@ -31,13 +31,19 @@ interface RateLimitEntry {
 }
 
 /**
- * Normalize a hostname to its second-level .ton domain.
- * e.g. sub.boards.ton -> boards.ton, mysite.ton -> mysite.ton
+ * Normalize a hostname to its second-level domain.
+ * Ensures subdomains share the same spending bucket as their parent.
+ * e.g. sub.boards.ton -> boards.ton, api.evil.com -> evil.com, localhost -> localhost
+ * IP addresses are returned as-is to avoid collisions (127.0.0.1 must not become 0.1).
  */
 export function normalizeToSecondLevel(hostname: string): string {
   const host = hostname.replace(/^https?:\/\//, '').split('/')[0]
+  // IP addresses: return as-is (IPv4 dotted quad or IPv6 bracket notation)
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(host) || host.startsWith('[')) {
+    return host
+  }
   const parts = host.split('.')
-  if (parts.length >= 2 && parts[parts.length - 1] === 'ton') {
+  if (parts.length >= 2) {
     return parts.slice(-2).join('.')
   }
   return host
@@ -197,7 +203,7 @@ export class PaymentPolicyStore {
 
     const normalized = normalizeToSecondLevel(domain)
     const now = Date.now()
-    const reservationId = `${normalized}:${now}:${Math.random().toString(36).slice(2, 8)}`
+    const reservationId = `${normalized}:${now}:${crypto.randomUUID()}`
     const record: SpendingRecord = { amount, timestamp: now }
 
     const records = this.spending.get(normalized) || []

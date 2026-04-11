@@ -108,7 +108,12 @@ app.commandLine.appendSwitch('force-webrtc-ip-handling-policy')
 // Privacy: Prevent DNS leaks outside proxy and disable speculative features
 app.commandLine.appendSwitch('host-resolver-rules', 'MAP * ~NOTFOUND, EXCLUDE 127.0.0.1, EXCLUDE localhost')
 app.commandLine.appendSwitch('dns-prefetch-disable')
-app.commandLine.appendSwitch('disable-features', 'IdleDetection,DirectSockets,WebOTP,DigitalGoods,WebPayments')
+app.commandLine.appendSwitch('disable-background-networking')
+app.commandLine.appendSwitch('no-pings')
+app.commandLine.appendSwitch(
+  'disable-features',
+  'IdleDetection,DirectSockets,WebOTP,DigitalGoods,WebPayments,HttpsUpgrades,NetworkPrediction'
+)
 
 // Window bounds persistence
 interface WindowBounds {

@@ -26,6 +26,29 @@ export function setSessionDeps(deps: SessionDeps): void {
   sessionDeps = deps
 }
 
+function isLoopbackHost(hostname: string): boolean {
+  const h = hostname.toLowerCase().replace(/^\[|\]$/g, '')
+
+  // localhost and subdomains
+  if (h === 'localhost' || h.endsWith('.localhost')) return true
+
+  // IPv6 loopback
+  if (h === '::1' || h === '::') return true
+
+  // 0.0.0.0
+  if (h === '0.0.0.0') return true
+
+  // IPv4: check the full 127.0.0.0/8 range and 0.0.0.0/8
+  const ipv4Match = h.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/)
+  if (ipv4Match) {
+    const first = parseInt(ipv4Match[1], 10)
+    if (first === 127) return true
+    if (first === 0) return true
+  }
+
+  return false
+}
+
 export async function createTonSession(proxyPort: number, partitionName: string = SESSION_PARTITION) {
   if (!sessionDeps) throw new Error('Session dependencies not initialized. Call setSessionDeps() first.')
   const { contentFilterManager, paymentInterceptor } = sessionDeps
@@ -55,11 +78,16 @@ export async function createTonSession(proxyPort: number, partitionName: string 
   ses.webRequest.onBeforeRequest((details, callback) => {
     const { url, resourceType } = details
 
-    // Block direct WS connections to bridge (force tonsites to use window.tonBridge)
-    if (/^wss?:\/\/(\[?::1\]?|127\.0\.0\.1|0\.0\.0\.0|localhost)(:\d+)?(\/|$)/.test(url)) {
-      log.info(`Blocked direct WS to bridge: ${url}`)
-      callback({ cancel: true })
-      return
+    // Block ALL requests to loopback addresses (SSRF protection)
+    try {
+      const parsed = new URL(url)
+      if (isLoopbackHost(parsed.hostname)) {
+        log.info(`Blocked request to loopback: ${url}`)
+        callback({ cancel: true })
+        return
+      }
+    } catch {
+      // Invalid URL, fall through to content filter
     }
 
     // Check if request should be blocked by content filter
@@ -102,13 +130,16 @@ export async function createTonSession(proxyPort: number, partitionName: string 
   // Register 402 payment interceptor on this session
   paymentInterceptor.registerOnSession(ses)
 
-  // Privacy: Enforce no-referrer policy and strip ETag from responses
+  // Privacy: Enforce no-referrer policy, strip ETag, and add CSP
   ses.webRequest.onHeadersReceived((details, callback) => {
     const headers = { ...details.responseHeaders }
     headers['Referrer-Policy'] = ['no-referrer']
     // Strip ETag to prevent tracking identifiers
     delete headers['ETag']
     delete headers['etag']
+    // CSP: block object embeds, base-uri hijacking, and clickjacking
+    // Intentionally does NOT restrict script-src/default-src to avoid breaking .ton sites
+    headers['Content-Security-Policy'] = ["object-src 'none'; base-uri 'none'; frame-ancestors 'none'"]
     callback({ responseHeaders: headers })
   })
 

@@ -41,7 +41,8 @@ export const SendForm = memo(function SendForm({ onSend, isSending, error, balan
 
   const toValid = isValidTonAddress(to)
   const amountValid = isValidAmount(amount)
-  const canProceed = toValid && amountValid
+  const exceedsBalance = amountValid && BigInt(tonToNano(amount)) > BigInt(balance || '0')
+  const canProceed = toValid && amountValid && !exceedsBalance
 
   const handleMax = () => {
     const balanceBig = BigInt(balance || '0')
@@ -179,6 +180,7 @@ export const SendForm = memo(function SendForm({ onSend, isSending, error, balan
           </div>
         </div>
         {amount && !amountValid && <p className="text-xs text-destructive">{t('send.invalidAmount')}</p>}
+        {exceedsBalance && <p className="text-xs text-destructive">{t('send.insufficientBalance')}</p>}
         <p className="text-xs text-muted-foreground">{t('send.feeNote', { fee: '~0.01' })}</p>
       </div>
 

@@ -34,6 +34,7 @@ export class WalletManager extends EventEmitter {
   private initialized: boolean = false
   private decryptFailed: boolean = false
   private weakEncryption: boolean = false
+  private signLock: Promise<void> = Promise.resolve()
 
   constructor(secureStorage?: ISecureStorage) {
     super()
@@ -55,7 +56,7 @@ export class WalletManager extends EventEmitter {
         this.keypair = await this.keyStorage.load()
         this.publicKey = Buffer.from(this.keypair.publicKey)
         this.walletContract = WalletContractV5R1.create({ publicKey: this.keypair.publicKey, workchain: 0 })
-        await this.getBalance().catch((e) => log.error('Initial balance fetch failed:', e))
+        await this.warmupLiteserverPool()
         await this.syncSeqno()
         this.subscribeAccount()
         const walletSettings = getSetting('wallet')
@@ -224,6 +225,29 @@ export class WalletManager extends EventEmitter {
   }
 
   /**
+   * Retry getBalance until the wallet's shard liteserver responds.
+   * The WS transport probe (getMasterchainInfo) validates the masterchain
+   * connection but the wallet lives on a specific shard that may need a
+   * separate ADNL handshake. Retrying getBalance warms up that path.
+   */
+  private async warmupLiteserverPool(): Promise<void> {
+    const MAX_ATTEMPTS = 10
+    const BASE_DELAY = 500
+    for (let i = 0; i < MAX_ATTEMPTS; i++) {
+      try {
+        await this.getBalance()
+        return
+      } catch {
+        if (i < MAX_ATTEMPTS - 1) {
+          const delay = Math.min(BASE_DELAY * Math.pow(2, i), 5_000)
+          await new Promise((r) => setTimeout(r, delay))
+        }
+      }
+    }
+    log.warn('Liteserver pool warmup: shard did not respond, proceeding with cached balance')
+  }
+
+  /**
    * Fetch current balance from the network.
    */
   async getBalance(): Promise<string> {
@@ -254,9 +278,9 @@ export class WalletManager extends EventEmitter {
       const rawTxs = await this.wsBridge.getTransactions(this.walletContract.address.toString(), limit)
 
       return rawTxs
-        .map((tx: any) => {
+        .map((tx) => {
           const inMsg = tx.in_msg
-          const outMsgs: any[] = tx.out_msgs ?? []
+          const outMsgs = tx.out_msgs ?? []
 
           let type: 'send' | 'receive' = 'receive'
           let amount = '0'
@@ -359,7 +383,22 @@ export class WalletManager extends EventEmitter {
     return await this.wsBridge.resolveDomain(domain)
   }
 
-  private async buildBoc(
+  private buildBoc(
+    to: Address,
+    amount: bigint,
+    maxTimeout: number
+  ): Promise<{ boc: string; seqno: number; validUntil: number }> {
+    // Serialize signing through a promise chain to prevent concurrent
+    // calls from reading the same localSeqno before it is incremented.
+    const result = this.signLock.then(() => this._buildBocInner(to, amount, maxTimeout))
+    this.signLock = result.then(
+      () => {},
+      () => {}
+    )
+    return result
+  }
+
+  private async _buildBocInner(
     to: Address,
     amount: bigint,
     maxTimeout: number

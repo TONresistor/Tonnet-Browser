@@ -28,6 +28,7 @@
     "error": "ธุรกรรมล้มเหลว",
     "invalidAddress": "ที่อยู่ TON ไม่ถูกต้อง",
     "invalidAmount": "จำนวนไม่ถูกต้อง",
+    "insufficientBalance": "ยอดเงินไม่เพียงพอ",
     "max": "สูงสุด",
     "estimatedFee": "~0.01 TON"
   },

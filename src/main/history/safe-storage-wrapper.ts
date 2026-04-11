@@ -22,7 +22,7 @@ export class SafeStorageWrapper {
     this.storage = storage
     const dir = basePath ?? app.getPath('userData')
     this.filePath = join(dir, `${name}.dat`)
-    log.info(`Storage path: ${this.filePath}`)
+    log.debug(`Storage path: ${this.filePath}`)
   }
 
   /**
@@ -55,7 +55,7 @@ export class SafeStorageWrapper {
       // Prepend the SENC marker so the read path can detect the format
       const markedBuffer = Buffer.concat([ENCRYPTED_MARKER, encrypted])
       await fs.writeFile(this.filePath, markedBuffer)
-      log.info(`Wrote ${markedBuffer.length} encrypted bytes (with SENC marker)`)
+      log.debug(`Wrote ${markedBuffer.length} encrypted bytes (with SENC marker)`)
     } catch (error) {
       log.error('Failed to write:', error)
       throw error
@@ -79,14 +79,8 @@ export class SafeStorageWrapper {
           const decrypted = this.storage.decrypt(buffer.subarray(4))
           return JSON.parse(decrypted)
         } catch (decryptError) {
-          // Defense in depth: if decryption fails, attempt to parse as plaintext
-          log.warn('SENC-marked file failed to decrypt, trying plaintext:', decryptError)
-          try {
-            return JSON.parse(buffer.subarray(4).toString('utf-8'))
-          } catch {
-            log.error('SENC-marked file could not be read as plaintext either')
-            return null
-          }
+          log.error('SENC-marked file failed to decrypt, treating as corrupt:', decryptError)
+          return null
         }
       }
 

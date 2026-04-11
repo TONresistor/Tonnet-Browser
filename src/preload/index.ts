@@ -214,19 +214,9 @@ const electronAPI = {
 
   // Remove a specific listener for a channel.
   // Pass the same callback reference used in on() to remove only that listener.
-  // Omitting callback removes all listeners for the channel (deprecated — prefer the unsubscribe
-  // function returned by on() instead).
-  off: (channel: string, callback?: (...args: unknown[]) => void) => {
-    // Security: Only allow removing listeners for whitelisted channels
+  off: (channel: string, callback: (...args: unknown[]) => void) => {
     if (!VALID_EVENT_CHANNELS.includes(channel)) return
-    if (callback) {
-      ipcRenderer.removeListener(channel, callback)
-    } else {
-      console.warn(
-        `[preload] off('${channel}') without a callback removes ALL listeners. Use the unsubscribe function returned by on() instead.`
-      )
-      ipcRenderer.removeAllListeners(channel)
-    }
+    ipcRenderer.removeListener(channel, callback)
   },
 }
 

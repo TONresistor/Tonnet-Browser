@@ -28,6 +28,7 @@
     "error": "Transaction failed",
     "invalidAddress": "Invalid TON address",
     "invalidAmount": "Invalid amount",
+    "insufficientBalance": "Insufficient balance",
     "max": "Max",
     "estimatedFee": "~0.01 TON"
   },

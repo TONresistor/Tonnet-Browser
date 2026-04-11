@@ -28,6 +28,7 @@
     "error": "交易失败",
     "invalidAddress": "无效的 TON 地址",
     "invalidAmount": "无效的金额",
+    "insufficientBalance": "余额不足",
     "max": "最大",
     "estimatedFee": "~0.01 TON"
   },

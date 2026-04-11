@@ -136,6 +136,38 @@ export const NAMESPACE_DESCRIPTIONS: Record<NamespaceKey, string> = {
   subscribe_trace: 'Deep transaction trace subscriptions',
 }
 
+// --- Default namespace state ---
+// Principle of least privilege: only enable namespaces the browser actively uses.
+// Required: used by WsBridgeClient for core wallet/DNS operations.
+// Optional: disabled by default, users can enable via Settings > Bridge for dApp use.
+//
+// Usage map (2026-04-07 audit):
+//   lite:            5 internal methods (getAccountState, sendMessage, getTransactions, sendAndWatch, runMethod)
+//   subscribe:       3 internal methods (accountState, transactions, unsubscribe)
+//   wallet:          1 internal method  (getSeqno)
+//   dns:             1 internal method  (resolve)
+//   adnl/overlay/dht: dApp passthrough only (p2p/write scope, permission-gated)
+//   jetton/nft/sbt/payment/network/subscribe_trace: no usage in codebase
+
+export const DEFAULT_NAMESPACE_STATE: Record<NamespaceKey, boolean> = {
+  // Required by browser internals
+  lite: true,
+  wallet: true,
+  subscribe: true,
+  dns: true,
+  // dApp-only: enable on demand via Settings > Bridge
+  adnl: false,
+  overlay: false,
+  dht: false,
+  // Unused: no method calls in codebase
+  subscribe_trace: false,
+  jetton: false,
+  nft: false,
+  sbt: false,
+  payment: false,
+  network: false,
+}
+
 // --- Helpers ---
 
 export function isNamespaceEnabled(config: BridgeConfig, ns: NamespaceKey): boolean {

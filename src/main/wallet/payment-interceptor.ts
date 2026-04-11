@@ -24,6 +24,9 @@ import type { PaymentRequirements, PaymentNotificationData, WalletTransaction } 
 import { createLogger } from '../../shared/logger'
 const log = createLogger('payment-interceptor')
 
+/** Maximum response body size for 402 payment responses (64 KB) */
+const MAX_RESPONSE_BODY = 65_536
+
 /** Stored context for a 402 interception */
 interface InterceptedRequest {
   url: string
@@ -177,6 +180,13 @@ export class PaymentInterceptor {
 
     if (response.status !== 402) {
       log.warn(`Re-fetch returned ${response.status} instead of 402, skipping`)
+      return
+    }
+
+    // Reject oversized responses before parsing
+    const contentLength = parseInt(response.headers?.get?.('content-length') ?? '0', 10)
+    if (contentLength > MAX_RESPONSE_BODY) {
+      log.error(`402 response body too large: ${contentLength} bytes`)
       return
     }
 
@@ -354,7 +364,7 @@ export class PaymentInterceptor {
         log.info(`402 payment completed for ${domain}`)
       } else {
         if (reservationId) this.paymentPolicyStore.rollbackPayment(reservationId)
-        const errorText = await retryResponse.text()
+        const errorText = await retryResponse.text().catch(() => 'read error')
         await this.walletHistoryManager.updateStatus(paymentId, 'failed')
 
         const notification: PaymentNotificationData = {

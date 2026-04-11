@@ -8,12 +8,17 @@ import { getIpcError } from '@/lib/ipc-utils'
 import type { WalletTransaction } from '@shared/types'
 
 export function formatTonAmount(nanoTon: string): string {
-  const ton = BigInt(nanoTon)
-  const whole = ton / 1000000000n
-  const frac = ton % 1000000000n
-  if (frac === 0n) return whole.toString()
-  const fracStr = frac.toString().padStart(9, '0').replace(/0+$/, '')
-  return `${whole}.${fracStr.slice(0, 4)}`
+  if (!nanoTon) return '0'
+  try {
+    const ton = BigInt(nanoTon)
+    const whole = ton / 1000000000n
+    const frac = ton % 1000000000n
+    if (frac === 0n) return whole.toString()
+    const fracStr = frac.toString().padStart(9, '0').replace(/0+$/, '')
+    return `${whole}.${fracStr.slice(0, 4)}`
+  } catch {
+    return '0'
+  }
 }
 
 export function tonToNano(ton: string): string {

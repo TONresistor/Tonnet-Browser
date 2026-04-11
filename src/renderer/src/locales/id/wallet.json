@@ -28,6 +28,7 @@
     "error": "Transaksi gagal",
     "invalidAddress": "Alamat TON tidak valid",
     "invalidAmount": "Jumlah tidak valid",
+    "insufficientBalance": "Saldo tidak cukup",
     "max": "Maks",
     "estimatedFee": "~0,01 TON"
   },

@@ -28,6 +28,7 @@
     "error": "거래 실패",
     "invalidAddress": "유효하지 않은 TON 주소",
     "invalidAmount": "유효하지 않은 금액",
+    "insufficientBalance": "잔액 부족",
     "max": "최대",
     "estimatedFee": "~0.01 TON"
   },

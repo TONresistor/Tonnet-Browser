@@ -16,6 +16,7 @@ import { randomBytes } from 'crypto'
 import { cpus } from 'os'
 import { DEFAULT_SETTINGS } from '../../shared/defaults'
 import { createLogger } from '../../shared/logger'
+import { DEFAULT_NAMESPACE_STATE, REQUIRED_NAMESPACES } from '../../shared/bridge-config'
 const log = createLogger('proxy')
 
 export type ProxyStatus = 'stopped' | 'starting' | 'syncing' | 'connected'
@@ -166,6 +167,7 @@ export class ProxyManager extends EventEmitter {
   private async startBridge(): Promise<void> {
     const bridgeBinPath = getBinaryPath('tonutils-bridge')
     const bridgeWorkDir = this.getBridgeWorkDir()
+    this.applyBridgeDefaults(bridgeWorkDir)
     const bridgeArgs = ['-addr', `127.0.0.1:${this.wsPort}`, '-data-dir', bridgeWorkDir, '-verbosity', '2']
 
     log.info(`Starting bridge from: ${bridgeBinPath}`)
@@ -195,6 +197,7 @@ export class ProxyManager extends EventEmitter {
     this.bridgeProcess.on('exit', (code) => {
       log.info(`Bridge exited with code: ${code}`)
       this.bridgeProcess = null
+      this.setStatus('stopped')
       this.emit('exit', code)
     })
 
@@ -204,38 +207,38 @@ export class ProxyManager extends EventEmitter {
     })
   }
 
-  private async stopRunningProcesses(): Promise<void> {
-    const killProcess = (proc: ChildProcess): Promise<void> => {
-      return new Promise((resolve) => {
-        proc.stdout?.removeAllListeners()
-        proc.stderr?.removeAllListeners()
-        proc.removeAllListeners()
-        const forceKill = setTimeout(() => {
-          try {
-            proc.kill('SIGKILL')
-          } catch {
-            /* process already dead */
-          }
-          resolve()
-        }, 5000)
-        proc.once('exit', () => {
-          clearTimeout(forceKill)
-          resolve()
-        })
-        proc.kill('SIGTERM')
+  private killProcess(proc: ChildProcess): Promise<void> {
+    return new Promise((resolve) => {
+      proc.stdout?.removeAllListeners()
+      proc.stderr?.removeAllListeners()
+      proc.removeAllListeners()
+      const forceKill = setTimeout(() => {
+        try {
+          proc.kill('SIGKILL')
+        } catch {
+          /* process already dead */
+        }
+        resolve()
+      }, 5000)
+      proc.once('exit', () => {
+        clearTimeout(forceKill)
+        resolve()
       })
-    }
+      proc.kill('SIGTERM')
+    })
+  }
 
+  private async stopRunningProcesses(): Promise<void> {
     const promises: Promise<void>[] = []
     if (this.bridgeProcess) {
       const bridgeProc = this.bridgeProcess
       this.bridgeProcess = null
-      promises.push(killProcess(bridgeProc))
+      promises.push(this.killProcess(bridgeProc))
     }
     if (this.process) {
       const proxyProc = this.process
       this.process = null
-      promises.push(killProcess(proxyProc))
+      promises.push(this.killProcess(proxyProc))
     }
     await Promise.allSettled(promises)
   }
@@ -256,6 +259,57 @@ export class ProxyManager extends EventEmitter {
     return dir
   }
 
+  /**
+   * Apply browser namespace defaults to the bridge config.json.
+   * Runs once per install: disables unused namespaces (least privilege),
+   * preserves user overrides on subsequent launches via _browserDefaults flag.
+   * Required namespaces are always re-enforced regardless.
+   */
+  private applyBridgeDefaults(workDir: string): void {
+    const configPath = path.join(workDir, 'config.json')
+    if (!fs.existsSync(configPath)) return
+
+    try {
+      const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'))
+      if (config._browserDefaults) {
+        // Already applied, only enforce required namespaces
+        let changed = false
+        const ns = config.namespaces as Record<string, Record<string, unknown>> | undefined
+        if (ns) {
+          for (const required of REQUIRED_NAMESPACES) {
+            if (ns[required] && ns[required].enabled === false) {
+              ns[required].enabled = true
+              changed = true
+            }
+          }
+        }
+        if (changed) {
+          fs.writeFileSync(configPath, JSON.stringify(config, null, '\t'))
+          log.info('Re-enforced required bridge namespaces')
+        }
+        return
+      }
+
+      // First application: set namespace defaults
+      const ns = config.namespaces as Record<string, Record<string, unknown>> | undefined
+      if (ns) {
+        for (const [name, enabled] of Object.entries(DEFAULT_NAMESPACE_STATE)) {
+          if (!ns[name]) ns[name] = {}
+          ns[name].enabled = enabled
+        }
+      }
+      config._browserDefaults = true
+      fs.writeFileSync(configPath, JSON.stringify(config, null, '\t'))
+
+      const disabled = Object.entries(DEFAULT_NAMESPACE_STATE)
+        .filter(([, v]) => !v)
+        .map(([k]) => k)
+      log.info(`Bridge namespace defaults applied, disabled: ${disabled.join(', ')}`)
+    } catch (err) {
+      log.warn('Failed to apply bridge defaults:', err)
+    }
+  }
+
   private writeProxyConfig(workDir: string, tunnelEnabled: boolean): void {
     const configPath = path.join(workDir, 'config.json')
 
@@ -267,6 +321,7 @@ export class ProxyManager extends EventEmitter {
           existing.TunnelConfig.NodesPoolConfigPath = ''
           existing.TunnelConfig.TunnelSectionsNum = tunnelEnabled ? 2 : 0
         }
+        existing.BlockHTTP = true // always block cleartext HTTP
         fs.writeFileSync(configPath, JSON.stringify(existing, null, 2))
         log.info(`Proxy config updated: tunnel=${tunnelEnabled}`)
         return
@@ -281,6 +336,7 @@ export class ProxyManager extends EventEmitter {
     const config = {
       Version: 1,
       ADNLKey: generateKey(),
+      BlockHTTP: true,
       CustomTunnelNetworkConfigPath: '',
       TunnelConfig: {
         TunnelServerKey: generateKey(),
@@ -320,41 +376,18 @@ export class ProxyManager extends EventEmitter {
     log.info('Stopping proxy and bridge...')
     this.tunnelRoute = ''
 
-    const killProcess = (proc: ChildProcess): Promise<void> => {
-      return new Promise((resolve) => {
-        proc.stdout?.removeAllListeners()
-        proc.stderr?.removeAllListeners()
-        proc.removeAllListeners()
-
-        const forceKill = setTimeout(() => {
-          try {
-            proc.kill('SIGKILL')
-          } catch {
-            /* process already dead */
-          }
-          resolve()
-        }, 5000)
-
-        proc.once('exit', () => {
-          clearTimeout(forceKill)
-          resolve()
-        })
-        proc.kill('SIGTERM')
-      })
-    }
-
     const promises: Promise<void>[] = []
 
     if (this.bridgeProcess) {
       const bridgeProc = this.bridgeProcess
       this.bridgeProcess = null
-      promises.push(killProcess(bridgeProc))
+      promises.push(this.killProcess(bridgeProc))
     }
 
     if (this.process) {
       const proxyProc = this.process
       this.process = null
-      promises.push(killProcess(proxyProc))
+      promises.push(this.killProcess(proxyProc))
     }
 
     await Promise.allSettled(promises)

@@ -16,16 +16,24 @@ declare global {
       proxy: {
         connect: () => Promise<{
           success: boolean
+          status?: string
           connected?: boolean
           port?: number
+          wsPort?: number
+          anonymousMode?: boolean
+          circuitRelays?: string[]
           error?: string
         }>
         disconnect: () => Promise<{
           success: boolean
         }>
         status: () => Promise<{
+          status: string
           connected: boolean
           port: number
+          wsPort: number
+          anonymousMode: boolean
+          circuitRelays: string[]
         }>
       }
       tabs: {
@@ -116,8 +124,8 @@ declare global {
       showFolderMenu: (folderId: string, bookmarks: Array<{ id: string; title: string; url: string }>) => Promise<void>
       showFolderContextMenu: (folderId: string, folderName: string) => Promise<void>
       view: {
-        hide: () => Promise<void>
-        show: () => Promise<void>
+        hide: () => Promise<{ success: boolean }>
+        show: () => Promise<{ success: boolean }>
       }
       overlay: {
         show: (
@@ -222,10 +230,7 @@ declare global {
           newestEntry?: number
           isLocked: boolean
         }>
-        hasPersistentFile: () => Promise<{
-          success: boolean
-          exists?: boolean
-        }>
+        hasPersistentFile: () => Promise<boolean>
       }
       updater: {
         check: () => Promise<{
@@ -238,13 +243,13 @@ declare global {
         install: () => void
       }
       wallet: {
-        create: () => Promise<WalletState & { mnemonic?: string[] }>
+        create: () => Promise<WalletState & { mnemonic: string[] }>
         getState: () => Promise<WalletState>
         getBalance: () => Promise<string>
-        send: (to: string, amount: string) => Promise<{ success: boolean; txHash?: string; error?: string }>
+        send: (to: string, amount: string) => Promise<WalletTransaction>
         getHistory: (limit?: number) => Promise<WalletTransaction[]>
         clearHistory: () => Promise<{ success: boolean }>
-        exportKey: () => Promise<{ success: boolean; mnemonic?: string; error?: string }>
+        exportKey: () => Promise<{ publicKey: string; address: string; addressRaw: string }>
         approvePayment: (id: string) => Promise<{ success: boolean; error?: string }>
         rejectPayment: (id: string) => Promise<{ success: boolean }>
         importWallet: (mnemonic: string[]) => Promise<WalletState>
@@ -269,7 +274,7 @@ declare global {
         resolve(domain: string): Promise<import('../shared/types').DnsResolveResult>
       }
       on: (channel: string, callback: (...args: unknown[]) => void) => () => void
-      off: (channel: string, callback?: (...args: unknown[]) => void) => void
+      off: (channel: string, callback: (...args: unknown[]) => void) => void
     }
   }
 }

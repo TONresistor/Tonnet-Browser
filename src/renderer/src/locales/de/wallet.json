@@ -28,6 +28,7 @@
     "error": "Transaktion fehlgeschlagen",
     "invalidAddress": "Ungültige TON-Adresse",
     "invalidAmount": "Ungültiger Betrag",
+    "insufficientBalance": "Unzureichendes Guthaben",
     "max": "Max",
     "estimatedFee": "~0,01 TON"
   },

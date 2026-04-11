@@ -76,6 +76,15 @@ export function WalletPage() {
     }
   }, [newMnemonic])
 
+  // Wipe mnemonic on component unmount
+  useEffect(() => {
+    return () => {
+      setNewMnemonic(null)
+      setBackupAcknowledged(false)
+      setMnemonicRevealed(false)
+    }
+  }, [])
+
   const parseWords = (text: string): string[] =>
     text
       .trim()

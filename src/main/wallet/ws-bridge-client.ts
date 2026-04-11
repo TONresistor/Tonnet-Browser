@@ -15,6 +15,8 @@ const HEARTBEAT_INTERVAL_MS = 54_000
 const PONG_TIMEOUT_MS = 60_000
 const RECONNECT_BASE_MS = 1_000
 const RECONNECT_MAX_MS = 30_000
+const READINESS_PROBE_MAX_ATTEMPTS = 15
+const READINESS_PROBE_BASE_MS = 300
 
 // --- Bridge-specific types ---
 
@@ -414,14 +416,22 @@ export class WsBridgeClient {
       const url = `ws://127.0.0.1:${this.wsPort}`
       const ws = new WebSocket(url)
 
-      const onOpenOnce = () => {
+      const onOpenOnce = async () => {
         cleanup()
         this.ws = ws
-        this.connected = true
         this.connecting = false
         this.reconnectAttempt = 0
         this.setupListeners(ws)
         this.startHeartbeat()
+
+        // Probe the liteserver pool before marking the connection as ready.
+        // The bridge WS may accept connections before its liteserver pool
+        // has completed ADNL handshakes, causing "context deadline exceeded"
+        // on the first real requests. Polling getMasterchainInfo verifies
+        // end-to-end readiness.
+        await this.waitForPoolReady()
+
+        this.connected = true
         this.drainQueue()
         log.info(`Connected to bridge on port ${this.wsPort}`)
         resolve()
@@ -450,6 +460,27 @@ export class WsBridgeClient {
       ws.once('error', onErrorOnce)
       ws.once('close', onCloseOnce)
     })
+  }
+
+  /**
+   * Poll lite.getMasterchainInfo until the bridge liteserver pool responds.
+   * Uses exponential backoff (300ms, 600ms, 1.2s, ...) up to ~15 attempts.
+   * If the pool never warms up, proceed anyway and let callers handle errors.
+   */
+  private async waitForPoolReady(): Promise<void> {
+    for (let i = 0; i < READINESS_PROBE_MAX_ATTEMPTS; i++) {
+      try {
+        const id = String(++this.nextId)
+        const msg = JSON.stringify({ jsonrpc: '2.0', id, method: 'lite.getMasterchainInfo', params: {} })
+        await this.sendRequest(id, msg, 'lite.getMasterchainInfo')
+        log.info(`Bridge liteserver pool ready (probe ${i + 1})`)
+        return
+      } catch {
+        const delay = Math.min(READINESS_PROBE_BASE_MS * Math.pow(2, i), 5_000)
+        await new Promise((r) => setTimeout(r, delay))
+      }
+    }
+    log.warn('Bridge liteserver pool did not respond to readiness probes, proceeding anyway')
   }
 
   private setupListeners(ws: WebSocket): void {

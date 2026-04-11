@@ -28,6 +28,7 @@
     "error": "Транзакция не удалась",
     "invalidAddress": "Неверный адрес TON",
     "invalidAmount": "Неверная сумма",
+    "insufficientBalance": "Недостаточный баланс",
     "max": "Максимум",
     "estimatedFee": "~0,01 TON"
   },

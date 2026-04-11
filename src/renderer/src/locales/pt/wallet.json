@@ -28,6 +28,7 @@
     "error": "Transação falhou",
     "invalidAddress": "Endereço TON inválido",
     "invalidAmount": "Valor inválido",
+    "insufficientBalance": "Saldo insuficiente",
     "max": "Max",
     "estimatedFee": "~0,01 TON"
   },
