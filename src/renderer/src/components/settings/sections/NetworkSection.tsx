@@ -5,7 +5,6 @@
 import { memo } from 'react'
 import { SectionHeader } from '../shared/SectionHeader'
 import { SettingRow } from '../shared/SettingRow'
-import { Toggle } from '../shared/Toggle'
 import { NumberInput } from '../shared/NumberInput'
 import type { SectionProps } from '../types'
 import { useTranslation } from 'react-i18next'

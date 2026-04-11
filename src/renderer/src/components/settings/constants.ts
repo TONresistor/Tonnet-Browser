@@ -2,7 +2,7 @@
  * Constantes pour les composants Settings
  */
 
-import { Globe, HardDrive, History as HistoryIcon, Wrench, Info, Cable } from 'lucide-react'
+import { Globe, HardDrive, Wrench, Info, Cable } from 'lucide-react'
 import type { SectionInfo, Shortcut } from './types'
 import walletIconSrc from '@/assets/wallet.svg'
 import privacyIconSrc from '@/assets/privacy.svg'

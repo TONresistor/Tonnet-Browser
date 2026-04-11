@@ -9,7 +9,6 @@ import { UI_NOTIFICATION_TIMEOUT_MS, UI_ERROR_TIMEOUT_MS } from '@shared/constan
 import { usePreferencesStore } from '@/stores/preferences'
 
 const log = createLogger('settings')
-import { useBookmarksStore } from '@/stores/bookmarks'
 import { SettingsLayout } from '@/components/settings/SettingsLayout'
 import { SettingsSidebar } from '@/components/settings/SettingsSidebar'
 import { SettingsActions } from '@/components/settings/SettingsActions'
@@ -60,8 +59,6 @@ export function SettingsPage() {
     discard,
     resetToDefaults,
   } = usePreferencesStore()
-  const { bookmarks } = useBookmarksStore()
-
   const hasChanges = prefsHasChanges || walletDirty || bridgeDirty
 
   // Load settings on mount
