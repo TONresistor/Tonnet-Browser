@@ -131,7 +131,7 @@ export async function createTonSession(proxyPort: number, partitionName: string 
   paymentInterceptor.registerOnSession(ses)
 
   // Privacy: Enforce no-referrer policy, strip ETag, and add CSP
-  ses.webRequest.onHeadersReceived((details, callback) => {
+  ses.webRequest.onHeadersReceived({ urls: ['http://*/*', 'https://*/*'] }, (details, callback) => {
     const headers = { ...details.responseHeaders }
     headers['Referrer-Policy'] = ['no-referrer']
     // Strip ETag to prevent tracking identifiers
