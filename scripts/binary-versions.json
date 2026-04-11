@@ -4,21 +4,21 @@
     {
       "name": "tonutils-proxy",
       "repo": "TONresistor/Tonutils-Proxy",
-      "version": "v1.9.0",
+      "version": "v1.9.2",
       "entry_point": "./cmd/proxy-cli/",
       "ldflags": "-s -w -X main.GitCommit=${VERSION}"
     },
     {
       "name": "tonutils-bridge",
       "repo": "TONresistor/tonutils-bridge",
-      "version": "v0.1.0",
+      "version": "v0.2.0",
       "entry_point": ".",
       "ldflags": "-s -w"
     },
     {
       "name": "tonutils-storage",
       "repo": "xssnick/tonutils-storage",
-      "version": "v1.4.0",
+      "version": "v1.4.1",
       "entry_point": "./cli/",
       "ldflags": "-s -w"
     }
