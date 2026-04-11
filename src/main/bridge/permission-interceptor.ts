@@ -25,6 +25,7 @@ export class BridgePermissionInterceptor {
   private pendingPermissionByKey = new Map<string, Promise<boolean>>()
   private activeSenders = new Set<Electron.WebContents>()
   private subscribedSenders = new Set<Electron.WebContents>()
+  private senderDomains = new Map<Electron.WebContents, string>()
   private wsPort: number = DEFAULT_SETTINGS.wsPort
   private bridgePermissionStore: BridgePermissionStore
   private overlayManager: OverlayManager
@@ -48,12 +49,27 @@ export class BridgePermissionInterceptor {
     sendResponse: (data: string) => void,
     sender?: Electron.WebContents
   ): Promise<void> {
-    if (sender && !this.activeSenders.has(sender)) {
-      this.activeSenders.add(sender)
-      sender.once('destroyed', () => {
-        this.activeSenders.delete(sender)
-        this.subscribedSenders.delete(sender)
-      })
+    if (sender) {
+      this.senderDomains.set(sender, domain)
+      if (!this.activeSenders.has(sender)) {
+        this.activeSenders.add(sender)
+        sender.once('destroyed', () => {
+          const lastDomain = this.senderDomains.get(sender)
+          this.activeSenders.delete(sender)
+          this.subscribedSenders.delete(sender)
+          this.senderDomains.delete(sender)
+          if (lastDomain) {
+            const otherHasDomain = [...this.senderDomains.values()].includes(lastDomain)
+            if (!otherHasDomain) {
+              for (const scope of ['blockchain', 'p2p', 'write'] as BridgeScope[]) {
+                if (this.bridgePermissionStore.getPermission(lastDomain, scope) === 'session') {
+                  this.bridgePermissionStore.revokePermission(lastDomain, scope)
+                }
+              }
+            }
+          }
+        })
+      }
     }
 
     let parsed: { id?: string | number; method?: string; [key: string]: unknown }
@@ -275,6 +291,7 @@ export class BridgePermissionInterceptor {
       clearTimeout(pending.timer)
     }
     this.pendingRpc.clear()
+    this.senderDomains.clear()
 
     this.ws?.close()
     this.ws = null

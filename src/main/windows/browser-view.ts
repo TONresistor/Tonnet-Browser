@@ -36,10 +36,21 @@ function isLoopbackHost(hostname: string): boolean {
   if (h === '::1' || h === '::') return true
 
   // IPv6-mapped IPv4 loopback (::ffff:127.x.x.x or ::ffff:0.x.x.x)
-  const mappedMatch = h.match(/^::ffff:(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/)
-  if (mappedMatch) {
-    const first = parseInt(mappedMatch[1], 10)
-    if (first === 127 || first === 0) return true
+  // new URL('http://[::ffff:127.0.0.1]/').hostname returns '::ffff:7f00:1' (hex form)
+  if (h.startsWith('::ffff:')) {
+    const suffix = h.slice(7)
+    // Hex form (actual URL parser output): ::ffff:7f00:1, ::ffff:0:0
+    const hexMatch = suffix.match(/^([0-9a-f]{1,4}):([0-9a-f]{1,4})$/)
+    if (hexMatch) {
+      const high = parseInt(hexMatch[1], 16)
+      if (high >> 8 === 0x7f || high === 0) return true
+    }
+    // Dotted form (defense in depth): ::ffff:127.0.0.1
+    const dottedMatch = suffix.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/)
+    if (dottedMatch) {
+      const first = parseInt(dottedMatch[1], 10)
+      if (first === 127 || first === 0) return true
+    }
   }
 
   // 0.0.0.0
@@ -146,7 +157,9 @@ export async function createTonSession(proxyPort: number, partitionName: string 
     delete headers['etag']
     // CSP: block object embeds, base-uri hijacking, and clickjacking
     // Intentionally does NOT restrict script-src/default-src to avoid breaking .ton sites
-    headers['Content-Security-Policy'] = ["object-src 'none'; base-uri 'none'; frame-ancestors 'none'"]
+    headers['Content-Security-Policy'] = [
+      "script-src * 'unsafe-inline' 'unsafe-eval'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+    ]
     callback({ responseHeaders: headers })
   })
 

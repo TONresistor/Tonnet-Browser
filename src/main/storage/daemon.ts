@@ -5,6 +5,7 @@
 
 import { spawn, ChildProcess } from 'child_process'
 import { EventEmitter } from 'events'
+import { randomBytes } from 'crypto'
 import { getBinaryPath, getStoragePath, getConfigPath } from '../utils/paths'
 import { validatePort, validateVerbosity } from '../utils/validators'
 import { StorageHTTPClient, BagInfo } from './http-client'
@@ -68,19 +69,27 @@ export class StorageManager extends EventEmitter {
     const safeVerbosity = validateVerbosity(advanced.storageVerbosity)
     this.port = safePort
 
+    // Generate ephemeral auth credentials for this session
+    const apiLogin = randomBytes(16).toString('hex')
+    const apiPassword = randomBytes(32).toString('hex')
+
     log.info(`Starting tonutils-storage from: ${binPath}`)
     log.debug(`Config: ${configPath}`)
     log.debug(`DB: ${this.dbPath}`)
     log.debug(`API port: ${safePort}`)
     log.debug(`Verbosity: ${safeVerbosity}`)
 
-    // Start tonutils-storage in daemon mode with HTTP API
+    // Start tonutils-storage in daemon mode with HTTP API + auth
     this.process = spawn(
       binPath,
       [
         '-daemon',
         '-api',
         `127.0.0.1:${safePort}`,
+        '-api-login',
+        apiLogin,
+        '-api-password',
+        apiPassword,
         '-db',
         this.dbPath,
         '-network-config',
@@ -121,8 +130,8 @@ export class StorageManager extends EventEmitter {
       this.emit('error', err.message)
     })
 
-    // Create HTTP client
-    this.client = new StorageHTTPClient('127.0.0.1', this.port)
+    // Create HTTP client with same auth credentials
+    this.client = new StorageHTTPClient('127.0.0.1', this.port, { login: apiLogin, password: apiPassword })
 
     // Wait for API to be ready
     await this.waitForReady()
