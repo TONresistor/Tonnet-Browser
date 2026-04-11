@@ -304,7 +304,7 @@ export class WalletManager extends EventEmitter {
             type,
             amount,
             address: counterparty,
-            timestamp: (tx.utime ?? tx.now ?? 0) * 1000,
+            timestamp: (tx.utime ?? 0) * 1000,
             status: 'confirmed' as const,
             hash: tx.hash ?? '',
           }
