@@ -251,7 +251,13 @@ export class WsBridgeClient {
             }
           }
 
+          const confirmTimer = setTimeout(() => {
+            cleanup()
+            reject(new Error('Transaction confirmation timeout (120s)'))
+          }, 120_000)
+
           const cleanup = () => {
+            clearTimeout(confirmTimer)
             this.removeEventListener('tx_confirmed', onConfirmed)
             this.removeEventListener('tx_timeout', onTimeout)
             this.subscriptions.delete(subId)

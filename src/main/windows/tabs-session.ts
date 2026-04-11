@@ -161,6 +161,14 @@ export function cleanupDomainForTab(tabId: string): void {
   if (domain) {
     const domainStillInUse = [...tabDomains.values()].includes(domain)
     if (!domainStillInUse) {
+      const session = domainSessions.get(domain)
+      if (session) {
+        session
+          .clearStorageData({
+            storages: ['cookies', 'localstorage', 'indexdb', 'websql', 'serviceworkers'],
+          })
+          .catch((err) => log.error(`Failed to clear storage for ${domain}:`, err))
+      }
       domainSessions.delete(domain)
       domainActivity.delete(domain)
     }

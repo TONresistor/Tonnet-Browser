@@ -40,3 +40,6 @@ resources/bin/
 .claude/
 tonnet-demo/
 list.md
+
+# Security findings (never commit)
+.findings/

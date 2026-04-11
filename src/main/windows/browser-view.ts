@@ -35,6 +35,13 @@ function isLoopbackHost(hostname: string): boolean {
   // IPv6 loopback
   if (h === '::1' || h === '::') return true
 
+  // IPv6-mapped IPv4 loopback (::ffff:127.x.x.x or ::ffff:0.x.x.x)
+  const mappedMatch = h.match(/^::ffff:(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/)
+  if (mappedMatch) {
+    const first = parseInt(mappedMatch[1], 10)
+    if (first === 127 || first === 0) return true
+  }
+
   // 0.0.0.0
   if (h === '0.0.0.0') return true
 

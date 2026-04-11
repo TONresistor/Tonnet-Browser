@@ -117,7 +117,7 @@ export class PaymentPolicyStore {
     log.info('Stale payment policy entries cleaned up')
   }
 
-  destroy(): void {
+  async destroy(): Promise<void> {
     if (this.saveTimer) {
       clearTimeout(this.saveTimer)
       this.saveTimer = null
@@ -125,6 +125,16 @@ export class PaymentPolicyStore {
     if (this.cleanupTimer) {
       clearInterval(this.cleanupTimer)
       this.cleanupTimer = null
+    }
+    // Final flush: persist any in-flight spending records before shutdown
+    try {
+      const data: Record<string, SpendingRecord[]> = {}
+      for (const [domain, records] of this.spending) {
+        data[domain] = records
+      }
+      await this.storage.write(data)
+    } catch (err) {
+      log.error('Failed to flush spending records on shutdown:', err)
     }
   }
 

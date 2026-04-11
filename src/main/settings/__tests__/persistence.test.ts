@@ -102,7 +102,7 @@ describe('Settings Persistence', () => {
       expect(settings.privacy.clearOnExit).toBe(false)
       // Defaults filled in for fields not specified in each present category
       expect(settings.network.proxyPort).toBe(8080)
-      expect(settings.privacy.cookieAutoDelete).toBe(false)
+      expect(settings.privacy.cookieAutoDelete).toBe(true)
     })
 
     it('falls back to defaults on JSON parse error', async () => {

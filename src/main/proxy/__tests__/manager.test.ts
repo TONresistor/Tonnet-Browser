@@ -66,6 +66,7 @@ vi.mock('fs', () => ({
       })
     ),
     writeFileSync: vi.fn(),
+    chmodSync: vi.fn(),
   },
   existsSync: vi.fn(() => true),
   mkdirSync: vi.fn(),
@@ -75,6 +76,7 @@ vi.mock('fs', () => ({
     })
   ),
   writeFileSync: vi.fn(),
+  chmodSync: vi.fn(),
 }))
 
 // Import after mocks

@@ -87,7 +87,7 @@ export const PrivacySettingsSchema = z.object({
   clearOnExit: z.boolean().default(true),
   disableCache: z.boolean().default(false),
   firstPartyIsolation: z.boolean().default(true),
-  cookieAutoDelete: z.boolean().default(false),
+  cookieAutoDelete: z.boolean().default(true),
   cookieAutoDeleteMinutes: z.number().min(1).max(1440).default(30),
   historyMode: z.enum(['memory', 'persistent']).default('memory'),
   historyMaxEntries: z.number().min(100).max(100000).default(1000),
