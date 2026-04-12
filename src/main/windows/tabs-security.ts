@@ -4,6 +4,7 @@
  */
 
 import { resolve, sep } from 'path'
+import { realpathSync } from 'fs'
 import { WebContentsView } from 'electron'
 import { normalizeUrl } from '../../shared/utils/url'
 import { loadErrorPage } from './tabs-storage'
@@ -38,12 +39,21 @@ export function setupSecurityHandlers(view: WebContentsView, tabId: string): Dis
           const fp = decodeURIComponent(withoutScheme.slice(slashIdx + 1))
           const fullPath = resolve(`${bp}/${fp}`)
           const safeBp = resolve(bp)
-          if (!fullPath.startsWith(safeBp + sep) && fullPath !== safeBp) {
-            log.warn(`Blocked bagfile:// path traversal: ${fullPath}`)
+          let realFullPath: string
+          let realSafeBp: string
+          try {
+            realFullPath = realpathSync(fullPath)
+            realSafeBp = realpathSync(safeBp)
+          } catch (err) {
+            log.warn(`Blocked bagfile:// with unresolvable path: ${fullPath}`, err)
+            return
+          }
+          if (!realFullPath.startsWith(realSafeBp + sep) && realFullPath !== realSafeBp) {
+            log.warn(`Blocked bagfile:// path traversal: ${fullPath} -> ${realFullPath}`)
             return
           }
           view.webContents
-            .loadFile(fullPath)
+            .loadFile(realFullPath)
             .then(() => {
               if (view.webContents.isDestroyed()) return
               emitToRenderer('page:navigate', {
