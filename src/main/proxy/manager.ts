@@ -137,12 +137,14 @@ export class ProxyManager extends EventEmitter {
       }
 
       // Parse tunnel route from Tonutils-Proxy logs
-      // Format: route="we -> KEY1 -> KEY2 -> KEY1 -> we"
+      // Raw format: route="we -> KEY1 -> KEY2 -> KEY1 -> we"
       if (this.anonymousMode) {
         const routeMatch = message.match(/route="([^"]+)"/)
-        if (routeMatch) {
+        if (routeMatch && routeMatch[1] !== this.tunnelRoute) {
           this.tunnelRoute = routeMatch[1]
-          log.info(`Tunnel route: ${this.tunnelRoute}`)
+          const relays = routeMatch[1].split(' -> ').filter((s) => s !== 'we')
+          log.info(`Tunnel route (${relays.length} hops):`)
+          relays.forEach((key, i) => log.info(`  ${i + 1} → ${key.slice(0, 16)}`))
         }
       }
     }
