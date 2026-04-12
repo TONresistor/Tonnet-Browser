@@ -59,6 +59,7 @@ export function getDefaultSettings(): AppSettings {
       connectionTimeout: DEFAULT_SETTINGS.connectionTimeout,
       syncCheckInterval: DEFAULT_SETTINGS.syncCheckInterval,
       anonymousMode: DEFAULT_SETTINGS.anonymousMode,
+      tunnelMode: DEFAULT_SETTINGS.tunnelMode,
     },
     storage: {
       downloadPath: getDefaultStoragePath(), // Platform-specific override

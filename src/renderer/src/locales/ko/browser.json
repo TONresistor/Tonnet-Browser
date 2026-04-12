@@ -60,7 +60,7 @@
     "disconnected": "연결 끊김",
     "syncing": "동기화 중...",
     "syncingMultiHop": "터널 노드 검색 중...",
-    "garlicRouting": "가릭 라우팅 (3-홉)",
+    "garlicRouting": "터널 라우팅 ({{hops}}-홉)",
     "buildingCircuit": "회로 구축 중...",
     "storage": "저장소:",
     "bag": "백",

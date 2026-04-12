@@ -60,7 +60,7 @@
     "disconnected": "Getrennt",
     "syncing": "Synchronisierung...",
     "syncingMultiHop": "Tunnel-Knoten werden gesucht...",
-    "garlicRouting": "Garlic Routing (3-Hop)",
+    "garlicRouting": "Tunnel Routing ({{hops}}-Hop)",
     "buildingCircuit": "Schaltung wird aufgebaut...",
     "storage": "Speicher:",
     "bag": "Beutel",

@@ -60,7 +60,7 @@
     "disconnected": "Отключено",
     "syncing": "Синхронизация...",
     "syncingMultiHop": "Поиск туннельных узлов...",
-    "garlicRouting": "Garlic Routing (3 узла)",
+    "garlicRouting": "Tunnel Routing ({{hops}} узла)",
     "buildingCircuit": "Создание контура...",
     "storage": "Хранилище:",
     "bag": "пакет",

@@ -60,7 +60,7 @@
     "disconnected": "已断开连接",
     "syncing": "同步中...",
     "syncingMultiHop": "发现隧道节点中...",
-    "garlicRouting": "大蒜路由（3跳）",
+    "garlicRouting": "隧道路由（{{hops}}跳）",
     "buildingCircuit": "构建电路中...",
     "storage": "存储：",
     "bag": "包",

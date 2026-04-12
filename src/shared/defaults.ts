@@ -25,6 +25,7 @@ export const DEFAULT_SETTINGS = {
   connectionTimeout: 30,
   syncCheckInterval: 3000,
   anonymousMode: false,
+  tunnelMode: 'standard' as const,
 
   // Storage
   downloadPath: '', // Main process will set actual path

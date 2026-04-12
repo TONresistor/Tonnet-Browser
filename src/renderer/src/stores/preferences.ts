@@ -24,6 +24,7 @@ export interface AppPreferences {
   connectionTimeout: number
   syncCheckInterval: number
   anonymousMode: boolean
+  tunnelMode: 'standard' | 'maximum'
 
   // Storage
   downloadPath: string
@@ -96,6 +97,7 @@ export const defaultPreferences: AppPreferences = {
   connectionTimeout: DEFAULT_SETTINGS.connectionTimeout,
   syncCheckInterval: DEFAULT_SETTINGS.syncCheckInterval,
   anonymousMode: DEFAULT_SETTINGS.anonymousMode,
+  tunnelMode: DEFAULT_SETTINGS.tunnelMode,
 
   // Storage
   downloadPath: DEFAULT_SETTINGS.downloadPath, // Will be loaded from main
@@ -148,6 +150,7 @@ const prefToCategory: Record<keyof AppPreferences, { category: string; field: st
   connectionTimeout: { category: 'network', field: 'connectionTimeout' },
   syncCheckInterval: { category: 'network', field: 'syncCheckInterval' },
   anonymousMode: { category: 'network', field: 'anonymousMode' },
+  tunnelMode: { category: 'network', field: 'tunnelMode' },
   downloadPath: { category: 'storage', field: 'downloadPath' },
   storagePollingInterval: { category: 'storage', field: 'pollingInterval' },
   seedingEnabled: { category: 'storage', field: 'seedingEnabled' },
@@ -191,6 +194,7 @@ function mainSettingsToPrefs(settings: AppSettings): AppPreferences {
     connectionTimeout: settings.network?.connectionTimeout ?? defaultPreferences.connectionTimeout,
     syncCheckInterval: settings.network?.syncCheckInterval ?? defaultPreferences.syncCheckInterval,
     anonymousMode: settings.network?.anonymousMode ?? defaultPreferences.anonymousMode,
+    tunnelMode: (settings.network?.tunnelMode ?? defaultPreferences.tunnelMode) as 'standard' | 'maximum',
     downloadPath: settings.storage?.downloadPath ?? defaultPreferences.downloadPath,
     storagePollingInterval: settings.storage?.pollingInterval ?? defaultPreferences.storagePollingInterval,
     seedingEnabled: settings.storage?.seedingEnabled ?? defaultPreferences.seedingEnabled,

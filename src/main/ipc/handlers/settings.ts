@@ -113,9 +113,11 @@ export function registerSettingsHandlers(registry: ServiceRegistry): void {
     setSetting(category, validation.data as any)
     // Notify renderer of settings change
     emitToRenderer('settings:changed', { category, values })
-    // If network settings changed, check if proxy needs restart
+    // If network settings changed, check if proxy needs restart (non-blocking)
     if (category === 'network' && proxyManager.isRunning()) {
-      await proxyManager.applySettingsChange()
+      proxyManager.applySettingsChange().catch((err) => {
+        log.error('Proxy restart after settings change failed:', err)
+      })
     }
     // If privacy settings changed, restart cookie auto-delete timer
     if (category === 'privacy') {

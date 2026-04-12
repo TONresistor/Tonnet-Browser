@@ -13,7 +13,7 @@ import { useBrowserStore } from '@/stores/browser'
 import { usePreferencesStore } from '@/stores/preferences'
 import { useWalletStore, formatTonAmount } from '@/stores/wallet'
 import { useTabsStore } from '@/stores/tabs'
-import { APP_VERSION, TON_WALLET_PAGE } from '@shared/constants'
+import { APP_VERSION, TON_WALLET_PAGE, TUNNEL_SECTIONS } from '@shared/constants'
 import type { StorageBag } from '@shared/types'
 import { useTranslation } from 'react-i18next'
 import { formatSpeed } from '@/lib/format'
@@ -35,6 +35,7 @@ export const StatusBar = memo(function StatusBar() {
   const walletBalance = useWalletStore((s) => s.balance)
   const openOrSwitchToTab = useTabsStore((s) => s.openOrSwitchToTab)
   const seedingEnabled = usePreferencesStore((s) => s.saved.seedingEnabled)
+  const tunnelMode = usePreferencesStore((s) => s.saved.tunnelMode)
   const [currentTime, setCurrentTime] = useState(new Date())
   // Clock update
   useEffect(() => {
@@ -114,9 +115,12 @@ export const StatusBar = memo(function StatusBar() {
     if (!anonymousMode) return null
 
     const isReady = circuitRelays.length >= 2
+    const hops = TUNNEL_SECTIONS[tunnelMode]
 
     return (
-      <span className="text-tonsite">{isReady ? t('statusBar.garlicRouting') : t('statusBar.buildingCircuit')}</span>
+      <span className="text-tonsite">
+        {isReady ? t('statusBar.garlicRouting', { hops }) : t('statusBar.buildingCircuit')}
+      </span>
     )
   }
 

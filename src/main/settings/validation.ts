@@ -163,6 +163,7 @@ export function getDefaultSettingsBase(): AppSettings {
       connectionTimeout: d.connectionTimeout,
       syncCheckInterval: d.syncCheckInterval,
       anonymousMode: d.anonymousMode,
+      tunnelMode: d.tunnelMode,
     },
     storage: {
       downloadPath: '/tmp/tonnet-storage',

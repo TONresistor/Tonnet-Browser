@@ -19,6 +19,7 @@ export const NetworkSettingsSchema = z.object({
   connectionTimeout: z.number().min(5).max(120).default(30),
   syncCheckInterval: z.number().min(500).max(60000).default(3000),
   anonymousMode: z.boolean().default(false),
+  tunnelMode: z.enum(['standard', 'maximum']).default('standard'),
 })
 
 export const StorageSettingsSchema = z.object({
@@ -214,6 +215,7 @@ export const NetworkSettingsPartialSchema = z
     connectionTimeout: z.number().min(5).max(120),
     syncCheckInterval: z.number().min(500).max(60000),
     anonymousMode: z.boolean(),
+    tunnelMode: z.enum(['standard', 'maximum']),
   })
   .partial()
 

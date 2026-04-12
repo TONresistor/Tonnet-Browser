@@ -28,6 +28,18 @@ export const GeneralSection = memo(function GeneralSection({ draft, setDraft }: 
             label={t('general.enableAnonymousMode')}
           />
         </SettingRow>
+        {draft.anonymousMode && (
+          <SettingRow label={t('general.tunnelMode')} description={t('general.tunnelModeDesc')}>
+            <ToggleGroup
+              value={draft.tunnelMode}
+              onChange={(v) => setDraft('tunnelMode', v)}
+              options={[
+                { value: 'standard', label: t('general.tunnelStandard') },
+                { value: 'maximum', label: t('general.tunnelMaximum') },
+              ]}
+            />
+          </SettingRow>
+        )}
       </div>
 
       {/* Settings */}

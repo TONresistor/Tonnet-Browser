@@ -16,6 +16,7 @@ import { randomBytes } from 'crypto'
 import { cpus } from 'os'
 import { DEFAULT_SETTINGS } from '../../shared/defaults'
 import { createLogger } from '../../shared/logger'
+import { TUNNEL_SECTIONS } from '../../shared/constants'
 import { DEFAULT_NAMESPACE_STATE, REQUIRED_NAMESPACES } from '../../shared/bridge-config'
 const log = createLogger('proxy')
 
@@ -28,6 +29,7 @@ export class ProxyManager extends EventEmitter {
   private wsPort: number = DEFAULT_SETTINGS.wsPort
   private status: ProxyStatus = 'stopped'
   private anonymousMode: boolean = false
+  private tunnelMode: 'standard' | 'maximum' = DEFAULT_SETTINGS.tunnelMode
   private tunnelRoute: string = ''
 
   constructor() {
@@ -74,13 +76,15 @@ export class ProxyManager extends EventEmitter {
     const safePort = validatePort(this.port)
     this.port = safePort
     this.anonymousMode = network.anonymousMode
+    this.tunnelMode = network.tunnelMode
     this.setStatus('starting')
 
     const proxyBinPath = getBinaryPath('tonutils-proxy')
     const proxyWorkDir = this.getProxyWorkDir()
 
     // Write proxy config to control tunnel mode
-    this.writeProxyConfig(proxyWorkDir, this.anonymousMode)
+    const tunnelSections = this.anonymousMode ? TUNNEL_SECTIONS[this.tunnelMode] : 0
+    this.writeProxyConfig(proxyWorkDir, tunnelSections)
 
     // Spawn proxy process (HTTP proxy for .ton sites)
     if (this.anonymousMode) {
@@ -161,7 +165,9 @@ export class ProxyManager extends EventEmitter {
     this.setStatus('connected')
 
     // Start bridge AFTER proxy is ready to avoid DHT contention
-    await this.startBridge()
+    if (!this.bridgeProcess) {
+      await this.startBridge()
+    }
   }
 
   private async startBridge(): Promise<void> {
@@ -312,7 +318,7 @@ export class ProxyManager extends EventEmitter {
     }
   }
 
-  private writeProxyConfig(workDir: string, tunnelEnabled: boolean): void {
+  private writeProxyConfig(workDir: string, tunnelSections: number): void {
     const configPath = path.join(workDir, 'config.json')
 
     if (fs.existsSync(configPath)) {
@@ -321,20 +327,20 @@ export class ProxyManager extends EventEmitter {
         const existing = JSON.parse(fs.readFileSync(configPath, 'utf-8'))
         if (existing.TunnelConfig) {
           existing.TunnelConfig.NodesPoolConfigPath = ''
-          existing.TunnelConfig.TunnelSectionsNum = tunnelEnabled ? 2 : 0
+          existing.TunnelConfig.TunnelSectionsNum = tunnelSections
         }
         existing.BlockHTTP = true // always block cleartext HTTP
         fs.writeFileSync(configPath, JSON.stringify(existing, null, 2))
         if (process.platform !== 'win32') fs.chmodSync(configPath, 0o600)
-        log.info(`Proxy config updated: tunnel=${tunnelEnabled}`)
+        log.info(`Proxy config updated: tunnelSections=${tunnelSections}`)
         return
       } catch {
-        // Corrupted config — regenerate below
+        // Corrupted config -- regenerate below
       }
     }
 
     // First run: generate config with correct tunnel settings immediately
-    // This avoids the double-start (direct → restart → tunnel)
+    // This avoids the double-start (direct -> restart -> tunnel)
     const generateKey = () => Array.from(randomBytes(32))
     const config = {
       Version: 1,
@@ -344,7 +350,7 @@ export class ProxyManager extends EventEmitter {
       TunnelConfig: {
         TunnelServerKey: generateKey(),
         TunnelThreads: cpus().length,
-        TunnelSectionsNum: tunnelEnabled ? 2 : 0,
+        TunnelSectionsNum: tunnelSections,
         NodesPoolConfigPath: '',
         PaymentsEnabled: false,
         Payments: {
@@ -365,7 +371,7 @@ export class ProxyManager extends EventEmitter {
     }
     fs.writeFileSync(configPath, JSON.stringify(config, null, 2))
     if (process.platform !== 'win32') fs.chmodSync(configPath, 0o600)
-    log.info(`Proxy config generated: tunnel=${tunnelEnabled}`)
+    log.info(`Proxy config generated: tunnelSections=${tunnelSections}`)
   }
 
   private setStatus(status: ProxyStatus): void {
@@ -430,17 +436,25 @@ export class ProxyManager extends EventEmitter {
 
   async applySettingsChange(): Promise<void> {
     const { network } = this.loadSettings()
-    const needsRestart = network.anonymousMode !== this.anonymousMode
+    const needsRestart = network.anonymousMode !== this.anonymousMode || network.tunnelMode !== this.tunnelMode
 
     if (needsRestart) {
-      log.info(`Network settings changed, restarting proxy...`)
-      await this.restart()
+      log.info(`Network settings changed, restarting proxy (keeping bridge)...`)
+      this.tunnelRoute = ''
+      if (this.process) {
+        const proxyProc = this.process
+        this.process = null
+        await this.killProcess(proxyProc)
+      }
+      this.setStatus('stopped')
+      await this.start()
     }
   }
 
   private async waitForReady(): Promise<void> {
     const { network } = this.loadSettings()
-    const maxAttempts = network.connectionTimeout
+    const baseTimeout = network.connectionTimeout
+    const maxAttempts = this.anonymousMode ? baseTimeout * 3 : baseTimeout
 
     return new Promise((resolve, reject) => {
       const cleanup = () => {

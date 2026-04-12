@@ -60,7 +60,7 @@
     "disconnected": "ตัดการเชื่อมต่อแล้ว",
     "syncing": "กำลังซิงค์...",
     "syncingMultiHop": "กำลังค้นหาโหนดอุโมงค์...",
-    "garlicRouting": "Garlic Routing (3-hop)",
+    "garlicRouting": "Tunnel Routing ({{hops}}-hop)",
     "buildingCircuit": "กำลังสร้างวงจร...",
     "storage": "พื้นที่เก็บข้อมูล:",
     "bag": "ถุง",

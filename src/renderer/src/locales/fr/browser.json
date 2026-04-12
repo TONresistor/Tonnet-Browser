@@ -60,7 +60,7 @@
     "disconnected": "Déconnecté",
     "syncing": "Synchronisation...",
     "syncingMultiHop": "Recherche de noeuds tunnel...",
-    "garlicRouting": "Routage Garlic (3 sauts)",
+    "garlicRouting": "Tunnel Routing ({{hops}} sauts)",
     "buildingCircuit": "Construction du circuit...",
     "storage": "Stockage :",
     "bag": "sac",

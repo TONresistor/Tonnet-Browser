@@ -60,7 +60,7 @@
     "disconnected": "Terputus",
     "syncing": "Menyinkronkan...",
     "syncingMultiHop": "Mencari node tunnel...",
-    "garlicRouting": "Garlic Routing (3-hop)",
+    "garlicRouting": "Tunnel Routing ({{hops}}-hop)",
     "buildingCircuit": "Membangun sirkuit...",
     "storage": "Penyimpanan:",
     "bag": "tas",
