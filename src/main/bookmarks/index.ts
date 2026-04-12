@@ -5,7 +5,8 @@
 
 import { app } from 'electron'
 import { join } from 'path'
-import { existsSync, readFileSync, writeFileSync, mkdirSync, renameSync, unlinkSync } from 'fs'
+import { existsSync, readFileSync } from 'fs'
+import { writeJsonAtomic } from '../utils/secure-fs'
 import { DEFAULT_BOOKMARKS } from '../../shared/constants'
 import { createLogger } from '../../shared/logger'
 
@@ -116,26 +117,11 @@ export function loadBookmarks(): BookmarksData {
   }
 }
 
-// Save bookmarks to disk (atomic write)
 export function saveBookmarks(data: BookmarksData): void {
-  const bookmarksFile = getBookmarksFile()
-  const tempFile = bookmarksFile + '.tmp'
-  const dir = getBookmarksDir()
-
-  if (!existsSync(dir)) {
-    mkdirSync(dir, { recursive: true })
-  }
-
   try {
-    writeFileSync(tempFile, JSON.stringify(data, null, 2))
-    renameSync(tempFile, bookmarksFile)
+    writeJsonAtomic(getBookmarksFile(), data)
     bookmarksCache = data
   } catch (error) {
     log.error(`Failed to save bookmarks: ${String(error)}`)
-    try {
-      unlinkSync(tempFile)
-    } catch {
-      /* ignore cleanup failure */
-    }
   }
 }

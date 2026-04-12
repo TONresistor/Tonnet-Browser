@@ -11,6 +11,7 @@ import fs from 'fs'
 import { app } from 'electron'
 import { getBinaryPath } from '../utils/paths'
 import { validatePort } from '../utils/validators'
+import { writeSecureJsonAtomic } from '../utils/secure-fs'
 import { getSetting } from '../settings'
 import { randomBytes } from 'crypto'
 import { cpus } from 'os'
@@ -290,8 +291,7 @@ export class ProxyManager extends EventEmitter {
           }
         }
         if (changed) {
-          fs.writeFileSync(configPath, JSON.stringify(config, null, '\t'))
-          if (process.platform !== 'win32') fs.chmodSync(configPath, 0o600)
+          writeSecureJsonAtomic(configPath, config)
           log.info('Re-enforced required bridge namespaces')
         }
         return
@@ -306,8 +306,7 @@ export class ProxyManager extends EventEmitter {
         }
       }
       config._browserDefaults = true
-      fs.writeFileSync(configPath, JSON.stringify(config, null, '\t'))
-      if (process.platform !== 'win32') fs.chmodSync(configPath, 0o600)
+      writeSecureJsonAtomic(configPath, config)
 
       const disabled = Object.entries(DEFAULT_NAMESPACE_STATE)
         .filter(([, v]) => !v)
@@ -330,8 +329,7 @@ export class ProxyManager extends EventEmitter {
           existing.TunnelConfig.TunnelSectionsNum = tunnelSections
         }
         existing.BlockHTTP = true // always block cleartext HTTP
-        fs.writeFileSync(configPath, JSON.stringify(existing, null, 2))
-        if (process.platform !== 'win32') fs.chmodSync(configPath, 0o600)
+        writeSecureJsonAtomic(configPath, existing, 2)
         log.info(`Proxy config updated: tunnelSections=${tunnelSections}`)
         return
       } catch {
@@ -369,8 +367,7 @@ export class ProxyManager extends EventEmitter {
         },
       },
     }
-    fs.writeFileSync(configPath, JSON.stringify(config, null, 2))
-    if (process.platform !== 'win32') fs.chmodSync(configPath, 0o600)
+    writeSecureJsonAtomic(configPath, config, 2)
     log.info(`Proxy config generated: tunnelSections=${tunnelSections}`)
   }
 

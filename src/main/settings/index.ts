@@ -5,7 +5,8 @@
 
 import { app } from 'electron'
 import { join } from 'path'
-import { existsSync, readFileSync, writeFileSync, mkdirSync, renameSync, unlinkSync } from 'fs'
+import { existsSync, readFileSync } from 'fs'
+import { writeJsonAtomic } from '../utils/secure-fs'
 import { DEFAULT_SETTINGS } from '../../shared/defaults'
 import type { ThemeType } from '../../shared/defaults'
 import type {
@@ -174,28 +175,12 @@ export function loadSettings(): AppSettings {
   }
 }
 
-// Save settings to disk (atomic write)
 export function saveSettings(settings: AppSettings): void {
-  const settingsFile = getSettingsFile()
-  const tempFile = settingsFile + '.tmp'
-  const dir = getSettingsDir()
-
-  if (!existsSync(dir)) {
-    mkdirSync(dir, { recursive: true })
-  }
-
   try {
-    // Atomic write: write to temp file, then rename
-    writeFileSync(tempFile, JSON.stringify(settings, null, 2))
-    renameSync(tempFile, settingsFile)
+    writeJsonAtomic(getSettingsFile(), settings)
     settingsCache = settings
   } catch (error) {
     log.error(`Failed to save settings: ${String(error)}`)
-    try {
-      unlinkSync(tempFile)
-    } catch {
-      /* ignore cleanup failure */
-    }
   }
 }
 

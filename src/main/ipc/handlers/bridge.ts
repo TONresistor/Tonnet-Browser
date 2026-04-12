@@ -4,6 +4,7 @@ import { app } from 'electron'
 import { IPC_CHANNELS } from '../../../shared/types'
 import { secureHandle, tonsiteHandle, log } from './shared'
 import { REQUIRED_NAMESPACES } from '../../../shared/bridge-config'
+import { writeSecureJsonAtomic } from '../../utils/secure-fs'
 import type { BridgeScope } from '../../../shared/types'
 import type { BridgeConfig } from '../../../shared/bridge-config'
 import type { ServiceRegistry } from '../../services'
@@ -91,12 +92,7 @@ export function registerBridgeHandlers(registry: ServiceRegistry): void {
       }
       existing.namespaces = ns
 
-      // Ensure directory exists, then atomic write: tmp + rename
-      const dir = path.dirname(configPath)
-      fs.mkdirSync(dir, { recursive: true })
-      const tmpPath = configPath + '.tmp'
-      fs.writeFileSync(tmpPath, JSON.stringify(existing, null, '\t'), 'utf-8')
-      fs.renameSync(tmpPath, configPath)
+      writeSecureJsonAtomic(configPath, existing)
 
       return { success: true }
     } catch (err) {

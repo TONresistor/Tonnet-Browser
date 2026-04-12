@@ -66,6 +66,7 @@ vi.mock('fs', () => ({
       })
     ),
     writeFileSync: vi.fn(),
+    renameSync: vi.fn(),
     chmodSync: vi.fn(),
   },
   existsSync: vi.fn(() => true),
@@ -76,6 +77,7 @@ vi.mock('fs', () => ({
     })
   ),
   writeFileSync: vi.fn(),
+  renameSync: vi.fn(),
   chmodSync: vi.fn(),
 }))
 
