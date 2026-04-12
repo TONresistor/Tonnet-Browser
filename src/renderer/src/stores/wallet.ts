@@ -72,9 +72,17 @@ export const useWalletStore = create<WalletStore>((set, get) => {
       }
     })
 
-    unsubNewTx = window.electron.on('wallet:new-transaction', () => {
-      // Refresh history when a new transaction arrives via push
-      get().loadHistory()
+    unsubNewTx = window.electron.on('wallet:new-transaction', (...args: unknown[]) => {
+      const tx = args[0] as WalletTransaction | undefined
+      if (!tx || typeof tx !== 'object' || !tx.id) return
+      // Optimistic insert with dedup by id; avoids a full loadHistory
+      // round-trip so the list lands in the same tick as the balance push.
+      // Re-sort by timestamp desc to keep the newest on top even if pushes
+      // arrive out of order.
+      const existing = get().transactions
+      if (existing.some((t) => t.id === tx.id)) return
+      const next = [tx, ...existing].sort((a, b) => b.timestamp - a.timestamp)
+      set({ transactions: next })
     })
 
     unsubState = window.electron.on('wallet:state-changed', (...args: unknown[]) => {

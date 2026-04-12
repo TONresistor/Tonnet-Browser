@@ -61,11 +61,22 @@ export function registerWalletHandlers(registry: ServiceRegistry): void {
 
   secureHandle(IPC_CHANNELS.WALLET_GET_HISTORY, async (limit?: number) => {
     const safeLimit = typeof limit === 'number' && limit > 0 ? limit : 20
-    const [onChain, local] = await Promise.all([
+    const [onChainResult, localResult] = await Promise.allSettled([
       walletManager.fetchOnChainHistory(safeLimit),
       walletHistoryManager.getRecent(100),
     ])
-    return walletHistoryManager.merge(onChain, local)
+    const local = localResult.status === 'fulfilled' ? localResult.value : []
+    if (onChainResult.status === 'fulfilled') {
+      return walletHistoryManager.merge(onChainResult.value, local)
+    }
+    // On-chain fetch failed (timeout, bridge stall, etc).
+    // Fall back to local pending tx if we have any; otherwise propagate
+    // the error so the renderer preserves its existing transaction list.
+    if (local.length > 0) {
+      log.warn('On-chain history fetch failed, serving local cache only')
+      return local
+    }
+    throw onChainResult.reason instanceof Error ? onChainResult.reason : new Error(String(onChainResult.reason))
   })
 
   secureHandle(IPC_CHANNELS.WALLET_CLEAR_HISTORY, async () => {

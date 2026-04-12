@@ -28,12 +28,15 @@ export interface BridgeAccountState {
   seqno: number
 }
 
-/** Transaction from lite.getTransactions */
+/** Transaction from lite.getTransactions. Fields mirror the Go bridge serializeTransaction output. */
 export interface BridgeTransaction {
   hash: string
   lt: string
-  utime: number
-  fee: string
+  /** Unix timestamp in seconds from the block's header (tx.Now). */
+  now: number
+  total_fees?: string
+  prev_tx_lt?: string
+  prev_tx_hash?: string
   in_msg?: { source: string; destination: string; value: string; body?: string }
   out_msgs?: Array<{ source: string; destination: string; value: string; body?: string }>
 }
@@ -107,8 +110,10 @@ export class WsBridgeClient {
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null
   private heartbeatTimer: ReturnType<typeof setTimeout> | null = null
   private pongTimer: ReturnType<typeof setTimeout> | null = null
-  private cachedBalance: string | null = null
-  private cachedSeqno: number | null = null
+  // Caches are scoped to a specific address so switching wallets
+  // (create/import/delete) never returns stale values from a previous one.
+  private cachedBalance: { address: string; value: string } | null = null
+  private cachedSeqno: { address: string; value: number } | null = null
 
   constructor(wsPort: number) {
     this.wsPort = wsPort
@@ -159,12 +164,12 @@ export class WsBridgeClient {
     try {
       const result = (await this.request('lite.getAccountState', { address })) as BridgeAccountState
       const balance = result.balance ?? '0'
-      this.cachedBalance = balance
+      this.cachedBalance = { address, value: balance }
       return balance
     } catch (err) {
-      if (this.cachedBalance !== null) {
+      if (this.cachedBalance && this.cachedBalance.address === address) {
         log.warn('getBalance failed, returning cached value')
-        return this.cachedBalance
+        return this.cachedBalance.value
       }
       throw err
     }
@@ -174,12 +179,12 @@ export class WsBridgeClient {
     try {
       const result = (await this.request('wallet.getSeqno', { address })) as { seqno: number | string }
       const seqno = typeof result.seqno === 'number' ? result.seqno : Number(result.seqno)
-      this.cachedSeqno = seqno
+      this.cachedSeqno = { address, value: seqno }
       return seqno
     } catch (err) {
-      if (this.cachedSeqno !== null) {
+      if (this.cachedSeqno && this.cachedSeqno.address === address) {
         log.warn('getSeqno failed, returning cached value')
-        return this.cachedSeqno
+        return this.cachedSeqno.value
       }
       throw err
     }

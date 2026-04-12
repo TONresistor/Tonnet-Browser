@@ -79,6 +79,7 @@ export class WalletManager extends EventEmitter {
     }
 
     this.initialized = true
+    this.emit('state-changed', this.getState())
   }
 
   /**
@@ -269,6 +270,45 @@ export class WalletManager extends EventEmitter {
   }
 
   /**
+   * Convert a raw bridge transaction into the store format.
+   * Returns null for zero-value entries (service messages).
+   */
+  private convertRawTx(tx: any): WalletTransaction | null {
+    const inMsg = tx.in_msg
+    const outMsgs = tx.out_msgs ?? []
+
+    let type: 'send' | 'receive' = 'receive'
+    let amount = '0'
+    let counterparty = ''
+
+    if (outMsgs.length > 0) {
+      type = 'send'
+      const msg = outMsgs[0]
+      amount = msg.value ?? '0'
+      counterparty = msg.destination ?? ''
+    } else if (inMsg) {
+      type = 'receive'
+      amount = inMsg.value ?? '0'
+      counterparty = inMsg.source ?? ''
+    }
+
+    if (amount === '0') return null
+
+    // Go bridge serializes the tx header time as "now" (Unix seconds).
+    // Some older payloads may still carry "utime"; accept both.
+    const rawTime = tx.now ?? tx.utime ?? 0
+    return {
+      id: tx.hash ?? tx.lt ?? crypto.randomUUID(),
+      type,
+      amount,
+      address: counterparty,
+      timestamp: Number(rawTime) * 1000,
+      status: 'confirmed' as const,
+      hash: tx.hash ?? '',
+    }
+  }
+
+  /**
    * Fetch on-chain transaction history and convert to WalletTransaction format.
    */
   async fetchOnChainHistory(limit: number = 20): Promise<WalletTransaction[]> {
@@ -276,43 +316,10 @@ export class WalletManager extends EventEmitter {
 
     try {
       const rawTxs = await this.wsBridge.getTransactions(this.walletContract.address.toString(), limit)
-
-      return rawTxs
-        .map((tx) => {
-          const inMsg = tx.in_msg
-          const outMsgs = tx.out_msgs ?? []
-
-          let type: 'send' | 'receive' = 'receive'
-          let amount = '0'
-          let counterparty = ''
-
-          if (outMsgs.length > 0) {
-            type = 'send'
-            const msg = outMsgs[0]
-            amount = msg.value ?? '0'
-            counterparty = msg.destination ?? ''
-          } else if (inMsg) {
-            type = 'receive'
-            amount = inMsg.value ?? '0'
-            counterparty = inMsg.source ?? ''
-          }
-
-          if (amount === '0') return null
-
-          return {
-            id: tx.hash ?? tx.lt ?? crypto.randomUUID(),
-            type,
-            amount,
-            address: counterparty,
-            timestamp: (tx.utime ?? 0) * 1000,
-            status: 'confirmed' as const,
-            hash: tx.hash ?? '',
-          }
-        })
-        .filter(Boolean) as WalletTransaction[]
+      return rawTxs.map((tx) => this.convertRawTx(tx)).filter(Boolean) as WalletTransaction[]
     } catch (error) {
       log.error('Failed to fetch on-chain history:', error)
-      return []
+      throw error
     }
   }
 
@@ -487,9 +494,15 @@ export class WalletManager extends EventEmitter {
       }
     })
 
-    // Transaction push
+    // Transaction push: convert to store format so the renderer can prepend
+    // synchronously without a full history refetch; in parallel, refresh the
+    // balance so solde and list land in the same UI tick.
     this.unsubTransactions = this.wsBridge.subscribeTransactions(address, (tx: any) => {
-      this.emit('new-transaction', tx)
+      const formatted = this.convertRawTx(tx)
+      if (formatted) {
+        this.emit('new-transaction', formatted)
+        this.getBalance().catch(() => {})
+      }
     })
   }
 
