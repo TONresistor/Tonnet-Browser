@@ -24,6 +24,17 @@ export function emitToRenderer(channel: string, ...args: unknown[]): void {
 }
 
 /**
+ * Normalize an unknown value (typically a caught error or a rejected Promise
+ * reason) into a proper Error. `null` and `undefined` get a descriptive message
+ * instead of the misleading "null" / "undefined" strings.
+ */
+export function toError(reason: unknown): Error {
+  if (reason instanceof Error) return reason
+  if (reason == null) return new Error('Unknown error')
+  return new Error(String(reason))
+}
+
+/**
  * Security: Verify IPC call originates from the main window, not a compromised tab/WebContentsView
  * This prevents a malicious website from invoking privileged IPC handlers
  */
@@ -51,7 +62,7 @@ export function secureHandle(channel: string, handler: (...args: any[]) => any):
       verifyIpcOrigin(event)
       return await handler(...args)
     } catch (err) {
-      const error = err instanceof Error ? err : new Error(String(err))
+      const error = toError(err)
       ipcErrorHandler.logError(channel, error)
       return { success: false, error: error.message }
     }
@@ -71,7 +82,7 @@ export function secureHandleWithEvent(
       verifyIpcOrigin(event)
       return await handler(event, ...args)
     } catch (err) {
-      const error = err instanceof Error ? err : new Error(String(err))
+      const error = toError(err)
       ipcErrorHandler.logError(channel, error)
       return { success: false, error: error.message }
     }
@@ -102,7 +113,7 @@ export function tonsiteHandle(
       if (!hostname) hostname = 'local'
       return await handler(hostname, event, ...args)
     } catch (err) {
-      const error = err instanceof Error ? err : new Error(String(err))
+      const error = toError(err)
       ipcErrorHandler.logError(channel, error)
       return { success: false, error: error.message }
     }
