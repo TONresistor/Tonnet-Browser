@@ -8,9 +8,9 @@ import { internal, beginCell, storeMessage, Address, SendMode, Cell } from '@ton
 import { WalletContractV5R1 } from '@ton/ton'
 import { WalletKeyStorage, WalletDecryptionError } from './key-storage'
 import type { ISecureStorage } from '../ports/secure-storage'
-import { WsBridgeClient } from './ws-bridge-client'
+import { WsBridgeClient, type BridgeTransaction, type BridgeAccountState } from './ws-bridge-client'
 import { getSetting } from '../settings'
-import { WALLET_MAX_TIMEOUT_S } from './constants'
+import { WALLET_MAX_TIMEOUT_S, WALLET_HISTORY_DEFAULT_LIMIT } from './constants'
 import type {
   WalletState,
   WalletTransaction,
@@ -20,6 +20,12 @@ import type {
 } from '../../shared/types'
 import { createLogger } from '../../shared/logger'
 const log = createLogger('wallet')
+
+const TON_DOMAIN_REGEX = /^([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+ton$/
+
+function isTonDomain(s: string): boolean {
+  return s.endsWith('.ton') && s.length <= 126
+}
 
 export class WalletManager extends EventEmitter {
   private keyStorage: WalletKeyStorage
@@ -271,9 +277,9 @@ export class WalletManager extends EventEmitter {
 
   /**
    * Convert a raw bridge transaction into the store format.
-   * Returns null for zero-value entries (service messages).
+   * Returns null for zero-value entries (service messages) or malformed payloads.
    */
-  private convertRawTx(tx: any): WalletTransaction | null {
+  private convertRawTx(tx: BridgeTransaction): WalletTransaction | null {
     const inMsg = tx.in_msg
     const outMsgs = tx.out_msgs ?? []
 
@@ -294,15 +300,16 @@ export class WalletManager extends EventEmitter {
 
     if (amount === '0') return null
 
-    // Go bridge serializes the tx header time as "now" (Unix seconds).
-    // Some older payloads may still carry "utime"; accept both.
-    const rawTime = tx.now ?? tx.utime ?? 0
+    // Reject entries missing the block-header timestamp to avoid the 1970 bug.
+    const rawTime = Number(tx.now)
+    if (!rawTime || !Number.isFinite(rawTime)) return null
+
     return {
-      id: tx.hash ?? tx.lt ?? crypto.randomUUID(),
+      id: tx.hash || tx.lt || crypto.randomUUID(),
       type,
       amount,
       address: counterparty,
-      timestamp: Number(rawTime) * 1000,
+      timestamp: rawTime * 1000,
       status: 'confirmed' as const,
       hash: tx.hash ?? '',
     }
@@ -311,12 +318,12 @@ export class WalletManager extends EventEmitter {
   /**
    * Fetch on-chain transaction history and convert to WalletTransaction format.
    */
-  async fetchOnChainHistory(limit: number = 20): Promise<WalletTransaction[]> {
+  async fetchOnChainHistory(limit: number = WALLET_HISTORY_DEFAULT_LIMIT): Promise<WalletTransaction[]> {
     if (!this.wsBridge || !this.walletContract) return []
 
     try {
       const rawTxs = await this.wsBridge.getTransactions(this.walletContract.address.toString(), limit)
-      return rawTxs.map((tx) => this.convertRawTx(tx)).filter(Boolean) as WalletTransaction[]
+      return rawTxs.map((tx) => this.convertRawTx(tx)).filter((tx): tx is WalletTransaction => tx !== null)
     } catch (error) {
       log.error('Failed to fetch on-chain history:', error)
       throw error
@@ -388,6 +395,60 @@ export class WalletManager extends EventEmitter {
   async resolveDomain(domain: string): Promise<DnsResolveResult> {
     if (!this.wsBridge) throw new Error('Bridge not connected')
     return await this.wsBridge.resolveDomain(domain)
+  }
+
+  async resolveRecipient(input: string): Promise<{ address: string; domain?: string }> {
+    const trimmed = input.trim()
+    const normalized = trimmed.toLowerCase()
+
+    if (!isTonDomain(normalized)) {
+      const parsed = Address.parse(trimmed)
+      if (parsed.workChain === -1) {
+        throw new Error('Masterchain addresses not supported')
+      }
+      return { address: trimmed }
+    }
+
+    for (let i = 0; i < normalized.length; i++) {
+      if (normalized.charCodeAt(i) > 127) {
+        throw new Error('Non-ASCII domain not allowed')
+      }
+    }
+
+    if (!TON_DOMAIN_REGEX.test(normalized)) {
+      throw new Error('Invalid domain format')
+    }
+
+    if (!this.wsBridge) {
+      throw new Error('Bridge not connected')
+    }
+
+    let result: DnsResolveResult
+    try {
+      result = await this.wsBridge.resolveDomain(normalized)
+    } catch {
+      throw new Error('Domain not registered')
+    }
+
+    if (!result.initialized) {
+      throw new Error('Domain not initialized')
+    }
+
+    if (result.expiring_at && result.expiring_at < Math.floor(Date.now() / 1000)) {
+      throw new Error('Domain expired')
+    }
+
+    const address = result.wallet || result.owner
+    if (!address) {
+      throw new Error('Domain has no wallet or owner')
+    }
+
+    const parsed = Address.parse(address)
+    if (parsed.workChain === -1) {
+      throw new Error('Masterchain addresses not supported')
+    }
+
+    return { address, domain: normalized }
   }
 
   private buildBoc(
@@ -485,8 +546,7 @@ export class WalletManager extends EventEmitter {
     if (!this.wsBridge || !this.walletContract) return
     const address = this.walletContract.address.toString()
 
-    // Balance push
-    this.unsubAccountState = this.wsBridge.subscribeAccountState(address, (state: any) => {
+    this.unsubAccountState = this.wsBridge.subscribeAccountState(address, (state: BridgeAccountState) => {
       const balance = state.balance ?? this.currentBalance
       if (balance !== this.currentBalance) {
         this.currentBalance = balance
@@ -494,15 +554,13 @@ export class WalletManager extends EventEmitter {
       }
     })
 
-    // Transaction push: convert to store format so the renderer can prepend
-    // synchronously without a full history refetch; in parallel, refresh the
-    // balance so solde and list land in the same UI tick.
-    this.unsubTransactions = this.wsBridge.subscribeTransactions(address, (tx: any) => {
+    // Refresh balance inline with the tx push so both events reach the renderer
+    // in the same tick, avoiding a visible gap between list and solde updates.
+    this.unsubTransactions = this.wsBridge.subscribeTransactions(address, (tx: BridgeTransaction) => {
       const formatted = this.convertRawTx(tx)
-      if (formatted) {
-        this.emit('new-transaction', formatted)
-        this.getBalance().catch(() => {})
-      }
+      if (!formatted) return
+      this.emit('new-transaction', formatted)
+      this.getBalance().catch((err) => log.debug('Balance refresh after tx push failed:', err))
     })
   }
 

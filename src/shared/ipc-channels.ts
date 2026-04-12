@@ -99,6 +99,11 @@ export const IPC_CHANNELS = {
   WALLET_IMPORT: 'wallet:import',
   WALLET_EXPORT_MNEMONIC: 'wallet:export-mnemonic',
   WALLET_DELETE: 'wallet:delete',
+  WALLET_RESOLVE_RECIPIENT: 'wallet:resolve-recipient',
+  // Wallet push events (main -> renderer)
+  WALLET_BALANCE_UPDATED: 'wallet:balance-updated',
+  WALLET_STATE_CHANGED: 'wallet:state-changed',
+  WALLET_NEW_TRANSACTION: 'wallet:new-transaction',
 
   // DNS
   DNS_RESOLVE: 'dns:resolve',

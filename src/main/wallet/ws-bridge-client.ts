@@ -32,13 +32,16 @@ export interface BridgeAccountState {
 export interface BridgeTransaction {
   hash: string
   lt: string
-  /** Unix timestamp in seconds from the block's header (tx.Now). */
+  /** Unix timestamp in seconds from the block's header (tx.Now in the Go serializer). */
   now: number
-  total_fees?: string
-  prev_tx_lt?: string
-  prev_tx_hash?: string
   in_msg?: { source: string; destination: string; value: string; body?: string }
   out_msgs?: Array<{ source: string; destination: string; value: string; body?: string }>
+}
+
+/** Value paired with the address it was fetched for, so switching wallets invalidates the cache. */
+interface AddressScoped<T> {
+  address: string
+  value: T
 }
 
 /** Result from lite.sendAndWatch */
@@ -110,10 +113,8 @@ export class WsBridgeClient {
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null
   private heartbeatTimer: ReturnType<typeof setTimeout> | null = null
   private pongTimer: ReturnType<typeof setTimeout> | null = null
-  // Caches are scoped to a specific address so switching wallets
-  // (create/import/delete) never returns stale values from a previous one.
-  private cachedBalance: { address: string; value: string } | null = null
-  private cachedSeqno: { address: string; value: number } | null = null
+  private cachedBalance: AddressScoped<string> | null = null
+  private cachedSeqno: AddressScoped<number> | null = null
 
   constructor(wsPort: number) {
     this.wsPort = wsPort

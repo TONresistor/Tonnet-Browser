@@ -42,3 +42,9 @@ export const RATE_LIMIT_ONE_SECOND_MS = 1_000
 // --- Key storage ---
 /** Default auto-lock timer duration */
 export const AUTO_LOCK_DEFAULT_MS = 5 * 60 * 1_000
+
+// --- History / pagination ---
+/** Default number of transactions to fetch from the chain per request */
+export const WALLET_HISTORY_DEFAULT_LIMIT = 20
+/** Number of local transactions to load for merge with on-chain results */
+export const WALLET_HISTORY_LOCAL_PREFETCH = 100

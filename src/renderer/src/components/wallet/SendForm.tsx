@@ -3,15 +3,28 @@
  * NEVER uses parseFloat — all amounts handled via BigInt.
  */
 
-import { useState, memo } from 'react'
+import { useState, useEffect, memo } from 'react'
 import { UI_NOTIFICATION_TIMEOUT_MS } from '@shared/constants'
 import { Send, ArrowLeft, LoaderCircle, CheckCircle2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { tonToNano, formatTonAmount } from '@/stores/wallet'
-import { isValidTonAddress } from '@/lib/ton-utils'
+import { isValidTonAddress, isValidRecipientInput } from '@/lib/ton-utils'
+import { getIpcError } from '@/lib/ipc-utils'
 import { useTranslation } from 'react-i18next'
+
+type ResolveState =
+  | { status: 'idle' }
+  | { status: 'loading' }
+  | { status: 'resolved'; address: string; domain: string }
+  | { status: 'error'; message: string }
+
+function truncateAddress(addr: string | undefined): string {
+  if (!addr) return ''
+  if (addr.length <= 12) return addr
+  return `${addr.slice(0, 6)}...${addr.slice(-4)}`
+}
 
 interface SendFormProps {
   onSend: (to: string, amount: string) => Promise<void>
@@ -38,8 +51,47 @@ export const SendForm = memo(function SendForm({ onSend, isSending, error, balan
   const [amount, setAmount] = useState('')
   const [confirming, setConfirming] = useState(false)
   const [success, setSuccess] = useState(false)
+  const [resolve, setResolve] = useState<ResolveState>({ status: 'idle' })
+  const [debouncedTo, setDebouncedTo] = useState('')
 
-  const toValid = isValidTonAddress(to)
+  useEffect(() => {
+    const id = setTimeout(() => setDebouncedTo(to), 400)
+    return () => clearTimeout(id)
+  }, [to])
+
+  useEffect(() => {
+    const v = debouncedTo.trim()
+    if (!v || !v.toLowerCase().endsWith('.ton')) {
+      setResolve({ status: 'idle' })
+      return
+    }
+    if (!isValidRecipientInput(v)) {
+      setResolve({ status: 'error', message: 'Invalid domain format' })
+      return
+    }
+    let cancelled = false
+    setResolve({ status: 'loading' })
+    window.electron.wallet
+      .resolveRecipient(v)
+      .then((r) => {
+        if (cancelled) return
+        const err = getIpcError(r)
+        if (err || !r || typeof (r as { address?: string }).address !== 'string') {
+          setResolve({ status: 'error', message: err ?? 'Wallet not found' })
+          return
+        }
+        setResolve({ status: 'resolved', address: (r as { address: string }).address, domain: v.toLowerCase() })
+      })
+      .catch((e) => {
+        if (!cancelled) setResolve({ status: 'error', message: (e as Error).message })
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [debouncedTo])
+
+  const toEndsWithTon = to.toLowerCase().endsWith('.ton')
+  const toValid = isValidTonAddress(to) || (resolve.status === 'resolved' && resolve.domain === to.trim().toLowerCase())
   const amountValid = isValidAmount(amount)
   const exceedsBalance = amountValid && BigInt(tonToNano(amount)) > BigInt(balance || '0')
   const canProceed = toValid && amountValid && !exceedsBalance
@@ -148,10 +200,24 @@ export const SendForm = memo(function SendForm({ onSend, isSending, error, balan
           value={to}
           onChange={(e) => setTo(e.target.value.trim())}
           placeholder={t('send.recipientPlaceholder')}
-          className={cn(to && !isValidTonAddress(to) && 'border-destructive focus-visible:ring-destructive')}
-          aria-invalid={to ? !isValidTonAddress(to) : undefined}
+          className={cn(
+            to && !isValidTonAddress(to) && !toEndsWithTon && 'border-destructive focus-visible:ring-destructive'
+          )}
+          aria-invalid={to ? !isValidTonAddress(to) && !toEndsWithTon : undefined}
         />
-        {to && !isValidTonAddress(to) && <p className="text-xs text-destructive">{t('send.invalidAddress')}</p>}
+        {to && !isValidTonAddress(to) && !toEndsWithTon && (
+          <p className="text-xs text-destructive">{t('send.invalidAddress')}</p>
+        )}
+        {toEndsWithTon && resolve.status === 'loading' && (
+          <p className="text-xs text-muted-foreground flex items-center gap-1">
+            <LoaderCircle className="h-3 w-3 animate-spin" aria-hidden="true" />
+            Resolving domain...
+          </p>
+        )}
+        {toEndsWithTon && resolve.status === 'resolved' && (
+          <p className="text-xs text-muted-foreground font-mono">{truncateAddress(resolve.address)}</p>
+        )}
+        {toEndsWithTon && resolve.status === 'error' && <p className="text-xs text-destructive">{resolve.message}</p>}
       </div>
 
       <div className="space-y-2">

@@ -36,3 +36,6 @@ export const TUNNEL_SECTIONS: Record<'standard' | 'maximum', number> = { standar
 // Error truncation
 /** Max characters of error text to include in user-facing messages */
 export const ERROR_TRUNCATE_LENGTH = 200
+
+/** Max transactions kept in the wallet store to bound memory during long sessions */
+export const WALLET_TX_DISPLAY_CAP = 100

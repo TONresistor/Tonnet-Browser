@@ -247,6 +247,7 @@ declare global {
         getState: () => Promise<WalletState>
         getBalance: () => Promise<string>
         send: (to: string, amount: string) => Promise<WalletTransaction>
+        resolveRecipient: (input: string) => Promise<{ address: string; domain?: string }>
         getHistory: (limit?: number) => Promise<WalletTransaction[]>
         clearHistory: () => Promise<{ success: boolean }>
         exportKey: () => Promise<{ publicKey: string; address: string; addressRaw: string }>

@@ -6,6 +6,8 @@
 import { create } from 'zustand'
 import { getIpcError } from '@/lib/ipc-utils'
 import type { WalletTransaction } from '@shared/types'
+import { WALLET_TX_DISPLAY_CAP } from '@shared/constants'
+import { IPC_CHANNELS } from '@shared/ipc-channels'
 
 export function formatTonAmount(nanoTon: string): string {
   if (!nanoTon) return '0'
@@ -65,27 +67,28 @@ export const useWalletStore = create<WalletStore>((set, get) => {
     if (unsubState) unsubState()
     if (unsubNewTx) unsubNewTx()
 
-    unsubBalance = window.electron.on('wallet:balance-updated', (...args: unknown[]) => {
+    unsubBalance = window.electron.on(IPC_CHANNELS.WALLET_BALANCE_UPDATED, (...args: unknown[]) => {
       const balance = args[0] as string
       if (typeof balance === 'string') {
         set({ balance })
       }
     })
 
-    unsubNewTx = window.electron.on('wallet:new-transaction', (...args: unknown[]) => {
+    unsubNewTx = window.electron.on(IPC_CHANNELS.WALLET_NEW_TRANSACTION, (...args: unknown[]) => {
       const tx = args[0] as WalletTransaction | undefined
-      if (!tx || typeof tx !== 'object' || !tx.id) return
-      // Optimistic insert with dedup by id; avoids a full loadHistory
-      // round-trip so the list lands in the same tick as the balance push.
-      // Re-sort by timestamp desc to keep the newest on top even if pushes
-      // arrive out of order.
-      const existing = get().transactions
-      if (existing.some((t) => t.id === tx.id)) return
-      const next = [tx, ...existing].sort((a, b) => b.timestamp - a.timestamp)
-      set({ transactions: next })
+      if (!tx || typeof tx !== 'object' || typeof tx.id !== 'string') return
+      // Functional set for atomic dedup: two pushes arriving back-to-back both
+      // read the same snapshot with get(), so the check-then-set would race.
+      set((state) => {
+        if (state.transactions.some((t) => t.id === tx.id)) return state
+        const next = [tx, ...state.transactions]
+          .sort((a, b) => b.timestamp - a.timestamp)
+          .slice(0, WALLET_TX_DISPLAY_CAP)
+        return { transactions: next }
+      })
     })
 
-    unsubState = window.electron.on('wallet:state-changed', (...args: unknown[]) => {
+    unsubState = window.electron.on(IPC_CHANNELS.WALLET_STATE_CHANGED, (...args: unknown[]) => {
       const state = args[0] as {
         isCreated?: boolean
         address?: string

@@ -2,26 +2,25 @@
  * IPC handlers for wallet operations.
  */
 
-import { Address } from '@ton/core'
 import { IPC_CHANNELS, type WalletState, type WalletTransaction } from '../../../shared/types'
-import { secureHandle, emitToRenderer, log } from './shared'
+import { secureHandle, emitToRenderer, toError, log } from './shared'
 import { getMainWindow } from '../../windows/main'
+import { WALLET_HISTORY_DEFAULT_LIMIT, WALLET_HISTORY_LOCAL_PREFETCH } from '../../wallet/constants'
 import type { ServiceRegistry } from '../../services'
 
 export function registerWalletHandlers(registry: ServiceRegistry): void {
   const { walletManager, walletHistoryManager, paymentInterceptor, overlayManager } = registry
 
-  // Forward wallet events to renderer
   walletManager.on('balance-updated', (balance: string) => {
-    emitToRenderer('wallet:balance-updated', balance)
+    emitToRenderer(IPC_CHANNELS.WALLET_BALANCE_UPDATED, balance)
   })
 
   walletManager.on('state-changed', (state: WalletState) => {
-    emitToRenderer('wallet:state-changed', state)
+    emitToRenderer(IPC_CHANNELS.WALLET_STATE_CHANGED, state)
   })
 
   walletManager.on('new-transaction', (tx: WalletTransaction) => {
-    emitToRenderer('wallet:new-transaction', tx)
+    emitToRenderer(IPC_CHANNELS.WALLET_NEW_TRANSACTION, tx)
   })
 
   secureHandle(IPC_CHANNELS.WALLET_CREATE, async () => {
@@ -36,47 +35,48 @@ export function registerWalletHandlers(registry: ServiceRegistry): void {
     return await walletManager.getBalance()
   })
 
+  secureHandle(IPC_CHANNELS.WALLET_RESOLVE_RECIPIENT, async (input: string) => {
+    if (!input || typeof input !== 'string') {
+      throw new Error('Invalid input')
+    }
+    return await walletManager.resolveRecipient(input)
+  })
+
   secureHandle(IPC_CHANNELS.WALLET_SEND, async (to: string, amount: string) => {
     if (!to || typeof to !== 'string') {
       throw new Error('Invalid recipient address')
     }
-    // Validate address format early (fail fast before touching wallet)
-    try {
-      Address.parse(to)
-    } catch {
-      throw new Error('Invalid recipient address format')
-    }
     if (!amount || typeof amount !== 'string' || !/^\d+$/.test(amount)) {
       throw new Error('Invalid amount: must be a string of digits (nanoTON)')
     }
+    const resolved = await walletManager.resolveRecipient(to)
     // Balance check: prevent sending more than available
     const balance = await walletManager.getBalance()
     if (BigInt(amount) > BigInt(balance)) {
       throw new Error('Insufficient balance')
     }
-    const tx = await walletManager.send(to, amount)
+    const tx = await walletManager.send(resolved.address, amount)
     await walletHistoryManager.add(tx)
     return tx
   })
 
   secureHandle(IPC_CHANNELS.WALLET_GET_HISTORY, async (limit?: number) => {
-    const safeLimit = typeof limit === 'number' && limit > 0 ? limit : 20
+    const safeLimit = typeof limit === 'number' && limit > 0 ? limit : WALLET_HISTORY_DEFAULT_LIMIT
     const [onChainResult, localResult] = await Promise.allSettled([
       walletManager.fetchOnChainHistory(safeLimit),
-      walletHistoryManager.getRecent(100),
+      walletHistoryManager.getRecent(WALLET_HISTORY_LOCAL_PREFETCH),
     ])
     const local = localResult.status === 'fulfilled' ? localResult.value : []
     if (onChainResult.status === 'fulfilled') {
       return walletHistoryManager.merge(onChainResult.value, local)
     }
-    // On-chain fetch failed (timeout, bridge stall, etc).
-    // Fall back to local pending tx if we have any; otherwise propagate
-    // the error so the renderer preserves its existing transaction list.
+    // On-chain fetch failed: serve local pending tx if any, otherwise
+    // propagate so the renderer preserves its existing list.
     if (local.length > 0) {
       log.warn('On-chain history fetch failed, serving local cache only')
       return local
     }
-    throw onChainResult.reason instanceof Error ? onChainResult.reason : new Error(String(onChainResult.reason))
+    throw toError(onChainResult.reason)
   })
 
   secureHandle(IPC_CHANNELS.WALLET_CLEAR_HISTORY, async () => {
