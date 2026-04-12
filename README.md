@@ -1,9 +1,7 @@
 <h1 align="center">Tonnet Browser</h1>
-
 <p align="center">
   <strong>Browse the TON Network, privately.</strong>
 </p>
-
 <p align="center">
   <a href="https://tonnet.resistance.dog/download/">
     <img src="https://img.shields.io/badge/Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white" alt="Windows">
@@ -21,19 +19,10 @@
   &nbsp;
   <img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License">
 </p>
-
 ---
-
-<table>
-  <tr>
-    <td align="center"><img src="assets/screenshot1.jpg" width="400"><br><em>Home</em></td>
-    <td align="center"><img src="assets/screenshot2.jpg" width="400"><br><em>Start Page</em></td>
-  </tr>
-  <tr>
-    <td align="center"><img src="assets/screenshot3.jpg" width="400"><br><em>Storage</em></td>
-    <td align="center"><img src="assets/screenshot4.jpg" width="400"><br><em>Settings</em></td>
-  </tr>
-</table>
+<p align="center">
+  <img src="assets/screenshot.jpg" width="800">
+</p>
 
 ## About
 

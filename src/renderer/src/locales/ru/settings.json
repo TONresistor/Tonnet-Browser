@@ -276,7 +276,14 @@
     "loading": "Загрузка...",
     "notSet": "Не установлено",
     "updateInterval": "Интервал обновления",
-    "updateIntervalDesc": "Как часто обновлять статистику загрузок"
+    "updateIntervalDesc": "Как часто обновлять статистику загрузок",
+    "seedingEnabled": "Enable seeding",
+    "seedingEnabledDesc": "Share downloaded files with other TON Storage peers",
+    "seedingEnabledLabel": "Enable seeding",
+    "downloadSpeedLimit": "Download speed limit",
+    "downloadSpeedLimitDesc": "Max download speed in KB/s (0 = unlimited)",
+    "uploadSpeedLimit": "Upload speed limit",
+    "uploadSpeedLimitDesc": "Max upload speed in KB/s (0 = unlimited)"
   },
   "wallet": {
     "title": "Wallet",

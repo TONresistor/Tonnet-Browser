@@ -276,7 +276,14 @@
     "loading": "로딩 중...",
     "notSet": "설정되지 않음",
     "updateInterval": "업데이트 간격",
-    "updateIntervalDesc": "다운로드 통계를 업데이트하는 빈도"
+    "updateIntervalDesc": "다운로드 통계를 업데이트하는 빈도",
+    "seedingEnabled": "Enable seeding",
+    "seedingEnabledDesc": "Share downloaded files with other TON Storage peers",
+    "seedingEnabledLabel": "Enable seeding",
+    "downloadSpeedLimit": "Download speed limit",
+    "downloadSpeedLimitDesc": "Max download speed in KB/s (0 = unlimited)",
+    "uploadSpeedLimit": "Upload speed limit",
+    "uploadSpeedLimitDesc": "Max upload speed in KB/s (0 = unlimited)"
   },
   "wallet": {
     "title": "Wallet",

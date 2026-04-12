@@ -65,6 +65,7 @@
     "storage": "Penyimpanan:",
     "bag": "tas",
     "bags": "tas",
+    "seeding": "seeding",
     "session": "Sesi:",
     "networkStatus": "Status jaringan: {{status}}",
     "downloadSpeedAria": "Kecepatan unduh: {{speed}}",

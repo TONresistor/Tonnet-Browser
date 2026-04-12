@@ -65,6 +65,7 @@
     "storage": "저장소:",
     "bag": "백",
     "bags": "백",
+    "seeding": "seeding",
     "session": "세션:",
     "networkStatus": "네트워크 상태: {{status}}",
     "downloadSpeedAria": "다운로드 속도: {{speed}}",

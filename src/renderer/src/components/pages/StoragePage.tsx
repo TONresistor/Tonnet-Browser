@@ -5,13 +5,14 @@
 
 import { useState, useEffect } from 'react'
 import { createLogger } from '@/logger'
-import { Plus, Search, HardDrive, X, Settings } from 'lucide-react'
+import { Plus, Search, HardDrive, X, Settings, Upload } from 'lucide-react'
 
 const log = createLogger('storage')
 import { useTranslation } from 'react-i18next'
 import type { StorageBag } from '@shared/types'
 import { cn } from '@/lib/utils'
 import { useTabsStore } from '@/stores/tabs'
+import { usePreferencesStore } from '@/stores/preferences'
 import { formatBytes } from '@/lib/format'
 import { BagDetailPanel } from './storage/BagDetailPanel'
 import { AddBagModal } from './storage/AddBagModal'
@@ -127,9 +128,10 @@ export function StoragePage() {
   }
 
   // Filter bags
+  const isComplete = (bag: StorageBag) => bag.size > 0 && bag.downloaded >= bag.size
   const filteredBags = bags.filter((bag) => {
     if (filter === 'downloading' && bag.status !== 'downloading') return false
-    if (filter === 'complete' && bag.status !== 'seeding') return false
+    if (filter === 'complete' && !isComplete(bag)) return false
 
     if (searchQuery) {
       const query = searchQuery.toLowerCase()
@@ -141,7 +143,7 @@ export function StoragePage() {
   const counts = {
     all: bags.length,
     downloading: bags.filter((b) => b.status === 'downloading').length,
-    complete: bags.filter((b) => b.status === 'seeding').length,
+    complete: bags.filter(isComplete).length,
   }
 
   return (
@@ -175,8 +177,9 @@ export function StoragePage() {
           </FilterButton>
         </div>
 
-        {/* Settings button at bottom */}
-        <div className="mt-auto">
+        {/* Seeding toggle + Settings at bottom */}
+        <div className="mt-auto space-y-2">
+          <SeedingToggle />
           <button
             onClick={navigateToSettings}
             className="w-full flex items-center gap-2 px-3 py-2 rounded-full text-sm text-muted-foreground transition-all duration-200 hover:text-foreground bg-surface backdrop-blur-[10px] border border-border-subtle"
@@ -256,6 +259,42 @@ export function StoragePage() {
 
       {/* Add Bag Modal */}
       <AddBagModal isOpen={showAddModal} onClose={() => setShowAddModal(false)} onBagAdded={loadBags} />
+    </div>
+  )
+}
+
+// Seeding Toggle Component
+function SeedingToggle() {
+  const { t } = useTranslation('pages')
+  const seedingEnabled = usePreferencesStore((s) => s.draft.seedingEnabled)
+  const setDraft = usePreferencesStore((s) => s.setDraft)
+  const save = usePreferencesStore((s) => s.save)
+
+  const handleToggle = async (enabled: boolean) => {
+    setDraft('seedingEnabled', enabled)
+    await save()
+  }
+
+  return (
+    <div className="flex items-center justify-between px-3 py-2 rounded-full text-sm bg-surface backdrop-blur-[10px] border border-border-subtle">
+      <div className="flex items-center gap-2 text-muted-foreground">
+        <Upload className="h-4 w-4" />
+        <span>{t('storage.actions.seeding')}</span>
+      </div>
+      <button
+        onClick={() => handleToggle(!seedingEnabled)}
+        className={cn(
+          'relative w-9 h-5 rounded-full transition-colors duration-200',
+          seedingEnabled ? 'bg-primary' : 'bg-muted'
+        )}
+      >
+        <span
+          className={cn(
+            'absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform duration-200',
+            seedingEnabled && 'translate-x-4'
+          )}
+        />
+      </button>
     </div>
   )
 }

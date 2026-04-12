@@ -63,6 +63,9 @@ export function getDefaultSettings(): AppSettings {
     storage: {
       downloadPath: getDefaultStoragePath(), // Platform-specific override
       pollingInterval: DEFAULT_SETTINGS.pollingInterval,
+      seedingEnabled: DEFAULT_SETTINGS.seedingEnabled,
+      downloadSpeedLimit: DEFAULT_SETTINGS.downloadSpeedLimit,
+      uploadSpeedLimit: DEFAULT_SETTINGS.uploadSpeedLimit,
     },
     appearance: {
       theme: DEFAULT_SETTINGS.theme,

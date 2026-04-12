@@ -65,6 +65,7 @@
     "storage": "Speicher:",
     "bag": "Beutel",
     "bags": "Beutel",
+    "seeding": "seeding",
     "session": "Sitzung:",
     "networkStatus": "Netzwerkstatus: {{status}}",
     "downloadSpeedAria": "Download-Geschwindigkeit: {{speed}}",

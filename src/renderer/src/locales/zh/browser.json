@@ -65,6 +65,7 @@
     "storage": "存储：",
     "bag": "包",
     "bags": "包",
+    "seeding": "seeding",
     "session": "会话：",
     "networkStatus": "网络状态：{{status}}",
     "downloadSpeedAria": "下载速度: {{speed}}",

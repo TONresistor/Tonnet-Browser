@@ -6,6 +6,7 @@ import { memo } from 'react'
 import { FolderOpen } from 'lucide-react'
 import { SectionHeader } from '../shared/SectionHeader'
 import { SettingRow } from '../shared/SettingRow'
+import { Toggle } from '../shared/Toggle'
 import { NumberInput } from '../shared/NumberInput'
 import type { SectionProps } from '../types'
 import { useTranslation } from 'react-i18next'
@@ -27,6 +28,36 @@ export const StorageSection = memo(function StorageSection({
     <div>
       <SectionHeader title={t('storage.title')} description={t('storage.description')} />
       <div className="glass-card px-4">
+        <SettingRow label={t('storage.seedingEnabled')} description={t('storage.seedingEnabledDesc')}>
+          <Toggle
+            checked={draft.seedingEnabled}
+            onChange={(v) => setDraft('seedingEnabled', v)}
+            label={t('storage.seedingEnabledLabel')}
+          />
+        </SettingRow>
+        <SettingRow label={t('storage.downloadSpeedLimit')} description={t('storage.downloadSpeedLimitDesc')}>
+          <NumberInput
+            value={Math.round(draft.downloadSpeedLimit / 1024)}
+            onChange={(v) => setDraft('downloadSpeedLimit', v * 1024)}
+            min={0}
+            max={102400}
+            step={128}
+            suffix=" KB/s"
+          />
+        </SettingRow>
+        <SettingRow label={t('storage.uploadSpeedLimit')} description={t('storage.uploadSpeedLimitDesc')}>
+          <NumberInput
+            value={Math.round(draft.uploadSpeedLimit / 1024)}
+            onChange={(v) => setDraft('uploadSpeedLimit', v * 1024)}
+            min={0}
+            max={102400}
+            step={128}
+            suffix=" KB/s"
+          />
+        </SettingRow>
+      </div>
+
+      <div className="mt-6 glass-card px-4">
         <SettingRow label={t('storage.downloadFolder')} description={t('storage.downloadFolderDesc')}>
           <button
             onClick={onSelectFolder}

@@ -65,6 +65,7 @@
     "storage": "Stockage :",
     "bag": "sac",
     "bags": "sacs",
+    "seeding": "seeding",
     "session": "Session :",
     "networkStatus": "État du réseau : {{status}}",
     "downloadSpeedAria": "Vitesse de téléchargement : {{speed}}",

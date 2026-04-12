@@ -276,7 +276,14 @@
     "loading": "加载中...",
     "notSet": "未设置",
     "updateInterval": "更新间隔",
-    "updateIntervalDesc": "刷新下载统计信息的频率"
+    "updateIntervalDesc": "刷新下载统计信息的频率",
+    "seedingEnabled": "Enable seeding",
+    "seedingEnabledDesc": "Share downloaded files with other TON Storage peers",
+    "seedingEnabledLabel": "Enable seeding",
+    "downloadSpeedLimit": "Download speed limit",
+    "downloadSpeedLimitDesc": "Max download speed in KB/s (0 = unlimited)",
+    "uploadSpeedLimit": "Upload speed limit",
+    "uploadSpeedLimitDesc": "Max upload speed in KB/s (0 = unlimited)"
   },
   "wallet": {
     "title": "Wallet",

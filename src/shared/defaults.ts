@@ -29,6 +29,9 @@ export const DEFAULT_SETTINGS = {
   // Storage
   downloadPath: '', // Main process will set actual path
   pollingInterval: 2000,
+  seedingEnabled: false, // Seeding disabled by default, download-only
+  downloadSpeedLimit: 0, // 0 = unlimited bytes/sec
+  uploadSpeedLimit: 0, // 0 = unlimited bytes/sec
 
   // Appearance
   theme: 'resistance-dog' as ThemeType,

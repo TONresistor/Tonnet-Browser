@@ -79,26 +79,32 @@ export class StorageManager extends EventEmitter {
     log.debug(`API port: ${safePort}`)
     log.debug(`Verbosity: ${safeVerbosity}`)
 
+    // Build spawn arguments
+    const { storage } = this.loadSettings()
+    const args = [
+      '-daemon',
+      '-api',
+      `127.0.0.1:${safePort}`,
+      '-api-login',
+      apiLogin,
+      '-api-password',
+      apiPassword,
+      '-db',
+      this.dbPath,
+      '-network-config',
+      configPath,
+      '-verbosity',
+      String(safeVerbosity),
+    ]
+    if (storage.downloadSpeedLimit > 0) {
+      args.push('-limit-download', String(storage.downloadSpeedLimit))
+    }
+    if (storage.uploadSpeedLimit > 0) {
+      args.push('-limit-upload', String(storage.uploadSpeedLimit))
+    }
+
     // Start tonutils-storage in daemon mode with HTTP API + auth
-    this.process = spawn(
-      binPath,
-      [
-        '-daemon',
-        '-api',
-        `127.0.0.1:${safePort}`,
-        '-api-login',
-        apiLogin,
-        '-api-password',
-        apiPassword,
-        '-db',
-        this.dbPath,
-        '-network-config',
-        configPath,
-        '-verbosity',
-        String(safeVerbosity),
-      ],
-      { windowsHide: true }
-    )
+    this.process = spawn(binPath, args, { windowsHide: true })
 
     this.process.stdout?.on('data', (data: Buffer) => {
       const message = data.toString().trim()
@@ -190,7 +196,22 @@ export class StorageManager extends EventEmitter {
       if (!this.client || !this.isRunning) return
       try {
         const bags = await this.client.listBags()
-        this.emit('bags-updated', bags.map(this.mapBagInfo))
+
+        // Auto-stop seeding bags when seeding is disabled
+        const { storage: storageSettings } = this.loadSettings()
+        if (!storageSettings.seedingEnabled) {
+          for (const bag of bags) {
+            if (bag.completed && bag.active) {
+              log.info(`Seeding disabled: stopping bag ${bag.bag_id.slice(0, 8)}...`)
+              await this.client.stopBag(bag.bag_id).catch(() => {})
+            }
+          }
+        }
+
+        this.emit(
+          'bags-updated',
+          bags.map((b) => this.mapBagInfo(b))
+        )
       } catch (err) {
         log.error(`Poll error: ${String(err)}`)
       }
@@ -205,11 +226,16 @@ export class StorageManager extends EventEmitter {
   }
 
   private mapBagInfo(info: BagInfo): StorageBag {
+    const { storage } = this.loadSettings()
     let status: StorageBag['status'] = 'downloading'
-    if (!info.active) {
-      status = 'paused'
-    } else if (info.completed) {
+    if (info.completed && info.active) {
       status = 'seeding'
+    } else if (info.completed && !info.active) {
+      // Completed but paused: show 'seeding' if seeding is globally enabled (temporarily paused),
+      // show 'paused' if seeding is disabled (expected state)
+      status = storage.seedingEnabled ? 'paused' : 'seeding'
+    } else if (!info.active) {
+      status = 'paused'
     }
 
     return {
@@ -297,7 +323,28 @@ export class StorageManager extends EventEmitter {
     }
 
     const bags = await this.client.listBags()
-    return bags.map(this.mapBagInfo)
+    return bags.map((b) => this.mapBagInfo(b))
+  }
+
+  async resumeSeeding(): Promise<void> {
+    if (!this.client) return
+    try {
+      const bags = await this.client.listBags()
+      for (const bag of bags) {
+        if (bag.completed && !bag.active) {
+          log.info(`Seeding enabled: resuming bag ${bag.bag_id.slice(0, 8)}...`)
+          await this.client
+            .addBag({
+              bag_id: bag.bag_id,
+              path: this.storagePath,
+              download_all: true,
+            })
+            .catch(() => {})
+        }
+      }
+    } catch (err) {
+      log.error(`Resume seeding error: ${String(err)}`)
+    }
   }
 
   async pauseBag(bagId: string): Promise<boolean> {

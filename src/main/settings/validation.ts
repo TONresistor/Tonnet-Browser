@@ -167,6 +167,9 @@ export function getDefaultSettingsBase(): AppSettings {
     storage: {
       downloadPath: '/tmp/tonnet-storage',
       pollingInterval: d.pollingInterval,
+      seedingEnabled: d.seedingEnabled,
+      downloadSpeedLimit: d.downloadSpeedLimit,
+      uploadSpeedLimit: d.uploadSpeedLimit,
     },
     appearance: {
       theme: d.theme,

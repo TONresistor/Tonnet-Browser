@@ -65,6 +65,7 @@
     "storage": "พื้นที่เก็บข้อมูล:",
     "bag": "ถุง",
     "bags": "ถุง",
+    "seeding": "seeding",
     "session": "เซสชัน:",
     "networkStatus": "สถานะเครือข่าย: {{status}}",
     "downloadSpeedAria": "ความเร็วดาวน์โหลด: {{speed}}",

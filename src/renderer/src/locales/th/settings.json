@@ -276,7 +276,14 @@
     "loading": "กำลังโหลด...",
     "notSet": "ไม่ได้ตั้งค่า",
     "updateInterval": "ช่วงเวลาอัปเดต",
-    "updateIntervalDesc": "ความถี่ในการอัปเดตสถิติการดาวน์โหลด"
+    "updateIntervalDesc": "ความถี่ในการอัปเดตสถิติการดาวน์โหลด",
+    "seedingEnabled": "Enable seeding",
+    "seedingEnabledDesc": "Share downloaded files with other TON Storage peers",
+    "seedingEnabledLabel": "Enable seeding",
+    "downloadSpeedLimit": "Download speed limit",
+    "downloadSpeedLimitDesc": "Max download speed in KB/s (0 = unlimited)",
+    "uploadSpeedLimit": "Upload speed limit",
+    "uploadSpeedLimitDesc": "Max upload speed in KB/s (0 = unlimited)"
   },
   "wallet": {
     "title": "Wallet",

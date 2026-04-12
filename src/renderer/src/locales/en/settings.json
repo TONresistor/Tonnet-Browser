@@ -375,7 +375,14 @@
     "loading": "Loading...",
     "notSet": "Not set",
     "updateInterval": "Update interval",
-    "updateIntervalDesc": "How often to refresh download stats"
+    "updateIntervalDesc": "How often to refresh download stats",
+    "seedingEnabled": "Enable seeding",
+    "seedingEnabledDesc": "Share downloaded files with other TON Storage peers",
+    "seedingEnabledLabel": "Enable seeding",
+    "downloadSpeedLimit": "Download speed limit",
+    "downloadSpeedLimitDesc": "Max download speed in KB/s (0 = unlimited)",
+    "uploadSpeedLimit": "Upload speed limit",
+    "uploadSpeedLimitDesc": "Max upload speed in KB/s (0 = unlimited)"
   },
   "actions": {
     "unsavedChanges": "You have unsaved changes",

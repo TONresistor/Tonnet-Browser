@@ -276,7 +276,14 @@
     "loading": "Memuat...",
     "notSet": "Belum diatur",
     "updateInterval": "Interval pembaruan",
-    "updateIntervalDesc": "Seberapa sering memperbarui statistik unduhan"
+    "updateIntervalDesc": "Seberapa sering memperbarui statistik unduhan",
+    "seedingEnabled": "Enable seeding",
+    "seedingEnabledDesc": "Share downloaded files with other TON Storage peers",
+    "seedingEnabledLabel": "Enable seeding",
+    "downloadSpeedLimit": "Download speed limit",
+    "downloadSpeedLimitDesc": "Max download speed in KB/s (0 = unlimited)",
+    "uploadSpeedLimit": "Upload speed limit",
+    "uploadSpeedLimitDesc": "Max upload speed in KB/s (0 = unlimited)"
   },
   "wallet": {
     "title": "Wallet",

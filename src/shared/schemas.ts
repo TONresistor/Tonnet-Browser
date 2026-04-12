@@ -24,6 +24,9 @@ export const NetworkSettingsSchema = z.object({
 export const StorageSettingsSchema = z.object({
   downloadPath: z.string().default(''),
   pollingInterval: z.number().min(500).max(30000).default(2000),
+  seedingEnabled: z.boolean().default(false),
+  downloadSpeedLimit: z.number().min(0).max(104857600).default(0),
+  uploadSpeedLimit: z.number().min(0).max(104857600).default(0),
 })
 
 // Theme: built-in names OR custom:* prefix
@@ -218,6 +221,9 @@ export const StorageSettingsPartialSchema = z
   .object({
     downloadPath: z.string(),
     pollingInterval: z.number().min(500).max(30000),
+    seedingEnabled: z.boolean(),
+    downloadSpeedLimit: z.number().min(0).max(104857600),
+    uploadSpeedLimit: z.number().min(0).max(104857600),
   })
   .partial()
 

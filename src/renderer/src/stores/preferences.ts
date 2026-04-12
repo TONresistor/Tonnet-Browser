@@ -28,6 +28,9 @@ export interface AppPreferences {
   // Storage
   downloadPath: string
   storagePollingInterval: number
+  seedingEnabled: boolean
+  downloadSpeedLimit: number
+  uploadSpeedLimit: number
 
   // Appearance
   theme: ThemeType
@@ -97,6 +100,9 @@ export const defaultPreferences: AppPreferences = {
   // Storage
   downloadPath: DEFAULT_SETTINGS.downloadPath, // Will be loaded from main
   storagePollingInterval: DEFAULT_SETTINGS.pollingInterval,
+  seedingEnabled: DEFAULT_SETTINGS.seedingEnabled,
+  downloadSpeedLimit: DEFAULT_SETTINGS.downloadSpeedLimit,
+  uploadSpeedLimit: DEFAULT_SETTINGS.uploadSpeedLimit,
 
   // Appearance
   theme: DEFAULT_SETTINGS.theme,
@@ -144,6 +150,9 @@ const prefToCategory: Record<keyof AppPreferences, { category: string; field: st
   anonymousMode: { category: 'network', field: 'anonymousMode' },
   downloadPath: { category: 'storage', field: 'downloadPath' },
   storagePollingInterval: { category: 'storage', field: 'pollingInterval' },
+  seedingEnabled: { category: 'storage', field: 'seedingEnabled' },
+  downloadSpeedLimit: { category: 'storage', field: 'downloadSpeedLimit' },
+  uploadSpeedLimit: { category: 'storage', field: 'uploadSpeedLimit' },
   theme: { category: 'appearance', field: 'theme' },
   language: { category: 'appearance', field: 'language' },
   defaultZoom: { category: 'appearance', field: 'defaultZoom' },
@@ -184,6 +193,9 @@ function mainSettingsToPrefs(settings: AppSettings): AppPreferences {
     anonymousMode: settings.network?.anonymousMode ?? defaultPreferences.anonymousMode,
     downloadPath: settings.storage?.downloadPath ?? defaultPreferences.downloadPath,
     storagePollingInterval: settings.storage?.pollingInterval ?? defaultPreferences.storagePollingInterval,
+    seedingEnabled: settings.storage?.seedingEnabled ?? defaultPreferences.seedingEnabled,
+    downloadSpeedLimit: settings.storage?.downloadSpeedLimit ?? defaultPreferences.downloadSpeedLimit,
+    uploadSpeedLimit: settings.storage?.uploadSpeedLimit ?? defaultPreferences.uploadSpeedLimit,
     theme: (settings.appearance?.theme ?? defaultPreferences.theme) as ThemeType,
     language: settings.appearance?.language ?? defaultPreferences.language,
     defaultZoom: settings.appearance?.defaultZoom ?? defaultPreferences.defaultZoom,

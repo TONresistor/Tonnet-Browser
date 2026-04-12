@@ -276,7 +276,14 @@
     "loading": "Chargement...",
     "notSet": "Non défini",
     "updateInterval": "Intervalle de mise à jour",
-    "updateIntervalDesc": "Fréquence de mise à jour des statistiques de téléchargement"
+    "updateIntervalDesc": "Fréquence de mise à jour des statistiques de téléchargement",
+    "seedingEnabled": "Enable seeding",
+    "seedingEnabledDesc": "Share downloaded files with other TON Storage peers",
+    "seedingEnabledLabel": "Enable seeding",
+    "downloadSpeedLimit": "Download speed limit",
+    "downloadSpeedLimitDesc": "Max download speed in KB/s (0 = unlimited)",
+    "uploadSpeedLimit": "Upload speed limit",
+    "uploadSpeedLimitDesc": "Max upload speed in KB/s (0 = unlimited)"
   },
   "actions": {
     "unsavedChanges": "Modifications non enregistrées",

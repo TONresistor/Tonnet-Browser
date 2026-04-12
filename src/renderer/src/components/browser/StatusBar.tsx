@@ -10,6 +10,7 @@ const log = createLogger('status')
 import { Wifi, WifiOff, LoaderCircle, ArrowDown, ArrowUp } from 'lucide-react'
 import walletIcon from '@/assets/wallet.svg'
 import { useBrowserStore } from '@/stores/browser'
+import { usePreferencesStore } from '@/stores/preferences'
 import { useWalletStore, formatTonAmount } from '@/stores/wallet'
 import { useTabsStore } from '@/stores/tabs'
 import { APP_VERSION, TON_WALLET_PAGE } from '@shared/constants'
@@ -33,6 +34,7 @@ export const StatusBar = memo(function StatusBar() {
   const walletCreated = useWalletStore((s) => s.isCreated)
   const walletBalance = useWalletStore((s) => s.balance)
   const openOrSwitchToTab = useTabsStore((s) => s.openOrSwitchToTab)
+  const seedingEnabled = usePreferencesStore((s) => s.saved.seedingEnabled)
   const [currentTime, setCurrentTime] = useState(new Date())
   // Clock update
   useEffect(() => {
@@ -158,6 +160,7 @@ export const StatusBar = memo(function StatusBar() {
           <span>
             {storageStats.bagsCount} {storageStats.bagsCount === 1 ? t('statusBar.bag') : t('statusBar.bags')}
           </span>
+          {seedingEnabled && <span className="text-success">{t('statusBar.seeding')}</span>}
         </div>
 
         {/* Transfer Speeds */}

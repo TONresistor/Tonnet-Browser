@@ -65,6 +65,7 @@
     "storage": "Хранилище:",
     "bag": "пакет",
     "bags": "пакетов",
+    "seeding": "seeding",
     "session": "Сессия:",
     "networkStatus": "Статус сети: {{status}}",
     "downloadSpeedAria": "Скорость загрузки: {{speed}}",

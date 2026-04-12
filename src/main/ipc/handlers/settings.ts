@@ -129,6 +129,13 @@ export function registerSettingsHandlers(registry: ServiceRegistry): void {
     if (category === 'contentFiltering') {
       contentFilterManager.applySettings(getSetting('contentFiltering'))
     }
+    // If storage seedingEnabled changed, resume seeding on completed bags
+    if (category === 'storage' && 'seedingEnabled' in values) {
+      const storageSettings = getSetting('storage')
+      if (storageSettings.seedingEnabled) {
+        storageManager.resumeSeeding()
+      }
+    }
     // If wallet settings changed, update auto-lock timer
     if (category === 'wallet') {
       const walletSettings = getSetting('wallet')
