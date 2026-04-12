@@ -2,6 +2,7 @@
  * IPC handlers for wallet operations.
  */
 
+import { Address } from '@ton/core'
 import { IPC_CHANNELS, type WalletState, type WalletTransaction } from '../../../shared/types'
 import { secureHandle, emitToRenderer, log } from './shared'
 import { getMainWindow } from '../../windows/main'
@@ -39,8 +40,19 @@ export function registerWalletHandlers(registry: ServiceRegistry): void {
     if (!to || typeof to !== 'string') {
       throw new Error('Invalid recipient address')
     }
+    // Validate address format early (fail fast before touching wallet)
+    try {
+      Address.parse(to)
+    } catch {
+      throw new Error('Invalid recipient address format')
+    }
     if (!amount || typeof amount !== 'string' || !/^\d+$/.test(amount)) {
       throw new Error('Invalid amount: must be a string of digits (nanoTON)')
+    }
+    // Balance check: prevent sending more than available
+    const balance = await walletManager.getBalance()
+    if (BigInt(amount) > BigInt(balance)) {
+      throw new Error('Insufficient balance')
     }
     const tx = await walletManager.send(to, amount)
     await walletHistoryManager.add(tx)
