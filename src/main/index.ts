@@ -6,7 +6,7 @@
 import log from '../shared/logger'
 import { app, BrowserWindow, shell, screen, Menu, protocol, net, clipboard } from 'electron'
 import { join, resolve, dirname } from 'path'
-import { existsSync, readFileSync, writeFileSync } from 'fs'
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs'
 import { migrateUserData } from './utils/migrate-userdata'
 import { writeFile } from 'fs/promises'
 import { EventEmitter } from 'events'
@@ -97,6 +97,13 @@ app.setName('TON Browser')
 {
   const userDataParent = dirname(app.getPath('userData'))
   const canonicalUserData = join(userDataParent, 'ton-browser')
+  // Redirect logs path before the first log write (migrateUserData logs).
+  // Without this, electron-log resolves app.getPath('logs') via app.name and
+  // writes to ~/.config/TON Browser/logs, which does not exist on fresh installs.
+  const canonicalLogs = join(canonicalUserData, 'logs')
+  mkdirSync(canonicalLogs, { recursive: true })
+  app.setPath('logs', canonicalLogs)
+  log.transports.file.resolvePathFn = () => join(canonicalLogs, 'main.log')
   migrateUserData(canonicalUserData)
   app.setPath('userData', canonicalUserData)
 }
