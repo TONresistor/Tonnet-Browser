@@ -24,11 +24,6 @@ const VALID_EVENT_CHANNELS = [
   'folder:rename',
   'folder:delete',
   'folder:open-all',
-  'updater:available',
-  'updater:not-available',
-  'updater:progress',
-  'updater:downloaded',
-  'updater:error',
   'tab:history-reset',
   'wallet:balance-updated',
   'wallet:state-changed',
@@ -198,8 +193,7 @@ const electronAPI = {
   // Updater
   updater: {
     check: () => ipcRenderer.invoke(IPC_CHANNELS.UPDATER_CHECK),
-    download: () => ipcRenderer.invoke(IPC_CHANNELS.UPDATER_DOWNLOAD),
-    install: () => ipcRenderer.invoke(IPC_CHANNELS.UPDATER_INSTALL),
+    openDownloadPage: () => ipcRenderer.invoke(IPC_CHANNELS.UPDATER_OPEN_DOWNLOAD_PAGE),
   },
 
   // Event listeners - returns unsubscribe function for proper cleanup

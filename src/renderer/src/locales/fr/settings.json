@@ -264,12 +264,9 @@
       "checking": "Recherche...",
       "upToDate": "À jour",
       "available": "disponible",
-      "download": "Télécharger et installer",
-      "downloading": "Téléchargement...",
-      "restart": "Redémarrer pour mettre à jour",
+      "download": "Télécharger",
       "retry": "Réessayer",
-      "errorGeneric": "Échec de la vérification",
-      "errorDownload": "Échec du téléchargement"
+      "errorGeneric": "Échec de la vérification"
     }
   },
   "storage": {

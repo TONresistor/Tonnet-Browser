@@ -264,12 +264,9 @@
       "checking": "检查中...",
       "upToDate": "已是最新版本",
       "available": "可用",
-      "download": "下载并安装",
-      "downloading": "下载中...",
-      "restart": "重启以更新",
+      "download": "下载",
       "retry": "重试",
-      "errorGeneric": "检查更新失败",
-      "errorDownload": "下载失败"
+      "errorGeneric": "检查更新失败"
     }
   },
   "storage": {

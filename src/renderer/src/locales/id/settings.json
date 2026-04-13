@@ -264,12 +264,9 @@
       "checking": "Memeriksa...",
       "upToDate": "Sudah terbaru",
       "available": "tersedia",
-      "download": "Unduh & Pasang",
-      "downloading": "Mengunduh...",
-      "restart": "Mulai ulang untuk memperbarui",
+      "download": "Unduh",
       "retry": "Coba lagi",
-      "errorGeneric": "Gagal memeriksa pembaruan",
-      "errorDownload": "Unduhan gagal"
+      "errorGeneric": "Gagal memeriksa pembaruan"
     }
   },
   "storage": {

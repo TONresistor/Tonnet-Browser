@@ -9,56 +9,17 @@ import { APP_NAME, APP_VERSION, UI_NOTIFICATION_TIMEOUT_MS } from '@shared/const
 import tonLogo from '@/assets/ton.png'
 import { useTranslation } from 'react-i18next'
 
-type UpdateState = 'idle' | 'checking' | 'available' | 'up-to-date' | 'downloading' | 'ready' | 'error'
+type UpdateState = 'idle' | 'checking' | 'available' | 'up-to-date' | 'error'
 
 export const AboutSection = memo(function AboutSection() {
   const { t } = useTranslation('settings')
   const [updateState, setUpdateState] = useState<UpdateState>('idle')
   const [newVersion, setNewVersion] = useState('')
-  const [downloadPercent, setDownloadPercent] = useState(0)
   const [errorMessage, setErrorMessage] = useState('')
   const upToDateTimer = useRef<ReturnType<typeof setTimeout>>(null)
 
   useEffect(() => {
-    const unsubs: (() => void)[] = []
-
-    unsubs.push(
-      window.electron.on('updater:available', (info: unknown) => {
-        const { version } = info as { version: string }
-        setNewVersion(version)
-        setUpdateState('available')
-      })
-    )
-
-    unsubs.push(
-      window.electron.on('updater:not-available', () => {
-        setUpdateState('up-to-date')
-        upToDateTimer.current = setTimeout(() => setUpdateState('idle'), UI_NOTIFICATION_TIMEOUT_MS)
-      })
-    )
-
-    unsubs.push(
-      window.electron.on('updater:progress', (progress: unknown) => {
-        const { percent } = progress as { percent: number }
-        setDownloadPercent(Math.round(percent))
-      })
-    )
-
-    unsubs.push(
-      window.electron.on('updater:downloaded', () => {
-        setUpdateState('ready')
-      })
-    )
-
-    unsubs.push(
-      window.electron.on('updater:error', (message: unknown) => {
-        setErrorMessage(String(message))
-        setUpdateState('error')
-      })
-    )
-
     return () => {
-      unsubs.forEach((fn) => fn())
       if (upToDateTimer.current) clearTimeout(upToDateTimer.current)
     }
   }, [])
@@ -68,31 +29,26 @@ export const AboutSection = memo(function AboutSection() {
     setErrorMessage('')
     try {
       const result = await window.electron.updater.check()
-      // In dev mode, electron-updater can't check — events won't fire
-      if (result?.reason === 'dev-mode') {
+      if (result.updateAvailable && result.version) {
+        setNewVersion(result.version)
+        setUpdateState('available')
+      } else {
         setUpdateState('up-to-date')
         upToDateTimer.current = setTimeout(() => setUpdateState('idle'), UI_NOTIFICATION_TIMEOUT_MS)
       }
-      // Otherwise, state will be set by event listeners
     } catch {
       setErrorMessage(t('about.update.errorGeneric'))
       setUpdateState('error')
     }
   }, [t])
 
-  const handleDownload = useCallback(async () => {
-    setUpdateState('downloading')
-    setDownloadPercent(0)
+  const handleOpenDownloadPage = useCallback(async () => {
     try {
-      await window.electron.updater.download()
+      await window.electron.updater.openDownloadPage()
     } catch {
-      setErrorMessage(t('about.update.errorDownload'))
-      setUpdateState('error')
+      // Silent failure — user will still see the Download button if they want to retry
     }
-  }, [t])
-
-  const handleInstall = useCallback(() => {
-    window.electron.updater.install()
+    setUpdateState('idle')
   }, [])
 
   const renderUpdateButton = () => {
@@ -137,35 +93,13 @@ export const AboutSection = memo(function AboutSection() {
               v{newVersion} {t('about.update.available')}
             </span>
             <button
-              onClick={handleDownload}
+              onClick={handleOpenDownloadPage}
               className="flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-200 bg-primary/90 text-white shadow-[0_4px_16px_var(--primary-glow)] hover:bg-primary"
             >
               <Download className="h-4 w-4" />
               {t('about.update.download')}
             </button>
           </div>
-        )
-
-      case 'downloading':
-        return (
-          <button
-            disabled
-            className="flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-200 bg-primary/15 border border-primary/30 text-primary opacity-70"
-          >
-            <LoaderCircle className="h-4 w-4 animate-spin" />
-            {t('about.update.downloading')} {downloadPercent}%
-          </button>
-        )
-
-      case 'ready':
-        return (
-          <button
-            onClick={handleInstall}
-            className="flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-200 bg-success/90 text-white shadow-[0_4px_16px_hsl(var(--success)/0.3)] hover:bg-success"
-          >
-            <RefreshCw className="h-4 w-4" />
-            {t('about.update.restart')}
-          </button>
         )
 
       case 'error':
@@ -194,7 +128,7 @@ export const AboutSection = memo(function AboutSection() {
           <img src={tonLogo} alt="TON" className="w-full h-full object-contain" />
         </div>
         <h3 className="text-2xl font-bold text-foreground mb-1">{APP_NAME}</h3>
-        <p className="text-muted-foreground mb-4">Version {APP_VERSION}</p>
+        <p className="text-muted-foreground mb-4">{t('about.version', { version: APP_VERSION })}</p>
         <p className="text-muted-foreground text-sm max-w-md mx-auto">{t('about.description')}</p>
 
         <div className="mt-4 flex justify-center">{renderUpdateButton()}</div>

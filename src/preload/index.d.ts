@@ -237,10 +237,9 @@ declare global {
           updateAvailable: boolean
           version?: string
           releaseDate?: string
-          reason?: string
+          reason?: 'dev-mode'
         }>
-        download: () => Promise<{ success: boolean }>
-        install: () => void
+        openDownloadPage: () => Promise<{ success: boolean }>
       }
       wallet: {
         create: () => Promise<WalletState & { mnemonic: string[] }>

@@ -264,12 +264,9 @@
       "checking": "Checking...",
       "upToDate": "Up to date",
       "available": "available",
-      "download": "Download & Install",
-      "downloading": "Downloading...",
-      "restart": "Restart to Update",
+      "download": "Download",
       "retry": "Retry",
-      "errorGeneric": "Update check failed",
-      "errorDownload": "Download failed"
+      "errorGeneric": "Update check failed"
     }
   },
   "themeEditor": {

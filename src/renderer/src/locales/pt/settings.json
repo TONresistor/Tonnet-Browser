@@ -264,12 +264,9 @@
       "checking": "Verificando...",
       "upToDate": "Atualizado",
       "available": "disponível",
-      "download": "Baixar e instalar",
-      "downloading": "Baixando...",
-      "restart": "Reiniciar para atualizar",
+      "download": "Baixar",
       "retry": "Tentar novamente",
-      "errorGeneric": "Falha ao verificar atualizações",
-      "errorDownload": "Falha no download"
+      "errorGeneric": "Falha ao verificar atualizações"
     }
   },
   "storage": {

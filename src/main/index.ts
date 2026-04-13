@@ -217,7 +217,7 @@ function createWindow(): void {
   services.overlayManager.init(mainWindow)
 
   // Initialize manual update checker
-  initUpdater(mainWindow)
+  initUpdater()
 
   // Security: Add Content-Security-Policy for main window (React UI)
   // Dev mode uses Report-Only to avoid breaking HMR/hot reload

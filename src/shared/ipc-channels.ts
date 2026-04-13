@@ -83,8 +83,7 @@ export const IPC_CHANNELS = {
 
   // Updater
   UPDATER_CHECK: 'updater:check',
-  UPDATER_DOWNLOAD: 'updater:download',
-  UPDATER_INSTALL: 'updater:install',
+  UPDATER_OPEN_DOWNLOAD_PAGE: 'updater:open-download-page',
 
   // Wallet
   WALLET_CREATE: 'wallet:create',

@@ -264,12 +264,9 @@
       "checking": "Buscando...",
       "upToDate": "Actualizado",
       "available": "disponible",
-      "download": "Descargar e instalar",
-      "downloading": "Descargando...",
-      "restart": "Reiniciar para actualizar",
+      "download": "Descargar",
       "retry": "Reintentar",
-      "errorGeneric": "Error al buscar actualizaciones",
-      "errorDownload": "Error de descarga"
+      "errorGeneric": "Error al buscar actualizaciones"
     }
   },
   "storage": {
