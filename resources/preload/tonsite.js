@@ -367,39 +367,20 @@
   });
 
   protect('ScreenSpoofing', () => {
-    const origWidth = Object.getOwnPropertyDescriptor(Screen.prototype, 'width');
-    const origHeight = Object.getOwnPropertyDescriptor(Screen.prototype, 'height');
-    const origAvailWidth = Object.getOwnPropertyDescriptor(Screen.prototype, 'availWidth');
-    const origAvailHeight = Object.getOwnPropertyDescriptor(Screen.prototype, 'availHeight');
-
-    Object.defineProperty(Screen.prototype, 'width', {
-      get: function() {
-        const real = (origWidth && origWidth.get) ? origWidth.get.call(this) : 1920;
-        return Math.floor(real / 200) * 200;
-      },
-      enumerable: true, configurable: false
-    });
-    Object.defineProperty(Screen.prototype, 'height', {
-      get: function() {
-        const real = (origHeight && origHeight.get) ? origHeight.get.call(this) : 1080;
-        return Math.floor(real / 100) * 100;
-      },
-      enumerable: true, configurable: false
-    });
-    Object.defineProperty(Screen.prototype, 'availWidth', {
-      get: function() {
-        const real = (origAvailWidth && origAvailWidth.get) ? origAvailWidth.get.call(this) : 1920;
-        return Math.floor(real / 200) * 200;
-      },
-      enumerable: true, configurable: false
-    });
-    Object.defineProperty(Screen.prototype, 'availHeight', {
-      get: function() {
-        const real = (origAvailHeight && origAvailHeight.get) ? origAvailHeight.get.call(this) : 1040;
-        return Math.floor(real / 100) * 100;
-      },
-      enumerable: true, configurable: false
-    });
+    const defineBucketed = (prop, bucket, fallback) => {
+      const orig = Object.getOwnPropertyDescriptor(Screen.prototype, prop);
+      Object.defineProperty(Screen.prototype, prop, {
+        get: function() {
+          const real = (orig && orig.get) ? orig.get.call(this) : fallback;
+          return Math.floor(real / bucket) * bucket;
+        },
+        enumerable: true, configurable: false
+      });
+    };
+    defineBucketed('width', 200, 1920);
+    defineBucketed('height', 100, 1080);
+    defineBucketed('availWidth', 200, 1920);
+    defineBucketed('availHeight', 100, 1040);
     Object.defineProperty(Screen.prototype, 'colorDepth', { get: () => 24, enumerable: true, configurable: false });
     Object.defineProperty(Screen.prototype, 'pixelDepth', { get: () => 24, enumerable: true, configurable: false });
   });

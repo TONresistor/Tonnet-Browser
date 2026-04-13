@@ -15,7 +15,7 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { registerIpcHandlers, emitToRenderer } from './ipc/handlers'
 import { getActiveView, getAllSessions, cleanupTabManager } from './windows/tabs'
 import { setMainWindow } from './windows/main'
-import { getSetting } from './settings'
+import { getSetting, loadSettings, saveSettings } from './settings'
 import { startProxySequence } from './proxy/startup'
 import { initUpdater } from './updater'
 import { createServices, destroyServices, type ServiceRegistry } from './services'
@@ -518,6 +518,25 @@ async function runCleanup(): Promise<void> {
       }
     } catch (error) {
       log.error(`Failed to clear bookmarks: ${String(error)}`)
+    }
+
+    // Clear domain lists passively accumulated from prompts (permissions,
+    // payment policies). User-configured preferences stay untouched.
+    try {
+      const settings = loadSettings()
+      const hasTraces =
+        settings.bridge.permissions.length > 0 ||
+        settings.wallet.sitePolicies.length > 0 ||
+        settings.wallet.autoPayDomains.length > 0
+      if (hasTraces) {
+        settings.bridge.permissions = []
+        settings.wallet.sitePolicies = []
+        settings.wallet.autoPayDomains = []
+        saveSettings(settings)
+        log.info('Cleared browsing traces from settings file')
+      }
+    } catch (error) {
+      log.error(`Failed to clear browsing traces from settings: ${String(error)}`)
     }
   }
 
