@@ -446,17 +446,25 @@ app.whenReady().then(() => {
     })
   })
 
-  // Serve renderer files via app:// protocol in production
+  // Serve files via app:// protocol in production
   // Replaces file:// which is blocked by grantFileProtocolExtraPrivileges fuse
+  // Routed by URL hostname:
+  //   app://bundle/*  → out/renderer/ (main window)
+  //   app://overlay/* → resources/overlay/ (overlay WebContentsViews)
   const rendererPath = resolve(__dirname, '../renderer')
+  const overlayPath = resolve(__dirname, '../../resources/overlay')
   protocol.handle('app', (request) => {
-    let { pathname } = new URL(request.url)
-    if (pathname === '/') pathname = '/index.html'
+    const url = new URL(request.url)
+    const basePath = url.hostname === 'overlay' ? overlayPath : rendererPath
+    let pathname = url.pathname
+    if (pathname === '/') {
+      pathname = url.hostname === 'overlay' ? '/overlay.html' : '/index.html'
+    }
 
-    const filePath = resolve(rendererPath, pathname.slice(1))
+    const filePath = resolve(basePath, pathname.slice(1))
 
     // Path traversal guard
-    if (!filePath.startsWith(rendererPath)) {
+    if (!filePath.startsWith(basePath)) {
       appLog.warn(`Blocked path traversal: ${pathname}`)
       return new Response('Forbidden', { status: 403 })
     }

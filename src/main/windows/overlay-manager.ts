@@ -68,8 +68,7 @@ export class OverlayManager {
 
     view.setBackgroundColor('#00000000')
 
-    const htmlPath = join(__dirname, '../../resources/overlay/overlay.html')
-    view.webContents.loadFile(htmlPath).catch((err) => {
+    view.webContents.loadURL('app://overlay/overlay.html').catch((err) => {
       log.error('Failed to load overlay HTML:', err)
     })
 

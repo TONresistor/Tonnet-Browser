@@ -11,6 +11,8 @@ publish:
 files:
   - "out/**/*"
   - "package.json"
+  - "resources/overlay/**/*"
+  - "resources/preload/**/*"
 
 extraResources:
   - from: "resources/config"
