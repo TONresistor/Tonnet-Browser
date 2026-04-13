@@ -297,6 +297,127 @@ describe('Settings Persistence', () => {
     })
   })
 
+  describe('migrateSettings()', () => {
+    it('maps circuitRotation+rotateInterval to tunnelMode standard', async () => {
+      vi.resetModules()
+      const { migrateSettings } = await import('../index')
+
+      const legacy = {
+        network: {
+          proxyPort: 8080,
+          circuitRotation: false,
+          rotateInterval: '10m',
+        },
+      }
+
+      const { migrated, data } = migrateSettings(legacy)
+
+      expect(migrated).toBe(true)
+      const net = (data as Record<string, unknown>)['network'] as Record<string, unknown>
+      expect(net['tunnelMode']).toBe('standard')
+      expect(net).not.toHaveProperty('circuitRotation')
+      expect(net).not.toHaveProperty('rotateInterval')
+      expect(net['proxyPort']).toBe(8080)
+    })
+
+    it('maps circuitRotation true to tunnelMode standard', async () => {
+      vi.resetModules()
+      const { migrateSettings } = await import('../index')
+
+      const legacy = {
+        network: {
+          circuitRotation: true,
+        },
+      }
+
+      const { migrated, data } = migrateSettings(legacy)
+
+      expect(migrated).toBe(true)
+      const net = (data as Record<string, unknown>)['network'] as Record<string, unknown>
+      expect(net['tunnelMode']).toBe('standard')
+      expect(net).not.toHaveProperty('circuitRotation')
+    })
+
+    it('does not overwrite tunnelMode if already set alongside legacy keys', async () => {
+      vi.resetModules()
+      const { migrateSettings } = await import('../index')
+
+      // Edge case: both legacy and new key present (partial migration)
+      const mixed = {
+        network: {
+          circuitRotation: true,
+          tunnelMode: 'maximum',
+        },
+      }
+
+      const { migrated, data } = migrateSettings(mixed)
+
+      expect(migrated).toBe(true)
+      const net = (data as Record<string, unknown>)['network'] as Record<string, unknown>
+      expect(net['tunnelMode']).toBe('maximum') // Preserved
+      expect(net).not.toHaveProperty('circuitRotation')
+    })
+
+    it('passes through v1.6.0-shaped settings untouched', async () => {
+      vi.resetModules()
+      const { migrateSettings } = await import('../index')
+
+      const current = {
+        network: {
+          proxyPort: 8080,
+          tunnelMode: 'maximum',
+          autoConnect: true,
+        },
+      }
+
+      const { migrated, data } = migrateSettings(current)
+
+      expect(migrated).toBe(false)
+      expect(data).toBe(current) // Same reference — no copy made
+    })
+
+    it('is safe for non-object input', async () => {
+      vi.resetModules()
+      const { migrateSettings } = await import('../index')
+
+      expect(migrateSettings(null)).toEqual({ migrated: false, data: null })
+      expect(migrateSettings([])).toEqual({ migrated: false, data: [] })
+      expect(migrateSettings('string')).toEqual({ migrated: false, data: 'string' })
+    })
+  })
+
+  describe('loadSettings() — v1.5.3 upgrade', () => {
+    it('migrates legacy network fields and persists the result', async () => {
+      vi.resetModules()
+      const { loadSettings: freshLoad } = await import('../index')
+
+      vi.mocked(existsSync).mockReturnValue(true)
+      vi.mocked(readFileSync).mockReturnValue(
+        JSON.stringify({
+          network: {
+            proxyPort: 8080,
+            circuitRotation: false,
+            rotateInterval: '10m',
+          },
+        })
+      )
+
+      const settings = freshLoad()
+
+      // Migration applied: tunnelMode should be present
+      expect(settings.network.tunnelMode).toBe('standard')
+      // Legacy keys should not appear in validated output
+      expect(settings.network).not.toHaveProperty('circuitRotation')
+      expect(settings.network).not.toHaveProperty('rotateInterval')
+      // Settings should have been saved back to disk (atomic write to .tmp)
+      expect(writeFileSync).toHaveBeenCalled()
+      const writtenContent = vi.mocked(writeFileSync).mock.calls[0][1] as string
+      const parsed = JSON.parse(writtenContent)
+      expect(parsed.network.tunnelMode).toBe('standard')
+      expect(parsed.network).not.toHaveProperty('circuitRotation')
+    })
+  })
+
   describe('getDefaultSettings()', () => {
     it('returns complete settings structure', async () => {
       vi.resetModules()

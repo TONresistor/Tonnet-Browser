@@ -121,6 +121,54 @@ export function getDefaultSettings(): AppSettings {
 // In-memory cache
 let settingsCache: AppSettings | null = null
 
+/**
+ * Migrate v1.5.3 network settings to v1.6.0 shape.
+ *
+ * v1.5.3 had `circuitRotation: boolean` and `rotateInterval: string` under `network`.
+ * v1.6.0 replaces them with `tunnelMode: 'standard' | 'maximum'` (hop count, not rotation
+ * frequency). Since the two concepts are not directly equivalent and `anonymousMode` already
+ * controls whether tunnelling is active at all, both old field combinations map to the
+ * conservative default `'standard'` (2 hops). If `tunnelMode` is already present the object
+ * is returned unchanged (idempotent).
+ *
+ * @param raw - The parsed-but-unvalidated JSON object from disk.
+ * @returns A new object with legacy keys removed from `network` and `tunnelMode` populated,
+ *          or the original object if no migration was needed.
+ */
+export function migrateSettings(raw: unknown): { migrated: boolean; data: unknown } {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
+    return { migrated: false, data: raw }
+  }
+
+  const obj = raw as Record<string, unknown>
+  const network = obj['network']
+
+  if (typeof network !== 'object' || network === null || Array.isArray(network)) {
+    return { migrated: false, data: raw }
+  }
+
+  const net = network as Record<string, unknown>
+  const hasLegacy = 'circuitRotation' in net || 'rotateInterval' in net
+  const hasCurrent = 'tunnelMode' in net
+
+  if (!hasLegacy) {
+    return { migrated: false, data: raw }
+  }
+
+  // Strip legacy keys and inject tunnelMode if absent
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { circuitRotation: _cr, rotateInterval: _ri, ...restNet } = net
+  const migratedNet: Record<string, unknown> = {
+    ...restNet,
+    ...(hasCurrent ? {} : { tunnelMode: 'standard' }),
+  }
+
+  return {
+    migrated: true,
+    data: { ...obj, network: migratedNet },
+  }
+}
+
 // Load settings from disk
 export function loadSettings(): AppSettings {
   if (settingsCache) {
@@ -138,7 +186,13 @@ export function loadSettings(): AppSettings {
 
   try {
     const data = readFileSync(settingsFile, 'utf-8')
-    const parsed: unknown = JSON.parse(data)
+    const raw: unknown = JSON.parse(data)
+
+    // Migrate legacy v1.5.3 fields before Zod validation
+    const { migrated, data: parsed } = migrateSettings(raw)
+    if (migrated) {
+      log.info('Migrated legacy network settings (circuitRotation/rotateInterval → tunnelMode)')
+    }
 
     // Use Zod to validate and apply defaults for missing fields
     const result = AppSettingsSchema.safeParse(parsed)
@@ -151,6 +205,11 @@ export function loadSettings(): AppSettings {
     }
 
     settingsCache = result.data
+
+    // Persist migrated settings immediately so legacy keys are removed from disk
+    if (migrated) {
+      saveSettings(settingsCache)
+    }
 
     // Apply dynamic default for downloadPath if not set
     if (!settingsCache.storage.downloadPath) {
