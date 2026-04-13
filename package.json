@@ -1,11 +1,20 @@
 {
   "name": "ton-browser",
-  "version": "1.5.4",
-  "description": "Navigateur natif pour le réseau TON, inspiré de Tor Browser",
+  "version": "1.6.0",
+  "description": "Browse tonsites on The Open Network, Privately.",
+  "homepage": "https://tonnet.resistance.dog",
+  "bugs": {
+    "url": "https://github.com/TONresistor/Tonnet-Browser/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/TONresistor/Tonnet-Browser.git"
+  },
   "main": "./out/main/index.js",
   "author": {
-    "name": "TON Browser Team",
-    "email": "tonresistor@users.noreply.github.com"
+    "name": "Digital Resistance",
+    "email": "tonresistor@users.noreply.github.com",
+    "url": "https://resistance.dog"
   },
   "license": "MIT",
   "type": "module",

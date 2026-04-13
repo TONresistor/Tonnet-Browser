@@ -24,9 +24,9 @@ fi
 
 echo "=== Building binaries from source for: $PLATFORM ==="
 
-# Parse config with python3
-GO_VERSION=$(python3 -c "import json; print(json.load(open('$CONFIG'))['go_version'])")
-BINARY_COUNT=$(python3 -c "import json; print(len(json.load(open('$CONFIG'))['binaries']))")
+# Parse config with python3 (read from stdin to avoid POSIX/Windows path issues)
+GO_VERSION=$(python3 -c "import json,sys; print(json.load(sys.stdin)['go_version'])" < "$CONFIG")
+BINARY_COUNT=$(python3 -c "import json,sys; print(len(json.load(sys.stdin)['binaries']))" < "$CONFIG")
 
 # Verify Go is available
 if ! command -v go &>/dev/null; then
@@ -53,11 +53,11 @@ trap 'rm -rf "$TMPDIR_BASE"' EXIT
 
 # Build each binary
 for i in $(seq 0 $((BINARY_COUNT - 1))); do
-  NAME=$(python3 -c "import json; b=json.load(open('$CONFIG'))['binaries'][$i]; print(b['name'])")
-  REPO=$(python3 -c "import json; b=json.load(open('$CONFIG'))['binaries'][$i]; print(b['repo'])")
-  VERSION=$(python3 -c "import json; b=json.load(open('$CONFIG'))['binaries'][$i]; print(b['version'])")
-  ENTRY=$(python3 -c "import json; b=json.load(open('$CONFIG'))['binaries'][$i]; print(b['entry_point'])")
-  LDFLAGS_TMPL=$(python3 -c "import json; b=json.load(open('$CONFIG'))['binaries'][$i]; print(b['ldflags'])")
+  NAME=$(python3 -c "import json,sys; print(json.load(sys.stdin)['binaries'][$i]['name'])" < "$CONFIG")
+  REPO=$(python3 -c "import json,sys; print(json.load(sys.stdin)['binaries'][$i]['repo'])" < "$CONFIG")
+  VERSION=$(python3 -c "import json,sys; print(json.load(sys.stdin)['binaries'][$i]['version'])" < "$CONFIG")
+  ENTRY=$(python3 -c "import json,sys; print(json.load(sys.stdin)['binaries'][$i]['entry_point'])" < "$CONFIG")
+  LDFLAGS_TMPL=$(python3 -c "import json,sys; print(json.load(sys.stdin)['binaries'][$i]['ldflags'])" < "$CONFIG")
 
   echo ""
   echo "--- $NAME ($REPO @ $VERSION) ---"
