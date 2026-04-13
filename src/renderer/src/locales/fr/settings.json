@@ -11,8 +11,8 @@
     "shortcuts": "Raccourcis",
     "bookmarks": "Favoris",
     "advanced": "Avancé",
-    "wallet": "Wallet",
-    "bridge": "Bridge",
+    "wallet": "Portefeuille",
+    "bridge": "Passerelle",
     "about": "À propos"
   },
   "appearance": {
@@ -234,7 +234,8 @@
     "deleteConfirm": "Supprimer \"{{name}}\" ?",
     "maxDepthReached": "Profondeur maximale de dossier atteinte (3 niveaux).",
     "deleteFolderConfirm": "Supprimer ce dossier ? Les favoris seront déplacés dans les non classés.",
-    "confirm": "Confirmer"
+    "confirm": "Confirmer",
+    "savedBookmarksCount": "{{count}} favoris enregistrés"
   },
   "advanced": {
     "title": "Avancé",
@@ -267,7 +268,8 @@
       "download": "Télécharger",
       "retry": "Réessayer",
       "errorGeneric": "Échec de la vérification"
-    }
+    },
+    "version": "Version {{version}}"
   },
   "storage": {
     "title": "Stockage TON",
@@ -278,13 +280,13 @@
     "notSet": "Non défini",
     "updateInterval": "Intervalle de mise à jour",
     "updateIntervalDesc": "Fréquence de mise à jour des statistiques de téléchargement",
-    "seedingEnabled": "Enable seeding",
-    "seedingEnabledDesc": "Share downloaded files with other TON Storage peers",
-    "seedingEnabledLabel": "Enable seeding",
-    "downloadSpeedLimit": "Download speed limit",
-    "downloadSpeedLimitDesc": "Max download speed in KB/s (0 = unlimited)",
-    "uploadSpeedLimit": "Upload speed limit",
-    "uploadSpeedLimitDesc": "Max upload speed in KB/s (0 = unlimited)"
+    "seedingEnabled": "Activer le partage",
+    "seedingEnabledDesc": "Partager les fichiers telecharges avec les autres pairs TON Storage",
+    "seedingEnabledLabel": "Activer le partage",
+    "downloadSpeedLimit": "Limite de vitesse de telechargement",
+    "downloadSpeedLimitDesc": "Vitesse max. de telechargement en KB/s (0 = illimite)",
+    "uploadSpeedLimit": "Limite de vitesse d'envoi",
+    "uploadSpeedLimitDesc": "Vitesse max. d'envoi en KB/s (0 = illimite)"
   },
   "actions": {
     "unsavedChanges": "Modifications non enregistrées",
@@ -293,8 +295,8 @@
     "saving": "Enregistrement..."
   },
   "wallet": {
-    "title": "Wallet",
-    "description": "Configure ton wallet TON et les paramètres de paiement HTTP 402",
+    "title": "Portefeuille",
+    "description": "Configure ton portefeuille TON et les parametres de paiement HTTP 402",
     "paymentMode": "Mode de paiement par défaut",
     "paymentModeDesc": "Comment gérer les requêtes de paiement HTTP 402 des sites .ton",
     "modeOff": "Désactivé",
@@ -417,5 +419,89 @@
       "download": "Télécharger"
     },
     "customThemePrefix": "Thème personnalisé"
+  },
+  "errors": {
+    "historyModeChangeFailed": "Impossible de changer le mode d'historique : {{error}}",
+    "historyModeChangeError": "Erreur lors du changement du mode d'historique : {{error}}"
+  },
+  "bridge": {
+    "title": "Passerelle",
+    "description": "Configuration et permissions de la passerelle reseau TON.",
+    "loading": "Chargement...",
+    "restartRequired": "La configuration de la passerelle a change. Redemarrez pour appliquer les modifications.",
+    "restartNow": "Redémarrer maintenant",
+    "restarting": "Redémarrage...",
+    "defaultPolicy": "Politique par défaut",
+    "defaultPolicyDesc": "Definit comment la passerelle traite les requetes provenant de sites inconnus.",
+    "policyAsk": "Demander",
+    "policyDeny": "Refuser",
+    "namespaces": {
+      "title": "Espaces de noms",
+      "description": "Activez ou desactivez les espaces de noms de l'API de la passerelle. Les espaces requis ne peuvent pas etre desactives.",
+      "required": "Requis",
+      "optional": "Optionnels",
+      "labels": {
+        "lite": "Client lite",
+        "wallet": "Portefeuille",
+        "subscribe": "Abonnements",
+        "dns": "Résolveur DNS",
+        "jetton": "Jettons",
+        "nft": "NFT",
+        "sbt": "SBT",
+        "payment": "Canaux de paiement",
+        "network": "Infos réseau",
+        "adnl": "ADNL",
+        "overlay": "Overlay",
+        "dht": "DHT",
+        "subscribe_trace": "Traçage des transactions"
+      },
+      "descriptions": {
+        "lite": "Requêtes blockchain : comptes, transactions, blocs",
+        "wallet": "Requêtes de seqno et de clé publique du portefeuille",
+        "subscribe": "Abonnements en temps réel pour les comptes et transactions",
+        "dns": "Résolution des domaines TON DNS",
+        "jetton": "Données des jettons et adresses de portefeuille",
+        "nft": "Données des éléments et collections NFT",
+        "sbt": "Requêtes de soul-bound tokens",
+        "payment": "Requêtes d'état des canaux de paiement",
+        "network": "État du réseau et informations de connectivité",
+        "adnl": "Connexions ADNL pair à pair",
+        "overlay": "Participation au réseau overlay",
+        "dht": "Recherches dans la table de hachage distribuée",
+        "subscribe_trace": "Abonnements aux traces de transaction détaillées"
+      }
+    },
+    "security": {
+      "title": "Sécurité",
+      "ssrfProtection": "Protection SSRF",
+      "ssrfProtectionDesc": "Bloque les connexions ADNL vers les adresses IP privées et de bouclage.",
+      "dhtWriteAccess": "Écriture DHT",
+      "dhtWriteAccessDesc": "Autorise les dApps à stocker des données dans le DHT. Désactivé par défaut pour des raisons de sécurité."
+    },
+    "advanced": {
+      "title": "Avancé",
+      "maxClients": "Clients max.",
+      "maxClientsDesc": "Nombre maximal de connexions WebSocket simultanées.",
+      "maxInflight": "Requêtes max. en vol",
+      "maxInflightDesc": "Nombre maximal de requêtes simultanées par client.",
+      "maxMessageSize": "Taille max. des messages",
+      "maxMessageSizeDesc": "Taille maximale des messages JSON-RPC."
+    },
+    "sitePermissions": {
+      "title": "Permissions des sites",
+      "description": "Permissions d'acces a la passerelle accordees par domaine aux sites TON.",
+      "empty": "Aucune permission de site pour le moment."
+    },
+    "scopes": {
+      "blockchain": "Blockchain",
+      "p2p": "Réseau P2P",
+      "write": "Écriture/Diffusion"
+    },
+    "decisions": {
+      "granted": "Toujours autorisé",
+      "denied": "Refusé",
+      "session": "Session"
+    },
+    "revoke": "Révoquer"
   }
 }

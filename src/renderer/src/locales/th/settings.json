@@ -11,8 +11,8 @@
     "shortcuts": "แป้นลัด",
     "bookmarks": "บุ๊กมาร์ก",
     "advanced": "ขั้นสูง",
-    "wallet": "Wallet",
-    "bridge": "Bridge",
+    "wallet": "กระเป๋าเงิน",
+    "bridge": "บริดจ์",
     "about": "เกี่ยวกับ"
   },
   "appearance": {
@@ -234,7 +234,8 @@
     "deleteConfirm": "ลบ \"{{name}}\" หรือไม่",
     "maxDepthReached": "ถึงความลึกสูงสุดของโฟลเดอร์แล้ว (3 ระดับ)",
     "deleteFolderConfirm": "ลบโฟลเดอร์นี้หรือไม่? บุ๊กมาร์กจะถูกย้ายไปยังไม่ได้จัดเรียง",
-    "confirm": "ยืนยัน"
+    "confirm": "ยืนยัน",
+    "savedBookmarksCount": "บุ๊กมาร์กที่บันทึกไว้ {{count}} รายการ"
   },
   "advanced": {
     "title": "ขั้นสูง",
@@ -267,7 +268,8 @@
       "download": "ดาวน์โหลด",
       "retry": "ลองอีกครั้ง",
       "errorGeneric": "ตรวจสอบการอัปเดตล้มเหลว"
-    }
+    },
+    "version": "เวอร์ชัน {{version}}"
   },
   "storage": {
     "title": "พื้นที่จัดเก็บ TON",
@@ -278,16 +280,16 @@
     "notSet": "ไม่ได้ตั้งค่า",
     "updateInterval": "ช่วงเวลาอัปเดต",
     "updateIntervalDesc": "ความถี่ในการอัปเดตสถิติการดาวน์โหลด",
-    "seedingEnabled": "Enable seeding",
-    "seedingEnabledDesc": "Share downloaded files with other TON Storage peers",
-    "seedingEnabledLabel": "Enable seeding",
-    "downloadSpeedLimit": "Download speed limit",
-    "downloadSpeedLimitDesc": "Max download speed in KB/s (0 = unlimited)",
-    "uploadSpeedLimit": "Upload speed limit",
-    "uploadSpeedLimitDesc": "Max upload speed in KB/s (0 = unlimited)"
+    "seedingEnabled": "เปิดการแชร์ไฟล์",
+    "seedingEnabledDesc": "แชร์ไฟล์ที่ดาวน์โหลดกับเพียร์ TON Storage อื่นๆ",
+    "seedingEnabledLabel": "เปิดการแชร์ไฟล์",
+    "downloadSpeedLimit": "ขีดจำกัดความเร็วดาวน์โหลด",
+    "downloadSpeedLimitDesc": "ความเร็วดาวน์โหลดสูงสุดเป็น KB/s (0 = ไม่จำกัด)",
+    "uploadSpeedLimit": "ขีดจำกัดความเร็วอัปโหลด",
+    "uploadSpeedLimitDesc": "ความเร็วอัปโหลดสูงสุดเป็น KB/s (0 = ไม่จำกัด)"
   },
   "wallet": {
-    "title": "Wallet",
+    "title": "กระเป๋าเงิน",
     "description": "กำหนดค่ากระเป๋าเงิน TON และการตั้งค่าการชำระเงิน HTTP 402",
     "paymentMode": "โหมดการชำระเงินเริ่มต้น",
     "paymentModeDesc": "วิธีจัดการคำขอชำระเงิน HTTP 402 จากเว็บไซต์ .ton",
@@ -417,5 +419,89 @@
     "discard": "ยกเลิก",
     "saveChanges": "บันทึกการเปลี่ยนแปลง",
     "saving": "กำลังบันทึก..."
+  },
+  "errors": {
+    "historyModeChangeFailed": "ไม่สามารถเปลี่ยนโหมดประวัติได้: {{error}}",
+    "historyModeChangeError": "เกิดข้อผิดพลาดขณะเปลี่ยนโหมดประวัติ: {{error}}"
+  },
+  "bridge": {
+    "title": "บริดจ์",
+    "description": "การตั้งค่าและสิทธิ์ของบริดจ์เครือข่าย TON",
+    "loading": "กำลังโหลด...",
+    "restartRequired": "การตั้งค่าบริดจ์มีการเปลี่ยนแปลง รีสตาร์ทเพื่อใช้งาน",
+    "restartNow": "รีสตาร์ทตอนนี้",
+    "restarting": "กำลังรีสตาร์ท...",
+    "defaultPolicy": "นโยบายเริ่มต้น",
+    "defaultPolicyDesc": "กำหนดว่าบริดจ์จะจัดการคำขอจากเว็บไซต์ที่ไม่รู้จักอย่างไร",
+    "policyAsk": "ถาม",
+    "policyDeny": "ปฏิเสธ",
+    "namespaces": {
+      "title": "เนมสเปซ",
+      "description": "เปิดหรือปิดเนมสเปซของ Bridge API เนมสเปซที่จำเป็นไม่สามารถปิดได้",
+      "required": "จำเป็น",
+      "optional": "ตัวเลือก",
+      "labels": {
+        "lite": "ไลต์ไคลเอนต์",
+        "wallet": "กระเป๋าเงิน",
+        "subscribe": "การสมัครรับข้อมูล",
+        "dns": "ตัวแก้ไข DNS",
+        "jetton": "Jettons",
+        "nft": "NFT",
+        "sbt": "SBT",
+        "payment": "ช่องทางการชำระเงิน",
+        "network": "ข้อมูลเครือข่าย",
+        "adnl": "ADNL",
+        "overlay": "Overlay",
+        "dht": "DHT",
+        "subscribe_trace": "การติดตามธุรกรรม"
+      },
+      "descriptions": {
+        "lite": "การค้นหาบนบล็อกเชน: บัญชี ธุรกรรม และบล็อก",
+        "wallet": "การค้นหา seqno และ public key ของกระเป๋า",
+        "subscribe": "การสมัครรับข้อมูลแบบเรียลไทม์สำหรับบัญชีและธุรกรรม",
+        "dns": "การแปลงโดเมน TON DNS",
+        "jetton": "ข้อมูลโทเค็น Jetton และที่อยู่กระเป๋า",
+        "nft": "ข้อมูลไอเท็มและคอลเลกชัน NFT",
+        "sbt": "การค้นหา soul-bound token",
+        "payment": "การค้นหาสถานะช่องทางการชำระเงิน",
+        "network": "สถานะเครือข่ายและข้อมูลการเชื่อมต่อ",
+        "adnl": "การเชื่อมต่อ ADNL แบบ peer-to-peer",
+        "overlay": "การเข้าร่วมเครือข่าย Overlay",
+        "dht": "การค้นหาใน distributed hash table",
+        "subscribe_trace": "การสมัครติดตามธุรกรรมแบบเชิงลึก"
+      }
+    },
+    "security": {
+      "title": "ความปลอดภัย",
+      "ssrfProtection": "การป้องกัน SSRF",
+      "ssrfProtectionDesc": "บล็อกการเชื่อมต่อ ADNL ไปยัง IP ส่วนตัวและ loopback",
+      "dhtWriteAccess": "สิทธิ์การเขียน DHT",
+      "dhtWriteAccessDesc": "อนุญาตให้ dApp บันทึกข้อมูลใน DHT ปิดไว้เป็นค่าเริ่มต้นเพื่อความปลอดภัย"
+    },
+    "advanced": {
+      "title": "ขั้นสูง",
+      "maxClients": "จำนวนไคลเอนต์สูงสุด",
+      "maxClientsDesc": "จำนวนการเชื่อมต่อ WebSocket พร้อมกันสูงสุด",
+      "maxInflight": "คำขอพร้อมกันสูงสุด",
+      "maxInflightDesc": "จำนวนคำขอพร้อมกันสูงสุดต่อไคลเอนต์",
+      "maxMessageSize": "ขนาดข้อความสูงสุด",
+      "maxMessageSizeDesc": "ขนาดสูงสุดของข้อความ JSON-RPC"
+    },
+    "sitePermissions": {
+      "title": "สิทธิ์ของเว็บไซต์",
+      "description": "สิทธิ์การเข้าถึงบริดจ์ตามโดเมนที่มอบให้เว็บไซต์ TON",
+      "empty": "ยังไม่มีสิทธิ์ของเว็บไซต์"
+    },
+    "scopes": {
+      "blockchain": "Blockchain",
+      "p2p": "เครือข่าย P2P",
+      "write": "เขียน/กระจาย"
+    },
+    "decisions": {
+      "granted": "อนุญาตเสมอ",
+      "denied": "ปฏิเสธ",
+      "session": "เซสชัน"
+    },
+    "revoke": "เพิกถอน"
   }
 }

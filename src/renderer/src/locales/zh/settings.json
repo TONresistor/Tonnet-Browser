@@ -11,8 +11,8 @@
     "shortcuts": "快捷键",
     "bookmarks": "书签",
     "advanced": "高级",
-    "wallet": "Wallet",
-    "bridge": "Bridge",
+    "wallet": "钱包",
+    "bridge": "桥接",
     "about": "关于"
   },
   "appearance": {
@@ -234,7 +234,8 @@
     "deleteConfirm": "删除 \"{{name}}\"？",
     "maxDepthReached": "已达到最大文件夹深度（3 层）。",
     "deleteFolderConfirm": "删除此文件夹？书签将移至未分类。",
-    "confirm": "确认"
+    "confirm": "确认",
+    "savedBookmarksCount": "已保存 {{count}} 个书签"
   },
   "advanced": {
     "title": "高级",
@@ -267,7 +268,8 @@
       "download": "下载",
       "retry": "重试",
       "errorGeneric": "检查更新失败"
-    }
+    },
+    "version": "版本 {{version}}"
   },
   "storage": {
     "title": "TON 存储",
@@ -278,16 +280,16 @@
     "notSet": "未设置",
     "updateInterval": "更新间隔",
     "updateIntervalDesc": "刷新下载统计信息的频率",
-    "seedingEnabled": "Enable seeding",
-    "seedingEnabledDesc": "Share downloaded files with other TON Storage peers",
-    "seedingEnabledLabel": "Enable seeding",
-    "downloadSpeedLimit": "Download speed limit",
-    "downloadSpeedLimitDesc": "Max download speed in KB/s (0 = unlimited)",
-    "uploadSpeedLimit": "Upload speed limit",
-    "uploadSpeedLimitDesc": "Max upload speed in KB/s (0 = unlimited)"
+    "seedingEnabled": "启用做种",
+    "seedingEnabledDesc": "与其他 TON Storage 节点共享已下载文件",
+    "seedingEnabledLabel": "启用做种",
+    "downloadSpeedLimit": "下载速度限制",
+    "downloadSpeedLimitDesc": "最大下载速度 KB/s（0 = 不限）",
+    "uploadSpeedLimit": "上传速度限制",
+    "uploadSpeedLimitDesc": "最大上传速度 KB/s（0 = 不限）"
   },
   "wallet": {
-    "title": "Wallet",
+    "title": "钱包",
     "description": "配置 TON 钱包和 HTTP 402 支付设置",
     "paymentMode": "默认支付模式",
     "paymentModeDesc": "如何处理来自 .ton 网站的 HTTP 402 支付请求",
@@ -417,5 +419,89 @@
     "discard": "放弃",
     "saveChanges": "保存更改",
     "saving": "保存中..."
+  },
+  "errors": {
+    "historyModeChangeFailed": "切换历史模式失败：{{error}}",
+    "historyModeChangeError": "切换历史模式时出错：{{error}}"
+  },
+  "bridge": {
+    "title": "桥接",
+    "description": "TON 网络桥接配置与权限。",
+    "loading": "加载中...",
+    "restartRequired": "桥接配置已更改，请重启以应用。",
+    "restartNow": "立即重启",
+    "restarting": "重启中...",
+    "defaultPolicy": "默认策略",
+    "defaultPolicyDesc": "设置桥接如何处理来自未知站点的请求。",
+    "policyAsk": "询问",
+    "policyDeny": "拒绝",
+    "namespaces": {
+      "title": "命名空间",
+      "description": "启用或禁用桥接 API 命名空间。必需的命名空间无法关闭。",
+      "required": "必需",
+      "optional": "可选",
+      "labels": {
+        "lite": "Lite 客户端",
+        "wallet": "钱包",
+        "subscribe": "订阅",
+        "dns": "DNS 解析器",
+        "jetton": "Jettons",
+        "nft": "NFT",
+        "sbt": "SBT",
+        "payment": "支付通道",
+        "network": "网络信息",
+        "adnl": "ADNL",
+        "overlay": "Overlay",
+        "dht": "DHT",
+        "subscribe_trace": "交易追踪"
+      },
+      "descriptions": {
+        "lite": "区块链查询：账户、交易、区块",
+        "wallet": "钱包 seqno 和公钥查询",
+        "subscribe": "账户和交易的实时订阅",
+        "dns": "TON DNS 域名解析",
+        "jetton": "Jetton 代币数据和钱包地址",
+        "nft": "NFT 项目和合集数据",
+        "sbt": "Soul-bound token 查询",
+        "payment": "支付通道状态查询",
+        "network": "网络状态和连接信息",
+        "adnl": "点对点 ADNL 连接",
+        "overlay": "参与 Overlay 网络",
+        "dht": "分布式哈希表查询",
+        "subscribe_trace": "深度交易追踪订阅"
+      }
+    },
+    "security": {
+      "title": "安全",
+      "ssrfProtection": "SSRF 保护",
+      "ssrfProtectionDesc": "阻止 ADNL 连接到私有和回环 IP 地址。",
+      "dhtWriteAccess": "DHT 写入权限",
+      "dhtWriteAccessDesc": "允许 dApp 将数据写入 DHT。出于安全考虑，默认关闭。"
+    },
+    "advanced": {
+      "title": "高级",
+      "maxClients": "最大客户端数",
+      "maxClientsDesc": "最大并发 WebSocket 连接数。",
+      "maxInflight": "最大并发请求",
+      "maxInflightDesc": "每个客户端的最大并发请求数。",
+      "maxMessageSize": "最大消息大小",
+      "maxMessageSizeDesc": "JSON-RPC 消息的最大大小。"
+    },
+    "sitePermissions": {
+      "title": "站点权限",
+      "description": "TON 站点按域名获得的桥接访问权限。",
+      "empty": "还没有站点权限。"
+    },
+    "scopes": {
+      "blockchain": "Blockchain",
+      "p2p": "P2P 网络",
+      "write": "写入/广播"
+    },
+    "decisions": {
+      "granted": "始终允许",
+      "denied": "拒绝",
+      "session": "会话"
+    },
+    "revoke": "撤销"
   }
 }

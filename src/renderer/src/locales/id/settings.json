@@ -11,8 +11,8 @@
     "shortcuts": "Pintasan",
     "bookmarks": "Penanda",
     "advanced": "Lanjutan",
-    "wallet": "Wallet",
-    "bridge": "Bridge",
+    "wallet": "Dompet",
+    "bridge": "Jembatan",
     "about": "Tentang"
   },
   "appearance": {
@@ -234,7 +234,8 @@
     "deleteConfirm": "Hapus \"{{name}}\"?",
     "maxDepthReached": "Kedalaman folder maksimal tercapai (3 tingkat).",
     "deleteFolderConfirm": "Hapus folder ini? Penanda akan dipindahkan ke Tanpa folder.",
-    "confirm": "Konfirmasi"
+    "confirm": "Konfirmasi",
+    "savedBookmarksCount": "{{count}} bookmark tersimpan"
   },
   "advanced": {
     "title": "Lanjutan",
@@ -267,7 +268,8 @@
       "download": "Unduh",
       "retry": "Coba lagi",
       "errorGeneric": "Gagal memeriksa pembaruan"
-    }
+    },
+    "version": "Versi {{version}}"
   },
   "storage": {
     "title": "Penyimpanan TON",
@@ -278,16 +280,16 @@
     "notSet": "Belum diatur",
     "updateInterval": "Interval pembaruan",
     "updateIntervalDesc": "Seberapa sering memperbarui statistik unduhan",
-    "seedingEnabled": "Enable seeding",
-    "seedingEnabledDesc": "Share downloaded files with other TON Storage peers",
-    "seedingEnabledLabel": "Enable seeding",
-    "downloadSpeedLimit": "Download speed limit",
-    "downloadSpeedLimitDesc": "Max download speed in KB/s (0 = unlimited)",
-    "uploadSpeedLimit": "Upload speed limit",
-    "uploadSpeedLimitDesc": "Max upload speed in KB/s (0 = unlimited)"
+    "seedingEnabled": "Aktifkan seeding",
+    "seedingEnabledDesc": "Bagikan file yang diunduh dengan peer TON Storage lainnya",
+    "seedingEnabledLabel": "Aktifkan seeding",
+    "downloadSpeedLimit": "Batas kecepatan unduh",
+    "downloadSpeedLimitDesc": "Kecepatan unduh maksimum dalam KB/s (0 = tanpa batas)",
+    "uploadSpeedLimit": "Batas kecepatan unggah",
+    "uploadSpeedLimitDesc": "Kecepatan unggah maksimum dalam KB/s (0 = tanpa batas)"
   },
   "wallet": {
-    "title": "Wallet",
+    "title": "Dompet",
     "description": "Konfigurasi dompet TON dan pengaturan pembayaran HTTP 402",
     "paymentMode": "Mode Pembayaran Default",
     "paymentModeDesc": "Cara menangani permintaan pembayaran HTTP 402 dari situs .ton",
@@ -417,5 +419,89 @@
     "discard": "Buang",
     "saveChanges": "Simpan Perubahan",
     "saving": "Menyimpan..."
+  },
+  "errors": {
+    "historyModeChangeFailed": "Gagal mengubah mode riwayat: {{error}}",
+    "historyModeChangeError": "Terjadi kesalahan saat mengubah mode riwayat: {{error}}"
+  },
+  "bridge": {
+    "title": "Jembatan",
+    "description": "Konfigurasi dan izin jembatan jaringan TON.",
+    "loading": "Memuat...",
+    "restartRequired": "Konfigurasi jembatan berubah. Mulai ulang untuk menerapkan perubahan.",
+    "restartNow": "Mulai ulang sekarang",
+    "restarting": "Sedang memulai ulang...",
+    "defaultPolicy": "Kebijakan default",
+    "defaultPolicyDesc": "Menentukan bagaimana jembatan menangani permintaan dari situs yang tidak dikenal.",
+    "policyAsk": "Tanya",
+    "policyDeny": "Tolak",
+    "namespaces": {
+      "title": "Namespace",
+      "description": "Aktifkan atau nonaktifkan namespace API jembatan. Namespace wajib tidak dapat dimatikan.",
+      "required": "Wajib",
+      "optional": "Opsional",
+      "labels": {
+        "lite": "Klien lite",
+        "wallet": "Dompet",
+        "subscribe": "Langganan",
+        "dns": "Resolver DNS",
+        "jetton": "Jettons",
+        "nft": "NFT",
+        "sbt": "SBT",
+        "payment": "Kanal pembayaran",
+        "network": "Info jaringan",
+        "adnl": "ADNL",
+        "overlay": "Overlay",
+        "dht": "DHT",
+        "subscribe_trace": "Pelacakan transaksi"
+      },
+      "descriptions": {
+        "lite": "Kueri blockchain: akun, transaksi, blok",
+        "wallet": "Kueri seqno dan kunci publik wallet",
+        "subscribe": "Langganan real-time untuk akun dan transaksi",
+        "dns": "Resolusi domain TON DNS",
+        "jetton": "Data token Jetton dan alamat wallet",
+        "nft": "Data item dan koleksi NFT",
+        "sbt": "Kueri soul-bound token",
+        "payment": "Kueri status kanal pembayaran",
+        "network": "Status jaringan dan info konektivitas",
+        "adnl": "Koneksi ADNL peer-to-peer",
+        "overlay": "Partisipasi jaringan overlay",
+        "dht": "Pencarian distributed hash table",
+        "subscribe_trace": "Langganan pelacakan transaksi mendalam"
+      }
+    },
+    "security": {
+      "title": "Keamanan",
+      "ssrfProtection": "Perlindungan SSRF",
+      "ssrfProtectionDesc": "Memblokir koneksi ADNL ke alamat IP privat dan loopback.",
+      "dhtWriteAccess": "Akses tulis DHT",
+      "dhtWriteAccessDesc": "Mengizinkan dApp menyimpan data di DHT. Dinonaktifkan secara default demi keamanan."
+    },
+    "advanced": {
+      "title": "Lanjutan",
+      "maxClients": "Klien maks.",
+      "maxClientsDesc": "Jumlah maksimum koneksi WebSocket bersamaan.",
+      "maxInflight": "Permintaan maks. berjalan",
+      "maxInflightDesc": "Jumlah maksimum permintaan bersamaan per klien.",
+      "maxMessageSize": "Ukuran pesan maks.",
+      "maxMessageSizeDesc": "Ukuran maksimum pesan JSON-RPC."
+    },
+    "sitePermissions": {
+      "title": "Izin situs",
+      "description": "Izin akses jembatan per domain yang diberikan ke situs TON.",
+      "empty": "Belum ada izin situs."
+    },
+    "scopes": {
+      "blockchain": "Blockchain",
+      "p2p": "Jaringan P2P",
+      "write": "Tulis/Siarkan"
+    },
+    "decisions": {
+      "granted": "Selalu",
+      "denied": "Ditolak",
+      "session": "Sesi"
+    },
+    "revoke": "Cabut"
   }
 }

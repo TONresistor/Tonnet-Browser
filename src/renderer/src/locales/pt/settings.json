@@ -11,8 +11,8 @@
     "shortcuts": "Atalhos",
     "bookmarks": "Favoritos",
     "advanced": "Avançado",
-    "wallet": "Wallet",
-    "bridge": "Bridge",
+    "wallet": "Carteira",
+    "bridge": "Ponte",
     "about": "Sobre"
   },
   "appearance": {
@@ -233,8 +233,9 @@
     "deleteFolder": "Excluir pasta",
     "deleteConfirm": "Excluir \"{{name}}\"?",
     "maxDepthReached": "Profundidade máxima de pasta atingida (3 níveis).",
-    "deleteFolderConfirm": "Delete this folder? Bookmarks will be moved to Unfiled.",
-    "confirm": "Confirm"
+    "deleteFolderConfirm": "Excluir esta pasta? Os favoritos serao movidos para Nao classificados.",
+    "confirm": "Confirmar",
+    "savedBookmarksCount": "{{count}} favoritos salvos"
   },
   "advanced": {
     "title": "Avançado",
@@ -250,7 +251,7 @@
     "syncTestDomain": "Domínio de teste de sincronização",
     "syncTestDomainDesc": "Domínio usado para verificar sincronização DHT",
     "resetAll": "Redefinir todas as configurações para padrões",
-    "resetAllConfirm": "Click again to confirm"
+    "resetAllConfirm": "Clique novamente para confirmar"
   },
   "about": {
     "title": "Sobre",
@@ -267,7 +268,8 @@
       "download": "Baixar",
       "retry": "Tentar novamente",
       "errorGeneric": "Falha ao verificar atualizações"
-    }
+    },
+    "version": "Versão {{version}}"
   },
   "storage": {
     "title": "Armazenamento TON",
@@ -278,13 +280,13 @@
     "notSet": "Não definido",
     "updateInterval": "Intervalo de atualização",
     "updateIntervalDesc": "Frequência de atualização das estatísticas de download",
-    "seedingEnabled": "Enable seeding",
-    "seedingEnabledDesc": "Share downloaded files with other TON Storage peers",
-    "seedingEnabledLabel": "Enable seeding",
-    "downloadSpeedLimit": "Download speed limit",
-    "downloadSpeedLimitDesc": "Max download speed in KB/s (0 = unlimited)",
-    "uploadSpeedLimit": "Upload speed limit",
-    "uploadSpeedLimitDesc": "Max upload speed in KB/s (0 = unlimited)"
+    "seedingEnabled": "Ativar compartilhamento",
+    "seedingEnabledDesc": "Compartilhar os arquivos baixados com outros pares do TON Storage",
+    "seedingEnabledLabel": "Ativar compartilhamento",
+    "downloadSpeedLimit": "Limite de velocidade de download",
+    "downloadSpeedLimitDesc": "Velocidade maxima de download em KB/s (0 = ilimitado)",
+    "uploadSpeedLimit": "Limite de velocidade de upload",
+    "uploadSpeedLimitDesc": "Velocidade maxima de upload em KB/s (0 = ilimitado)"
   },
   "actions": {
     "unsavedChanges": "Alterações não salvas",
@@ -293,8 +295,8 @@
     "saving": "Salvando..."
   },
   "wallet": {
-    "title": "Wallet",
-    "description": "Configure seu wallet TON e as configurações de pagamento HTTP 402",
+    "title": "Carteira",
+    "description": "Configure sua carteira TON e as configuracoes de pagamento HTTP 402",
     "paymentMode": "Modo de pagamento padrão",
     "paymentModeDesc": "Como lidar com solicitações de pagamento HTTP 402 de sites .ton",
     "modeOff": "Desativado",
@@ -417,5 +419,89 @@
       "download": "Baixar"
     },
     "customThemePrefix": "Tema Personalizado"
+  },
+  "errors": {
+    "historyModeChangeFailed": "Falha ao alterar o modo de histórico: {{error}}",
+    "historyModeChangeError": "Erro ao alterar o modo de histórico: {{error}}"
+  },
+  "bridge": {
+    "title": "Ponte",
+    "description": "Configuracao e permissoes da ponte da rede TON.",
+    "loading": "Carregando...",
+    "restartRequired": "A configuracao da ponte foi alterada. Reinicie para aplicar.",
+    "restartNow": "Reiniciar agora",
+    "restarting": "Reiniciando...",
+    "defaultPolicy": "Política padrão",
+    "defaultPolicyDesc": "Define como a ponte trata solicitacoes de sites desconhecidos.",
+    "policyAsk": "Perguntar",
+    "policyDeny": "Negar",
+    "namespaces": {
+      "title": "Namespaces",
+      "description": "Ative ou desative namespaces da API da ponte. Os namespaces obrigatorios nao podem ser desativados.",
+      "required": "Obrigatórios",
+      "optional": "Opcionais",
+      "labels": {
+        "lite": "Cliente lite",
+        "wallet": "Carteira",
+        "subscribe": "Assinaturas",
+        "dns": "Resolução DNS",
+        "jetton": "Jettons",
+        "nft": "NFT",
+        "sbt": "SBT",
+        "payment": "Canais de pagamento",
+        "network": "Info de rede",
+        "adnl": "ADNL",
+        "overlay": "Overlay",
+        "dht": "DHT",
+        "subscribe_trace": "Rastreamento de transações"
+      },
+      "descriptions": {
+        "lite": "Consultas de blockchain: contas, transações e blocos",
+        "wallet": "Consultas de seqno e chave pública da carteira",
+        "subscribe": "Assinaturas em tempo real para contas e transações",
+        "dns": "Resolução de domínios TON DNS",
+        "jetton": "Dados de tokens Jetton e endereços de carteira",
+        "nft": "Dados de itens e coleções NFT",
+        "sbt": "Consultas de soul-bound tokens",
+        "payment": "Consultas de estado de canais de pagamento",
+        "network": "Status da rede e informações de conectividade",
+        "adnl": "Conexões ADNL ponto a ponto",
+        "overlay": "Participação na rede overlay",
+        "dht": "Consultas na tabela hash distribuída",
+        "subscribe_trace": "Assinaturas de rastreamento profundo de transações"
+      }
+    },
+    "security": {
+      "title": "Segurança",
+      "ssrfProtection": "Proteção SSRF",
+      "ssrfProtectionDesc": "Bloqueia conexões ADNL para endereços IP privados e loopback.",
+      "dhtWriteAccess": "Acesso de escrita DHT",
+      "dhtWriteAccessDesc": "Permite que dApps armazenem dados no DHT. Desativado por padrão por segurança."
+    },
+    "advanced": {
+      "title": "Avançado",
+      "maxClients": "Máx. de clientes",
+      "maxClientsDesc": "Número máximo de conexões WebSocket simultâneas.",
+      "maxInflight": "Máx. em voo",
+      "maxInflightDesc": "Número máximo de requisições simultâneas por cliente.",
+      "maxMessageSize": "Tam. máx. da mensagem",
+      "maxMessageSizeDesc": "Tamanho máximo da mensagem JSON-RPC."
+    },
+    "sitePermissions": {
+      "title": "Permissões de sites",
+      "description": "Permissoes de acesso a ponte concedidas por dominio para sites TON.",
+      "empty": "Ainda não há permissões de sites."
+    },
+    "scopes": {
+      "blockchain": "Blockchain",
+      "p2p": "Rede P2P",
+      "write": "Escrita/Envio"
+    },
+    "decisions": {
+      "granted": "Sempre",
+      "denied": "Negado",
+      "session": "Sessão"
+    },
+    "revoke": "Revogar"
   }
 }

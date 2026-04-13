@@ -11,8 +11,8 @@
     "shortcuts": "Tastenkombinationen",
     "bookmarks": "Lesezeichen",
     "advanced": "Erweitert",
-    "wallet": "Wallet",
-    "bridge": "Bridge",
+    "wallet": "Brieftasche",
+    "bridge": "Brücke",
     "about": "Über"
   },
   "appearance": {
@@ -234,7 +234,8 @@
     "deleteConfirm": "\"{{name}}\" löschen?",
     "maxDepthReached": "Maximale Ordnertiefe erreicht (3 Ebenen).",
     "deleteFolderConfirm": "Diesen Ordner löschen? Lesezeichen werden in Nicht abgelegt verschoben.",
-    "confirm": "Bestätigen"
+    "confirm": "Bestätigen",
+    "savedBookmarksCount": "{{count}} gespeicherte Lesezeichen"
   },
   "advanced": {
     "title": "Erweitert",
@@ -267,7 +268,8 @@
       "download": "Herunterladen",
       "retry": "Erneut versuchen",
       "errorGeneric": "Update-Prüfung fehlgeschlagen"
-    }
+    },
+    "version": "Version {{version}}"
   },
   "storage": {
     "title": "TON-Speicher",
@@ -278,13 +280,13 @@
     "notSet": "Nicht festgelegt",
     "updateInterval": "Aktualisierungsintervall",
     "updateIntervalDesc": "Häufigkeit der Aktualisierung von Download-Statistiken",
-    "seedingEnabled": "Enable seeding",
-    "seedingEnabledDesc": "Share downloaded files with other TON Storage peers",
-    "seedingEnabledLabel": "Enable seeding",
-    "downloadSpeedLimit": "Download speed limit",
-    "downloadSpeedLimitDesc": "Max download speed in KB/s (0 = unlimited)",
-    "uploadSpeedLimit": "Upload speed limit",
-    "uploadSpeedLimitDesc": "Max upload speed in KB/s (0 = unlimited)"
+    "seedingEnabled": "Seeding aktivieren",
+    "seedingEnabledDesc": "Heruntergeladene Dateien mit anderen TON-Storage-Peers teilen",
+    "seedingEnabledLabel": "Seeding aktivieren",
+    "downloadSpeedLimit": "Download-Geschwindigkeitslimit",
+    "downloadSpeedLimitDesc": "Maximale Download-Geschwindigkeit in KB/s (0 = unbegrenzt)",
+    "uploadSpeedLimit": "Upload-Geschwindigkeitslimit",
+    "uploadSpeedLimitDesc": "Maximale Upload-Geschwindigkeit in KB/s (0 = unbegrenzt)"
   },
   "actions": {
     "unsavedChanges": "Ungespeicherte Änderungen",
@@ -293,8 +295,8 @@
     "saving": "Speichern..."
   },
   "wallet": {
-    "title": "Wallet",
-    "description": "Konfigurieren Sie Ihr TON Wallet und die HTTP 402 Zahlungseinstellungen",
+    "title": "Brieftasche",
+    "description": "Konfigurieren Sie Ihre TON-Brieftasche und die HTTP-402-Zahlungseinstellungen",
     "paymentMode": "Standard-Zahlungsmodus",
     "paymentModeDesc": "Umgang mit HTTP 402 Zahlungsanforderungen von .ton-Websites",
     "modeOff": "Aus",
@@ -417,5 +419,89 @@
       "download": "Herunterladen"
     },
     "customThemePrefix": "Benutzerdefiniertes Design"
+  },
+  "errors": {
+    "historyModeChangeFailed": "Verlaufsmodus konnte nicht geändert werden: {{error}}",
+    "historyModeChangeError": "Fehler beim Ändern des Verlaufsmodus: {{error}}"
+  },
+  "bridge": {
+    "title": "Brücke",
+    "description": "Konfiguration und Berechtigungen der TON-Netzwerk-Brucke.",
+    "loading": "Wird geladen...",
+    "restartRequired": "Die Bruckenkonfiguration wurde geandert. Zum Anwenden neu starten.",
+    "restartNow": "Jetzt neu starten",
+    "restarting": "Wird neu gestartet...",
+    "defaultPolicy": "Standardrichtlinie",
+    "defaultPolicyDesc": "Legt fest, wie die Brucke Anfragen von unbekannten Websites behandelt.",
+    "policyAsk": "Nachfragen",
+    "policyDeny": "Ablehnen",
+    "namespaces": {
+      "title": "Namespaces",
+      "description": "Brucken-API-Namespaces aktivieren oder deaktivieren. Erforderliche Namespaces konnen nicht ausgeschaltet werden.",
+      "required": "Erforderlich",
+      "optional": "Optional",
+      "labels": {
+        "lite": "Lite-Client",
+        "wallet": "Brieftasche",
+        "subscribe": "Abonnements",
+        "dns": "DNS-Resolver",
+        "jetton": "Jettons",
+        "nft": "NFT",
+        "sbt": "SBT",
+        "payment": "Zahlungskanäle",
+        "network": "Netzwerkinfos",
+        "adnl": "ADNL",
+        "overlay": "Overlay",
+        "dht": "DHT",
+        "subscribe_trace": "Transaktionsverfolgung"
+      },
+      "descriptions": {
+        "lite": "Blockchain-Abfragen: Konten, Transaktionen, Blöcke",
+        "wallet": "Wallet-Seqno- und Public-Key-Abfragen",
+        "subscribe": "Echtzeit-Abonnements für Konten und Transaktionen",
+        "dns": "TON-DNS-Domänenauflösung",
+        "jetton": "Jetton-Token-Daten und Wallet-Adressen",
+        "nft": "NFT-Item- und Kollektionsdaten",
+        "sbt": "Abfragen für Soul-Bound-Token",
+        "payment": "Abfragen zum Status von Zahlungskanälen",
+        "network": "Netzwerkstatus und Verbindungsinformationen",
+        "adnl": "Peer-to-Peer-ADNL-Verbindungen",
+        "overlay": "Teilnahme am Overlay-Netzwerk",
+        "dht": "Lookups in der verteilten Hash-Tabelle",
+        "subscribe_trace": "Tiefe Transaktions-Trace-Abonnements"
+      }
+    },
+    "security": {
+      "title": "Sicherheit",
+      "ssrfProtection": "SSRF-Schutz",
+      "ssrfProtectionDesc": "Blockiert ADNL-Verbindungen zu privaten und Loopback-IP-Adressen.",
+      "dhtWriteAccess": "DHT-Schreibzugriff",
+      "dhtWriteAccessDesc": "Erlaubt dApps, Daten im DHT zu speichern. Aus Sicherheitsgründen standardmäßig deaktiviert."
+    },
+    "advanced": {
+      "title": "Erweitert",
+      "maxClients": "Max. Clients",
+      "maxClientsDesc": "Maximale Anzahl gleichzeitiger WebSocket-Verbindungen.",
+      "maxInflight": "Max. Inflight",
+      "maxInflightDesc": "Maximale Anzahl gleichzeitiger Anfragen pro Client.",
+      "maxMessageSize": "Max. Nachrichtengröße",
+      "maxMessageSizeDesc": "Maximale JSON-RPC-Nachrichtengröße."
+    },
+    "sitePermissions": {
+      "title": "Website-Berechtigungen",
+      "description": "Domainbezogene Brucken-Zugriffsrechte fur TON-Websites.",
+      "empty": "Noch keine Website-Berechtigungen."
+    },
+    "scopes": {
+      "blockchain": "Blockchain",
+      "p2p": "P2P-Netzwerk",
+      "write": "Schreiben/Senden"
+    },
+    "decisions": {
+      "granted": "Immer",
+      "denied": "Verweigert",
+      "session": "Sitzung"
+    },
+    "revoke": "Widerrufen"
   }
 }

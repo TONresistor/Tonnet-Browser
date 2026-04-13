@@ -3,10 +3,11 @@
  * Container qui orchestre toutes les sections
  */
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { createLogger } from '@/logger'
 import { UI_NOTIFICATION_TIMEOUT_MS, UI_ERROR_TIMEOUT_MS } from '@shared/constants'
 import { usePreferencesStore } from '@/stores/preferences'
+import { useTranslation } from 'react-i18next'
 
 const log = createLogger('settings')
 import { SettingsLayout } from '@/components/settings/SettingsLayout'
@@ -30,6 +31,8 @@ import type { WalletSectionHandle } from '@/components/settings/sections/WalletS
 import type { BridgeSectionHandle } from '@/components/settings/sections/BridgeSection'
 
 export function SettingsPage() {
+  const { t } = useTranslation('settings')
+
   // State
   const [activeSection, setActiveSection] = useState<SettingsSection>('general')
   const [clearing, setClearing] = useState(false)
@@ -127,25 +130,28 @@ export function SettingsPage() {
     bridgeSectionRef.current?.discard()
   }
 
-  const handleHistoryModeChange = async (newMode: string) => {
-    setChangingHistoryMode(true)
-    try {
-      const result = await window.electron.history.changeMode(newMode)
-      if (result.success) {
-        setDraft('historyMode', newMode as 'memory' | 'persistent')
-      } else {
-        setHistoryError(`Failed to change history mode: ${result.error}`)
+  const handleHistoryModeChange = useCallback(
+    async (newMode: string) => {
+      setChangingHistoryMode(true)
+      try {
+        const result = await window.electron.history.changeMode(newMode)
+        if (result.success) {
+          setDraft('historyMode', newMode as 'memory' | 'persistent')
+        } else {
+          setHistoryError(t('errors.historyModeChangeFailed', { error: result.error }))
+          if (historyErrorTimerRef.current) clearTimeout(historyErrorTimerRef.current)
+          historyErrorTimerRef.current = setTimeout(() => setHistoryError(null), UI_ERROR_TIMEOUT_MS)
+        }
+      } catch (error) {
+        setHistoryError(t('errors.historyModeChangeError', { error: (error as Error).message }))
         if (historyErrorTimerRef.current) clearTimeout(historyErrorTimerRef.current)
         historyErrorTimerRef.current = setTimeout(() => setHistoryError(null), UI_ERROR_TIMEOUT_MS)
+      } finally {
+        setChangingHistoryMode(false)
       }
-    } catch (error) {
-      setHistoryError(`Error changing history mode: ${(error as Error).message}`)
-      if (historyErrorTimerRef.current) clearTimeout(historyErrorTimerRef.current)
-      historyErrorTimerRef.current = setTimeout(() => setHistoryError(null), UI_ERROR_TIMEOUT_MS)
-    } finally {
-      setChangingHistoryMode(false)
-    }
-  }
+    },
+    [setDraft, t]
+  )
 
   // Render content based on active section
   const renderContent = () => {

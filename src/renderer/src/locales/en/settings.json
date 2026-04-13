@@ -234,7 +234,8 @@
     "deleteConfirm": "Delete \"{{name}}\"?",
     "maxDepthReached": "Maximum folder depth (3 levels) reached.",
     "deleteFolderConfirm": "Delete this folder? Bookmarks will be moved to Unfiled.",
-    "confirm": "Confirm"
+    "confirm": "Confirm",
+    "savedBookmarksCount": "{{count}} saved bookmarks"
   },
   "advanced": {
     "title": "Advanced",
@@ -267,7 +268,8 @@
       "download": "Download",
       "retry": "Retry",
       "errorGeneric": "Update check failed"
-    }
+    },
+    "version": "Version {{version}}"
   },
   "themeEditor": {
     "colors": {
@@ -417,5 +419,89 @@
     "sitePoliciesDesc": "Per-site payment mode overrides",
     "spent": "Spent",
     "removeSitePolicy": "Remove policy for {{domain}}"
+  },
+  "errors": {
+    "historyModeChangeFailed": "Failed to change history mode: {{error}}",
+    "historyModeChangeError": "Error changing history mode: {{error}}"
+  },
+  "bridge": {
+    "title": "Bridge",
+    "description": "TON network bridge configuration and permissions.",
+    "loading": "Loading...",
+    "restartRequired": "Bridge configuration changed. Restart to apply.",
+    "restartNow": "Restart Now",
+    "restarting": "Restarting...",
+    "defaultPolicy": "Default Policy",
+    "defaultPolicyDesc": "How the bridge handles requests from unknown sites.",
+    "policyAsk": "Ask",
+    "policyDeny": "Deny",
+    "namespaces": {
+      "title": "Namespaces",
+      "description": "Enable or disable bridge API namespaces. Required namespaces cannot be turned off.",
+      "required": "Required",
+      "optional": "Optional",
+      "labels": {
+        "lite": "Lite Client",
+        "wallet": "Wallet",
+        "subscribe": "Subscriptions",
+        "dns": "DNS Resolver",
+        "jetton": "Jettons",
+        "nft": "NFT",
+        "sbt": "SBT",
+        "payment": "Payment Channels",
+        "network": "Network Info",
+        "adnl": "ADNL",
+        "overlay": "Overlay",
+        "dht": "DHT",
+        "subscribe_trace": "Transaction Tracing"
+      },
+      "descriptions": {
+        "lite": "Blockchain queries: accounts, transactions, blocks",
+        "wallet": "Wallet seqno and public key queries",
+        "subscribe": "Real-time subscriptions for accounts and transactions",
+        "dns": "TON DNS domain resolution",
+        "jetton": "Jetton token data and wallet addresses",
+        "nft": "NFT item and collection data",
+        "sbt": "Soul-bound token queries",
+        "payment": "Payment channel state queries",
+        "network": "Network status and connectivity info",
+        "adnl": "Peer-to-peer ADNL connections",
+        "overlay": "Overlay network participation",
+        "dht": "Distributed hash table lookups",
+        "subscribe_trace": "Deep transaction trace subscriptions"
+      }
+    },
+    "security": {
+      "title": "Security",
+      "ssrfProtection": "SSRF Protection",
+      "ssrfProtectionDesc": "Block ADNL connections to private and loopback IP addresses.",
+      "dhtWriteAccess": "DHT Write Access",
+      "dhtWriteAccessDesc": "Allow dApps to store data in the DHT. Disabled by default for security."
+    },
+    "advanced": {
+      "title": "Advanced",
+      "maxClients": "Max Clients",
+      "maxClientsDesc": "Maximum concurrent WebSocket connections.",
+      "maxInflight": "Max Inflight",
+      "maxInflightDesc": "Maximum concurrent requests per client.",
+      "maxMessageSize": "Max Message Size",
+      "maxMessageSizeDesc": "Maximum JSON-RPC message size."
+    },
+    "sitePermissions": {
+      "title": "Site Permissions",
+      "description": "Per-domain bridge access permissions granted to TON sites.",
+      "empty": "No site permissions yet."
+    },
+    "scopes": {
+      "blockchain": "Blockchain",
+      "p2p": "P2P Network",
+      "write": "Write/Broadcast"
+    },
+    "decisions": {
+      "granted": "Always",
+      "denied": "Denied",
+      "session": "Session"
+    },
+    "revoke": "Revoke"
   }
 }

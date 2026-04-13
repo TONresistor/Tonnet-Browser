@@ -11,8 +11,8 @@
     "shortcuts": "Горячие клавиши",
     "bookmarks": "Закладки",
     "advanced": "Дополнительно",
-    "wallet": "Wallet",
-    "bridge": "Bridge",
+    "wallet": "Кошелек",
+    "bridge": "Шлюз",
     "about": "О программе"
   },
   "appearance": {
@@ -234,7 +234,8 @@
     "deleteConfirm": "Удалить \"{{name}}\"?",
     "maxDepthReached": "Достигнута максимальная глубина вложенности (3 уровня).",
     "deleteFolderConfirm": "Удалить эту папку? Закладки будут перемещены в Несортированные.",
-    "confirm": "Подтвердить"
+    "confirm": "Подтвердить",
+    "savedBookmarksCount": "{{count}} сохранённых закладок"
   },
   "advanced": {
     "title": "Дополнительно",
@@ -267,7 +268,8 @@
       "download": "Скачать",
       "retry": "Повторить",
       "errorGeneric": "Ошибка проверки обновлений"
-    }
+    },
+    "version": "Версия {{version}}"
   },
   "storage": {
     "title": "TON Хранилище",
@@ -278,16 +280,16 @@
     "notSet": "Не установлено",
     "updateInterval": "Интервал обновления",
     "updateIntervalDesc": "Как часто обновлять статистику загрузок",
-    "seedingEnabled": "Enable seeding",
-    "seedingEnabledDesc": "Share downloaded files with other TON Storage peers",
-    "seedingEnabledLabel": "Enable seeding",
-    "downloadSpeedLimit": "Download speed limit",
-    "downloadSpeedLimitDesc": "Max download speed in KB/s (0 = unlimited)",
-    "uploadSpeedLimit": "Upload speed limit",
-    "uploadSpeedLimitDesc": "Max upload speed in KB/s (0 = unlimited)"
+    "seedingEnabled": "Включить раздачу",
+    "seedingEnabledDesc": "Делиться загруженными файлами с другими узлами TON Storage",
+    "seedingEnabledLabel": "Включить раздачу",
+    "downloadSpeedLimit": "Ограничение скорости загрузки",
+    "downloadSpeedLimitDesc": "Максимальная скорость загрузки в KB/s (0 = без ограничений)",
+    "uploadSpeedLimit": "Ограничение скорости отдачи",
+    "uploadSpeedLimitDesc": "Максимальная скорость отдачи в KB/s (0 = без ограничений)"
   },
   "wallet": {
-    "title": "Wallet",
+    "title": "Кошелек",
     "description": "Настройка TON кошелька и параметров оплаты HTTP 402",
     "paymentMode": "Режим оплаты по умолчанию",
     "paymentModeDesc": "Как обрабатывать запросы оплаты HTTP 402 от .ton сайтов",
@@ -417,5 +419,89 @@
     "discard": "Отменить",
     "saveChanges": "Сохранить",
     "saving": "Сохранение..."
+  },
+  "errors": {
+    "historyModeChangeFailed": "Не удалось изменить режим истории: {{error}}",
+    "historyModeChangeError": "Ошибка при изменении режима истории: {{error}}"
+  },
+  "bridge": {
+    "title": "Шлюз",
+    "description": "Настройки и разрешения шлюза сети TON.",
+    "loading": "Загрузка...",
+    "restartRequired": "Конфигурация шлюза изменена. Перезапустите, чтобы применить изменения.",
+    "restartNow": "Перезапустить сейчас",
+    "restarting": "Перезапуск...",
+    "defaultPolicy": "Политика по умолчанию",
+    "defaultPolicyDesc": "Определяет, как шлюз обрабатывает запросы с неизвестных сайтов.",
+    "policyAsk": "Спрашивать",
+    "policyDeny": "Запретить",
+    "namespaces": {
+      "title": "Пространства имен",
+      "description": "Включайте или отключайте пространства имен API шлюза. Обязательные пространства имен нельзя отключить.",
+      "required": "Обязательные",
+      "optional": "Дополнительные",
+      "labels": {
+        "lite": "Lite-клиент",
+        "wallet": "Кошелёк",
+        "subscribe": "Подписки",
+        "dns": "DNS-резолвер",
+        "jetton": "Jettons",
+        "nft": "NFT",
+        "sbt": "SBT",
+        "payment": "Платёжные каналы",
+        "network": "Информация о сети",
+        "adnl": "ADNL",
+        "overlay": "Overlay",
+        "dht": "DHT",
+        "subscribe_trace": "Трассировка транзакций"
+      },
+      "descriptions": {
+        "lite": "Запросы к блокчейну: аккаунты, транзакции, блоки",
+        "wallet": "Запросы seqno и публичного ключа кошелька",
+        "subscribe": "Подписки в реальном времени для аккаунтов и транзакций",
+        "dns": "Разрешение доменов TON DNS",
+        "jetton": "Данные токенов Jetton и адресов кошельков",
+        "nft": "Данные элементов и коллекций NFT",
+        "sbt": "Запросы soul-bound tokens",
+        "payment": "Запросы состояния платёжных каналов",
+        "network": "Состояние сети и информация о подключении",
+        "adnl": "Одноранговые ADNL-подключения",
+        "overlay": "Участие в overlay-сети",
+        "dht": "Поиск в распределённой хеш-таблице",
+        "subscribe_trace": "Подписки на глубокую трассировку транзакций"
+      }
+    },
+    "security": {
+      "title": "Безопасность",
+      "ssrfProtection": "Защита SSRF",
+      "ssrfProtectionDesc": "Блокирует ADNL-подключения к частным и loopback IP-адресам.",
+      "dhtWriteAccess": "Право записи в DHT",
+      "dhtWriteAccessDesc": "Разрешает dApps сохранять данные в DHT. По умолчанию отключено из соображений безопасности."
+    },
+    "advanced": {
+      "title": "Дополнительно",
+      "maxClients": "Макс. клиентов",
+      "maxClientsDesc": "Максимальное число одновременных WebSocket-подключений.",
+      "maxInflight": "Макс. в обработке",
+      "maxInflightDesc": "Максимальное число одновременных запросов на клиента.",
+      "maxMessageSize": "Макс. размер сообщения",
+      "maxMessageSizeDesc": "Максимальный размер сообщения JSON-RPC."
+    },
+    "sitePermissions": {
+      "title": "Разрешения сайтов",
+      "description": "Разрешения доступа к шлюзу по доменам для сайтов TON.",
+      "empty": "Пока нет разрешений для сайтов."
+    },
+    "scopes": {
+      "blockchain": "Blockchain",
+      "p2p": "P2P-сеть",
+      "write": "Запись/Отправка"
+    },
+    "decisions": {
+      "granted": "Всегда",
+      "denied": "Запрещено",
+      "session": "Сессия"
+    },
+    "revoke": "Отозвать"
   }
 }

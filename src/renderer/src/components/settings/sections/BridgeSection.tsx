@@ -12,13 +12,8 @@ import { Toggle } from '../shared/Toggle'
 import { ToggleGroup } from '../shared/ToggleGroup'
 import { NumberInput } from '../shared/NumberInput'
 import { createLogger } from '@/logger'
-import {
-  REQUIRED_NAMESPACES,
-  OPTIONAL_NAMESPACES,
-  NAMESPACE_LABELS,
-  NAMESPACE_DESCRIPTIONS,
-  isRequiredNamespace,
-} from '@shared/bridge-config'
+import { useTranslation } from 'react-i18next'
+import { REQUIRED_NAMESPACES, OPTIONAL_NAMESPACES, isRequiredNamespace } from '@shared/bridge-config'
 import type { BridgeConfig, NamespaceKey } from '@shared/bridge-config'
 import type { BridgePermission } from '@shared/types'
 
@@ -37,20 +32,6 @@ interface BridgeSectionProps {
   sectionRef?: React.RefObject<BridgeSectionHandle | null>
 }
 
-// --- Permission labels ---
-
-const SCOPE_LABELS: Record<string, string> = {
-  blockchain: 'Blockchain',
-  p2p: 'P2P Network',
-  write: 'Write/Broadcast',
-}
-
-const DECISION_LABELS: Record<string, string> = {
-  granted: 'Always',
-  denied: 'Denied',
-  session: 'Session',
-}
-
 // --- Helpers ---
 
 function getNamespaceEnabled(config: BridgeConfig | null, ns: NamespaceKey): boolean {
@@ -67,6 +48,8 @@ function deepClone<T>(obj: T): T {
 // --- Component ---
 
 export const BridgeSection = memo(function BridgeSection({ onDirtyChange, sectionRef }: BridgeSectionProps) {
+  const { t } = useTranslation('settings')
+
   // Bridge config state
   const [savedConfig, setSavedConfig] = useState<BridgeConfig | null>(null)
   const [draftConfig, setDraftConfig] = useState<BridgeConfig | null>(null)
@@ -236,12 +219,17 @@ export const BridgeSection = memo(function BridgeSection({ onDirtyChange, sectio
     {} as Record<string, BridgePermission[]>
   )
 
+  const getNamespaceLabel = (ns: NamespaceKey): string => t(`bridge.namespaces.labels.${ns}`)
+  const getNamespaceDescription = (ns: NamespaceKey): string => t(`bridge.namespaces.descriptions.${ns}`)
+  const getScopeLabel = (scope: string): string => t(`bridge.scopes.${scope}`, { defaultValue: scope })
+  const getDecisionLabel = (decision: string): string => t(`bridge.decisions.${decision}`, { defaultValue: decision })
+
   if (isLoading) {
     return (
       <div>
-        <SectionHeader title="Bridge" description="TON network bridge configuration and permissions." />
+        <SectionHeader title={t('bridge.title')} description={t('bridge.description')} />
         <div className="glass-card p-8 flex items-center justify-center">
-          <span className="text-muted-foreground text-sm">Loading...</span>
+          <span className="text-muted-foreground text-sm">{t('bridge.loading')}</span>
         </div>
       </div>
     )
@@ -249,7 +237,7 @@ export const BridgeSection = memo(function BridgeSection({ onDirtyChange, sectio
 
   return (
     <div>
-      <SectionHeader title="Bridge" description="TON network bridge configuration and permissions." />
+      <SectionHeader title={t('bridge.title')} description={t('bridge.description')} />
 
       {/* Restart required banner */}
       {restartRequired && (
@@ -257,7 +245,7 @@ export const BridgeSection = memo(function BridgeSection({ onDirtyChange, sectio
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <AlertTriangle className="h-4 w-4 text-yellow-500 shrink-0" />
-              <span className="text-sm text-foreground">Bridge configuration changed. Restart to apply.</span>
+              <span className="text-sm text-foreground">{t('bridge.restartRequired')}</span>
             </div>
             <button
               onClick={handleRestart}
@@ -265,7 +253,7 @@ export const BridgeSection = memo(function BridgeSection({ onDirtyChange, sectio
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 transition-colors disabled:opacity-50"
             >
               <RotateCw className={cn('h-3.5 w-3.5', restarting && 'animate-spin')} />
-              {restarting ? 'Restarting...' : 'Restart Now'}
+              {restarting ? t('bridge.restarting') : t('bridge.restartNow')}
             </button>
           </div>
         </div>
@@ -273,13 +261,13 @@ export const BridgeSection = memo(function BridgeSection({ onDirtyChange, sectio
 
       {/* Default Policy */}
       <div className="glass-card px-4">
-        <SettingRow label="Default Policy" description="How the bridge handles requests from unknown sites.">
+        <SettingRow label={t('bridge.defaultPolicy')} description={t('bridge.defaultPolicyDesc')}>
           <ToggleGroup
             value={draftPolicy}
             onChange={(v) => setDraftPolicy(v as 'ask' | 'deny')}
             options={[
-              { value: 'ask', label: 'Ask' },
-              { value: 'deny', label: 'Deny' },
+              { value: 'ask', label: t('bridge.policyAsk') },
+              { value: 'deny', label: t('bridge.policyDeny') },
             ]}
           />
         </SettingRow>
@@ -289,18 +277,18 @@ export const BridgeSection = memo(function BridgeSection({ onDirtyChange, sectio
       {draftConfig && (
         <div className="mt-6 glass-card px-4">
           <div className="py-4 border-b border-border">
-            <p className="text-foreground font-medium">Namespaces</p>
-            <p className="text-muted-foreground text-sm mt-0.5">
-              Enable or disable bridge API namespaces. Required namespaces cannot be turned off.
-            </p>
+            <p className="text-foreground font-medium">{t('bridge.namespaces.title')}</p>
+            <p className="text-muted-foreground text-sm mt-0.5">{t('bridge.namespaces.description')}</p>
           </div>
 
           {/* Required namespaces */}
           <div className="py-2">
-            <p className="text-xs text-muted-foreground uppercase tracking-wider py-2">Required</p>
+            <p className="text-xs text-muted-foreground uppercase tracking-wider py-2">
+              {t('bridge.namespaces.required')}
+            </p>
             {REQUIRED_NAMESPACES.map((ns) => (
-              <SettingRow key={ns} label={NAMESPACE_LABELS[ns]} description={NAMESPACE_DESCRIPTIONS[ns]}>
-                <Toggle checked={true} onChange={() => {}} label={NAMESPACE_LABELS[ns]} disabled />
+              <SettingRow key={ns} label={getNamespaceLabel(ns)} description={getNamespaceDescription(ns)}>
+                <Toggle checked={true} onChange={() => {}} label={getNamespaceLabel(ns)} disabled />
               </SettingRow>
             ))}
           </div>
@@ -309,13 +297,15 @@ export const BridgeSection = memo(function BridgeSection({ onDirtyChange, sectio
 
           {/* Optional namespaces */}
           <div className="py-2">
-            <p className="text-xs text-muted-foreground uppercase tracking-wider py-2">Optional</p>
+            <p className="text-xs text-muted-foreground uppercase tracking-wider py-2">
+              {t('bridge.namespaces.optional')}
+            </p>
             {OPTIONAL_NAMESPACES.map((ns) => (
-              <SettingRow key={ns} label={NAMESPACE_LABELS[ns]} description={NAMESPACE_DESCRIPTIONS[ns]}>
+              <SettingRow key={ns} label={getNamespaceLabel(ns)} description={getNamespaceDescription(ns)}>
                 <Toggle
                   checked={getNamespaceEnabled(draftConfig, ns)}
                   onChange={(v) => setNamespaceEnabled(ns, v)}
-                  label={NAMESPACE_LABELS[ns]}
+                  label={getNamespaceLabel(ns)}
                 />
               </SettingRow>
             ))}
@@ -327,26 +317,20 @@ export const BridgeSection = memo(function BridgeSection({ onDirtyChange, sectio
       {draftConfig && (
         <div className="mt-6 glass-card px-4">
           <div className="py-4 border-b border-border">
-            <p className="text-foreground font-medium">Security</p>
+            <p className="text-foreground font-medium">{t('bridge.security.title')}</p>
           </div>
-          <SettingRow
-            label="SSRF Protection"
-            description="Block ADNL connections to private and loopback IP addresses."
-          >
+          <SettingRow label={t('bridge.security.ssrfProtection')} description={t('bridge.security.ssrfProtectionDesc')}>
             <Toggle
               checked={draftConfig.namespaces?.adnl?.ssrf_protection !== false}
               onChange={(v) => setSecurityField('adnl', 'ssrf_protection', v)}
-              label="SSRF Protection"
+              label={t('bridge.security.ssrfProtection')}
             />
           </SettingRow>
-          <SettingRow
-            label="DHT Write Access"
-            description="Allow dApps to store data in the DHT. Disabled by default for security."
-          >
+          <SettingRow label={t('bridge.security.dhtWriteAccess')} description={t('bridge.security.dhtWriteAccessDesc')}>
             <Toggle
               checked={draftConfig.namespaces?.dht?.allow_write === true}
               onChange={(v) => setSecurityField('dht', 'allow_write', v)}
-              label="DHT Write Access"
+              label={t('bridge.security.dhtWriteAccess')}
             />
           </SettingRow>
         </div>
@@ -360,7 +344,7 @@ export const BridgeSection = memo(function BridgeSection({ onDirtyChange, sectio
             onClick={() => setAdvancedOpen(!advancedOpen)}
             className="flex items-center justify-between w-full px-4 py-4 text-left"
           >
-            <p className="text-foreground font-medium">Advanced</p>
+            <p className="text-foreground font-medium">{t('bridge.advanced.title')}</p>
             <ChevronDown
               className={cn(
                 'h-4 w-4 text-muted-foreground transition-transform duration-200',
@@ -370,7 +354,7 @@ export const BridgeSection = memo(function BridgeSection({ onDirtyChange, sectio
           </button>
           {advancedOpen && (
             <div className="px-4 pb-2">
-              <SettingRow label="Max Clients" description="Maximum concurrent WebSocket connections.">
+              <SettingRow label={t('bridge.advanced.maxClients')} description={t('bridge.advanced.maxClientsDesc')}>
                 <NumberInput
                   value={draftConfig.max_clients ?? 100}
                   onChange={(v) => setTopLevel('max_clients', v)}
@@ -378,7 +362,7 @@ export const BridgeSection = memo(function BridgeSection({ onDirtyChange, sectio
                   max={1000}
                 />
               </SettingRow>
-              <SettingRow label="Max Inflight" description="Maximum concurrent requests per client.">
+              <SettingRow label={t('bridge.advanced.maxInflight')} description={t('bridge.advanced.maxInflightDesc')}>
                 <NumberInput
                   value={draftConfig.websocket?.max_inflight ?? 100}
                   onChange={(v) => setWebSocket('max_inflight', v)}
@@ -386,7 +370,10 @@ export const BridgeSection = memo(function BridgeSection({ onDirtyChange, sectio
                   max={1000}
                 />
               </SettingRow>
-              <SettingRow label="Max Message Size" description="Maximum JSON-RPC message size.">
+              <SettingRow
+                label={t('bridge.advanced.maxMessageSize')}
+                description={t('bridge.advanced.maxMessageSizeDesc')}
+              >
                 <NumberInput
                   value={Math.round((draftConfig.websocket?.max_message_size ?? 1048576) / 1024)}
                   onChange={(v) => setWebSocket('max_message_size', v * 1024)}
@@ -403,13 +390,11 @@ export const BridgeSection = memo(function BridgeSection({ onDirtyChange, sectio
       {/* Permissions */}
       <div className="mt-6">
         <div className="py-4">
-          <p className="text-foreground font-medium">Site Permissions</p>
-          <p className="text-muted-foreground text-sm mt-0.5">
-            Per-domain bridge access permissions granted to TON sites.
-          </p>
+          <p className="text-foreground font-medium">{t('bridge.sitePermissions.title')}</p>
+          <p className="text-muted-foreground text-sm mt-0.5">{t('bridge.sitePermissions.description')}</p>
         </div>
         {Object.keys(grouped).length === 0 ? (
-          <p className="text-muted-foreground text-sm">No site permissions yet.</p>
+          <p className="text-muted-foreground text-sm">{t('bridge.sitePermissions.empty')}</p>
         ) : (
           <div className="space-y-4">
             {Object.entries(grouped).map(([domain, perms]) => (
@@ -418,7 +403,7 @@ export const BridgeSection = memo(function BridgeSection({ onDirtyChange, sectio
                 <div className="space-y-2">
                   {perms.map((p) => (
                     <div key={`${p.domain}:${p.scope}`} className="flex items-center justify-between py-1.5">
-                      <span className="text-sm text-foreground">{SCOPE_LABELS[p.scope] || p.scope}</span>
+                      <span className="text-sm text-foreground">{getScopeLabel(p.scope)}</span>
                       <div className="flex items-center gap-3">
                         <span
                           className={cn(
@@ -430,13 +415,13 @@ export const BridgeSection = memo(function BridgeSection({ onDirtyChange, sectio
                                 : 'bg-yellow-500/20 text-yellow-400'
                           )}
                         >
-                          {DECISION_LABELS[p.decision] || p.decision}
+                          {getDecisionLabel(p.decision)}
                         </span>
                         <button
                           className="text-xs text-muted-foreground hover:text-destructive transition-colors"
                           onClick={() => handleRevoke(p.domain, p.scope)}
                         >
-                          Revoke
+                          {t('bridge.revoke')}
                         </button>
                       </div>
                     </div>

@@ -21,7 +21,7 @@ export const BookmarksSection = memo(function BookmarksSection() {
       <div className="glass-card px-4">
         <SettingRow
           label={t('bookmarks.savedBookmarks')}
-          description={`${bookmarksCount} ${t('bookmarks.savedBookmarks').toLowerCase()}`}
+          description={t('bookmarks.savedBookmarksCount', { count: bookmarksCount })}
         >
           <button
             onClick={() => addTab('ton://bookmarks')}
