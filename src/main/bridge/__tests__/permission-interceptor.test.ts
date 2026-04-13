@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { EventEmitter } from 'events'
 
 // ---------------------------------------------------------------------------
 // Mock: ws  (vi.mock is hoisted, so no outside references allowed)

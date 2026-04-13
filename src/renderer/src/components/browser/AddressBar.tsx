@@ -58,6 +58,7 @@ export const AddressBar = memo(function AddressBar() {
   )
 
   const overlay = useOverlay('suggestions', handleOverlayAction)
+  const { show: overlayShow, hide: overlayHide } = overlay
 
   const inputContextMenuRef = useRef<{ hide: () => void } | null>(null)
 
@@ -149,7 +150,7 @@ export const AddressBar = memo(function AddressBar() {
     } else {
       setInput(currentUrl)
     }
-  }, [currentUrl, isTonSite])
+  }, [currentUrl, isTonSite, t])
 
   // Fetch history suggestions when input changes
   useEffect(() => {
@@ -165,7 +166,7 @@ export const AddressBar = memo(function AddressBar() {
         setSuggestions(results)
         setShowSuggestions(results.length > 0)
         setSelectedIndex(-1)
-      } catch (error) {
+      } catch {
         setSuggestions([])
         setShowSuggestions(false)
       }
@@ -179,7 +180,7 @@ export const AddressBar = memo(function AddressBar() {
   useEffect(() => {
     if (showSuggestions && suggestions.length > 0 && containerRef.current) {
       const rect = containerRef.current.getBoundingClientRect()
-      overlay.show(
+      overlayShow(
         {
           x: Math.round(rect.left),
           y: Math.round(rect.bottom + 8),
@@ -190,9 +191,9 @@ export const AddressBar = memo(function AddressBar() {
         { autoDismiss: false }
       )
     } else {
-      overlay.hide()
+      overlayHide()
     }
-  }, [showSuggestions, suggestions, selectedIndex])
+  }, [showSuggestions, suggestions, selectedIndex, overlayShow, overlayHide])
 
   const handleSubmit = useCallback(
     (e: FormEvent) => {

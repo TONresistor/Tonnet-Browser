@@ -137,7 +137,7 @@ export const BridgeSection = memo(function BridgeSection({ onDirtyChange, sectio
     } catch (err) {
       log.error('Failed to save bridge settings:', err)
     }
-  }, [draftConfig, draftPolicy, savedConfig, savedPolicy])
+  }, [draftConfig, draftPolicy, configChanged, policyChanged])
 
   // Discard
   const discardChanges = useCallback(() => {

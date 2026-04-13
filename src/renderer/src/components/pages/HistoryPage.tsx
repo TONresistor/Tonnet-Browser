@@ -3,7 +3,7 @@
  * Display and manage browsing history with 2 privacy modes.
  */
 
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { createLogger } from '@/logger'
 import { UI_COPY_FEEDBACK_MS, UI_NOTIFICATION_TIMEOUT_MS } from '@shared/constants'
 import { Search, Trash2, Clock, ExternalLink, Filter, History, TriangleAlert } from 'lucide-react'
@@ -33,27 +33,7 @@ export function HistoryPage() {
   const clearRangeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const addTab = useTabsStore((state) => state.addTab)
 
-  useEffect(() => {
-    // Debounce search
-    const timeoutId = setTimeout(
-      () => {
-        loadHistory()
-      },
-      query ? 300 : 0
-    ) // Only debounce for search, not for filter changes
-
-    return () => clearTimeout(timeoutId)
-  }, [query, timeFilter])
-
-  useEffect(() => {
-    return () => {
-      if (deleteTimerRef.current) clearTimeout(deleteTimerRef.current)
-      if (clearAllTimerRef.current) clearTimeout(clearAllTimerRef.current)
-      if (clearRangeTimerRef.current) clearTimeout(clearRangeTimerRef.current)
-    }
-  }, [])
-
-  const loadHistory = async () => {
+  const loadHistory = useCallback(async () => {
     setIsLoading(true)
     try {
       let results: HistoryEntry[] = []
@@ -82,7 +62,27 @@ export function HistoryPage() {
       setEntries([])
     }
     setIsLoading(false)
-  }
+  }, [query, timeFilter])
+
+  useEffect(() => {
+    // Debounce search
+    const timeoutId = setTimeout(
+      () => {
+        loadHistory()
+      },
+      query ? 300 : 0
+    ) // Only debounce for search, not for filter changes
+
+    return () => clearTimeout(timeoutId)
+  }, [query, timeFilter, loadHistory])
+
+  useEffect(() => {
+    return () => {
+      if (deleteTimerRef.current) clearTimeout(deleteTimerRef.current)
+      if (clearAllTimerRef.current) clearTimeout(clearAllTimerRef.current)
+      if (clearRangeTimerRef.current) clearTimeout(clearRangeTimerRef.current)
+    }
+  }, [])
 
   const handleDelete = async (id: string) => {
     if (pendingDeleteId === id) {

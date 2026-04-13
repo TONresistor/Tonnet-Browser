@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { UI_COPY_FEEDBACK_MS } from '@shared/constants'
 import { LoaderCircle, Eye, EyeOff, Upload, KeyRound, Copy, Check, AlertTriangle, Trash2 } from 'lucide-react'
@@ -22,9 +22,11 @@ export function WalletManagementSection() {
   const [importError, setImportError] = useState<string | null>(null)
   const [showConfirm, setShowConfirm] = useState(false)
 
+  const deleteOverlayHideRef = useRef<(() => void) | null>(null)
+
   const handleDeleteAction = useCallback(
     async (actionType: string) => {
-      deleteOverlay.hide()
+      deleteOverlayHideRef.current?.()
       if (actionType === 'confirm-delete') {
         await deleteWallet()
       }
@@ -33,6 +35,7 @@ export function WalletManagementSection() {
   )
 
   const deleteOverlay = useOverlay('wallet-delete-confirm', handleDeleteAction)
+  deleteOverlayHideRef.current = deleteOverlay.hide
 
   const showDeleteOverlay = useCallback(() => {
     const w = 380

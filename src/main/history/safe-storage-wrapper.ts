@@ -9,6 +9,7 @@ import { app } from 'electron'
 import type { ISecureStorage } from '../ports/secure-storage'
 import { ElectronSafeStorageAdapter } from '../adapters/electron-secure-storage'
 import { createLogger } from '../../shared/logger'
+import { isEnoent } from '../utils/errors'
 const log = createLogger('history')
 
 // 4-byte magic prefix that marks an encrypted file written by this wrapper
@@ -100,11 +101,8 @@ export class SafeStorageWrapper {
         log.error('Legacy encrypted file could not be decrypted:', legacyError)
         return null
       }
-    } catch (error: any) {
-      if (error.code === 'ENOENT') {
-        // File doesn't exist
-        return null
-      }
+    } catch (error) {
+      if (isEnoent(error)) return null
       log.error('Failed to read:', error)
       throw error
     }
@@ -117,8 +115,8 @@ export class SafeStorageWrapper {
     try {
       await fs.unlink(this.filePath)
       log.info('Deleted storage file')
-    } catch (error: any) {
-      if (error.code !== 'ENOENT') {
+    } catch (error) {
+      if (!isEnoent(error)) {
         log.error('Failed to delete:', error)
         throw error
       }

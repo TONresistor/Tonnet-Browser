@@ -134,7 +134,7 @@ export class WsBridgeClient {
       this.reconnectTimer = null
     }
     // Reject all pending requests
-    for (const [id, entry] of this.pending) {
+    for (const entry of this.pending.values()) {
       clearTimeout(entry.timer)
       entry.reject(new Error('Client disconnected'))
     }
@@ -517,7 +517,7 @@ export class WsBridgeClient {
       this.ws = null
     }
     // Reject pending requests
-    for (const [id, entry] of this.pending) {
+    for (const entry of this.pending.values()) {
       clearTimeout(entry.timer)
       entry.reject(new Error('Connection lost'))
     }

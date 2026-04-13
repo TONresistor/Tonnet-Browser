@@ -173,7 +173,6 @@ describe('StorageManager', () => {
     })
 
     it('waits for API to be ready', async () => {
-      const pingCalls = 0
       // Will be called after client is created
       vi.mocked(spawn).mockImplementation(() => {
         mockProcess = createMockProcess()

@@ -18,15 +18,6 @@ function escapeHtml(str: string): string {
     .replace(/'/g, '&#39;')
 }
 
-// --- File size formatting ---
-
-function formatSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`
-}
-
 // --- File type detection ---
 
 type FileCategory = 'video' | 'audio' | 'image' | 'document' | 'archive' | 'code' | 'text' | 'folder' | 'other'
@@ -185,9 +176,6 @@ export function generateFileBrowserPage(
   const safeBagId = escapeHtml(bagId)
   const truncatedBag =
     bagId.length > 16 ? `${escapeHtml(bagId.slice(0, 8))}...${escapeHtml(bagId.slice(-8))}` : safeBagId
-
-  // Compute total size
-  const totalSize = files.reduce((acc, f) => acc + f.size, 0)
 
   // Build folder structure: detect virtual directories from file paths
   // Serialize files and icons as JSON for the client-side JS to render

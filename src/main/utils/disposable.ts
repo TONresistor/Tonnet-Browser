@@ -39,22 +39,33 @@ export class DisposableStore implements IDisposable {
   }
 }
 
-export function onWebContents(wc: Electron.WebContents, event: string, handler: (...args: any[]) => void): IDisposable {
-  wc.on(event as any, handler)
+export function onWebContents<TArgs extends unknown[]>(
+  wc: Electron.WebContents,
+  event: string,
+  handler: (...args: TArgs) => void
+): IDisposable {
+  const emitter = wc as unknown as EventEmitter
+  // Cast required: Node EventEmitter uses any[] for variadic listener types
+  emitter.on(event, handler as (...args: unknown[]) => void)
   return {
     dispose(): void {
       if (!wc.isDestroyed()) {
-        wc.removeListener(event as any, handler)
+        emitter.removeListener(event, handler as (...args: unknown[]) => void)
       }
     },
   }
 }
 
-export function onEmitter(emitter: EventEmitter, event: string, handler: (...args: any[]) => void): IDisposable {
-  emitter.on(event, handler)
+export function onEmitter<TArgs extends unknown[]>(
+  emitter: EventEmitter,
+  event: string,
+  handler: (...args: TArgs) => void
+): IDisposable {
+  // Cast required: Node EventEmitter uses any[] for variadic listener types
+  emitter.on(event, handler as (...args: unknown[]) => void)
   return {
     dispose(): void {
-      emitter.removeListener(event, handler)
+      emitter.removeListener(event, handler as (...args: unknown[]) => void)
     },
   }
 }

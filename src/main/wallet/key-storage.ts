@@ -13,6 +13,7 @@ import { WALLET_FILE_NAME, AUTO_LOCK_DEFAULT_MS } from './constants'
 import type { ISecureStorage } from '../ports/secure-storage'
 import { ElectronSafeStorageAdapter } from '../adapters/electron-secure-storage'
 import { createLogger } from '../../shared/logger'
+import { isEnoent } from '../utils/errors'
 const log = createLogger('wallet:keys')
 
 const ENCRYPTED_MARKER = Buffer.from('SENC')
@@ -265,8 +266,8 @@ export class WalletKeyStorage {
   async deleteFile(): Promise<void> {
     try {
       await fs.unlink(this.filePath)
-    } catch (error: any) {
-      if (error.code !== 'ENOENT') throw error
+    } catch (error) {
+      if (!isEnoent(error)) throw error
     }
   }
 
@@ -338,10 +339,8 @@ export class WalletKeyStorage {
 
       log.error('Unknown wallet file format')
       return null
-    } catch (error: any) {
-      if (error.code === 'ENOENT') {
-        return null
-      }
+    } catch (error) {
+      if (isEnoent(error)) return null
       log.error('Failed to read wallet data:', error)
       throw error
     }

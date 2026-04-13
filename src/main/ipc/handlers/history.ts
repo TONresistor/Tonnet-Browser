@@ -97,7 +97,7 @@ export function registerHistoryHandlers(registry: ServiceRegistry): void {
   secureHandleWithEvent(IPC_CHANNELS.HISTORY_GET_STATS, () => {
     try {
       return historyManager.getStats()
-    } catch (error) {
+    } catch {
       return {
         total: 0,
         mode: 'memory' as HistoryMode,
@@ -109,7 +109,7 @@ export function registerHistoryHandlers(registry: ServiceRegistry): void {
   secureHandleWithEvent(IPC_CHANNELS.HISTORY_HAS_PERSISTENT_FILE, () => {
     try {
       return historyManager.hasPersistentFile()
-    } catch (error) {
+    } catch {
       return false
     }
   })

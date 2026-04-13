@@ -22,7 +22,6 @@ import type {
 import { AppSettingsSchema } from '../../shared/types'
 import { createLogger } from '../../shared/logger'
 const log = createLogger('settings')
-import { SETTINGS_CATEGORIES } from './validation'
 
 // Re-export settings types for consumers that import from this module
 export type {

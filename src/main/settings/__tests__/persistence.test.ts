@@ -2,9 +2,8 @@
  * Settings Persistence Tests
  * Tests for file I/O, caching, and error handling
  */
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import path from 'path'
-import { createDefaultSettings } from '@tests/helpers/factories'
 
 // Mock Electron app
 vi.mock('electron', () => ({
@@ -25,17 +24,6 @@ vi.mock('fs', () => ({
   renameSync: vi.fn(),
 }))
 
-// Import after mocks are set up
-import {
-  loadSettings,
-  saveSettings,
-  getSetting,
-  setSetting,
-  resetSettings,
-  getDefaultSettings,
-  getDownloadPath,
-  setDownloadPath,
-} from '../index'
 import { existsSync, readFileSync, writeFileSync, mkdirSync, renameSync } from 'fs'
 
 describe('Settings Persistence', () => {

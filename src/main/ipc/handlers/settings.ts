@@ -110,7 +110,7 @@ export function registerSettingsHandlers(registry: ServiceRegistry): void {
     if (!validation.valid) {
       throw new Error(`Invalid settings values: ${validation.error}`)
     }
-    setSetting(category, validation.data as any)
+    setSetting(category, validation.data as Partial<AppSettings[keyof AppSettings]>)
     // Notify renderer of settings change
     emitToRenderer('settings:changed', { category, values })
     // If network settings changed, check if proxy needs restart (non-blocking)

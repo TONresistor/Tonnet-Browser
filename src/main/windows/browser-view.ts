@@ -271,7 +271,7 @@ export async function extractFavicon(view: WebContentsView): Promise<string | nu
     }
 
     return faviconBase64 as string | null
-  } catch (error) {
+  } catch {
     // Silently fail - favicon is optional
     return null
   }

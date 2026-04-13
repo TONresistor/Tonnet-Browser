@@ -17,7 +17,6 @@ import {
 } from './tabs-session'
 import {
   loadStorageBag,
-  loadStorageBrowser,
   loadErrorPage,
   fileBrowserCache as _fileBrowserCache,
   initStorageListener,
@@ -327,7 +326,7 @@ export async function navigateInTab(tabId: string, url: string): Promise<boolean
       log.error(`Blocked navigation to unsafe scheme: ${parsed.protocol}`)
       return false
     }
-  } catch (err) {
+  } catch {
     log.error(`Invalid URL: ${navigateUrl}`)
     return false
   }

@@ -51,11 +51,6 @@ function createDefaultBookmarks(): Bookmark[] {
   }))
 }
 
-const DEFAULT_DATA: BookmarksData = {
-  bookmarks: createDefaultBookmarks(),
-  folders: [],
-}
-
 // In-memory cache
 let bookmarksCache: BookmarksData | null = null
 

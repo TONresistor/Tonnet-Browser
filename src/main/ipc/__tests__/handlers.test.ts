@@ -8,10 +8,6 @@ import { EventEmitter } from 'events'
 // Store mock handlers
 const mockHandlers = new Map<string, (...args: any[]) => any>()
 
-// Store mock event emitters for testing event forwarding
-const mockProxyEmitter = new EventEmitter()
-const mockStorageEmitter = new EventEmitter()
-
 // Store mock window reference
 let mockMainWindow: any = null
 
@@ -317,21 +313,23 @@ const createMockEvent = () => {
 
 let mockRegistry: ServiceRegistry
 
+function resetHandlersTestEnv(): void {
+  vi.clearAllMocks()
+  mockHandlers.clear()
+  mockProxyManager.removeAllListeners()
+  mockStorageManager.removeAllListeners()
+  _resetHandlersForTesting() // Reset guard to allow re-registration
+  mockMainWindow = {
+    webContents: { send: vi.fn() },
+    getBounds: vi.fn(() => ({ x: 0, y: 0, width: 1024, height: 768 })),
+    setTitle: vi.fn(),
+  }
+  mockRegistry = createMockRegistry()
+  registerIpcHandlers(mockRegistry)
+}
+
 describe('IPC Handlers', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-    mockHandlers.clear()
-    _resetHandlersForTesting() // Reset guard to allow re-registration
-    mockMainWindow = {
-      webContents: {
-        send: vi.fn(),
-      },
-      getBounds: vi.fn(() => ({ x: 0, y: 0, width: 1024, height: 768 })),
-      setTitle: vi.fn(),
-    }
-    mockRegistry = createMockRegistry()
-    registerIpcHandlers(mockRegistry)
-  })
+  beforeEach(resetHandlersTestEnv)
 
   describe('Handler Registration', () => {
     it('registers all required handlers', () => {
@@ -422,7 +420,7 @@ describe('IPC Handlers', () => {
 
       // Valid 64-char hex
       const validBagId = 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2'
-      const result = await handler(createMockEvent(), validBagId, 'Test Bag')
+      await handler(createMockEvent(), validBagId, 'Test Bag')
 
       expect(addBag).toHaveBeenCalledWith(validBagId, 'Test Bag')
     })
@@ -511,18 +509,7 @@ describe('IPC Handlers', () => {
 })
 
 describe('Security - Input Validation', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-    mockHandlers.clear()
-    _resetHandlersForTesting() // Reset guard to allow re-registration
-    mockMainWindow = {
-      webContents: { send: vi.fn() },
-      getBounds: vi.fn(() => ({ x: 0, y: 0, width: 1024, height: 768 })),
-      setTitle: vi.fn(),
-    }
-    mockRegistry = createMockRegistry()
-    registerIpcHandlers(mockRegistry)
-  })
+  beforeEach(resetHandlersTestEnv)
 
   it('navigation handler rejects javascript: URLs', async () => {
     const handler = mockHandlers.get(IPC_CHANNELS.NAVIGATE)
