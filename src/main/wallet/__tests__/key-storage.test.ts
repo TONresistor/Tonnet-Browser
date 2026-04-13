@@ -41,11 +41,15 @@ vi.mock('fs', async () => {
   const actual = await vi.importActual<typeof import('fs')>('fs')
   return {
     ...actual,
+    constants: actual.constants,
     promises: {
       writeFile: vi.fn(),
       readFile: vi.fn(),
       access: vi.fn(),
       unlink: vi.fn(),
+      copyFile: vi.fn(),
+      rename: vi.fn(),
+      chmod: vi.fn(),
     },
   }
 })
@@ -193,14 +197,36 @@ describe('WalletKeyStorage', () => {
   describe('load() - legacy seed migration', () => {
     it('reads 32-byte raw seed and migrates to encrypted format', async () => {
       const rawSeed = Buffer.alloc(32, 0xaa)
-      vi.mocked(fs.readFile).mockResolvedValue(rawSeed)
+      const seedHex = rawSeed.toString('hex')
+
+      // First readFile: returns raw seed; second readFile (verify): returns encrypted file
+      const encryptedBuf = (() => {
+        const json = JSON.stringify({ type: 'seed', seed: seedHex })
+        const enc = storage.encrypt(json)
+        return Buffer.concat([SENC_MARKER, enc])
+      })()
+      vi.mocked(fs.readFile)
+        .mockResolvedValueOnce(rawSeed) // initial read
+        .mockResolvedValueOnce(encryptedBuf) // verification read
+
+      vi.mocked(fs.access).mockRejectedValue(Object.assign(new Error(), { code: 'ENOENT' })) // no bak
+      vi.mocked(fs.copyFile).mockResolvedValue(undefined)
+      vi.mocked(fs.chmod).mockResolvedValue(undefined)
+      vi.mocked(fs.writeFile).mockResolvedValue(undefined)
+      vi.mocked(fs.rename).mockResolvedValue(undefined)
+      vi.mocked(fs.unlink).mockResolvedValue(undefined)
 
       const result = await ks.load()
 
       expect(result.publicKey.length).toBe(32)
       expect(result.secretKey.length).toBe(64)
-      // Should have written the migrated encrypted file
+      // Backup was created
+      expect(fs.copyFile).toHaveBeenCalledOnce()
+      // New encrypted file was written (tmp) and renamed
       expect(fs.writeFile).toHaveBeenCalledOnce()
+      expect(fs.rename).toHaveBeenCalledOnce()
+      // Backup was removed after successful verification
+      expect(fs.unlink).toHaveBeenCalledOnce()
     })
 
     it('reads legacy encrypted hex seed (SENC + non-JSON)', async () => {
@@ -225,6 +251,103 @@ describe('WalletKeyStorage', () => {
       expect(result.publicKey.length).toBe(32)
       // Should NOT write because basic_text is weak
       expect(fs.writeFile).not.toHaveBeenCalled()
+    })
+
+    it('preserves backup when verification fails after write', async () => {
+      const rawSeed = Buffer.alloc(32, 0xaa)
+
+      vi.mocked(fs.readFile)
+        .mockResolvedValueOnce(rawSeed) // initial read
+        .mockResolvedValueOnce(rawSeed) // verify read: still raw = verification fails
+
+      vi.mocked(fs.access).mockRejectedValue(Object.assign(new Error(), { code: 'ENOENT' })) // no bak
+      vi.mocked(fs.copyFile).mockResolvedValue(undefined)
+      vi.mocked(fs.chmod).mockResolvedValue(undefined)
+      vi.mocked(fs.writeFile).mockResolvedValue(undefined)
+      vi.mocked(fs.rename).mockResolvedValue(undefined)
+      vi.mocked(fs.unlink).mockResolvedValue(undefined)
+
+      // load() still returns the seed (from memory), migration failure is logged but non-fatal
+      const result = await ks.load()
+      expect(result.publicKey.length).toBe(32)
+
+      // backup was created but NOT deleted (verification failed)
+      expect(fs.copyFile).toHaveBeenCalledOnce()
+      // unlink may be called for tmp cleanup but never for the bak path
+      const unlinkCalls = vi.mocked(fs.unlink).mock.calls.map(([p]) => p as string)
+      expect(unlinkCalls.every((p) => !p.endsWith('.pre-migration.bak'))).toBe(true)
+    })
+
+    it('removes stale backup and skips re-migration when main file is already valid', async () => {
+      const rawSeed = Buffer.alloc(32, 0xaa)
+      const seedHex = rawSeed.toString('hex')
+
+      // Simulate: main file is already the encrypted version (migration succeeded previously)
+      const encryptedBuf = (() => {
+        const json = JSON.stringify({ type: 'seed', seed: seedHex })
+        const enc = storage.encrypt(json)
+        return Buffer.concat([SENC_MARKER, enc])
+      })()
+
+      // Initial readFile returns raw seed — but wait, that path is only for 32-byte buffers.
+      // The bak-exists path calls verifySeedFile which reads the main file.
+      // Here we simulate: readData returns raw 32 bytes, bak exists, main file is valid.
+      vi.mocked(fs.readFile)
+        .mockResolvedValueOnce(rawSeed) // initial readData read
+        .mockResolvedValueOnce(encryptedBuf) // verifySeedFile read (main file already valid)
+
+      // bak file exists
+      vi.mocked(fs.access).mockResolvedValue(undefined)
+      vi.mocked(fs.unlink).mockResolvedValue(undefined)
+
+      const result = await ks.load()
+      expect(result.publicKey.length).toBe(32)
+
+      // No new write — migration skipped because main file is already valid
+      expect(fs.writeFile).not.toHaveBeenCalled()
+      expect(fs.copyFile).not.toHaveBeenCalled()
+      // Stale bak was removed
+      expect(fs.unlink).toHaveBeenCalledOnce()
+    })
+
+    it('restores from backup and retries when main file is corrupt after interrupted migration', async () => {
+      const rawSeed = Buffer.alloc(32, 0xcc)
+      const seedHex = rawSeed.toString('hex')
+
+      const encryptedBuf = (() => {
+        const json = JSON.stringify({ type: 'seed', seed: seedHex })
+        const enc = storage.encrypt(json)
+        return Buffer.concat([SENC_MARKER, enc])
+      })()
+
+      // Sequence:
+      //   readData: returns raw 32-byte buffer (the "corrupt" main file is still raw here for test simplicity)
+      //   bak exists → verifySeedFile(main): returns raw bytes → verify fails
+      //   copyFile(bak → main) [restore]
+      //   copyFile(main → bak) [new backup]
+      //   writeFile + rename (new encrypted)
+      //   verifySeedFile(main): returns encrypted buffer → verify succeeds
+      //   unlink(bak)
+      vi.mocked(fs.readFile)
+        .mockResolvedValueOnce(rawSeed) // readData initial
+        .mockResolvedValueOnce(rawSeed) // verifySeedFile after bak detected → fail (still raw)
+        .mockResolvedValueOnce(encryptedBuf) // verifySeedFile after write → success
+
+      vi.mocked(fs.access).mockResolvedValue(undefined) // bak exists
+      vi.mocked(fs.copyFile).mockResolvedValue(undefined)
+      vi.mocked(fs.chmod).mockResolvedValue(undefined)
+      vi.mocked(fs.writeFile).mockResolvedValue(undefined)
+      vi.mocked(fs.rename).mockResolvedValue(undefined)
+      vi.mocked(fs.unlink).mockResolvedValue(undefined)
+
+      const result = await ks.load()
+      expect(result.publicKey.length).toBe(32)
+
+      // restore from bak + new bak + encrypted write + bak unlink
+      expect(fs.copyFile).toHaveBeenCalledTimes(2)
+      expect(fs.writeFile).toHaveBeenCalledOnce()
+      expect(fs.rename).toHaveBeenCalledOnce()
+      expect(fs.unlink).toHaveBeenCalledOnce()
     })
   })
 

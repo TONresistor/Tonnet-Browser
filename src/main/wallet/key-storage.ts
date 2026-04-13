@@ -4,7 +4,7 @@
  * Supports both legacy raw-seed wallets and mnemonic-based wallets.
  */
 
-import { promises as fs } from 'fs'
+import { promises as fs, constants as fsConstants } from 'fs'
 import { join } from 'path'
 import { app } from 'electron'
 import { keyPairFromSeed, mnemonicNew, mnemonicToPrivateKey, mnemonicValidate } from '@ton/crypto'
@@ -49,6 +49,11 @@ export class WalletKeyStorage {
     this.storage = storage
     const dir = basePath ?? app.getPath('userData')
     this.filePath = join(dir, `${WALLET_FILE_NAME}.dat`)
+  }
+
+  /** Path used to back up the legacy seed file before migration overwrites it. */
+  get bakPath(): string {
+    return `${this.filePath}.pre-migration.bak`
   }
 
   /**
@@ -280,6 +285,110 @@ export class WalletKeyStorage {
     }
   }
 
+  /**
+   * Atomically migrate a legacy 32-byte raw seed to the encrypted format.
+   *
+   * Steps:
+   *   1. Copy the original file to <filePath>.pre-migration.bak (chmod 0o600, overwrite-safe).
+   *   2. Write the new encrypted file via tmp+rename (atomic).
+   *   3. Decrypt the new file and verify the seed round-trips correctly.
+   *   4. Delete the backup only after verification succeeds.
+   *
+   * On any failure the backup is left on disk.  The next call to readData()
+   * will detect the bak file and attempt recovery before re-running migration.
+   */
+  private async migrateRawSeedSafe(seedHex: string): Promise<void> {
+    const bak = this.bakPath
+    const tmp = `${this.filePath}.tmp`
+
+    // --- 0. Handle stale backup from a previously interrupted migration ---
+    let bakExists = false
+    try {
+      await fs.access(bak, fsConstants.F_OK)
+      bakExists = true
+    } catch {
+      /* no bak — first run */
+    }
+
+    if (bakExists) {
+      // A previous migration was interrupted.  Check whether the main file is
+      // already valid (crash happened after write but before bak cleanup).
+      const mainOk = await this.verifySeedFile(seedHex)
+      if (mainOk) {
+        // Migration succeeded earlier; just clean up the leftover backup.
+        try {
+          await fs.unlink(bak)
+          log.info('Removed stale migration backup after verifying main file is valid')
+        } catch (err) {
+          log.warn('Could not remove stale migration backup:', err)
+        }
+        return
+      }
+      // Main file is not valid — previous migration failed mid-write.
+      // Restore from backup so the user's seed is intact, then retry.
+      log.warn('Detected interrupted migration; restoring from backup and retrying')
+      try {
+        await fs.copyFile(bak, this.filePath)
+        if (process.platform !== 'win32') await fs.chmod(this.filePath, 0o600)
+      } catch (restoreErr) {
+        log.error('Failed to restore from backup; leaving backup in place:', restoreErr)
+        return
+      }
+    }
+
+    try {
+      // --- 1. Create backup of the original raw-seed file ---
+      await fs.copyFile(this.filePath, bak)
+      if (process.platform !== 'win32') await fs.chmod(bak, 0o600)
+
+      // --- 2. Write new encrypted file atomically (tmp → rename) ---
+      const data: SeedStorageData = { type: 'seed', seed: seedHex }
+      const json = JSON.stringify(data)
+      const encrypted = this.storage.encrypt(json)
+      const markedBuffer = Buffer.concat([ENCRYPTED_MARKER, encrypted])
+      await fs.writeFile(tmp, markedBuffer, { mode: 0o600 })
+      await fs.rename(tmp, this.filePath)
+
+      // --- 3. Verify the new file is readable and decrypts correctly ---
+      const verified = await this.verifySeedFile(seedHex)
+      if (!verified) {
+        throw new Error('Post-migration verification failed: decrypted seed does not match original')
+      }
+
+      // --- 4. Remove backup only after successful verification ---
+      await fs.unlink(bak)
+      log.info('Migrated legacy unencrypted seed to encrypted format')
+    } catch (err) {
+      log.error('Failed to migrate legacy seed (backup preserved at', bak, '):', err)
+      // Clean up any partial tmp file
+      try {
+        await fs.unlink(tmp)
+      } catch {
+        /* tmp may not exist */
+      }
+    }
+  }
+
+  /**
+   * Read the wallet file and verify that it decrypts to the expected seedHex.
+   * Returns true if the file is valid and the seed matches.
+   */
+  private async verifySeedFile(expectedSeedHex: string): Promise<boolean> {
+    try {
+      const buf = await fs.readFile(this.filePath)
+      if (!buf.subarray(0, 4).equals(ENCRYPTED_MARKER)) return false
+      const decrypted = this.storage.decrypt(buf.subarray(4))
+      if (decrypted.startsWith('{')) {
+        const parsed = JSON.parse(decrypted) as StorageData
+        return parsed.type === 'seed' && parsed.seed === expectedSeedHex
+      }
+      // Legacy encrypted hex path — shouldn't occur here but handle defensively
+      return decrypted === expectedSeedHex
+    } catch {
+      return false
+    }
+  }
+
   private async storeData(data: StorageData): Promise<void> {
     this.ensureEncryptionAvailable()
     const json = JSON.stringify(data)
@@ -326,13 +435,7 @@ export class WalletKeyStorage {
       if (buffer.length === 32) {
         const seedHex = buffer.toString('hex')
         if (this.storage.isAvailable() && !this.isBasicTextBackend()) {
-          try {
-            const data: SeedStorageData = { type: 'seed', seed: seedHex }
-            await this.storeData(data)
-            log.info('Migrated legacy unencrypted seed to encrypted format')
-          } catch (err) {
-            log.error('Failed to migrate legacy seed:', err)
-          }
+          await this.migrateRawSeedSafe(seedHex)
         }
         return { type: 'seed', seed: seedHex }
       }
