@@ -433,6 +433,19 @@ export class ProxyManager extends EventEmitter {
     await this.start()
   }
 
+  async restartBridge(): Promise<void> {
+    if (!this.process) {
+      throw new Error('Cannot restart bridge: proxy is not running')
+    }
+    log.info('Restarting bridge (keeping proxy)...')
+    if (this.bridgeProcess) {
+      const bridgeProc = this.bridgeProcess
+      this.bridgeProcess = null
+      await this.killProcess(bridgeProc)
+    }
+    await this.startBridge()
+  }
+
   async applySettingsChange(): Promise<void> {
     const { network } = this.loadSettings()
     const needsRestart = network.anonymousMode !== this.anonymousMode || network.tunnelMode !== this.tunnelMode

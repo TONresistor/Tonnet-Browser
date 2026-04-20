@@ -111,13 +111,18 @@ function defaultWalletSettings() {
   }
 }
 
-function createMockSession(fetchResponse?: Partial<Response>) {
-  const defaultResponse = {
-    status: 402,
-    ok: false,
-    json: vi.fn().mockResolvedValue(makePaymentReq()),
-    text: vi.fn().mockResolvedValue(''),
+function makeJsonResponse(status: number, payload: unknown, ok = status < 400) {
+  const text = JSON.stringify(payload)
+  return {
+    status,
+    ok,
+    json: vi.fn().mockResolvedValue(payload),
+    text: vi.fn().mockResolvedValue(text),
   }
+}
+
+function createMockSession(fetchResponse?: Partial<Response>) {
+  const defaultResponse = makeJsonResponse(402, makePaymentReq(), false)
   return {
     fetch: vi.fn().mockResolvedValue({ ...defaultResponse, ...fetchResponse }),
     webRequest: {
@@ -166,6 +171,7 @@ describe('PaymentInterceptor', () => {
         status: 402,
         ok: false,
         json: vi.fn().mockResolvedValue(paymentReq),
+        text: vi.fn().mockResolvedValue(JSON.stringify(paymentReq)),
       })
       policyStore.getSiteMode.mockReturnValue(mode)
 
@@ -348,6 +354,7 @@ describe('PaymentInterceptor', () => {
           status: 402,
           ok: false,
           json: vi.fn().mockResolvedValue(paymentReq),
+          text: vi.fn().mockResolvedValue(JSON.stringify(paymentReq)),
         })
         .mockResolvedValueOnce(retryResponse)
 
@@ -387,6 +394,7 @@ describe('PaymentInterceptor', () => {
           status: 402,
           ok: false,
           json: vi.fn().mockResolvedValue(paymentReq),
+          text: vi.fn().mockResolvedValue(JSON.stringify(paymentReq)),
         })
         .mockResolvedValueOnce({
           status: 500,
@@ -422,6 +430,7 @@ describe('PaymentInterceptor', () => {
         status: 402,
         ok: false,
         json: vi.fn().mockResolvedValue(paymentReq),
+        text: vi.fn().mockResolvedValue(JSON.stringify(paymentReq)),
       })
 
       walletManager.signX402Payment.mockRejectedValueOnce(new Error('signing failed'))
@@ -458,6 +467,7 @@ describe('PaymentInterceptor', () => {
         status: 402,
         ok: false,
         json: vi.fn().mockResolvedValue(paymentReq),
+        text: vi.fn().mockResolvedValue(JSON.stringify(paymentReq)),
       })
 
       policyStore.getSiteMode.mockReturnValue('manual')
@@ -571,6 +581,7 @@ describe('PaymentInterceptor', () => {
         status: 402,
         ok: false,
         json: vi.fn().mockResolvedValue(paymentReq),
+        text: vi.fn().mockResolvedValue(JSON.stringify(paymentReq)),
       })
 
       policyStore.getSiteMode.mockReturnValue('off')
@@ -646,6 +657,7 @@ describe('PaymentInterceptor', () => {
         status: 402,
         ok: false,
         json: vi.fn().mockResolvedValue(paymentReq),
+        text: vi.fn().mockResolvedValue(JSON.stringify(paymentReq)),
       })
 
       policyStore.getSiteMode.mockReturnValue('auto')

@@ -353,7 +353,7 @@ function createWindow(): void {
   mainWindow.webContents.setWindowOpenHandler((details) => {
     try {
       const scheme = new URL(details.url).protocol
-      if (scheme !== 'https:' && scheme !== 'http:') {
+      if (scheme !== 'https:') {
         return { action: 'deny' }
       }
       shell.openExternal(details.url)

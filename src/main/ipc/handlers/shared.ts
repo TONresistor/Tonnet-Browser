@@ -10,9 +10,10 @@ import { getMainWindow } from '../../windows/main'
 
 export const log = createLogger('ipc')
 
-// Lenient limits: 30 nav/sec, 10 storage ops/sec
+// Lenient limits: 30 nav/sec, 10 storage ops/sec, 1 bridge restart per 30s
 export const navLimiter = new RateLimiter(30, 1000)
 export const storageLimiter = new RateLimiter(10, 1000)
+export const bridgeRestartLimiter = new RateLimiter(1, 30_000)
 
 /**
  * Send a message to the renderer process via the main window.
@@ -55,12 +56,14 @@ export function verifyIpcOrigin(event: IpcMainInvokeEvent): void {
  * Secure ipcMain.handle wrapper - verifies origin + catches errors + logs to IpcErrorHandler
  * All IPC handlers should use this to prevent calls from compromised WebContentsViews
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function secureHandle(channel: string, handler: (...args: any[]) => any): void {
+export function secureHandle<TArgs extends unknown[], TResult>(
+  channel: string,
+  handler: (...args: TArgs) => TResult | Promise<TResult>
+): void {
   ipcMain.handle(channel, async (event: IpcMainInvokeEvent, ...args: unknown[]) => {
     try {
       verifyIpcOrigin(event)
-      return await handler(...args)
+      return await handler(...(args as TArgs))
     } catch (err) {
       const error = toError(err)
       ipcErrorHandler.logError(channel, error)
@@ -73,14 +76,14 @@ export function secureHandle(channel: string, handler: (...args: any[]) => any):
  * Secure ipcMain.handle wrapper for handlers that need the event parameter
  */
 
-export function secureHandleWithEvent(
+export function secureHandleWithEvent<TArgs extends unknown[], TResult>(
   channel: string,
-  handler: (event: IpcMainInvokeEvent, ...args: any[]) => any
+  handler: (event: IpcMainInvokeEvent, ...args: TArgs) => TResult | Promise<TResult>
 ): void {
   ipcMain.handle(channel, async (event: IpcMainInvokeEvent, ...args: unknown[]) => {
     try {
       verifyIpcOrigin(event)
-      return await handler(event, ...args)
+      return await handler(event, ...(args as TArgs))
     } catch (err) {
       const error = toError(err)
       ipcErrorHandler.logError(channel, error)
@@ -93,9 +96,9 @@ export function secureHandleWithEvent(
  * IPC handler for tonsite WebContentsViews (NOT the main window).
  * Extracts domain from sender URL. Rejects calls from the main renderer.
  */
-export function tonsiteHandle(
+export function tonsiteHandle<TArgs extends unknown[], TResult>(
   channel: string,
-  handler: (domain: string, event: IpcMainInvokeEvent, ...args: any[]) => any
+  handler: (domain: string, event: IpcMainInvokeEvent, ...args: TArgs) => TResult | Promise<TResult>
 ): void {
   ipcMain.handle(channel, async (event: IpcMainInvokeEvent, ...args: unknown[]) => {
     try {
@@ -111,7 +114,7 @@ export function tonsiteHandle(
         hostname = ''
       }
       if (!hostname) hostname = 'local'
-      return await handler(hostname, event, ...args)
+      return await handler(hostname, event, ...(args as TArgs))
     } catch (err) {
       const error = toError(err)
       ipcErrorHandler.logError(channel, error)

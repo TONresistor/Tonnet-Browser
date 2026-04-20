@@ -75,13 +75,13 @@ export function AddBagModal({ isOpen, onClose, onBagAdded }: AddBagModalProps) {
     >
       <div
         ref={addModalRef}
-        className="rounded-[14px] p-6 w-full max-w-md mx-4 shadow-2xl"
+        className="rounded-[14px] p-5 w-full max-w-md mx-4"
         style={{
-          background: 'rgba(20, 20, 22, 0.85)',
-          backdropFilter: 'blur(24px) saturate(1.6)',
-          WebkitBackdropFilter: 'blur(24px) saturate(1.6)',
-          border: '1px solid rgba(255, 255, 255, 0.15)',
-          boxShadow: '0 8px 40px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.12)',
+          background: 'rgba(255, 255, 255, 0.07)',
+          backdropFilter: 'blur(12px) saturate(1.4)',
+          WebkitBackdropFilter: 'blur(12px) saturate(1.4)',
+          border: '1px solid rgba(255, 255, 255, 0.12)',
+          boxShadow: '0 4px 24px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.08)',
         }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -113,7 +113,7 @@ export function AddBagModal({ isOpen, onClose, onBagAdded }: AddBagModalProps) {
               }
             }}
             placeholder={t('storage.addModal.bagIdPlaceholder')}
-            className={`w-full px-3 py-2 bg-surface-hover border rounded-full text-foreground placeholder:text-muted-foreground/50 font-mono text-sm focus:outline-none focus:border-primary transition-colors ${bagIdError ? 'border-destructive' : 'border-border-medium'}`}
+            className={`w-full px-3 py-2 bg-surface-hover border rounded-[10px] text-foreground placeholder:text-muted-foreground/50 font-mono text-sm focus:outline-none focus:border-primary transition-colors ${bagIdError ? 'border-destructive' : 'border-border-medium'}`}
             autoFocus
           />
           {bagIdError && <p className="mt-2 text-destructive text-xs">{bagIdError}</p>}
@@ -123,7 +123,7 @@ export function AddBagModal({ isOpen, onClose, onBagAdded }: AddBagModalProps) {
           <button
             type="button"
             onClick={handleClose}
-            className="flex-1 py-2.5 rounded-full text-sm font-medium text-muted-foreground transition-all duration-200 hover:text-foreground bg-surface-hover backdrop-blur-[10px] border border-border-medium"
+            className="flex-1 py-2.5 rounded-[10px] text-sm font-medium text-muted-foreground transition-colors duration-150 hover:text-foreground bg-surface-hover border border-border-medium"
           >
             {t('storage.addModal.cancel')}
           </button>
@@ -131,7 +131,7 @@ export function AddBagModal({ isOpen, onClose, onBagAdded }: AddBagModalProps) {
             type="button"
             onClick={handleAddBag}
             disabled={!newBagId.trim() || isAdding}
-            className="flex-1 py-2.5 rounded-full text-sm font-medium transition-all duration-200 hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 bg-primary/90 backdrop-blur-[10px] text-primary-foreground shadow-[0_4px_16px_hsl(var(--primary)/0.4),inset_0_1px_0_hsl(var(--foreground)/0.2)]"
+            className="flex-1 py-2.5 rounded-[10px] text-sm font-medium transition-all duration-150 hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 bg-primary/90 text-primary-foreground shadow-[0_4px_12px_hsl(var(--primary)/0.4)]"
           >
             {isAdding ? t('storage.addModal.adding') : t('storage.addModal.add')}
           </button>

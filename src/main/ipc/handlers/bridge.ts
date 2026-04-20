@@ -2,7 +2,7 @@ import * as fs from 'fs'
 import * as path from 'path'
 import { app } from 'electron'
 import { IPC_CHANNELS } from '../../../shared/types'
-import { secureHandle, tonsiteHandle, log } from './shared'
+import { secureHandle, tonsiteHandle, bridgeRestartLimiter, log } from './shared'
 import { REQUIRED_NAMESPACES } from '../../../shared/bridge-config'
 import { writeSecureJsonAtomic } from '../../utils/secure-fs'
 import type { BridgeScope } from '../../../shared/types'
@@ -101,10 +101,13 @@ export function registerBridgeHandlers(registry: ServiceRegistry): void {
     }
   })
 
-  // Bridge restart
+  // Bridge restart (bridge process only; proxy stays up)
   secureHandle(IPC_CHANNELS.BRIDGE_RESTART, async () => {
+    if (!bridgeRestartLimiter.check()) {
+      return { success: false, error: 'Bridge restart rate limit exceeded' }
+    }
     try {
-      await proxyManager.restart()
+      await proxyManager.restartBridge()
       return { success: true }
     } catch (err) {
       log.error('Failed to restart bridge:', err)

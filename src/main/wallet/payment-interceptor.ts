@@ -127,6 +127,45 @@ async function sessionFetch(session: Electron.Session, url: string, options?: Re
   }
 }
 
+/**
+ * Stream response body into a string, bounded by maxBytes. Throws if the body
+ * exceeds the limit. Content-Length is unreliable (attacker may omit it or use
+ * Transfer-Encoding: chunked) so we track bytes from the actual stream.
+ */
+async function readBoundedBody(response: Response, maxBytes: number): Promise<string> {
+  const reader = response.body?.getReader?.()
+  if (!reader) {
+    const text = await response.text()
+    if (text.length > maxBytes) {
+      throw new Error(`Response body exceeds ${maxBytes} bytes`)
+    }
+    return text
+  }
+  const chunks: Uint8Array[] = []
+  let total = 0
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      total += value.byteLength
+      if (total > maxBytes) {
+        await reader.cancel()
+        throw new Error(`Response body exceeds ${maxBytes} bytes`)
+      }
+      chunks.push(value)
+    }
+  } finally {
+    reader.releaseLock?.()
+  }
+  const merged = new Uint8Array(total)
+  let offset = 0
+  for (const chunk of chunks) {
+    merged.set(chunk, offset)
+    offset += chunk.byteLength
+  }
+  return new TextDecoder('utf-8').decode(merged)
+}
+
 export class PaymentInterceptor {
   private walletManager: WalletManager
   private paymentPolicyStore: PaymentPolicyStore
@@ -183,7 +222,8 @@ export class PaymentInterceptor {
       return
     }
 
-    // Reject oversized responses before parsing
+    // Early-bail if Content-Length advertises oversize. Authoritative size check
+    // happens during the stream read (header is attacker-controlled).
     const contentLength = parseInt(response.headers?.get?.('content-length') ?? '0', 10)
     if (contentLength > MAX_RESPONSE_BODY) {
       log.error(`402 response body too large: ${contentLength} bytes`)
@@ -192,9 +232,10 @@ export class PaymentInterceptor {
 
     let paymentReq: PaymentRequirements
     try {
-      paymentReq = (await response.json()) as PaymentRequirements
+      const body = await readBoundedBody(response, MAX_RESPONSE_BODY)
+      paymentReq = JSON.parse(body) as PaymentRequirements
     } catch (err) {
-      log.error('Failed to parse PaymentRequirements JSON:', err)
+      log.error('Failed to read or parse PaymentRequirements JSON:', err)
       return
     }
 
@@ -364,7 +405,7 @@ export class PaymentInterceptor {
         log.info(`402 payment completed for ${domain}`)
       } else {
         if (reservationId) this.paymentPolicyStore.rollbackPayment(reservationId)
-        const errorText = await retryResponse.text().catch(() => 'read error')
+        const errorText = await readBoundedBody(retryResponse, MAX_RESPONSE_BODY).catch(() => 'read error')
         await this.walletHistoryManager.updateStatus(paymentId, 'failed')
 
         const notification: PaymentNotificationData = {
