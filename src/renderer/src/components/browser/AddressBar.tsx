@@ -80,11 +80,11 @@ export const AddressBar = memo(function AddressBar() {
       const sel = window.getSelection()
       const hasSelection = !!(sel && sel.toString().length > 0)
       const items: Array<{ id: string; label: string; separator?: boolean; disabled?: boolean }> = [
-        { id: 'cut', label: 'Cut', disabled: !hasSelection },
-        { id: 'copy', label: 'Copy', disabled: !hasSelection },
-        { id: 'paste', label: 'Paste' },
+        { id: 'cut', label: t('addressBar.cut'), disabled: !hasSelection },
+        { id: 'copy', label: t('addressBar.copy'), disabled: !hasSelection },
+        { id: 'paste', label: t('addressBar.paste') },
         { id: '_sep', label: '', separator: true },
-        { id: 'select-all', label: 'Select All' },
+        { id: 'select-all', label: t('addressBar.selectAll') },
       ]
       const menuW = 180
       const menuH = 4 * 36 + 1 * 9 + 8
@@ -92,7 +92,7 @@ export const AddressBar = memo(function AddressBar() {
       const menuY = Math.max(4, Math.min(e.clientY, window.innerHeight - menuH - 4))
       inputContextMenu.show({ x: menuX, y: menuY, width: menuW, height: menuH }, { type: 'menu', items })
     },
-    [inputContextMenu]
+    [inputContextMenu, t]
   )
 
   const isBookmarked = useMemo(() => bookmarks.some((b) => b.url === currentUrl), [bookmarks, currentUrl])

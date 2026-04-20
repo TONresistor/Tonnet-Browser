@@ -6,7 +6,11 @@
     "removeBookmarkAria": "북마크에서 제거",
     "addBookmarkTitle": "북마크 추가",
     "removeBookmarkTitle": "북마크 제거",
-    "fileBrowser": "파일 브라우저"
+    "fileBrowser": "파일 브라우저",
+    "cut": "잘라내기",
+    "copy": "복사",
+    "paste": "붙여넣기",
+    "selectAll": "모두 선택"
   },
   "navigation": {
     "back": "뒤로",

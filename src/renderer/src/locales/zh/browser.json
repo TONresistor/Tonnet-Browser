@@ -6,7 +6,11 @@
     "removeBookmarkAria": "从书签中删除",
     "addBookmarkTitle": "添加书签",
     "removeBookmarkTitle": "删除书签",
-    "fileBrowser": "文件浏览器"
+    "fileBrowser": "文件浏览器",
+    "cut": "剪切",
+    "copy": "复制",
+    "paste": "粘贴",
+    "selectAll": "全选"
   },
   "navigation": {
     "back": "后退",

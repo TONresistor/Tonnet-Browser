@@ -6,7 +6,11 @@
     "removeBookmarkAria": "Удалить из закладок",
     "addBookmarkTitle": "Добавить закладку",
     "removeBookmarkTitle": "Удалить закладку",
-    "fileBrowser": "Файловый менеджер"
+    "fileBrowser": "Файловый менеджер",
+    "cut": "Вырезать",
+    "copy": "Копировать",
+    "paste": "Вставить",
+    "selectAll": "Выделить все"
   },
   "navigation": {
     "back": "Назад",

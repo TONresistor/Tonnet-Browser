@@ -6,7 +6,11 @@
     "removeBookmarkAria": "Hapus dari penanda",
     "addBookmarkTitle": "Tambah penanda",
     "removeBookmarkTitle": "Hapus penanda",
-    "fileBrowser": "Penjelajah Berkas"
+    "fileBrowser": "Penjelajah Berkas",
+    "cut": "Potong",
+    "copy": "Salin",
+    "paste": "Tempel",
+    "selectAll": "Pilih semua"
   },
   "navigation": {
     "back": "Kembali",

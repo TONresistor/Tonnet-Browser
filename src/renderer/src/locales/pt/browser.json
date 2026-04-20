@@ -6,7 +6,11 @@
     "removeBookmarkAria": "Remover dos favoritos",
     "addBookmarkTitle": "Adicionar favorito",
     "removeBookmarkTitle": "Remover favorito",
-    "fileBrowser": "Navegador de Arquivos"
+    "fileBrowser": "Navegador de Arquivos",
+    "cut": "Recortar",
+    "copy": "Copiar",
+    "paste": "Colar",
+    "selectAll": "Selecionar tudo"
   },
   "navigation": {
     "back": "Voltar",

@@ -6,7 +6,11 @@
     "removeBookmarkAria": "Remove from bookmarks",
     "addBookmarkTitle": "Add bookmark",
     "removeBookmarkTitle": "Remove bookmark",
-    "fileBrowser": "File Browser"
+    "fileBrowser": "File Browser",
+    "cut": "Cut",
+    "copy": "Copy",
+    "paste": "Paste",
+    "selectAll": "Select All"
   },
   "navigation": {
     "back": "Back",

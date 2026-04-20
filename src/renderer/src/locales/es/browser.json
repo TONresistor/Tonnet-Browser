@@ -6,7 +6,11 @@
     "removeBookmarkAria": "Eliminar de marcadores",
     "addBookmarkTitle": "Agregar marcador",
     "removeBookmarkTitle": "Eliminar marcador",
-    "fileBrowser": "Explorador de archivos"
+    "fileBrowser": "Explorador de archivos",
+    "cut": "Cortar",
+    "copy": "Copiar",
+    "paste": "Pegar",
+    "selectAll": "Seleccionar todo"
   },
   "navigation": {
     "back": "Atrás",

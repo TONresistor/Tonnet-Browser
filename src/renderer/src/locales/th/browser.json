@@ -6,7 +6,11 @@
     "removeBookmarkAria": "ลบออกจากบุ๊กมาร์ก",
     "addBookmarkTitle": "เพิ่มบุ๊กมาร์ก",
     "removeBookmarkTitle": "ลบบุ๊กมาร์ก",
-    "fileBrowser": "ตัวจัดการไฟล์"
+    "fileBrowser": "ตัวจัดการไฟล์",
+    "cut": "ตัด",
+    "copy": "คัดลอก",
+    "paste": "วาง",
+    "selectAll": "เลือกทั้งหมด"
   },
   "navigation": {
     "back": "ย้อนกลับ",

@@ -7,6 +7,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { createLogger } from '@/logger'
 import { UI_NOTIFICATION_TIMEOUT_MS, UI_ERROR_TIMEOUT_MS } from '@shared/constants'
 import { usePreferencesStore } from '@/stores/preferences'
+import { useUIStore } from '@/stores/ui'
 import { useTranslation } from 'react-i18next'
 
 const log = createLogger('settings')
@@ -14,7 +15,6 @@ import { SettingsLayout } from '@/components/settings/SettingsLayout'
 import { SettingsSidebar } from '@/components/settings/SettingsSidebar'
 import { SettingsActions } from '@/components/settings/SettingsActions'
 import { LoadingState } from '@/components/settings/shared/LoadingState'
-import type { SettingsSection } from '@/components/settings/types'
 
 // Import sections
 import { GeneralSection } from '@/components/settings/sections/GeneralSection'
@@ -34,7 +34,8 @@ export function SettingsPage() {
   const { t } = useTranslation('settings')
 
   // State
-  const [activeSection, setActiveSection] = useState<SettingsSection>('general')
+  const activeSection = useUIStore((s) => s.settingsActiveSection)
+  const setActiveSection = useUIStore((s) => s.setSettingsActiveSection)
   const [clearing, setClearing] = useState(false)
   const [cleared, setCleared] = useState(false)
   const [changingHistoryMode, setChangingHistoryMode] = useState(false)

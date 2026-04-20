@@ -6,7 +6,11 @@
     "removeBookmarkAria": "Aus Lesezeichen entfernen",
     "addBookmarkTitle": "Lesezeichen hinzufügen",
     "removeBookmarkTitle": "Lesezeichen entfernen",
-    "fileBrowser": "Dateibrowser"
+    "fileBrowser": "Dateibrowser",
+    "cut": "Ausschneiden",
+    "copy": "Kopieren",
+    "paste": "Einfügen",
+    "selectAll": "Alles auswählen"
   },
   "navigation": {
     "back": "Zurück",

@@ -55,7 +55,6 @@ function App() {
   const { t, i18n: i18nInstance } = useTranslation('common')
   const currentUrl = useBrowserStore((s) => s.currentUrl)
   const proxyConnected = useBrowserStore((s) => s.proxyConnected)
-  const activeTabId = useTabsStore((s) => s.activeTabId)
   const updateTab = useTabsStore((s) => s.updateTab)
   const openOrSwitchToTab = useTabsStore((s) => s.openOrSwitchToTab)
   const ensureDefaultTab = useTabsStore((s) => s.ensureDefaultTab)
@@ -188,8 +187,7 @@ function App() {
       case 'storage':
         return <StoragePage />
       case 'settings':
-        // Key forces remount when navigating to settings
-        return <SettingsPage key={`settings-${activeTabId}`} />
+        return <SettingsPage />
       case 'history':
         return <HistoryPage />
       case 'bookmarks':
