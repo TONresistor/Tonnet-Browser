@@ -16,6 +16,7 @@ import { usePreferencesStore } from '@/stores/preferences'
 import { formatBytes } from '@/lib/format'
 import { BagDetailPanel } from './storage/BagDetailPanel'
 import { AddBagModal } from './storage/AddBagModal'
+import tonIcon from '@/assets/ton.svg'
 
 type FilterType = 'all' | 'downloading' | 'complete'
 
@@ -150,7 +151,10 @@ export function StoragePage() {
     <div className="flex h-full bg-background-secondary" style={{ fontFamily: 'Inter, sans-serif' }}>
       {/* Sidebar */}
       <div className="w-56 border-r border-border p-4 flex flex-col bg-[hsl(var(--elevation-1))]">
-        <h2 className="text-foreground text-xl font-bold mb-4">{t('storage.title')}</h2>
+        <h2 className="text-foreground text-xl font-bold mb-4 flex items-center justify-center gap-2">
+          <img src={tonIcon} alt="" className="h-5 w-5" />
+          {t('storage.title')}
+        </h2>
 
         <button
           onClick={() => setShowAddModal(true)}
@@ -276,7 +280,7 @@ function SeedingToggle() {
   }
 
   return (
-    <div className="flex items-center justify-between px-3 py-2 rounded-full text-sm bg-surface backdrop-blur-[10px] border border-border-subtle">
+    <div className="flex items-center justify-between px-3 py-2 text-sm">
       <div className="flex items-center gap-2 text-muted-foreground">
         <Upload className="h-4 w-4" />
         <span>{t('storage.actions.seeding')}</span>
@@ -322,7 +326,9 @@ function FilterButton({
       )}
     >
       <span className={active ? '' : 'text-muted-foreground'}>{children}</span>
-      <span className={cn('text-xs', active ? 'text-foreground' : 'text-muted-foreground')}>{count}</span>
+      <span className="inline-flex items-center justify-center min-w-[1.5rem] h-5 px-1.5 rounded-full bg-primary text-primary-foreground text-xs font-medium">
+        {count}
+      </span>
     </button>
   )
 }
@@ -340,7 +346,6 @@ function BagRow({
   onRemove: () => void
 }) {
   const progress = bag.size > 0 ? (bag.downloaded / bag.size) * 100 : 0
-  const isComplete = bag.status === 'seeding'
 
   return (
     <tr
@@ -362,12 +367,7 @@ function BagRow({
         <div className="flex items-center gap-2">
           <div className="flex-1 h-2 rounded-full overflow-hidden bg-surface-hover shadow-[inset_0_1px_2px_hsl(var(--shadow-color)/0.2)]">
             <div
-              className={cn(
-                'h-full rounded-full transition-all duration-300',
-                isComplete
-                  ? 'bg-gradient-to-r from-success to-success/70 shadow-[0_0_10px_hsl(var(--success)/0.5)]'
-                  : 'gradient-primary shadow-[0_0_10px_hsl(var(--primary)/0.5)]'
-              )}
+              className="h-full rounded-full transition-all duration-300 gradient-primary shadow-[0_0_10px_hsl(var(--primary)/0.5)]"
               style={{ width: `${progress}%` }}
             />
           </div>
