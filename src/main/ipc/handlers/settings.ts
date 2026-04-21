@@ -2,8 +2,8 @@
  * IPC handlers for app settings, browsing data, and download path management.
  */
 
-import { session, dialog } from 'electron'
-import { SESSION_PARTITION } from '../../windows/constants'
+import { dialog } from 'electron'
+import { getAllSessions } from '../../windows/tabs-session'
 import { IPC_CHANNELS } from '../../../shared/types'
 import { isValidDownloadPath } from '../validation'
 import { SETTINGS_CATEGORIES, validateCategoryValues } from '../../settings/validation'
@@ -26,12 +26,16 @@ export function registerSettingsHandlers(registry: ServiceRegistry): void {
 
   // ===== Clear Browsing Data =====
   secureHandle(IPC_CHANNELS.CLEAR_BROWSING_DATA, async () => {
-    const ses = session.fromPartition(SESSION_PARTITION)
-    await ses.clearCache()
-    await ses.clearStorageData({
-      storages: ['cookies', 'localstorage', 'indexdb', 'websql', 'serviceworkers', 'cachestorage'],
-    })
-    log.info('Browsing data cleared')
+    const sessions = getAllSessions()
+    await Promise.all(
+      sessions.map(async (ses) => {
+        await ses.clearCache()
+        await ses.clearStorageData({
+          storages: ['cookies', 'localstorage', 'indexdb', 'websql', 'serviceworkers', 'cachestorage'],
+        })
+      })
+    )
+    log.info(`Browsing data cleared across ${sessions.length} session(s)`)
     return { success: true }
   })
 
