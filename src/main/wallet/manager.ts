@@ -479,7 +479,10 @@ export class WalletManager extends EventEmitter {
     }
 
     const seqno = this.localSeqno
-    const validUntil = seqno === 0 ? Math.floor(Date.now() / 1000) + 3600 : Math.floor(Date.now() / 1000) + maxTimeout
+    // W5 v5r1 first-deploy convention: x402 facilitator accepts validUntil=0xFFFFFFFF
+    // as the marker for an uninitialized wallet. Any other value triggers the
+    // "too far in the future" expiry check when maxTimeoutSeconds is tight.
+    const validUntil = seqno === 0 ? 0xffffffff : Math.floor(Date.now() / 1000) + maxTimeout
 
     const internalMsg = internal({ to, value: amount, bounce: false })
     const transfer = this.walletContract.createTransfer({
