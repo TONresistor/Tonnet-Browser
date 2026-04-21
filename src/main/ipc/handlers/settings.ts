@@ -159,7 +159,22 @@ export function registerSettingsHandlers(registry: ServiceRegistry): void {
   secureHandle(IPC_CHANNELS.SETTINGS_RESET, () => {
     resetSettings()
     emitToRenderer('settings:changed', { reset: true })
-    // Restart cookie auto-delete timer with default settings
+
+    // Re-apply runtime state for every category that SETTINGS_SET also re-applies,
+    // otherwise live services keep the pre-reset config until an app restart.
+    if (proxyManager.isRunning()) {
+      proxyManager.applySettingsChange().catch((err) => {
+        log.error('Proxy restart after reset failed:', err)
+      })
+    }
+    const walletSettings = getSetting('wallet')
+    walletManager.setAutoLockMinutes(walletSettings.autoLockMinutes)
+    contentFilterManager.applySettings(getSetting('contentFiltering'))
+    const storageSettings = getSetting('storage')
+    if (storageSettings.seedingEnabled) {
+      storageManager.resumeSeeding()
+    }
+    onAppearanceSettingsChanged()
     onPrivacySettingsChanged()
     return { success: true }
   })
