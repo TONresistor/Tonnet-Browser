@@ -94,7 +94,20 @@
     "peels": "снимает слой",
     "wraps": "добавляет слой",
     "receives": "получает",
-    "responds": "отвечает"
+    "responds": "отвечает",
+    "chainResolvers": "Резолверы блокчейнов",
+    "chainResolversDesc": "Включить внешние службы имён помимо .ton",
+    "resolveEth": "Разрешать домены .eth (ENS)",
+    "resolveEthDesc": "Ethereum Name Service через go-ens. Требует RPC Ethereum; при пустом значении используется публичный узел по умолчанию.",
+    "ethRpc": "Ethereum RPC (опционально)",
+    "ethRpcDesc": "Пользовательский HTTPS-эндпоинт. Оставьте пустым для значения по умолчанию.",
+    "ethRpcPlaceholder": "https://eth.llamarpc.com",
+    "resolveSol": "Разрешать домены .sol (SNS)",
+    "resolveSolDesc": "Solana Name Service. Требует RPC Solana; при пустом значении используется публичный узел по умолчанию.",
+    "solRpc": "Solana RPC (опционально)",
+    "solRpcDesc": "Пользовательский HTTPS-эндпоинт. Оставьте пустым для значения по умолчанию.",
+    "solRpcPlaceholder": "https://api.mainnet-beta.solana.com",
+    "chainDisabledError": "Резолвер {{chain}} отключён. Включите его в Настройки > Общие."
   },
   "network": {
     "title": "Сеть",

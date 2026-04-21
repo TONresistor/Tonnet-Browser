@@ -94,7 +94,20 @@
     "peels": "剥离",
     "wraps": "包装",
     "receives": "接收",
-    "responds": "响应"
+    "responds": "响应",
+    "chainResolvers": "链解析器",
+    "chainResolversDesc": "启用 .ton 以外的外部名称服务",
+    "resolveEth": "解析 .eth 域名 (ENS)",
+    "resolveEthDesc": "通过 go-ens 的以太坊名称服务。需要以太坊 RPC；为空时使用公共默认节点。",
+    "ethRpc": "以太坊 RPC（可选）",
+    "ethRpcDesc": "自定义 HTTPS 端点。留空则使用默认值。",
+    "ethRpcPlaceholder": "https://eth.llamarpc.com",
+    "resolveSol": "解析 .sol 域名 (SNS)",
+    "resolveSolDesc": "Solana 名称服务。需要 Solana RPC；为空时使用公共默认节点。",
+    "solRpc": "Solana RPC（可选）",
+    "solRpcDesc": "自定义 HTTPS 端点。留空则使用默认值。",
+    "solRpcPlaceholder": "https://api.mainnet-beta.solana.com",
+    "chainDisabledError": "{{chain}} 解析器已禁用。请在设置 > 常规中启用。"
   },
   "network": {
     "title": "网络",

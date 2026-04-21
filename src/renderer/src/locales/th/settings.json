@@ -94,7 +94,20 @@
     "peels": "ลอก",
     "wraps": "ห่อ",
     "receives": "รับ",
-    "responds": "ตอบกลับ"
+    "responds": "ตอบกลับ",
+    "chainResolvers": "ตัวแก้ไขเชน",
+    "chainResolversDesc": "เปิดใช้บริการชื่อภายนอกนอกเหนือจาก .ton",
+    "resolveEth": "แก้ไขโดเมน .eth (ENS)",
+    "resolveEthDesc": "Ethereum Name Service ผ่าน go-ens ต้องการ RPC Ethereum; ใช้ค่าเริ่มต้นสาธารณะหากว่างเปล่า",
+    "ethRpc": "Ethereum RPC (ไม่บังคับ)",
+    "ethRpcDesc": "อีพอยต์ HTTPS แบบกำหนดเอง เว้นว่างเพื่อใช้ค่าเริ่มต้น",
+    "ethRpcPlaceholder": "https://eth.llamarpc.com",
+    "resolveSol": "แก้ไขโดเมน .sol (SNS)",
+    "resolveSolDesc": "Solana Name Service ต้องการ RPC Solana; ใช้ค่าเริ่มต้นสาธารณะหากว่างเปล่า",
+    "solRpc": "Solana RPC (ไม่บังคับ)",
+    "solRpcDesc": "อีพอยต์ HTTPS แบบกำหนดเอง เว้นว่างเพื่อใช้ค่าเริ่มต้น",
+    "solRpcPlaceholder": "https://api.mainnet-beta.solana.com",
+    "chainDisabledError": "ตัวแก้ไข {{chain}} ถูกปิดใช้งาน เปิดใช้ในการตั้งค่า > ทั่วไป"
   },
   "network": {
     "title": "เครือข่าย",

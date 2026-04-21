@@ -94,7 +94,20 @@
     "peels": "벗김",
     "wraps": "감쌈",
     "receives": "수신",
-    "responds": "응답"
+    "responds": "응답",
+    "chainResolvers": "체인 리졸버",
+    "chainResolversDesc": ".ton 이외의 외부 네임 서비스 활성화",
+    "resolveEth": ".eth 도메인 확인 (ENS)",
+    "resolveEthDesc": "go-ens를 통한 Ethereum Name Service. Ethereum RPC가 필요하며, 비어 있으면 공개 기본값을 사용합니다.",
+    "ethRpc": "Ethereum RPC (선택)",
+    "ethRpcDesc": "사용자 지정 HTTPS 엔드포인트. 기본값 사용 시 비워두세요.",
+    "ethRpcPlaceholder": "https://eth.llamarpc.com",
+    "resolveSol": ".sol 도메인 확인 (SNS)",
+    "resolveSolDesc": "Solana Name Service. Solana RPC가 필요하며, 비어 있으면 공개 기본값을 사용합니다.",
+    "solRpc": "Solana RPC (선택)",
+    "solRpcDesc": "사용자 지정 HTTPS 엔드포인트. 기본값 사용 시 비워두세요.",
+    "solRpcPlaceholder": "https://api.mainnet-beta.solana.com",
+    "chainDisabledError": "{{chain}} 리졸버가 비활성화되어 있습니다. 설정 > 일반에서 활성화하세요."
   },
   "network": {
     "title": "네트워크",

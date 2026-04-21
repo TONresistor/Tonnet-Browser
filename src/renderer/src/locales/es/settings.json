@@ -94,7 +94,20 @@
     "peels": "pela",
     "wraps": "envuelve",
     "receives": "recibe",
-    "responds": "responde"
+    "responds": "responde",
+    "chainResolvers": "Resolutores de cadena",
+    "chainResolversDesc": "Habilitar servicios de nombres externos más allá de .ton",
+    "resolveEth": "Resolver dominios .eth (ENS)",
+    "resolveEthDesc": "Ethereum Name Service via go-ens. Requiere un RPC Ethereum; usa un nodo público por defecto si está vacío.",
+    "ethRpc": "RPC Ethereum (opcional)",
+    "ethRpcDesc": "Endpoint HTTPS personalizado. Dejar vacío para usar el predeterminado.",
+    "ethRpcPlaceholder": "https://eth.llamarpc.com",
+    "resolveSol": "Resolver dominios .sol (SNS)",
+    "resolveSolDesc": "Solana Name Service. Requiere un RPC Solana; usa un nodo público por defecto si está vacío.",
+    "solRpc": "RPC Solana (opcional)",
+    "solRpcDesc": "Endpoint HTTPS personalizado. Dejar vacío para usar el predeterminado.",
+    "solRpcPlaceholder": "https://api.mainnet-beta.solana.com",
+    "chainDisabledError": "El resolutor {{chain}} está desactivado. Actívalo en Ajustes > General."
   },
   "network": {
     "title": "Red",

@@ -94,7 +94,20 @@
     "peels": "mengupas",
     "wraps": "membungkus",
     "receives": "menerima",
-    "responds": "merespons"
+    "responds": "merespons",
+    "chainResolvers": "Resolver jaringan",
+    "chainResolversDesc": "Aktifkan layanan nama eksternal di luar .ton",
+    "resolveEth": "Selesaikan domain .eth (ENS)",
+    "resolveEthDesc": "Ethereum Name Service via go-ens. Memerlukan RPC Ethereum; menggunakan default publik jika kosong.",
+    "ethRpc": "RPC Ethereum (opsional)",
+    "ethRpcDesc": "Endpoint HTTPS kustom. Kosongkan untuk default.",
+    "ethRpcPlaceholder": "https://eth.llamarpc.com",
+    "resolveSol": "Selesaikan domain .sol (SNS)",
+    "resolveSolDesc": "Solana Name Service. Memerlukan RPC Solana; menggunakan default publik jika kosong.",
+    "solRpc": "RPC Solana (opsional)",
+    "solRpcDesc": "Endpoint HTTPS kustom. Kosongkan untuk default.",
+    "solRpcPlaceholder": "https://api.mainnet-beta.solana.com",
+    "chainDisabledError": "Resolver {{chain}} dinonaktifkan. Aktifkan di Pengaturan > Umum."
   },
   "network": {
     "title": "Jaringan",

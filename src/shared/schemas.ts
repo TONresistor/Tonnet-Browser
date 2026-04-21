@@ -9,6 +9,10 @@ import { z } from 'zod'
 
 export const GeneralSettingsSchema = z.object({
   homepage: z.string().default('ton://start'),
+  resolveEth: z.boolean().default(false),
+  ethRpc: z.union([z.literal(''), z.string().url()]).default(''),
+  resolveSol: z.boolean().default(false),
+  solRpc: z.union([z.literal(''), z.string().url()]).default(''),
 })
 
 export const NetworkSettingsSchema = z.object({
@@ -203,6 +207,10 @@ export const AppSettingsSchema = z.object({
 export const GeneralSettingsPartialSchema = z
   .object({
     homepage: z.string(),
+    resolveEth: z.boolean(),
+    ethRpc: z.union([z.literal(''), z.string().url()]),
+    resolveSol: z.boolean(),
+    solRpc: z.union([z.literal(''), z.string().url()]),
   })
   .partial()
 

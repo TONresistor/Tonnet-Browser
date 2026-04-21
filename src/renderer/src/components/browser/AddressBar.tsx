@@ -18,6 +18,8 @@ import { useTranslation } from 'react-i18next'
 import { useOverlay } from '@/hooks/useOverlay'
 import { TipButton } from './TipButton'
 import { useWalletStore, formatTonAmount } from '@/stores/wallet'
+import { usePreferencesStore } from '@/stores/preferences'
+import { SUPPORTED_TLDS, DISABLEABLE_CHAINS } from '@shared/tlds'
 
 interface HistorySuggestion {
   id: string
@@ -29,6 +31,7 @@ interface HistorySuggestion {
 
 export const AddressBar = memo(function AddressBar() {
   const { t } = useTranslation('browser')
+  const { t: ts } = useTranslation('settings')
   const currentUrl = useBrowserStore((s) => s.currentUrl)
   const isLoading = useBrowserStore((s) => s.isLoading)
   const bookmarks = useBookmarksStore((s) => s.bookmarks)
@@ -101,24 +104,7 @@ export const AddressBar = memo(function AddressBar() {
   const isInternalPage = useMemo(() => currentUrl.startsWith('ton://'), [currentUrl])
   const hostname = useMemo(() => getHostname(currentUrl), [currentUrl])
   const isTonSite = useMemo(() => {
-    const supportedTLDs = [
-      '.ton',
-      '.adnl',
-      '.t.me',
-      '.eth',
-      '.sol',
-      '.crypto',
-      '.x',
-      '.wallet',
-      '.nft',
-      '.dao',
-      '.blockchain',
-      '.bitcoin',
-      '.zil',
-      '.bnb',
-      '.btc',
-    ]
-    return supportedTLDs.some((tld) => hostname.endsWith(tld))
+    return SUPPORTED_TLDS.some((tld) => hostname.endsWith(tld))
   }, [hostname])
   const isTonDomain = useMemo(() => hostname.endsWith('.ton'), [hostname])
   const walletCreated = useWalletStore((s) => s.isCreated)
@@ -126,6 +112,9 @@ export const AddressBar = memo(function AddressBar() {
   const approvePending402 = useWalletStore((s) => s.approvePending402)
   const rejectPending402 = useWalletStore((s) => s.rejectPending402)
   const notificationStyle = useWalletStore((s) => s.notificationStyle)
+  const resolveEth = usePreferencesStore((s) => s.saved.resolveEth)
+  const resolveSol = usePreferencesStore((s) => s.saved.resolveSol)
+  const [chainDisabledError, setChainDisabledError] = useState<string | null>(null)
   const { t: tw } = useTranslation('wallet')
   const show402 = useMemo(() => {
     if (!pending402Notification) return false
@@ -226,11 +215,28 @@ export const AddressBar = memo(function AddressBar() {
       // Hide suggestions
       setShowSuggestions(false)
 
+      // Check if the target TLD belongs to a disabled chain resolver
+      const disabledTld = (Object.entries(DISABLEABLE_CHAINS) as [keyof typeof DISABLEABLE_CHAINS, string][]).find(
+        ([key, tld]) => {
+          const enabled = key === 'eth' ? resolveEth : key === 'sol' ? resolveSol : true
+          if (enabled) return false
+          const host = navigateUrl.replace(/^https?:\/\//, '').split('/')[0]
+          return host.endsWith(tld)
+        }
+      )
+      if (disabledTld) {
+        const chainName = disabledTld[0] === 'eth' ? 'Ethereum' : 'Solana'
+        setChainDisabledError(ts('general.chainDisabledError', { chain: chainName }))
+        setTimeout(() => setChainDisabledError(null), 5000)
+        return
+      }
+      setChainDisabledError(null)
+
       // Process navigation input (handles TON domain auto-completion)
       const finalUrl = processNavigationInput(navigateUrl)
       navigateActiveTab(finalUrl)
     },
-    [selectedIndex, suggestions, navigateActiveTab, input]
+    [selectedIndex, suggestions, navigateActiveTab, input, resolveEth, resolveSol, ts]
   )
 
   const handleKeyDown = useCallback(
@@ -275,106 +281,116 @@ export const AddressBar = memo(function AddressBar() {
   }, [isBookmarked, bookmarks, currentUrl, removeBookmark, tabs, activeTabId, addBookmark])
 
   return (
-    <form onSubmit={handleSubmit} className="flex items-center gap-2 flex-1 min-w-[400px] no-drag" role="search">
-      <div ref={containerRef} className="relative flex-1">
-        <div className="relative flex items-center rounded-full glass-surface">
-          {/* TON site badge */}
-          {isTonSite && !isLoading ? (
-            <div
-              className="absolute left-1.5 top-1/2 -translate-y-1/2 z-10 flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-tonsite text-white"
-              aria-hidden="true"
-            >
-              <Lock className="h-3 w-3" />
-              <span>tonsite://</span>
-            </div>
-          ) : (
-            <div className="absolute left-3 top-1/2 -translate-y-1/2 z-10" aria-hidden="true">
-              {isLoading ? (
-                <LoaderCircle className="h-4 w-4 text-muted-foreground animate-spin" />
-              ) : (
-                <img src={tonIcon} alt="" className="h-4 w-4" />
+    <form onSubmit={handleSubmit} className="flex flex-col gap-1 flex-1 min-w-[400px] no-drag" role="search">
+      {chainDisabledError && (
+        <div className="text-xs text-destructive-foreground bg-destructive/80 rounded-md px-3 py-1">
+          {chainDisabledError}
+        </div>
+      )}
+      <div className="flex items-center gap-2 flex-1">
+        <div ref={containerRef} className="relative flex-1">
+          <div className="relative flex items-center rounded-full glass-surface">
+            {/* TON site badge */}
+            {isTonSite && !isLoading ? (
+              <div
+                className="absolute left-1.5 top-1/2 -translate-y-1/2 z-10 flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-tonsite text-white"
+                aria-hidden="true"
+              >
+                <Lock className="h-3 w-3" />
+                <span>tonsite://</span>
+              </div>
+            ) : (
+              <div className="absolute left-3 top-1/2 -translate-y-1/2 z-10" aria-hidden="true">
+                {isLoading ? (
+                  <LoaderCircle className="h-4 w-4 text-muted-foreground animate-spin" />
+                ) : (
+                  <img src={tonIcon} alt="" className="h-4 w-4" />
+                )}
+              </div>
+            )}
+
+            <Input
+              ref={inputRef}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onFocus={(e) => {
+                e.target.select()
+                setIsFocused(true)
+              }}
+              onBlur={() => {
+                // Delay to allow suggestion click to register
+                setTimeout(() => setIsFocused(false), 200)
+              }}
+              onKeyDown={handleKeyDown}
+              onContextMenu={handleInputContextMenu}
+              className={cn(
+                'h-8 bg-transparent border-0 rounded-full focus:ring-0 focus:outline-none',
+                showTipButton || show402 ? 'pr-2' : 'pr-10',
+                isTonSite && !isLoading ? 'pl-24' : 'pl-10'
               )}
-            </div>
-          )}
-
-          <Input
-            ref={inputRef}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onFocus={(e) => {
-              e.target.select()
-              setIsFocused(true)
-            }}
-            onBlur={() => {
-              // Delay to allow suggestion click to register
-              setTimeout(() => setIsFocused(false), 200)
-            }}
-            onKeyDown={handleKeyDown}
-            onContextMenu={handleInputContextMenu}
-            className={cn(
-              'h-8 bg-transparent border-0 rounded-full focus:ring-0 focus:outline-none',
-              showTipButton || show402 ? 'pr-2' : 'pr-10',
-              isTonSite && !isLoading ? 'pl-24' : 'pl-10'
-            )}
-            placeholder={t('addressBar.placeholder')}
-            aria-label={t('addressBar.ariaLabel')}
-            aria-autocomplete="list"
-            aria-controls={showSuggestions ? 'history-suggestions' : undefined}
-            aria-expanded={showSuggestions}
-          />
-
-          {show402 && pending402Notification && (
-            <div className="flex-shrink-0 flex items-center gap-1 mr-0.5 pr-0.5">
-              <span className="text-[10px] text-muted-foreground/70 font-medium whitespace-nowrap">
-                {tw('payment.required')}
-              </span>
-              <span className="text-[10px] text-foreground font-medium whitespace-nowrap">
-                {formatTonAmount(pending402Notification.amount)} TON
-              </span>
-              <button
-                type="button"
-                onClick={approvePending402}
-                aria-label={`${tw('payment.approve')}: ${formatTonAmount(pending402Notification.amount)} TON → ${pending402Notification.domain}`}
-                className="rounded-full px-2 py-0.5 text-[10px] font-medium bg-green-600/50 hover:bg-green-600/75 text-white transition-colors whitespace-nowrap"
-              >
-                {tw('payment.approve')}
-              </button>
-              <button
-                type="button"
-                onClick={rejectPending402}
-                aria-label={`${tw('payment.reject')}: ${pending402Notification.domain}`}
-                className="rounded-full px-2 py-0.5 text-[10px] font-medium bg-red-600/50 hover:bg-red-600/75 text-white transition-colors whitespace-nowrap"
-              >
-                {tw('payment.reject')}
-              </button>
-            </div>
-          )}
-
-          {showTipButton && (
-            <div className="flex-shrink-0 mr-0.5">
-              <TipButton domain={hostname} />
-            </div>
-          )}
-
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className={cn(
-              'h-6 w-6 rounded-full flex-shrink-0',
-              showTipButton || show402 ? 'mr-1' : 'absolute right-1 top-1/2 -translate-y-1/2'
-            )}
-            onClick={toggleBookmark}
-            disabled={!currentUrl || isInternalPage}
-            title={isBookmarked ? t('addressBar.removeBookmarkTitle') : t('addressBar.addBookmarkTitle')}
-            aria-label={isBookmarked ? t('addressBar.removeBookmarkAria') : t('addressBar.addBookmarkAria')}
-            aria-pressed={isBookmarked}
-          >
-            <Star
-              className={cn('h-3.5 w-3.5', isBookmarked ? 'fill-yellow-500 text-yellow-500' : 'text-muted-foreground')}
-              aria-hidden="true"
+              placeholder={t('addressBar.placeholder')}
+              aria-label={t('addressBar.ariaLabel')}
+              aria-autocomplete="list"
+              aria-controls={showSuggestions ? 'history-suggestions' : undefined}
+              aria-expanded={showSuggestions}
             />
-          </Button>
+
+            {show402 && pending402Notification && (
+              <div className="flex-shrink-0 flex items-center gap-1 mr-0.5 pr-0.5">
+                <span className="text-[10px] text-muted-foreground/70 font-medium whitespace-nowrap">
+                  {tw('payment.required')}
+                </span>
+                <span className="text-[10px] text-foreground font-medium whitespace-nowrap">
+                  {formatTonAmount(pending402Notification.amount)} TON
+                </span>
+                <button
+                  type="button"
+                  onClick={approvePending402}
+                  aria-label={`${tw('payment.approve')}: ${formatTonAmount(pending402Notification.amount)} TON → ${pending402Notification.domain}`}
+                  className="rounded-full px-2 py-0.5 text-[10px] font-medium bg-green-600/50 hover:bg-green-600/75 text-white transition-colors whitespace-nowrap"
+                >
+                  {tw('payment.approve')}
+                </button>
+                <button
+                  type="button"
+                  onClick={rejectPending402}
+                  aria-label={`${tw('payment.reject')}: ${pending402Notification.domain}`}
+                  className="rounded-full px-2 py-0.5 text-[10px] font-medium bg-red-600/50 hover:bg-red-600/75 text-white transition-colors whitespace-nowrap"
+                >
+                  {tw('payment.reject')}
+                </button>
+              </div>
+            )}
+
+            {showTipButton && (
+              <div className="flex-shrink-0 mr-0.5">
+                <TipButton domain={hostname} />
+              </div>
+            )}
+
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className={cn(
+                'h-6 w-6 rounded-full flex-shrink-0',
+                showTipButton || show402 ? 'mr-1' : 'absolute right-1 top-1/2 -translate-y-1/2'
+              )}
+              onClick={toggleBookmark}
+              disabled={!currentUrl || isInternalPage}
+              title={isBookmarked ? t('addressBar.removeBookmarkTitle') : t('addressBar.addBookmarkTitle')}
+              aria-label={isBookmarked ? t('addressBar.removeBookmarkAria') : t('addressBar.addBookmarkAria')}
+              aria-pressed={isBookmarked}
+            >
+              <Star
+                className={cn(
+                  'h-3.5 w-3.5',
+                  isBookmarked ? 'fill-yellow-500 text-yellow-500' : 'text-muted-foreground'
+                )}
+                aria-hidden="true"
+              />
+            </Button>
+          </div>
         </div>
       </div>
     </form>

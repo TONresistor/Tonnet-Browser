@@ -50,6 +50,10 @@ export function getDefaultSettings(): AppSettings {
   return {
     general: {
       homepage: DEFAULT_SETTINGS.homepage,
+      resolveEth: DEFAULT_SETTINGS.resolveEth,
+      ethRpc: DEFAULT_SETTINGS.ethRpc,
+      resolveSol: DEFAULT_SETTINGS.resolveSol,
+      solRpc: DEFAULT_SETTINGS.solRpc,
     },
     network: {
       proxyPort: DEFAULT_SETTINGS.proxyPort,

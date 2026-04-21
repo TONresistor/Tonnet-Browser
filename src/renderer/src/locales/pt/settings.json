@@ -94,7 +94,20 @@
     "peels": "remove",
     "wraps": "envolve",
     "receives": "recebe",
-    "responds": "responde"
+    "responds": "responde",
+    "chainResolvers": "Resolvedores de cadeia",
+    "chainResolversDesc": "Ativar serviços de nomes externos além de .ton",
+    "resolveEth": "Resolver domínios .eth (ENS)",
+    "resolveEthDesc": "Ethereum Name Service via go-ens. Requer um RPC Ethereum; usa um padrão público se estiver vazio.",
+    "ethRpc": "RPC Ethereum (opcional)",
+    "ethRpcDesc": "Endpoint HTTPS personalizado. Deixe vazio para o padrão.",
+    "ethRpcPlaceholder": "https://eth.llamarpc.com",
+    "resolveSol": "Resolver domínios .sol (SNS)",
+    "resolveSolDesc": "Solana Name Service. Requer um RPC Solana; usa um padrão público se estiver vazio.",
+    "solRpc": "RPC Solana (opcional)",
+    "solRpcDesc": "Endpoint HTTPS personalizado. Deixe vazio para o padrão.",
+    "solRpcPlaceholder": "https://api.mainnet-beta.solana.com",
+    "chainDisabledError": "O resolvedor {{chain}} está desativado. Ative-o em Configurações > Geral."
   },
   "network": {
     "title": "Rede",

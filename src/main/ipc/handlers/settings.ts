@@ -119,6 +119,16 @@ export function registerSettingsHandlers(registry: ServiceRegistry): void {
         log.error('Proxy restart after settings change failed:', err)
       })
     }
+    // If resolver-related general settings changed, check if proxy needs restart (non-blocking)
+    if (
+      category === 'general' &&
+      proxyManager.isRunning() &&
+      ('resolveEth' in values || 'ethRpc' in values || 'resolveSol' in values || 'solRpc' in values)
+    ) {
+      proxyManager.applySettingsChange().catch((err) => {
+        log.error('Proxy restart after settings change failed:', err)
+      })
+    }
     // If privacy settings changed, restart cookie auto-delete timer
     if (category === 'privacy') {
       onPrivacySettingsChanged()

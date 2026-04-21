@@ -16,6 +16,10 @@ export type { ThemeType }
 export interface AppPreferences {
   // General
   homepage: string
+  resolveEth: boolean
+  ethRpc: string
+  resolveSol: boolean
+  solRpc: string
 
   // Network
   proxyPort: number
@@ -89,6 +93,10 @@ interface PreferencesState {
 export const defaultPreferences: AppPreferences = {
   // General
   homepage: DEFAULT_SETTINGS.homepage,
+  resolveEth: DEFAULT_SETTINGS.resolveEth,
+  ethRpc: DEFAULT_SETTINGS.ethRpc,
+  resolveSol: DEFAULT_SETTINGS.resolveSol,
+  solRpc: DEFAULT_SETTINGS.solRpc,
 
   // Network
   proxyPort: DEFAULT_SETTINGS.proxyPort,
@@ -144,6 +152,10 @@ export const defaultPreferences: AppPreferences = {
 // Map flat preferences to categorized main process structure
 const prefToCategory: Record<keyof AppPreferences, { category: string; field: string }> = {
   homepage: { category: 'general', field: 'homepage' },
+  resolveEth: { category: 'general', field: 'resolveEth' },
+  ethRpc: { category: 'general', field: 'ethRpc' },
+  resolveSol: { category: 'general', field: 'resolveSol' },
+  solRpc: { category: 'general', field: 'solRpc' },
   proxyPort: { category: 'network', field: 'proxyPort' },
   storagePort: { category: 'network', field: 'storagePort' },
   autoConnect: { category: 'network', field: 'autoConnect' },
@@ -188,6 +200,10 @@ const prefToCategory: Record<keyof AppPreferences, { category: string; field: st
 function mainSettingsToPrefs(settings: AppSettings): AppPreferences {
   return {
     homepage: settings.general?.homepage ?? defaultPreferences.homepage,
+    resolveEth: settings.general?.resolveEth ?? defaultPreferences.resolveEth,
+    ethRpc: settings.general?.ethRpc ?? defaultPreferences.ethRpc,
+    resolveSol: settings.general?.resolveSol ?? defaultPreferences.resolveSol,
+    solRpc: settings.general?.solRpc ?? defaultPreferences.solRpc,
     proxyPort: settings.network?.proxyPort ?? defaultPreferences.proxyPort,
     storagePort: settings.network?.storagePort ?? defaultPreferences.storagePort,
     autoConnect: settings.network?.autoConnect ?? defaultPreferences.autoConnect,

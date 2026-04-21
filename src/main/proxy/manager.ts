@@ -16,10 +16,30 @@ import { getSetting } from '../settings'
 import { randomBytes } from 'crypto'
 import { cpus } from 'os'
 import { DEFAULT_SETTINGS } from '../../shared/defaults'
+import { GeneralSettings } from '../../shared/schemas'
 import { createLogger } from '../../shared/logger'
 import { TUNNEL_SECTIONS } from '../../shared/constants'
 import { DEFAULT_NAMESPACE_STATE, REQUIRED_NAMESPACES } from '../../shared/bridge-config'
 const log = createLogger('proxy')
+
+/**
+ * Build CLI args for the tonutils-proxy binary.
+ * Exported for unit testing.
+ */
+export function buildProxyArgs(port: number, general: GeneralSettings): string[] {
+  const args: string[] = ['-addr', `127.0.0.1:${port}`]
+  if (general.resolveEth === false) {
+    args.push('-no-eth')
+  } else if (general.resolveEth === true && general.ethRpc.trim() !== '') {
+    args.push('-eth-rpc', general.ethRpc.trim())
+  }
+  if (general.resolveSol === false) {
+    args.push('-no-sol')
+  } else if (general.resolveSol === true && general.solRpc.trim() !== '') {
+    args.push('-sol-rpc', general.solRpc.trim())
+  }
+  return args
+}
 
 export type ProxyStatus = 'stopped' | 'starting' | 'syncing' | 'connected'
 
@@ -32,6 +52,10 @@ export class ProxyManager extends EventEmitter {
   private anonymousMode: boolean = false
   private tunnelMode: 'standard' | 'maximum' = DEFAULT_SETTINGS.tunnelMode
   private tunnelRoute: string = ''
+  private resolveEth: boolean = DEFAULT_SETTINGS.resolveEth
+  private ethRpc: string = DEFAULT_SETTINGS.ethRpc
+  private resolveSol: boolean = DEFAULT_SETTINGS.resolveSol
+  private solRpc: string = DEFAULT_SETTINGS.solRpc
 
   constructor() {
     super()
@@ -40,9 +64,10 @@ export class ProxyManager extends EventEmitter {
   private loadSettings() {
     const network = getSetting('network')
     const advanced = getSetting('advanced')
+    const general = getSetting('general')
     this.port = network.proxyPort
     this.wsPort = network.wsPort
-    return { network, advanced }
+    return { network, advanced, general }
   }
 
   private static MAX_START_RETRIES = 3
@@ -72,12 +97,16 @@ export class ProxyManager extends EventEmitter {
       throw new Error('Proxy already running')
     }
 
-    const { network } = this.loadSettings()
+    const { network, general } = this.loadSettings()
 
     const safePort = validatePort(this.port)
     this.port = safePort
     this.anonymousMode = network.anonymousMode
     this.tunnelMode = network.tunnelMode
+    this.resolveEth = general.resolveEth
+    this.ethRpc = general.ethRpc
+    this.resolveSol = general.resolveSol
+    this.solRpc = general.solRpc
     this.setStatus('starting')
 
     const proxyBinPath = getBinaryPath('tonutils-proxy')
@@ -97,7 +126,7 @@ export class ProxyManager extends EventEmitter {
       log.info(`Port: ${safePort}, Mode: direct`)
     }
 
-    this.process = spawn(proxyBinPath, ['-addr', `127.0.0.1:${safePort}`], {
+    this.process = spawn(proxyBinPath, buildProxyArgs(safePort, general), {
       windowsHide: true,
       cwd: proxyWorkDir,
     })
@@ -447,11 +476,17 @@ export class ProxyManager extends EventEmitter {
   }
 
   async applySettingsChange(): Promise<void> {
-    const { network } = this.loadSettings()
-    const needsRestart = network.anonymousMode !== this.anonymousMode || network.tunnelMode !== this.tunnelMode
+    const { network, general } = this.loadSettings()
+    const needsRestart =
+      network.anonymousMode !== this.anonymousMode ||
+      network.tunnelMode !== this.tunnelMode ||
+      general.resolveEth !== this.resolveEth ||
+      general.ethRpc !== this.ethRpc ||
+      general.resolveSol !== this.resolveSol ||
+      general.solRpc !== this.solRpc
 
     if (needsRestart) {
-      log.info(`Network settings changed, restarting proxy (keeping bridge)...`)
+      log.info(`Settings changed, restarting proxy...`)
       this.tunnelRoute = ''
       if (this.process) {
         const proxyProc = this.process

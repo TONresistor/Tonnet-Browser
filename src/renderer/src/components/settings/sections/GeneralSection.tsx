@@ -105,6 +105,54 @@ export const GeneralSection = memo(function GeneralSection({ draft, setDraft }: 
           />
         </SettingRow>
       </div>
+
+      {/* Chain resolvers */}
+      <div className="mt-6 glass-card px-4">
+        <div className="py-4 border-b border-border">
+          <p className="text-foreground font-medium">{t('general.chainResolvers')}</p>
+          <p className="text-muted-foreground text-sm mt-0.5">{t('general.chainResolversDesc')}</p>
+        </div>
+
+        {/* Ethereum */}
+        <SettingRow label={t('general.resolveEth')} description={t('general.resolveEthDesc')}>
+          <Toggle
+            checked={draft.resolveEth}
+            onChange={(v) => setDraft('resolveEth', v)}
+            label={t('general.resolveEth')}
+          />
+        </SettingRow>
+        {draft.resolveEth && (
+          <SettingRow label={t('general.ethRpc')} description={t('general.ethRpcDesc')}>
+            <input
+              type="text"
+              value={draft.ethRpc}
+              onChange={(e) => setDraft('ethRpc', e.target.value)}
+              placeholder={t('general.ethRpcPlaceholder')}
+              className="w-64 h-8 rounded-md bg-input border border-border px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+            />
+          </SettingRow>
+        )}
+
+        {/* Solana */}
+        <SettingRow label={t('general.resolveSol')} description={t('general.resolveSolDesc')}>
+          <Toggle
+            checked={draft.resolveSol}
+            onChange={(v) => setDraft('resolveSol', v)}
+            label={t('general.resolveSol')}
+          />
+        </SettingRow>
+        {draft.resolveSol && (
+          <SettingRow label={t('general.solRpc')} description={t('general.solRpcDesc')}>
+            <input
+              type="text"
+              value={draft.solRpc}
+              onChange={(e) => setDraft('solRpc', e.target.value)}
+              placeholder={t('general.solRpcPlaceholder')}
+              className="w-64 h-8 rounded-md bg-input border border-border px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+            />
+          </SettingRow>
+        )}
+      </div>
     </div>
   )
 })

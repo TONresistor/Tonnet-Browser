@@ -94,7 +94,20 @@
     "peels": "peels",
     "wraps": "wraps",
     "receives": "receives",
-    "responds": "responds"
+    "responds": "responds",
+    "chainResolvers": "Chain resolvers",
+    "chainResolversDesc": "Enable external name services beyond .ton",
+    "resolveEth": "Resolve .eth domains (ENS)",
+    "resolveEthDesc": "Ethereum Name Service via go-ens. Requires an Ethereum RPC; uses a public default if empty.",
+    "ethRpc": "Ethereum RPC (optional)",
+    "ethRpcDesc": "Custom HTTPS endpoint. Leave empty for default.",
+    "ethRpcPlaceholder": "https://eth.llamarpc.com",
+    "resolveSol": "Resolve .sol domains (SNS)",
+    "resolveSolDesc": "Solana Name Service. Requires a Solana RPC; uses a public default if empty.",
+    "solRpc": "Solana RPC (optional)",
+    "solRpcDesc": "Custom HTTPS endpoint. Leave empty for default.",
+    "solRpcPlaceholder": "https://api.mainnet-beta.solana.com",
+    "chainDisabledError": "The {{chain}} resolver is disabled. Enable it in Settings > General."
   },
   "network": {
     "title": "Network",

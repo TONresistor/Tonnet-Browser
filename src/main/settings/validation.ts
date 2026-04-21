@@ -154,6 +154,10 @@ export function getDefaultSettingsBase(): AppSettings {
   return {
     general: {
       homepage: d.homepage,
+      resolveEth: d.resolveEth,
+      ethRpc: d.ethRpc,
+      resolveSol: d.resolveSol,
+      solRpc: d.solRpc,
     },
     network: {
       proxyPort: d.proxyPort,

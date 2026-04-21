@@ -25,6 +25,12 @@ const createMockProcess = () => {
 
 // Mock settings
 const mockSettings = {
+  general: {
+    resolveEth: true,
+    ethRpc: '',
+    resolveSol: true,
+    solRpc: '',
+  },
   network: {
     proxyPort: 8080,
     wsPort: 8081,
@@ -82,7 +88,7 @@ vi.mock('fs', () => ({
 }))
 
 // Import after mocks
-import { ProxyManager } from '../manager'
+import { ProxyManager, buildProxyArgs } from '../manager'
 import { spawn } from 'child_process'
 
 describe('ProxyManager', () => {
@@ -428,6 +434,54 @@ describe('ProxyManager', () => {
 
       manager.stop()
     })
+  })
+})
+
+describe('buildProxyArgs', () => {
+  const base = { resolveEth: true, ethRpc: '', resolveSol: true, solRpc: '' }
+
+  it('always includes -addr', () => {
+    const args = buildProxyArgs(8080, base as any)
+    expect(args).toContain('-addr')
+    expect(args).toContain('127.0.0.1:8080')
+  })
+
+  it('adds -no-eth when resolveEth is false', () => {
+    const args = buildProxyArgs(8080, { ...base, resolveEth: false } as any)
+    expect(args).toContain('-no-eth')
+    expect(args).not.toContain('-eth-rpc')
+  })
+
+  it('adds -eth-rpc when resolveEth is true and ethRpc is set', () => {
+    const args = buildProxyArgs(8080, { ...base, resolveEth: true, ethRpc: 'https://eth.example.com' } as any)
+    expect(args).toContain('-eth-rpc')
+    expect(args).toContain('https://eth.example.com')
+    expect(args).not.toContain('-no-eth')
+  })
+
+  it('adds no eth flag when resolveEth is true and ethRpc is empty', () => {
+    const args = buildProxyArgs(8080, { ...base, resolveEth: true, ethRpc: '' } as any)
+    expect(args).not.toContain('-no-eth')
+    expect(args).not.toContain('-eth-rpc')
+  })
+
+  it('adds -no-sol when resolveSol is false', () => {
+    const args = buildProxyArgs(8080, { ...base, resolveSol: false } as any)
+    expect(args).toContain('-no-sol')
+    expect(args).not.toContain('-sol-rpc')
+  })
+
+  it('adds -sol-rpc when resolveSol is true and solRpc is set', () => {
+    const args = buildProxyArgs(8080, { ...base, resolveSol: true, solRpc: 'https://sol.example.com' } as any)
+    expect(args).toContain('-sol-rpc')
+    expect(args).toContain('https://sol.example.com')
+    expect(args).not.toContain('-no-sol')
+  })
+
+  it('trims whitespace from RPC URLs', () => {
+    const args = buildProxyArgs(8080, { ...base, resolveEth: true, ethRpc: '  https://eth.example.com  ' } as any)
+    expect(args).toContain('https://eth.example.com')
+    expect(args).not.toContain('  https://eth.example.com  ')
   })
 })
 

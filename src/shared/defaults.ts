@@ -16,6 +16,10 @@ export type ThemeType = BuiltInTheme | `custom:${string}`
 export const DEFAULT_SETTINGS = {
   // General
   homepage: 'ton://start',
+  resolveEth: false,
+  ethRpc: '',
+  resolveSol: false,
+  solRpc: '',
 
   // Network
   proxyPort: 8080,
