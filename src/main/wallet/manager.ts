@@ -579,7 +579,9 @@ export class WalletManager extends EventEmitter {
     if (!this.wsBridge || !this.walletContract) return
     try {
       const onChainSeqno = await this.wsBridge.getSeqno(this.getState().address)
-      this.localSeqno = Math.max(this.localSeqno, onChainSeqno)
+      // Trust the chain. Math.max would pin localSeqno ahead of chain when a sign is consumed
+      // locally but the remote never broadcasts (failed verify/settle in x402 fire-and-forget).
+      this.localSeqno = onChainSeqno
     } catch (error) {
       const msg = (error as Error).message ?? ''
       if (msg.includes('not initialized') || msg.includes('-256')) {
