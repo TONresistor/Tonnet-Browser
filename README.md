@@ -28,7 +28,7 @@
 
 ## About
 
-Tonnet Browser is a native desktop browser for the TON Network. It resolves `.ton`, `.t.me` and `.adnl` domains through decentralized TON DNS and delivers content over RLDP directly from the network.
+Tonnet Browser is a native desktop browser for the TON Network. It resolves `.ton`, `.t.me`, `.adnl` and 12 more TLDs (ENS, SNS, Unstoppable Domains) through decentralized DNS and delivers content over RLDP directly from the network.
 
 All traffic goes through ADNL, either peer-to-peer or via multi-hop tunnels. A WebSocket bridge connects directly to the TON blockchain, removing any dependency on centralized APIs like TonCenter or TonAPI. Anti-fingerprinting, per-domain isolation, and built-in TON Storage are included out of the box. No telemetry, no tracking, fully open source.
 
@@ -53,20 +53,20 @@ All traffic goes through ADNL, either peer-to-peer or via multi-hop tunnels. A W
 
 | ![Windows](https://img.shields.io/badge/Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white) | ![macOS](https://img.shields.io/badge/macOS-000000?style=for-the-badge&logo=apple&logoColor=white) | ![Linux](https://img.shields.io/badge/Linux-FCC624?style=for-the-badge&logo=linux&logoColor=black) |
 |:---:|:---:|:---:|
-| [Installer](https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON-Browser-Setup-1.6.1.exe) | [DMG (Universal)](https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON-Browser-1.6.1-universal.dmg) | [AppImage](https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON-Browser-1.6.1.AppImage) · [.deb](https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON-Browser-1.6.1.deb) |
+| [Installer](https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON-Browser-Setup-1.6.2.exe) | [DMG (Universal)](https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON-Browser-1.6.2-universal.dmg) | [AppImage](https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON-Browser-1.6.2.AppImage) · [.deb](https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON-Browser-1.6.2.deb) |
 
 ### Windows
 
 Your browser may warn that the file is from an unknown source. Click **"Keep"** to download.
 
-1. Download and run **TON-Browser-Setup-1.6.1.exe**
+1. Download and run **TON-Browser-Setup-1.6.2.exe**
 2. Follow the installation prompts
 3. Launch **TON Browser** from the Start menu
 
 **One-line install:** Open PowerShell and run:
 
 ```powershell
-irm https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON-Browser-Setup-1.6.1.exe -OutFile TonBrowser.exe; Unblock-File TonBrowser.exe; .\TonBrowser.exe
+irm https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON-Browser-Setup-1.6.2.exe -OutFile TonBrowser.exe; Unblock-File TonBrowser.exe; .\TonBrowser.exe
 ```
 
 ### macOS
@@ -81,28 +81,28 @@ xattr -cr /Applications/TON\ Browser.app
 **One-line install:** Open Terminal and run:
 
 ```bash
-curl -LO https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON-Browser-1.6.1-universal.dmg && hdiutil attach TON-Browser-1.6.1-universal.dmg && cp -R "/Volumes/TON Browser/TON Browser.app" /Applications/ && hdiutil detach "/Volumes/TON Browser" && xattr -cr /Applications/TON\ Browser.app && open /Applications/TON\ Browser.app
+curl -LO https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON-Browser-1.6.2-universal.dmg && hdiutil attach TON-Browser-1.6.2-universal.dmg && cp -R "/Volumes/TON Browser/TON Browser.app" /Applications/ && hdiutil detach "/Volumes/TON Browser" && xattr -cr /Applications/TON\ Browser.app && open /Applications/TON\ Browser.app
 ```
 
 ### Linux
 
 ```bash
 # AppImage
-chmod +x TON-Browser-1.6.1.AppImage
-./TON-Browser-1.6.1.AppImage
+chmod +x TON-Browser-1.6.2.AppImage
+./TON-Browser-1.6.2.AppImage
 
 # Debian/Ubuntu
-sudo dpkg -i TON-Browser-1.6.1.deb
+sudo dpkg -i TON-Browser-1.6.2.deb
 ```
 
 **One-line install:** Open Terminal and run:
 
 ```bash
 # AppImage
-curl -LO https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON-Browser-1.6.1.AppImage && chmod +x TON-Browser-1.6.1.AppImage && ./TON-Browser-1.6.1.AppImage
+curl -LO https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON-Browser-1.6.2.AppImage && chmod +x TON-Browser-1.6.2.AppImage && ./TON-Browser-1.6.2.AppImage
 
 # Debian/Ubuntu
-curl -LO https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON-Browser-1.6.1.deb && sudo dpkg -i TON-Browser-1.6.1.deb
+curl -LO https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON-Browser-1.6.2.deb && sudo dpkg -i TON-Browser-1.6.2.deb
 ```
 
 ## Building
@@ -111,6 +111,7 @@ curl -LO https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/
 
 - Node.js 22+
 - npm 9+
+- Go 1.24+
 
 ### Development
 
@@ -118,7 +119,7 @@ curl -LO https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/
 git clone https://github.com/TONresistor/Tonnet-Browser.git
 cd Tonnet-Browser
 npm install
-bash scripts/download-binaries.sh
+bash scripts/build-binaries-from-source.sh
 npm run dev
 ```
 
@@ -135,7 +136,6 @@ npm run dev
 | TON Storage | [tonutils-storage](https://github.com/xssnick/tonutils-storage) - P2P file storage daemon           |
 | Anonymity   | [adnl-tunnel](https://github.com/ton-blockchain/adnl-tunnel) - garlic routing, DHT relay discovery  |
 | Transport   | RLDP over ADNL over UDP                                                                             |
-|             |                                                                                                     |
 
 ## Socials
 
