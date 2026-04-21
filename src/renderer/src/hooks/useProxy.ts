@@ -9,7 +9,8 @@ import { useBrowserStore } from '../stores/browser'
 export function useProxy() {
   const [isConnecting, setIsConnecting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const { proxyConnected, setProxyStatus } = useBrowserStore()
+  const proxyConnected = useBrowserStore((s) => s.proxyConnected)
+  const setProxyStatus = useBrowserStore((s) => s.setProxyStatus)
 
   const connect = useCallback(async () => {
     setIsConnecting(true)

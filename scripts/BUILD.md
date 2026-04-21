@@ -20,17 +20,16 @@ Tonnet Browser requires three binary components:
 
 ## Quick Start
 
-### Automated Build (macOS Universal)
+### Automated Build (all platforms)
 
-For macOS, use the provided build script to create universal binaries:
+Use the unified build script, which clones each pinned Go repo and builds for the target platform:
 
 ```bash
-# From the project root
-./scripts/build-universal-binaries.sh
-
-# With options
-./scripts/build-universal-binaries.sh --clean    # Clean before building
-./scripts/build-universal-binaries.sh --verify   # Verify binaries after build
+# From the project root. Auto-detects OS if no argument is given.
+./scripts/build-binaries-from-source.sh              # current platform
+./scripts/build-binaries-from-source.sh linux        # target linux
+./scripts/build-binaries-from-source.sh mac          # target mac (universal)
+./scripts/build-binaries-from-source.sh win          # target win
 ```
 
 ### GitHub Actions
@@ -112,11 +111,7 @@ resources/
 
 ### tonutils-proxy
 
-Build from local source (preferred):
-```bash
-npm run build:proxy          # current platform only
-./scripts/build-proxy.sh --all  # all platforms
-```
+Preferred: use the unified build script (see Automated Build above).
 
 Or manually:
 ```bash
@@ -137,11 +132,7 @@ go build -ldflags="-s -w" -o tonutils-storage ./cmd/tonutils-storage
 
 Standalone WebSocket-ADNL bridge, separated from tonutils-proxy. Exposes a local WebSocket endpoint that the browser uses to communicate with the ADNL network directly.
 
-Build from local source (preferred):
-```bash
-npm run build:bridge          # current platform only
-./scripts/build-bridge.sh --all  # all platforms
-```
+Preferred: use the unified build script (see Automated Build above).
 
 Or manually:
 ```bash

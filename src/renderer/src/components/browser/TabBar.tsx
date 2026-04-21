@@ -25,6 +25,7 @@ import {
 } from '@dnd-kit/sortable'
 import { Plus, Globe } from 'lucide-react'
 import { useTabsStore } from '@/stores/tabs'
+import { useShallow } from 'zustand/react/shallow'
 import { SortableTab } from './SortableTab'
 import { useTranslation } from 'react-i18next'
 import { usePreferencesStore } from '@/stores/preferences'
@@ -36,8 +37,18 @@ interface TabBarProps {
 
 export const TabBar = memo(function TabBar({ sidebarWidth }: TabBarProps) {
   const { t } = useTranslation('browser')
-  const { tabs, activeTabId, addTab, closeTab, setActiveTab, duplicateTab, closeOtherTabs, reorderTabs } =
-    useTabsStore()
+  const { tabs, activeTabId, addTab, closeTab, setActiveTab, duplicateTab, closeOtherTabs, reorderTabs } = useTabsStore(
+    useShallow((s) => ({
+      tabs: s.tabs,
+      activeTabId: s.activeTabId,
+      addTab: s.addTab,
+      closeTab: s.closeTab,
+      setActiveTab: s.setActiveTab,
+      duplicateTab: s.duplicateTab,
+      closeOtherTabs: s.closeOtherTabs,
+      reorderTabs: s.reorderTabs,
+    }))
+  )
   const tabOrientation = usePreferencesStore((s) => s.saved.tabOrientation)
   const [activeId, setActiveId] = useState<string | null>(null)
   const tabRefs = useRef<Map<string, HTMLDivElement>>(new Map())

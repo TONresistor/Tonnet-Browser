@@ -19,8 +19,6 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "build:proxy": "./scripts/build-proxy.sh",
-    "build:bridge": "./scripts/build-bridge.sh",
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "lint": "eslint src",

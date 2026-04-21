@@ -57,13 +57,8 @@ export const IPC_CHANNELS = {
   UPDATE_WALLET_SIDEBAR_WIDTH: 'update-wallet-sidebar-width',
 
   // Bookmarks
-  BOOKMARK_SHOW_MENU: 'bookmark:show-menu',
   BOOKMARKS_LOAD: 'bookmarks:load',
   BOOKMARKS_SAVE: 'bookmarks:save',
-
-  // Folders
-  FOLDER_SHOW_MENU: 'folder:show-menu',
-  FOLDER_SHOW_CONTEXT_MENU: 'folder:show-context-menu',
 
   // History
   HISTORY_CHANGE_MODE: 'history:change-mode',

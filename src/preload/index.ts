@@ -78,18 +78,6 @@ const electronAPI = {
       ipcRenderer.invoke(IPC_CHANNELS.OVERLAY_UPDATE_BOUNDS, id, bounds),
   },
 
-  // Bookmark context menu
-  showBookmarkMenu: (id: string, title: string, url: string) =>
-    ipcRenderer.invoke(IPC_CHANNELS.BOOKMARK_SHOW_MENU, id, title, url),
-
-  // Folder dropdown menu
-  showFolderMenu: (folderId: string, bookmarks: Array<{ id: string; title: string; url: string }>) =>
-    ipcRenderer.invoke(IPC_CHANNELS.FOLDER_SHOW_MENU, folderId, bookmarks),
-
-  // Folder context menu
-  showFolderContextMenu: (folderId: string, folderName: string) =>
-    ipcRenderer.invoke(IPC_CHANNELS.FOLDER_SHOW_CONTEXT_MENU, folderId, folderName),
-
   // Navigation
   navigate: (url: string, tabId?: string) => ipcRenderer.invoke(IPC_CHANNELS.NAVIGATE, url, tabId),
   goBack: () => ipcRenderer.invoke(IPC_CHANNELS.GO_BACK),

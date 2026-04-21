@@ -10,6 +10,7 @@ const log = createLogger('status')
 import { Wifi, WifiOff, LoaderCircle, ArrowDown, ArrowUp } from 'lucide-react'
 import walletIcon from '@/assets/wallet.svg'
 import { useBrowserStore } from '@/stores/browser'
+import { useShallow } from 'zustand/react/shallow'
 import { usePreferencesStore } from '@/stores/preferences'
 import { useWalletStore, formatTonAmount } from '@/stores/wallet'
 import { useTabsStore } from '@/stores/tabs'
@@ -30,7 +31,17 @@ function Separator() {
 export const StatusBar = memo(function StatusBar() {
   const { t, i18n } = useTranslation('browser')
   const { proxyConnected, proxySyncing, anonymousMode, circuitRelays, storageStats, setProxyStatus, setStorageStats } =
-    useBrowserStore()
+    useBrowserStore(
+      useShallow((s) => ({
+        proxyConnected: s.proxyConnected,
+        proxySyncing: s.proxySyncing,
+        anonymousMode: s.anonymousMode,
+        circuitRelays: s.circuitRelays,
+        storageStats: s.storageStats,
+        setProxyStatus: s.setProxyStatus,
+        setStorageStats: s.setStorageStats,
+      }))
+    )
   const walletCreated = useWalletStore((s) => s.isCreated)
   const walletBalance = useWalletStore((s) => s.balance)
   const openOrSwitchToTab = useTabsStore((s) => s.openOrSwitchToTab)

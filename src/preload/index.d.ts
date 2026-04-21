@@ -120,9 +120,6 @@ declare global {
       }
       updateSidebarWidth: (width: number) => Promise<{ success: boolean }>
       updateWalletSidebarWidth: (width: number) => Promise<{ success: boolean }>
-      showBookmarkMenu: (id: string, title: string, url: string) => Promise<void>
-      showFolderMenu: (folderId: string, bookmarks: Array<{ id: string; title: string; url: string }>) => Promise<void>
-      showFolderContextMenu: (folderId: string, folderName: string) => Promise<void>
       view: {
         hide: () => Promise<{ success: boolean }>
         show: () => Promise<{ success: boolean }>

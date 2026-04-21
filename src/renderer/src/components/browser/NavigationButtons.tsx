@@ -12,8 +12,12 @@ import { useTranslation } from 'react-i18next'
 
 export function NavigationButtons() {
   const { t } = useTranslation('browser')
-  const { canGoBack, canGoForward, isLoading } = useBrowserStore()
-  const { navigateActiveTab, goBack, goForward } = useTabsStore()
+  const canGoBack = useBrowserStore((s) => s.canGoBack)
+  const canGoForward = useBrowserStore((s) => s.canGoForward)
+  const isLoading = useBrowserStore((s) => s.isLoading)
+  const navigateActiveTab = useTabsStore((s) => s.navigateActiveTab)
+  const goBack = useTabsStore((s) => s.goBack)
+  const goForward = useTabsStore((s) => s.goForward)
 
   const handleBack = () => {
     goBack()
