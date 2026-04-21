@@ -10,6 +10,7 @@ import type { ISecureStorage } from '../ports/secure-storage'
 import { ElectronSafeStorageAdapter } from '../adapters/electron-secure-storage'
 import { createLogger } from '../../shared/logger'
 import { isEnoent } from '../utils/errors'
+import { writeFileAtomic, writeSecureFileAtomic } from '../utils/secure-fs'
 const log = createLogger('history')
 
 // 4-byte magic prefix that marks an encrypted file written by this wrapper
@@ -44,18 +45,14 @@ export class SafeStorageWrapper {
 
       if (!this.isAvailable()) {
         log.warn('Encryption not available, storing unencrypted')
-        await fs.writeFile(this.filePath, json, 'utf-8')
-        // Restrict file permissions when encryption is unavailable
-        if (process.platform !== 'win32') {
-          await fs.chmod(this.filePath, 0o600)
-        }
+        await writeSecureFileAtomic(this.filePath, json, 'utf-8')
         return
       }
 
       const encrypted = this.storage.encrypt(json)
       // Prepend the SENC marker so the read path can detect the format
       const markedBuffer = Buffer.concat([ENCRYPTED_MARKER, encrypted])
-      await fs.writeFile(this.filePath, markedBuffer)
+      await writeFileAtomic(this.filePath, markedBuffer)
       log.debug(`Wrote ${markedBuffer.length} encrypted bytes (with SENC marker)`)
     } catch (error) {
       log.error('Failed to write:', error)
