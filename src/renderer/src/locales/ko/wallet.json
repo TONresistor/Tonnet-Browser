@@ -155,7 +155,8 @@
     "reject": "거절",
     "success": "결제 성공",
     "failed": "결제 실패",
-    "limitReached": "지출 한도 도달"
+    "limitReached": "지출 한도 도달",
+    "required": "HTTP 402 결제 필요"
   },
   "recovery": {
     "title": "Wallet 복구 필요",

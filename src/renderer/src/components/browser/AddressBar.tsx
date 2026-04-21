@@ -34,7 +34,9 @@ export const AddressBar = memo(function AddressBar() {
   const bookmarks = useBookmarksStore((s) => s.bookmarks)
   const addBookmark = useBookmarksStore((s) => s.addBookmark)
   const removeBookmark = useBookmarksStore((s) => s.removeBookmark)
-  const { navigateActiveTab, tabs, activeTabId } = useTabsStore()
+  const navigateActiveTab = useTabsStore((s) => s.navigateActiveTab)
+  const tabs = useTabsStore((s) => s.tabs)
+  const activeTabId = useTabsStore((s) => s.activeTabId)
   const [input, setInput] = useState('')
   const [suggestions, setSuggestions] = useState<HistorySuggestion[]>([])
   const [showSuggestions, setShowSuggestions] = useState(false)
@@ -123,11 +125,13 @@ export const AddressBar = memo(function AddressBar() {
   const pending402Notification = useWalletStore((s) => s.pending402Notification)
   const approvePending402 = useWalletStore((s) => s.approvePending402)
   const rejectPending402 = useWalletStore((s) => s.rejectPending402)
+  const notificationStyle = useWalletStore((s) => s.notificationStyle)
   const { t: tw } = useTranslation('wallet')
   const show402 = useMemo(() => {
     if (!pending402Notification) return false
+    if (notificationStyle !== 'addressbar') return false
     return hostname === pending402Notification.domain || hostname.endsWith('.' + pending402Notification.domain)
-  }, [pending402Notification, hostname])
+  }, [pending402Notification, hostname, notificationStyle])
 
   const showTipButton = isTonDomain && walletCreated && !show402
 
@@ -322,7 +326,7 @@ export const AddressBar = memo(function AddressBar() {
           {show402 && pending402Notification && (
             <div className="flex-shrink-0 flex items-center gap-1 mr-0.5 pr-0.5">
               <span className="text-[10px] text-muted-foreground/70 font-medium whitespace-nowrap">
-                HTTP 402 Payment Required
+                {tw('payment.required')}
               </span>
               <span className="text-[10px] text-foreground font-medium whitespace-nowrap">
                 {formatTonAmount(pending402Notification.amount)} TON
@@ -330,6 +334,7 @@ export const AddressBar = memo(function AddressBar() {
               <button
                 type="button"
                 onClick={approvePending402}
+                aria-label={`${tw('payment.approve')}: ${formatTonAmount(pending402Notification.amount)} TON → ${pending402Notification.domain}`}
                 className="rounded-full px-2 py-0.5 text-[10px] font-medium bg-green-600/50 hover:bg-green-600/75 text-white transition-colors whitespace-nowrap"
               >
                 {tw('payment.approve')}
@@ -337,6 +342,7 @@ export const AddressBar = memo(function AddressBar() {
               <button
                 type="button"
                 onClick={rejectPending402}
+                aria-label={`${tw('payment.reject')}: ${pending402Notification.domain}`}
                 className="rounded-full px-2 py-0.5 text-[10px] font-medium bg-red-600/50 hover:bg-red-600/75 text-white transition-colors whitespace-nowrap"
               >
                 {tw('payment.reject')}

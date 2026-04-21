@@ -10,10 +10,11 @@ import { getMainWindow } from '../../windows/main'
 
 export const log = createLogger('ipc')
 
-// Lenient limits: 30 nav/sec, 10 storage ops/sec, 1 bridge restart per 30s
+// Lenient limits: 30 nav/sec, 10 storage ops/sec, 1 bridge restart per 30s, 5 XHR payments/sec
 export const navLimiter = new RateLimiter(30, 1000)
 export const storageLimiter = new RateLimiter(10, 1000)
 export const bridgeRestartLimiter = new RateLimiter(1, 30_000)
+export const payForXhrLimiter = new RateLimiter(5, 1000)
 
 /**
  * Send a message to the renderer process via the main window.

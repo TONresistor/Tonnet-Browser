@@ -155,7 +155,8 @@
     "reject": "ปฏิเสธ",
     "success": "ชำระเงินสำเร็จ",
     "failed": "ชำระเงินล้มเหลว",
-    "limitReached": "ถึงวงเงินการใช้จ่ายแล้ว"
+    "limitReached": "ถึงวงเงินการใช้จ่ายแล้ว",
+    "required": "HTTP 402 ต้องชำระเงิน"
   },
   "recovery": {
     "title": "ต้องกู้คืน Wallet",

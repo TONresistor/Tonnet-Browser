@@ -155,7 +155,8 @@
     "reject": "Tolak",
     "success": "Pembayaran berhasil",
     "failed": "Pembayaran gagal",
-    "limitReached": "Batas pengeluaran tercapai"
+    "limitReached": "Batas pengeluaran tercapai",
+    "required": "HTTP 402 Pembayaran Diperlukan"
   },
   "recovery": {
     "title": "Pemulihan Wallet Diperlukan",

@@ -162,7 +162,8 @@
     "reject": "Decline",
     "success": "Payment successful",
     "failed": "Payment failed",
-    "limitReached": "Spending limit reached"
+    "limitReached": "Spending limit reached",
+    "required": "HTTP 402 Payment Required"
   },
   "delete": {
     "button": "Delete Wallet",

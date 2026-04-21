@@ -155,7 +155,8 @@
     "reject": "Recusar",
     "success": "Pagamento realizado",
     "failed": "Pagamento falhou",
-    "limitReached": "Limite de gastos atingido"
+    "limitReached": "Limite de gastos atingido",
+    "required": "HTTP 402 Pagamento Obrigatório"
   },
   "recovery": {
     "title": "Recuperação de Wallet necessária",

@@ -155,7 +155,8 @@
     "reject": "拒绝",
     "success": "支付成功",
     "failed": "支付失败",
-    "limitReached": "已达支出限额"
+    "limitReached": "已达支出限额",
+    "required": "HTTP 402 需要支付"
   },
   "recovery": {
     "title": "需要恢复 Wallet",

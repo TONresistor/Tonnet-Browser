@@ -172,7 +172,11 @@ export class PaymentInterceptor {
   private walletManager: WalletManager
   private paymentPolicyStore: PaymentPolicyStore
   private walletHistoryManager: WalletHistoryManager
-  private xhrTokens = new Map<string, { token: string; expiresAt: number }>()
+  private xhrTokens = new Map<string, { token: string; expiresAt: number; remainingUses: number }>()
+  private inflightXhrPayments = new Map<
+    string,
+    { promise: Promise<{ success: boolean; error?: string }>; count: number }
+  >()
 
   constructor(
     walletManager: WalletManager,
@@ -555,9 +559,19 @@ export class PaymentInterceptor {
    * Store a signed X-PAYMENT token for a pending XHR retry.
    * Called by requestXhrPayment (auto) and approvePayment (manual XHR path).
    */
-  registerXhrPaymentToken(webContentsId: number, url: string, xPaymentHeader: string, ttlMs: number): void {
+  registerXhrPaymentToken(
+    webContentsId: number,
+    url: string,
+    xPaymentHeader: string,
+    ttlMs: number,
+    uses: number = 1
+  ): void {
     const key = `${webContentsId}|${url}`
-    this.xhrTokens.set(key, { token: xPaymentHeader, expiresAt: Date.now() + ttlMs })
+    this.xhrTokens.set(key, {
+      token: xPaymentHeader,
+      expiresAt: Date.now() + ttlMs,
+      remainingUses: Math.max(1, uses),
+    })
   }
 
   /**
@@ -572,7 +586,10 @@ export class PaymentInterceptor {
       this.xhrTokens.delete(key)
       return null
     }
-    this.xhrTokens.delete(key)
+    entry.remainingUses--
+    if (entry.remainingUses <= 0) {
+      this.xhrTokens.delete(key)
+    }
     return entry.token
   }
 
@@ -582,6 +599,28 @@ export class PaymentInterceptor {
    * Does NOT do wc.loadURL — the preload shim retries with the injected header.
    */
   async requestXhrPayment(webContentsId: number, url: string): Promise<{ success: boolean; error?: string }> {
+    const key = `${webContentsId}|${url}`
+    const existing = this.inflightXhrPayments.get(key)
+    if (existing) {
+      existing.count++
+      return existing.promise
+    }
+    const entry: { promise: Promise<{ success: boolean; error?: string }>; count: number } = {
+      promise: Promise.resolve({ success: false }),
+      count: 1,
+    }
+    entry.promise = this._requestXhrPaymentInner(webContentsId, url, () => entry.count).finally(() =>
+      this.inflightXhrPayments.delete(key)
+    )
+    this.inflightXhrPayments.set(key, entry)
+    return entry.promise
+  }
+
+  private async _requestXhrPaymentInner(
+    webContentsId: number,
+    url: string,
+    getUsesCount: () => number = () => 1
+  ): Promise<{ success: boolean; error?: string }> {
     const walletState = this.walletManager.getState()
     if (!walletState.isCreated) {
       return { success: false, error: 'wallet-not-created' }
@@ -663,7 +702,13 @@ export class PaymentInterceptor {
         const payload = await this.walletManager.signX402Payment(paymentReq)
         const xPaymentHeader = JSON.stringify({ x402Version: X402_VERSION, payload })
         // SECURITY: NEVER log xPaymentHeader
-        this.registerXhrPaymentToken(webContentsId, url, xPaymentHeader, paymentReq.maxTimeoutSeconds * 1_000)
+        this.registerXhrPaymentToken(
+          webContentsId,
+          url,
+          xPaymentHeader,
+          paymentReq.maxTimeoutSeconds * 1_000,
+          getUsesCount()
+        )
         this.paymentPolicyStore.confirmPayment(reservationId)
 
         const tx: WalletTransaction = {

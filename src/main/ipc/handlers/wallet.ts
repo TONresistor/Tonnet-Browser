@@ -3,7 +3,7 @@
  */
 
 import { IPC_CHANNELS, type WalletState, type WalletTransaction } from '../../../shared/types'
-import { secureHandle, tonsiteHandle, emitToRenderer, toError, log } from './shared'
+import { secureHandle, tonsiteHandle, emitToRenderer, payForXhrLimiter, toError, log } from './shared'
 import { getMainWindow } from '../../windows/main'
 import { WALLET_HISTORY_DEFAULT_LIMIT, WALLET_HISTORY_LOCAL_PREFETCH } from '../../wallet/constants'
 import type { ServiceRegistry } from '../../services'
@@ -110,6 +110,9 @@ export function registerWalletHandlers(registry: ServiceRegistry): void {
   })
 
   tonsiteHandle(IPC_CHANNELS.WALLET_PAY_FOR_XHR, async (_domain, event, payload: unknown) => {
+    if (!payForXhrLimiter.check()) {
+      return { success: false, error: 'rate-limit' }
+    }
     if (!payload || typeof payload !== 'object') {
       return { success: false, error: 'invalid-url' }
     }
