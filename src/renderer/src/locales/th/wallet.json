@@ -118,6 +118,8 @@
     },
     "notificationStyle": "รูปแบบการแจ้งเตือน",
     "notificationStyleDescription": "วิธีแสดงคำขอชำระเงิน",
+    "notifPopup": "ป๊อปอัป",
+    "notifAddressbar": "แถบที่อยู่",
     "styles": {
       "banner": "แบนเนอร์",
       "modal": "หน้าต่างป๊อปอัพ",

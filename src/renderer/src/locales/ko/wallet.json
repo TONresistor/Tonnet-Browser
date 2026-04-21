@@ -118,6 +118,8 @@
     },
     "notificationStyle": "알림 스타일",
     "notificationStyleDescription": "결제 요청 표시 방법",
+    "notifPopup": "팝업",
+    "notifAddressbar": "주소 표시줄",
     "styles": {
       "banner": "배너",
       "modal": "모달",

@@ -21,7 +21,7 @@ const log = createLogger('wallet-settings')
 
 const DEFAULT_WALLET_SETTINGS: WalletSettings = {
   paymentMode: 'manual',
-  notificationStyle: 'banner',
+  notificationStyle: 'popup',
   limits: { perRequest: '0', perDay: '0', perSitePerMonth: '0' },
   sitePolicies: [],
   autoPayDomains: [],
@@ -167,10 +167,8 @@ export const WalletSection = memo(function WalletSection({ onDirtyChange, sectio
             value={draft.notificationStyle}
             onChange={(v) => updateDraft({ notificationStyle: v as NotificationStyle })}
             options={[
-              { value: 'banner', label: t('wallet.notifBanner') },
-              { value: 'modal', label: t('wallet.notifModal') },
-              { value: 'toast', label: t('wallet.notifToast') },
-              { value: 'panel', label: t('wallet.notifPanel') },
+              { value: 'popup', label: t('wallet.notifPopup') },
+              { value: 'addressbar', label: t('wallet.notifAddressbar') },
             ]}
           />
         </SettingRow>

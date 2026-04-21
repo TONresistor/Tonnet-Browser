@@ -118,6 +118,8 @@
     },
     "notificationStyle": "Notification Style",
     "notificationStyleDescription": "How payment requests are displayed",
+    "notifPopup": "Popup",
+    "notifAddressbar": "Address bar",
     "styles": {
       "banner": "Banner",
       "modal": "Modal",

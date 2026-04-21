@@ -39,6 +39,7 @@ import { loadBookmarksFromMain } from '@/stores/bookmarks'
 import { createLogger } from '@/logger'
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
 import { useIpcEvents } from '@/hooks/useIpcEvents'
+import { usePaymentApprovals } from '@/hooks/usePaymentApprovals'
 
 const log = createLogger('app')
 
@@ -161,6 +162,9 @@ function App() {
 
   // IPC events from main process (extracted to hook)
   useIpcEvents(updateTab)
+
+  // Manual-mode HTTP 402 approval overlay
+  usePaymentApprovals()
 
   // Determine which internal page to show
   const isInternalPage = currentUrl.startsWith('ton://')

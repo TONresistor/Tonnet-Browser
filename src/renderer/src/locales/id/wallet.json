@@ -118,6 +118,8 @@
     },
     "notificationStyle": "Gaya Notifikasi",
     "notificationStyleDescription": "Cara permintaan pembayaran ditampilkan",
+    "notifPopup": "Popup",
+    "notifAddressbar": "Bilah alamat",
     "styles": {
       "banner": "Banner",
       "modal": "Modal",

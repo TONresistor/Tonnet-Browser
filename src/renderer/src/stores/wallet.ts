@@ -5,7 +5,7 @@
 
 import { create } from 'zustand'
 import { getIpcError } from '@/lib/ipc-utils'
-import type { WalletTransaction } from '@shared/types'
+import type { WalletTransaction, PaymentNotificationData, NotificationStyle } from '@shared/types'
 import { WALLET_TX_DISPLAY_CAP } from '@shared/constants'
 import { IPC_CHANNELS } from '@shared/ipc-channels'
 
@@ -44,6 +44,11 @@ interface WalletStore {
   error: string | null
   decryptFailed: boolean
   weakEncryption: boolean
+  notificationStyle: NotificationStyle
+  pending402Notification: PaymentNotificationData | null
+  setPending402Notification: (data: PaymentNotificationData | null) => void
+  approvePending402: () => Promise<void>
+  rejectPending402: () => Promise<void>
   init: () => Promise<void>
   create: () => Promise<string[] | null>
   importWallet: (mnemonic: string[]) => Promise<void>
@@ -126,6 +131,32 @@ export const useWalletStore = create<WalletStore>((set, get) => {
     error: null,
     decryptFailed: false,
     weakEncryption: false,
+    notificationStyle: 'popup',
+    pending402Notification: null,
+
+    setPending402Notification: (data) => set({ pending402Notification: data }),
+
+    approvePending402: async () => {
+      const data = get().pending402Notification
+      if (!data) return
+      set({ pending402Notification: null })
+      try {
+        await window.electron.wallet.approvePayment(data.id)
+      } catch {
+        // main rolls back on timeout
+      }
+    },
+
+    rejectPending402: async () => {
+      const data = get().pending402Notification
+      if (!data) return
+      set({ pending402Notification: null })
+      try {
+        await window.electron.wallet.rejectPayment(data.id)
+      } catch {
+        // idempotent on main
+      }
+    },
 
     setError: (error) => set({ error }),
 
@@ -146,6 +177,10 @@ export const useWalletStore = create<WalletStore>((set, get) => {
             decryptFailed: state.decryptFailed ?? false,
             weakEncryption: state.weakEncryption ?? false,
           })
+        }
+        const walletSettings = await window.electron.settings.get('wallet')
+        if (walletSettings?.notificationStyle) {
+          set({ notificationStyle: walletSettings.notificationStyle })
         }
       } catch (err) {
         set({ error: (err as Error).message })
@@ -284,3 +319,19 @@ export const useWalletStore = create<WalletStore>((set, get) => {
     },
   }
 })
+
+// Refresh notificationStyle when wallet settings change
+if (typeof window !== 'undefined' && window.electron) {
+  const unsubSettings = window.electron.on('settings:changed', (...args: unknown[]) => {
+    const data = args[0] as { reset?: boolean; category?: string }
+    if (data.category === 'wallet' || data.reset) {
+      window.electron.settings.get('wallet').then((ws) => {
+        useWalletStore.setState({ notificationStyle: ws?.notificationStyle ?? 'popup' })
+      })
+    }
+  })
+  const hot = (import.meta as unknown as Record<string, unknown>).hot as
+    | { dispose: (cb: () => void) => void }
+    | undefined
+  if (hot) hot.dispose(() => unsubSettings())
+}

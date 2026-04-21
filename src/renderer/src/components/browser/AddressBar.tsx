@@ -17,7 +17,7 @@ import tonIcon from '@/assets/ton.png'
 import { useTranslation } from 'react-i18next'
 import { useOverlay } from '@/hooks/useOverlay'
 import { TipButton } from './TipButton'
-import { useWalletStore } from '@/stores/wallet'
+import { useWalletStore, formatTonAmount } from '@/stores/wallet'
 
 interface HistorySuggestion {
   id: string
@@ -120,7 +120,16 @@ export const AddressBar = memo(function AddressBar() {
   }, [hostname])
   const isTonDomain = useMemo(() => hostname.endsWith('.ton'), [hostname])
   const walletCreated = useWalletStore((s) => s.isCreated)
-  const showTipButton = isTonDomain && walletCreated
+  const pending402Notification = useWalletStore((s) => s.pending402Notification)
+  const approvePending402 = useWalletStore((s) => s.approvePending402)
+  const rejectPending402 = useWalletStore((s) => s.rejectPending402)
+  const { t: tw } = useTranslation('wallet')
+  const show402 = useMemo(() => {
+    if (!pending402Notification) return false
+    return hostname === pending402Notification.domain || hostname.endsWith('.' + pending402Notification.domain)
+  }, [pending402Notification, hostname])
+
+  const showTipButton = isTonDomain && walletCreated && !show402
 
   // Display URL without http:// for TON sites, and friendly names for bag files
   useEffect(() => {
@@ -300,7 +309,7 @@ export const AddressBar = memo(function AddressBar() {
             onContextMenu={handleInputContextMenu}
             className={cn(
               'h-8 bg-transparent border-0 rounded-full focus:ring-0 focus:outline-none',
-              showTipButton ? 'pr-2' : 'pr-10',
+              showTipButton || show402 ? 'pr-2' : 'pr-10',
               isTonSite && !isLoading ? 'pl-24' : 'pl-10'
             )}
             placeholder={t('addressBar.placeholder')}
@@ -309,6 +318,31 @@ export const AddressBar = memo(function AddressBar() {
             aria-controls={showSuggestions ? 'history-suggestions' : undefined}
             aria-expanded={showSuggestions}
           />
+
+          {show402 && pending402Notification && (
+            <div className="flex-shrink-0 flex items-center gap-1 mr-0.5 pr-0.5">
+              <span className="text-[10px] text-muted-foreground/70 font-medium whitespace-nowrap">
+                HTTP 402 Payment Required
+              </span>
+              <span className="text-[10px] text-foreground font-medium whitespace-nowrap">
+                {formatTonAmount(pending402Notification.amount)} TON
+              </span>
+              <button
+                type="button"
+                onClick={approvePending402}
+                className="rounded-full px-2 py-0.5 text-[10px] font-medium bg-green-600/50 hover:bg-green-600/75 text-white transition-colors whitespace-nowrap"
+              >
+                {tw('payment.approve')}
+              </button>
+              <button
+                type="button"
+                onClick={rejectPending402}
+                className="rounded-full px-2 py-0.5 text-[10px] font-medium bg-red-600/50 hover:bg-red-600/75 text-white transition-colors whitespace-nowrap"
+              >
+                {tw('payment.reject')}
+              </button>
+            </div>
+          )}
 
           {showTipButton && (
             <div className="flex-shrink-0 mr-0.5">
@@ -322,7 +356,7 @@ export const AddressBar = memo(function AddressBar() {
             size="icon"
             className={cn(
               'h-6 w-6 rounded-full flex-shrink-0',
-              showTipButton ? 'mr-1' : 'absolute right-1 top-1/2 -translate-y-1/2'
+              showTipButton || show402 ? 'mr-1' : 'absolute right-1 top-1/2 -translate-y-1/2'
             )}
             onClick={toggleBookmark}
             disabled={!currentUrl || isInternalPage}

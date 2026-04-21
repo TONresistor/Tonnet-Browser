@@ -118,6 +118,8 @@
     },
     "notificationStyle": "Benachrichtigungsstil",
     "notificationStyleDescription": "Anzeige von Zahlungsanforderungen",
+    "notifPopup": "Popup",
+    "notifAddressbar": "Adressleiste",
     "styles": {
       "banner": "Banner",
       "modal": "Modal",

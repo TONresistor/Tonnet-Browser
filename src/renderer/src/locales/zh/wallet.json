@@ -118,6 +118,8 @@
     },
     "notificationStyle": "通知样式",
     "notificationStyleDescription": "支付请求的显示方式",
+    "notifPopup": "弹窗",
+    "notifAddressbar": "地址栏",
     "styles": {
       "banner": "横幅",
       "modal": "弹窗",

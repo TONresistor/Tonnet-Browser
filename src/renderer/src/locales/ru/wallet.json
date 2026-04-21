@@ -118,6 +118,8 @@
     },
     "notificationStyle": "Стиль уведомлений",
     "notificationStyleDescription": "Как отображаются запросы на оплату",
+    "notifPopup": "Всплывающее",
+    "notifAddressbar": "Адресная строка",
     "styles": {
       "banner": "Баннер",
       "modal": "Модальное окно",

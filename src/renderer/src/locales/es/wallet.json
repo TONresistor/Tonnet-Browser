@@ -118,6 +118,8 @@
     },
     "notificationStyle": "Estilo de notificación",
     "notificationStyleDescription": "Cómo se muestran las solicitudes de pago",
+    "notifPopup": "Ventana",
+    "notifAddressbar": "Barra de direcciones",
     "styles": {
       "banner": "Banner",
       "modal": "Modal",
