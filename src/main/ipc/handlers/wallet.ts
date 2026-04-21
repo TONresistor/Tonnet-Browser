@@ -3,7 +3,7 @@
  */
 
 import { IPC_CHANNELS, type WalletState, type WalletTransaction } from '../../../shared/types'
-import { secureHandle, emitToRenderer, toError, log } from './shared'
+import { secureHandle, tonsiteHandle, emitToRenderer, toError, log } from './shared'
 import { getMainWindow } from '../../windows/main'
 import { WALLET_HISTORY_DEFAULT_LIMIT, WALLET_HISTORY_LOCAL_PREFETCH } from '../../wallet/constants'
 import type { ServiceRegistry } from '../../services'
@@ -107,6 +107,28 @@ export function registerWalletHandlers(registry: ServiceRegistry): void {
     }
     paymentInterceptor.rejectPayment(paymentId)
     return { success: true }
+  })
+
+  tonsiteHandle(IPC_CHANNELS.WALLET_PAY_FOR_XHR, async (_domain, event, payload: unknown) => {
+    if (!payload || typeof payload !== 'object') {
+      return { success: false, error: 'invalid-url' }
+    }
+    const { url } = payload as { url: unknown }
+    if (!url || typeof url !== 'string') {
+      return { success: false, error: 'invalid-url' }
+    }
+    const sender = event.sender
+    try {
+      const reqOrigin = new URL(url).origin
+      const pageOrigin = new URL(sender.getURL()).origin
+      if (reqOrigin !== pageOrigin) {
+        return { success: false, error: 'cross-origin' }
+      }
+      log.debug(`pay-for-xhr origin: ${reqOrigin}`)
+    } catch {
+      return { success: false, error: 'invalid-url' }
+    }
+    return await paymentInterceptor.requestXhrPayment(sender.id, url)
   })
 
   secureHandle(IPC_CHANNELS.WALLET_IMPORT, async (mnemonic: string[]) => {

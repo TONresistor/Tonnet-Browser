@@ -122,6 +122,43 @@ export function getDefaultSettings(): AppSettings {
 let settingsCache: AppSettings | null = null
 
 /**
+ * Migrate legacy notificationStyle values (banner/modal/toast/panel) to the
+ * two-value set introduced in v1.7: 'popup' | 'addressbar'.
+ * Map: banner → addressbar, modal/toast/panel → popup.
+ * Already-valid values are left unchanged (idempotent).
+ */
+export function migrateNotificationStyle(raw: unknown): { migrated: boolean; data: unknown } {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
+    return { migrated: false, data: raw }
+  }
+
+  const obj = raw as Record<string, unknown>
+  const wallet = obj['wallet']
+
+  if (typeof wallet !== 'object' || wallet === null || Array.isArray(wallet)) {
+    return { migrated: false, data: raw }
+  }
+
+  const w = wallet as Record<string, unknown>
+  const current = w['notificationStyle']
+  const legacyMap: Record<string, string> = {
+    banner: 'addressbar',
+    modal: 'popup',
+    toast: 'popup',
+    panel: 'popup',
+  }
+
+  if (typeof current !== 'string' || !(current in legacyMap)) {
+    return { migrated: false, data: raw }
+  }
+
+  return {
+    migrated: true,
+    data: { ...obj, wallet: { ...w, notificationStyle: legacyMap[current] } },
+  }
+}
+
+/**
  * Migrate v1.5.3 network settings to v1.6.0 shape.
  *
  * v1.5.3 had `circuitRotation: boolean` and `rotateInterval: string` under `network`.
@@ -189,10 +226,15 @@ export function loadSettings(): AppSettings {
     const raw: unknown = JSON.parse(data)
 
     // Migrate legacy v1.5.3 fields before Zod validation
-    const { migrated, data: parsed } = migrateSettings(raw)
-    if (migrated) {
+    const { migrated: m1, data: d1 } = migrateSettings(raw)
+    if (m1) {
       log.info('Migrated legacy network settings (circuitRotation/rotateInterval → tunnelMode)')
     }
+    const { migrated: m2, data: parsed } = migrateNotificationStyle(d1)
+    if (m2) {
+      log.info('Migrated legacy notificationStyle')
+    }
+    const migrated = m1 || m2
 
     // Use Zod to validate and apply defaults for missing fields
     const result = AppSettingsSchema.safeParse(parsed)

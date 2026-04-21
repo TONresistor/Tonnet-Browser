@@ -3,21 +3,15 @@
  * Stores and retrieves encrypted transaction records.
  */
 
-import { Address } from '@ton/core'
 import { SafeStorageWrapper } from '../history/safe-storage-wrapper'
 import { WALLET_HISTORY_FILE_NAME } from './constants'
 import type { WalletTransaction } from '../../shared/types'
 import { createLogger } from '../../shared/logger'
+import { rawToFriendly } from './address-utils'
 const log = createLogger('wallet:history')
 
-/** Convert raw TON address (0:hex) to friendly non-bounceable format. */
 function toFriendly(addr: string): string {
-  if (!addr || !addr.includes(':')) return addr
-  try {
-    return Address.parseRaw(addr).toString({ bounceable: false })
-  } catch {
-    return addr
-  }
+  return rawToFriendly(addr) ?? addr
 }
 
 export class WalletHistoryManager {

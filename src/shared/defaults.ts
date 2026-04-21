@@ -74,7 +74,7 @@ export const DEFAULT_SETTINGS = {
   // Wallet
   wallet: {
     paymentMode: 'manual' as const,
-    notificationStyle: 'banner' as const,
+    notificationStyle: 'popup' as const,
     limits: {
       perRequest: '0',
       perDay: '0',

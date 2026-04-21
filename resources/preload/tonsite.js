@@ -580,4 +580,40 @@ contextBridge.exposeInMainWorld('tonBridge', {
     ipcRenderer.on('bridge:message', listener)
     return function () { ipcRenderer.removeListener('bridge:message', listener) }
   },
+  payForXhr: function (url) {
+    if (typeof url !== 'string' || url.length === 0 || url.length > 8192) {
+      return Promise.resolve({ success: false, error: 'invalid-url' })
+    }
+    return ipcRenderer.invoke('wallet:pay-for-xhr', { url: url })
+  },
 })
+
+function injectFetchShim() {
+  if (!document.documentElement) {
+    document.addEventListener('DOMContentLoaded', injectFetchShim, { once: true })
+    return
+  }
+  var script = document.createElement('script')
+  script.textContent = [
+    ';(function(){',
+    '  if (!window.tonBridge || typeof window.tonBridge.payForXhr !== "function") return;',
+    '  var origFetch = window.fetch.bind(window);',
+    '  window.fetch = async function(input, init){',
+    '    var res = await origFetch(input, init);',
+    '    if (res.status !== 402) return res;',
+    '    var raw = typeof input === "string" ? input : (input && input.url) || "";',
+    '    if (!raw) return res;',
+    '    var url;',
+    '    try { url = new URL(raw, window.location.href).href; } catch (e) { return res; }',
+    '    try {',
+    '      var result = await window.tonBridge.payForXhr(url);',
+    '      if (!result || !result.success) return res;',
+    '      return await origFetch(input, init);',
+    '    } catch (e) { return res; }',
+    '  };',
+    '})();',
+  ].join("\n")
+  document.documentElement.appendChild(script)
+  script.remove()
+}
+injectFetchShim()

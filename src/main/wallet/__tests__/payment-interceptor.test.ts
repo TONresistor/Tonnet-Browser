@@ -21,9 +21,11 @@ vi.mock('../../ipc/handlers', () => ({
 }))
 
 const mockGetAllWebContents = vi.fn(() => [])
+const mockFromId = vi.fn()
 vi.mock('electron', () => ({
   webContents: {
     getAllWebContents: () => mockGetAllWebContents(),
+    fromId: (...args: unknown[]) => mockFromId(...args),
   },
 }))
 
@@ -107,7 +109,7 @@ function defaultWalletSettings() {
     sitePolicies: [],
     autoPayDomains: [],
     autoLockMinutes: 5,
-    notificationStyle: 'toast',
+    notificationStyle: 'popup',
   }
 }
 
@@ -733,6 +735,161 @@ describe('PaymentInterceptor', () => {
       await vi.runAllTimersAsync()
 
       expect(session.fetch).not.toHaveBeenCalled()
+    })
+  })
+
+  // =========================================================================
+  // requestXhrPayment
+  // =========================================================================
+
+  describe('requestXhrPayment', () => {
+    const WC_ID = 42
+    const XHR_URL = 'https://example.com/api/xhr-resource'
+
+    function setupXhrWc(overrides: Partial<PaymentRequirements> = {}, pageUrl = 'https://example.com/page') {
+      const paymentReq = makePaymentReq(overrides)
+      const xhrSession = {
+        fetch: vi.fn().mockResolvedValue({
+          status: 402,
+          ok: false,
+          text: vi.fn().mockResolvedValue(JSON.stringify(paymentReq)),
+        }),
+      }
+      mockFromId.mockReturnValue({
+        session: xhrSession,
+        getURL: vi.fn().mockReturnValue(pageUrl),
+      })
+      return { paymentReq, xhrSession }
+    }
+
+    it('auto mode – happy path: token registered, payment confirmed, payment-made emitted', async () => {
+      setupXhrWc()
+      policyStore.getSiteMode.mockReturnValue('auto')
+
+      const result = await interceptor.requestXhrPayment(WC_ID, XHR_URL)
+
+      expect(result).toEqual({ success: true })
+      expect(walletManager.signX402Payment).toHaveBeenCalled()
+      expect(policyStore.confirmPayment).toHaveBeenCalledWith('reservation-1')
+      expect(mockEmitToRenderer).toHaveBeenCalledWith(
+        'wallet:payment-made',
+        expect.objectContaining({ status: 'completed', url: XHR_URL })
+      )
+      expect(historyManager.add).toHaveBeenCalledWith(expect.objectContaining({ type: 'x402', status: 'confirmed' }))
+      const token = interceptor.consumeXhrPaymentToken(WC_ID, XHR_URL)
+      expect(token).not.toBeNull()
+    })
+
+    it('auto mode – validation failure: wrong scheme returns error, no signing', async () => {
+      setupXhrWc({ scheme: 'stream' })
+      policyStore.getSiteMode.mockReturnValue('auto')
+
+      const result = await interceptor.requestXhrPayment(WC_ID, XHR_URL)
+
+      expect(result.success).toBe(false)
+      expect(result.error).toBe('invalid-requirements')
+      expect(walletManager.signX402Payment).not.toHaveBeenCalled()
+      expect(policyStore.rollbackPayment).not.toHaveBeenCalled()
+    })
+
+    it('policy off – returns policy-off error without signing', async () => {
+      setupXhrWc()
+      policyStore.getSiteMode.mockReturnValue('off')
+
+      const result = await interceptor.requestXhrPayment(WC_ID, XHR_URL)
+
+      expect(result).toEqual({ success: false, error: 'policy-off' })
+      expect(walletManager.signX402Payment).not.toHaveBeenCalled()
+    })
+
+    it('reservation denied – returns limit error', async () => {
+      setupXhrWc()
+      policyStore.getSiteMode.mockReturnValue('auto')
+      policyStore.reservePayment.mockReturnValue(null)
+
+      const result = await interceptor.requestXhrPayment(WC_ID, XHR_URL)
+
+      expect(result).toEqual({ success: false, error: 'limit' })
+      expect(walletManager.signX402Payment).not.toHaveBeenCalled()
+    })
+
+    it('manual mode – approved: Promise resolves to success, token registered', async () => {
+      setupXhrWc()
+      policyStore.getSiteMode.mockReturnValue('manual')
+
+      const resultPromise = interceptor.requestXhrPayment(WC_ID, XHR_URL)
+      await flushPromises()
+
+      const pendingCall = mockEmitToRenderer.mock.calls.find((c) => c[0] === 'wallet:payment-req')
+      expect(pendingCall).toBeDefined()
+      const paymentId = pendingCall![1].id
+
+      await interceptor.approvePayment(paymentId)
+      await flushPromises()
+
+      const result = await resultPromise
+      expect(result).toEqual({ success: true })
+      const token = interceptor.consumeXhrPaymentToken(WC_ID, XHR_URL)
+      expect(token).not.toBeNull()
+    })
+
+    it('manual mode – rejected: Promise resolves to user-rejected error', async () => {
+      setupXhrWc()
+      policyStore.getSiteMode.mockReturnValue('manual')
+
+      const resultPromise = interceptor.requestXhrPayment(WC_ID, XHR_URL)
+      await flushPromises()
+
+      const pendingCall = mockEmitToRenderer.mock.calls.find((c) => c[0] === 'wallet:payment-req')
+      const paymentId = pendingCall![1].id
+
+      interceptor.rejectPayment(paymentId)
+      await flushPromises()
+
+      const result = await resultPromise
+      expect(result).toEqual({ success: false, error: 'user-rejected' })
+    })
+
+    it('manual mode – timeout: Promise resolves to timeout error after maxTimeoutSeconds', async () => {
+      setupXhrWc({ maxTimeoutSeconds: 60 })
+      policyStore.getSiteMode.mockReturnValue('manual')
+
+      const resultPromise = interceptor.requestXhrPayment(WC_ID, XHR_URL)
+      await flushPromises()
+
+      vi.advanceTimersByTime(60_000)
+      await flushPromises()
+
+      const result = await resultPromise
+      expect(result).toEqual({ success: false, error: 'timeout' })
+    })
+  })
+
+  // =========================================================================
+  // xhrTokens map
+  // =========================================================================
+
+  describe('xhrTokens map', () => {
+    it('roundtrip: first consume returns token, second returns null; re-register past TTL returns null', () => {
+      interceptor.registerXhrPaymentToken(1, 'https://example.com/api', 'TOKEN', 1_000)
+      expect(interceptor.consumeXhrPaymentToken(1, 'https://example.com/api')).toBe('TOKEN')
+      expect(interceptor.consumeXhrPaymentToken(1, 'https://example.com/api')).toBeNull()
+
+      interceptor.registerXhrPaymentToken(1, 'https://example.com/api', 'TOKEN2', 1_000)
+      vi.advanceTimersByTime(1_001)
+      expect(interceptor.consumeXhrPaymentToken(1, 'https://example.com/api')).toBeNull()
+    })
+
+    it('cross-tab isolation: consume with different webContentsId returns null', () => {
+      interceptor.registerXhrPaymentToken(1, 'https://example.com/api', 'TOKEN', 5_000)
+      expect(interceptor.consumeXhrPaymentToken(2, 'https://example.com/api')).toBeNull()
+      expect(interceptor.consumeXhrPaymentToken(1, 'https://example.com/api')).toBe('TOKEN')
+    })
+
+    it('destroy() clears xhrTokens', () => {
+      interceptor.registerXhrPaymentToken(1, 'https://example.com/api', 'TOKEN', 5_000)
+      interceptor.destroy()
+      expect(interceptor.consumeXhrPaymentToken(1, 'https://example.com/api')).toBeNull()
     })
   })
 })

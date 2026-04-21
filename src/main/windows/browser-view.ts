@@ -119,7 +119,13 @@ export async function createTonSession(proxyPort: number, partitionName: string 
 
   // Privacy: Normalize headers, strip referer and ETag tracking headers
   ses.webRequest.onBeforeSendHeaders((details, callback) => {
+    const wcId = details.webContentsId
+    const xPaymentToken =
+      typeof wcId === 'number' && wcId >= 0 ? paymentInterceptor.consumeXhrPaymentToken(wcId, details.url) : null
     const headers = { ...details.requestHeaders }
+    if (xPaymentToken) {
+      headers['X-PAYMENT'] = xPaymentToken
+    }
     headers['User-Agent'] = USER_AGENT
     headers['Accept-Language'] = 'en-US,en;q=0.9'
     // Strip referer to prevent navigation history leaks

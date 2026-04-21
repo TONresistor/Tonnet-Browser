@@ -6,6 +6,7 @@
 
 import { webContents } from 'electron'
 import { normalizeToSecondLevel, PaymentPolicyStore } from './payment-policy'
+import { rawToFriendly } from './address-utils'
 import { WalletManager } from './manager'
 import { WalletHistoryManager } from './history'
 import { emitToRenderer } from '../ipc/handlers'
@@ -43,6 +44,7 @@ const pendingApprovals = new Map<
     domain: string
     ttl: ReturnType<typeof setTimeout>
     reservationId?: string
+    xhrResolver?: (result: { success: boolean; error?: string }) => void
   }
 >()
 
@@ -170,6 +172,7 @@ export class PaymentInterceptor {
   private walletManager: WalletManager
   private paymentPolicyStore: PaymentPolicyStore
   private walletHistoryManager: WalletHistoryManager
+  private xhrTokens = new Map<string, { token: string; expiresAt: number }>()
 
   constructor(
     walletManager: WalletManager,
@@ -289,6 +292,7 @@ export class PaymentInterceptor {
         url: request.url,
         amount: paymentReq.amount,
         payTo: paymentReq.payTo,
+        payToFriendly: rawToFriendly(paymentReq.payTo),
         status: 'failed',
         error: 'Spending limit reached',
       }
@@ -314,6 +318,7 @@ export class PaymentInterceptor {
               url: request.url,
               amount: paymentReq.amount,
               payTo: paymentReq.payTo,
+              payToFriendly: rawToFriendly(paymentReq.payTo),
               status: 'rejected',
               error: 'Approval timed out',
             }
@@ -332,6 +337,7 @@ export class PaymentInterceptor {
         url: request.url,
         amount: paymentReq.amount,
         payTo: paymentReq.payTo,
+        payToFriendly: rawToFriendly(paymentReq.payTo),
         status: 'pending',
       }
       emitToRenderer('wallet:payment-req', notification)
@@ -387,6 +393,7 @@ export class PaymentInterceptor {
           url: request.url,
           amount: paymentReq.amount,
           payTo: paymentReq.payTo,
+          payToFriendly: rawToFriendly(paymentReq.payTo),
           status: 'completed',
         }
         emitToRenderer('wallet:payment-made', notification)
@@ -414,6 +421,7 @@ export class PaymentInterceptor {
           url: request.url,
           amount: paymentReq.amount,
           payTo: paymentReq.payTo,
+          payToFriendly: rawToFriendly(paymentReq.payTo),
           status: 'failed',
           error: `Server returned ${retryResponse.status}: ${errorText.slice(0, ERROR_TRUNCATE_LENGTH)}`,
         }
@@ -433,6 +441,7 @@ export class PaymentInterceptor {
         url: request.url,
         amount: paymentReq.amount,
         payTo: paymentReq.payTo,
+        payToFriendly: rawToFriendly(paymentReq.payTo),
         status: 'failed',
         error: (err as Error).message,
       }
@@ -455,7 +464,64 @@ export class PaymentInterceptor {
 
     clearTimeout(pending.ttl)
     pendingApprovals.delete(paymentId)
-    await this.executePayment(pending.request, pending.paymentReq, pending.domain, pending.reservationId)
+
+    if (pending.xhrResolver) {
+      try {
+        const payload = await this.walletManager.signX402Payment(pending.paymentReq)
+        const xPaymentHeader = JSON.stringify({ x402Version: X402_VERSION, payload })
+        // SECURITY: NEVER log xPaymentHeader
+        this.registerXhrPaymentToken(
+          pending.request.webContentsId,
+          pending.request.url,
+          xPaymentHeader,
+          pending.paymentReq.maxTimeoutSeconds * 1_000
+        )
+        if (pending.reservationId) this.paymentPolicyStore.confirmPayment(pending.reservationId)
+
+        const tx: WalletTransaction = {
+          id: paymentId,
+          type: 'x402',
+          amount: pending.paymentReq.amount,
+          address: pending.paymentReq.payTo,
+          timestamp: Date.now(),
+          status: 'confirmed',
+          x402Domain: pending.domain,
+          x402Url: pending.request.url,
+        }
+        await this.walletHistoryManager.add(tx)
+
+        const notification: PaymentNotificationData = {
+          id: paymentId,
+          domain: pending.domain,
+          url: pending.request.url,
+          amount: pending.paymentReq.amount,
+          payTo: pending.paymentReq.payTo,
+          payToFriendly: rawToFriendly(pending.paymentReq.payTo),
+          status: 'completed',
+        }
+        emitToRenderer('wallet:payment-made', notification)
+        log.debug(`XHR payment approved for ${pending.domain}`)
+        pending.xhrResolver({ success: true })
+      } catch (err) {
+        this.xhrTokens.delete(`${pending.request.webContentsId}|${pending.request.url}`)
+        if (pending.reservationId) this.paymentPolicyStore.rollbackPayment(pending.reservationId)
+        const notification: PaymentNotificationData = {
+          id: paymentId,
+          domain: pending.domain,
+          url: pending.request.url,
+          amount: pending.paymentReq.amount,
+          payTo: pending.paymentReq.payTo,
+          payToFriendly: rawToFriendly(pending.paymentReq.payTo),
+          status: 'failed',
+          error: (err as Error).message,
+        }
+        emitToRenderer('wallet:payment-failed', notification)
+        log.error(`XHR manual payment error for ${pending.domain}:`, err)
+        pending.xhrResolver({ success: false, error: (err as Error).message })
+      }
+    } else {
+      await this.executePayment(pending.request, pending.paymentReq, pending.domain, pending.reservationId)
+    }
   }
 
   /**
@@ -475,10 +541,209 @@ export class PaymentInterceptor {
       url: pending.request.url,
       amount: pending.paymentReq.amount,
       payTo: pending.paymentReq.payTo,
+      payToFriendly: rawToFriendly(pending.paymentReq.payTo),
       status: 'rejected',
     }
     emitToRenderer('wallet:payment-failed', notification)
     log.info(`Payment rejected for ${pending.domain}`)
+    if (pending.xhrResolver) {
+      pending.xhrResolver({ success: false, error: 'user-rejected' })
+    }
+  }
+
+  /**
+   * Store a signed X-PAYMENT token for a pending XHR retry.
+   * Called by requestXhrPayment (auto) and approvePayment (manual XHR path).
+   */
+  registerXhrPaymentToken(webContentsId: number, url: string, xPaymentHeader: string, ttlMs: number): void {
+    const key = `${webContentsId}|${url}`
+    this.xhrTokens.set(key, { token: xPaymentHeader, expiresAt: Date.now() + ttlMs })
+  }
+
+  /**
+   * Retrieve and remove a stored XHR token for use in onBeforeSendHeaders.
+   * Returns null if the key is missing or the token has expired.
+   */
+  consumeXhrPaymentToken(webContentsId: number, url: string): string | null {
+    const key = `${webContentsId}|${url}`
+    const entry = this.xhrTokens.get(key)
+    if (!entry) return null
+    if (Date.now() > entry.expiresAt) {
+      this.xhrTokens.delete(key)
+      return null
+    }
+    this.xhrTokens.delete(key)
+    return entry.token
+  }
+
+  /**
+   * Handle a 402 from an XHR request.
+   * Signs and registers a token (auto mode) or prompts the user (manual mode).
+   * Does NOT do wc.loadURL — the preload shim retries with the injected header.
+   */
+  async requestXhrPayment(webContentsId: number, url: string): Promise<{ success: boolean; error?: string }> {
+    const walletState = this.walletManager.getState()
+    if (!walletState.isCreated) {
+      return { success: false, error: 'wallet-not-created' }
+    }
+
+    const wc = webContents.fromId(webContentsId)
+    if (!wc) {
+      return { success: false, error: 'webcontents-not-found' }
+    }
+
+    const session = wc.session
+
+    let response: Response
+    try {
+      response = await sessionFetch(session, url)
+    } catch (err) {
+      log.error('XHR payment: failed to fetch 402:', err)
+      return { success: false, error: (err as Error).message }
+    }
+
+    if (response.status !== 402) {
+      log.debug(`XHR payment: fetch returned ${response.status} instead of 402`)
+      return { success: false, error: 'fetch-no-402' }
+    }
+
+    let paymentReq: PaymentRequirements
+    try {
+      const body = await readBoundedBody(response, MAX_RESPONSE_BODY)
+      paymentReq = JSON.parse(body) as PaymentRequirements
+    } catch (err) {
+      log.error('XHR payment: failed to parse PaymentRequirements:', err)
+      return { success: false, error: 'parse-error' }
+    }
+
+    let finalDomain: string
+    let originalDomain: string
+    try {
+      finalDomain = normalizeToSecondLevel(new URL(url).hostname)
+      originalDomain = finalDomain
+    } catch {
+      return { success: false, error: 'invalid-url' }
+    }
+    try {
+      const pageUrl = wc.getURL()
+      if (pageUrl) {
+        originalDomain = normalizeToSecondLevel(new URL(pageUrl).hostname)
+      }
+    } catch {
+      // fall back to finalDomain
+    }
+
+    const isCrossDomain = finalDomain !== originalDomain
+    const mode = isCrossDomain ? 'manual' : this.paymentPolicyStore.getSiteMode(originalDomain)
+
+    if (mode === 'off') {
+      return { success: false, error: 'policy-off' }
+    }
+
+    const validation = validatePaymentRequirements(
+      paymentReq,
+      originalDomain,
+      finalDomain,
+      mode === 'auto',
+      this.walletManager
+    )
+    if (!validation.valid) {
+      log.warn(`XHR payment: validation failed: ${validation.reason}`)
+      return { success: false, error: 'invalid-requirements' }
+    }
+
+    const reservationId = this.paymentPolicyStore.reservePayment(originalDomain, paymentReq.amount)
+    if (!reservationId) {
+      return { success: false, error: 'limit' }
+    }
+
+    if (mode === 'auto') {
+      const paymentId = crypto.randomUUID()
+      try {
+        const payload = await this.walletManager.signX402Payment(paymentReq)
+        const xPaymentHeader = JSON.stringify({ x402Version: X402_VERSION, payload })
+        // SECURITY: NEVER log xPaymentHeader
+        this.registerXhrPaymentToken(webContentsId, url, xPaymentHeader, paymentReq.maxTimeoutSeconds * 1_000)
+        this.paymentPolicyStore.confirmPayment(reservationId)
+
+        const tx: WalletTransaction = {
+          id: paymentId,
+          type: 'x402',
+          amount: paymentReq.amount,
+          address: paymentReq.payTo,
+          timestamp: Date.now(),
+          status: 'confirmed',
+          x402Domain: originalDomain,
+          x402Url: url,
+        }
+        await this.walletHistoryManager.add(tx)
+
+        const notification: PaymentNotificationData = {
+          id: paymentId,
+          domain: originalDomain,
+          url,
+          amount: paymentReq.amount,
+          payTo: paymentReq.payTo,
+          payToFriendly: rawToFriendly(paymentReq.payTo),
+          status: 'completed',
+        }
+        emitToRenderer('wallet:payment-made', notification)
+        log.debug(`XHR payment signed for ${originalDomain}`)
+        return { success: true }
+      } catch (err) {
+        this.xhrTokens.delete(`${webContentsId}|${url}`)
+        this.paymentPolicyStore.rollbackPayment(reservationId)
+        log.error(`XHR auto payment error for ${originalDomain}:`, err)
+        return { success: false, error: (err as Error).message }
+      }
+    }
+
+    const paymentId = crypto.randomUUID()
+    return new Promise((resolve) => {
+      const ttlTimeout = setTimeout(
+        () => {
+          const pending = pendingApprovals.get(paymentId)
+          if (pending) {
+            pendingApprovals.delete(paymentId)
+            if (pending.reservationId) this.paymentPolicyStore.rollbackPayment(pending.reservationId)
+            const notification: PaymentNotificationData = {
+              id: paymentId,
+              domain: originalDomain,
+              url,
+              amount: paymentReq.amount,
+              payTo: paymentReq.payTo,
+              payToFriendly: rawToFriendly(paymentReq.payTo),
+              status: 'rejected',
+              error: 'Approval timed out',
+            }
+            emitToRenderer('wallet:payment-failed', notification)
+            log.debug(`XHR payment approval timed out for ${originalDomain}`)
+            pending.xhrResolver?.({ success: false, error: 'timeout' })
+          }
+        },
+        (paymentReq.maxTimeoutSeconds || DEFAULT_APPROVAL_TIMEOUT_S) * 1_000
+      )
+
+      pendingApprovals.set(paymentId, {
+        request: { url, webContentsId, session },
+        paymentReq,
+        domain: originalDomain,
+        ttl: ttlTimeout,
+        reservationId,
+        xhrResolver: resolve,
+      })
+
+      const notification: PaymentNotificationData = {
+        id: paymentId,
+        domain: originalDomain,
+        url,
+        amount: paymentReq.amount,
+        payTo: paymentReq.payTo,
+        payToFriendly: rawToFriendly(paymentReq.payTo),
+        status: 'pending',
+      }
+      emitToRenderer('wallet:payment-req', notification)
+    })
   }
 
   /**
@@ -493,6 +758,7 @@ export class PaymentInterceptor {
       }
     }
     pendingApprovals.clear()
+    this.xhrTokens.clear()
   }
 }
 

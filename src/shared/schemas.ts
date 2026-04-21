@@ -130,7 +130,7 @@ const SitePolicySchema = z.object({
 
 export const WalletSettingsSchema = z.object({
   paymentMode: z.enum(['off', 'manual', 'auto']).default('manual'),
-  notificationStyle: z.enum(['banner', 'modal', 'toast', 'panel']).default('banner'),
+  notificationStyle: z.enum(['popup', 'addressbar']).default('popup'),
   limits: SpendingLimitsSchema.default({
     perRequest: '0',
     perDay: '0',
@@ -144,7 +144,7 @@ export const WalletSettingsSchema = z.object({
 export const WalletSettingsPartialSchema = z
   .object({
     paymentMode: z.enum(['off', 'manual', 'auto']),
-    notificationStyle: z.enum(['banner', 'modal', 'toast', 'panel']),
+    notificationStyle: z.enum(['popup', 'addressbar']),
     limits: SpendingLimitsSchema.partial(),
     sitePolicies: z.array(SitePolicySchema),
     autoPayDomains: z.array(z.string()),

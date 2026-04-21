@@ -95,6 +95,7 @@ export const IPC_CHANNELS = {
   WALLET_EXPORT_KEY: 'wallet:export-key',
   WALLET_APPROVE_PAYMENT: 'wallet:approve-payment',
   WALLET_REJECT_PAYMENT: 'wallet:reject-payment',
+  WALLET_PAY_FOR_XHR: 'wallet:pay-for-xhr' /* also hardcoded in resources/preload/tonsite.js — keep in sync */,
   WALLET_IMPORT: 'wallet:import',
   WALLET_EXPORT_MNEMONIC: 'wallet:export-mnemonic',
   WALLET_DELETE: 'wallet:delete',

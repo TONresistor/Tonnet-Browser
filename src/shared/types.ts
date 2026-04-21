@@ -95,7 +95,7 @@ export interface HistoryStats {
 // --- Wallet types ---
 
 export type PaymentMode = 'off' | 'manual' | 'auto'
-export type NotificationStyle = 'banner' | 'modal' | 'toast' | 'panel'
+export type NotificationStyle = 'popup' | 'addressbar'
 
 export interface SpendingLimits {
   perRequest: string
@@ -163,6 +163,8 @@ export interface PaymentNotificationData {
   url: string
   amount: string
   payTo: string
+  /** User-friendly non-bounceable representation of payTo, when derivable. */
+  payToFriendly?: string
   status: 'pending' | 'approved' | 'rejected' | 'completed' | 'failed'
   error?: string
 }
