@@ -100,52 +100,18 @@ export function generateLoadingPage(domain: string): string {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Loading ${safeDomain}</title>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      margin: 0;
       background: #17212b;
-      color: #f5f5f5;
       display: flex;
       align-items: center;
       justify-content: center;
       min-height: 100vh;
-      padding: 20px;
-    }
-    .container {
-      max-width: 480px;
-      text-align: center;
-      background: rgba(255, 255, 255, 0.07);
-      backdrop-filter: blur(12px) saturate(1.4);
-      -webkit-backdrop-filter: blur(12px) saturate(1.4);
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      border-radius: 20px;
-      padding: 40px 32px 32px;
-      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.08);
-    }
-    .lottie-wrapper {
-      width: 180px;
-      height: 180px;
-      margin: 0 auto 24px;
-    }
-    h1 {
-      font-size: 20px;
-      font-weight: 600;
-      margin-bottom: 8px;
-      color: #f5f5f5;
-    }
-    .subtitle {
-      font-size: 14px;
-      color: #708499;
-      line-height: 1.6;
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <div id="lottie" class="lottie-wrapper"></div>
-    <h1>Loading ${safeDomain}</h1>
-    <p class="subtitle">Resolving storage bag from the TON network...</p>
-  </div>
+  <div id="lottie" style="width:180px;height:180px"></div>
   <script>${__LOTTIE_PLAYER_JS__}</script>
   <script>
     try {
