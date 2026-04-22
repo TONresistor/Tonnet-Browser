@@ -144,8 +144,39 @@ function setupViewEvents(view: WebContentsView, tabId: string): void {
   const store = new DisposableStore()
   store.add(setupViewEventListeners(view, tabId))
   store.add(setupSecurityHandlers(view, tabId))
+  setupNavAwareAttach(view, tabId)
   viewDisposables.get(tabId)?.dispose()
   viewDisposables.set(tabId, store)
+}
+
+/**
+ * Intercept Chromium-internal navigations (link clicks, redirects) to detach
+ * the view before unload and reattach once the new page is painted.
+ *
+ * navigateInTab already handles address-bar / programmatic navigations via
+ * attachViewWhenReady on fresh views, but link clicks stay in the same
+ * webContents and would otherwise expose the view's paint-holding color
+ * during the pre-paint gap on Linux (electron/electron#44652).
+ */
+function setupNavAwareAttach(view: WebContentsView, tabId: string): void {
+  view.webContents.on(
+    'did-start-navigation',
+    (_e: Electron.Event, url: string, isInPlace: boolean, isMainFrame: boolean) => {
+      if (!isMainFrame || isInPlace) return
+      if (!url || !(url.startsWith('http:') || url.startsWith('https:'))) return
+      if (!mainWindow) return
+      if (views.get(tabId) !== view) return
+      if (activeViewId !== tabId) return
+      try {
+        if (mainWindow.contentView.children.includes(view)) {
+          mainWindow.contentView.removeChildView(view)
+          attachViewWhenReady(view, tabId)
+        }
+      } catch (err) {
+        log.debug(`did-start-navigation detach failed for tab ${tabId}:`, err)
+      }
+    }
+  )
 }
 
 export async function createTab(tabId: string, initialUrl?: string): Promise<boolean> {
@@ -304,6 +335,60 @@ export function cleanupTabManager(): void {
   _overlayManager = null
 }
 
+// Deferred-attach window sizing.
+// Floor: prevents a Lottie flash on pages that paint in <150ms (cache, local).
+// Ceiling: guarantees the view attaches even if dom-ready never fires.
+const DEFERRED_ATTACH_MIN_HOLD_MS = 150
+const DEFERRED_ATTACH_MAX_WAIT_MS = 5000
+
+/**
+ * Attach a newly created WebContentsView only once its content is ready to paint.
+ *
+ * Pattern borrowed from Min Browser / Wexond. While we wait, the renderer React
+ * layer below stays visible and renders the loading state (App.tsx external-page
+ * branch: Lottie on bg-background-secondary). Once dom-ready (or a fallback)
+ * fires, the now-painted view is attached and covers the renderer.
+ *
+ * Without this, on Linux the empty attached view exposes its paint-holding
+ * color during the pre-paint gap (electron/electron#44652) — user sees black.
+ */
+function attachViewWhenReady(view: WebContentsView, tabId: string): void {
+  if (!mainWindow) return
+  const startedAt = Date.now()
+  let decided = false
+
+  const performAttach = (): void => {
+    if (!mainWindow) return
+    if (view.webContents.isDestroyed()) return
+    if (views.get(tabId) !== view) return
+    if (activeViewId !== tabId) return
+    try {
+      if (!mainWindow.contentView.children.includes(view)) {
+        mainWindow.contentView.addChildView(view)
+        updateViewBounds(view, mainWindow, currentWalletSidebarWidth)
+      }
+    } catch (err) {
+      log.debug(`Deferred attach failed for tab ${tabId}:`, err)
+    }
+  }
+
+  const decide = (): void => {
+    if (decided) return
+    decided = true
+    const elapsed = Date.now() - startedAt
+    const delay = Math.max(0, DEFERRED_ATTACH_MIN_HOLD_MS - elapsed)
+    if (delay === 0) {
+      performAttach()
+    } else {
+      setTimeout(performAttach, delay)
+    }
+  }
+
+  view.webContents.once('dom-ready', decide)
+  view.webContents.once('did-fail-load', decide)
+  setTimeout(decide, DEFERRED_ATTACH_MAX_WAIT_MS)
+}
+
 export async function navigateInTab(tabId: string, url: string): Promise<boolean> {
   const view = views.get(tabId)
   if (!view) return false
@@ -356,12 +441,11 @@ export async function navigateInTab(tabId: string, url: string): Promise<boolean
     setTabDomain(tabId, domain)
     updateDomainActivity(domain)
 
-    if (isActive && mainWindow) {
-      mainWindow.contentView.addChildView(newView)
-      updateViewBounds(newView, mainWindow, currentWalletSidebarWidth)
-    }
-
     emitToRenderer('tab:history-reset', tabId)
+
+    if (isActive) {
+      attachViewWhenReady(newView, tabId)
+    }
 
     newView.webContents.loadURL(navigateUrl).catch((err) => {
       if (String(err).includes('ERR_ABORTED')) return
