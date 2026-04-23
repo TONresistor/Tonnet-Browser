@@ -28,7 +28,7 @@
 
 ## About
 
-Tonnet Browser is a native desktop browser for the TON Network. It resolves `.ton`, `.t.me`, `.adnl` and 12 more TLDs (ENS, SNS, Unstoppable Domains) through decentralized DNS and delivers content over RLDP directly from the network.
+Tonnet Browser is a native desktop browser for the TON Network. It resolves `.ton`, `.t.me`, `.adnl`, `.eth` (ENS), and `.sol` (SNS) through decentralized DNS and delivers content over RLDP directly from the network.
 
 All traffic goes through ADNL, either peer-to-peer or via multi-hop tunnels. A WebSocket bridge connects directly to the TON blockchain, removing any dependency on centralized APIs like TonCenter or TonAPI. Anti-fingerprinting, per-domain isolation, and built-in TON Storage are included out of the box. No telemetry, no tracking, fully open source.
 
