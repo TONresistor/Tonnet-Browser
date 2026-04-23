@@ -352,11 +352,12 @@ function createWindow(): void {
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
     try {
-      const scheme = new URL(details.url).protocol
-      if (scheme !== 'https:') {
-        return { action: 'deny' }
+      const url = new URL(details.url)
+      const ALLOWED_EXTERNAL_HOSTS = ['github.com', 'resistance.dog']
+      const hostAllowed = ALLOWED_EXTERNAL_HOSTS.some((h) => url.hostname === h || url.hostname.endsWith('.' + h))
+      if (url.protocol === 'https:' && hostAllowed) {
+        shell.openExternal(url.href)
       }
-      shell.openExternal(details.url)
     } catch (err) {
       appLog.error(`setWindowOpenHandler: invalid URL "${details.url}": ${String(err)}`)
     }
