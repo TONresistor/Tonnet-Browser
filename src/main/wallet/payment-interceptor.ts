@@ -382,8 +382,11 @@ export class PaymentInterceptor {
       // SECURITY: NEVER log xPaymentHeader
 
       // Retry through session with timeout
+      // redirect: 'error' prevents the signed payment BOC (in X-PAYMENT) from
+      // leaking to a different origin if the server issues a 3xx redirect.
       const retryResponse = await sessionFetch(session, request.url, {
         headers: { 'X-PAYMENT': xPaymentHeader },
+        redirect: 'error',
       })
 
       if (retryResponse.ok) {
