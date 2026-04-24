@@ -394,7 +394,8 @@ export class WalletKeyStorage {
     const json = JSON.stringify(data)
     const encrypted = this.storage.encrypt(json)
     const markedBuffer = Buffer.concat([ENCRYPTED_MARKER, encrypted])
-    await fs.writeFile(this.filePath, markedBuffer)
+    await fs.writeFile(this.filePath, markedBuffer, { mode: 0o600 })
+    if (process.platform !== 'win32') await fs.chmod(this.filePath, 0o600)
   }
 
   /**
