@@ -240,10 +240,6 @@ function createWindow(): void {
       mainWindow.maximize()
     }
     mainWindow.show()
-    // Open DevTools only in dev mode
-    if (is.dev) {
-      mainWindow.webContents.openDevTools({ mode: 'detach' })
-    }
 
     // Auto-connect if enabled -- reuse same progress events as manual connect
     const { autoConnect } = getSetting('network')
