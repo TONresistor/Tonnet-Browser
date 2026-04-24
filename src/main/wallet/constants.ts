@@ -9,6 +9,7 @@ export const WALLET_HISTORY_FILE_NAME = 'wallet-history'
 
 // --- Protocol constants ---
 export const WALLET_MAX_TIMEOUT_S = 300
+export const WALLET_MIN_APPROVAL_TIMEOUT_S = 5
 export const TON_MAINNET_CAIP2 = 'tvm:-239'
 export const TON_NATIVE_ASSET = 'native'
 export const X402_VERSION = 2

@@ -13,6 +13,7 @@ import { emitToRenderer } from '../ipc/handlers'
 import { getSetting } from '../settings'
 import {
   WALLET_MAX_TIMEOUT_S,
+  WALLET_MIN_APPROVAL_TIMEOUT_S,
   TON_MAINNET_CAIP2,
   TON_NATIVE_ASSET,
   X402_VERSION,
@@ -97,7 +98,7 @@ function validatePaymentRequirements(
     return { valid: false, reason: `Invalid payTo address: ${req.payTo}` }
   }
 
-  if (req.maxTimeoutSeconds <= 0 || req.maxTimeoutSeconds > WALLET_MAX_TIMEOUT_S) {
+  if (req.maxTimeoutSeconds < WALLET_MIN_APPROVAL_TIMEOUT_S || req.maxTimeoutSeconds > WALLET_MAX_TIMEOUT_S) {
     return { valid: false, reason: `Invalid maxTimeoutSeconds: ${req.maxTimeoutSeconds}` }
   }
 
