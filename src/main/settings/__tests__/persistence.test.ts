@@ -22,6 +22,7 @@ vi.mock('fs', () => ({
   writeFileSync: vi.fn(),
   mkdirSync: vi.fn(),
   renameSync: vi.fn(),
+  chmodSync: vi.fn(),
 }))
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync, renameSync } from 'fs'
@@ -171,10 +172,11 @@ describe('Settings Persistence', () => {
 
       freshSave(defaults)
 
-      // Atomic write: writes to .tmp then renames
+      // Atomic write: writes to .tmp with 0o600, then renames
       expect(writeFileSync).toHaveBeenCalledWith(
         path.join('/mock/userData', 'app-settings.json.tmp'),
-        expect.stringContaining('"homepage"')
+        expect.stringContaining('"homepage"'),
+        expect.objectContaining({ mode: 0o600 })
       )
       expect(renameSync).toHaveBeenCalledWith(
         path.join('/mock/userData', 'app-settings.json.tmp'),

@@ -6,7 +6,7 @@
 import { app } from 'electron'
 import { join } from 'path'
 import { existsSync, readFileSync } from 'fs'
-import { writeJsonAtomic } from '../utils/secure-fs'
+import { writeSecureJsonAtomic } from '../utils/secure-fs'
 import { DEFAULT_SETTINGS } from '../../shared/defaults'
 import type { ThemeType } from '../../shared/defaults'
 import type {
@@ -281,7 +281,7 @@ export function loadSettings(): AppSettings {
 
 export function saveSettings(settings: AppSettings): void {
   try {
-    writeJsonAtomic(getSettingsFile(), settings)
+    writeSecureJsonAtomic(getSettingsFile(), settings, 2)
     settingsCache = settings
   } catch (error) {
     log.error(`Failed to save settings: ${String(error)}`)
