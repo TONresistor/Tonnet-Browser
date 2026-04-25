@@ -12,7 +12,7 @@
   </a>
   &nbsp;
   <a href="https://tonnet.resistance.dog/download/">
-    <img src="https://img.shields.io/badge/Linux-FCC624?style=for-the-badge&logo=linux&logoColor=black" alt="Linux">
+    <img src="https://img.shields.io/badge/Linux-FCC624?style=for-the-badge&logo=linux&logoColor=white" alt="Linux">
   </a>
   &nbsp;
   <img src="https://img.shields.io/badge/TON-Blockchain-0088CC?style=for-the-badge&logo=telegram&logoColor=white" alt="TON Blockchain">
@@ -25,6 +25,9 @@
 <p align="center">
   <img src="assets/screenshot.jpg" width="800">
 </p>
+
+> [!CAUTION]
+> **No external security audit.** This browser and its embedded wallet have not undergone a third-party audit. The code is open-source and subject to internal reviews, but has not been independently verified. Use at your own risk;
 
 ## About
 
@@ -51,7 +54,7 @@ All traffic goes through ADNL, either peer-to-peer or via multi-hop tunnels. A W
 
 ## Installation
 
-| ![Windows](https://img.shields.io/badge/Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white) | ![macOS](https://img.shields.io/badge/macOS-000000?style=for-the-badge&logo=apple&logoColor=white) | ![Linux](https://img.shields.io/badge/Linux-FCC624?style=for-the-badge&logo=linux&logoColor=black) |
+| ![Windows](https://img.shields.io/badge/Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white) | ![macOS](https://img.shields.io/badge/macOS-000000?style=for-the-badge&logo=apple&logoColor=white) | ![Linux](https://img.shields.io/badge/Linux-FCC624?style=for-the-badge&logo=linux&logoColor=white) |
 |:---:|:---:|:---:|
 | [Installer](https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON-Browser-Setup-1.6.2.exe) | [DMG (Universal)](https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON-Browser-1.6.2-universal.dmg) | [AppImage](https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON-Browser-1.6.2.AppImage) · [.deb](https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON-Browser-1.6.2.deb) |
 
