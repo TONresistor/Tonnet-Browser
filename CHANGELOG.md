@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-04-25
+
+### Added
+- `.eth` and `.sol` resolver toggles with optional custom RPC URLs.
+
+### Changed
+- History writes use atomic secure-fs helpers.
+- CI workflow actions pinned to commit SHAs.
+
+### Fixed
+- Clear browsing data covers all isolated domain sessions.
+- Settings reset reapplies runtime state for every service.
+- Address bar focus outline covers the full bubble.
+- Uniform background on storage-bag loading page.
+- Tabs defer view attach until first paint to show loading on Linux.
+
+### Security
+- `shell.openExternal` allowlisted to `github.com` and `resistance.dog`.
+- Encrypted wallet key file written with `0o600`.
+- `app-settings.json` written with `0o600` to protect user-supplied RPC URLs.
+- 402 payment retry aborts on cross-origin redirect.
+- 402 requests with `maxTimeoutSeconds` below 5 seconds rejected.
+
 ## [1.6.2] - 2026-04-21
 
 ### Added
