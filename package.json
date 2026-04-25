@@ -46,7 +46,7 @@
     "@fontsource/inter": "^5.2.8",
     "@ton/core": "0.63.1",
     "@ton/crypto": "3.3.0",
-    "@ton/ton": "16.2.2",
+    "@ton/ton": "16.2.4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "electron-log": "^5.4.3",
