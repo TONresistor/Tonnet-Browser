@@ -6,7 +6,7 @@ updates:
       interval: weekly
     commit-message:
       prefix: '[deps]'
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 5
     groups:
       dev-tools:
         patterns:
