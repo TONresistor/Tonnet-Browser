@@ -78,14 +78,14 @@ export function BookmarksBar() {
             { x: Math.round(editX), y: Math.round(editY), width: editW, height: editH },
             {
               type: 'form',
-              title: 'Edit Bookmark',
+              title: t('bookmarks.editBookmark'),
               fields: [
-                { id: 'name', label: 'Name', value: d.title },
-                { id: 'url', label: 'URL', value: d.url },
+                { id: 'name', label: t('bookmarks.name'), value: d.title },
+                { id: 'url', label: t('bookmarks.url'), value: d.url },
               ],
               actions: [
-                { id: 'dismiss', label: 'Cancel' },
-                { id: 'save-edit', label: 'Save', primary: true },
+                { id: 'dismiss', label: t('bookmarks.cancel') },
+                { id: 'save-edit', label: t('bookmarks.save'), primary: true },
               ],
             }
           )
@@ -119,11 +119,11 @@ export function BookmarksBar() {
             { x: Math.round(renameX), y: Math.round(renameY), width: renameW, height: renameH },
             {
               type: 'form',
-              title: 'Rename Folder',
-              fields: [{ id: 'name', label: 'Name', value: d.folderName }],
+              title: t('bookmarks.renameFolder'),
+              fields: [{ id: 'name', label: t('bookmarks.name'), value: d.folderName }],
               actions: [
-                { id: 'dismiss', label: 'Cancel' },
-                { id: 'save-rename', label: 'Save', primary: true },
+                { id: 'dismiss', label: t('bookmarks.cancel') },
+                { id: 'save-rename', label: t('bookmarks.save'), primary: true },
               ],
             }
           )
@@ -151,7 +151,7 @@ export function BookmarksBar() {
           break
       }
     },
-    [addTab, navigateActiveTab, removeBookmark, getBookmarksByFolder, updateBookmark, updateFolder]
+    [addTab, navigateActiveTab, removeBookmark, getBookmarksByFolder, updateBookmark, updateFolder, t]
   )
 
   const menu = useOverlay('bookmark-menu', handleMenuAction)
@@ -187,10 +187,14 @@ export function BookmarksBar() {
       {
         type: 'menu',
         items: [
-          { id: 'open-new-tab', label: 'Open in new tab', data: { url: bookmark.url } },
-          { id: 'edit', label: 'Edit', data: { id: bookmark.id, title: bookmark.title, url: bookmark.url } },
+          { id: 'open-new-tab', label: t('bookmarks.openInNewTab'), data: { url: bookmark.url } },
+          {
+            id: 'edit',
+            label: t('bookmarks.edit'),
+            data: { id: bookmark.id, title: bookmark.title, url: bookmark.url },
+          },
           { id: '_sep1', label: '', separator: true },
-          { id: 'delete-bookmark', label: 'Delete', data: { id: bookmark.id }, destructive: true },
+          { id: 'delete-bookmark', label: t('bookmarks.delete'), data: { id: bookmark.id }, destructive: true },
         ],
       }
     )
@@ -204,7 +208,12 @@ export function BookmarksBar() {
       data: { url: b.url },
     }))
     if (items.length === 0) {
-      items.push({ id: 'empty', label: 'Empty folder', disabled: true, data: {} } as unknown as (typeof items)[0])
+      items.push({
+        id: 'empty',
+        label: t('bookmarks.emptyFolder'),
+        disabled: true,
+        data: {},
+      } as unknown as (typeof items)[0])
     }
     const target = e.currentTarget.getBoundingClientRect()
     menu.show(
@@ -231,10 +240,10 @@ export function BookmarksBar() {
       {
         type: 'menu',
         items: [
-          { id: 'rename-folder', label: 'Rename', data: { folderId, folderName } },
-          { id: 'open-all', label: 'Open all bookmarks', data: { folderId } },
+          { id: 'rename-folder', label: t('bookmarks.rename'), data: { folderId, folderName } },
+          { id: 'open-all', label: t('bookmarks.openAllBookmarks'), data: { folderId } },
           { id: '_sep1', label: '', separator: true },
-          { id: 'delete-folder', label: 'Delete', data: { folderId }, destructive: true },
+          { id: 'delete-folder', label: t('bookmarks.delete'), data: { folderId }, destructive: true },
         ],
       }
     )
