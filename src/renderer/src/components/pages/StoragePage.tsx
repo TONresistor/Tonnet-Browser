@@ -400,7 +400,7 @@ function StatusBadge({ status }: { status: StorageBag['status'] }) {
   const { t } = useTranslation('pages')
   const config = {
     downloading: { className: 'text-primary', label: t('storage.status.downloading') },
-    seeding: { className: 'text-success', label: t('storage.status.completed') },
+    seeding: { className: 'text-primary', label: t('storage.status.completed') },
     paused: { className: 'text-muted-foreground', label: t('storage.status.paused') },
     error: { className: 'text-destructive', label: t('storage.status.error') },
   }
