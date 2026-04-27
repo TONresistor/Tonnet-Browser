@@ -1,10 +1,10 @@
 {
   "page": {
-    "title": "Wallet",
+    "title": "Carteira",
     "refresh": "Atualizar",
-    "noWalletTitle": "Sem Wallet",
-    "noWalletDesc": "Crie um novo wallet ou importe um existente para começar.",
-    "createWallet": "Criar Wallet"
+    "noWalletTitle": "Sem carteira",
+    "noWalletDesc": "Crie uma nova carteira ou importe uma existente para começar.",
+    "createWallet": "Criar carteira"
   },
   "tabs": {
     "send": "Enviar",
@@ -33,11 +33,11 @@
     "estimatedFee": "~0,01 TON"
   },
   "receive": {
-    "addressLabel": "Seu endereço de Wallet",
+    "addressLabel": "Seu endereço de carteira",
     "copyButton": "Copiar endereço",
     "copied": "Copiado!",
     "copyTitle": "Copiar para a área de transferência",
-    "copyAria": "Copiar endereço do wallet para a área de transferência"
+    "copyAria": "Copiar endereço da carteira para a área de transferência"
   },
   "history": {
     "empty": "Nenhuma transação ainda",
@@ -55,28 +55,28 @@
     "x402Payment": "Pagamento HTTP 402"
   },
   "dropdown": {
-    "title": "Wallet",
+    "title": "Carteira",
     "balance": "Saldo",
     "address": "Endereço",
     "send": "Enviar",
     "receive": "Receber",
-    "openWallet": "Abrir Wallet",
+    "openWallet": "Abrir carteira",
     "copyAddress": "Copiar endereço",
-    "copyAddressAria": "Copiar endereço do wallet para a área de transferência",
+    "copyAddressAria": "Copiar endereço da carteira para a área de transferência",
     "copied": "Copiado!",
-    "noWallet": "Ainda sem wallet. Crie um para começar.",
-    "createWallet": "Criar Wallet",
-    "ariaLabel": "Menu do wallet"
+    "noWallet": "Ainda sem carteira. Crie uma para começar.",
+    "createWallet": "Criar carteira",
+    "ariaLabel": "Menu da carteira"
   },
   "import": {
-    "title": "Importar Wallet",
+    "title": "Importar carteira",
     "description": "Digite sua frase de recuperação de 24 palavras",
     "placeholder": "Digite 24 palavras separadas por espaços...",
-    "button": "Importar Wallet",
+    "button": "Importar carteira",
     "importing": "Importando...",
-    "success": "Wallet importado com sucesso",
+    "success": "Carteira importada com sucesso",
     "error": "Frase de recuperação inválida",
-    "confirm": "Isso substituirá seu wallet atual. Tem certeza?",
+    "confirm": "Isso substituirá sua carteira atual. Tem certeza?",
     "confirmButton": "Sim, substituir",
     "cancelButton": "Cancelar"
   },
@@ -90,25 +90,25 @@
   "backup": {
     "title": "Salve sua frase de recuperação",
     "warning": "Anote essas 24 palavras e guarde-as em segurança.",
-    "warningDesc": "Esta é a única forma de recuperar seu wallet. Se você perder essas palavras, seus fundos serão perdidos para sempre. Nunca compartilhe com ninguém.",
+    "warningDesc": "Esta é a única forma de recuperar sua carteira. Se você perder essas palavras, seus fundos serão perdidos para sempre. Nunca compartilhe com ninguém.",
     "yourPhrase": "Sua frase de recuperação de 24 palavras",
     "copy": "Copiar para a área de transferência",
-    "acknowledgement": "Confirmo que guardei a minha frase de recuperação de 24 palavras em segurança. Compreendo que sem ela não será possível recuperar o meu wallet nem os meus fundos.",
+    "acknowledgement": "Confirmo que guardei a minha frase de recuperação de 24 palavras em segurança. Compreendo que sem ela não será possível recuperar a minha carteira nem os meus fundos.",
     "confirm": "Continuar"
   },
   "create": {
-    "title": "Criar Wallet",
-    "description": "Crie um novo wallet TON para enviar, receber e pagar por conteúdo.",
-    "button": "Criar Wallet",
+    "title": "Criar carteira",
+    "description": "Crie uma nova carteira TON para enviar, receber e pagar por conteúdo.",
+    "button": "Criar carteira",
     "creating": "Criando...",
-    "orImport": "ou importar um wallet existente"
+    "orImport": "ou importar uma carteira existente"
   },
   "statusBar": {
     "balance": "{{amount}} TON"
   },
   "settings": {
-    "title": "Configurações do Wallet",
-    "walletManagement": "Gerenciamento do Wallet",
+    "title": "Configurações da carteira",
+    "walletManagement": "Gerenciamento da carteira",
     "paymentMode": "Modo de pagamento padrão",
     "paymentModeDescription": "Como lidar com solicitações de pagamento HTTP 402",
     "modes": {
@@ -159,17 +159,17 @@
     "required": "HTTP 402 Pagamento Obrigatório"
   },
   "recovery": {
-    "title": "Recuperação de Wallet necessária",
+    "title": "Recuperação de carteira necessária",
     "description": "Seu chaveiro do sistema mudou. Os dados da sua carteira ainda estão no disco, mas não podem ser descriptografados. Importe sua frase de 24 palavras para restaurar o acesso.",
-    "importButton": "Restaurar Wallet",
-    "orCreateNew": "ou criar um novo wallet",
+    "importButton": "Restaurar carteira",
+    "orCreateNew": "ou criar uma nova carteira",
     "weakEncryption": "Criptografia fraca: nenhum chaveiro do sistema detectado. Sua carteira está protegida apenas com criptografia básica."
   },
   "delete": {
-    "button": "Excluir wallet",
-    "title": "Excluir wallet",
-    "warning": "O wallet sera permanentemente removido deste dispositivo. Certifique-se de ter guardado a frase de recuperacao de 24 palavras. Sem ela, seus fundos serao perdidos para sempre.",
-    "description": "Remove permanentemente o wallet deste dispositivo. Certifique-se de ter sua frase de recuperação antes de continuar."
+    "button": "Excluir carteira",
+    "title": "Excluir carteira",
+    "warning": "A carteira será permanentemente removida deste dispositivo. Certifique-se de ter guardado a frase de recuperação de 24 palavras. Sem ela, seus fundos serão perdidos para sempre.",
+    "description": "Remove permanentemente a carteira deste dispositivo. Certifique-se de ter sua frase de recuperação antes de continuar."
   },
   "overview": {
     "recent": "Recentes"

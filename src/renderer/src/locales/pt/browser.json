@@ -74,7 +74,7 @@
     "networkStatus": "Status da rede: {{status}}",
     "downloadSpeedAria": "Velocidade de download: {{speed}}",
     "uploadSpeedAria": "Velocidade de upload: {{speed}}",
-    "walletTitle": "Saldo do wallet",
-    "walletAria": "Exibição do saldo do wallet"
+    "walletTitle": "Saldo da carteira",
+    "walletAria": "Exibição do saldo da carteira"
   }
 }

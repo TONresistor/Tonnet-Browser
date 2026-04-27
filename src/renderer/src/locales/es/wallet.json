@@ -1,10 +1,10 @@
 {
   "page": {
-    "title": "Wallet",
+    "title": "Cartera",
     "refresh": "Actualizar",
-    "noWalletTitle": "Sin Wallet",
-    "noWalletDesc": "Crea un nuevo wallet o importa uno existente para comenzar.",
-    "createWallet": "Crear Wallet"
+    "noWalletTitle": "Sin cartera",
+    "noWalletDesc": "Crea una nueva cartera o importa una existente para comenzar.",
+    "createWallet": "Crear cartera"
   },
   "tabs": {
     "send": "Enviar",
@@ -33,11 +33,11 @@
     "estimatedFee": "~0,01 TON"
   },
   "receive": {
-    "addressLabel": "Tu dirección de Wallet",
+    "addressLabel": "Tu dirección de cartera",
     "copyButton": "Copiar dirección",
     "copied": "Copiado",
     "copyTitle": "Copiar al portapapeles",
-    "copyAria": "Copiar dirección del wallet al portapapeles"
+    "copyAria": "Copiar dirección de la cartera al portapapeles"
   },
   "history": {
     "empty": "Aún no hay transacciones",
@@ -55,28 +55,28 @@
     "x402Payment": "Pago HTTP 402"
   },
   "dropdown": {
-    "title": "Wallet",
+    "title": "Cartera",
     "balance": "Saldo",
     "address": "Dirección",
     "send": "Enviar",
     "receive": "Recibir",
-    "openWallet": "Abrir Wallet",
+    "openWallet": "Abrir cartera",
     "copyAddress": "Copiar dirección",
-    "copyAddressAria": "Copiar dirección del wallet al portapapeles",
+    "copyAddressAria": "Copiar dirección de la cartera al portapapeles",
     "copied": "Copiado",
-    "noWallet": "Aún no tienes wallet. Crea uno para comenzar.",
-    "createWallet": "Crear Wallet",
-    "ariaLabel": "Menú del wallet"
+    "noWallet": "Aún no tienes cartera. Crea una para comenzar.",
+    "createWallet": "Crear cartera",
+    "ariaLabel": "Menú de la cartera"
   },
   "import": {
-    "title": "Importar Wallet",
+    "title": "Importar cartera",
     "description": "Introduce tu frase de recuperación de 24 palabras",
     "placeholder": "Introduce 24 palabras separadas por espacios...",
-    "button": "Importar Wallet",
+    "button": "Importar cartera",
     "importing": "Importando...",
-    "success": "Wallet importado correctamente",
+    "success": "Cartera importada correctamente",
     "error": "Frase de recuperación no válida",
-    "confirm": "Esto reemplazará tu wallet actual. ¿Estás seguro?",
+    "confirm": "Esto reemplazará tu cartera actual. ¿Estás seguro?",
     "confirmButton": "Sí, reemplazar",
     "cancelButton": "Cancelar"
   },
@@ -90,25 +90,25 @@
   "backup": {
     "title": "Guarda tu frase de recuperación",
     "warning": "Anota estas 24 palabras y guárdalas en un lugar seguro.",
-    "warningDesc": "Esta es la única forma de recuperar tu wallet. Si pierdes estas palabras, tus fondos se perderán para siempre. Nunca las compartas con nadie.",
+    "warningDesc": "Esta es la única forma de recuperar tu cartera. Si pierdes estas palabras, tus fondos se perderán para siempre. Nunca las compartas con nadie.",
     "yourPhrase": "Tu frase de recuperación de 24 palabras",
     "copy": "Copiar al portapapeles",
-    "acknowledgement": "Confirmo que he guardado de forma segura mi frase de recuperación de 24 palabras. Entiendo que sin ella no podré recuperar mi wallet ni mis fondos.",
+    "acknowledgement": "Confirmo que he guardado de forma segura mi frase de recuperación de 24 palabras. Entiendo que sin ella no podré recuperar mi cartera ni mis fondos.",
     "confirm": "Continuar"
   },
   "create": {
-    "title": "Crear Wallet",
-    "description": "Crea un nuevo wallet TON para enviar, recibir y pagar contenido.",
-    "button": "Crear Wallet",
+    "title": "Crear cartera",
+    "description": "Crea una nueva cartera TON para enviar, recibir y pagar contenido.",
+    "button": "Crear cartera",
     "creating": "Creando...",
-    "orImport": "o importar un wallet existente"
+    "orImport": "o importar una cartera existente"
   },
   "statusBar": {
     "balance": "{{amount}} TON"
   },
   "settings": {
-    "title": "Configuración del Wallet",
-    "walletManagement": "Gestión del Wallet",
+    "title": "Configuración de la cartera",
+    "walletManagement": "Gestión de la cartera",
     "paymentMode": "Modo de pago predeterminado",
     "paymentModeDescription": "Cómo gestionar las solicitudes de pago HTTP 402",
     "modes": {
@@ -159,17 +159,17 @@
     "required": "HTTP 402 Pago requerido"
   },
   "recovery": {
-    "title": "Recuperación de Wallet requerida",
-    "description": "Tu llavero del sistema ha cambiado. Los datos de tu wallet siguen en el disco pero no pueden descifrarse. Importa tu frase de 24 palabras para recuperar el acceso.",
-    "importButton": "Restaurar Wallet",
-    "orCreateNew": "o crear un nuevo wallet",
-    "weakEncryption": "Cifrado débil: no se detectó llavero del sistema. Tu wallet está protegido solo con cifrado básico."
+    "title": "Recuperación de cartera requerida",
+    "description": "Tu llavero del sistema ha cambiado. Los datos de tu cartera siguen en el disco pero no pueden descifrarse. Importa tu frase de 24 palabras para recuperar el acceso.",
+    "importButton": "Restaurar cartera",
+    "orCreateNew": "o crear una nueva cartera",
+    "weakEncryption": "Cifrado débil: no se detectó llavero del sistema. Tu cartera está protegida solo con cifrado básico."
   },
   "delete": {
-    "button": "Eliminar wallet",
-    "title": "Eliminar wallet",
-    "warning": "Esto eliminara permanentemente tu wallet de este dispositivo. Asegurate de haber guardado tu frase de recuperacion de 24 palabras. Sin ella, tus fondos se perderan para siempre.",
-    "description": "Elimina permanentemente el wallet de este dispositivo. Asegúrate de tener tu frase de recuperación antes de continuar."
+    "button": "Eliminar cartera",
+    "title": "Eliminar cartera",
+    "warning": "Esto eliminará permanentemente tu cartera de este dispositivo. Asegúrate de haber guardado tu frase de recuperación de 24 palabras. Sin ella, tus fondos se perderán para siempre.",
+    "description": "Elimina permanentemente la cartera de este dispositivo. Asegúrate de tener tu frase de recuperación antes de continuar."
   },
   "overview": {
     "recent": "Recientes"

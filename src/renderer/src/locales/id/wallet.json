@@ -1,10 +1,10 @@
 {
   "page": {
-    "title": "Wallet",
+    "title": "Dompet",
     "refresh": "Segarkan",
-    "noWalletTitle": "Tidak Ada Wallet",
+    "noWalletTitle": "Tidak Ada Dompet",
     "noWalletDesc": "Buat dompet baru atau impor yang sudah ada untuk memulai.",
-    "createWallet": "Buat Wallet"
+    "createWallet": "Buat Dompet"
   },
   "tabs": {
     "send": "Kirim",
@@ -33,11 +33,11 @@
     "estimatedFee": "~0,01 TON"
   },
   "receive": {
-    "addressLabel": "Alamat Wallet Anda",
+    "addressLabel": "Alamat Dompet Anda",
     "copyButton": "Salin Alamat",
     "copied": "Disalin!",
     "copyTitle": "Salin ke clipboard",
-    "copyAria": "Salin alamat wallet ke clipboard"
+    "copyAria": "Salin alamat dompet ke clipboard"
   },
   "history": {
     "empty": "Belum ada transaksi",
@@ -55,26 +55,26 @@
     "x402Payment": "Pembayaran HTTP 402"
   },
   "dropdown": {
-    "title": "Wallet",
+    "title": "Dompet",
     "balance": "Saldo",
     "address": "Alamat",
     "send": "Kirim",
     "receive": "Terima",
-    "openWallet": "Buka Wallet",
+    "openWallet": "Buka Dompet",
     "copyAddress": "Salin Alamat",
     "copyAddressAria": "Salin alamat dompet ke clipboard",
     "copied": "Disalin!",
     "noWallet": "Belum ada dompet. Buat satu untuk memulai.",
-    "createWallet": "Buat Wallet",
-    "ariaLabel": "Dropdown Wallet"
+    "createWallet": "Buat Dompet",
+    "ariaLabel": "Dropdown Dompet"
   },
   "import": {
-    "title": "Impor Wallet",
+    "title": "Impor Dompet",
     "description": "Masukkan 24 kata frasa pemulihan Anda",
     "placeholder": "Masukkan 24 kata dipisahkan dengan spasi...",
-    "button": "Impor Wallet",
+    "button": "Impor Dompet",
     "importing": "Mengimpor...",
-    "success": "Wallet berhasil diimpor",
+    "success": "Dompet berhasil diimpor",
     "error": "Frasa pemulihan tidak valid",
     "confirm": "Ini akan mengganti dompet Anda saat ini. Anda yakin?",
     "confirmButton": "Ya, ganti",
@@ -97,9 +97,9 @@
     "confirm": "Lanjutkan"
   },
   "create": {
-    "title": "Buat Wallet",
+    "title": "Buat Dompet",
     "description": "Buat dompet TON baru untuk mengirim, menerima, dan membayar konten.",
-    "button": "Buat Wallet",
+    "button": "Buat Dompet",
     "creating": "Membuat...",
     "orImport": "atau impor dompet yang sudah ada"
   },
@@ -107,7 +107,7 @@
     "balance": "{{amount}} TON"
   },
   "settings": {
-    "title": "Pengaturan Wallet",
+    "title": "Pengaturan Dompet",
     "walletManagement": "Manajemen Dompet",
     "paymentMode": "Mode Pembayaran Default",
     "paymentModeDescription": "Cara menangani permintaan pembayaran HTTP 402",
@@ -159,9 +159,9 @@
     "required": "HTTP 402 Pembayaran Diperlukan"
   },
   "recovery": {
-    "title": "Pemulihan Wallet Diperlukan",
+    "title": "Pemulihan Dompet Diperlukan",
     "description": "Gantungan kunci sistem Anda telah berubah. Data dompet masih ada di disk tetapi tidak dapat didekripsi. Impor 24 kata frasa pemulihan untuk memulihkan akses.",
-    "importButton": "Pulihkan Wallet",
+    "importButton": "Pulihkan Dompet",
     "orCreateNew": "atau buat dompet baru",
     "weakEncryption": "Enkripsi lemah: tidak ada gantungan kunci sistem yang terdeteksi. Dompet Anda hanya dilindungi dengan enkripsi dasar."
   },

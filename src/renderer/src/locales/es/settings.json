@@ -11,7 +11,7 @@
     "shortcuts": "Atajos",
     "bookmarks": "Marcadores",
     "advanced": "Avanzado",
-    "wallet": "Billetera",
+    "wallet": "Cartera",
     "bridge": "Puente",
     "about": "Acerca de"
   },
@@ -308,8 +308,8 @@
     "saving": "Guardando..."
   },
   "wallet": {
-    "title": "Billetera",
-    "description": "Configura tu billetera TON y los ajustes de pago HTTP 402",
+    "title": "Cartera",
+    "description": "Configura tu cartera TON y los ajustes de pago HTTP 402",
     "paymentMode": "Modo de pago predeterminado",
     "paymentModeDesc": "Cómo gestionar las solicitudes de pago HTTP 402 de sitios .ton",
     "modeOff": "Desactivado",
@@ -453,7 +453,7 @@
       "optional": "Opcionales",
       "labels": {
         "lite": "Cliente lite",
-        "wallet": "Billetera",
+        "wallet": "Cartera",
         "subscribe": "Suscripciones",
         "dns": "Resolución DNS",
         "jetton": "Jettons",
@@ -468,10 +468,10 @@
       },
       "descriptions": {
         "lite": "Consultas de blockchain: cuentas, transacciones y bloques",
-        "wallet": "Consultas de seqno y clave pública de la billetera",
+        "wallet": "Consultas de seqno y clave pública de la cartera",
         "subscribe": "Suscripciones en tiempo real para cuentas y transacciones",
         "dns": "Resolución de dominios TON DNS",
-        "jetton": "Datos de tokens Jetton y direcciones de billetera",
+        "jetton": "Datos de tokens Jetton y direcciones de cartera",
         "nft": "Datos de ítems y colecciones NFT",
         "sbt": "Consultas de soul-bound tokens",
         "payment": "Consultas de estado de canales de pago",

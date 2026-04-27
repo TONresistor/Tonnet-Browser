@@ -1,10 +1,10 @@
 {
   "page": {
-    "title": "Wallet",
+    "title": "钱包",
     "refresh": "刷新",
-    "noWalletTitle": "无 Wallet",
+    "noWalletTitle": "无钱包",
     "noWalletDesc": "创建新钱包或导入现有钱包以开始使用。",
-    "createWallet": "创建 Wallet"
+    "createWallet": "创建钱包"
   },
   "tabs": {
     "send": "发送",
@@ -33,7 +33,7 @@
     "estimatedFee": "~0.01 TON"
   },
   "receive": {
-    "addressLabel": "您的 Wallet 地址",
+    "addressLabel": "您的钱包地址",
     "copyButton": "复制地址",
     "copied": "已复制!",
     "copyTitle": "复制到剪贴板",
@@ -55,26 +55,26 @@
     "x402Payment": "HTTP 402 支付"
   },
   "dropdown": {
-    "title": "Wallet",
+    "title": "钱包",
     "balance": "余额",
     "address": "地址",
     "send": "发送",
     "receive": "接收",
-    "openWallet": "打开 Wallet",
+    "openWallet": "打开钱包",
     "copyAddress": "复制地址",
     "copyAddressAria": "复制钱包地址到剪贴板",
     "copied": "已复制!",
     "noWallet": "还没有钱包。创建一个开始使用。",
-    "createWallet": "创建 Wallet",
-    "ariaLabel": "Wallet 下拉菜单"
+    "createWallet": "创建钱包",
+    "ariaLabel": "钱包下拉菜单"
   },
   "import": {
-    "title": "导入 Wallet",
+    "title": "导入钱包",
     "description": "输入您的 24 个助记词",
     "placeholder": "输入以空格分隔的 24 个单词...",
-    "button": "导入 Wallet",
+    "button": "导入钱包",
     "importing": "导入中...",
-    "success": "Wallet 导入成功",
+    "success": "钱包导入成功",
     "error": "无效的助记词",
     "confirm": "这将替换您当前的钱包。确定吗?",
     "confirmButton": "是的, 替换",
@@ -97,9 +97,9 @@
     "confirm": "继续"
   },
   "create": {
-    "title": "创建 Wallet",
+    "title": "创建钱包",
     "description": "创建新的 TON 钱包以发送、接收和支付内容。",
-    "button": "创建 Wallet",
+    "button": "创建钱包",
     "creating": "创建中...",
     "orImport": "或导入现有钱包"
   },
@@ -107,7 +107,7 @@
     "balance": "{{amount}} TON"
   },
   "settings": {
-    "title": "Wallet 设置",
+    "title": "钱包设置",
     "walletManagement": "钱包管理",
     "paymentMode": "默认支付模式",
     "paymentModeDescription": "如何处理 HTTP 402 支付请求",
@@ -159,9 +159,9 @@
     "required": "HTTP 402 需要支付"
   },
   "recovery": {
-    "title": "需要恢复 Wallet",
+    "title": "需要恢复钱包",
     "description": "系统密钥环已更改。钱包数据仍在磁盘上但无法解密。请导入 24 个助记词以恢复访问。",
-    "importButton": "恢复 Wallet",
+    "importButton": "恢复钱包",
     "orCreateNew": "或创建新钱包",
     "weakEncryption": "加密较弱：未检测到系统密钥环。您的钱包仅受基本加密保护。"
   },

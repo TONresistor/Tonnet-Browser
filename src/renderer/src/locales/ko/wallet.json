@@ -1,10 +1,10 @@
 {
   "page": {
-    "title": "Wallet",
+    "title": "지갑",
     "refresh": "새로 고침",
-    "noWalletTitle": "Wallet 없음",
+    "noWalletTitle": "지갑 없음",
     "noWalletDesc": "새 지갑을 만들거나 기존 지갑을 가져와서 시작하세요.",
-    "createWallet": "Wallet 만들기"
+    "createWallet": "지갑 만들기"
   },
   "tabs": {
     "send": "보내기",
@@ -33,7 +33,7 @@
     "estimatedFee": "~0.01 TON"
   },
   "receive": {
-    "addressLabel": "내 Wallet 주소",
+    "addressLabel": "내 지갑 주소",
     "copyButton": "주소 복사",
     "copied": "복사됨!",
     "copyTitle": "클립보드에 복사",
@@ -55,26 +55,26 @@
     "x402Payment": "HTTP 402 결제"
   },
   "dropdown": {
-    "title": "Wallet",
+    "title": "지갑",
     "balance": "잔액",
     "address": "주소",
     "send": "보내기",
     "receive": "받기",
-    "openWallet": "Wallet 열기",
+    "openWallet": "지갑 열기",
     "copyAddress": "주소 복사",
     "copyAddressAria": "지갑 주소를 클립보드에 복사",
     "copied": "복사됨!",
     "noWallet": "아직 지갑이 없습니다. 하나를 만들어 시작하세요.",
-    "createWallet": "Wallet 만들기",
-    "ariaLabel": "Wallet 드롭다운"
+    "createWallet": "지갑 만들기",
+    "ariaLabel": "지갑 드롭다운"
   },
   "import": {
-    "title": "Wallet 가져오기",
+    "title": "지갑 가져오기",
     "description": "24개의 복구 문구를 입력하세요",
     "placeholder": "공백으로 구분된 24개 단어 입력...",
-    "button": "Wallet 가져오기",
+    "button": "지갑 가져오기",
     "importing": "가져오는 중...",
-    "success": "Wallet을 성공적으로 가져왔습니다",
+    "success": "지갑을 성공적으로 가져왔습니다",
     "error": "유효하지 않은 복구 문구",
     "confirm": "현재 지갑이 대체됩니다. 계속하시겠습니까?",
     "confirmButton": "네, 대체합니다",
@@ -97,9 +97,9 @@
     "confirm": "계속"
   },
   "create": {
-    "title": "Wallet 만들기",
+    "title": "지갑 만들기",
     "description": "TON 전송, 수신 및 콘텐츠 결제를 위한 새 TON 지갑을 만드세요.",
-    "button": "Wallet 만들기",
+    "button": "지갑 만들기",
     "creating": "생성 중...",
     "orImport": "또는 기존 지갑 가져오기"
   },
@@ -107,7 +107,7 @@
     "balance": "{{amount}} TON"
   },
   "settings": {
-    "title": "Wallet 설정",
+    "title": "지갑 설정",
     "walletManagement": "지갑 관리",
     "paymentMode": "기본 결제 모드",
     "paymentModeDescription": "HTTP 402 결제 요청 처리 방법",
@@ -159,9 +159,9 @@
     "required": "HTTP 402 결제 필요"
   },
   "recovery": {
-    "title": "Wallet 복구 필요",
+    "title": "지갑 복구 필요",
     "description": "시스템 키링이 변경되었습니다. 지갑 데이터는 디스크에 있지만 복호화할 수 없습니다. 24개 복구 문구를 입력하여 접근을 복구하세요.",
-    "importButton": "Wallet 복구",
+    "importButton": "지갑 복구",
     "orCreateNew": "또는 새 지갑 만들기",
     "weakEncryption": "취약한 암호화: 시스템 키링이 감지되지 않았습니다. 지갑이 기본 암호화로만 보호되고 있습니다."
   },

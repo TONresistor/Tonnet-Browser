@@ -6,7 +6,7 @@
   "notFound": "Domain nicht gefunden oder ohne Eintraege",
   "error": "Domain konnte nicht aufgeloest werden",
   "fields": {
-    "wallet": "Wallet",
+    "wallet": "Geldbörse",
     "owner": "Eigentuemer",
     "siteAdnl": "Site ADNL",
     "hasStorage": "Speicher",

@@ -74,7 +74,7 @@
     "networkStatus": "สถานะเครือข่าย: {{status}}",
     "downloadSpeedAria": "ความเร็วดาวน์โหลด: {{speed}}",
     "uploadSpeedAria": "ความเร็วอัปโหลด: {{speed}}",
-    "walletTitle": "ยอดคงเหลือ Wallet",
-    "walletAria": "แสดงยอดคงเหลือ Wallet"
+    "walletTitle": "ยอดคงเหลือกระเป๋าเงิน",
+    "walletAria": "แสดงยอดคงเหลือกระเป๋าเงิน"
   }
 }

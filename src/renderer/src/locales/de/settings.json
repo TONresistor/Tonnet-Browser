@@ -11,7 +11,7 @@
     "shortcuts": "Tastenkombinationen",
     "bookmarks": "Lesezeichen",
     "advanced": "Erweitert",
-    "wallet": "Brieftasche",
+    "wallet": "Geldbörse",
     "bridge": "Brücke",
     "about": "Über"
   },
@@ -308,8 +308,8 @@
     "saving": "Speichern..."
   },
   "wallet": {
-    "title": "Brieftasche",
-    "description": "Konfigurieren Sie Ihre TON-Brieftasche und die HTTP-402-Zahlungseinstellungen",
+    "title": "Geldbörse",
+    "description": "Konfigurieren Sie Ihre TON-Geldbörse und die HTTP-402-Zahlungseinstellungen",
     "paymentMode": "Standard-Zahlungsmodus",
     "paymentModeDesc": "Umgang mit HTTP 402 Zahlungsanforderungen von .ton-Websites",
     "modeOff": "Aus",
@@ -453,7 +453,7 @@
       "optional": "Optional",
       "labels": {
         "lite": "Lite-Client",
-        "wallet": "Brieftasche",
+        "wallet": "Geldbörse",
         "subscribe": "Abonnements",
         "dns": "DNS-Resolver",
         "jetton": "Jettons",
@@ -468,10 +468,10 @@
       },
       "descriptions": {
         "lite": "Blockchain-Abfragen: Konten, Transaktionen, Blöcke",
-        "wallet": "Wallet-Seqno- und Public-Key-Abfragen",
+        "wallet": "Geldbörsen-Seqno- und Public-Key-Abfragen",
         "subscribe": "Echtzeit-Abonnements für Konten und Transaktionen",
         "dns": "TON-DNS-Domänenauflösung",
-        "jetton": "Jetton-Token-Daten und Wallet-Adressen",
+        "jetton": "Jetton-Token-Daten und Geldbörsen-Adressen",
         "nft": "NFT-Item- und Kollektionsdaten",
         "sbt": "Abfragen für Soul-Bound-Token",
         "payment": "Abfragen zum Status von Zahlungskanälen",

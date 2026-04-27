@@ -6,7 +6,7 @@
   "notFound": "Dominio no encontrado o sin registros",
   "error": "Error al resolver el dominio",
   "fields": {
-    "wallet": "Billetera",
+    "wallet": "Cartera",
     "owner": "Propietario",
     "siteAdnl": "Site ADNL",
     "hasStorage": "Almacenamiento",

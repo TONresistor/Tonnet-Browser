@@ -1,10 +1,10 @@
 {
   "page": {
-    "title": "Wallet",
+    "title": "Geldbörse",
     "refresh": "Aktualisieren",
-    "noWalletTitle": "Kein Wallet",
-    "noWalletDesc": "Erstellen Sie ein neues Wallet oder importieren Sie ein vorhandenes, um loszulegen.",
-    "createWallet": "Wallet erstellen"
+    "noWalletTitle": "Keine Geldbörse",
+    "noWalletDesc": "Erstellen Sie eine neue Geldbörse oder importieren Sie eine vorhandene, um loszulegen.",
+    "createWallet": "Geldbörse erstellen"
   },
   "tabs": {
     "send": "Senden",
@@ -33,11 +33,11 @@
     "estimatedFee": "~0,01 TON"
   },
   "receive": {
-    "addressLabel": "Ihre Wallet-Adresse",
+    "addressLabel": "Ihre Geldbörsen-Adresse",
     "copyButton": "Adresse kopieren",
     "copied": "Kopiert!",
     "copyTitle": "In Zwischenablage kopieren",
-    "copyAria": "Wallet-Adresse in Zwischenablage kopieren"
+    "copyAria": "Geldbörsen-Adresse in Zwischenablage kopieren"
   },
   "history": {
     "empty": "Noch keine Transaktionen",
@@ -55,28 +55,28 @@
     "x402Payment": "HTTP 402 Zahlung"
   },
   "dropdown": {
-    "title": "Wallet",
+    "title": "Geldbörse",
     "balance": "Guthaben",
     "address": "Adresse",
     "send": "Senden",
     "receive": "Empfangen",
-    "openWallet": "Wallet öffnen",
+    "openWallet": "Geldbörse öffnen",
     "copyAddress": "Adresse kopieren",
-    "copyAddressAria": "Wallet-Adresse in Zwischenablage kopieren",
+    "copyAddressAria": "Geldbörsen-Adresse in Zwischenablage kopieren",
     "copied": "Kopiert!",
-    "noWallet": "Noch kein Wallet. Erstellen Sie eines, um zu beginnen.",
-    "createWallet": "Wallet erstellen",
-    "ariaLabel": "Wallet-Dropdown"
+    "noWallet": "Noch keine Geldbörse. Erstellen Sie eine, um zu beginnen.",
+    "createWallet": "Geldbörse erstellen",
+    "ariaLabel": "Geldbörsen-Dropdown"
   },
   "import": {
-    "title": "Wallet importieren",
+    "title": "Geldbörse importieren",
     "description": "Geben Sie Ihre 24-Wort-Wiederherstellungsphrase ein",
     "placeholder": "24 Wörter durch Leerzeichen getrennt eingeben...",
-    "button": "Wallet importieren",
+    "button": "Geldbörse importieren",
     "importing": "Importieren...",
-    "success": "Wallet erfolgreich importiert",
+    "success": "Geldbörse erfolgreich importiert",
     "error": "Ungültige Wiederherstellungsphrase",
-    "confirm": "Dies ersetzt Ihr aktuelles Wallet. Sind Sie sicher?",
+    "confirm": "Dies ersetzt Ihre aktuelle Geldbörse. Sind Sie sicher?",
     "confirmButton": "Ja, ersetzen",
     "cancelButton": "Abbrechen"
   },
@@ -90,25 +90,25 @@
   "backup": {
     "title": "Wiederherstellungsphrase speichern",
     "warning": "Schreiben Sie diese 24 Wörter auf und bewahren Sie sie sicher auf.",
-    "warningDesc": "Dies ist die einzige Möglichkeit, Ihr Wallet wiederherzustellen. Wenn Sie diese Wörter verlieren, ist Ihr Guthaben unwiederbringlich verloren. Teilen Sie sie niemals mit jemandem.",
+    "warningDesc": "Dies ist die einzige Möglichkeit, Ihre Geldbörse wiederherzustellen. Wenn Sie diese Wörter verlieren, ist Ihr Guthaben unwiederbringlich verloren. Teilen Sie sie niemals mit jemandem.",
     "yourPhrase": "Ihre 24-Wort-Wiederherstellungsphrase",
     "copy": "In Zwischenablage kopieren",
-    "acknowledgement": "Ich bestätige, dass ich meine 24-Wort-Wiederherstellungsphrase sicher aufbewahrt habe. Mir ist bewusst, dass ohne sie mein Wallet und mein Guthaben nicht wiederhergestellt werden können.",
+    "acknowledgement": "Ich bestätige, dass ich meine 24-Wort-Wiederherstellungsphrase sicher aufbewahrt habe. Mir ist bewusst, dass ohne sie meine Geldbörse und mein Guthaben nicht wiederhergestellt werden können.",
     "confirm": "Weiter"
   },
   "create": {
-    "title": "Wallet erstellen",
-    "description": "Erstellen Sie ein neues TON Wallet zum Senden, Empfangen und Bezahlen von Inhalten.",
-    "button": "Wallet erstellen",
+    "title": "Geldbörse erstellen",
+    "description": "Erstellen Sie eine neue TON-Geldbörse zum Senden, Empfangen und Bezahlen von Inhalten.",
+    "button": "Geldbörse erstellen",
     "creating": "Wird erstellt...",
-    "orImport": "oder ein vorhandenes Wallet importieren"
+    "orImport": "oder eine vorhandene Geldbörse importieren"
   },
   "statusBar": {
     "balance": "{{amount}} TON"
   },
   "settings": {
-    "title": "Wallet-Einstellungen",
-    "walletManagement": "Wallet-Verwaltung",
+    "title": "Geldbörsen-Einstellungen",
+    "walletManagement": "Geldbörsen-Verwaltung",
     "paymentMode": "Standard-Zahlungsmodus",
     "paymentModeDescription": "Umgang mit HTTP 402 Zahlungsanforderungen",
     "modes": {
@@ -159,17 +159,17 @@
     "required": "HTTP 402 Zahlung erforderlich"
   },
   "recovery": {
-    "title": "Wallet-Wiederherstellung erforderlich",
-    "description": "Ihr System-Schlüsselbund hat sich geändert. Ihre Wallet-Daten sind noch auf dem Datenträger, können aber nicht entschlüsselt werden. Importieren Sie Ihre 24-Wort-Phrase, um den Zugang wiederherzustellen.",
-    "importButton": "Wallet wiederherstellen",
-    "orCreateNew": "oder ein neues Wallet erstellen",
-    "weakEncryption": "Schwache Verschlüsselung: kein System-Schlüsselbund gefunden. Ihr Wallet ist nur mit einfacher Verschlüsselung geschützt."
+    "title": "Wiederherstellung der Geldbörse erforderlich",
+    "description": "Ihr System-Schlüsselbund hat sich geändert. Ihre Geldbörsen-Daten sind noch auf dem Datenträger, können aber nicht entschlüsselt werden. Importieren Sie Ihre 24-Wort-Phrase, um den Zugang wiederherzustellen.",
+    "importButton": "Geldbörse wiederherstellen",
+    "orCreateNew": "oder eine neue Geldbörse erstellen",
+    "weakEncryption": "Schwache Verschlüsselung: kein System-Schlüsselbund gefunden. Ihre Geldbörse ist nur mit einfacher Verschlüsselung geschützt."
   },
   "delete": {
-    "button": "Wallet löschen",
-    "title": "Wallet löschen",
-    "warning": "Ihr Wallet wird dauerhaft von diesem Gerät gelöscht. Stellen Sie sicher, dass Sie Ihre 24-Wort-Wiederherstellungsphrase gesichert haben. Ohne sie können Ihre Mittel nicht wiederhergestellt werden.",
-    "description": "Löscht das Wallet dauerhaft von diesem Gerät. Stellen Sie sicher, dass Sie Ihre Wiederherstellungsphrase haben, bevor Sie fortfahren."
+    "button": "Geldbörse löschen",
+    "title": "Geldbörse löschen",
+    "warning": "Ihre Geldbörse wird dauerhaft von diesem Gerät gelöscht. Stellen Sie sicher, dass Sie Ihre 24-Wort-Wiederherstellungsphrase gesichert haben. Ohne sie können Ihre Mittel nicht wiederhergestellt werden.",
+    "description": "Löscht die Geldbörse dauerhaft von diesem Gerät. Stellen Sie sicher, dass Sie Ihre Wiederherstellungsphrase haben, bevor Sie fortfahren."
   },
   "overview": {
     "recent": "Kürzlich"

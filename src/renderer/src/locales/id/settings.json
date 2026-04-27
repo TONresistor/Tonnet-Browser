@@ -468,10 +468,10 @@
       },
       "descriptions": {
         "lite": "Kueri blockchain: akun, transaksi, blok",
-        "wallet": "Kueri seqno dan kunci publik wallet",
+        "wallet": "Kueri seqno dan kunci publik dompet",
         "subscribe": "Langganan real-time untuk akun dan transaksi",
         "dns": "Resolusi domain TON DNS",
-        "jetton": "Data token Jetton dan alamat wallet",
+        "jetton": "Data token Jetton dan alamat dompet",
         "nft": "Data item dan koleksi NFT",
         "sbt": "Kueri soul-bound token",
         "payment": "Kueri status kanal pembayaran",
