@@ -5,7 +5,7 @@
 
 import { useState, useEffect } from 'react'
 import { createLogger } from '@/logger'
-import { Plus, Search, HardDrive, X, Settings, Upload } from 'lucide-react'
+import { Plus, Search, HardDrive, X, Settings, Upload, Folder, Copy, FileText } from 'lucide-react'
 
 const log = createLogger('storage')
 import { useTranslation } from 'react-i18next'
@@ -147,6 +147,14 @@ export function StoragePage() {
     complete: bags.filter(isComplete).length,
   }
 
+  const handleCopyBagId = async (bagId: string) => {
+    try {
+      await navigator.clipboard.writeText(bagId)
+    } catch (err) {
+      log.error('Failed to copy bag ID:', err)
+    }
+  }
+
   return (
     <div className="flex h-full bg-background-secondary" style={{ fontFamily: 'Inter, sans-serif' }}>
       {/* Sidebar */}
@@ -226,8 +234,9 @@ export function StoragePage() {
                     <th className="px-4 py-3 font-medium w-24">{t('storage.table.size')}</th>
                     <th className="px-4 py-3 font-medium w-40">{t('storage.table.progress')}</th>
                     <th className="px-4 py-3 font-medium w-28">{t('storage.table.status')}</th>
+                    <th className="px-4 py-3 font-medium w-20">{t('storage.table.peers')}</th>
                     <th className="px-4 py-3 font-medium w-20">{t('storage.table.files')}</th>
-                    <th className="px-4 py-3 font-medium w-12 rounded-r-full"></th>
+                    <th className="px-4 py-3 font-medium w-40 rounded-r-full"></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -238,6 +247,9 @@ export function StoragePage() {
                       selected={selectedBag?.id === bag.id}
                       onClick={() => handleSelectBag(bag)}
                       onRemove={() => handleRemoveBag(bag.id)}
+                      onBrowseFiles={() => handleBrowseFiles(bag.id)}
+                      onOpenFolder={() => handleOpenFolder(bag.id)}
+                      onCopyId={() => handleCopyBagId(bag.id)}
                     />
                   ))}
                 </tbody>
@@ -339,19 +351,31 @@ function BagRow({
   selected,
   onClick,
   onRemove,
+  onBrowseFiles,
+  onOpenFolder,
+  onCopyId,
 }: {
   bag: StorageBag
   selected: boolean
   onClick: () => void
   onRemove: () => void
+  onBrowseFiles: () => void
+  onOpenFolder: () => void
+  onCopyId: () => void
 }) {
+  const { t } = useTranslation('pages')
   const progress = bag.size > 0 ? (bag.downloaded / bag.size) * 100 : 0
+
+  const stop = (fn: () => void) => (e: React.MouseEvent) => {
+    e.stopPropagation()
+    fn()
+  }
 
   return (
     <tr
       onClick={onClick}
       className={cn(
-        'cursor-pointer transition-all duration-200 backdrop-blur-[10px] rounded-full',
+        'group cursor-pointer transition-all duration-200 backdrop-blur-[10px] rounded-full',
         selected
           ? 'bg-primary/15 border border-primary/30'
           : 'bg-foreground/[0.03] border border-foreground/[0.05] hover:bg-surface-hover hover:border-border-subtle'
@@ -378,20 +402,59 @@ function BagRow({
         <StatusBadge status={bag.status} />
       </td>
       <td className="px-4 py-3">
+        <span className="text-muted-foreground text-sm tabular-nums">{bag.peers}</span>
+      </td>
+      <td className="px-4 py-3">
         <span className="text-muted-foreground text-sm">{bag.filesCount ?? '-'}</span>
       </td>
       <td className="px-4 py-3 rounded-r-full">
-        <button
-          onClick={(e) => {
-            e.stopPropagation()
-            onRemove()
-          }}
-          className="text-muted-foreground hover:text-destructive transition-colors p-1 rounded-full hover:bg-destructive/10"
-        >
-          <X className="h-4 w-4" />
-        </button>
+        <div className="flex items-center justify-end gap-1">
+          <RowAction
+            label={t('storage.actions.browseFiles')}
+            onClick={stop(onBrowseFiles)}
+            icon={<FileText className="h-4 w-4" />}
+          />
+          <RowAction
+            label={t('storage.actions.openFolder')}
+            onClick={stop(onOpenFolder)}
+            icon={<Folder className="h-4 w-4" />}
+          />
+          <RowAction
+            label={t('storage.actions.copyBagId')}
+            onClick={stop(onCopyId)}
+            icon={<Copy className="h-4 w-4" />}
+          />
+          <button
+            onClick={stop(onRemove)}
+            title={t('storage.actions.remove')}
+            className="text-muted-foreground hover:text-destructive transition-colors p-1 rounded-full hover:bg-destructive/10"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
       </td>
     </tr>
+  )
+}
+
+// Hover-revealed row action button
+function RowAction({
+  label,
+  onClick,
+  icon,
+}: {
+  label: string
+  onClick: (e: React.MouseEvent) => void
+  icon: React.ReactNode
+}) {
+  return (
+    <button
+      onClick={onClick}
+      title={label}
+      className="text-muted-foreground hover:text-foreground transition-all p-1 rounded-full hover:bg-surface-hover opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+    >
+      {icon}
+    </button>
   )
 }
 
