@@ -3,7 +3,7 @@
  */
 
 import { memo, useState, useEffect, useCallback, useRef } from 'react'
-import { ExternalLink, CircleCheckBig, Download, RefreshCw, LoaderCircle, CircleAlert } from 'lucide-react'
+import { CircleCheckBig, Download, RefreshCw, LoaderCircle, CircleAlert } from 'lucide-react'
 import { SectionHeader } from '../shared/SectionHeader'
 import { APP_NAME, APP_VERSION, UI_NOTIFICATION_TIMEOUT_MS } from '@shared/constants'
 import tonLogo from '@/assets/ton.png'
@@ -57,7 +57,7 @@ export const AboutSection = memo(function AboutSection() {
         return (
           <button
             onClick={handleCheck}
-            className="flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-200 bg-primary/15 border border-primary/30 text-primary hover:bg-primary/25"
+            className="flex items-center gap-1.5 px-4 py-1.5 rounded-md text-sm font-medium transition-colors bg-primary text-white shadow-none hover:bg-primary/90"
           >
             <RefreshCw className="h-4 w-4" />
             {t('about.update.check')}
@@ -68,7 +68,7 @@ export const AboutSection = memo(function AboutSection() {
         return (
           <button
             disabled
-            className="flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-200 bg-primary/15 border border-primary/30 text-primary opacity-70"
+            className="flex items-center gap-1.5 px-4 py-1.5 rounded-md text-sm font-medium transition-colors bg-primary text-white opacity-70 shadow-none"
           >
             <LoaderCircle className="h-4 w-4 animate-spin" />
             {t('about.update.checking')}
@@ -149,16 +149,6 @@ export const AboutSection = memo(function AboutSection() {
             </div>
           </div>
         </div>
-      </div>
-
-      <div className="mt-4 flex gap-3">
-        <button
-          className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium text-muted-foreground transition-all duration-200 hover:text-foreground bg-surface-hover border border-border-medium"
-          onClick={() => window.electron.navigate('https://github.com/TONresistor/Tonnet-Browser')}
-        >
-          <ExternalLink className="h-4 w-4" />
-          {t('about.github')}
-        </button>
       </div>
     </div>
   )

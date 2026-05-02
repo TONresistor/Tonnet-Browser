@@ -5,6 +5,7 @@
 import { Globe, HardDrive, Wrench, Info, Cable } from 'lucide-react'
 import type { SectionInfo, Shortcut } from './types'
 import walletIconSrc from '@/assets/wallet.svg'
+import cocoonIconSrc from '@/assets/cocoon.png'
 import privacyIconSrc from '@/assets/privacy.svg'
 import networkIconSrc from '@/assets/network.svg'
 import appearanceIconSrc from '@/assets/appearance.svg'
@@ -24,6 +25,7 @@ function SvgIcon(src: string) {
   }
 }
 const WalletIcon = SvgIcon(walletIconSrc)
+const CocoonIcon = SvgIcon(cocoonIconSrc)
 const PrivacyIcon = SvgIcon(privacyIconSrc)
 const NetworkIcon = SvgIcon(networkIconSrc)
 const AppearanceIcon = SvgIcon(appearanceIconSrc)
@@ -48,6 +50,7 @@ export const SECTIONS: SectionInfo[] = [
   { id: 'appearance', label: 'Appearance', icon: AppearanceIcon },
   { id: 'wallet', label: 'Wallet', icon: WalletIcon },
   { id: 'bridge', label: 'Bridge', icon: Cable },
+  { id: 'cocoon', label: 'Cocoon AI', icon: CocoonIcon },
   { id: 'storage', label: 'Storage', icon: HardDrive },
   { id: 'bookmarks', label: 'Bookmarks', icon: BookmarkIcon },
   { id: 'network', label: 'Network', icon: NetworkIcon },

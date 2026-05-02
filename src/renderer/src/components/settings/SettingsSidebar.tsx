@@ -36,9 +36,9 @@ export function SettingsSidebar({ activeSection, onSectionChange }: SettingsSide
   }
 
   return (
-    <div className="w-56 border-r border-border p-4 flex flex-col">
-      <div className="flex items-center gap-2 mb-6">
-        <Settings className="h-6 w-6 text-primary" />
+    <div className="w-56 border-r border-border p-4 flex flex-col bg-[hsl(var(--elevation-1))]">
+      <div className="flex items-center justify-center gap-2 mb-4">
+        <Settings className="h-5 w-5 text-primary" />
         <h2 className="text-foreground text-xl font-bold">{t('title')}</h2>
       </div>
 
@@ -53,10 +53,10 @@ export function SettingsSidebar({ activeSection, onSectionChange }: SettingsSide
               aria-selected={isActive}
               onClick={() => onSectionChange(section.id)}
               className={cn(
-                'w-full flex items-center gap-3 px-3 py-2 rounded-full text-sm transition-all duration-200',
+                'w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors',
                 isActive
-                  ? 'bg-surface-active text-foreground'
-                  : 'text-foreground-secondary hover:bg-surface-hover hover:text-foreground'
+                  ? 'bg-accent/60 text-foreground'
+                  : 'text-muted-foreground hover:bg-accent/40 hover:text-foreground'
               )}
             >
               <Icon className={cn('h-4 w-4', !isActive && 'opacity-70')} />

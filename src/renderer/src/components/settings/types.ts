@@ -17,6 +17,7 @@ export type SettingsSection =
   | 'advanced'
   | 'wallet'
   | 'bridge'
+  | 'cocoon'
   | 'about'
 
 /**

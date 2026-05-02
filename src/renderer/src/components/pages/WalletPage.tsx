@@ -372,34 +372,14 @@ export function WalletPage() {
               </div>
             )}
 
-            {/* Balance: flat, large, single line */}
-            <div className="text-center mb-4">
-              <p className="text-4xl font-bold text-foreground tracking-tight">
-                {formatTonAmount(balance)} <span className="text-2xl font-semibold text-muted-foreground">TON</span>
-              </p>
-            </div>
+            <AccountPanel
+              balance={balance}
+              onSend={() => setActionView('send')}
+              onReceive={() => setActionView('receive')}
+              t={t}
+            />
 
-            {/* Action buttons */}
-            <div className="grid grid-cols-2 gap-3 mb-6">
-              <button
-                type="button"
-                onClick={() => setActionView('send')}
-                className="h-9 flex items-center justify-center gap-2 rounded-full bg-surface-hover backdrop-blur-[10px] border border-border-medium text-sm font-medium text-foreground hover:bg-surface-active transition-all duration-200"
-              >
-                <Send className="h-3.5 w-3.5" />
-                {t('tabs.send')}
-              </button>
-              <button
-                type="button"
-                onClick={() => setActionView('receive')}
-                className="h-9 flex items-center justify-center gap-2 rounded-full bg-surface-hover backdrop-blur-[10px] border border-border-medium text-sm font-medium text-foreground hover:bg-surface-active transition-all duration-200"
-              >
-                <Download className="h-3.5 w-3.5" />
-                {t('tabs.receive')}
-              </button>
-            </div>
-
-            {/* Transaction history */}
+            {/* Transaction history (always visible — main account history) */}
             <TransactionList transactions={transactions} />
           </div>
         )}
@@ -409,3 +389,43 @@ export function WalletPage() {
 }
 
 export default memo(WalletPage)
+
+// ── Account panel ────────────────────────────────────────────────────────────
+
+interface AccountPanelProps {
+  balance: string
+  onSend: () => void
+  onReceive: () => void
+  t: ReturnType<typeof useTranslation>['t']
+}
+
+function AccountPanel({ balance, onSend, onReceive, t }: AccountPanelProps) {
+  return (
+    <div className="mb-6 space-y-3">
+      <div className="text-center">
+        <p className="text-4xl font-bold text-foreground tracking-tight">
+          {formatTonAmount(balance)} <span className="text-2xl font-semibold text-muted-foreground">TON</span>
+        </p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <button
+          type="button"
+          onClick={onSend}
+          className="h-9 flex items-center justify-center gap-2 rounded-full bg-surface-hover backdrop-blur-[10px] border border-border-medium text-sm font-medium text-foreground hover:bg-surface-active transition-all duration-200"
+        >
+          <Send className="h-3.5 w-3.5" />
+          {t('tabs.send')}
+        </button>
+        <button
+          type="button"
+          onClick={onReceive}
+          className="h-9 flex items-center justify-center gap-2 rounded-full bg-surface-hover backdrop-blur-[10px] border border-border-medium text-sm font-medium text-foreground hover:bg-surface-active transition-all duration-200"
+        >
+          <Download className="h-3.5 w-3.5" />
+          {t('tabs.receive')}
+        </button>
+      </div>
+    </div>
+  )
+}

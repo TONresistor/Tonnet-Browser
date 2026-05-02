@@ -40,29 +40,29 @@ export function BagDetailPanel({
   return (
     <div className="border-t border-border bg-background-secondary">
       {/* Tabs + Browse Files button */}
-      <div className="flex items-center border-b border-border">
+      <div className="flex items-center gap-2 border-b border-border p-2">
         <button
           onClick={() => onTabChange('info')}
           className={cn(
-            'px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors',
+            'inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors',
             detailTab === 'info'
-              ? 'text-primary border-primary'
-              : 'text-muted-foreground border-transparent hover:text-foreground'
+              ? 'bg-accent/60 text-foreground'
+              : 'text-muted-foreground hover:bg-accent/40 hover:text-foreground'
           )}
         >
-          <Info className="h-4 w-4 inline mr-2" />
+          <Info className="h-4 w-4" />
           {t('storage.tabs.info')}
         </button>
         <button
           onClick={() => onTabChange('files')}
           className={cn(
-            'px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors',
+            'inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors',
             detailTab === 'files'
-              ? 'text-primary border-primary'
-              : 'text-muted-foreground border-transparent hover:text-foreground'
+              ? 'bg-accent/60 text-foreground'
+              : 'text-muted-foreground hover:bg-accent/40 hover:text-foreground'
           )}
         >
-          <FileText className="h-4 w-4 inline mr-2" />
+          <FileText className="h-4 w-4" />
           {t('storage.tabs.files')}
         </button>
       </div>
@@ -80,7 +80,7 @@ export function BagDetailPanel({
               <span className="text-foreground">{formatBytes(bag.size)}</span>
               <button
                 onClick={() => onBrowseFiles(bag.id)}
-                className="flex items-center gap-1.5 ml-auto px-3 py-1 text-xs rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                className="flex items-center gap-1.5 ml-auto px-3 py-1 rounded-md text-xs font-medium bg-accent/60 text-foreground hover:bg-accent/80 transition-colors"
               >
                 <FileText className="h-3 w-3" />
                 {t('storage.actions.browseFiles')}
@@ -114,7 +114,7 @@ export function BagDetailPanel({
               <span className="text-muted-foreground w-24 flex-shrink-0">{t('storage.info.path')}</span>
               <button
                 onClick={() => onOpenFolder(bag.id)}
-                className="flex items-center gap-2 text-muted-foreground text-xs hover:text-primary transition-colors cursor-pointer group text-left"
+                className="flex items-center gap-2 text-muted-foreground text-xs hover:text-foreground transition-colors cursor-pointer group text-left"
               >
                 <span className="break-all">{bagDetails?.path || bag.id}</span>
                 <FolderOpen className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
@@ -132,7 +132,7 @@ export function BagDetailPanel({
               <div
                 key={idx}
                 onClick={() => onShowFile(bag.id, file.name)}
-                className="flex items-center gap-3 text-sm py-1 px-2 rounded hover:bg-background cursor-pointer group"
+                className="flex items-center gap-3 text-sm py-1.5 px-2 rounded-md hover:bg-accent/40 cursor-pointer group transition-colors"
               >
                 <FileText className="h-4 w-4 text-primary flex-shrink-0" />
                 <span className="text-foreground truncate flex-1">{file.name}</span>

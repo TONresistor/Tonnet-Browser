@@ -70,6 +70,9 @@ export interface AppPreferences {
   proxyVerbosity: number
   storageVerbosity: number
   syncTestDomain: string
+
+  // Cocoon AI
+  cocoonAutostart: boolean
 }
 
 interface PreferencesState {
@@ -147,6 +150,9 @@ export const defaultPreferences: AppPreferences = {
   proxyVerbosity: DEFAULT_SETTINGS.proxyVerbosity,
   storageVerbosity: DEFAULT_SETTINGS.storageVerbosity,
   syncTestDomain: DEFAULT_SETTINGS.syncTestDomain,
+
+  // Cocoon AI
+  cocoonAutostart: DEFAULT_SETTINGS.cocoon.autostart,
 }
 
 // Map flat preferences to categorized main process structure
@@ -194,6 +200,7 @@ const prefToCategory: Record<keyof AppPreferences, { category: string; field: st
   proxyVerbosity: { category: 'advanced', field: 'proxyVerbosity' },
   storageVerbosity: { category: 'advanced', field: 'storageVerbosity' },
   syncTestDomain: { category: 'advanced', field: 'syncTestDomain' },
+  cocoonAutostart: { category: 'cocoon', field: 'autostart' },
 }
 
 // Convert main process settings to flat preferences
@@ -242,6 +249,7 @@ function mainSettingsToPrefs(settings: AppSettings): AppPreferences {
     proxyVerbosity: settings.advanced?.proxyVerbosity ?? defaultPreferences.proxyVerbosity,
     storageVerbosity: settings.advanced?.storageVerbosity ?? defaultPreferences.storageVerbosity,
     syncTestDomain: settings.advanced?.syncTestDomain ?? defaultPreferences.syncTestDomain,
+    cocoonAutostart: settings.cocoon?.autostart ?? defaultPreferences.cocoonAutostart,
   }
 }
 

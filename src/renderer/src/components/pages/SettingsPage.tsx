@@ -27,6 +27,7 @@ import { AdvancedSection } from '@/components/settings/sections/AdvancedSection'
 import { AboutSection } from '@/components/settings/sections/AboutSection'
 import { WalletSection } from '@/components/settings/sections/WalletSection'
 import { BridgeSection } from '@/components/settings/sections/BridgeSection'
+import { CocoonSection } from '@/components/settings/sections/CocoonSection'
 import type { WalletSectionHandle } from '@/components/settings/sections/WalletSection'
 import type { BridgeSectionHandle } from '@/components/settings/sections/BridgeSection'
 
@@ -200,6 +201,9 @@ export function SettingsPage() {
 
       case 'bridge':
         return <BridgeSection onDirtyChange={setBridgeDirty} sectionRef={bridgeSectionRef} />
+
+      case 'cocoon':
+        return <CocoonSection draft={draft} setDraft={setDraft} />
 
       case 'about':
         return <AboutSection />

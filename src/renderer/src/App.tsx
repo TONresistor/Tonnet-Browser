@@ -19,6 +19,7 @@ const HistoryPage = lazy(() => import('@/components/pages/HistoryPage').then((m)
 const BookmarksPage = lazy(() => import('@/components/pages/BookmarksPage').then((m) => ({ default: m.BookmarksPage })))
 const WalletPage = lazy(() => import('@/components/pages/WalletPage'))
 const DnsPage = lazy(() => import('@/components/pages/DnsPage'))
+const CocoonChatPage = lazy(() => import('@/components/pages/CocoonChatPage'))
 import { useBrowserStore } from '@/stores/browser'
 import { useTabsStore } from '@/stores/tabs'
 import { usePreferencesStore } from '@/stores/preferences'
@@ -26,9 +27,11 @@ import { useThemeStore } from '@/stores/themes'
 import { useWalletStore } from '@/stores/wallet'
 import { applyCustomTheme, removeCustomTheme } from '@/lib/theme-utils'
 import { WalletSidebar } from '@/components/wallet/WalletSidebar'
+import { CocoonSidebar } from '@/components/cocoon/CocoonSidebar'
 import { Settings } from 'lucide-react'
 import walletIcon from '@/assets/wallet.svg'
 import storageIcon from '@/assets/storage.svg'
+import cocoonIcon from '@/assets/cocoon.png'
 import { Button } from '@/components/ui/button'
 import Lottie from 'lottie-react'
 import loadingDark from '@/assets/loading.json'
@@ -72,6 +75,8 @@ function App() {
   const [currentSidebarWidth, setCurrentSidebarWidth] = useState(savedSidebarWidth)
   const [walletSidebarOpen, setWalletSidebarOpen] = useState(false)
   const [walletSidebarWidth, setWalletSidebarWidth] = useState(320)
+  const [cocoonSidebarOpen, setCocoonSidebarOpen] = useState(false)
+  const [cocoonSidebarWidth, setCocoonSidebarWidth] = useState(320)
 
   // Animation data selected based on theme (loaded synchronously, never null)
   const [animationData, setAnimationData] = useState<unknown>(() =>
@@ -94,13 +99,16 @@ function App() {
     setCurrentSidebarWidth(savedSidebarWidth)
   }, [savedSidebarWidth])
 
-  // Sync wallet sidebar width with main process
+  // Sync right sidebar width with main process. Wallet and Cocoon are mutually
+  // exclusive in the same right slot, so the WebContentsView only needs whichever
+  // one is currently open.
   useEffect(() => {
-    window.electron.updateWalletSidebarWidth(walletSidebarOpen ? walletSidebarWidth : 0)
+    const width = walletSidebarOpen ? walletSidebarWidth : cocoonSidebarOpen ? cocoonSidebarWidth : 0
+    window.electron.updateWalletSidebarWidth(width)
     return () => {
       window.electron.updateWalletSidebarWidth(0)
     }
-  }, [walletSidebarOpen, walletSidebarWidth])
+  }, [walletSidebarOpen, walletSidebarWidth, cocoonSidebarOpen, cocoonSidebarWidth])
 
   // Sync document lang attribute with i18n language
   useEffect(() => {
@@ -153,6 +161,7 @@ function App() {
         import('@/components/pages/BookmarksPage')
         import('@/components/pages/WalletPage')
         import('@/components/pages/DnsPage')
+        import('@/components/pages/CocoonChatPage')
       })
     }
   }, [proxyConnected, ensureDefaultTab])
@@ -200,6 +209,8 @@ function App() {
         return <WalletPage />
       case 'dns':
         return <DnsPage />
+      case 'cocoon':
+        return <CocoonChatPage />
       case 'loading':
         return (
           <div className="w-full h-full flex flex-col items-center justify-center bg-background-secondary">
@@ -247,7 +258,22 @@ function App() {
             variant="ghost"
             size="icon"
             className="h-7 w-7 rounded-full"
-            onClick={() => setWalletSidebarOpen((v) => !v)}
+            onClick={() => {
+              setCocoonSidebarOpen((v) => !v)
+              setWalletSidebarOpen(false)
+            }}
+            title={t('tooltips.cocoon')}
+          >
+            <img src={cocoonIcon} alt="" className="h-5 w-5 brightness-0 invert" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 rounded-full"
+            onClick={() => {
+              setWalletSidebarOpen((v) => !v)
+              setCocoonSidebarOpen(false)
+            }}
             title={t('tooltips.wallet')}
           >
             <img src={walletIcon} alt="" className="h-4 w-4 brightness-0 invert" />
@@ -333,6 +359,23 @@ function App() {
             className="border-l border-border"
           >
             <WalletSidebar onClose={() => setWalletSidebarOpen(false)} />
+          </ResizablePanel>
+        )}
+
+        {/* Right sidebar (cocoon) — mutually exclusive with wallet */}
+        {cocoonSidebarOpen && (
+          <ResizablePanel
+            side="right"
+            defaultWidth={cocoonSidebarWidth}
+            minWidth={280}
+            maxWidth={420}
+            onResize={(width) => {
+              setCocoonSidebarWidth(width)
+              window.electron.updateWalletSidebarWidth(width)
+            }}
+            className="border-l border-border"
+          >
+            <CocoonSidebar onClose={() => setCocoonSidebarOpen(false)} />
           </ResizablePanel>
         )}
       </div>

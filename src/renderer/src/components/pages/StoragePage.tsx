@@ -166,7 +166,7 @@ export function StoragePage() {
 
         <button
           onClick={() => setShowAddModal(true)}
-          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-full text-sm font-medium transition-all duration-200 hover:scale-[1.02] bg-primary/90 backdrop-blur-[10px] text-primary-foreground shadow-[0_4px_16px_hsl(var(--primary)/0.4),inset_0_1px_0_hsl(var(--foreground)/0.2)]"
+          className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors bg-accent/60 text-foreground hover:bg-accent/80"
         >
           <Plus className="h-4 w-4" />
           {t('storage.actions.addBag')}
@@ -194,7 +194,7 @@ export function StoragePage() {
           <SeedingToggle />
           <button
             onClick={navigateToSettings}
-            className="w-full flex items-center gap-2 px-3 py-2 rounded-full text-sm text-muted-foreground transition-all duration-200 hover:text-foreground bg-surface backdrop-blur-[10px] border border-border-subtle"
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm text-muted-foreground transition-colors hover:text-foreground hover:bg-accent/40"
           >
             <Settings className="h-4 w-4" />
             {t('storage.actions.settings')}
@@ -206,7 +206,7 @@ export function StoragePage() {
       <div className="flex-1 flex flex-col min-w-0">
         {/* Search Bar */}
         <div className="p-4 border-b border-border flex justify-end">
-          <div className="w-64 flex items-center rounded-full px-3 bg-surface-hover backdrop-blur-[20px] border border-border-medium shadow-[inset_0_1px_0_hsl(var(--surface-hover))]">
+          <div className="w-64 flex items-center rounded-md px-3 bg-[hsl(var(--elevation-2))]">
             <Search className="h-4 w-4 text-muted-foreground" />
             <input
               value={searchQuery}
@@ -229,14 +229,14 @@ export function StoragePage() {
             <div className="p-4">
               <table className="w-full" style={{ borderCollapse: 'separate', borderSpacing: '0 8px' }}>
                 <thead>
-                  <tr className="text-left text-xs text-muted-foreground uppercase tracking-wider bg-surface backdrop-blur-[10px]">
-                    <th className="px-4 py-3 font-medium rounded-l-full">{t('storage.table.name')}</th>
+                  <tr className="text-left text-xs text-muted-foreground uppercase tracking-wider bg-[hsl(var(--elevation-2))]">
+                    <th className="px-4 py-3 font-medium rounded-l-md">{t('storage.table.name')}</th>
                     <th className="px-4 py-3 font-medium w-24">{t('storage.table.size')}</th>
                     <th className="px-4 py-3 font-medium w-40">{t('storage.table.progress')}</th>
                     <th className="px-4 py-3 font-medium w-28">{t('storage.table.status')}</th>
                     <th className="px-4 py-3 font-medium w-20">{t('storage.table.peers')}</th>
                     <th className="px-4 py-3 font-medium w-20">{t('storage.table.files')}</th>
-                    <th className="px-4 py-3 font-medium w-40 rounded-r-full"></th>
+                    <th className="px-4 py-3 font-medium w-40 rounded-r-md"></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -331,14 +331,17 @@ function FilterButton({
     <button
       onClick={onClick}
       className={cn(
-        'w-full flex items-center justify-between px-3 py-2 rounded-full text-sm transition-all duration-200 backdrop-blur-[10px]',
-        active
-          ? 'bg-surface-active border border-border-strong text-foreground'
-          : 'bg-surface border border-border-subtle'
+        'w-full flex items-center justify-between px-3 py-2 rounded-md text-sm transition-colors',
+        active ? 'bg-accent/60 text-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-accent/40'
       )}
     >
       <span className={active ? '' : 'text-muted-foreground'}>{children}</span>
-      <span className="inline-flex items-center justify-center min-w-[1.5rem] h-5 px-1.5 rounded-full bg-primary text-primary-foreground text-xs font-medium">
+      <span
+        className={cn(
+          'inline-flex items-center justify-center min-w-[1.5rem] h-5 px-1.5 rounded-md text-xs font-medium',
+          active ? 'bg-foreground/10 text-foreground' : 'bg-accent/40 text-muted-foreground'
+        )}
+      >
         {count}
       </span>
     </button>
@@ -375,13 +378,11 @@ function BagRow({
     <tr
       onClick={onClick}
       className={cn(
-        'group cursor-pointer transition-all duration-200 backdrop-blur-[10px] rounded-full',
-        selected
-          ? 'bg-primary/15 border border-primary/30'
-          : 'bg-foreground/[0.03] border border-foreground/[0.05] hover:bg-surface-hover hover:border-border-subtle'
+        'group cursor-pointer transition-colors rounded-md',
+        selected ? 'bg-accent/60' : 'bg-foreground/[0.03] hover:bg-accent/40'
       )}
     >
-      <td className="px-4 py-3 rounded-l-full">
+      <td className="px-4 py-3 rounded-l-md">
         <span className="text-foreground text-sm font-medium">{bag.name}</span>
       </td>
       <td className="px-4 py-3">
@@ -389,9 +390,9 @@ function BagRow({
       </td>
       <td className="px-4 py-3">
         <div className="flex items-center gap-2">
-          <div className="flex-1 h-2 rounded-full overflow-hidden bg-surface-hover shadow-[inset_0_1px_2px_hsl(var(--shadow-color)/0.2)]">
+          <div className="flex-1 h-2 rounded-md overflow-hidden bg-accent/40">
             <div
-              className="h-full rounded-full transition-all duration-300 gradient-primary shadow-[0_0_10px_hsl(var(--primary)/0.5)]"
+              className="h-full rounded-md transition-all duration-300 bg-primary/70"
               style={{ width: `${progress}%` }}
             />
           </div>
@@ -407,7 +408,7 @@ function BagRow({
       <td className="px-4 py-3">
         <span className="text-muted-foreground text-sm">{bag.filesCount ?? '-'}</span>
       </td>
-      <td className="px-4 py-3 rounded-r-full">
+      <td className="px-4 py-3 rounded-r-md">
         <div className="flex items-center justify-end gap-1">
           <RowAction
             label={t('storage.actions.browseFiles')}
@@ -427,7 +428,7 @@ function BagRow({
           <button
             onClick={stop(onRemove)}
             title={t('storage.actions.remove')}
-            className="text-muted-foreground hover:text-destructive transition-colors p-1 rounded-full hover:bg-destructive/10"
+            className="text-muted-foreground hover:text-destructive transition-colors p-1.5 rounded-md hover:bg-destructive/10"
           >
             <X className="h-4 w-4" />
           </button>
@@ -451,7 +452,7 @@ function RowAction({
     <button
       onClick={onClick}
       title={label}
-      className="text-muted-foreground hover:text-foreground transition-all p-1 rounded-full hover:bg-surface-hover opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+      className="text-muted-foreground hover:text-foreground transition-colors p-1.5 rounded-md hover:bg-accent/40 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
     >
       {icon}
     </button>

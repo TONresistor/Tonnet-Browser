@@ -38,6 +38,7 @@
   },
   "tooltips": {
     "storage": "Storage",
+    "cocoon": "Cocoon AI",
     "settings": "Settings"
   },
   "error": {

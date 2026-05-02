@@ -20,6 +20,7 @@ import {
 } from 'lucide-react'
 import walletIcon from '@/assets/wallet.svg'
 import { useWalletStore, formatTonAmount } from '@/stores/wallet'
+import type { WalletTransaction } from '@shared/types'
 import { useTabsStore } from '@/stores/tabs'
 import { truncateAddress } from '@/lib/format'
 import { TransactionList } from '@/components/wallet/TransactionList'
@@ -254,58 +255,16 @@ export function WalletSidebar({ onClose }: WalletSidebarProps) {
 
       {view === 'overview' && (
         <>
-          {/* Balance */}
-          <div className="px-4 pt-4 pb-2 text-center">
-            <p className="text-3xl font-bold text-foreground tracking-tight">{formatTonAmount(balance)}</p>
-            <p className="text-xs text-muted-foreground mt-0.5">TON</p>
-          </div>
-
-          {/* Address */}
-          <div className="px-4 pb-3">
-            <button
-              type="button"
-              onClick={handleCopyAddress}
-              className="w-full flex items-center justify-center gap-1.5 text-xs text-muted-foreground
-                hover:text-foreground transition-colors font-mono"
-              title={address}
-            >
-              <span>{truncateAddress(address, 8, 6)}</span>
-              {copied ? <Check className="h-3 w-3 text-success" /> : <Copy className="h-3 w-3" />}
-            </button>
-          </div>
-
-          {/* Action buttons */}
-          <div className="px-4 pb-4 grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => setView('send')}
-              className="h-10 flex items-center justify-center gap-1.5 rounded-full bg-surface-hover
-                border border-border-medium text-sm font-medium text-foreground hover:bg-surface-active
-                transition-all duration-150"
-            >
-              <Send className="h-3.5 w-3.5" />
-              {t('tabs.send')}
-            </button>
-            <button
-              type="button"
-              onClick={() => setView('receive')}
-              className="h-10 flex items-center justify-center gap-1.5 rounded-full bg-surface-hover
-                border border-border-medium text-sm font-medium text-foreground hover:bg-surface-active
-                transition-all duration-150"
-            >
-              <Download className="h-3.5 w-3.5" />
-              {t('tabs.receive')}
-            </button>
-          </div>
-
-          {/* Transaction list */}
-          <div className="border-t border-border" />
-          <div className="flex-1 overflow-auto min-h-0 px-3">
-            <div className="py-3">
-              <h3 className="text-xs font-medium text-muted-foreground mb-2 px-1">{t('overview.recent')}</h3>
-              <TransactionList transactions={transactions} />
-            </div>
-          </div>
+          <SidebarOverviewBody
+            balance={balance}
+            address={address}
+            copied={copied}
+            handleCopyAddress={handleCopyAddress}
+            onSend={() => setView('send')}
+            onReceive={() => setView('receive')}
+            transactions={transactions}
+            t={t}
+          />
 
           {/* Footer */}
           <div className="px-4 py-3 border-t border-border">
@@ -334,5 +293,80 @@ export function WalletSidebar({ onClose }: WalletSidebarProps) {
         </div>
       )}
     </div>
+  )
+}
+
+interface SidebarOverviewBodyProps {
+  balance: string
+  address: string
+  copied: boolean
+  handleCopyAddress: () => void
+  onSend: () => void
+  onReceive: () => void
+  transactions: WalletTransaction[]
+  t: ReturnType<typeof useTranslation>['t']
+}
+
+function SidebarOverviewBody({
+  balance,
+  address,
+  copied,
+  handleCopyAddress,
+  onSend,
+  onReceive,
+  transactions,
+  t,
+}: SidebarOverviewBodyProps) {
+  return (
+    <>
+      <div className="px-4 pt-3 pb-2 text-center">
+        <p className="text-3xl font-bold text-foreground tracking-tight">{formatTonAmount(balance)}</p>
+        <p className="text-xs text-muted-foreground mt-0.5">TON</p>
+      </div>
+
+      <div className="px-4 pb-3">
+        <button
+          type="button"
+          onClick={handleCopyAddress}
+          className="w-full flex items-center justify-center gap-1.5 text-xs text-muted-foreground
+            hover:text-foreground transition-colors font-mono"
+          title={address}
+        >
+          <span>{truncateAddress(address, 8, 6)}</span>
+          {copied ? <Check className="h-3 w-3 text-success" /> : <Copy className="h-3 w-3" />}
+        </button>
+      </div>
+
+      <div className="px-4 pb-3 grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          onClick={onSend}
+          className="h-10 flex items-center justify-center gap-1.5 rounded-full bg-surface-hover
+            border border-border-medium text-sm font-medium text-foreground hover:bg-surface-active
+            transition-all duration-150"
+        >
+          <Send className="h-3.5 w-3.5" />
+          {t('tabs.send')}
+        </button>
+        <button
+          type="button"
+          onClick={onReceive}
+          className="h-10 flex items-center justify-center gap-1.5 rounded-full bg-surface-hover
+            border border-border-medium text-sm font-medium text-foreground hover:bg-surface-active
+            transition-all duration-150"
+        >
+          <Download className="h-3.5 w-3.5" />
+          {t('tabs.receive')}
+        </button>
+      </div>
+
+      <div className="border-t border-border mt-1" />
+      <div className="flex-1 overflow-auto min-h-0 px-3">
+        <div className="py-3">
+          <h3 className="text-xs font-medium text-muted-foreground mb-2 px-1">{t('overview.recent')}</h3>
+          <TransactionList transactions={transactions} />
+        </div>
+      </div>
+    </>
   )
 }
