@@ -21,6 +21,20 @@
       "version": "v1.4.1",
       "entry_point": "./cli/",
       "ldflags": "-s -w"
+    },
+    {
+      "name": "gocoon",
+      "repo": "TONresistor/gocoon",
+      "version": "v0.1.0",
+      "entry_point": "./cmd/gocoon",
+      "ldflags": "-s -w -X 'github.com/TONresistor/gocoon/pkg/cocoon.Version=${VERSION}'"
+    },
+    {
+      "name": "cocoon-runner",
+      "repo": "TONresistor/gocoon",
+      "version": "v0.1.0",
+      "entry_point": "./cmd/gocoon-runner",
+      "ldflags": "-s -w -X 'github.com/TONresistor/gocoon/pkg/cocoon.Version=${VERSION}'"
     }
   ]
 }
