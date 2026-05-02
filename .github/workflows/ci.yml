@@ -98,32 +98,56 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4
         with:
-          fetch-depth: 2
+          fetch-depth: 0
 
       - name: Send Telegram notification
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: '-1003461541563'
           VALIDATE_RESULT: ${{ needs.validate.result }}
+          BEFORE_SHA: ${{ github.event.before }}
+          AFTER_SHA: ${{ github.event.after }}
         run: |
           if [ -z "$TELEGRAM_BOT_TOKEN" ]; then
             echo "Telegram bot token not configured, skipping"
             exit 0
           fi
-          COMMIT_TITLE=$(git log -1 --pretty=format:'%s')
-          COMMIT_DESC=$(git log -1 --pretty=format:'%b' | head -20)
-          COMMIT_SHA=$(git rev-parse --short HEAD)
-          COMMIT_URL="${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}"
-          TEXT="<b>[Desktop] ${COMMIT_TITLE}</b>"
-          if [ -n "$COMMIT_DESC" ]; then
-            printf -v TEXT '%s\n\n%s' "$TEXT" "$COMMIT_DESC"
+
+          send() {
+            local sha=$1 title body short url TEXT
+            title=$(git log -1 --pretty=format:'%s' "$sha")
+            body=$(git log -1 --pretty=format:'%b' "$sha" | head -20)
+            short=$(git rev-parse --short "$sha")
+            url="${{ github.server_url }}/${{ github.repository }}/commit/$sha"
+            TEXT="<b>[Desktop] $title</b>"
+            [ -n "$body" ] && printf -v TEXT '%s\n\n%s' "$TEXT" "$body"
+            printf -v TEXT '%s\n\n<a href="%s">View commit %s</a>' "$TEXT" "$url" "$short"
+            curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+              -d chat_id="${TELEGRAM_CHAT_ID}" \
+              -d parse_mode="HTML" \
+              -d disable_web_page_preview="true" \
+              -d text="$TEXT"
+          }
+
+          # Validate failed/cancelled: single fallback notif on HEAD
+          if [ "$VALIDATE_RESULT" != "success" ]; then
+            send "$AFTER_SHA"
+            exit 0
           fi
-          printf -v TEXT '%s\n\n<a href="%s">View commit %s</a>' "$TEXT" "$COMMIT_URL" "$COMMIT_SHA"
-          curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
-            -d chat_id="${TELEGRAM_CHAT_ID}" \
-            -d parse_mode="HTML" \
-            -d disable_web_page_preview="true" \
-            -d text="${TEXT}"
+
+          # Validate succeeded: notify per commit in the pushed range
+          NULL_SHA="0000000000000000000000000000000000000000"
+          if [ "$BEFORE_SHA" = "$NULL_SHA" ] || ! git merge-base --is-ancestor "$BEFORE_SHA" "$AFTER_SHA" 2>/dev/null; then
+            COMMITS=$(git log --reverse --pretty=format:'%H' --max-count=20 "$AFTER_SHA")
+          else
+            COMMITS=$(git log --reverse --pretty=format:'%H' "$BEFORE_SHA..$AFTER_SHA")
+          fi
+
+          while IFS= read -r sha; do
+            [ -z "$sha" ] && continue
+            send "$sha"
+            sleep 1
+          done <<< "$COMMITS"
 
   # ─────────────────────────────────────────────
   # Dependency review (PRs only)
