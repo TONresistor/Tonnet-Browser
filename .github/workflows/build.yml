@@ -84,7 +84,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v5
         with:
-          go-version: '1.24'
+          go-version: '1.25'
 
       - name: Cache Electron binary
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v4
