@@ -19,6 +19,7 @@ import { getSetting, loadSettings, saveSettings } from './settings'
 import { startProxySequence } from './proxy/startup'
 import { initUpdater } from './updater'
 import { createServices, destroyServices, type ServiceRegistry } from './services'
+import { loadCocoonWallet } from './cocoon/wallet'
 import {
   DEFAULT_WINDOW_WIDTH,
   DEFAULT_WINDOW_HEIGHT,
@@ -222,7 +223,7 @@ function createWindow(): void {
   // Security: Add Content-Security-Policy for main window (React UI)
   // Dev mode uses Report-Only to avoid breaking HMR/hot reload
   const cspPolicy =
-    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'"
+    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' http://127.0.0.1:*"
   const cspHeader = is.dev ? 'Content-Security-Policy-Report-Only' : 'Content-Security-Policy'
   mainWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
     callback({
@@ -484,6 +485,7 @@ app.whenReady().then(() => {
     services.walletManager.init().catch((e) => log.error('Wallet init failed:', e))
     services.paymentPolicyStore.init().catch((e) => log.error('Payment policy init failed:', e))
     services.bridgeInterceptor.init()
+    autostartCocoonIfEnabled().catch((e) => log.error('Cocoon autostart failed:', e))
   })
   createWindow()
 
@@ -493,6 +495,35 @@ app.whenReady().then(() => {
     }
   })
 })
+
+const COCOON_ROOT_MAINNET = 'EQCns7bYSp0igFvS1wpb5wsZjCKCV19MD5AVzI4EyxsnU73k'
+
+/**
+ * Start the Cocoon runner at boot if the user has opted in via settings AND
+ * the wallet has finished setup. Fired after the WS bridge becomes ready,
+ * so the runner sees a connected proxy/bridge/storage stack.
+ */
+async function autostartCocoonIfEnabled(): Promise<void> {
+  if (!services) return
+  const { autostart } = getSetting('cocoon')
+  if (!autostart) return
+  const data = await loadCocoonWallet()
+  // Only auto-start when the user has already completed the setup wizard.
+  if (!data || data.setupCompletedAt == null) {
+    log.info('Cocoon autostart skipped (no completed wallet)')
+    return
+  }
+  log.info('Cocoon autostart: launching runner...')
+  try {
+    await services.cocoonManager.start({
+      ownerAddress: data.ownerAddress,
+      nodeWalletKeyBase64: data.nodeSecretBase64,
+      rootContractAddress: COCOON_ROOT_MAINNET,
+    })
+  } catch (err) {
+    log.error('Cocoon autostart failed:', err)
+  }
+}
 
 let isCleaningUp = false
 

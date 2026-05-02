@@ -232,6 +232,15 @@ export class WalletManager extends EventEmitter {
   }
 
   /**
+   * Expose the connected bridge client for use by other subsystems (e.g.
+   * Cocoon setup) that need blockchain access without owning their own
+   * WsBridgeClient instance. Returns null before wallet init completes.
+   */
+  getBridgeClient(): WsBridgeClient | null {
+    return this.wsBridge
+  }
+
+  /**
    * Retry getBalance until the wallet's shard liteserver responds.
    * The WS transport probe (getMasterchainInfo) validates the masterchain
    * connection but the wallet lives on a specific shard that may need a

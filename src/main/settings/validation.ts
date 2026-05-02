@@ -15,6 +15,7 @@ import {
   AdvancedSettingsPartialSchema,
   WalletSettingsPartialSchema,
   BridgeSettingsPartialSchema,
+  CocoonSettingsPartialSchema,
 } from '../../shared/types'
 import { DEFAULT_SETTINGS } from '../../shared/defaults'
 import { createLogger } from '../../shared/logger'
@@ -31,6 +32,7 @@ export const SETTINGS_CATEGORIES: ReadonlyArray<keyof AppSettings> = [
   'advanced',
   'wallet',
   'bridge',
+  'cocoon',
 ]
 
 /**
@@ -65,6 +67,7 @@ export function validateCategoryValues<K extends keyof AppSettings>(
     advanced: AdvancedSettingsPartialSchema,
     wallet: WalletSettingsPartialSchema,
     bridge: BridgeSettingsPartialSchema,
+    cocoon: CocoonSettingsPartialSchema,
   }
   const schema = schemas[category]
   if (!schema) {
@@ -222,6 +225,9 @@ export function getDefaultSettingsBase(): AppSettings {
     bridge: {
       permissions: [],
       defaultPolicy: 'ask',
+    },
+    cocoon: {
+      autostart: d.cocoon.autostart,
     },
   }
 }

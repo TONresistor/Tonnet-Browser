@@ -212,6 +212,29 @@ vi.mock('../../bridge/permission-store', () => ({
   BridgePermissionStore: vi.fn(),
 }))
 
+// Mock cocoon wallet module (used by new COCOON_WALLET_* handlers)
+vi.mock('../../cocoon/wallet', () => ({
+  hasCocoonWallet: vi.fn(() => Promise.resolve(false)),
+  generateCocoonWallet: vi.fn(() => Promise.resolve({ ownerAddress: 'EQOwner', nodeAddress: 'EQNode', mnemonic: [] })),
+  getCocoonWalletInfo: vi.fn(() => Promise.resolve(null)),
+  exportCocoonMnemonic: vi.fn(() => Promise.resolve([])),
+  deleteCocoonWallet: vi.fn(() => Promise.resolve()),
+  loadCocoonWallet: vi.fn(() => Promise.resolve(null)),
+  markSetupComplete: vi.fn(() => Promise.resolve()),
+}))
+
+// Mock cocoon setup module (used by COCOON_SETUP_* handlers)
+vi.mock('../../cocoon/setup', () => ({
+  getOwnerBalance: vi.fn(() => Promise.resolve(0n)),
+  getCocoonWalletBalance: vi.fn(() => Promise.resolve(0n)),
+  fundCocoonFromOwner: vi.fn(() => Promise.resolve({ bocHash: 'hash', seqno: 0, sentAmount: 0n })),
+}))
+
+// Mock cocoon platform (used by COCOON_AVAILABILITY handler)
+vi.mock('../../cocoon/platform', () => ({
+  checkCocoonAvailability: vi.fn(() => ({ available: false, reason: 'platform', message: 'Linux only' })),
+}))
+
 // Import after mocks
 import { registerIpcHandlers, _resetHandlersForTesting } from '../handlers'
 import { IPC_CHANNELS } from '../../../shared/types'
@@ -219,6 +242,16 @@ import { addBag, removeBag, listBags } from '../../storage/bags'
 import { setSetting, resetSettings } from '../../settings'
 import { createTab, closeTab, switchTab, navigateInTab } from '../../windows/tabs'
 import type { ServiceRegistry } from '../../services'
+import {
+  hasCocoonWallet,
+  generateCocoonWallet,
+  getCocoonWalletInfo,
+  exportCocoonMnemonic,
+  deleteCocoonWallet,
+  loadCocoonWallet,
+  markSetupComplete,
+} from '../../cocoon/wallet'
+import { getOwnerBalance, getCocoonWalletBalance, fundCocoonFromOwner } from '../../cocoon/setup'
 
 // Build mock service registry from the mock emitters
 const mockProxyManager = (() => {
@@ -266,6 +299,7 @@ function createMockRegistry(): ServiceRegistry {
       on: vi.fn(),
       getState: vi.fn(() => ({ isCreated: false })),
       setAutoLockMinutes: vi.fn(),
+      getBridgeClient: vi.fn(() => null),
     } as any,
     walletHistoryManager: { add: vi.fn(), getRecent: vi.fn(), merge: vi.fn(), clear: vi.fn() } as any,
     paymentInterceptor: { approvePayment: vi.fn(), rejectPayment: vi.fn(), registerOnSession: vi.fn() } as any,
@@ -302,6 +336,37 @@ function createMockRegistry(): ServiceRegistry {
       setCategoryEnabled: vi.fn(),
       applySettings: vi.fn(),
     } as any,
+    cocoonManager: (() => {
+      const emitter = new EventEmitter()
+      return Object.assign(emitter, {
+        getState: vi.fn(() => ({ kind: 'stopped' })),
+        getHttpPort: vi.fn(() => 10000),
+        start: vi.fn(() => Promise.resolve()),
+        stop: vi.fn(() => Promise.resolve()),
+        on: emitter.on.bind(emitter),
+        emit: emitter.emit.bind(emitter),
+      })
+    })() as any,
+    withdrawDriver: (() => {
+      const emitter = new EventEmitter()
+      return Object.assign(emitter, {
+        start: vi.fn(),
+        stop: vi.fn(),
+        triggerTick: vi.fn(),
+        on: emitter.on.bind(emitter),
+        emit: emitter.emit.bind(emitter),
+      })
+    })() as any,
+    recoveryDriver: (() => {
+      const emitter = new EventEmitter()
+      return Object.assign(emitter, {
+        start: vi.fn(),
+        stop: vi.fn(),
+        triggerTick: vi.fn(),
+        on: emitter.on.bind(emitter),
+        emit: emitter.emit.bind(emitter),
+      })
+    })() as any,
   }
 }
 
@@ -552,5 +617,362 @@ describe('Security - Input Validation', () => {
 
     expect(result.success).toBe(false)
     expect(addBag).not.toHaveBeenCalled()
+  })
+})
+
+// ─── Cocoon AI Handlers ──────────────────────────────────────────────────────
+
+/**
+ * Wallet data fixture reused across Cocoon handler tests.
+ * nodeSecretBase64 maps to nodeWalletKeyBase64 in CocoonConfig (the field rename
+ * happens inside the COCOON_START handler before calling cocoonManager.start()).
+ */
+const MOCK_COCOON_WALLET = {
+  ownerMnemonic: ['word1', 'word2'],
+  nodeSecretBase64: 'c2VjcmV0YmFzZTY0',
+  nodePublicKeyHex: 'aabbccdd',
+  ownerAddress: 'EQCns7bYSp0igFvS1wpb5wsZjCKCV19MD5AVzI4EyxsnU73k',
+  nodeAddress: 'EQCns7bYSp0igFvS1wpb5wsZjCKCV19MD5AVzI4EyxsnU73k',
+  createdAt: 1_700_000_000_000,
+}
+
+const COCOON_ROOT_MAINNET = 'EQCns7bYSp0igFvS1wpb5wsZjCKCV19MD5AVzI4EyxsnU73k'
+
+describe('Cocoon AI Handlers', () => {
+  beforeEach(resetHandlersTestEnv)
+
+  // ── COCOON_START ────────────────────────────────────────────────────────────
+
+  describe('COCOON_START', () => {
+    it('reads wallet from disk and calls cocoonManager.start with correct params', async () => {
+      vi.mocked(loadCocoonWallet).mockResolvedValueOnce(MOCK_COCOON_WALLET)
+      const handler = mockHandlers.get(IPC_CHANNELS.COCOON_START)!
+
+      const result = await handler(createMockEvent())
+
+      expect(result.success).toBe(true)
+      expect(result.httpPort).toBe(10000)
+      expect(mockRegistry.cocoonManager.start).toHaveBeenCalledWith({
+        ownerAddress: MOCK_COCOON_WALLET.ownerAddress,
+        nodeWalletKeyBase64: MOCK_COCOON_WALLET.nodeSecretBase64,
+        rootContractAddress: COCOON_ROOT_MAINNET,
+      })
+    })
+
+    it('does not expose any secret values in the success envelope', async () => {
+      vi.mocked(loadCocoonWallet).mockResolvedValueOnce(MOCK_COCOON_WALLET)
+      const handler = mockHandlers.get(IPC_CHANNELS.COCOON_START)!
+
+      const result = await handler(createMockEvent())
+
+      expect(result).not.toHaveProperty('ownerMnemonic')
+      expect(result).not.toHaveProperty('nodeSecretBase64')
+      expect(result).not.toHaveProperty('nodeWalletKeyBase64')
+    })
+
+    it('returns error when wallet is not initialized', async () => {
+      // loadCocoonWallet returns null by default (factory mock)
+      const handler = mockHandlers.get(IPC_CHANNELS.COCOON_START)!
+
+      const result = await handler(createMockEvent())
+
+      expect(result.success).toBe(false)
+      expect(result.error).toContain('Cocoon wallet not initialized')
+      expect(mockRegistry.cocoonManager.start).not.toHaveBeenCalled()
+    })
+
+    it('is idempotent when manager is already in ready state', async () => {
+      // Manager already running: don't re-spawn, just return current port.
+      vi.mocked(mockRegistry.cocoonManager.getState).mockReturnValueOnce({
+        kind: 'ready',
+        httpPort: 10000,
+      })
+      const handler = mockHandlers.get(IPC_CHANNELS.COCOON_START)!
+
+      const result = await handler(createMockEvent())
+
+      expect(result.success).toBe(true)
+      expect(result.httpPort).toBe(10000)
+      expect(mockRegistry.cocoonManager.start).not.toHaveBeenCalled()
+      // loadCocoonWallet is also skipped — no reason to read secrets when
+      // we're not starting anything.
+      expect(loadCocoonWallet).not.toHaveBeenCalled()
+    })
+
+    it('returns error without calling start() when manager is already starting', async () => {
+      vi.mocked(mockRegistry.cocoonManager.getState).mockReturnValueOnce({
+        kind: 'starting',
+        phase: 'client-runner',
+      })
+      const handler = mockHandlers.get(IPC_CHANNELS.COCOON_START)!
+
+      const result = await handler(createMockEvent())
+
+      expect(result.success).toBe(false)
+      expect(result.error).toContain('Already starting')
+      expect(mockRegistry.cocoonManager.start).not.toHaveBeenCalled()
+      expect(loadCocoonWallet).not.toHaveBeenCalled()
+    })
+
+    it('calls stop() to reset then calls start() when manager is in crashed state', async () => {
+      vi.mocked(mockRegistry.cocoonManager.getState).mockReturnValueOnce({
+        kind: 'crashed',
+        error: 'runner exited (code=1)',
+      })
+      vi.mocked(loadCocoonWallet).mockResolvedValueOnce(MOCK_COCOON_WALLET)
+      const handler = mockHandlers.get(IPC_CHANNELS.COCOON_START)!
+
+      const result = await handler(createMockEvent())
+
+      expect(mockRegistry.cocoonManager.stop).toHaveBeenCalledTimes(1)
+      expect(result.success).toBe(true)
+      expect(mockRegistry.cocoonManager.start).toHaveBeenCalledTimes(1)
+    })
+  })
+
+  // ── COCOON_WALLET_EXISTS ────────────────────────────────────────────────────
+
+  describe('COCOON_WALLET_EXISTS', () => {
+    it('returns true when wallet exists on disk', async () => {
+      vi.mocked(hasCocoonWallet).mockResolvedValueOnce(true)
+      const handler = mockHandlers.get(IPC_CHANNELS.COCOON_WALLET_EXISTS)!
+
+      const result = await handler(createMockEvent())
+
+      expect(result).toBe(true)
+    })
+
+    it('returns false when no wallet exists', async () => {
+      // hasCocoonWallet default mock returns false
+      const handler = mockHandlers.get(IPC_CHANNELS.COCOON_WALLET_EXISTS)!
+
+      const result = await handler(createMockEvent())
+
+      expect(result).toBe(false)
+    })
+  })
+
+  // ── COCOON_WALLET_CREATE ────────────────────────────────────────────────────
+
+  describe('COCOON_WALLET_CREATE', () => {
+    it('returns ownerAddress, nodeAddress, and mnemonic for one-time display', async () => {
+      vi.mocked(generateCocoonWallet).mockResolvedValueOnce({
+        ownerAddress: 'EQOwner',
+        nodeAddress: 'EQNode',
+        mnemonic: ['word1', 'word2', 'word3'],
+      })
+      const handler = mockHandlers.get(IPC_CHANNELS.COCOON_WALLET_CREATE)!
+
+      const result = await handler(createMockEvent())
+
+      expect(result).toEqual({
+        ownerAddress: 'EQOwner',
+        nodeAddress: 'EQNode',
+        mnemonic: ['word1', 'word2', 'word3'],
+      })
+      expect(generateCocoonWallet).toHaveBeenCalledTimes(1)
+    })
+
+    it('does not include raw secrets in the result envelope', async () => {
+      vi.mocked(generateCocoonWallet).mockResolvedValueOnce({
+        ownerAddress: 'EQOwner',
+        nodeAddress: 'EQNode',
+        mnemonic: [],
+      })
+      const handler = mockHandlers.get(IPC_CHANNELS.COCOON_WALLET_CREATE)!
+
+      const result = await handler(createMockEvent())
+
+      expect(result).not.toHaveProperty('nodeSecretBase64')
+      expect(result).not.toHaveProperty('nodePublicKeyHex')
+    })
+  })
+
+  // ── COCOON_WALLET_INFO ──────────────────────────────────────────────────────
+
+  describe('COCOON_WALLET_INFO', () => {
+    it('returns the public-safe wallet info when a wallet exists', async () => {
+      const info = {
+        ownerAddress: 'EQOwner',
+        nodeAddress: 'EQNode',
+        nodePublicKeyHex: 'aabb',
+        createdAt: 1_700_000_000_000,
+      }
+      vi.mocked(getCocoonWalletInfo).mockResolvedValueOnce(info)
+      const handler = mockHandlers.get(IPC_CHANNELS.COCOON_WALLET_INFO)!
+
+      const result = await handler(createMockEvent())
+
+      expect(result).toEqual(info)
+      // Secrets must not leak
+      expect(result).not.toHaveProperty('ownerMnemonic')
+      expect(result).not.toHaveProperty('nodeSecretBase64')
+    })
+
+    it('returns null when no wallet exists', async () => {
+      // getCocoonWalletInfo default mock returns null
+      const handler = mockHandlers.get(IPC_CHANNELS.COCOON_WALLET_INFO)!
+
+      const result = await handler(createMockEvent())
+
+      expect(result).toBeNull()
+    })
+  })
+
+  // ── COCOON_WALLET_EXPORT_MNEMONIC ───────────────────────────────────────────
+
+  describe('COCOON_WALLET_EXPORT_MNEMONIC', () => {
+    it('returns the 24-word mnemonic list', async () => {
+      const words = Array.from({ length: 24 }, (_, i) => `word${i + 1}`)
+      vi.mocked(exportCocoonMnemonic).mockResolvedValueOnce(words)
+      const handler = mockHandlers.get(IPC_CHANNELS.COCOON_WALLET_EXPORT_MNEMONIC)!
+
+      const result = await handler(createMockEvent())
+
+      expect(result).toEqual(words)
+      expect(result).toHaveLength(24)
+    })
+  })
+
+  // ── COCOON_WALLET_DELETE ────────────────────────────────────────────────────
+
+  describe('COCOON_WALLET_DELETE', () => {
+    it('delegates to deleteCocoonWallet', async () => {
+      const handler = mockHandlers.get(IPC_CHANNELS.COCOON_WALLET_DELETE)!
+
+      await handler(createMockEvent())
+
+      expect(deleteCocoonWallet).toHaveBeenCalledTimes(1)
+    })
+  })
+
+  // ── COCOON_WALLET_MARK_SETUP_COMPLETE ───────────────────────────────────────
+
+  describe('COCOON_WALLET_MARK_SETUP_COMPLETE', () => {
+    it('delegates to markSetupComplete', async () => {
+      const handler = mockHandlers.get(IPC_CHANNELS.COCOON_WALLET_MARK_SETUP_COMPLETE)!
+
+      await handler(createMockEvent())
+
+      expect(markSetupComplete).toHaveBeenCalledTimes(1)
+    })
+
+    it('surfaces underlying errors as IPC envelope', async () => {
+      vi.mocked(markSetupComplete).mockRejectedValueOnce(new Error('storage unavailable'))
+      const handler = mockHandlers.get(IPC_CHANNELS.COCOON_WALLET_MARK_SETUP_COMPLETE)!
+
+      const result = await handler(createMockEvent())
+
+      expect(result.success).toBe(false)
+      expect(result.error).toContain('storage unavailable')
+    })
+  })
+
+  // ── COCOON_SETUP_OWNER_BALANCE ──────────────────────────────────────────────
+
+  describe('COCOON_SETUP_OWNER_BALANCE', () => {
+    it('returns the balance as a decimal nano-TON string', async () => {
+      const mockBridge = { getBalance: vi.fn() }
+      vi.mocked(mockRegistry.walletManager.getBridgeClient).mockReturnValueOnce(mockBridge as any)
+      vi.mocked(getOwnerBalance).mockResolvedValueOnce(1_000_000_000n)
+      const handler = mockHandlers.get(IPC_CHANNELS.COCOON_SETUP_OWNER_BALANCE)!
+
+      const result = await handler(createMockEvent())
+
+      expect(result).toBe('1000000000')
+      expect(getOwnerBalance).toHaveBeenCalledWith(mockBridge)
+    })
+
+    it('returns error when bridge is not connected', async () => {
+      // getBridgeClient returns null by default
+      const handler = mockHandlers.get(IPC_CHANNELS.COCOON_SETUP_OWNER_BALANCE)!
+
+      const result = await handler(createMockEvent())
+
+      expect(result.success).toBe(false)
+      expect(result.error).toContain('Bridge not connected')
+    })
+  })
+
+  // ── COCOON_SETUP_COCOON_BALANCE ─────────────────────────────────────────────
+
+  describe('COCOON_SETUP_COCOON_BALANCE', () => {
+    it('returns the cocoon node wallet balance as a decimal nano-TON string', async () => {
+      const mockBridge = { getBalance: vi.fn() }
+      vi.mocked(mockRegistry.walletManager.getBridgeClient).mockReturnValueOnce(mockBridge as any)
+      vi.mocked(getCocoonWalletBalance).mockResolvedValueOnce(19_500_000_000n)
+      const handler = mockHandlers.get(IPC_CHANNELS.COCOON_SETUP_COCOON_BALANCE)!
+
+      const result = await handler(createMockEvent())
+
+      expect(result).toBe('19500000000')
+      expect(getCocoonWalletBalance).toHaveBeenCalledWith(mockBridge)
+    })
+
+    it('returns error when bridge is not connected', async () => {
+      const handler = mockHandlers.get(IPC_CHANNELS.COCOON_SETUP_COCOON_BALANCE)!
+
+      const result = await handler(createMockEvent())
+
+      expect(result.success).toBe(false)
+      expect(result.error).toContain('Bridge not connected')
+    })
+  })
+
+  // ── COCOON_SETUP_FUND_COCOON ────────────────────────────────────────────────
+
+  describe('COCOON_SETUP_FUND_COCOON', () => {
+    it("'max' branch: passes 'max' to fundCocoonFromOwner and stringifies sentAmount", async () => {
+      const mockBridge = {}
+      vi.mocked(mockRegistry.walletManager.getBridgeClient).mockReturnValueOnce(mockBridge as any)
+      vi.mocked(fundCocoonFromOwner).mockResolvedValueOnce({
+        bocHash: 'abc123',
+        seqno: 5,
+        sentAmount: 1_500_000_000n,
+      })
+      const handler = mockHandlers.get(IPC_CHANNELS.COCOON_SETUP_FUND_COCOON)!
+
+      const result = await handler(createMockEvent(), { amount: 'max' })
+
+      expect(result).toEqual({ bocHash: 'abc123', seqno: 5, sentAmount: '1500000000' })
+      expect(fundCocoonFromOwner).toHaveBeenCalledWith(mockBridge, 'max')
+    })
+
+    it('explicit amount: converts decimal string to BigInt before delegating', async () => {
+      const mockBridge = {}
+      vi.mocked(mockRegistry.walletManager.getBridgeClient).mockReturnValueOnce(mockBridge as any)
+      vi.mocked(fundCocoonFromOwner).mockResolvedValueOnce({
+        bocHash: 'def456',
+        seqno: 3,
+        sentAmount: 15_000_000_000n,
+      })
+      const handler = mockHandlers.get(IPC_CHANNELS.COCOON_SETUP_FUND_COCOON)!
+
+      const result = await handler(createMockEvent(), { amount: '15000000000' })
+
+      expect(result).toEqual({ bocHash: 'def456', seqno: 3, sentAmount: '15000000000' })
+      expect(fundCocoonFromOwner).toHaveBeenCalledWith(mockBridge, 15_000_000_000n)
+    })
+
+    it('returns error for a non-numeric amount string', async () => {
+      const mockBridge = {}
+      vi.mocked(mockRegistry.walletManager.getBridgeClient).mockReturnValueOnce(mockBridge as any)
+      const handler = mockHandlers.get(IPC_CHANNELS.COCOON_SETUP_FUND_COCOON)!
+
+      const result = await handler(createMockEvent(), { amount: 'not-a-number' })
+
+      expect(result.success).toBe(false)
+      expect(result.error).toBeDefined()
+    })
+
+    it('returns error when bridge is not connected', async () => {
+      // getBridgeClient returns null by default
+      const handler = mockHandlers.get(IPC_CHANNELS.COCOON_SETUP_FUND_COCOON)!
+
+      const result = await handler(createMockEvent(), { amount: 'max' })
+
+      expect(result.success).toBe(false)
+      expect(result.error).toContain('Bridge not connected')
+    })
   })
 })

@@ -203,7 +203,7 @@ describe('services composition root', () => {
   })
 
   it('registry has exactly the expected number of services', () => {
-    expect(Object.keys(registry)).toHaveLength(13)
+    expect(Object.keys(registry)).toHaveLength(16)
   })
 
   it('walletManager receives secureStorage dependency', () => {

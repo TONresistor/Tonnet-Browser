@@ -20,6 +20,7 @@ import {
   registerErrorHandlers,
   registerWalletHandlers,
   registerBridgeHandlers,
+  registerCocoonHandlers,
 } from './handlers/index'
 
 // Re-export for use by other modules (e.g. updater.ts, payment-interceptor.ts)
@@ -53,4 +54,5 @@ export function registerIpcHandlers(registry: ServiceRegistry): void {
   registerErrorHandlers()
   registerWalletHandlers(registry)
   registerBridgeHandlers(registry)
+  registerCocoonHandlers(registry)
 }

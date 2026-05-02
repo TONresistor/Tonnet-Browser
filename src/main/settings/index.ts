@@ -119,6 +119,9 @@ export function getDefaultSettings(): AppSettings {
       permissions: [],
       defaultPolicy: 'ask',
     },
+    cocoon: {
+      autostart: DEFAULT_SETTINGS.cocoon.autostart,
+    },
   }
 }
 
