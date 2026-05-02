@@ -4,6 +4,16 @@
  */
 
 import type { AppSettings, StorageBag, BagDetails, WalletState, WalletTransaction } from '../shared/types'
+import type {
+  CocoonState,
+  CocoonAvailability,
+  CocoonPendingWithdraw,
+  CocoonStakeInfo,
+  CocoonCashoutResult,
+  CocoonRecoveryAllResult,
+} from '../shared/cocoon-types'
+
+type IpcError = { success: false; error?: string }
 
 declare global {
   interface Window {
@@ -269,6 +279,116 @@ declare global {
       }
       dns: {
         resolve(domain: string): Promise<import('../shared/types').DnsResolveResult>
+      }
+      cocoon: {
+        availability: () => Promise<CocoonAvailability>
+        status: () => Promise<CocoonState>
+        /** Reads secrets from disk; takes no params. */
+        start: () => Promise<{ success: boolean; httpPort?: number; error?: string }>
+        stop: () => Promise<{ success: boolean; error?: string }>
+        // Wallet management
+        walletExists: () => Promise<boolean>
+        walletCreate: () => Promise<{
+          ownerAddress: string
+          nodeAddress: string
+          /** One-time mnemonic display: caller must back it up immediately. */
+          mnemonic: string[]
+        }>
+        walletInfo: () => Promise<
+          | {
+              ownerAddress: string
+              nodeAddress: string
+              nodePublicKeyHex: string
+              createdAt: number
+              /** Timestamp when the setup wizard finished. null while wizard is still in progress. */
+              setupCompletedAt: number | null
+            }
+          | null
+          | IpcError
+        >
+        walletExportMnemonic: () => Promise<string[] | IpcError>
+        walletDelete: () => Promise<void | IpcError>
+        /** Mark setup wizard as complete (called after Step 4 succeeds). */
+        walletMarkSetupComplete: () => Promise<void | IpcError>
+        // Setup wizard
+        /** Returns the owner wallet balance as a decimal nano-TON string. */
+        getOwnerBalance: () => Promise<string>
+        /** Returns the cocoon node wallet balance as a decimal nano-TON string. */
+        getCocoonWalletBalance: () => Promise<string>
+        /** Fund the cocoon node wallet from the owner wallet. amount is decimal nano-TON or 'max'. */
+        fundCocoon: (amount: string | 'max') => Promise<{
+          bocHash: string
+          seqno: number
+          /** Actual sent amount as decimal nano-TON string. */
+          sentAmount: string
+        }>
+        // Stake lifecycle
+        /** Combined stake snapshot. Returns null when the runner has not yet registered with a proxy. */
+        stakeInfo: () => Promise<CocoonStakeInfo | null | IpcError>
+        /** Trigger on-chain unstake step. Behavior depends on current stake state. */
+        unstake: () => Promise<{ success: boolean; error?: string }>
+        /** Stop the runner and drain the cocoon node wallet residual back to the owner wallet. */
+        cashout: () => Promise<CocoonCashoutResult | IpcError>
+        /**
+         * Composite ACTIVATE flow: drains any prior cocoon residual, archives
+         * the prior wallet (mnemonic kept for recovery), generates a fresh
+         * cocoon_node identity, funds it from native, and starts the runner.
+         * Idempotent on already-active stakes — returns immediately.
+         *
+         * Why rotate: the upstream proxy worker permanently caches sc_status_
+         * per cocoon_node identity (see cocoon-v2 ProxyClientInfo).
+         */
+        flowStake: () => Promise<{ success: boolean; httpPort?: number; error?: string }>
+        /**
+         * Composite full-withdraw flow: arms the persistent pending-withdraw
+         * intent and sends the on-chain refund request. The driver auto-
+         * progresses through cooldown → claim → cashout.
+         */
+        flowUnstake: () => Promise<{ success: boolean; error?: string }>
+        /** Snapshot the persistent pending-withdraw intent (null if none). */
+        flowPending: () => Promise<CocoonPendingWithdraw | null | IpcError>
+        /** List archived cocoon identities (rotated out, kept for recovery). */
+        archiveList: () => Promise<
+          | Array<{
+              archivedAt: number
+              ownerAddress: string
+              nodeAddress: string
+              lastClientSCAddress: string | null
+            }>
+          | IpcError
+        >
+        /** Export the mnemonic of an archived identity (24 words). */
+        archiveExportMnemonic: (archivedAt: number) => Promise<{ mnemonic: string[] } | IpcError>
+        /**
+         * Enqueue an automatic recovery for an archived wallet's locked client
+         * SC. Sends the initial request_refund using the archived owner
+         * mnemonic, then the RecoveryDriver autonomously progresses through
+         * cooldown → claim → drain → done across app restarts.
+         */
+        recoveryEnqueue: (params: {
+          archivedAt: number
+          clientSCAddress: string
+        }) => Promise<{ success: true; refundBocHash: string } | IpcError>
+        /** List recovery queue entries (oldest first). */
+        recoveryList: () => Promise<
+          | Array<{
+              archivedAt: number
+              clientSCAddress: string
+              phase: 'refund-pending' | 'cooldown' | 'claim-pending' | 'drain-pending' | 'done' | 'failed'
+              addedAt: number
+              lastError?: string
+              unlockTs?: number
+              refundBocHash?: string
+              claimBocHash?: string
+              drainBocHash?: string
+              sentToMain?: string
+            }>
+          | IpcError
+        >
+        /** Remove a recovery queue entry (manual cleanup for stuck or completed entries). */
+        recoveryRemove: (archivedAt: number) => Promise<{ success: true } | IpcError>
+        /** Recover every immediately actionable Cocoon-controlled balance to the main wallet. */
+        recoveryAll: () => Promise<CocoonRecoveryAllResult | IpcError>
       }
       on: (channel: string, callback: (...args: unknown[]) => void) => () => void
       off: (channel: string, callback: (...args: unknown[]) => void) => void

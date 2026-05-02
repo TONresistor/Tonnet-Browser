@@ -88,4 +88,9 @@ export const DEFAULT_SETTINGS = {
     autoPayDomains: [] as string[],
     autoLockMinutes: 5,
   },
+
+  // Cocoon AI
+  cocoon: {
+    autostart: false,
+  },
 } as const

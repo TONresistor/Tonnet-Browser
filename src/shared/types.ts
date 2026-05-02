@@ -210,6 +210,7 @@ export type {
   CustomTheme,
   BridgePermission,
   BridgeSettings,
+  CocoonSettings,
 } from './schemas'
 export {
   GeneralSettingsSchema,
@@ -234,6 +235,8 @@ export {
   AdvancedSettingsPartialSchema,
   WalletSettingsPartialSchema,
   BridgeSettingsPartialSchema,
+  CocoonSettingsSchema,
+  CocoonSettingsPartialSchema,
   type BridgeScope,
   type BridgeDecision,
 } from './schemas'

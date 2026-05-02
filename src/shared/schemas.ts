@@ -169,6 +169,19 @@ export const BridgeSettingsSchema = z.object({
   defaultPolicy: z.enum(['ask', 'deny']).default('ask'),
 })
 
+export const CocoonSettingsSchema = z.object({
+  /** Start the Cocoon runner automatically once proxy + bridge + storage are ready. */
+  autostart: z.boolean().default(false),
+})
+
+export const CocoonSettingsPartialSchema = z
+  .object({
+    autostart: z.boolean(),
+  })
+  .partial()
+
+export type CocoonSettings = z.infer<typeof CocoonSettingsSchema>
+
 export const BridgeSettingsPartialSchema = z
   .object({
     permissions: z.array(BridgePermissionSchema),
@@ -200,6 +213,7 @@ export const AppSettingsSchema = z.object({
   advanced: withCategoryDefaults(AdvancedSettingsSchema),
   wallet: withCategoryDefaults(WalletSettingsSchema),
   bridge: withCategoryDefaults(BridgeSettingsSchema),
+  cocoon: withCategoryDefaults(CocoonSettingsSchema),
 })
 
 // Partial validation schemas (no defaults) -- used to validate SETTINGS_SET updates.

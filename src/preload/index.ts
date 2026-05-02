@@ -33,6 +33,10 @@ const VALID_EVENT_CHANNELS = [
   'wallet:payment-failed',
   'bookmarks:changed',
   IPC_CHANNELS.OVERLAY_ACTION,
+  IPC_CHANNELS.COCOON_STATE_CHANGED,
+  IPC_CHANNELS.COCOON_LOG,
+  IPC_CHANNELS.COCOON_WITHDRAW_EVENT,
+  IPC_CHANNELS.COCOON_RECOVERY_EVENT,
 ]
 
 // Custom APIs for renderer - exposed as window.electron
@@ -176,6 +180,46 @@ const electronAPI = {
   // DNS
   dns: {
     resolve: (domain: string) => ipcRenderer.invoke(IPC_CHANNELS.DNS_RESOLVE, domain),
+  },
+
+  // Cocoon AI
+  cocoon: {
+    availability: () => ipcRenderer.invoke(IPC_CHANNELS.COCOON_AVAILABILITY),
+    status: () => ipcRenderer.invoke(IPC_CHANNELS.COCOON_STATUS),
+    // No params: secrets are read from disk in the main process.
+    start: () => ipcRenderer.invoke(IPC_CHANNELS.COCOON_START),
+    stop: () => ipcRenderer.invoke(IPC_CHANNELS.COCOON_STOP),
+    // Wallet management
+    walletExists: () => ipcRenderer.invoke(IPC_CHANNELS.COCOON_WALLET_EXISTS),
+    walletCreate: () => ipcRenderer.invoke(IPC_CHANNELS.COCOON_WALLET_CREATE),
+    walletInfo: () => ipcRenderer.invoke(IPC_CHANNELS.COCOON_WALLET_INFO),
+    walletExportMnemonic: () => ipcRenderer.invoke(IPC_CHANNELS.COCOON_WALLET_EXPORT_MNEMONIC),
+    walletDelete: () => ipcRenderer.invoke(IPC_CHANNELS.COCOON_WALLET_DELETE),
+    walletMarkSetupComplete: () => ipcRenderer.invoke(IPC_CHANNELS.COCOON_WALLET_MARK_SETUP_COMPLETE),
+    // Setup wizard
+    getOwnerBalance: () => ipcRenderer.invoke(IPC_CHANNELS.COCOON_SETUP_OWNER_BALANCE),
+    getCocoonWalletBalance: () => ipcRenderer.invoke(IPC_CHANNELS.COCOON_SETUP_COCOON_BALANCE),
+    fundCocoon: (amount: string | 'max') => ipcRenderer.invoke(IPC_CHANNELS.COCOON_SETUP_FUND_COCOON, { amount }),
+    // Stake lifecycle (atomic primitives)
+    stakeInfo: () => ipcRenderer.invoke(IPC_CHANNELS.COCOON_STAKE_INFO),
+    unstake: () => ipcRenderer.invoke(IPC_CHANNELS.COCOON_STAKE_UNSTAKE),
+    cashout: () => ipcRenderer.invoke(IPC_CHANNELS.COCOON_STAKE_CASHOUT),
+    // Composite flows (single user actions). flowStake = activate: rotates
+    // wallet (archives old, regens fresh) before staking, because the upstream
+    // proxy worker permanently caches identity status.
+    flowStake: () => ipcRenderer.invoke(IPC_CHANNELS.COCOON_FLOW_STAKE),
+    flowUnstake: () => ipcRenderer.invoke(IPC_CHANNELS.COCOON_FLOW_UNSTAKE),
+    flowPending: () => ipcRenderer.invoke(IPC_CHANNELS.COCOON_FLOW_PENDING),
+    // Archive of consumed wallets (rotated out; kept for upstream-restart recovery)
+    archiveList: () => ipcRenderer.invoke(IPC_CHANNELS.COCOON_ARCHIVE_LIST),
+    archiveExportMnemonic: (archivedAt: number) =>
+      ipcRenderer.invoke(IPC_CHANNELS.COCOON_ARCHIVE_EXPORT_MNEMONIC, { archivedAt }),
+    // Recovery: drain TON locked in archived-wallet client SCs back to native.
+    recoveryEnqueue: (params: { archivedAt: number; clientSCAddress: string }) =>
+      ipcRenderer.invoke(IPC_CHANNELS.COCOON_RECOVERY_ENQUEUE, params),
+    recoveryList: () => ipcRenderer.invoke(IPC_CHANNELS.COCOON_RECOVERY_LIST),
+    recoveryRemove: (archivedAt: number) => ipcRenderer.invoke(IPC_CHANNELS.COCOON_RECOVERY_REMOVE, { archivedAt }),
+    recoveryAll: () => ipcRenderer.invoke(IPC_CHANNELS.COCOON_RECOVERY_ALL),
   },
 
   // Updater

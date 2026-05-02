@@ -114,6 +114,48 @@ export const IPC_CHANNELS = {
   BRIDGE_SET_CONFIG: 'bridge:set-config',
   BRIDGE_RESTART: 'bridge:restart',
 
+  // Cocoon AI lifecycle
+  COCOON_START: 'cocoon:start',
+  COCOON_STOP: 'cocoon:stop',
+  COCOON_STATUS: 'cocoon:status',
+  COCOON_AVAILABILITY: 'cocoon:availability',
+  // Cocoon wallet management
+  COCOON_WALLET_EXISTS: 'cocoon:wallet:exists',
+  COCOON_WALLET_CREATE: 'cocoon:wallet:create',
+  COCOON_WALLET_INFO: 'cocoon:wallet:info',
+  COCOON_WALLET_EXPORT_MNEMONIC: 'cocoon:wallet:export-mnemonic',
+  COCOON_WALLET_DELETE: 'cocoon:wallet:delete',
+  COCOON_WALLET_MARK_SETUP_COMPLETE: 'cocoon:wallet:mark-setup-complete',
+  // Cocoon setup (owner-funded flow)
+  COCOON_SETUP_OWNER_BALANCE: 'cocoon:setup:owner-balance',
+  COCOON_SETUP_COCOON_BALANCE: 'cocoon:setup:cocoon-balance',
+  COCOON_SETUP_FUND_COCOON: 'cocoon:setup:fund-cocoon',
+  // Cocoon stake lifecycle (atomic primitives — kept for the wizard and debug)
+  COCOON_STAKE_INFO: 'cocoon:stake:info',
+  COCOON_STAKE_UNSTAKE: 'cocoon:stake:unstake',
+  COCOON_STAKE_CASHOUT: 'cocoon:stake:cashout',
+  // Cocoon composite flows (single-click user actions). flow:stake is the
+  // ACTIVATE flow: it transparently archives any prior wallet, rotates to a
+  // fresh cocoon_node identity, funds, and stakes — because the upstream
+  // proxy worker permanently caches sc_status_ per identity (one cycle per
+  // wallet by protocol design).
+  COCOON_FLOW_STAKE: 'cocoon:flow:stake',
+  COCOON_FLOW_UNSTAKE: 'cocoon:flow:unstake',
+  COCOON_FLOW_PENDING: 'cocoon:flow:pending',
+  // Cocoon archive (consumed wallets retained for recovery if upstream worker restarts)
+  COCOON_ARCHIVE_LIST: 'cocoon:archive:list',
+  COCOON_ARCHIVE_EXPORT_MNEMONIC: 'cocoon:archive:export-mnemonic',
+  // Cocoon recovery (auto-progressed multi-stage drain of an archived wallet's locked client SC)
+  COCOON_RECOVERY_ENQUEUE: 'cocoon:recovery:enqueue',
+  COCOON_RECOVERY_LIST: 'cocoon:recovery:list',
+  COCOON_RECOVERY_REMOVE: 'cocoon:recovery:remove',
+  COCOON_RECOVERY_ALL: 'cocoon:recovery:all',
+  // Cocoon push events (main -> renderer)
+  COCOON_STATE_CHANGED: 'cocoon:state-changed',
+  COCOON_LOG: 'cocoon:log',
+  COCOON_WITHDRAW_EVENT: 'cocoon:withdraw:event',
+  COCOON_RECOVERY_EVENT: 'cocoon:recovery:event',
+
   // Overlay
   OVERLAY_SHOW: 'overlay:show',
   OVERLAY_HIDE: 'overlay:hide',
