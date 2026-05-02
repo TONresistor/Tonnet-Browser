@@ -517,5 +517,74 @@
       "session": "Sitzung"
     },
     "revoke": "Widerrufen"
+  },
+  "cocoon": {
+    "stake": {
+      "walletsTitle": "Wallets",
+      "ownerWallet": "Eigentümer-Wallet",
+      "cocoonWallet": "Cocoon-Wallet",
+      "startCocoon": "Cocoon starten (Stake registrieren)",
+      "fundCocoonHint": "Laden Sie das Cocoon-Wallet auf (≥ 5 TON), um einen neuen Client-Vertrag zu registrieren.",
+      "statusActive": "Aktiver Stake",
+      "activeDesc": "{{stake}} TON gestaked. Cocoon läuft.",
+      "statusReady": "Bereit zum Staken",
+      "readyDesc": "Cocoon-Wallet ist finanziert. Klicken Sie auf Start, um zu registrieren und zu chatten.",
+      "statusReadyFund": "Bereit zum Staken (auto-finanziert)",
+      "readyFundDesc": "Eigentümer-Wallet hat genug TON. Klicken Sie auf Staken, um 5 TON zu transferieren und zu starten.",
+      "statusFundOwner": "Eigentümer-Wallet aufladen",
+      "fundOwnerDesc": "Senden Sie mindestens 5.5 TON an Ihr Eigentümer-Wallet (oben), um Staking zu aktivieren.",
+      "withdrawTitle": "Auszahlung läuft",
+      "flow": {
+        "stake": "Staken & Starten",
+        "stakeBusy": "Stake läuft…",
+        "unstake": "Unstake & Auszahlung an Eigentümer",
+        "unstakeBusy": "Rückerstattungsanfrage…",
+        "unstakeSent": "Rückerstattung angefragt. Cooldown gestartet — Ihre Mittel kehren automatisch zurück.",
+        "cashout": "An Eigentümer auszahlen",
+        "cashoutDone": "{{amount}} TON an Eigentümer gesendet.",
+        "stakeSuccess": "Stake registriert. Cocoon läuft.",
+        "stakeFailed": "Stake fehlgeschlagen.",
+        "unstakeFailed": "Unstake fehlgeschlagen."
+      },
+      "stage": {
+        "requesting": "Anfrage senden",
+        "requestingDesc": "On-Chain-Rückerstattungsanfrage wird gesendet…",
+        "cooldown": "Cooldown",
+        "cooldownDesc": "On-Chain-Cooldown läuft. Mittel werden automatisch zurückgeholt — keine Aktion nötig.",
+        "claiming": "Rückerstattung beanspruchen",
+        "claimingDesc": "Cooldown abgelaufen. Rückerstattung wird beansprucht.",
+        "cashingOut": "An Eigentümer senden",
+        "cashingOutDesc": "Rückerstattung erhalten. Restguthaben wird an Eigentümer gesendet.",
+        "finalizing": "Abschluss",
+        "finalizingDesc": "Abschluss der Auszahlung."
+      }
+    },
+    "unstake": {
+      "cta": "Stake-Panel öffnen",
+      "noStake": {
+        "title": "Kein aktiver Stake",
+        "description": "Starten Sie Cocoon, um einen Client-Vertrag zu registrieren, oder transferieren Sie das Cocoon-Wallet zum Eigentümer-Wallet."
+      },
+      "closing": {
+        "title": "Stake wird geschlossen",
+        "description": "Ihre Unstake-Anfrage wurde gesendet. Warten Sie das Cooldown ab und fordern Sie dann die Rückerstattung an."
+      },
+      "cooldown": {
+        "title": "Cooldown läuft",
+        "description": "Inferenz pausiert während des On-Chain-Cooldowns. Fordern Sie nach Ablauf Ihre Rückerstattung an."
+      },
+      "refundable": {
+        "title": "Rückerstattung bereit",
+        "description": "Cooldown abgelaufen. Fordern Sie die Rückerstattung an, um Ihren Stake zurückzuerhalten."
+      },
+      "closed": {
+        "title": "Stake geschlossen",
+        "description": "Ihr Stake ist geschlossen. Erneut staken oder Restguthaben zum Eigentümer-Wallet überweisen."
+      },
+      "withdrawing": {
+        "title": "Ihre Auszahlung läuft",
+        "description": "Cocoon fortschreitet automatisch durch Cooldown, Rückerstattung und Auszahlung. Sie können offen lassen oder später zurückkehren."
+      }
+    }
   }
 }

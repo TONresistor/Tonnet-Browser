@@ -517,5 +517,74 @@
       "session": "เซสชัน"
     },
     "revoke": "เพิกถอน"
+  },
+  "cocoon": {
+    "stake": {
+      "walletsTitle": "กระเป๋าเงิน",
+      "ownerWallet": "กระเป๋าเจ้าของ",
+      "cocoonWallet": "กระเป๋า Cocoon",
+      "startCocoon": "เริ่ม Cocoon (ลงทะเบียน stake)",
+      "fundCocoonHint": "เติมเงินกระเป๋า Cocoon (≥ 5 TON) เพื่อลงทะเบียนสัญญา client ใหม่",
+      "statusActive": "Stake ใช้งาน",
+      "activeDesc": "Stake {{stake}} TON. Cocoon กำลังทำงาน",
+      "statusReady": "พร้อม stake",
+      "readyDesc": "กระเป๋า Cocoon มีเงินแล้ว กด เริ่ม เพื่อลงทะเบียนและแชท",
+      "statusReadyFund": "พร้อม stake (เติมอัตโนมัติ)",
+      "readyFundDesc": "กระเป๋าเจ้าของมี TON พอ กด Stake เพื่อโอน 5 TON และเริ่ม",
+      "statusFundOwner": "เติมกระเป๋าเจ้าของ",
+      "fundOwnerDesc": "ส่งอย่างน้อย 5.5 TON ไปกระเป๋าเจ้าของ (ด้านบน) เพื่อเปิดใช้ stake",
+      "withdrawTitle": "กำลังถอน",
+      "flow": {
+        "stake": "Stake และเริ่ม",
+        "stakeBusy": "กำลัง stake…",
+        "unstake": "Unstake และถอนไปเจ้าของ",
+        "unstakeBusy": "กำลังส่งคำขอคืนเงิน…",
+        "unstakeSent": "ส่งคำขอแล้ว Cooldown เริ่ม — เงินจะกลับอัตโนมัติ",
+        "cashout": "ถอนไปกระเป๋าเจ้าของ",
+        "cashoutDone": "ส่ง {{amount}} TON ไปเจ้าของแล้ว",
+        "stakeSuccess": "ลงทะเบียน stake แล้ว Cocoon ทำงานอยู่",
+        "stakeFailed": "Stake ล้มเหลว",
+        "unstakeFailed": "Unstake ล้มเหลว"
+      },
+      "stage": {
+        "requesting": "กำลังส่งคำขอ",
+        "requestingDesc": "ส่งคำขอคืนเงิน on-chain…",
+        "cooldown": "Cooldown",
+        "cooldownDesc": "Cooldown on-chain กำลังดำเนินการ เงินจะถูกเรียกและส่งอัตโนมัติ",
+        "claiming": "เรียกคืนเงิน",
+        "claimingDesc": "Cooldown เสร็จ เรียกคืนและปิดสัญญา",
+        "cashingOut": "ส่งไปเจ้าของ",
+        "cashingOutDesc": "ได้รับคืนแล้ว ส่งยอดเหลือไปกระเป๋าเจ้าของ",
+        "finalizing": "จบการทำรายการ",
+        "finalizingDesc": "กำลังจบการถอน"
+      }
+    },
+    "unstake": {
+      "cta": "เปิดแผง stake",
+      "noStake": {
+        "title": "ไม่มี stake ที่ใช้งานอยู่",
+        "description": "เริ่ม Cocoon เพื่อลงทะเบียนสัญญา client หรือถอนเงินไปยังกระเป๋าเจ้าของ"
+      },
+      "closing": {
+        "title": "กำลังปิด stake",
+        "description": "คำขอ unstake ถูกส่งแล้ว รอ cooldown สิ้นสุดและขอคืนเงิน"
+      },
+      "cooldown": {
+        "title": "กำลังอยู่ใน cooldown",
+        "description": "การอนุมานหยุดชั่วคราวระหว่าง on-chain cooldown ขอคืนเงินเมื่อสิ้นสุด"
+      },
+      "refundable": {
+        "title": "พร้อมคืนเงิน",
+        "description": "Cooldown สิ้นสุดแล้ว ขอคืนเงินเพื่อคืน stake ไปยังกระเป๋า Cocoon"
+      },
+      "closed": {
+        "title": "Stake ปิดแล้ว",
+        "description": "Stake ของคุณปิดแล้ว ทำ stake ใหม่หรือถอนเงินคงเหลือไปยังกระเป๋าเจ้าของ"
+      },
+      "withdrawing": {
+        "title": "กำลังถอน stake ของคุณ",
+        "description": "Cocoon ดำเนินการ cooldown คืนเงิน และถอนอัตโนมัติ ปิดเปิดได้"
+      }
+    }
   }
 }

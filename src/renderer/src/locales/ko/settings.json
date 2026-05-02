@@ -517,5 +517,74 @@
       "session": "세션"
     },
     "revoke": "철회"
+  },
+  "cocoon": {
+    "stake": {
+      "walletsTitle": "지갑",
+      "ownerWallet": "소유자 지갑",
+      "cocoonWallet": "Cocoon 지갑",
+      "startCocoon": "Cocoon 시작 (스테이크 등록)",
+      "fundCocoonHint": "새 클라이언트 계약을 등록하려면 Cocoon 지갑을 충전하세요 (≥ 5 TON).",
+      "statusActive": "활성 스테이크",
+      "activeDesc": "{{stake}} TON 스테이크. Cocoon 실행 중.",
+      "statusReady": "스테이크 준비됨",
+      "readyDesc": "Cocoon 지갑이 충전되었습니다. 시작을 눌러 등록하고 채팅하세요.",
+      "statusReadyFund": "스테이크 준비됨 (자동 충전)",
+      "readyFundDesc": "소유자 지갑에 충분한 TON. 스테이크를 눌러 5 TON 이체 및 시작.",
+      "statusFundOwner": "소유자 지갑 충전",
+      "fundOwnerDesc": "스테이크 활성화를 위해 소유자 지갑(위)에 최소 5.5 TON 송금하세요.",
+      "withdrawTitle": "출금 진행 중",
+      "flow": {
+        "stake": "스테이크 및 시작",
+        "stakeBusy": "스테이킹 중…",
+        "unstake": "언스테이크 후 소유자에게 출금",
+        "unstakeBusy": "환불 요청 전송 중…",
+        "unstakeSent": "환불 요청 전송됨. 쿨다운 시작 — 자금이 자동 반환됩니다.",
+        "cashout": "소유자 지갑으로 출금",
+        "cashoutDone": "소유자에게 {{amount}} TON 송금됨.",
+        "stakeSuccess": "스테이크 등록됨. Cocoon 실행 중.",
+        "stakeFailed": "스테이크 실패.",
+        "unstakeFailed": "언스테이크 실패."
+      },
+      "stage": {
+        "requesting": "요청 전송",
+        "requestingDesc": "온체인 환불 요청 제출 중…",
+        "cooldown": "쿨다운",
+        "cooldownDesc": "온체인 쿨다운 진행 중. 자금이 자동 반환됩니다.",
+        "claiming": "환불 청구",
+        "claimingDesc": "쿨다운 종료. 환불 청구 및 계약 종료.",
+        "cashingOut": "소유자에게 송금",
+        "cashingOutDesc": "환불 수령됨. 잔액을 소유자 지갑으로 송금 중.",
+        "finalizing": "마무리",
+        "finalizingDesc": "출금 마무리 중."
+      }
+    },
+    "unstake": {
+      "cta": "스테이크 패널 열기",
+      "noStake": {
+        "title": "활성 스테이크 없음",
+        "description": "Cocoon을 시작해 클라이언트 계약을 등록하거나 Cocoon 지갑을 소유자 지갑으로 출금하세요."
+      },
+      "closing": {
+        "title": "스테이크 종료 중",
+        "description": "언스테이크 요청이 전송되었습니다. 쿨다운이 끝나면 환불을 요청하세요."
+      },
+      "cooldown": {
+        "title": "쿨다운 진행 중",
+        "description": "온체인 쿨다운 동안 추론이 중지됩니다. 종료 시 환불을 요청하세요."
+      },
+      "refundable": {
+        "title": "환불 준비 완료",
+        "description": "쿨다운이 종료되었습니다. 환불을 요청해 스테이크를 Cocoon 지갑으로 회수하세요."
+      },
+      "closed": {
+        "title": "스테이크 종료됨",
+        "description": "스테이크가 종료되었습니다. 다시 스테이크하거나 잔액을 소유자 지갑으로 출금하세요."
+      },
+      "withdrawing": {
+        "title": "스테이크 출금 진행 중",
+        "description": "Cocoon이 자동으로 쿨다운, 환불, 출금을 진행합니다. 열어두거나 나중에 다시 와도 됩니다."
+      }
+    }
   }
 }

@@ -173,5 +173,64 @@
   },
   "overview": {
     "recent": "Recent"
+  },
+  "account": {
+    "toggleLabel": "Switch account",
+    "main": "Wallet",
+    "cocoon": "Cocoon",
+    "activating": "Activating…",
+    "openChat": "Open chat",
+    "status": {
+      "loading": "Loading…",
+      "unavailable": "Unavailable on this platform",
+      "idle": "Inactive",
+      "activating": "Activating…",
+      "active": "Active",
+      "withdrawing": "Withdrawing…"
+    },
+    "actions": {
+      "activate": "Activate Cocoon (20 TON)",
+      "withdrawAll": "Withdraw",
+      "withdraw": "Withdraw from Cocoon",
+      "withdrawing": "Withdraw in progress…"
+    },
+    "errors": {
+      "activateFailed": "Activation failed.",
+      "withdrawFailed": "Withdraw failed."
+    },
+    "notice": {
+      "unavailable": "Cocoon is not available on this platform."
+    },
+    "withdrawHint": "Funds will return to your wallet automatically.",
+    "withdrawStage": {
+      "requesting": "Sending refund request",
+      "cooldown": "Cooldown in progress",
+      "claiming": "Claiming refund",
+      "cashingOut": "Returning funds to your wallet",
+      "finalizing": "Finalizing"
+    },
+    "chatNotice": {
+      "cta": "Go to activation",
+      "loading": {
+        "title": "Loading Cocoon",
+        "description": "Checking your Cocoon account state."
+      },
+      "unavailable": {
+        "title": "Cocoon is not available",
+        "description": "Cocoon is not available on this platform."
+      },
+      "idle": {
+        "title": "Cocoon is not active",
+        "description": "Activate Cocoon from your wallet to start chatting."
+      },
+      "activating": {
+        "title": "Activating Cocoon",
+        "description": "Cocoon is being activated. The chat will open as soon as the runner is ready."
+      },
+      "withdrawing": {
+        "title": "Withdraw in progress",
+        "description": "A withdraw is in progress. Funds will return to your wallet automatically."
+      }
+    }
   }
 }

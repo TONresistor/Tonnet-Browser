@@ -517,5 +517,74 @@
       "session": "Sesión"
     },
     "revoke": "Revocar"
+  },
+  "cocoon": {
+    "stake": {
+      "walletsTitle": "Carteras",
+      "ownerWallet": "Cartera propietaria",
+      "cocoonWallet": "Cartera Cocoon",
+      "startCocoon": "Iniciar Cocoon (registrar stake)",
+      "fundCocoonHint": "Recargue la cartera Cocoon (≥ 5 TON) para registrar un nuevo contrato cliente.",
+      "statusActive": "Stake activo",
+      "activeDesc": "{{stake}} TON apostados. Cocoon está funcionando.",
+      "statusReady": "Listo para apostar",
+      "readyDesc": "La cartera Cocoon está financiada. Haz clic en Iniciar para registrar y empezar a chatear.",
+      "statusReadyFund": "Listo para apostar (auto-financiación)",
+      "readyFundDesc": "La cartera propietaria tiene suficiente TON. Haz clic en Apostar para transferir 5 TON a Cocoon y arrancar.",
+      "statusFundOwner": "Recarga la cartera propietaria",
+      "fundOwnerDesc": "Envía al menos 5.5 TON a tu cartera propietaria (arriba) para habilitar el stake.",
+      "withdrawTitle": "Retiro en progreso",
+      "flow": {
+        "stake": "Apostar e iniciar",
+        "stakeBusy": "Apostando…",
+        "unstake": "Retirar al propietario",
+        "unstakeBusy": "Enviando reembolso…",
+        "unstakeSent": "Reembolso solicitado. Cooldown iniciado — tus fondos volverán automáticamente.",
+        "cashout": "Retirar al propietario",
+        "cashoutDone": "Enviados {{amount}} TON al propietario.",
+        "stakeSuccess": "Stake registrado. Cocoon en marcha.",
+        "stakeFailed": "Apuesta fallida.",
+        "unstakeFailed": "Retiro fallido."
+      },
+      "stage": {
+        "requesting": "Enviando solicitud",
+        "requestingDesc": "Enviando solicitud de reembolso on-chain…",
+        "cooldown": "Cooldown",
+        "cooldownDesc": "Cooldown en curso. Tus fondos se reclamarán y enviarán automáticamente — sin acción necesaria.",
+        "claiming": "Reclamando reembolso",
+        "claimingDesc": "Cooldown terminado. Reclamando reembolso y cerrando el contrato.",
+        "cashingOut": "Enviando al propietario",
+        "cashingOutDesc": "Reembolso recibido. Enviando saldo final a la cartera propietaria.",
+        "finalizing": "Finalizando",
+        "finalizingDesc": "Finalizando retiro."
+      }
+    },
+    "unstake": {
+      "cta": "Abrir panel de stake",
+      "noStake": {
+        "title": "Sin stake activo",
+        "description": "Inicie Cocoon para registrar un contrato cliente o retire los fondos a la cartera propietaria."
+      },
+      "closing": {
+        "title": "Stake cerrándose",
+        "description": "Su solicitud de unstake fue enviada. Espere a que termine el cooldown y reclame el reembolso."
+      },
+      "cooldown": {
+        "title": "Cooldown en curso",
+        "description": "La inferencia está pausada durante el cooldown. Reclame su reembolso al finalizar."
+      },
+      "refundable": {
+        "title": "Reembolso listo",
+        "description": "Cooldown terminado. Reclame el reembolso para recuperar su stake en la cartera Cocoon."
+      },
+      "closed": {
+        "title": "Stake cerrado",
+        "description": "Su stake está cerrado. Vuelva a hacer stake para chatear o retire los fondos residuales."
+      },
+      "withdrawing": {
+        "title": "Retirando tu stake",
+        "description": "Cocoon avanza automáticamente por cooldown, reembolso y retiro. Puedes dejarlo abierto o volver luego."
+      }
+    }
   }
 }

@@ -517,5 +517,74 @@
       "session": "Sesi"
     },
     "revoke": "Cabut"
+  },
+  "cocoon": {
+    "stake": {
+      "walletsTitle": "Dompet",
+      "ownerWallet": "Dompet pemilik",
+      "cocoonWallet": "Dompet Cocoon",
+      "startCocoon": "Mulai Cocoon (daftarkan stake)",
+      "fundCocoonHint": "Isi ulang dompet Cocoon (≥ 5 TON) untuk mendaftarkan kontrak client baru.",
+      "statusActive": "Stake aktif",
+      "activeDesc": "Stake {{stake}} TON. Cocoon berjalan.",
+      "statusReady": "Siap stake",
+      "readyDesc": "Dompet Cocoon sudah terisi. Klik Mulai untuk mendaftar dan mulai chat.",
+      "statusReadyFund": "Siap stake (auto-isi)",
+      "readyFundDesc": "Dompet pemilik cukup TON. Klik Stake untuk transfer 5 TON dan mulai.",
+      "statusFundOwner": "Isi dompet pemilik",
+      "fundOwnerDesc": "Kirim minimum 5.5 TON ke dompet pemilik (di atas) untuk mengaktifkan stake.",
+      "withdrawTitle": "Penarikan berlangsung",
+      "flow": {
+        "stake": "Stake & Mulai",
+        "stakeBusy": "Sedang stake…",
+        "unstake": "Unstake & tarik ke pemilik",
+        "unstakeBusy": "Mengirim permintaan refund…",
+        "unstakeSent": "Permintaan refund terkirim. Cooldown dimulai — dana kembali otomatis.",
+        "cashout": "Tarik ke pemilik",
+        "cashoutDone": "Mengirim {{amount}} TON ke pemilik.",
+        "stakeSuccess": "Stake terdaftar. Cocoon berjalan.",
+        "stakeFailed": "Stake gagal.",
+        "unstakeFailed": "Unstake gagal."
+      },
+      "stage": {
+        "requesting": "Mengirim permintaan",
+        "requestingDesc": "Mengajukan permintaan refund on-chain…",
+        "cooldown": "Cooldown",
+        "cooldownDesc": "Cooldown on-chain berlangsung. Dana akan diklaim dan dikirim otomatis.",
+        "claiming": "Klaim refund",
+        "claimingDesc": "Cooldown selesai. Klaim refund dan tutup kontrak.",
+        "cashingOut": "Kirim ke pemilik",
+        "cashingOutDesc": "Refund diterima. Mengirim saldo akhir ke dompet pemilik.",
+        "finalizing": "Menyelesaikan",
+        "finalizingDesc": "Menyelesaikan penarikan."
+      }
+    },
+    "unstake": {
+      "cta": "Buka panel stake",
+      "noStake": {
+        "title": "Tidak ada stake aktif",
+        "description": "Mulai Cocoon untuk mendaftarkan kontrak client, atau cashout ke dompet pemilik."
+      },
+      "closing": {
+        "title": "Stake sedang ditutup",
+        "description": "Permintaan unstake terkirim. Tunggu cooldown selesai dan klaim refund."
+      },
+      "cooldown": {
+        "title": "Cooldown berlangsung",
+        "description": "Inferensi dijeda selama cooldown on-chain. Klaim refund saat selesai."
+      },
+      "refundable": {
+        "title": "Refund siap",
+        "description": "Cooldown selesai. Klaim refund untuk mengembalikan stake ke dompet Cocoon."
+      },
+      "closed": {
+        "title": "Stake ditutup",
+        "description": "Stake Anda ditutup. Lakukan stake ulang atau cashout sisa dana ke dompet pemilik."
+      },
+      "withdrawing": {
+        "title": "Menarik stake Anda",
+        "description": "Cocoon otomatis maju melalui cooldown, refund, dan penarikan. Bisa biarkan terbuka atau kembali nanti."
+      }
+    }
   }
 }

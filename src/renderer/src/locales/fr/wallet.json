@@ -173,5 +173,64 @@
   },
   "overview": {
     "recent": "Récentes"
+  },
+  "account": {
+    "toggleLabel": "Changer de compte",
+    "main": "Wallet",
+    "cocoon": "Cocoon",
+    "activating": "Activation…",
+    "openChat": "Ouvrir le chat",
+    "status": {
+      "loading": "Chargement…",
+      "unavailable": "Indisponible sur cette plateforme",
+      "idle": "Inactif",
+      "activating": "Activation…",
+      "active": "Actif",
+      "withdrawing": "Retrait en cours…"
+    },
+    "actions": {
+      "activate": "Activer Cocoon (20 TON)",
+      "withdrawAll": "Retirer",
+      "withdraw": "Retirer de Cocoon",
+      "withdrawing": "Retrait en cours…"
+    },
+    "errors": {
+      "activateFailed": "Activation échouée.",
+      "withdrawFailed": "Retrait échoué."
+    },
+    "notice": {
+      "unavailable": "Cocoon n'est pas disponible sur ce système."
+    },
+    "withdrawHint": "Les fonds reviendront automatiquement sur votre wallet.",
+    "withdrawStage": {
+      "requesting": "Envoi de la demande de remboursement",
+      "cooldown": "Cooldown en cours",
+      "claiming": "Réclamation du remboursement",
+      "cashingOut": "Retour des fonds vers votre wallet",
+      "finalizing": "Finalisation"
+    },
+    "chatNotice": {
+      "cta": "Aller à l'activation",
+      "loading": {
+        "title": "Chargement de Cocoon",
+        "description": "Vérification de l'état de votre compte Cocoon."
+      },
+      "unavailable": {
+        "title": "Cocoon n'est pas disponible",
+        "description": "Cocoon n'est pas disponible sur ce système."
+      },
+      "idle": {
+        "title": "Cocoon n'est pas actif",
+        "description": "Activez Cocoon depuis votre wallet pour commencer à chatter."
+      },
+      "activating": {
+        "title": "Activation de Cocoon",
+        "description": "Cocoon est en cours d'activation. Le chat s'ouvrira dès que le runner sera prêt."
+      },
+      "withdrawing": {
+        "title": "Retrait en cours",
+        "description": "Un retrait est en cours. Les fonds reviendront automatiquement sur votre wallet."
+      }
+    }
   }
 }

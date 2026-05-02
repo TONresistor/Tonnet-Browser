@@ -517,5 +517,125 @@
       "session": "Session"
     },
     "revoke": "Révoquer"
+  },
+  "cocoon": {
+    "stake": {
+      "walletsTitle": "Portefeuilles",
+      "mainWallet": "Wallet principal W5",
+      "ownerWallet": "Owner Cocoon V4R2",
+      "cocoonWallet": "Wallet node Cocoon",
+      "startCocoon": "Démarrer Cocoon (créer un stake)",
+      "fundCocoonHint": "Approvisionnez le wallet Cocoon (≥ 5 TON) pour enregistrer un nouveau contrat client.",
+      "statusActive": "Stake actif",
+      "activeDesc": "{{stake}} TON stakés. Cocoon est en cours d'exécution.",
+      "statusReady": "Prêt à staker",
+      "readyDesc": "Le wallet Cocoon est approvisionné. Cliquez sur Démarrer pour enregistrer et commencer à chatter.",
+      "statusReadyFund": "Prêt à staker (auto-financement)",
+      "readyFundDesc": "Le wallet principal a assez de TON. Cliquez sur Activer pour financer un wallet Cocoon frais et démarrer.",
+      "statusFundOwner": "Approvisionnez le wallet principal",
+      "fundOwnerDesc": "Gardez au moins 20.1 TON sur votre wallet principal pour activer Cocoon, ou récupérez les fonds résiduels vers votre wallet principal.",
+      "withdrawTitle": "Retrait en cours",
+      "actionWithdrawTitle": "Désactiver et tout retirer",
+      "actionWithdrawDesc": "Arrête Cocoon et renvoie automatiquement le stake vers votre wallet principal.",
+      "actionWithdrawingDesc": "Le retrait est déjà en cours. Aucune action supplémentaire n'est nécessaire.",
+      "actionActivateTitle": "Activer Cocoon",
+      "actionStartDesc": "Démarre Cocoon avec les fonds déjà disponibles dans le wallet Cocoon.",
+      "actionFundAndStartDesc": "Finance un nouveau wallet Cocoon depuis votre wallet principal, puis démarre Cocoon.",
+      "actionTopUpTitle": "Approvisionnez le wallet principal",
+      "actionTopUpDesc": "Gardez au moins 20.1 TON sur votre wallet principal avant d'activer Cocoon.",
+      "currentStep": "Étape actuelle",
+      "withdrawAutoDesc": "Gardez le wallet connecté. L'app réclamera et renverra les fonds automatiquement.",
+      "flow": {
+        "stake": "Activer Cocoon",
+        "stakeBusy": "Activation en cours…",
+        "unstake": "Désactiver et tout retirer",
+        "unstakeBusy": "Récupération des fonds…",
+        "unstakeSent": "Récupération démarrée. Vos fonds reviendront vers votre wallet principal.",
+        "cashout": "Récupérer mes fonds",
+        "cashoutDone": "{{amount}} TON renvoyés vers votre wallet principal.",
+        "stakeSuccess": "Cocoon est actif.",
+        "stakeFailed": "Activation échouée.",
+        "unstakeFailed": "Retrait échoué."
+      },
+      "stage": {
+        "requesting": "Envoi de la requête",
+        "requestingDesc": "Soumission de la demande de remboursement on-chain…",
+        "confirming": "Confirmation on-chain",
+        "confirmingDesc": "Transaction envoyée. En attente que l'état du contrat confirme le déverrouillage.",
+        "cooldown": "Déverrouillage",
+        "cooldownDesc": "Le contrat a renvoyé un unlock timestamp futur. Les fonds seront réclamés puis renvoyés automatiquement dès que possible.",
+        "claiming": "Réclamation du remboursement",
+        "claimingDesc": "Déverrouillage terminé. Réclamation du remboursement et fermeture du contrat.",
+        "cashingOut": "Envoi vers votre wallet",
+        "cashingOutDesc": "Remboursement reçu. Envoi du solde final vers votre wallet principal.",
+        "finalizing": "Finalisation",
+        "finalizingDesc": "Finalisation du retrait."
+      }
+    },
+    "unstake": {
+      "cta": "Ouvrir le panneau de stake",
+      "noStake": {
+        "title": "Aucun stake actif",
+        "description": "Démarrez Cocoon pour enregistrer un contrat client, ou retirez les fonds du wallet Cocoon vers le wallet propriétaire."
+      },
+      "closing": {
+        "title": "Stake en cours de fermeture",
+        "description": "Votre demande d'unstake a été envoyée. Attendez le déverrouillage on-chain puis réclamez le remboursement."
+      },
+      "cooldown": {
+        "title": "Déverrouillage en cours",
+        "description": "L'inférence est suspendue pendant le déverrouillage on-chain. Le remboursement sera réclamé à la fin."
+      },
+      "refundable": {
+        "title": "Remboursement prêt",
+        "description": "Le déverrouillage est terminé. Réclamez le remboursement pour récupérer votre stake dans le wallet Cocoon."
+      },
+      "closed": {
+        "title": "Stake fermé",
+        "description": "Votre stake est fermé. Re-stakez pour rechatter, ou retirez les fonds résiduels vers le wallet propriétaire."
+      },
+      "withdrawing": {
+        "title": "Retrait de votre stake en cours",
+        "description": "Cocoon progresse automatiquement à travers le déverrouillage, le remboursement et le retrait. Vous pouvez laisser ouvert ou revenir plus tard."
+      }
+    },
+    "recovery": {
+      "sectionTitle": "Récupérer des TON bloqués",
+      "sectionDesc": "Récupérez les TON des wallets Cocoon actuels et archivés. L'app n'affiche un verrou que si le contrat le renvoie lui-même on-chain.",
+      "loading": "Chargement de l'état de récupération…",
+      "empty": "Aucun TON bloqué à récupérer.",
+      "entryTitle": "Récupération en cours",
+      "primaryTitle": "Récupérer les TON Cocoon",
+      "primaryDesc": "Arrête Cocoon, inspecte les wallets Cocoon actuels et archivés, réclame les fonds client récupérables immédiatement, puis renvoie les soldes vers votre wallet principal.",
+      "recoverNow": "Récupérer mes TON maintenant",
+      "orphanTitle": "Identité archivée",
+      "archivedOwner": "Wallet propriétaire archivé",
+      "orphanDesc": "Une ancienne identité Cocoon a été archivée sans adresse de contrat client connue. Collez l'adresse du contrat (visible dans l'historique de votre wallet lors du financement du stake) pour lancer le remboursement.",
+      "clientSCLabel": "Adresse du contrat client",
+      "refresh": "Actualiser",
+      "enqueue": "Démarrer la récupération",
+      "remove": "Retirer de la file",
+      "enqueueSuccess": "Récupération démarrée. Le backend inspecte le contrat et récupère ce qui est immédiatement disponible.",
+      "recoverSuccess": "Action de récupération envoyée: {{txs}} transaction(s). {{locked}} contrat(s) signalent un verrou on-chain.",
+      "resultTitle": "Dernier résultat de récupération",
+      "resultTxs": "transactions",
+      "resultLocked": "verrouillés",
+      "resultSkipped": "ignorés",
+      "lockedHint": "Un élément verrouillé signifie que le contrat client a renvoyé un unlock timestamp futur on-chain.",
+      "phase": {
+        "refundPending": "Remboursement demandé",
+        "refundPendingDesc": "Demande de remboursement soumise on-chain. En attente du passage du contrat en déverrouillage.",
+        "cooldown": "Déverrouillage",
+        "cooldownDesc": "Le déverrouillage on-chain est en cours. Les fonds seront réclamés et renvoyés automatiquement.",
+        "claimPending": "Réclamation",
+        "claimPendingDesc": "Déverrouillage terminé. Réclamation du remboursement et fermeture du contrat.",
+        "drainPending": "Drainage",
+        "drainPendingDesc": "Remboursement reçu. Drainage du wallet cocoon vers votre wallet principal.",
+        "done": "Terminé",
+        "doneDesc": "Récupération terminée. Les TON ont été renvoyés vers votre wallet principal.",
+        "failed": "Échec",
+        "failedDesc": "La récupération a échoué. Consultez l'erreur et retirez l'entrée, ou réessayez."
+      }
+    }
   }
 }

@@ -517,5 +517,74 @@
       "session": "会话"
     },
     "revoke": "撤销"
+  },
+  "cocoon": {
+    "stake": {
+      "walletsTitle": "钱包",
+      "ownerWallet": "所有者钱包",
+      "cocoonWallet": "Cocoon 钱包",
+      "startCocoon": "启动 Cocoon（注册质押）",
+      "fundCocoonHint": "为 Cocoon 钱包充值（≥ 5 TON）以注册新的客户端合约。",
+      "statusActive": "质押中",
+      "activeDesc": "已质押 {{stake}} TON。Cocoon 正在运行。",
+      "statusReady": "准备质押",
+      "readyDesc": "Cocoon 钱包已充值。点击启动以注册并开始聊天。",
+      "statusReadyFund": "准备质押（自动充值）",
+      "readyFundDesc": "所有者钱包 TON 充足。点击质押以转入 5 TON 并启动。",
+      "statusFundOwner": "充值所有者钱包",
+      "fundOwnerDesc": "请向您的所有者钱包发送至少 5.5 TON 以启用质押。",
+      "withdrawTitle": "正在提款",
+      "flow": {
+        "stake": "质押并启动",
+        "stakeBusy": "质押中…",
+        "unstake": "取消质押并提款到所有者",
+        "unstakeBusy": "发送退款请求…",
+        "unstakeSent": "退款请求已发送。冷却开始 — 资金将自动返回。",
+        "cashout": "提款到所有者钱包",
+        "cashoutDone": "已向所有者发送 {{amount}} TON。",
+        "stakeSuccess": "质押已注册。Cocoon 正在运行。",
+        "stakeFailed": "质押失败。",
+        "unstakeFailed": "取消质押失败。"
+      },
+      "stage": {
+        "requesting": "发送请求",
+        "requestingDesc": "正在提交链上退款请求…",
+        "cooldown": "冷却",
+        "cooldownDesc": "链上冷却进行中。资金将被自动领取并发送 — 无需操作。",
+        "claiming": "领取退款",
+        "claimingDesc": "冷却已结束。正在领取退款并关闭合约。",
+        "cashingOut": "发送到所有者",
+        "cashingOutDesc": "退款已收到。正在将余额发送到所有者钱包。",
+        "finalizing": "完成中",
+        "finalizingDesc": "正在完成提款。"
+      }
+    },
+    "unstake": {
+      "cta": "打开质押面板",
+      "noStake": {
+        "title": "无活跃质押",
+        "description": "启动 Cocoon 以注册客户端合约，或将 Cocoon 钱包提现到所有者钱包。"
+      },
+      "closing": {
+        "title": "质押正在关闭",
+        "description": "您的取消质押请求已发送。请等待冷却结束并领取退款。"
+      },
+      "cooldown": {
+        "title": "冷却中",
+        "description": "链上冷却期间暂停推理。冷却结束后请领取退款。"
+      },
+      "refundable": {
+        "title": "退款就绪",
+        "description": "冷却已结束。领取退款将质押退回 Cocoon 钱包。"
+      },
+      "closed": {
+        "title": "质押已关闭",
+        "description": "您的质押已关闭。重新质押以继续聊天，或提现剩余资金到所有者钱包。"
+      },
+      "withdrawing": {
+        "title": "正在提取质押",
+        "description": "Cocoon 自动执行冷却、退款和提款。您可以保留打开或稍后回来。"
+      }
+    }
   }
 }
