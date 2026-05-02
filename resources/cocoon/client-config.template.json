@@ -1,0 +1,13 @@
+{
+  "is_test": "$IS_DEBUG",
+  "is_testnet" : false,
+  "http_port" : "$CLIENT_HTTP_PORT",
+  "rpc_port" : "$CLIENT_RPC_PORT",
+  "proxy_connections" : 1,
+  "ton_config_filename": "$TON_CONFIG_FILE",
+  "owner_address": "$OWNER_ADDRESS",
+  "root_contract_address": "$ROOT_CONTRACT_ADDRESS", 
+  "node_wallet_key" : "$NODE_WALLET_KEY",
+  "max_coefficient": 0,
+  "max_tokens": 0
+}

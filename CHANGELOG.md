@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- Storage page: peers column with per-row hover actions.
+
+### Changed
+- BookmarksBar context menu and Wallet strings fully localized across all 10 locales.
+- Storage page: completed bag status uses primary color.
+- Dependencies bumped: Electron 41.3.0, Tailwind 4.2.4, i18next 26.0.8, react-i18next 17.0.4, @ton/ton 16.2.4, happy-dom 20.9.0, globals 17.5.0.
+- CI runs on `dev` branch pushes and PRs; Dependabot capped at 5 npm PRs.
+
 ## [2.0.0] - 2026-04-25
 
 ### Added
