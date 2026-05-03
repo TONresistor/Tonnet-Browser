@@ -30,9 +30,6 @@ interface CocoonWalletCodeJson {
 let cachedCode: Cell | null = null
 
 export function getCocoonWalletCode(): Cell {
-  if (process.platform !== 'linux') {
-    throw new Error('Cocoon AI is currently Linux-only. Cocoon wallet code resource is not bundled on this platform.')
-  }
   if (!cachedCode) {
     const codePath = getCocoonResource('cocoon-wallet.code.json')
     const codeData = JSON.parse(readFileSync(codePath, 'utf8')) as CocoonWalletCodeJson

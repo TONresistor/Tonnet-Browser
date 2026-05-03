@@ -21,15 +21,15 @@ extraResources:
     to: "config"
     filter:
       - "**/*"
+  - from: "resources/cocoon"
+    to: "cocoon"
+    filter:
+      - "**/*"
 
 linux:
   extraResources:
     - from: "resources/bin/linux"
       to: "bin"
-      filter:
-        - "**/*"
-    - from: "resources/cocoon"
-      to: "cocoon"
       filter:
         - "**/*"
   target:

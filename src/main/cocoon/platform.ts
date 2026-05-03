@@ -1,6 +1,8 @@
 /**
  * Cocoon platform availability check.
- * Cocoon binaries are Linux x64 only and require GLIBC 2.38+ (client-runner).
+ * gocoon is cross-platform. The browser still validates the binary set it
+ * knows how to build/package, and Linux keeps the GLIBC floor required by the
+ * native runner environment.
  */
 
 import { execSync } from 'child_process'
@@ -20,21 +22,26 @@ let cachedResult: CocoonAvailability | null = null
 export function checkCocoonAvailability(): CocoonAvailability {
   if (cachedResult) return cachedResult
 
-  if (process.platform !== 'linux') {
+  if (!isSupportedPlatform(process.platform)) {
     cachedResult = {
       available: false,
       reason: 'platform',
-      message: 'Cocoon AI requires Linux. Windows and macOS are not supported yet.',
+      message: `Cocoon AI is not supported on ${process.platform}. Supported platforms: Linux, macOS, Windows.`,
     }
     return cachedResult
   }
 
-  if (process.arch !== 'x64') {
+  if (!isSupportedArch(process.platform, process.arch)) {
     cachedResult = {
       available: false,
       reason: 'arch',
-      message: `Cocoon AI requires x86_64. Current architecture: ${process.arch}`,
+      message: `Cocoon AI is not packaged for ${process.platform}/${process.arch}.`,
     }
+    return cachedResult
+  }
+
+  if (process.platform !== 'linux') {
+    cachedResult = { available: true }
     return cachedResult
   }
 
@@ -56,6 +63,15 @@ export function checkCocoonAvailability(): CocoonAvailability {
 
   cachedResult = { available: true }
   return cachedResult
+}
+
+function isSupportedPlatform(platform: NodeJS.Platform): boolean {
+  return platform === 'linux' || platform === 'darwin' || platform === 'win32'
+}
+
+function isSupportedArch(platform: NodeJS.Platform, arch: NodeJS.Architecture): boolean {
+  if (platform === 'darwin') return arch === 'x64' || arch === 'arm64'
+  return arch === 'x64'
 }
 
 function detectGlibcVersion(): { major: number; minor: number } | null {

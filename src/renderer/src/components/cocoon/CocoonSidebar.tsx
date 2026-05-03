@@ -3,11 +3,11 @@
  *
  * Once setup is complete and the runner is ready, the chat runs inline using
  * the same <CocoonChat /> component as the full page (history is shared via
- * `useCocoonChatStore`). For setup or unavailability, the sidebar redirects
- * to the full page rather than shrinking the wizard into 320px.
+ * `useCocoonChatStore`). Setup can also run inline from this panel so users do
+ * not have to leave the current page.
  */
 
-import { useCallback } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { ExternalLink, X } from 'lucide-react'
 import Lottie from 'lottie-react'
 import cocoonIcon from '@/assets/cocoon.png'
@@ -17,6 +17,7 @@ import { useCocoonChatStore, selectActiveMessages } from '@/stores/cocoon-chat'
 import { Button } from '@/components/ui/button'
 import { useCocoonSession, unstakedHeaderKey } from '@/hooks/useCocoonSession'
 import { CocoonChat } from './CocoonChat'
+import { SetupWizard } from './SetupWizard'
 import { useTranslation } from 'react-i18next'
 
 const COCOON_PAGE = 'ton://cocoon'
@@ -26,15 +27,22 @@ interface CocoonSidebarProps {
 }
 
 export function CocoonSidebar({ onClose }: CocoonSidebarProps) {
-  const { phase, retryStart } = useCocoonSession()
+  const { phase, refresh, retryStart } = useCocoonSession()
   const openOrSwitchToTab = useTabsStore((s) => s.openOrSwitchToTab)
   const messagesCount = useCocoonChatStore((s) => selectActiveMessages(s).length)
   const clearMessages = useCocoonChatStore((s) => s.clearActive)
+  const [inlineSetupOpen, setInlineSetupOpen] = useState(false)
 
   const openFullPage = useCallback(() => {
     openOrSwitchToTab(COCOON_PAGE)
     onClose()
   }, [openOrSwitchToTab, onClose])
+
+  useEffect(() => {
+    if (phase.kind !== 'needsSetup' && phase.kind !== 'resumeSetup') {
+      setInlineSetupOpen(false)
+    }
+  }, [phase.kind])
 
   const showChatControls = phase.kind === 'ready'
 
@@ -57,18 +65,31 @@ export function CocoonSidebar({ onClose }: CocoonSidebarProps) {
         </div>
       </div>
 
-      <SidebarBody phase={phase} openFullPage={openFullPage} retryStart={retryStart} />
+      <SidebarBody
+        phase={phase}
+        inlineSetupOpen={inlineSetupOpen}
+        openInlineSetup={() => setInlineSetupOpen(true)}
+        openFullPage={openFullPage}
+        refresh={refresh}
+        retryStart={retryStart}
+      />
     </div>
   )
 }
 
 function SidebarBody({
   phase,
+  inlineSetupOpen,
+  openInlineSetup,
   openFullPage,
+  refresh,
   retryStart,
 }: {
   phase: ReturnType<typeof useCocoonSession>['phase']
+  inlineSetupOpen: boolean
+  openInlineSetup: () => void
   openFullPage: () => void
+  refresh: () => void
   retryStart: () => void
 }) {
   const { t } = useTranslation('settings')
@@ -82,16 +103,32 @@ function SidebarBody({
       return <CenteredHint label="Cocoon wallet error" sublabel={phase.error} />
 
     case 'needsSetup':
+      if (inlineSetupOpen) {
+        return <SetupWizard onComplete={refresh} compact />
+      }
       return (
         <SetupCallout
           title="Confidential AI on TON"
           description="Generate a wallet and stake to start chatting."
           ctaLabel="Setup Cocoon AI"
-          onCta={openFullPage}
+          onCta={openInlineSetup}
         />
       )
 
     case 'resumeSetup':
+      if (inlineSetupOpen) {
+        return (
+          <SetupWizard
+            onComplete={refresh}
+            compact
+            resumeFrom={{
+              initialStep: phase.resumeStep,
+              ownerAddress: phase.walletInfo.ownerAddress,
+              nodeAddress: phase.walletInfo.nodeAddress,
+            }}
+          />
+        )
+      }
       return (
         <SetupCallout
           title="Finish setup"
@@ -101,7 +138,7 @@ function SidebarBody({
               : 'Fund your wallet to continue setup.'
           }
           ctaLabel="Resume setup"
-          onCta={openFullPage}
+          onCta={openInlineSetup}
         />
       )
 

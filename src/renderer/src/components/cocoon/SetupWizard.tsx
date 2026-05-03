@@ -23,6 +23,8 @@ interface WalletCreated {
 
 interface Props {
   onComplete: () => void
+  /** Sidebar density: narrower paddings and no framed card-in-panel feel. */
+  compact?: boolean
   /**
    * When the wizard resumes after a browser restart (wallet exists but setup
    * not completed), the parent passes the persisted addresses so we can skip
@@ -36,7 +38,7 @@ interface Props {
   }
 }
 
-export function SetupWizard({ onComplete, resumeFrom }: Props) {
+export function SetupWizard({ onComplete, compact = false, resumeFrom }: Props) {
   const [step, setStep] = useState<StepNum>(resumeFrom?.initialStep ?? 1)
   const [wallet, setWallet] = useState<WalletCreated | null>(
     resumeFrom ? { ownerAddress: resumeFrom.ownerAddress, nodeAddress: resumeFrom.nodeAddress } : null
@@ -74,8 +76,12 @@ export function SetupWizard({ onComplete, resumeFrom }: Props) {
   }
 
   return (
-    <div className="flex-1 overflow-auto p-6 flex items-start justify-center">
-      <div className="w-full max-w-[600px] bg-[hsl(var(--elevation-1))] border border-border rounded-xl p-6 space-y-6">
+    <div className={`flex-1 overflow-auto flex items-start justify-center ${compact ? 'p-3' : 'p-6'}`}>
+      <div
+        className={`w-full space-y-6 ${
+          compact ? 'max-w-none p-1' : 'max-w-[600px] bg-[hsl(var(--elevation-1))] border border-border rounded-xl p-6'
+        }`}
+      >
         {/* Progress indicator
             Dot widths: h-2.5 w-2.5 (10px) × 4 + connector w-12 (48px) × 3 = 184px total.
             Labels row uses the same 184px so each label tracks its dot. */}
