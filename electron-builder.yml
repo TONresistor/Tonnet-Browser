@@ -37,7 +37,7 @@ linux:
     - deb
   category: Network
   icon: resources/icons/icon.png
-  artifactName: "TON-Browser-${version}.${ext}"
+  artifactName: "TON-Browser-${version}-${arch}.${ext}"
 
 win:
   extraResources:
@@ -49,7 +49,12 @@ win:
     - nsis
     - portable
   icon: resources/icons/icon.ico
+
+nsis:
   artifactName: "TON-Browser-Setup-${version}.${ext}"
+
+portable:
+  artifactName: "TON-Browser-Portable-${version}.${ext}"
 
 mac:
   extraResources:

@@ -50,11 +50,14 @@ jobs:
       - name: Format check
         run: npm run format:check
 
+      - name: Test coverage
+        run: npm run test:coverage
+
       - name: Security audit
         run: npm audit --audit-level=high
 
   # ─────────────────────────────────────────────
-  # Job 2: Build (parallel matrix, 3 platforms)
+  # Job 2: Build (parallel matrix, platform/architecture targets)
   # ─────────────────────────────────────────────
   build:
     needs: validate
@@ -64,10 +67,24 @@ jobs:
         include:
           - os: ubuntu-latest
             platform: linux
+            goarch: amd64
+            electron_args: --linux --x64
+            artifact_name: linux-x64-build
+          - os: ubuntu-latest
+            platform: linux
+            goarch: arm64
+            electron_args: --linux --arm64
+            artifact_name: linux-arm64-build
           - os: windows-latest
             platform: win
+            goarch: amd64
+            electron_args: --win --x64
+            artifact_name: windows-build
           - os: macos-latest
             platform: mac
+            goarch: universal
+            electron_args: --mac
+            artifact_name: macos-build
 
     runs-on: ${{ matrix.os }}
 
@@ -104,48 +121,69 @@ jobs:
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v4
         with:
           path: ~/go/pkg/mod
-          key: go-mod-${{ runner.os }}-${{ hashFiles('scripts/binary-versions.json') }}
+          key: go-mod-${{ runner.os }}-${{ matrix.goarch }}-${{ hashFiles('scripts/binary-versions.json') }}
           restore-keys: |
+            go-mod-${{ runner.os }}-${{ matrix.goarch }}-
             go-mod-${{ runner.os }}-
 
       - name: Build Go binaries from source
-        run: bash scripts/build-binaries-from-source.sh ${{ matrix.platform }}
+        run: bash scripts/build-binaries-from-source.sh ${{ matrix.platform }} ${{ matrix.goarch }}
+
+      - name: Verify Go binaries
+        run: node scripts/verify-binaries.mjs ${{ matrix.platform }} ${{ matrix.goarch }}
 
       - name: Install dependencies
         run: npm ci
 
       - name: Build for ${{ matrix.platform }}
-        run: npm run build && npx electron-builder --${{ matrix.platform }} --publish never
+        run: npm run build && npx electron-builder ${{ matrix.electron_args }} --publish never
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload Linux artifacts
-        if: matrix.platform == 'linux'
+      - name: Verify package artifacts
+        run: node scripts/verify-release-artifacts.mjs ${{ matrix.platform }} ${{ matrix.goarch }}
+
+      - name: Upload Linux x64 artifacts
+        if: matrix.platform == 'linux' && matrix.goarch == 'amd64'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: linux-build
+          name: ${{ matrix.artifact_name }}
           path: |
             release/*.AppImage
             release/*.deb
             release/latest-linux.yml
+          if-no-files-found: error
+
+      - name: Upload Linux ARM64 artifacts
+        if: matrix.platform == 'linux' && matrix.goarch == 'arm64'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: |
+            release/*.AppImage
+            release/*.deb
+            release/latest-linux-arm64.yml
+          if-no-files-found: error
 
       - name: Upload Windows artifacts
         if: matrix.platform == 'win'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: windows-build
+          name: ${{ matrix.artifact_name }}
           path: |
             release/*.exe
             release/latest.yml
+          if-no-files-found: error
 
       - name: Upload macOS artifacts
         if: matrix.platform == 'mac'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: macos-build
+          name: ${{ matrix.artifact_name }}
           path: |
             release/*.dmg
             release/latest-mac.yml
+          if-no-files-found: error
 
   # ─────────────────────────────────────────────
   # Job 3: Release (single job, atomic publish)
@@ -192,7 +230,8 @@ jobs:
         uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3.0.0
         with:
           files: |
-            artifacts/linux-build/*
+            artifacts/linux-x64-build/*
+            artifacts/linux-arm64-build/*
             artifacts/windows-build/*
             artifacts/macos-build/*
             artifacts/SHA256SUMS.txt

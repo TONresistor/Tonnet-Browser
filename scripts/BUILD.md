@@ -4,18 +4,20 @@ This document describes how to build the platform binaries used by Tonnet Browse
 
 ## Overview
 
-Tonnet Browser requires three binary components:
+Tonnet Browser requires five binary components:
 
 1. **tonutils-proxy** - HTTP proxy for TON sites (from TONresistor/Tonutils-Proxy)
 2. **tonutils-storage** - TON storage daemon (from xssnick/tonutils-storage)
 3. **tonutils-bridge** - standalone WebSocket-ADNL bridge (from TONresistor/tonutils-bridge)
+4. **gocoon** - Cocoon CLI used for wallet/channel operations (from TONresistor/gocoon)
+5. **cocoon-runner** - Cocoon local runner used by the browser runtime (from TONresistor/gocoon)
 
 ## Supported Platforms
 
 | Platform | Architecture | Notes |
 |----------|--------------|-------|
 | macOS    | Universal (x86_64 + arm64) | Runs natively on Intel and Apple Silicon |
-| Linux    | x86_64 | 64-bit Linux |
+| Linux    | x86_64 + ARM64 | 64-bit Linux |
 | Windows  | x86_64 | 64-bit Windows |
 
 ## Quick Start
@@ -27,7 +29,8 @@ Use the unified build script, which clones each pinned Go repo and builds for th
 ```bash
 # From the project root. Auto-detects OS if no argument is given.
 ./scripts/build-binaries-from-source.sh              # current platform
-./scripts/build-binaries-from-source.sh linux        # target linux
+./scripts/build-binaries-from-source.sh linux        # target linux x86_64
+./scripts/build-binaries-from-source.sh linux arm64  # target linux ARM64
 ./scripts/build-binaries-from-source.sh mac          # target mac (universal)
 ./scripts/build-binaries-from-source.sh win          # target win
 ```
@@ -44,7 +47,7 @@ The project includes a GitHub Actions workflow that automatically builds binarie
 
 ### Prerequisites
 
-- Go 1.22 or later
+- Go 1.25 or later
 - Git
 - For macOS universal binaries: Xcode Command Line Tools (provides `lipo`)
 
@@ -69,6 +72,12 @@ file binary-universal
 
 ```bash
 CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o binary-linux .
+```
+
+### Linux ARM64
+
+```bash
+CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags="-s -w" -o binary-linux-arm64 .
 ```
 
 ### Windows x86_64
@@ -97,14 +106,20 @@ resources/
       tonutils-proxy        # Universal binary
       tonutils-storage      # Universal binary
       tonutils-bridge       # Universal binary
+      gocoon                # Universal binary
+      cocoon-runner         # Universal binary
     linux/
       tonutils-proxy
       tonutils-storage
       tonutils-bridge
+      gocoon
+      cocoon-runner
     win/
       tonutils-proxy.exe
       tonutils-storage.exe
       tonutils-bridge.exe
+      gocoon.exe
+      cocoon-runner.exe
 ```
 
 ## Building Individual Components
@@ -139,6 +154,18 @@ Or manually:
 git clone https://github.com/TONresistor/tonutils-bridge.git ../tonutils-bridge
 cd ../tonutils-bridge
 go build -ldflags="-s -w -X main.GitCommit=$(git describe --tags --always)" -o tonutils-bridge .
+```
+
+### gocoon and cocoon-runner
+
+Preferred: use the unified build script (see Automated Build above).
+
+Or manually:
+```bash
+git clone https://github.com/TONresistor/gocoon.git ../gocoon
+cd ../gocoon
+go build -ldflags="-s -w -X 'github.com/TONresistor/gocoon/pkg/cocoon.Version=$(git describe --tags --always)'" -o gocoon ./cmd/gocoon
+go build -ldflags="-s -w -X 'github.com/TONresistor/gocoon/pkg/cocoon.Version=$(git describe --tags --always)'" -o cocoon-runner ./cmd/cocoon-runner
 ```
 
 ## Verifying Universal Binaries
