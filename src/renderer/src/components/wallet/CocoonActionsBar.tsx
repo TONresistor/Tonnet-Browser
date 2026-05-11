@@ -72,7 +72,7 @@ export const CocoonActionsBar = memo(function CocoonActionsBar({
     } finally {
       setBusy(null)
     }
-  }, [t, onActionComplete])
+  }, [onActionComplete])
 
   const buttonClass = compact
     ? 'h-10 flex items-center justify-center gap-1.5 rounded-full bg-surface-hover border border-border-medium text-sm font-medium text-foreground hover:bg-surface-active disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-150'

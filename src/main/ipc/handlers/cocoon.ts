@@ -18,7 +18,6 @@ import {
   exportCocoonMnemonic,
   deleteCocoonWallet,
   markSetupComplete,
-  getNodeSecretBase64,
 } from '../../cocoon/wallet'
 import { getOwnerBalance, getCocoonWalletBalance, fundCocoonFromOwner } from '../../cocoon/setup'
 import { getStakeInfo, unstake, cashout } from '../../cocoon/unstake'

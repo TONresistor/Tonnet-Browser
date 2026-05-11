@@ -57,6 +57,9 @@ jobs:
         if: steps.go-bin-cache.outputs.cache-hit != 'true'
         run: bash scripts/build-binaries-from-source.sh linux
 
+      - name: Verify Go binaries
+        run: node scripts/verify-binaries.mjs linux
+
       - name: Install dependencies
         run: npm ci
 
@@ -70,7 +73,7 @@ jobs:
         run: npm run format:check
 
       - name: Test coverage
-        run: npm run test:coverage 2>&1 | tail -30
+        run: npm run test:coverage
 
       - name: Upload coverage report
         if: always()
@@ -161,4 +164,3 @@ jobs:
 
       - name: Dependency review
         uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48 # v4.9.0
-
