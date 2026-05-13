@@ -2,8 +2,9 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
+import { fileURLToPath } from 'node:url'
 
-const root = path.resolve(new URL('..', import.meta.url).pathname)
+const root = path.resolve(fileURLToPath(new URL('..', import.meta.url)))
 const releaseDir = path.join(root, 'release')
 
 const platform = process.argv[2]
