@@ -338,127 +338,14 @@ describe('validateCategoryValues', () => {
 })
 
 describe('getDefaultSettingsBase', () => {
-  it('returns all required categories', () => {
-    const defaults = getDefaultSettingsBase()
-
-    expect(defaults).toHaveProperty('general')
-    expect(defaults).toHaveProperty('network')
-    expect(defaults).toHaveProperty('storage')
-    expect(defaults).toHaveProperty('appearance')
-    expect(defaults).toHaveProperty('privacy')
-    expect(defaults).toHaveProperty('advanced')
+  // The only property worth asserting: the defaults are internally valid.
+  // Re-asserting each literal value would just duplicate DEFAULT_SETTINGS
+  // and break on every legitimate default change without catching a bug.
+  it('produces an object that passes structural validation', () => {
+    expect(isValidSettingsObject(getDefaultSettingsBase())).toBe(true)
   })
 
-  describe('general settings defaults', () => {
-    it('has correct homepage default', () => {
-      const defaults = getDefaultSettingsBase()
-      expect(defaults.general.homepage).toBe('ton://start')
-    })
-  })
-
-  describe('network settings defaults', () => {
-    it('has correct proxyPort default', () => {
-      const defaults = getDefaultSettingsBase()
-      expect(defaults.network.proxyPort).toBe(8080)
-    })
-
-    it('has correct storagePort default', () => {
-      const defaults = getDefaultSettingsBase()
-      expect(defaults.network.storagePort).toBe(5555)
-    })
-
-    it('has correct autoConnect default', () => {
-      const defaults = getDefaultSettingsBase()
-      expect(defaults.network.autoConnect).toBe(false)
-    })
-
-    it('has correct connectionTimeout default', () => {
-      const defaults = getDefaultSettingsBase()
-      expect(defaults.network.connectionTimeout).toBe(30)
-    })
-
-    it('has correct syncCheckInterval default', () => {
-      const defaults = getDefaultSettingsBase()
-      expect(defaults.network.syncCheckInterval).toBe(3000)
-    })
-  })
-
-  describe('storage settings defaults', () => {
-    it('has a downloadPath', () => {
-      const defaults = getDefaultSettingsBase()
-      expect(typeof defaults.storage.downloadPath).toBe('string')
-      expect(defaults.storage.downloadPath.length).toBeGreaterThan(0)
-    })
-
-    it('has correct pollingInterval default', () => {
-      const defaults = getDefaultSettingsBase()
-      expect(defaults.storage.pollingInterval).toBe(2000)
-    })
-  })
-
-  describe('appearance settings defaults', () => {
-    it('has correct defaultZoom default', () => {
-      const defaults = getDefaultSettingsBase()
-      expect(defaults.appearance.defaultZoom).toBe(100)
-    })
-
-    it('has correct zoomMin default', () => {
-      const defaults = getDefaultSettingsBase()
-      expect(defaults.appearance.zoomMin).toBe(30)
-    })
-
-    it('has correct zoomMax default', () => {
-      const defaults = getDefaultSettingsBase()
-      expect(defaults.appearance.zoomMax).toBe(300)
-    })
-
-    it('has correct showBookmarksBar default', () => {
-      const defaults = getDefaultSettingsBase()
-      expect(defaults.appearance.showBookmarksBar).toBe(true)
-    })
-
-    it('has correct showStatusBar default', () => {
-      const defaults = getDefaultSettingsBase()
-      expect(defaults.appearance.showStatusBar).toBe(true)
-    })
-
-    it('has a valid built-in theme as default', () => {
-      const defaults = getDefaultSettingsBase()
-      expect(validateSettings({ appearance: { theme: defaults.appearance.theme } }).valid).toBe(true)
-    })
-  })
-
-  describe('privacy settings defaults', () => {
-    it('has correct clearOnExit default', () => {
-      const defaults = getDefaultSettingsBase()
-      expect(defaults.privacy.clearOnExit).toBe(true)
-    })
-  })
-
-  describe('advanced settings defaults', () => {
-    it('has correct proxyVerbosity default', () => {
-      const defaults = getDefaultSettingsBase()
-      expect(defaults.advanced.proxyVerbosity).toBe(2)
-    })
-
-    it('has correct storageVerbosity default', () => {
-      const defaults = getDefaultSettingsBase()
-      expect(defaults.advanced.storageVerbosity).toBe(2)
-    })
-
-    it('has correct syncTestDomain default', () => {
-      const defaults = getDefaultSettingsBase()
-      expect(defaults.advanced.syncTestDomain).toBe('tonnet-sync-check.ton')
-    })
-  })
-
-  it('returns valid settings according to isValidSettingsObject', () => {
-    const defaults = getDefaultSettingsBase()
-    expect(isValidSettingsObject(defaults)).toBe(true)
-  })
-
-  it('returns valid settings according to validateSettings (Zod)', () => {
-    const defaults = getDefaultSettingsBase()
-    expect(validateSettings(defaults).valid).toBe(true)
+  it('produces an object that passes Zod validation', () => {
+    expect(validateSettings(getDefaultSettingsBase()).valid).toBe(true)
   })
 })

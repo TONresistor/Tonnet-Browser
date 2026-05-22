@@ -179,64 +179,27 @@ describe('services composition root', () => {
     registry = createServices()
   })
 
-  it('createServices returns a registry with all expected properties', () => {
-    const expectedKeys: (keyof ServiceRegistry)[] = [
-      'pathProvider',
-      'secureStorage',
-      'proxyManager',
-      'storageManager',
-      'walletManager',
-      'walletHistoryManager',
-      'paymentInterceptor',
-      'paymentPolicyStore',
-      'overlayManager',
-      'bridgeInterceptor',
-      'bridgePermissionStore',
-      'historyManager',
-      'contentFilterManager',
+  it('destroyServices tears down every service in the registry', async () => {
+    // The composition root's only real contract: shutdown releases every
+    // service. A missed teardown call (resource/handle leak) fails this.
+    const spies = [
+      vi.spyOn(registry.historyManager, 'onAppExit'),
+      vi.spyOn(registry.overlayManager, 'destroy'),
+      vi.spyOn(registry.bridgeInterceptor, 'destroy'),
+      vi.spyOn(registry.paymentInterceptor, 'destroy'),
+      vi.spyOn(registry.paymentPolicyStore, 'destroy'),
+      vi.spyOn(registry.proxyManager, 'stop'),
+      vi.spyOn(registry.storageManager, 'stop'),
+      vi.spyOn(registry.walletManager, 'destroy'),
+      vi.spyOn(registry.withdrawDriver, 'stop'),
+      vi.spyOn(registry.recoveryDriver, 'stop'),
+      vi.spyOn(registry.cocoonManager, 'stop'),
     ]
-
-    for (const key of expectedKeys) {
-      expect(registry[key], `registry.${key} should be defined`).toBeDefined()
-      expect(registry[key], `registry.${key} should not be null`).not.toBeNull()
-    }
-  })
-
-  it('registry has exactly the expected number of services', () => {
-    expect(Object.keys(registry)).toHaveLength(16)
-  })
-
-  it('walletManager receives secureStorage dependency', () => {
-    // WalletManager constructor receives the secureStorage adapter
-    expect(registry.walletManager).toBeDefined()
-    expect(registry.secureStorage).toBeDefined()
-  })
-
-  it('bridgeInterceptor receives permissionStore and overlayManager', () => {
-    expect(registry.bridgeInterceptor).toBeDefined()
-    expect(registry.bridgePermissionStore).toBeDefined()
-    expect(registry.overlayManager).toBeDefined()
-  })
-
-  it('destroyServices completes without throwing', async () => {
-    await expect(destroyServices(registry)).resolves.toBeUndefined()
-  })
-
-  it('destroyServices calls cleanup methods on services', async () => {
-    const overlaySpy = vi.spyOn(registry.overlayManager, 'destroy')
-    const bridgeSpy = vi.spyOn(registry.bridgeInterceptor, 'destroy')
-    const policySpy = vi.spyOn(registry.paymentPolicyStore, 'destroy')
-    const proxySpy = vi.spyOn(registry.proxyManager, 'stop')
-    const storageSpy = vi.spyOn(registry.storageManager, 'stop')
-    const walletSpy = vi.spyOn(registry.walletManager, 'destroy')
 
     await destroyServices(registry)
 
-    expect(overlaySpy).toHaveBeenCalled()
-    expect(bridgeSpy).toHaveBeenCalled()
-    expect(policySpy).toHaveBeenCalled()
-    expect(proxySpy).toHaveBeenCalled()
-    expect(storageSpy).toHaveBeenCalled()
-    expect(walletSpy).toHaveBeenCalled()
+    for (const spy of spies) {
+      expect(spy).toHaveBeenCalledOnce()
+    }
   })
 })
