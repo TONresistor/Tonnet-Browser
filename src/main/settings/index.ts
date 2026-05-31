@@ -209,6 +209,43 @@ export function migrateSettings(raw: unknown): { migrated: boolean; data: unknow
   }
 }
 
+// Migrate legacy theme names to current ones (pre-Zod; the schema still accepts
+// the legacy literals, so rewriting here removes them from disk on next persist).
+const LEGACY_THEME_MAP: Record<string, string> = {
+  'midnight-blue': 'resistance-dog',
+  'canard-yellow': 'utya-duck',
+}
+export function migrateTheme(raw: unknown): { migrated: boolean; data: unknown } {
+  if (!raw || typeof raw !== 'object') return { migrated: false, data: raw }
+  const obj = raw as Record<string, unknown>
+  const appearance = obj.appearance as Record<string, unknown> | undefined
+  const theme = appearance?.theme
+  if (typeof theme === 'string' && LEGACY_THEME_MAP[theme]) {
+    return {
+      migrated: true,
+      data: { ...obj, appearance: { ...appearance, theme: LEGACY_THEME_MAP[theme] } },
+    }
+  }
+  return { migrated: false, data: raw }
+}
+
+/** Run all pre-validation migrations in sequence, reporting if any changed the data. */
+function migrateAll(raw: unknown): { migrated: boolean; data: unknown } {
+  const r1 = migrateSettings(raw)
+  const r2 = migrateNotificationStyle(r1.data)
+  const r3 = migrateTheme(r2.data)
+  return { migrated: r1.migrated || r2.migrated || r3.migrated, data: r3.data }
+}
+
+/** Persist during load without letting a transient write failure abort startup. */
+function persistBestEffort(settings: AppSettings): void {
+  try {
+    saveSettings(settings)
+  } catch {
+    /* saveSettings already logged; in-memory settings are still usable */
+  }
+}
+
 // Load settings from disk
 export function loadSettings(): AppSettings {
   if (settingsCache) {
@@ -220,56 +257,37 @@ export function loadSettings(): AppSettings {
 
   if (!existsSync(settingsFile)) {
     settingsCache = defaults
-    saveSettings(defaults)
+    persistBestEffort(defaults)
     return defaults
   }
 
   try {
-    const data = readFileSync(settingsFile, 'utf-8')
-    const raw: unknown = JSON.parse(data)
+    const raw: unknown = JSON.parse(readFileSync(settingsFile, 'utf-8'))
 
-    // Migrate legacy v1.5.3 fields before Zod validation
-    const { migrated: m1, data: d1 } = migrateSettings(raw)
-    if (m1) {
-      log.info('Migrated legacy network settings (circuitRotation/rotateInterval → tunnelMode)')
+    const { migrated, data: parsed } = migrateAll(raw)
+    if (migrated) {
+      log.info('Migrated legacy settings to current schema')
     }
-    const { migrated: m2, data: parsed } = migrateNotificationStyle(d1)
-    if (m2) {
-      log.info('Migrated legacy notificationStyle')
-    }
-    const migrated = m1 || m2
 
     // Use Zod to validate and apply defaults for missing fields
     const result = AppSettingsSchema.safeParse(parsed)
-
     if (!result.success) {
       log.warn(`Invalid settings file format: ${result.error.message}, using defaults`)
       settingsCache = defaults
-      saveSettings(defaults)
+      persistBestEffort(defaults)
       return defaults
     }
 
     settingsCache = result.data
 
-    // Persist migrated settings immediately so legacy keys are removed from disk
-    if (migrated) {
-      saveSettings(settingsCache)
-    }
-
-    // Apply dynamic default for downloadPath if not set
+    // Apply dynamic default for downloadPath if not set (in-memory only)
     if (!settingsCache.storage.downloadPath) {
       settingsCache.storage.downloadPath = getDefaultStoragePath()
     }
 
-    // Migrate legacy theme names to current ones.
-    const legacyThemeMap: Record<string, ThemeType> = {
-      'midnight-blue': 'resistance-dog',
-      'canard-yellow': 'utya-duck',
-    }
-    const migratedTheme = legacyThemeMap[settingsCache.appearance.theme as string]
-    if (migratedTheme) {
-      settingsCache.appearance.theme = migratedTheme
-      saveSettings(settingsCache)
+    // Persist once if any migration rewrote the data, so legacy keys leave disk
+    if (migrated) {
+      persistBestEffort(settingsCache)
     }
 
     return settingsCache
@@ -286,6 +304,7 @@ export function saveSettings(settings: AppSettings): void {
     settingsCache = settings
   } catch (error) {
     log.error(`Failed to save settings: ${String(error)}`)
+    throw error
   }
 }
 
