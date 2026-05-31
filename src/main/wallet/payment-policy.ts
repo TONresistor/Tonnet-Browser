@@ -76,16 +76,21 @@ export class PaymentPolicyStore {
     }
   }
 
+  /** Serialize the in-memory spending map and persist it to disk. */
+  private async persistSpending(): Promise<void> {
+    const data: Record<string, SpendingRecord[]> = {}
+    for (const [domain, records] of this.spending) {
+      data[domain] = records
+    }
+    await this.storage.write(data)
+  }
+
   private scheduleSave(): void {
     if (this.saveTimer) return
     this.saveTimer = setTimeout(async () => {
       this.saveTimer = null
       try {
-        const data: Record<string, SpendingRecord[]> = {}
-        for (const [domain, records] of this.spending) {
-          data[domain] = records
-        }
-        await this.storage.write(data)
+        await this.persistSpending()
       } catch (err) {
         log.error('Failed to save spending records:', err)
       }
@@ -133,11 +138,7 @@ export class PaymentPolicyStore {
     }
     // Final flush: persist any in-flight spending records before shutdown
     try {
-      const data: Record<string, SpendingRecord[]> = {}
-      for (const [domain, records] of this.spending) {
-        data[domain] = records
-      }
-      await this.storage.write(data)
+      await this.persistSpending()
     } catch (err) {
       log.error('Failed to flush spending records on shutdown:', err)
     }
