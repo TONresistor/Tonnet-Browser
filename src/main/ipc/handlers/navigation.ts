@@ -6,6 +6,7 @@ import { IPC_CHANNELS } from '../../../shared/types'
 import { isValidNavigationUrl } from '../validation'
 import { secureHandle, secureHandleWithEvent, navLimiter, log } from './shared'
 import { getSetting } from '../../settings'
+import { loadDataHtml } from '../../windows/page-templates'
 import {
   getActiveView,
   hideAllViews,
@@ -72,7 +73,7 @@ export function registerNavigationHandlers(): void {
     if (currentUrl.startsWith('file:///') && currentUrl.includes('/storage/')) {
       const cached = fileBrowserCache.get(view.webContents.id)
       if (cached) {
-        await view.webContents.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(cached)}`)
+        await loadDataHtml(view.webContents, cached)
         return { success: true }
       }
     }
