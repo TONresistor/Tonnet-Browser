@@ -253,12 +253,22 @@ function mainSettingsToPrefs(settings: AppSettings): AppPreferences {
   }
 }
 
+/**
+ * Value-equality for a single preference. Arrays (e.g. whitelistedDomains) are
+ * compared by content, everything else by identity. Used by BOTH the dirty
+ * check and the save() diff so they can never disagree.
+ */
+function prefValueChanged(a: unknown, b: unknown): boolean {
+  if (Array.isArray(a) && Array.isArray(b)) {
+    return JSON.stringify(a) !== JSON.stringify(b)
+  }
+  return a !== b
+}
+
 // Check if two preferences objects are different
 function hasPreferencesChanged(a: AppPreferences, b: AppPreferences): boolean {
   for (const key of Object.keys(a) as (keyof AppPreferences)[]) {
-    if (Array.isArray(a[key]) && Array.isArray(b[key])) {
-      if (JSON.stringify(a[key]) !== JSON.stringify(b[key])) return true
-    } else if (a[key] !== b[key]) return true
+    if (prefValueChanged(a[key], b[key])) return true
   }
   return false
 }
@@ -305,7 +315,7 @@ export const usePreferencesStore = create<PreferencesState>()((set, get) => ({
     // Find changed values and group by category
     const categoryUpdates: Record<string, Record<string, AppPreferences[keyof AppPreferences]>> = {}
     for (const key of Object.keys(draft) as (keyof AppPreferences)[]) {
-      if (draft[key] !== saved[key]) {
+      if (prefValueChanged(draft[key], saved[key])) {
         const { category, field } = prefToCategory[key]
         if (!categoryUpdates[category]) {
           categoryUpdates[category] = {}
