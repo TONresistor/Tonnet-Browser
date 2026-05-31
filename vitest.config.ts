@@ -14,7 +14,6 @@ export default defineConfig({
     environment: 'node',
     include: ['src/**/*.test.{ts,tsx}'],
     alias: {
-      '@tests': resolve(__dirname, 'src/__tests__'),
       '@': resolve(__dirname, 'src/renderer/src'),
       '@shared': resolve(__dirname, 'src/shared'),
     },
