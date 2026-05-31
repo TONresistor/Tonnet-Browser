@@ -87,6 +87,12 @@ export class BridgeProvider implements ContractProvider {
     }
   }
 
+  /**
+   * Run a contract get-method. Deliberately a narrow adapter: only string method
+   * names with NO arguments are supported (the cocoon wrappers we use call such
+   * methods). Numeric ids or typed args throw — extend bridgeItemToParam() to lift
+   * that restriction if a future wrapper needs argument passing.
+   */
   async get(name: string | number, args: TupleItem[]): Promise<ContractGetMethodResult> {
     if (typeof name !== 'string') {
       throw new Error('BridgeProvider: numeric method ids are not supported — pass method name as string')
