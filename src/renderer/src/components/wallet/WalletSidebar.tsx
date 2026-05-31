@@ -5,6 +5,7 @@
  */
 
 import { useEffect, useRef, useState, useCallback } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import {
   X,
   Send,
@@ -51,7 +52,22 @@ export function WalletSidebar({ onClose }: WalletSidebarProps) {
     send,
     loadHistory,
     refreshBalance,
-  } = useWalletStore()
+  } = useWalletStore(
+    useShallow((s) => ({
+      isCreated: s.isCreated,
+      address: s.address,
+      balance: s.balance,
+      transactions: s.transactions,
+      isLoading: s.isLoading,
+      isSending: s.isSending,
+      error: s.error,
+      init: s.init,
+      create: s.create,
+      send: s.send,
+      loadHistory: s.loadHistory,
+      refreshBalance: s.refreshBalance,
+    }))
+  )
   const openOrSwitchToTab = useTabsStore((s) => s.openOrSwitchToTab)
   const [copied, setCopied] = useState(false)
   const [mnemonicCopied, setMnemonicCopied] = useState(false)

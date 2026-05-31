@@ -5,6 +5,7 @@
  */
 
 import { useEffect, useRef, useState, useCallback, memo } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import {
   Send,
   Download,
@@ -52,7 +53,25 @@ export function WalletPage() {
     send,
     loadHistory,
     refreshBalance,
-  } = useWalletStore()
+  } = useWalletStore(
+    useShallow((s) => ({
+      isCreated: s.isCreated,
+      address: s.address,
+      balance: s.balance,
+      transactions: s.transactions,
+      isLoading: s.isLoading,
+      isSending: s.isSending,
+      error: s.error,
+      decryptFailed: s.decryptFailed,
+      weakEncryption: s.weakEncryption,
+      init: s.init,
+      create: s.create,
+      importWallet: s.importWallet,
+      send: s.send,
+      loadHistory: s.loadHistory,
+      refreshBalance: s.refreshBalance,
+    }))
+  )
   const [newMnemonic, setNewMnemonic] = useState<string[] | null>(null)
   const [copied, setCopied] = useState(false)
   const [actionView, setActionView] = useState<ActionView>(null)
