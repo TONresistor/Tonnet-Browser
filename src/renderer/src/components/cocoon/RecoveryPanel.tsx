@@ -21,6 +21,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { isIpcError, getIpcError } from '@/lib/ipc-utils'
 import { IPC_CHANNELS } from '@shared/ipc-channels'
+import { useTransientMessage } from '@/hooks/useTransientMessage'
 import { createLogger } from '@/logger'
 import { useTranslation } from 'react-i18next'
 import type { CocoonRecoveryAllResult, RecoveryEntry, RecoveryPhase } from '../../../../shared/cocoon-types'
@@ -57,7 +58,7 @@ export const RecoveryPanel = memo(function RecoveryPanel() {
   const [now, setNow] = useState(() => Math.floor(Date.now() / 1000))
   const [busy, setBusy] = useState<number | 'recover' | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<string | null>(null)
+  const [success, showSuccess, clearSuccess] = useTransientMessage()
   const [recoverResult, setRecoverResult] = useState<CocoonRecoveryAllResult | null>(null)
 
   const refresh = useCallback(async () => {
@@ -108,7 +109,7 @@ export const RecoveryPanel = memo(function RecoveryPanel() {
   const handleRecoverAll = useCallback(async () => {
     setBusy('recover')
     setError(null)
-    setSuccess(null)
+    clearSuccess()
     try {
       const res = await window.electron.cocoon.recoveryAll()
       const err = getIpcError(res)
@@ -118,20 +119,19 @@ export const RecoveryPanel = memo(function RecoveryPanel() {
       }
       const recovery = res as CocoonRecoveryAllResult
       setRecoverResult(recovery)
-      setSuccess(
+      showSuccess(
         t('cocoon.recovery.recoverSuccess', {
           txs: recovery.txs.length,
           locked: recovery.locked.length,
         })
       )
-      setTimeout(() => setSuccess(null), 6_000)
       await refresh()
     } catch (e) {
       setError((e as Error).message ?? 'recover failed')
     } finally {
       setBusy(null)
     }
-  }, [refresh, t])
+  }, [refresh, t, showSuccess, clearSuccess])
 
   const toolbar = (
     <div className="flex items-center justify-between gap-3">

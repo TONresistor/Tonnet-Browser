@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button'
 import { getIpcError, isIpcError } from '@/lib/ipc-utils'
 import { IPC_CHANNELS } from '@shared/ipc-channels'
 import { formatTonFixed } from '@/lib/ton-utils'
+import { useTransientMessage } from '@/hooks/useTransientMessage'
 import { createLogger } from '@/logger'
 import { useTranslation } from 'react-i18next'
 import { deriveStakeView, type StakeView, type WithdrawStage } from './stake-actions'
@@ -47,11 +48,10 @@ export const StakePanel = memo(function StakePanel() {
   const [walletMissing, setWalletMissing] = useState(false)
   const [actionPending, setActionPending] = useState<'stake' | 'unstake' | 'cashout' | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<string | null>(null)
+  const [success, showSuccess] = useTransientMessage()
   const [tickNonce, setTickNonce] = useState(0)
 
   const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const successTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const refresh = useCallback(async () => {
     const exists = await window.electron.cocoon.walletExists()
     if (!exists) {
@@ -141,18 +141,6 @@ export const StakePanel = memo(function StakePanel() {
     })
     return off
   }, [])
-
-  useEffect(() => {
-    return () => {
-      if (successTimerRef.current) clearTimeout(successTimerRef.current)
-    }
-  }, [])
-
-  const showSuccess = (msg: string) => {
-    setSuccess(msg)
-    if (successTimerRef.current) clearTimeout(successTimerRef.current)
-    successTimerRef.current = setTimeout(() => setSuccess(null), 6_000)
-  }
 
   const handleStake = async () => {
     setActionPending('stake')
