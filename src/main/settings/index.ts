@@ -261,12 +261,14 @@ export function loadSettings(): AppSettings {
       settingsCache.storage.downloadPath = getDefaultStoragePath()
     }
 
-    // Migrate old theme names to new ones
-    if (settingsCache.appearance.theme === ('midnight-blue' as ThemeType)) {
-      settingsCache.appearance.theme = 'resistance-dog'
-      saveSettings(settingsCache)
-    } else if (settingsCache.appearance.theme === ('canard-yellow' as ThemeType)) {
-      settingsCache.appearance.theme = 'utya-duck'
+    // Migrate legacy theme names to current ones.
+    const legacyThemeMap: Record<string, ThemeType> = {
+      'midnight-blue': 'resistance-dog',
+      'canard-yellow': 'utya-duck',
+    }
+    const migratedTheme = legacyThemeMap[settingsCache.appearance.theme as string]
+    if (migratedTheme) {
+      settingsCache.appearance.theme = migratedTheme
       saveSettings(settingsCache)
     }
 
