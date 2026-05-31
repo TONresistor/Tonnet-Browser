@@ -270,7 +270,8 @@ export const BookmarksPage = memo(function BookmarksPage() {
   const getSubfolders = useBookmarksStore((s) => s.getSubfolders)
   const resetBookmarks = useBookmarksStore((s) => s.resetBookmarks)
   const reorderBookmarks = useBookmarksStore((s) => s.reorderBookmarks)
-  const { navigateActiveTab, addTab } = useTabsStore()
+  const navigateActiveTab = useTabsStore((s) => s.navigateActiveTab)
+  const addTab = useTabsStore((s) => s.addTab)
 
   // Local state
   const [query, setQuery] = useState('')
