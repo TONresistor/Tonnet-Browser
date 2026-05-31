@@ -164,8 +164,6 @@ export class ContentFilterManager extends EventEmitter {
       resourceTypes: new Set(['script']),
       description: 'Push notification prompts',
     })
-
-    log.info(`Default rules loaded: ${this.rules.length} patterns`)
   }
 
   /**
