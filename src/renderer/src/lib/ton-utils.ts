@@ -1,3 +1,6 @@
+/** Network fee/gas reserve held back when sending the full balance (0.01 TON, in nanoton). */
+export const TX_FEE_RESERVE_NANO = 10_000_000n
+
 /** Validates a TON address (EQ/UQ prefix or raw 0:hex format) */
 export function isValidTonAddress(addr: string): boolean {
   if (!addr) return false

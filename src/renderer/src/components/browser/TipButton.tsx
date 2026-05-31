@@ -6,6 +6,7 @@
 import { useState, useCallback, useEffect } from 'react'
 import { LoaderCircle, Check } from 'lucide-react'
 import { useWalletStore, tonToNano } from '@/stores/wallet'
+import { TX_FEE_RESERVE_NANO } from '@/lib/ton-utils'
 import { getIpcError } from '@/lib/ipc-utils'
 import { cn } from '@/lib/utils'
 
@@ -28,7 +29,7 @@ export function TipButton({ domain }: TipButtonProps) {
       const balanceBig = BigInt(balance)
       const amountBig = BigInt(nanoAmount)
 
-      if (amountBig + 10000000n > balanceBig) {
+      if (amountBig + TX_FEE_RESERVE_NANO > balanceBig) {
         setState('error')
         setActiveAmount(amount)
         return
