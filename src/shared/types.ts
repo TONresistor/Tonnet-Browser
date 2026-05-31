@@ -199,4 +199,3 @@ export {
   type BridgeScope,
   type BridgeDecision,
 } from './schemas'
-export { IPC_CHANNELS } from './ipc-channels'

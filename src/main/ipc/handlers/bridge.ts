@@ -1,7 +1,7 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import { app } from 'electron'
-import { IPC_CHANNELS } from '../../../shared/types'
+import { IPC_CHANNELS } from '../../../shared/ipc-channels'
 import { secureHandle, tonsiteHandle, bridgeRestartLimiter, log } from './shared'
 import { REQUIRED_NAMESPACES, BridgeConfigPartialSchema } from '../../../shared/bridge-config'
 import { writeSecureJsonAtomic } from '../../utils/secure-fs'

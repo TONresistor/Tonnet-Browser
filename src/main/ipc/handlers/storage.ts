@@ -4,7 +4,7 @@
 
 import path from 'path'
 import { shell } from 'electron'
-import { IPC_CHANNELS } from '../../../shared/types'
+import { IPC_CHANNELS } from '../../../shared/ipc-channels'
 import { isValidBagId } from '../validation'
 import { secureHandle, secureHandleWithEvent, emitToRenderer, storageLimiter, log } from './shared'
 import { getDownloadPath } from '../../settings'

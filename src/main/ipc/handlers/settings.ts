@@ -4,7 +4,7 @@
 
 import { dialog } from 'electron'
 import { getAllSessions } from '../../windows/tabs-session'
-import { IPC_CHANNELS } from '../../../shared/types'
+import { IPC_CHANNELS } from '../../../shared/ipc-channels'
 import { isValidDownloadPath } from '../validation'
 import { SETTINGS_CATEGORIES, validateCategoryValues } from '../../settings/validation'
 import { secureHandle, secureHandleWithEvent, emitToRenderer, log } from './shared'

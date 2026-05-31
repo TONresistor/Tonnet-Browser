@@ -9,7 +9,7 @@
  */
 
 import { z } from 'zod'
-import { IPC_CHANNELS } from '../../../shared/types'
+import { IPC_CHANNELS } from '../../../shared/ipc-channels'
 import { secureHandle, emitToRenderer, log } from './shared'
 import { checkCocoonAvailability } from '../../cocoon/platform'
 import {

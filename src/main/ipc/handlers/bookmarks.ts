@@ -2,7 +2,7 @@
  * IPC handlers for bookmark persistence (load/save).
  */
 
-import { IPC_CHANNELS } from '../../../shared/types'
+import { IPC_CHANNELS } from '../../../shared/ipc-channels'
 import { secureHandle } from './shared'
 import { loadBookmarks, saveBookmarks } from '../../bookmarks'
 import type { BookmarksData } from '../../bookmarks'
