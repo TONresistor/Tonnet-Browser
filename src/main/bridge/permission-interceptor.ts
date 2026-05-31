@@ -10,6 +10,20 @@ import { DEFAULT_SETTINGS } from '../../shared/defaults'
 import { createLogger } from '../../shared/logger'
 const log = createLogger('bridge-interceptor')
 
+// JSON-RPC 2.0 error codes used when rejecting bridge requests.
+const RPC_ERRORS = {
+  PARSE: -32700,
+  INVALID_REQUEST: -32600,
+  UNKNOWN_METHOD: -32601,
+  BRIDGE_UNAVAILABLE: -32000,
+  PERMISSION_DENIED: -32003,
+} as const
+
+/** Build a JSON-RPC 2.0 error response string. */
+function rpcError(id: string | number | null, code: number, message: string): string {
+  return JSON.stringify({ jsonrpc: '2.0', id, error: { code, message } })
+}
+
 interface PendingRpc {
   resolve: (response: string) => void
   originalId: string | number | null
@@ -76,23 +90,19 @@ export class BridgePermissionInterceptor {
     try {
       parsed = JSON.parse(data)
     } catch {
-      sendResponse(JSON.stringify({ jsonrpc: '2.0', id: null, error: { code: -32700, message: 'Parse error' } }))
+      sendResponse(rpcError(null, RPC_ERRORS.PARSE, 'Parse error'))
       return
     }
 
     const { id, method } = parsed
     if (!method) {
-      sendResponse(
-        JSON.stringify({ jsonrpc: '2.0', id: id ?? null, error: { code: -32600, message: 'Invalid request' } })
-      )
+      sendResponse(rpcError(id ?? null, RPC_ERRORS.INVALID_REQUEST, 'Invalid request'))
       return
     }
 
     const scope = methodToScope(method)
     if (!scope) {
-      sendResponse(
-        JSON.stringify({ jsonrpc: '2.0', id: id ?? null, error: { code: -32601, message: 'Unknown method' } })
-      )
+      sendResponse(rpcError(id ?? null, RPC_ERRORS.UNKNOWN_METHOD, 'Unknown method'))
       return
     }
 
@@ -100,11 +110,11 @@ export class BridgePermissionInterceptor {
 
     if (decision === 'denied') {
       sendResponse(
-        JSON.stringify({
-          jsonrpc: '2.0',
-          id: id ?? null,
-          error: { code: -32003, message: `Permission denied: ${domain} cannot ${SCOPE_DESCRIPTIONS[scope]}` },
-        })
+        rpcError(
+          id ?? null,
+          RPC_ERRORS.PERMISSION_DENIED,
+          `Permission denied: ${domain} cannot ${SCOPE_DESCRIPTIONS[scope]}`
+        )
       )
       return
     }
@@ -112,25 +122,13 @@ export class BridgePermissionInterceptor {
     if (decision === 'unknown') {
       const defaultPolicy = this.bridgePermissionStore.getDefaultPolicy()
       if (defaultPolicy === 'deny') {
-        sendResponse(
-          JSON.stringify({
-            jsonrpc: '2.0',
-            id: id ?? null,
-            error: { code: -32003, message: 'Bridge access denied by default policy' },
-          })
-        )
+        sendResponse(rpcError(id ?? null, RPC_ERRORS.PERMISSION_DENIED, 'Bridge access denied by default policy'))
         return
       }
 
       const granted = await this.requestPermission(domain, scope, method)
       if (!granted) {
-        sendResponse(
-          JSON.stringify({
-            jsonrpc: '2.0',
-            id: id ?? null,
-            error: { code: -32003, message: 'Permission denied by user' },
-          })
-        )
+        sendResponse(rpcError(id ?? null, RPC_ERRORS.PERMISSION_DENIED, 'Permission denied by user'))
         return
       }
     }
@@ -198,13 +196,7 @@ export class BridgePermissionInterceptor {
     sendResponse: (data: string) => void
   ): void {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-      sendResponse(
-        JSON.stringify({
-          jsonrpc: '2.0',
-          id: parsed.id ?? null,
-          error: { code: -32000, message: 'Bridge not connected' },
-        })
-      )
+      sendResponse(rpcError(parsed.id ?? null, RPC_ERRORS.BRIDGE_UNAVAILABLE, 'Bridge not connected'))
       return
     }
 
@@ -214,9 +206,7 @@ export class BridgePermissionInterceptor {
 
     const timer = setTimeout(() => {
       this.pendingRpc.delete(internalId)
-      sendResponse(
-        JSON.stringify({ jsonrpc: '2.0', id: originalId, error: { code: -32000, message: 'Bridge timeout' } })
-      )
+      sendResponse(rpcError(originalId, RPC_ERRORS.BRIDGE_UNAVAILABLE, 'Bridge timeout'))
     }, RPC_TIMEOUT_MS)
 
     this.pendingRpc.set(internalId, { resolve: sendResponse, originalId, timer })
