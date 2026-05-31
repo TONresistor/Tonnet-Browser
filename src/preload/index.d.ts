@@ -251,7 +251,7 @@ declare global {
       wallet: {
         create: () => Promise<WalletState & { mnemonic: string[] }>
         getState: () => Promise<WalletState>
-        getBalance: () => Promise<string>
+        getBalance: () => Promise<string | IpcError>
         send: (to: string, amount: string) => Promise<WalletTransaction>
         resolveRecipient: (input: string) => Promise<{ address: string; domain?: string }>
         getHistory: (limit?: number) => Promise<WalletTransaction[]>
@@ -312,9 +312,9 @@ declare global {
         walletMarkSetupComplete: () => Promise<void | IpcError>
         // Setup wizard
         /** Returns the owner wallet balance as a decimal nano-TON string. */
-        getOwnerBalance: () => Promise<string>
+        getOwnerBalance: () => Promise<string | IpcError>
         /** Returns the cocoon node wallet balance as a decimal nano-TON string. */
-        getCocoonWalletBalance: () => Promise<string>
+        getCocoonWalletBalance: () => Promise<string | IpcError>
         /** Fund the cocoon node wallet from the owner wallet. amount is decimal nano-TON or 'max'. */
         fundCocoon: (amount: string | 'max') => Promise<{
           bocHash: string
