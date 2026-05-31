@@ -104,40 +104,6 @@ export interface BridgeConfig {
   [key: string]: unknown
 }
 
-// --- Display metadata ---
-
-export const NAMESPACE_LABELS: Record<NamespaceKey, string> = {
-  lite: 'Lite Client',
-  wallet: 'Wallet',
-  subscribe: 'Subscriptions',
-  dns: 'DNS Resolver',
-  jetton: 'Jettons',
-  nft: 'NFT',
-  sbt: 'SBT',
-  payment: 'Payment Channels',
-  network: 'Network Info',
-  adnl: 'ADNL',
-  overlay: 'Overlay',
-  dht: 'DHT',
-  subscribe_trace: 'Transaction Tracing',
-}
-
-export const NAMESPACE_DESCRIPTIONS: Record<NamespaceKey, string> = {
-  lite: 'Blockchain queries: accounts, transactions, blocks',
-  wallet: 'Wallet seqno and public key queries',
-  subscribe: 'Real-time subscriptions for accounts and transactions',
-  dns: 'TON DNS domain resolution',
-  jetton: 'Jetton token data and wallet addresses',
-  nft: 'NFT item and collection data',
-  sbt: 'Soul-bound token queries',
-  payment: 'Payment channel state queries',
-  network: 'Network status and connectivity info',
-  adnl: 'Peer-to-peer ADNL connections',
-  overlay: 'Overlay network participation',
-  dht: 'Distributed hash table lookups',
-  subscribe_trace: 'Deep transaction trace subscriptions',
-}
-
 // --- Default namespace state ---
 // Principle of least privilege: only enable namespaces the browser actively uses.
 // Required: used by WsBridgeClient for core wallet/DNS operations.
@@ -171,12 +137,6 @@ export const DEFAULT_NAMESPACE_STATE: Record<NamespaceKey, boolean> = {
 }
 
 // --- Helpers ---
-
-export function isNamespaceEnabled(config: BridgeConfig, ns: NamespaceKey): boolean {
-  const nsConfig = config.namespaces[ns]
-  if (!nsConfig) return true
-  return nsConfig.enabled !== false
-}
 
 export function isRequiredNamespace(ns: NamespaceKey): ns is RequiredNamespace {
   return (REQUIRED_NAMESPACES as readonly string[]).includes(ns)

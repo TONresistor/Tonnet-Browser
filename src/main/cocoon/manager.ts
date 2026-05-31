@@ -49,7 +49,6 @@ export class CocoonManager extends EventEmitter {
   private state: CocoonState = { kind: 'stopped' }
   private runDir: string | null = null
   private httpPort: number = 10000
-  private readinessTimer: ReturnType<typeof setTimeout> | null = null
   private killTimer: ReturnType<typeof setTimeout> | null = null
   private stopping = false
 
@@ -106,7 +105,6 @@ export class CocoonManager extends EventEmitter {
       clearTimeout(this.killTimer)
       this.killTimer = null
     }
-    this.clearReadinessTimer()
 
     const runner = this.runnerProcess
 
@@ -291,13 +289,6 @@ export class CocoonManager extends EventEmitter {
     }
 
     throw new Error(`Cocoon not ready after ${READINESS_TIMEOUT_MS / 1000}s`)
-  }
-
-  private clearReadinessTimer(): void {
-    if (this.readinessTimer) {
-      clearTimeout(this.readinessTimer)
-      this.readinessTimer = null
-    }
   }
 
   private transition(next: CocoonState): void {

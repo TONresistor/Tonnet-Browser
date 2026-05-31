@@ -146,20 +146,3 @@ async function callRunnerControl(
 export async function requestRefund(httpPort: number, proxySCAddress: string): Promise<void> {
   await callRunnerControl(httpPort, 'close', proxySCAddress)
 }
-
-/**
- * Trigger `owner_client_withdraw` on the client SC. Skims `balance - stake`
- * back to the cocoon wallet without closing the SC. Only meaningful while the
- * SC is in state=normal.
- */
-export async function withdrawSurplus(httpPort: number, proxySCAddress: string): Promise<void> {
-  await callRunnerControl(httpPort, 'withdraw', proxySCAddress)
-}
-
-/**
- * Trigger `ext_client_top_up` on the client SC. The runner forwards the funds
- * from its cocoon wallet to the SC.
- */
-export async function topUp(httpPort: number, proxySCAddress: string): Promise<void> {
-  await callRunnerControl(httpPort, 'topup', proxySCAddress)
-}
