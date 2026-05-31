@@ -11,10 +11,8 @@ import { ElectronSafeStorageAdapter } from '../adapters/electron-secure-storage'
 import { createLogger } from '../../shared/logger'
 import { isEnoent } from '../utils/errors'
 import { writeFileAtomic, writeSecureFileAtomic } from '../utils/secure-fs'
+import { SENC_MARKER, encodeSenc } from '../utils/senc'
 const log = createLogger('history')
-
-// 4-byte magic prefix that marks an encrypted file written by this wrapper
-const ENCRYPTED_MARKER = Buffer.from('SENC')
 
 export class SafeStorageWrapper {
   private storage: ISecureStorage
@@ -49,9 +47,8 @@ export class SafeStorageWrapper {
         return
       }
 
-      const encrypted = this.storage.encrypt(json)
       // Prepend the SENC marker so the read path can detect the format
-      const markedBuffer = Buffer.concat([ENCRYPTED_MARKER, encrypted])
+      const markedBuffer = encodeSenc(this.storage, json)
       await writeFileAtomic(this.filePath, markedBuffer)
       log.debug(`Wrote ${markedBuffer.length} encrypted bytes (with SENC marker)`)
     } catch (error) {
@@ -72,7 +69,7 @@ export class SafeStorageWrapper {
       const buffer = await fs.readFile(this.filePath)
 
       // New encrypted format: SENC marker prefix
-      if (buffer.subarray(0, 4).equals(ENCRYPTED_MARKER)) {
+      if (buffer.subarray(0, 4).equals(SENC_MARKER)) {
         try {
           const decrypted = this.storage.decrypt(buffer.subarray(4))
           return JSON.parse(decrypted)
