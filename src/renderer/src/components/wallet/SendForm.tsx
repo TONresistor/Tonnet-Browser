@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { tonToNano, formatTonAmount } from '@/stores/wallet'
-import { isValidTonAddress, isValidRecipientInput } from '@/lib/ton-utils'
+import { isValidTonAddress, isValidRecipientInput, TX_FEE_RESERVE_NANO } from '@/lib/ton-utils'
 import { getIpcError } from '@/lib/ipc-utils'
 import { useTranslation } from 'react-i18next'
 
@@ -98,8 +98,7 @@ export const SendForm = memo(function SendForm({ onSend, isSending, error, balan
 
   const handleMax = () => {
     const balanceBig = BigInt(balance || '0')
-    const fee = 10000000n // 0.01 TON
-    const maxNano = balanceBig > fee ? balanceBig - fee : 0n
+    const maxNano = balanceBig > TX_FEE_RESERVE_NANO ? balanceBig - TX_FEE_RESERVE_NANO : 0n
     if (maxNano > 0n) {
       // Convert nanoTON to TON display string
       setAmount(formatTonAmount(maxNano.toString()))
