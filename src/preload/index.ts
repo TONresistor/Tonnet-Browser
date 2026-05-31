@@ -5,6 +5,7 @@
 
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC_CHANNELS } from '../shared/ipc-channels'
+import type { IpcEventMap } from '../shared/ipc-events'
 
 const VALID_EVENT_CHANNELS = [
   IPC_CHANNELS.PAGE_LOADING,
@@ -222,9 +223,9 @@ const electronAPI = {
   },
 
   // Event listeners - returns unsubscribe function for proper cleanup
-  on: (channel: string, callback: (...args: unknown[]) => void): (() => void) => {
+  on: <K extends keyof IpcEventMap>(channel: K, callback: (...args: IpcEventMap[K]) => void): (() => void) => {
     if ((VALID_EVENT_CHANNELS as readonly string[]).includes(channel)) {
-      const listener = (_event: Electron.IpcRendererEvent, ...args: unknown[]) => callback(...args)
+      const listener = (_event: Electron.IpcRendererEvent, ...args: unknown[]) => callback(...(args as IpcEventMap[K]))
       ipcRenderer.on(channel, listener)
       // Return unsubscribe function that removes only THIS listener
       return () => ipcRenderer.removeListener(channel, listener)

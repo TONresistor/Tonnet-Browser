@@ -4,6 +4,7 @@
  */
 
 import type { AppSettings, StorageBag, BagDetails, WalletState, WalletTransaction } from '../shared/types'
+import type { IpcEventMap } from '../shared/ipc-events'
 import type {
   CocoonState,
   CocoonAvailability,
@@ -390,7 +391,7 @@ declare global {
         /** Recover every immediately actionable Cocoon-controlled balance to the main wallet. */
         recoveryAll: () => Promise<CocoonRecoveryAllResult | IpcError>
       }
-      on: (channel: string, callback: (...args: unknown[]) => void) => () => void
+      on: <K extends keyof IpcEventMap>(channel: K, callback: (...args: IpcEventMap[K]) => void) => () => void
     }
   }
 }

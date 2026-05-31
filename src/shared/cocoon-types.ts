@@ -156,3 +156,26 @@ export interface RecoveryEntry {
   /** Native wallet address the funds were sent to. */
   sentToMain?: string
 }
+
+/** Event pushed by the WithdrawDriver (current identity) as it auto-progresses. Crosses to the renderer via IPC. */
+export type WithdrawDriverEvent =
+  | { type: 'progress'; status: CocoonStakeInfo['status'] }
+  | { type: 'cashout-done'; sentAmount: string; bocHash: string }
+  | { type: 'completed' }
+  | { type: 'error'; message: string; recoverable: boolean }
+
+/** Event pushed by the RecoveryDriver (archived wallets) as it auto-progresses. Crosses to the renderer via IPC. */
+export type RecoveryDriverEvent =
+  | { type: 'started'; archivedAt: number; clientSCAddress: string }
+  | { type: 'cooldown'; archivedAt: number; clientSCAddress: string; unlockTs: number }
+  | { type: 'claimed'; archivedAt: number; clientSCAddress: string; bocHash: string }
+  | {
+      type: 'drained'
+      archivedAt: number
+      clientSCAddress: string
+      bocHash: string
+      sentAmount: string
+      sentTo: string
+    }
+  | { type: 'done'; archivedAt: number; clientSCAddress: string }
+  | { type: 'failed'; archivedAt: number; clientSCAddress: string; message: string }

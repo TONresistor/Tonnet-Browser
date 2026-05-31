@@ -51,6 +51,7 @@ import { openBridgeContract } from './contracts/bridge-provider'
 import { sendFromCocoonWallet, buildCocoonWalletInit } from './contracts'
 import { DRAIN_DUST_FLOOR_NANO, REFUND_GAS_NANO } from './constants'
 import type { WsBridgeClient } from '../wallet/ws-bridge-client'
+import type { RecoveryDriverEvent } from '../../shared/cocoon-types'
 
 /**
  * The client SC's owner is the cocoon_node_wallet (Ed25519 SC), not the V4R2.
@@ -92,20 +93,7 @@ const log = createLogger('cocoon:recovery-driver')
 /** Idle poll cadence. Matches the WithdrawDriver cadence so observable behavior is consistent. */
 const TICK_INTERVAL_MS = 60_000
 
-export type RecoveryDriverEvent =
-  | { type: 'started'; archivedAt: number; clientSCAddress: string }
-  | { type: 'cooldown'; archivedAt: number; clientSCAddress: string; unlockTs: number }
-  | { type: 'claimed'; archivedAt: number; clientSCAddress: string; bocHash: string }
-  | {
-      type: 'drained'
-      archivedAt: number
-      clientSCAddress: string
-      bocHash: string
-      sentAmount: string
-      sentTo: string
-    }
-  | { type: 'done'; archivedAt: number; clientSCAddress: string }
-  | { type: 'failed'; archivedAt: number; clientSCAddress: string; message: string }
+export type { RecoveryDriverEvent }
 
 export class RecoveryDriver extends EventEmitter {
   private timer: ReturnType<typeof setInterval> | null = null

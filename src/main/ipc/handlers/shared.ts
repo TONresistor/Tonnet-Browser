@@ -7,6 +7,7 @@ import { ipcErrorHandler } from '../error-handler'
 import { RateLimiter } from '../validation'
 import { createLogger } from '../../../shared/logger'
 import { getMainWindow } from '../../windows/main'
+import type { IpcEventMap } from '../../../shared/ipc-events'
 
 export const log = createLogger('ipc')
 
@@ -20,7 +21,7 @@ export const payForXhrLimiter = new RateLimiter(5, 1000)
  * Send a message to the renderer process via the main window.
  * Replaces the pattern: const win = getMainWindow(); if (win) win.webContents.send(...)
  */
-export function emitToRenderer(channel: string, ...args: unknown[]): void {
+export function emitToRenderer<K extends keyof IpcEventMap>(channel: K, ...args: IpcEventMap[K]): void {
   const win = getMainWindow()
   if (win) win.webContents.send(channel, ...args)
 }
