@@ -26,8 +26,12 @@ import { usePreferencesStore } from '@/stores/preferences'
 import { useThemeStore } from '@/stores/themes'
 import { useWalletStore } from '@/stores/wallet'
 import { applyCustomTheme, removeCustomTheme } from '@/lib/theme-utils'
-import { WalletSidebar } from '@/components/wallet/WalletSidebar'
-import { CocoonSidebar } from '@/components/cocoon/CocoonSidebar'
+const WalletSidebar = lazy(() =>
+  import('@/components/wallet/WalletSidebar').then((m) => ({ default: m.WalletSidebar }))
+)
+const CocoonSidebar = lazy(() =>
+  import('@/components/cocoon/CocoonSidebar').then((m) => ({ default: m.CocoonSidebar }))
+)
 import { Settings } from 'lucide-react'
 import walletIcon from '@/assets/wallet.svg'
 import storageIcon from '@/assets/storage.svg'
@@ -353,7 +357,9 @@ function App() {
             }}
             className="border-l border-border"
           >
-            <WalletSidebar onClose={() => setWalletSidebarOpen(false)} />
+            <Suspense fallback={null}>
+              <WalletSidebar onClose={() => setWalletSidebarOpen(false)} />
+            </Suspense>
           </ResizablePanel>
         )}
 
@@ -370,7 +376,9 @@ function App() {
             }}
             className="border-l border-border"
           >
-            <CocoonSidebar onClose={() => setCocoonSidebarOpen(false)} />
+            <Suspense fallback={null}>
+              <CocoonSidebar onClose={() => setCocoonSidebarOpen(false)} />
+            </Suspense>
           </ResizablePanel>
         )}
       </div>
