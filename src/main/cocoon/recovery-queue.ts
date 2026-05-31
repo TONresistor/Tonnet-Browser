@@ -20,11 +20,11 @@ import type { ISecureStorage } from '../ports/secure-storage'
 import { ElectronSafeStorageAdapter } from '../adapters/electron-secure-storage'
 import { createLogger } from '../../shared/logger'
 import { isEnoent } from '../utils/errors'
+import { decodeSenc, writeSencJsonFile } from '../utils/senc'
 import type { RecoveryPhase, RecoveryEntry } from '../../shared/cocoon-types'
 
 const log = createLogger('cocoon:recovery-queue')
 
-const ENCRYPTED_MARKER = Buffer.from('SENC')
 const FILE_NAME = 'cocoon-recovery-queue.dat'
 
 /**
@@ -127,23 +127,14 @@ export class RecoveryQueueStore {
       if (isEnoent(err)) return null
       throw err
     }
-    if (!buf.subarray(0, 4).equals(ENCRYPTED_MARKER)) {
-      throw new Error(`Unexpected file format at ${this.filePath} (no SENC marker)`)
-    }
-    const json = this.storage.decrypt(buf.subarray(4))
+    const json = decodeSenc(this.storage, buf, this.filePath)
     const parsed = JSON.parse(json) as QueueFile
     this.cached = parsed
     return parsed
   }
 
   private async writeFile(data: QueueFile): Promise<void> {
-    const json = JSON.stringify(data)
-    const encrypted = this.storage.encrypt(json)
-    const marked = Buffer.concat([ENCRYPTED_MARKER, encrypted])
-    const tmp = `${this.filePath}.tmp`
-    await fs.writeFile(tmp, marked, { mode: 0o600 })
-    await fs.rename(tmp, this.filePath)
-    if (process.platform !== 'win32') await fs.chmod(this.filePath, 0o600)
+    await writeSencJsonFile(this.filePath, this.storage, data)
     this.cached = data
   }
 }
