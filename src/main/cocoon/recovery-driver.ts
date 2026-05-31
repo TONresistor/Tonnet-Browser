@@ -42,7 +42,7 @@
 
 import { errorMessage } from '../../shared/errors'
 import { EventEmitter } from 'events'
-import { Address, beginCell } from '@ton/core'
+import { Address } from '@ton/core'
 import { createLogger } from '../../shared/logger'
 import { getRecoveryQueueStore, type RecoveryEntry } from './recovery-queue'
 import { getConsumedArchive, type ArchivedCocoon } from './consumed-archive'
@@ -50,6 +50,7 @@ import { CocoonClient } from './contracts/wrappers/CocoonClient'
 import { openBridgeContract } from './contracts/bridge-provider'
 import { sendFromCocoonWallet, buildCocoonWalletInit } from './contracts'
 import { DRAIN_DUST_FLOOR_NANO, REFUND_GAS_NANO, narrowClientState } from './constants'
+import { decodeNodeSecret, buildClientOpcodeBody, OWNER_CLIENT_REQUEST_REFUND } from './node-signing'
 import type { WsBridgeClient } from '../wallet/ws-bridge-client'
 import type { RecoveryDriverEvent } from '../../shared/cocoon-types'
 
@@ -66,19 +67,11 @@ async function sendRefundFromNode(
   clientSCAddress: string,
   sendExcessesTo: string
 ): Promise<{ bocHash: string; seqno: number }> {
-  const nodeSecret = Buffer.from(archive.nodeSecretBase64, 'base64')
-  if (nodeSecret.length !== 32) {
-    throw new Error(`Archived node secret must be 32 bytes, got ${nodeSecret.length}`)
-  }
-  const refundBody = beginCell()
-    .storeUint(0xfafa6cc1, 32) // op::owner_client_request_refund
-    .storeUint(0, 64) // query_id
-    .storeAddress(Address.parse(sendExcessesTo))
-    .endCell()
+  const refundBody = buildClientOpcodeBody(OWNER_CLIENT_REQUEST_REFUND, sendExcessesTo)
   return sendFromCocoonWallet(
     bridge,
     archive.nodeAddress,
-    nodeSecret,
+    decodeNodeSecret(archive.nodeSecretBase64),
     Address.parse(clientSCAddress),
     REFUND_GAS_NANO,
     refundBody,
@@ -303,14 +296,10 @@ export class RecoveryDriver extends EventEmitter {
     }
 
     log.info(`Recovery ${entry.archivedAt}: draining cocoon_node ${balance} nanoTON → ${native.slice(0, 8)}…`)
-    const nodeSecret = Buffer.from(archive.nodeSecretBase64, 'base64')
-    if (nodeSecret.length !== 32) {
-      throw new Error(`Archived node secret must be 32 bytes, got ${nodeSecret.length}`)
-    }
     const result = await sendFromCocoonWallet(
       bridge,
       archive.nodeAddress,
-      nodeSecret,
+      decodeNodeSecret(archive.nodeSecretBase64),
       Address.parse(native),
       0n,
       undefined,
