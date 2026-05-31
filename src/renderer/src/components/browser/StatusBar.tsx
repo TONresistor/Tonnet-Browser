@@ -28,6 +28,16 @@ function Separator() {
   return <div className="w-px h-3 bg-border" />
 }
 
+// Leaf component so the 1 Hz tick re-renders only the clock, not the whole footer.
+function Clock({ locale }: { locale?: string }) {
+  const [now, setNow] = useState(() => new Date())
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 1000)
+    return () => clearInterval(timer)
+  }, [])
+  return <span className="text-foreground">{formatTime(now, locale)}</span>
+}
+
 export const StatusBar = memo(function StatusBar() {
   const { t, i18n } = useTranslation('browser')
   const { proxyConnected, proxySyncing, anonymousMode, circuitRelays, storageStats, setProxyStatus, setStorageStats } =
@@ -47,13 +57,6 @@ export const StatusBar = memo(function StatusBar() {
   const openOrSwitchToTab = useTabsStore((s) => s.openOrSwitchToTab)
   const seedingEnabled = usePreferencesStore((s) => s.saved.seedingEnabled)
   const tunnelMode = usePreferencesStore((s) => s.saved.tunnelMode)
-  const [currentTime, setCurrentTime] = useState(new Date())
-  // Clock update
-  useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000)
-    return () => clearInterval(timer)
-  }, [])
-
   useEffect(() => {
     // Listen for proxy status updates from main process
     const unsubProxyStatus = window.electron.on('proxy:status', (...args: unknown[]) => {
@@ -219,7 +222,7 @@ export const StatusBar = memo(function StatusBar() {
         )}
         <span aria-label={`Version ${APP_VERSION}`}>v{APP_VERSION}</span>
         <Separator />
-        <span className="text-foreground">{formatTime(currentTime, i18n.language)}</span>
+        <Clock locale={i18n.language} />
       </div>
     </footer>
   )
