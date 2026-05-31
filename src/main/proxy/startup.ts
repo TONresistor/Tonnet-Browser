@@ -7,6 +7,7 @@ import { BrowserWindow } from 'electron'
 import { ProxyManager } from './manager'
 import { StorageManager } from '../storage/daemon'
 import { initTabManager, type TabManagerDeps } from '../windows/tabs'
+import { stripAnsi } from '../utils/strip-ansi'
 import { createLogger } from '../../shared/logger'
 const log = createLogger('proxy')
 
@@ -25,8 +26,7 @@ export async function startProxySequence(
 
   // Listen for tunnel progress events from proxy logs
   const logListener = (message: string) => {
-    // eslint-disable-next-line no-control-regex
-    const clean = message.replace(/\x1b\[[0-9;]*m/g, '').toLowerCase()
+    const clean = stripAnsi(message).toLowerCase()
     if (clean.includes('fetching ton network config')) {
       sendProgress(1, 'Fetching TON network config...')
     } else if (clean.includes('initializing adnl tunnel') || clean.includes('initializing dht')) {
