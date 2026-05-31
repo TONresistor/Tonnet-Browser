@@ -1,18 +1,8 @@
 import { useTranslation } from 'react-i18next'
 import { FileText, Info, Folder, FolderOpen } from 'lucide-react'
-import type { StorageBag } from '@shared/types'
+import type { StorageBag, BagDetails } from '@shared/types'
 import { cn } from '@/lib/utils'
 import { formatBytes, formatSpeed } from '@/lib/format'
-
-interface BagFile {
-  name: string
-  size: number
-}
-
-interface BagDetails {
-  files: BagFile[]
-  path: string
-}
 
 interface BagDetailPanelProps {
   bag: StorageBag

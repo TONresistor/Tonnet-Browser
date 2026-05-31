@@ -9,7 +9,7 @@ import { Plus, Search, HardDrive, X, Settings, Upload, Folder, Copy, FileText } 
 
 const log = createLogger('storage')
 import { useTranslation } from 'react-i18next'
-import type { StorageBag } from '@shared/types'
+import type { StorageBag, BagDetails } from '@shared/types'
 import { cn } from '@/lib/utils'
 import { useTabsStore } from '@/stores/tabs'
 import { usePreferencesStore } from '@/stores/preferences'
@@ -19,16 +19,6 @@ import { AddBagModal } from './storage/AddBagModal'
 import tonIcon from '@/assets/ton.svg'
 
 type FilterType = 'all' | 'downloading' | 'complete'
-
-interface BagFile {
-  name: string
-  size: number
-}
-
-interface BagDetails {
-  files: BagFile[]
-  path: string
-}
 
 export function StoragePage() {
   const { t } = useTranslation('pages')
@@ -87,11 +77,7 @@ export function StoragePage() {
     try {
       const result = await window.electron.storage.getBagDetails(bagId)
       if (result.success && result.details) {
-        const details = result.details as BagDetails
-        setBagDetails({
-          files: details.files || [],
-          path: details.path || '',
-        })
+        setBagDetails(result.details)
       } else {
         setBagDetails(null)
       }

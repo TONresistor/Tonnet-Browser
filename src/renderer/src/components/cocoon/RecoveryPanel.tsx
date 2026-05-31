@@ -22,27 +22,12 @@ import { Button } from '@/components/ui/button'
 import { isIpcError, getIpcError } from '@/lib/ipc-utils'
 import { createLogger } from '@/logger'
 import { useTranslation } from 'react-i18next'
-import type { CocoonRecoveryAllResult } from '../../../../shared/cocoon-types'
+import type { CocoonRecoveryAllResult, RecoveryEntry, RecoveryPhase } from '../../../../shared/cocoon-types'
 
 const log = createLogger('cocoon:recovery-panel')
 
 const PANEL_CLASS = 'rounded-lg border border-border-strong bg-[hsl(var(--elevation-2))] shadow-sm'
 const PANEL_MUTED_TEXT = 'text-foreground-muted'
-
-type RecoveryPhase = 'refund-pending' | 'cooldown' | 'claim-pending' | 'drain-pending' | 'done' | 'failed'
-
-interface RecoveryEntry {
-  archivedAt: number
-  clientSCAddress: string
-  phase: RecoveryPhase
-  addedAt: number
-  lastError?: string
-  unlockTs?: number
-  refundBocHash?: string
-  claimBocHash?: string
-  drainBocHash?: string
-  sentToMain?: string
-}
 
 const POLL_MS = 15_000
 
