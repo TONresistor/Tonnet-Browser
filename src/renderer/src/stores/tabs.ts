@@ -7,6 +7,7 @@ import { create } from 'zustand'
 import { useBrowserStore } from './browser'
 import i18n from '@/i18n'
 import type { Tab as BaseTab } from '@shared/types'
+import { shortId } from '@/lib/id'
 import { createLogger } from '@/logger'
 
 const log = createLogger('tabs')
@@ -57,12 +58,6 @@ interface TabsState {
   reorderTabs: (tabId: string, newIndex: number) => void
 }
 
-// Generate cryptographically secure random ID
-const generateId = () => {
-  // Use crypto.randomUUID() for secure IDs, extract first 7 chars for compatibility
-  return crypto.randomUUID().replace(/-/g, '').substring(0, 7)
-}
-
 // Get homepage from main process settings
 async function getHomepage(): Promise<string> {
   try {
@@ -107,7 +102,7 @@ export const useTabsStore = create<TabsState>((set, get) => ({
   addTab: async (url?: string) => {
     // Use homepage if no URL provided
     const targetUrl = url ?? (await getHomepage())
-    const id = generateId()
+    const id = shortId()
     const title = getInternalPageTitle(targetUrl) || i18n.t('tabs.newTab', { ns: 'browser' })
     const newTab: Tab = {
       id,
