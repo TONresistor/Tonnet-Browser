@@ -485,6 +485,10 @@ app.whenReady().then(() => {
     services.walletManager.init().catch((e) => log.error('Wallet init failed:', e))
     services.paymentPolicyStore.init().catch((e) => log.error('Payment policy init failed:', e))
     services.bridgeInterceptor.init()
+    // Cocoon drivers need the bridge to do work, so start them here rather than
+    // at construction (avoids an immediate disk-reading tick before bridge ready).
+    services.withdrawDriver.start()
+    services.recoveryDriver.start()
     autostartCocoonIfEnabled().catch((e) => log.error('Cocoon autostart failed:', e))
   })
   createWindow()

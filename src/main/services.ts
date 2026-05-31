@@ -68,21 +68,17 @@ export function createServices(): ServiceRegistry {
       await walletManager.send(nodeAddress, amountNano.toString())
     }
   )
-  // The driver only does work when a pending intent flag is set in the stake
-  // cache, so it's safe to start unconditionally — quiet ticks return early.
-  withdrawDriver.start()
   // React to runner state changes so refundable transitions are picked up
-  // immediately instead of waiting the full 30s tick.
+  // immediately instead of waiting the full 30s tick. start() is deferred to
+  // the ws-bridge-ready handler since the driver needs the bridge to do work.
   cocoonManager.on('state-change', () => withdrawDriver.triggerTick())
 
   // Recovery driver runs in parallel for ARCHIVED wallets whose client SC
-  // still locks user TON. Reads the queue on every tick and is a no-op when
-  // empty, so it's safe to start unconditionally.
+  // still locks user TON. start() is deferred to the ws-bridge-ready handler.
   const recoveryDriver = new RecoveryDriver(
     () => walletManager.getBridgeClient(),
     () => walletManager.getState().address || null
   )
-  recoveryDriver.start()
 
   return {
     pathProvider,
