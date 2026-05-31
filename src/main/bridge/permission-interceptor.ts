@@ -227,6 +227,9 @@ export class BridgePermissionInterceptor {
     if (this.wsConnecting || (this.ws && this.ws.readyState === WebSocket.OPEN)) return
     this.wsConnecting = true
 
+    // Re-read the configured port on every (re)connect so a settings change is
+    // picked up instead of reconnecting to a stale cached port.
+    this.wsPort = getSetting('network').wsPort
     const url = `ws://127.0.0.1:${this.wsPort}`
     const ws = new WebSocket(url)
 
@@ -239,7 +242,7 @@ export class BridgePermissionInterceptor {
     ws.on('message', (raw: WebSocket.Data) => {
       const data = raw.toString()
       try {
-        const parsed = JSON.parse(data)
+        const parsed = JSON.parse(data) as { id?: string | number; method?: string }
         if (parsed.id !== undefined) {
           const rpcId = String(parsed.id)
           const pending = this.pendingRpc.get(rpcId)
