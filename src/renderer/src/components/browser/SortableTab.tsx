@@ -7,7 +7,8 @@ import { memo } from 'react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { Tab } from '@/stores/tabs'
-import { X, Globe } from 'lucide-react'
+import { X } from 'lucide-react'
+import { Favicon } from '@/components/ui/Favicon'
 import { useTranslation } from 'react-i18next'
 
 interface SortableTabProps {
@@ -73,18 +74,11 @@ export const SortableTab = memo(function SortableTab({
       {/* Favicon with optional close overlay in narrow mode */}
       {isNarrow ? (
         <div className="relative w-5 h-5 flex-shrink-0">
-          {tab.favicon ? (
-            <img
-              src={tab.favicon}
-              alt=""
-              className="w-5 h-5 object-contain transition-opacity group-hover:opacity-0"
-              onError={(e) => {
-                e.currentTarget.style.display = 'none'
-              }}
-            />
-          ) : (
-            <Globe className="w-5 h-5 text-foreground-muted transition-opacity group-hover:opacity-0" />
-          )}
+          <Favicon
+            src={tab.favicon}
+            className="w-5 h-5 object-contain transition-opacity group-hover:opacity-0"
+            fallbackClassName="w-5 h-5 text-foreground-muted transition-opacity group-hover:opacity-0"
+          />
           {/* Close button overlay */}
           <button
             className="absolute inset-0 opacity-0 group-hover:opacity-100 focus:opacity-100 rounded-full transition-opacity flex items-center justify-center bg-surface-active"
@@ -98,18 +92,11 @@ export const SortableTab = memo(function SortableTab({
       ) : (
         <>
           {/* Standard favicon */}
-          {tab.favicon ? (
-            <img
-              src={tab.favicon}
-              alt=""
-              className="w-5 h-5 flex-shrink-0 object-contain"
-              onError={(e) => {
-                e.currentTarget.style.display = 'none'
-              }}
-            />
-          ) : (
-            <Globe className="w-5 h-5 flex-shrink-0 text-foreground-muted" />
-          )}
+          <Favicon
+            src={tab.favicon}
+            className="w-5 h-5 flex-shrink-0 object-contain"
+            fallbackClassName="w-5 h-5 flex-shrink-0 text-foreground-muted"
+          />
         </>
       )}
 
