@@ -3,7 +3,7 @@
  * Add, remove, pause, and monitor bags.
  */
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, memo } from 'react'
 import { createLogger } from '@/logger'
 import { Plus, Search, HardDrive, X, Settings, Upload, Folder, Copy, FileText } from 'lucide-react'
 
@@ -53,9 +53,9 @@ export function StoragePage() {
     return () => {
       unsubscribe()
     }
-  }, [])
+  }, [loadBags])
 
-  const loadBags = async () => {
+  const loadBags = useCallback(async () => {
     try {
       const result = await window.electron.storage.listBags()
       if (result.success) {
@@ -64,22 +64,25 @@ export function StoragePage() {
     } catch (err) {
       log.error('Failed to load bags:', err)
     }
-  }
+  }, [])
 
-  const handleRemoveBag = async (bagId: string) => {
-    try {
-      await window.electron.storage.removeBag(bagId)
-      await loadBags()
-      if (selectedBag?.id === bagId) {
-        setSelectedBag(null)
-        setBagDetails(null)
+  const handleRemoveBag = useCallback(
+    async (bagId: string) => {
+      try {
+        await window.electron.storage.removeBag(bagId)
+        await loadBags()
+        if (selectedBag?.id === bagId) {
+          setSelectedBag(null)
+          setBagDetails(null)
+        }
+      } catch (err) {
+        log.error('Failed to remove bag:', err)
       }
-    } catch (err) {
-      log.error('Failed to remove bag:', err)
-    }
-  }
+    },
+    [loadBags, selectedBag]
+  )
 
-  const loadBagDetails = async (bagId: string) => {
+  const loadBagDetails = useCallback(async (bagId: string) => {
     setLoadingDetails(true)
     try {
       const result = await window.electron.storage.getBagDetails(bagId)
@@ -98,24 +101,27 @@ export function StoragePage() {
     } finally {
       setLoadingDetails(false)
     }
-  }
+  }, [])
 
-  const handleSelectBag = (bag: StorageBag) => {
-    setSelectedBag(bag)
-    setBagDetails(null)
-    loadBagDetails(bag.id)
-  }
+  const handleSelectBag = useCallback(
+    (bag: StorageBag) => {
+      setSelectedBag(bag)
+      setBagDetails(null)
+      loadBagDetails(bag.id)
+    },
+    [loadBagDetails]
+  )
 
-  const handleOpenFolder = async (bagId: string) => {
+  const handleOpenFolder = useCallback(async (bagId: string) => {
     const result = await window.electron.storage.openFolder(bagId)
     if (!result.success) {
       log.error('Failed to open folder:', result.error)
     }
-  }
+  }, [])
 
-  const handleBrowseFiles = (bagId: string) => {
+  const handleBrowseFiles = useCallback((bagId: string) => {
     useTabsStore.getState().addTab(`ton://storage/browse/${bagId}`)
-  }
+  }, [])
 
   const handleShowFile = async (bagId: string, fileName: string) => {
     const result = await window.electron.storage.showFile(bagId, fileName)
@@ -147,13 +153,13 @@ export function StoragePage() {
     complete: bags.filter(isComplete).length,
   }
 
-  const handleCopyBagId = async (bagId: string) => {
+  const handleCopyBagId = useCallback(async (bagId: string) => {
     try {
       await navigator.clipboard.writeText(bagId)
     } catch (err) {
       log.error('Failed to copy bag ID:', err)
     }
-  }
+  }, [])
 
   return (
     <div className="flex h-full bg-background-secondary" style={{ fontFamily: 'Inter, sans-serif' }}>
@@ -245,11 +251,11 @@ export function StoragePage() {
                       key={bag.id}
                       bag={bag}
                       selected={selectedBag?.id === bag.id}
-                      onClick={() => handleSelectBag(bag)}
-                      onRemove={() => handleRemoveBag(bag.id)}
-                      onBrowseFiles={() => handleBrowseFiles(bag.id)}
-                      onOpenFolder={() => handleOpenFolder(bag.id)}
-                      onCopyId={() => handleCopyBagId(bag.id)}
+                      onClick={handleSelectBag}
+                      onRemove={handleRemoveBag}
+                      onBrowseFiles={handleBrowseFiles}
+                      onOpenFolder={handleOpenFolder}
+                      onCopyId={handleCopyBagId}
                     />
                   ))}
                 </tbody>
@@ -349,7 +355,7 @@ function FilterButton({
 }
 
 // Bag Row Component
-function BagRow({
+const BagRow = memo(function BagRow({
   bag,
   selected,
   onClick,
@@ -360,11 +366,11 @@ function BagRow({
 }: {
   bag: StorageBag
   selected: boolean
-  onClick: () => void
-  onRemove: () => void
-  onBrowseFiles: () => void
-  onOpenFolder: () => void
-  onCopyId: () => void
+  onClick: (bag: StorageBag) => void
+  onRemove: (bagId: string) => void
+  onBrowseFiles: (bagId: string) => void
+  onOpenFolder: (bagId: string) => void
+  onCopyId: (bagId: string) => void
 }) {
   const { t } = useTranslation('pages')
   const progress = bag.size > 0 ? (bag.downloaded / bag.size) * 100 : 0
@@ -376,7 +382,7 @@ function BagRow({
 
   return (
     <tr
-      onClick={onClick}
+      onClick={() => onClick(bag)}
       className={cn(
         'group cursor-pointer transition-colors rounded-md',
         selected ? 'bg-accent/60' : 'bg-foreground/[0.03] hover:bg-accent/40'
@@ -412,21 +418,21 @@ function BagRow({
         <div className="flex items-center justify-end gap-1">
           <RowAction
             label={t('storage.actions.browseFiles')}
-            onClick={stop(onBrowseFiles)}
+            onClick={stop(() => onBrowseFiles(bag.id))}
             icon={<FileText className="h-4 w-4" />}
           />
           <RowAction
             label={t('storage.actions.openFolder')}
-            onClick={stop(onOpenFolder)}
+            onClick={stop(() => onOpenFolder(bag.id))}
             icon={<Folder className="h-4 w-4" />}
           />
           <RowAction
             label={t('storage.actions.copyBagId')}
-            onClick={stop(onCopyId)}
+            onClick={stop(() => onCopyId(bag.id))}
             icon={<Copy className="h-4 w-4" />}
           />
           <button
-            onClick={stop(onRemove)}
+            onClick={stop(() => onRemove(bag.id))}
             title={t('storage.actions.remove')}
             className="text-muted-foreground hover:text-destructive transition-colors p-1.5 rounded-md hover:bg-destructive/10"
           >
@@ -436,7 +442,7 @@ function BagRow({
       </td>
     </tr>
   )
-}
+})
 
 // Hover-revealed row action button
 function RowAction({
