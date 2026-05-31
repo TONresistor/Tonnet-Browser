@@ -97,20 +97,6 @@ export interface HistoryStats {
 export type PaymentMode = 'off' | 'manual' | 'auto'
 export type NotificationStyle = 'popup' | 'addressbar'
 
-export interface SpendingLimits {
-  perRequest: string
-  perDay: string
-  perSitePerMonth: string
-}
-
-export interface SitePolicy {
-  domain: string
-  mode: PaymentMode
-  customLimits?: SpendingLimits
-  totalSpent: string
-  lastPayment?: number
-}
-
 export interface WalletState {
   isCreated: boolean
   address: string
@@ -169,15 +155,6 @@ export interface PaymentNotificationData {
   error?: string
 }
 
-export interface WalletSettings {
-  paymentMode: PaymentMode
-  notificationStyle: NotificationStyle
-  limits: SpendingLimits
-  sitePolicies: SitePolicy[]
-  autoPayDomains: string[]
-  autoLockMinutes: number
-}
-
 /** DNS resolve result from the bridge */
 export interface DnsResolveResult {
   wallet: string | null
@@ -211,6 +188,9 @@ export type {
   BridgePermission,
   BridgeSettings,
   CocoonSettings,
+  SpendingLimits,
+  SitePolicy,
+  WalletSettings,
 } from './schemas'
 export {
   GeneralSettingsSchema,
