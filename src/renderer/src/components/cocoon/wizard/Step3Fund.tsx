@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Check, CheckCircle2, Copy, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { getIpcError } from '@/lib/ipc-utils'
+import { isIpcError } from '@/lib/ipc-utils'
 import { formatTonFixed } from '@/lib/ton-utils'
 
 /**
@@ -70,9 +70,8 @@ export function Step3Fund({ ownerAddress, onComplete, onBack }: Props) {
       // Guard against IPC error envelopes: if the main side returned
       // {success:false, error:'...'} instead of a nano-TON string, skip
       // the update rather than calling BigInt() on an object.
-      const err = getIpcError(b)
-      if (err) {
-        setBalanceError(err)
+      if (isIpcError(b)) {
+        setBalanceError(b.error ?? 'Operation failed')
         return
       }
       setBalanceError(null)
