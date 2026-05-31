@@ -30,11 +30,12 @@ Apache License 2.0 — see `LICENSE.upstream`.
 ## Update procedure
 
 ```sh
+# Run from anywhere inside this repo so DEST resolves to your checkout.
+DEST="$(git rev-parse --show-toplevel)/src/main/cocoon/contracts/wrappers"
 cd /tmp
 rm -rf cocoon-contracts
 git clone https://github.com/TelegramMessenger/cocoon-contracts
 NEW_COMMIT=$(git -C cocoon-contracts rev-parse HEAD)
-DEST=/home/anon/Bureau/TONNET/Tonnet-Browser-stable/src/main/cocoon/contracts/wrappers
 cp cocoon-contracts/wrappers/CocoonWallet.ts   $DEST/CocoonWallet.ts
 cp cocoon-contracts/wrappers/CocoonClient.ts   $DEST/CocoonClient.ts
 cp cocoon-contracts/wrappers/CocoonRoot.ts     $DEST/CocoonRoot.ts
