@@ -3,25 +3,7 @@
  * Tests for storage daemon lifecycle, bag operations, and error handling
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { EventEmitter } from 'events'
-
-// Create mock child process
-const createMockProcess = () => {
-  const proc = new EventEmitter() as EventEmitter & {
-    stdout: EventEmitter
-    stderr: EventEmitter
-    pid: number
-    kill: ReturnType<typeof vi.fn>
-  }
-  proc.stdout = new EventEmitter()
-  proc.stderr = new EventEmitter()
-  proc.pid = 12345
-  proc.kill = vi.fn(() => {
-    proc.emit('exit', 0)
-    return true
-  })
-  return proc
-}
+import { createMockProcess } from '../../__tests__/mock-child-process'
 
 // Mock settings
 const mockSettings = {
