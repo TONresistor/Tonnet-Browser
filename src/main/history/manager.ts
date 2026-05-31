@@ -52,6 +52,23 @@ export class HistoryManager extends EventEmitter {
     return this.readyPromise
   }
 
+  /**
+   * (Re)create the persistent store and load any existing entries into memory.
+   * Callers own the error policy: loadSettings() swallows read failures
+   * (best-effort at startup), changeMode() lets them propagate so it can roll back.
+   */
+  private async loadPersistedEntries(): Promise<void> {
+    this.storage = new SafeStorageWrapper('history')
+    const data = await this.storage.read<HistoryEntry[]>()
+    if (data && Array.isArray(data)) {
+      this.entries.clear()
+      data.forEach((entry) => {
+        this.entries.set(entry.id, entry)
+      })
+      log.info(`Loaded ${data.length} entries from persistent storage`)
+    }
+  }
+
   private async loadSettings(): Promise<void> {
     const settings = getSetting('privacy')
     this.mode = (settings.historyMode as HistoryMode) || HistoryMode.MEMORY
@@ -61,18 +78,8 @@ export class HistoryManager extends EventEmitter {
 
     // Initialize persistent storage if needed
     if (this.mode === HistoryMode.PERSISTENT) {
-      this.storage = new SafeStorageWrapper('history')
-
-      // Auto-load existing history
       try {
-        const data = await this.storage.read<HistoryEntry[]>()
-        if (data && Array.isArray(data)) {
-          this.entries.clear()
-          data.forEach((entry) => {
-            this.entries.set(entry.id, entry)
-          })
-          log.info(`Loaded ${data.length} entries from persistent storage`)
-        }
+        await this.loadPersistedEntries()
       } catch (error) {
         log.error('Failed to load persistent history:', error)
       }
@@ -97,16 +104,7 @@ export class HistoryManager extends EventEmitter {
 
       // Reinitialize storage
       if (newMode === HistoryMode.PERSISTENT) {
-        this.storage = new SafeStorageWrapper('history')
-        // Auto-load existing history
-        const data = await this.storage.read<HistoryEntry[]>()
-        if (data && Array.isArray(data)) {
-          this.entries.clear()
-          data.forEach((entry) => {
-            this.entries.set(entry.id, entry)
-          })
-          log.info(`Loaded ${data.length} entries from persistent storage`)
-        }
+        await this.loadPersistedEntries()
       } else {
         // MEMORY mode - keep current in-memory entries
         this.storage = null
