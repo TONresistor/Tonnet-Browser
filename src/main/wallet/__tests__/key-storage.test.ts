@@ -37,6 +37,10 @@ class InMemorySecureStorage implements ISecureStorage {
 
 // --- Mocks ---
 
+// Shared spy for the FileHandle.writeFile used by writeSecureFileAtomic
+// (storeData's atomic path). Hoisted so the vi.mock factory can reference it.
+const { atomicHandleWriteFile } = vi.hoisted(() => ({ atomicHandleWriteFile: vi.fn() }))
+
 vi.mock('fs', async () => {
   const actual = await vi.importActual<typeof import('fs')>('fs')
   return {
@@ -50,6 +54,13 @@ vi.mock('fs', async () => {
       copyFile: vi.fn(),
       rename: vi.fn(),
       chmod: vi.fn(),
+      mkdir: vi.fn(),
+      // writeSecureFileAtomic opens a tmp file handle, writes+fsyncs, then renames.
+      open: vi.fn(async () => ({
+        writeFile: atomicHandleWriteFile,
+        sync: vi.fn(),
+        close: vi.fn(),
+      })),
     },
   }
 })
@@ -110,8 +121,11 @@ describe('WalletKeyStorage', () => {
       expect(keypair.secretKey).toBeInstanceOf(Buffer)
       expect(keypair.secretKey.length).toBe(64)
 
-      expect(fs.writeFile).toHaveBeenCalledOnce()
-      const [, written] = vi.mocked(fs.writeFile).mock.calls[0]
+      // storeData writes atomically (open tmp -> writeFile -> rename), so the
+      // payload lands on the file handle, not a direct fs.writeFile.
+      expect(atomicHandleWriteFile).toHaveBeenCalledOnce()
+      expect(fs.rename).toHaveBeenCalledOnce()
+      const [written] = atomicHandleWriteFile.mock.calls[0]
       const buf = written as Buffer
       // Starts with SENC marker
       expect(buf.subarray(0, 4).toString()).toBe('SENC')
@@ -143,7 +157,7 @@ describe('WalletKeyStorage', () => {
 
       expect(result.publicKey.length).toBe(32)
       expect(result.secretKey.length).toBe(64)
-      expect(fs.writeFile).toHaveBeenCalledOnce()
+      expect(atomicHandleWriteFile).toHaveBeenCalledOnce()
     })
 
     it('rejects invalid mnemonic (wrong length)', async () => {
