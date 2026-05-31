@@ -115,6 +115,8 @@ export class WsBridgeClient {
   private pongTimer: ReturnType<typeof setTimeout> | null = null
   private cachedBalance: AddressScoped<string> | null = null
   private cachedSeqno: AddressScoped<number> | null = null
+  private balanceDegraded = false
+  private seqnoDegraded = false
 
   constructor(wsPort: number) {
     this.wsPort = wsPort
@@ -166,10 +168,16 @@ export class WsBridgeClient {
       const result = (await this.request('lite.getAccountState', { address })) as BridgeAccountState
       const balance = result.balance ?? '0'
       this.cachedBalance = { address, value: balance }
+      this.balanceDegraded = false
       return balance
     } catch (err) {
       if (this.cachedBalance && this.cachedBalance.address === address) {
-        log.warn('getBalance failed, returning cached value')
+        if (this.balanceDegraded) {
+          log.debug('getBalance still failing, returning cached value')
+        } else {
+          log.warn('getBalance failed, returning cached value')
+          this.balanceDegraded = true
+        }
         return this.cachedBalance.value
       }
       throw err
@@ -181,10 +189,16 @@ export class WsBridgeClient {
       const result = (await this.request('wallet.getSeqno', { address })) as { seqno: number | string }
       const seqno = typeof result.seqno === 'number' ? result.seqno : Number(result.seqno)
       this.cachedSeqno = { address, value: seqno }
+      this.seqnoDegraded = false
       return seqno
     } catch (err) {
       if (this.cachedSeqno && this.cachedSeqno.address === address) {
-        log.warn('getSeqno failed, returning cached value')
+        if (this.seqnoDegraded) {
+          log.debug('getSeqno still failing, returning cached value')
+        } else {
+          log.warn('getSeqno failed, returning cached value')
+          this.seqnoDegraded = true
+        }
         return this.cachedSeqno.value
       }
       throw err
