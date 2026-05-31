@@ -16,6 +16,7 @@ import { buildCocoonWalletInit, sendFromCocoonWallet, type SendResult } from './
 import { getStakeCacheStore } from './stake-cache'
 import { getStakeInfo } from './unstake'
 import { loadCocoonWallet } from './wallet'
+import { REFUND_GAS_NANO } from './constants'
 import type { CocoonManager } from './manager'
 import type { WsBridgeClient } from '../wallet/ws-bridge-client'
 
@@ -24,9 +25,9 @@ const log = createLogger('cocoon:current-withdraw')
 // cocoon_wallet.fc rejects external messages while my_balance() < 2 TON.
 // cocoon_client.fc also requires msg_value >= COMMISSION_ESTIMATE (0.1 TON).
 // 2.25 TON is enough to pass the wallet's external gate and forward one
-// 0.2 TON refund/claim message with fee margin. When topping up from a lower
-// balance, fund to 2.4 TON so phase 2 still has room after phase 1 fees.
-const REFUND_GAS_NANO = 200_000_000n
+// 0.2 TON refund/claim message (REFUND_GAS_NANO) with fee margin. When topping
+// up from a lower balance, fund to 2.4 TON so phase 2 still has room after
+// phase 1 fees.
 const NODE_GAS_READY_NANO = 2_250_000_000n
 const NODE_GAS_TARGET_NANO = 2_400_000_000n
 const TOPUP_CONFIRM_TIMEOUT_MS = 60_000

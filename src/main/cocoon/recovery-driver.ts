@@ -48,6 +48,7 @@ import { getConsumedArchive, type ArchivedCocoon } from './consumed-archive'
 import { CocoonClient } from './contracts/wrappers/CocoonClient'
 import { openBridgeContract } from './contracts/bridge-provider'
 import { sendFromCocoonWallet, buildCocoonWalletInit } from './contracts'
+import { DRAIN_DUST_FLOOR_NANO, REFUND_GAS_NANO } from './constants'
 import type { WsBridgeClient } from '../wallet/ws-bridge-client'
 
 /**
@@ -89,12 +90,6 @@ const log = createLogger('cocoon:recovery-driver')
 
 /** Idle poll cadence. Matches the WithdrawDriver cadence so observable behavior is consistent. */
 const TICK_INTERVAL_MS = 60_000
-
-/** Below this threshold, draining the cocoon_node would burn more in gas than it would recover. */
-const DRAIN_DUST_NANO = 50_000_000n // 0.05 TON
-
-/** Gas reserve attached to refund/claim messages. Must exceed Cocoon's 0.1 TON commission estimate. */
-const REFUND_GAS_NANO = 200_000_000n // 0.2 TON
 
 export type RecoveryDriverEvent =
   | { type: 'started'; archivedAt: number; clientSCAddress: string }
@@ -303,7 +298,7 @@ export class RecoveryDriver extends EventEmitter {
     if (!native) throw new Error('Native wallet not initialized — cannot determine drain destination')
 
     const balance = BigInt(await bridge.getBalance(archive.nodeAddress))
-    if (balance < DRAIN_DUST_NANO) {
+    if (balance < DRAIN_DUST_FLOOR_NANO) {
       log.info(`Recovery ${entry.archivedAt}: cocoon_node residual ${balance} < dust floor — marking done`)
       await getRecoveryQueueStore().update(entry.archivedAt, {
         phase: 'done',
