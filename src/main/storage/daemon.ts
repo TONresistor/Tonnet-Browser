@@ -17,6 +17,29 @@ const log = createLogger('storage')
 import fs from 'fs'
 import path from 'path'
 
+/** Typed event contract for StorageManager. */
+interface StorageManagerEventMap {
+  log: [message: string]
+  error: [message: string]
+  exit: [code: number | null]
+  started: []
+  stopped: []
+  'bags-updated': [bags: StorageBag[]]
+}
+
+// Declaration merging gives on/once/off/emit typed overloads of the inherited
+// EventEmitter methods without changing runtime behavior. The merge only refines
+// existing method signatures, so the no-unsafe-declaration-merging footgun (an
+// interface declaring members the class never implements) does not apply.
+/* eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging */
+export interface StorageManager {
+  on<E extends keyof StorageManagerEventMap>(event: E, listener: (...args: StorageManagerEventMap[E]) => void): this
+  once<E extends keyof StorageManagerEventMap>(event: E, listener: (...args: StorageManagerEventMap[E]) => void): this
+  off<E extends keyof StorageManagerEventMap>(event: E, listener: (...args: StorageManagerEventMap[E]) => void): this
+  emit<E extends keyof StorageManagerEventMap>(event: E, ...args: StorageManagerEventMap[E]): boolean
+}
+
+/* eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging */
 export class StorageManager extends EventEmitter {
   private process: ChildProcess | null = null
   private port: number = 0
