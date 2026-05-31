@@ -49,7 +49,7 @@ import { getConsumedArchive, type ArchivedCocoon } from './consumed-archive'
 import { CocoonClient } from './contracts/wrappers/CocoonClient'
 import { openBridgeContract } from './contracts/bridge-provider'
 import { sendFromCocoonWallet, buildCocoonWalletInit } from './contracts'
-import { DRAIN_DUST_FLOOR_NANO, REFUND_GAS_NANO } from './constants'
+import { DRAIN_DUST_FLOOR_NANO, REFUND_GAS_NANO, narrowClientState } from './constants'
 import type { WsBridgeClient } from '../wallet/ws-bridge-client'
 import type { RecoveryDriverEvent } from '../../shared/cocoon-types'
 
@@ -201,7 +201,7 @@ export class RecoveryDriver extends EventEmitter {
       throw err
     }
 
-    const state = onchain.state as 0 | 1 | 2
+    const state = narrowClientState(onchain.state)
     const unlockTs = onchain.unlockTs
 
     if (state === 0) {
