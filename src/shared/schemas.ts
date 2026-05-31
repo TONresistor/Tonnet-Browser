@@ -218,85 +218,33 @@ export const AppSettingsSchema = z.object({
 
 // Partial validation schemas (no defaults) -- used to validate SETTINGS_SET updates.
 // These validate types/constraints without filling in missing fields with defaults.
-export const GeneralSettingsPartialSchema = z
-  .object({
-    homepage: z.string(),
-    resolveEth: z.boolean(),
-    ethRpc: z.union([z.literal(''), z.string().url()]),
-    resolveSol: z.boolean(),
-    solRpc: z.union([z.literal(''), z.string().url()]),
-  })
-  .partial()
+// Partial schemas for validating partial settings updates. Derived from the full
+// schemas so field lists and constraints stay in sync, with field defaults stripped
+// so only the keys actually supplied are validated and returned (partial-update
+// semantics: absent keys must NOT be filled with defaults).
+function partialUpdateSchema<T extends z.ZodRawShape>(schema: z.ZodObject<T>) {
+  const shape = schema.shape as unknown as Record<string, z.ZodTypeAny>
+  const stripped: Record<string, z.ZodTypeAny> = {}
+  for (const key of Object.keys(shape)) {
+    const field = shape[key]
+    stripped[key] = field instanceof z.ZodDefault ? (field.removeDefault() as z.ZodTypeAny) : field
+  }
+  return z.object(stripped).partial()
+}
 
-export const NetworkSettingsPartialSchema = z
-  .object({
-    proxyPort: z.number().int().min(1024).max(65535),
-    storagePort: z.number().int().min(1024).max(65535),
-    wsPort: z.number().int().min(1024).max(65535),
-    autoConnect: z.boolean(),
-    connectionTimeout: z.number().min(5).max(120),
-    syncCheckInterval: z.number().min(500).max(60000),
-    anonymousMode: z.boolean(),
-    tunnelMode: z.enum(['standard', 'maximum']),
-  })
-  .partial()
+export const GeneralSettingsPartialSchema = partialUpdateSchema(GeneralSettingsSchema)
 
-export const StorageSettingsPartialSchema = z
-  .object({
-    downloadPath: z.string(),
-    pollingInterval: z.number().min(500).max(30000),
-    seedingEnabled: z.boolean(),
-    downloadSpeedLimit: z.number().min(0).max(104857600),
-    uploadSpeedLimit: z.number().min(0).max(104857600),
-  })
-  .partial()
+export const NetworkSettingsPartialSchema = partialUpdateSchema(NetworkSettingsSchema)
 
-export const AppearanceSettingsPartialSchema = z
-  .object({
-    theme: ThemeTypeSchema,
-    customThemes: z.array(CustomThemeSchema),
-    language: z.string(),
-    defaultZoom: z.number().min(25).max(500),
-    zoomMin: z.number().min(10).max(100),
-    zoomMax: z.number().min(100).max(500),
-    showBookmarksBar: z.boolean(),
-    showStatusBar: z.boolean(),
-    tabOrientation: z.enum(['horizontal', 'vertical']),
-    sidebarWidth: z.number().min(64).max(400),
-  })
-  .partial()
+export const StorageSettingsPartialSchema = partialUpdateSchema(StorageSettingsSchema)
 
-export const PrivacySettingsPartialSchema = z
-  .object({
-    clearOnExit: z.boolean(),
-    disableCache: z.boolean(),
-    firstPartyIsolation: z.boolean(),
-    cookieAutoDelete: z.boolean(),
-    cookieAutoDeleteMinutes: z.number().min(1).max(1440),
-    historyMode: z.enum(['memory', 'persistent']),
-    historyMaxEntries: z.number().min(100).max(100000),
-  })
-  .partial()
+export const AppearanceSettingsPartialSchema = partialUpdateSchema(AppearanceSettingsSchema)
 
-export const ContentFilteringSettingsPartialSchema = z
-  .object({
-    enabled: z.boolean(),
-    blockAds: z.boolean(),
-    blockTrackers: z.boolean(),
-    blockMiners: z.boolean(),
-    blockMalware: z.boolean(),
-    blockAnnoyances: z.boolean(),
-    whitelistedDomains: z.array(z.string()),
-  })
-  .partial()
+export const PrivacySettingsPartialSchema = partialUpdateSchema(PrivacySettingsSchema)
 
-export const AdvancedSettingsPartialSchema = z
-  .object({
-    proxyVerbosity: z.number().min(0).max(5),
-    storageVerbosity: z.number().min(0).max(5),
-    syncTestDomain: z.string(),
-  })
-  .partial()
+export const ContentFilteringSettingsPartialSchema = partialUpdateSchema(ContentFilteringSettingsSchema)
+
+export const AdvancedSettingsPartialSchema = partialUpdateSchema(AdvancedSettingsSchema)
 
 // Derived TypeScript types from Zod schemas
 export type ThemeColors = z.infer<typeof ThemeColorsSchema>
