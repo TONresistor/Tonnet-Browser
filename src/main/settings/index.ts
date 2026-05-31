@@ -7,7 +7,6 @@ import { app } from 'electron'
 import { join } from 'path'
 import { existsSync, readFileSync } from 'fs'
 import { writeSecureJsonAtomic } from '../utils/secure-fs'
-import { DEFAULT_SETTINGS } from '../../shared/defaults'
 import type { ThemeType } from '../../shared/defaults'
 import type {
   GeneralSettings,
@@ -41,84 +40,13 @@ const getSettingsDir = () => join(app.getPath('userData'))
 const getSettingsFile = () => join(getSettingsDir(), 'app-settings.json')
 const getDefaultStoragePath = () => join(app.getPath('userData'), 'storage')
 
-// Default settings (using shared defaults)
+// Default settings, derived from the Zod schema's field-level `.default()`s
+// (single source of truth). Only the platform-specific download path is
+// applied on top, since the schema cannot know it.
 export function getDefaultSettings(): AppSettings {
-  return {
-    general: {
-      homepage: DEFAULT_SETTINGS.homepage,
-      resolveEth: DEFAULT_SETTINGS.resolveEth,
-      ethRpc: DEFAULT_SETTINGS.ethRpc,
-      resolveSol: DEFAULT_SETTINGS.resolveSol,
-      solRpc: DEFAULT_SETTINGS.solRpc,
-    },
-    network: {
-      proxyPort: DEFAULT_SETTINGS.proxyPort,
-      storagePort: DEFAULT_SETTINGS.storagePort,
-      wsPort: DEFAULT_SETTINGS.wsPort,
-      autoConnect: DEFAULT_SETTINGS.autoConnect,
-      connectionTimeout: DEFAULT_SETTINGS.connectionTimeout,
-      syncCheckInterval: DEFAULT_SETTINGS.syncCheckInterval,
-      anonymousMode: DEFAULT_SETTINGS.anonymousMode,
-      tunnelMode: DEFAULT_SETTINGS.tunnelMode,
-    },
-    storage: {
-      downloadPath: getDefaultStoragePath(), // Platform-specific override
-      pollingInterval: DEFAULT_SETTINGS.pollingInterval,
-      seedingEnabled: DEFAULT_SETTINGS.seedingEnabled,
-      downloadSpeedLimit: DEFAULT_SETTINGS.downloadSpeedLimit,
-      uploadSpeedLimit: DEFAULT_SETTINGS.uploadSpeedLimit,
-    },
-    appearance: {
-      theme: DEFAULT_SETTINGS.theme,
-      customThemes: DEFAULT_SETTINGS.customThemes,
-      language: DEFAULT_SETTINGS.language,
-      defaultZoom: DEFAULT_SETTINGS.defaultZoom,
-      zoomMin: DEFAULT_SETTINGS.zoomMin,
-      zoomMax: DEFAULT_SETTINGS.zoomMax,
-      showBookmarksBar: DEFAULT_SETTINGS.showBookmarksBar,
-      showStatusBar: DEFAULT_SETTINGS.showStatusBar,
-      tabOrientation: DEFAULT_SETTINGS.tabOrientation,
-      sidebarWidth: DEFAULT_SETTINGS.sidebarWidth,
-    },
-    privacy: {
-      clearOnExit: DEFAULT_SETTINGS.clearOnExit,
-      disableCache: DEFAULT_SETTINGS.disableCache,
-      firstPartyIsolation: DEFAULT_SETTINGS.firstPartyIsolation,
-      cookieAutoDelete: DEFAULT_SETTINGS.cookieAutoDelete,
-      cookieAutoDeleteMinutes: DEFAULT_SETTINGS.cookieAutoDeleteMinutes,
-      historyMode: DEFAULT_SETTINGS.historyMode,
-      historyMaxEntries: DEFAULT_SETTINGS.historyMaxEntries,
-    },
-    contentFiltering: {
-      enabled: DEFAULT_SETTINGS.contentFiltering.enabled,
-      blockAds: DEFAULT_SETTINGS.contentFiltering.blockAds,
-      blockTrackers: DEFAULT_SETTINGS.contentFiltering.blockTrackers,
-      blockMiners: DEFAULT_SETTINGS.contentFiltering.blockMiners,
-      blockMalware: DEFAULT_SETTINGS.contentFiltering.blockMalware,
-      blockAnnoyances: DEFAULT_SETTINGS.contentFiltering.blockAnnoyances,
-      whitelistedDomains: DEFAULT_SETTINGS.contentFiltering.whitelistedDomains,
-    },
-    advanced: {
-      proxyVerbosity: DEFAULT_SETTINGS.proxyVerbosity,
-      storageVerbosity: DEFAULT_SETTINGS.storageVerbosity,
-      syncTestDomain: DEFAULT_SETTINGS.syncTestDomain,
-    },
-    wallet: {
-      paymentMode: DEFAULT_SETTINGS.wallet.paymentMode,
-      notificationStyle: DEFAULT_SETTINGS.wallet.notificationStyle,
-      limits: { ...DEFAULT_SETTINGS.wallet.limits },
-      sitePolicies: [...DEFAULT_SETTINGS.wallet.sitePolicies],
-      autoPayDomains: [...DEFAULT_SETTINGS.wallet.autoPayDomains],
-      autoLockMinutes: DEFAULT_SETTINGS.wallet.autoLockMinutes,
-    },
-    bridge: {
-      permissions: [],
-      defaultPolicy: 'ask',
-    },
-    cocoon: {
-      autostart: DEFAULT_SETTINGS.cocoon.autostart,
-    },
-  }
+  const defaults = AppSettingsSchema.parse({})
+  defaults.storage.downloadPath = getDefaultStoragePath()
+  return defaults
 }
 
 // In-memory cache
