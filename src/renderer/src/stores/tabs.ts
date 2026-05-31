@@ -73,6 +73,32 @@ async function getHomepage(): Promise<string> {
   }
 }
 
+/**
+ * Applies a navigation result to a tab: writes the tab state, syncs the browser
+ * store (nav buttons + optional title), then tells main to navigate. Callers pass
+ * the already-computed url/canGoBack/canGoForward/title in `updates`.
+ */
+async function applyTabNavigation(
+  set: (updater: (state: TabsState) => Partial<TabsState>) => void,
+  tabId: string,
+  updates: Partial<Tab>,
+  errorLabel: string
+): Promise<void> {
+  set((state) => ({
+    tabs: state.tabs.map((t) => (t.id === tabId ? { ...t, ...updates } : t)),
+  }))
+  const browser = useBrowserStore.getState()
+  if (updates.url !== undefined) {
+    browser.setNavigation(updates.url, updates.canGoBack ?? false, updates.canGoForward ?? false)
+    if (updates.title) browser.setTitle(updates.title)
+    try {
+      await window.electron.navigate(updates.url, tabId)
+    } catch (error) {
+      log.error(errorLabel, error)
+    }
+  }
+}
+
 export const useTabsStore = create<TabsState>((set, get) => ({
   tabs: [],
   activeTabId: null,
@@ -235,23 +261,7 @@ export const useTabsStore = create<TabsState>((set, get) => ({
       updates.title = internalTitle
     }
 
-    // Update tab state
-    set((state) => ({
-      tabs: state.tabs.map((t) => (t.id === currentActiveTabId ? { ...t, ...updates } : t)),
-    }))
-
-    // Sync settings store
-    useBrowserStore.getState().setNavigation(url, newHistoryIndex > 0, false)
-    if (internalTitle) {
-      useBrowserStore.getState().setTitle(internalTitle)
-    }
-
-    // Navigate (handles hide/show WebContentsView)
-    try {
-      await window.electron.navigate(url, currentActiveTabId)
-    } catch (error) {
-      log.error('Failed to navigate:', error)
-    }
+    await applyTabNavigation(set, currentActiveTabId, updates, 'Failed to navigate:')
   },
 
   openOrSwitchToTab: async (url: string) => {
@@ -304,22 +314,7 @@ export const useTabsStore = create<TabsState>((set, get) => ({
       updates.title = internalTitle
     }
 
-    set((state) => ({
-      tabs: state.tabs.map((t) => (t.id === activeTabId ? { ...t, ...updates } : t)),
-    }))
-
-    // Sync settings store
-    useBrowserStore.getState().setNavigation(newUrl, newIndex > 0, true)
-    if (internalTitle) {
-      useBrowserStore.getState().setTitle(internalTitle)
-    }
-
-    // Navigate
-    try {
-      await window.electron.navigate(newUrl, activeTabId)
-    } catch (error) {
-      log.error('Failed to go back:', error)
-    }
+    await applyTabNavigation(set, activeTabId, updates, 'Failed to go back:')
   },
 
   goForward: async () => {
@@ -343,22 +338,7 @@ export const useTabsStore = create<TabsState>((set, get) => ({
       updates.title = internalTitle
     }
 
-    set((state) => ({
-      tabs: state.tabs.map((t) => (t.id === activeTabId ? { ...t, ...updates } : t)),
-    }))
-
-    // Sync settings store
-    useBrowserStore.getState().setNavigation(newUrl, true, newIndex < activeTab.history.length - 1)
-    if (internalTitle) {
-      useBrowserStore.getState().setTitle(internalTitle)
-    }
-
-    // Navigate
-    try {
-      await window.electron.navigate(newUrl, activeTabId)
-    } catch (error) {
-      log.error('Failed to go forward:', error)
-    }
+    await applyTabNavigation(set, activeTabId, updates, 'Failed to go forward:')
   },
 
   duplicateTab: async (id: string) => {
