@@ -15,6 +15,7 @@ files:
   - "package.json"
   - "resources/overlay/**/*"
   - "resources/preload/**/*"
+  - "resources/icons/icon.png"
 
 extraResources:
   - from: "resources/config"
