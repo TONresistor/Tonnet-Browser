@@ -85,8 +85,3 @@ function detectGlibcVersion(): { major: number; minor: number } | null {
     return null
   }
 }
-
-/** Test-only: reset cached result */
-export function resetCocoonAvailabilityCache(): void {
-  cachedResult = null
-}
