@@ -17,14 +17,13 @@ import { getRecoveryQueueStore } from './recovery-queue'
 import { getStakeCacheStore } from './stake-cache'
 import { getStakeInfo } from './unstake'
 import { loadCocoonWallet } from './wallet'
+import { DRAIN_DUST_FLOOR_NANO, REFUND_GAS_NANO } from './constants'
 import type { CocoonManager } from './manager'
 import type { WsBridgeClient } from '../wallet/ws-bridge-client'
 import type { CocoonRecoveryAllResult } from '../../shared/cocoon-types'
 
 const log = createLogger('cocoon:recover-all')
 
-const DRAIN_DUST_NANO = 50_000_000n
-const REFUND_GAS_NANO = 200_000_000n
 const CONFIRMATION_PAUSE_MS = 2_000
 
 type RecoverableWallet = {
@@ -121,7 +120,7 @@ async function drainNode(
   result: CocoonRecoveryAllResult
 ): Promise<void> {
   const balance = BigInt(await bridge.getBalance(wallet.nodeAddress))
-  if (balance <= DRAIN_DUST_NANO) return
+  if (balance <= DRAIN_DUST_FLOOR_NANO) return
 
   const tx = await sendFromCocoonWallet(
     bridge,
@@ -152,7 +151,7 @@ async function drainOwner(
   result: CocoonRecoveryAllResult
 ): Promise<void> {
   const balance = BigInt(await bridge.getBalance(wallet.ownerAddress))
-  if (balance <= DRAIN_DUST_NANO) return
+  if (balance <= DRAIN_DUST_FLOOR_NANO) return
 
   const tx = await sendFromOwnerWallet(bridge, wallet.ownerMnemonic, Address.parse(destination), 0n, undefined, {
     drainAll: true,
