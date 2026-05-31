@@ -12,6 +12,7 @@ import { app } from 'electron'
 import { getBinaryPath } from '../utils/paths'
 import { validatePort } from '../utils/validators'
 import { writeSecureJsonAtomic } from '../utils/secure-fs'
+import { stripAnsi } from '../utils/strip-ansi'
 import { getSetting } from '../settings'
 import { randomBytes } from 'crypto'
 import { cpus } from 'os'
@@ -136,8 +137,7 @@ export class ProxyManager extends EventEmitter {
       const raw = data.toString().trim()
       if (!raw) return
       // Strip ANSI escape codes for parsing
-      // eslint-disable-next-line no-control-regex
-      const message = raw.replace(/\x1b\[[0-9;]*m/g, '')
+      const message = stripAnsi(raw)
       log.debug(raw)
       this.emit('log', raw)
 
@@ -218,8 +218,7 @@ export class ProxyManager extends EventEmitter {
     const handleBridgeOutput = (data: Buffer) => {
       const raw = data.toString().trim()
       if (!raw) return
-      // eslint-disable-next-line no-control-regex
-      const message = raw.replace(/\x1b\[[0-9;]*m/g, '')
+      const message = stripAnsi(raw)
       log.debug(`[bridge] ${raw}`)
       this.emit('log', `[bridge] ${raw}`)
 
@@ -525,8 +524,7 @@ export class ProxyManager extends EventEmitter {
 
       const checkOutput = (data: Buffer) => {
         const raw = data.toString()
-        // eslint-disable-next-line no-control-regex
-        const output = raw.replace(/\x1b\[[0-9;]*m/g, '').toLowerCase()
+        const output = stripAnsi(raw).toLowerCase()
         // In direct mode: "starting proxy server" comes immediately
         // In tunnel mode: "starting proxy server" comes AFTER tunnel init (~10-15s)
         // We must wait for the proxy to actually be listening before starting sync checks
