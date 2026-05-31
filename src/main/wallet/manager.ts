@@ -343,6 +343,8 @@ export class WalletManager extends EventEmitter {
    * Sign and broadcast a TON transfer.
    */
   async send(to: string, amount: string): Promise<WalletTransaction> {
+    const bridge = this.wsBridge
+    if (!bridge) throw new Error('Bridge not connected')
     await this.syncSeqno()
     const boc = await this.signTransfer(to, amount)
     const bocBuffer = Buffer.from(boc, 'base64')
@@ -350,11 +352,11 @@ export class WalletManager extends EventEmitter {
     let txHash: string | undefined
     let status: 'pending' | 'confirmed' = 'pending'
     try {
-      txHash = await this.wsBridge!.sendAndWatch(bocBuffer)
+      txHash = await bridge.sendAndWatch(bocBuffer)
       status = 'confirmed'
     } catch {
       // Fallback: broadcast without waiting for confirmation
-      await this.wsBridge!.broadcast(bocBuffer)
+      await bridge.broadcast(bocBuffer)
     }
 
     const tx: WalletTransaction = {
