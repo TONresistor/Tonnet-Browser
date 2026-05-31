@@ -11,16 +11,13 @@ import fs from 'fs'
 import { app } from 'electron'
 import { getBinaryPath } from '../utils/paths'
 import { validatePort } from '../utils/validators'
-import { writeSecureJsonAtomic } from '../utils/secure-fs'
 import { stripAnsi } from '../utils/strip-ansi'
 import { getSetting } from '../settings'
-import { randomBytes } from 'crypto'
-import { cpus } from 'os'
 import { DEFAULT_SETTINGS } from '../../shared/defaults'
 import { GeneralSettings } from '../../shared/schemas'
 import { createLogger } from '../../shared/logger'
 import { TUNNEL_SECTIONS } from '../../shared/constants'
-import { DEFAULT_NAMESPACE_STATE, REQUIRED_NAMESPACES } from '../../shared/bridge-config'
+import { applyBridgeDefaults, writeProxyConfig } from './config-writer'
 const log = createLogger('proxy')
 
 /**
@@ -115,7 +112,7 @@ export class ProxyManager extends EventEmitter {
 
     // Write proxy config to control tunnel mode
     const tunnelSections = this.anonymousMode ? TUNNEL_SECTIONS[this.tunnelMode] : 0
-    this.writeProxyConfig(proxyWorkDir, tunnelSections)
+    writeProxyConfig(proxyWorkDir, tunnelSections)
 
     // Spawn proxy process (HTTP proxy for .ton sites)
     if (this.anonymousMode) {
@@ -205,7 +202,7 @@ export class ProxyManager extends EventEmitter {
   private async startBridge(): Promise<void> {
     const bridgeBinPath = getBinaryPath('tonutils-bridge')
     const bridgeWorkDir = this.getBridgeWorkDir()
-    this.applyBridgeDefaults(bridgeWorkDir)
+    applyBridgeDefaults(bridgeWorkDir)
     const bridgeArgs = ['-addr', `127.0.0.1:${this.wsPort}`, '-data-dir', bridgeWorkDir, '-verbosity', '2']
 
     log.info(`Starting bridge from: ${bridgeBinPath}`)
@@ -299,111 +296,6 @@ export class ProxyManager extends EventEmitter {
       fs.mkdirSync(dir, { recursive: true })
     }
     return dir
-  }
-
-  /**
-   * Apply browser namespace defaults to the bridge config.json.
-   * Runs once per install: disables unused namespaces (least privilege),
-   * preserves user overrides on subsequent launches via _browserDefaults flag.
-   * Required namespaces are always re-enforced regardless.
-   */
-  private applyBridgeDefaults(workDir: string): void {
-    const configPath = path.join(workDir, 'config.json')
-    if (!fs.existsSync(configPath)) return
-
-    try {
-      const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'))
-      if (config._browserDefaults) {
-        // Already applied, only enforce required namespaces
-        let changed = false
-        const ns = config.namespaces as Record<string, Record<string, unknown>> | undefined
-        if (ns) {
-          for (const required of REQUIRED_NAMESPACES) {
-            if (ns[required] && ns[required].enabled === false) {
-              ns[required].enabled = true
-              changed = true
-            }
-          }
-        }
-        if (changed) {
-          writeSecureJsonAtomic(configPath, config)
-          log.info('Re-enforced required bridge namespaces')
-        }
-        return
-      }
-
-      // First application: set namespace defaults
-      const ns = config.namespaces as Record<string, Record<string, unknown>> | undefined
-      if (ns) {
-        for (const [name, enabled] of Object.entries(DEFAULT_NAMESPACE_STATE)) {
-          if (!ns[name]) ns[name] = {}
-          ns[name].enabled = enabled
-        }
-      }
-      config._browserDefaults = true
-      writeSecureJsonAtomic(configPath, config)
-
-      const disabled = Object.entries(DEFAULT_NAMESPACE_STATE)
-        .filter(([, v]) => !v)
-        .map(([k]) => k)
-      log.info(`Bridge namespace defaults applied, disabled: ${disabled.join(', ')}`)
-    } catch (err) {
-      log.warn('Failed to apply bridge defaults:', err)
-    }
-  }
-
-  private writeProxyConfig(workDir: string, tunnelSections: number): void {
-    const configPath = path.join(workDir, 'config.json')
-
-    if (fs.existsSync(configPath)) {
-      // Patch existing config
-      try {
-        const existing = JSON.parse(fs.readFileSync(configPath, 'utf-8'))
-        if (existing.TunnelConfig) {
-          existing.TunnelConfig.NodesPoolConfigPath = ''
-          existing.TunnelConfig.TunnelSectionsNum = tunnelSections
-        }
-        existing.BlockHTTP = true // always block cleartext HTTP
-        writeSecureJsonAtomic(configPath, existing, 2)
-        log.info(`Proxy config updated: tunnelSections=${tunnelSections}`)
-        return
-      } catch {
-        // Corrupted config -- regenerate below
-      }
-    }
-
-    // First run: generate config with correct tunnel settings immediately
-    // This avoids the double-start (direct -> restart -> tunnel)
-    const generateKey = () => Array.from(randomBytes(32))
-    const config = {
-      Version: 1,
-      ADNLKey: generateKey(),
-      BlockHTTP: true,
-      CustomTunnelNetworkConfigPath: '',
-      TunnelConfig: {
-        TunnelServerKey: generateKey(),
-        TunnelThreads: cpus().length,
-        TunnelSectionsNum: tunnelSections,
-        NodesPoolConfigPath: '',
-        PaymentsEnabled: false,
-        Payments: {
-          ADNLServerKey: generateKey(),
-          PaymentsNodeKey: generateKey(),
-          WalletPrivateKey: generateKey(),
-          DBPath: './payments-db/',
-          SecureProofPolicy: false,
-          ChannelsConfig: {
-            SupportedCoins: { Ton: { Enabled: true }, Jettons: {}, ExtraCurrencies: {} },
-            BufferTimeToCommit: 10800,
-            QuarantineDurationSec: 21600,
-            ConditionalCloseDurationSec: 10800,
-            MinSafeVirtualChannelTimeoutSec: 300,
-          },
-        },
-      },
-    }
-    writeSecureJsonAtomic(configPath, config, 2)
-    log.info(`Proxy config generated: tunnelSections=${tunnelSections}`)
   }
 
   private setStatus(status: ProxyStatus): void {
