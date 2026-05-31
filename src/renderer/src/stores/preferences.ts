@@ -362,9 +362,7 @@ if (typeof window !== 'undefined' && window.electron) {
   })
 
   // Cleanup listener on HMR module replacement
-  const hot = (import.meta as unknown as Record<string, unknown>).hot as
-    | { dispose: (cb: () => void) => void }
-    | undefined
+  const hot = import.meta.hot
   if (hot) {
     hot.dispose(() => unsubscribe())
   }

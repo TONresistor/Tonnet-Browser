@@ -330,8 +330,6 @@ if (typeof window !== 'undefined' && window.electron) {
       })
     }
   })
-  const hot = (import.meta as unknown as Record<string, unknown>).hot as
-    | { dispose: (cb: () => void) => void }
-    | undefined
+  const hot = import.meta.hot
   if (hot) hot.dispose(() => unsubSettings())
 }
