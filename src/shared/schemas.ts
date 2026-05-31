@@ -118,13 +118,13 @@ export const AdvancedSettingsSchema = z.object({
 
 // --- Wallet Zod schemas ---
 
-const SpendingLimitsSchema = z.object({
+export const SpendingLimitsSchema = z.object({
   perRequest: z.string().default('0'),
   perDay: z.string().default('0'),
   perSitePerMonth: z.string().default('0'),
 })
 
-const SitePolicySchema = z.object({
+export const SitePolicySchema = z.object({
   domain: z.string(),
   mode: z.enum(['off', 'manual', 'auto']),
   customLimits: SpendingLimitsSchema.optional(),
@@ -191,6 +191,9 @@ export const BridgeSettingsPartialSchema = z
 
 export type BridgePermission = z.infer<typeof BridgePermissionSchema>
 export type BridgeSettings = z.infer<typeof BridgeSettingsSchema>
+export type SpendingLimits = z.infer<typeof SpendingLimitsSchema>
+export type SitePolicy = z.infer<typeof SitePolicySchema>
+export type WalletSettings = z.infer<typeof WalletSettingsSchema>
 export type BridgeScope = 'blockchain' | 'p2p' | 'write'
 export type BridgeDecision = 'granted' | 'denied' | 'session'
 
