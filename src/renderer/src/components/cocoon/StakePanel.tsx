@@ -14,6 +14,7 @@ import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import { Loader2, ShieldCheck, AlertTriangle, ArrowDownCircle, Check, Power, Wallet, Hourglass } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { getIpcError, isIpcError } from '@/lib/ipc-utils'
+import { formatTonFixed } from '@/lib/ton-utils'
 import { createLogger } from '@/logger'
 import { useTranslation } from 'react-i18next'
 import { deriveStakeView, type StakeView, type WithdrawStage } from './stake-actions'
@@ -35,11 +36,6 @@ interface WalletSnapshot {
   ownerBalance: string
   cocoonBalance: string
   stakeBalance: string
-}
-
-function nanoToTon(nano: string | bigint, decimals = 2): string {
-  const n = typeof nano === 'bigint' ? nano : BigInt(nano)
-  return (Number(n) / 1e9).toFixed(decimals)
 }
 
 export const StakePanel = memo(function StakePanel() {
@@ -204,7 +200,7 @@ export const StakePanel = memo(function StakePanel() {
         return
       }
       const r = result as { totalSent: string }
-      showSuccess(t('cocoon.stake.flow.cashoutDone', { amount: nanoToTon(r.totalSent) }))
+      showSuccess(t('cocoon.stake.flow.cashoutDone', { amount: formatTonFixed(r.totalSent) }))
       setTickNonce((n) => n + 1)
     } catch (e) {
       setError((e as Error).message ?? 'cashout failed')
@@ -545,7 +541,7 @@ function WalletsCard({ wallets }: { wallets: WalletSnapshot }) {
         <div className="text-center">
           <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-foreground-muted">Total balance</p>
           <p className="mt-1 text-4xl font-bold tracking-tight text-foreground tabular-nums">
-            {nanoToTon(cocoonTotal, 4)}
+            {formatTonFixed(cocoonTotal, 4)}
             <span className="ml-1.5 text-2xl font-semibold text-muted-foreground">TON</span>
           </p>
         </div>

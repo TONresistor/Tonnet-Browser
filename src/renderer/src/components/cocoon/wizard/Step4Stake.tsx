@@ -2,12 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import { CheckCircle2, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { getIpcError } from '@/lib/ipc-utils'
+import { formatTonFixed } from '@/lib/ton-utils'
 
 type StakeStatus = 'idle' | 'transferring' | 'transferred' | 'starting' | 'done' | 'error'
-
-function nanoToTon(nano: string): string {
-  return (Number(nano) / 1e9).toFixed(2)
-}
 
 interface Props {
   onComplete: () => void
@@ -97,7 +94,7 @@ export function Step4Stake({ onComplete, onBack, initialFunded = false }: Props)
         return 'Transferring to cocoon wallet…'
       case 'transferred':
         return sentAmount
-          ? `Transfer sent (${nanoToTon(sentAmount)} TON). Waiting for confirmation…`
+          ? `Transfer sent (${formatTonFixed(sentAmount)} TON). Waiting for confirmation…`
           : 'Transfer sent. Waiting for confirmation…'
       case 'starting':
         return 'Starting Cocoon AI runner…'

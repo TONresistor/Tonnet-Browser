@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Check, CheckCircle2, Copy, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { getIpcError } from '@/lib/ipc-utils'
+import { formatTonFixed } from '@/lib/ton-utils'
 
 /**
  * Renders a scannable QR code for the given address. Mirrors the pattern used
@@ -39,10 +40,6 @@ function AddressQR({ address }: { address: string }) {
 // e.g. 19.995) but BigInt strict-compare against 20_000_000_000n fails and
 // the wizard stays stuck on "Waiting…".
 const FUND_THRESHOLD_NANO = 19_990_000_000n
-
-function nanoToTon(nano: string): string {
-  return (Number(nano) / 1e9).toFixed(2)
-}
 
 interface Props {
   ownerAddress: string
@@ -141,7 +138,7 @@ export function Step3Fund({ ownerAddress, onComplete, onBack }: Props) {
         <div>
           <p className="text-xs text-muted-foreground mb-1">Current balance</p>
           <p className="text-2xl font-mono font-semibold text-foreground">
-            {balance !== null ? `${nanoToTon(balance)} TON` : '0.00 TON'}
+            {balance !== null ? `${formatTonFixed(balance)} TON` : '0.00 TON'}
           </p>
           <p className="text-[11px] text-muted-foreground mt-1">Required: 20.00 TON minimum</p>
           {balanceError && (
