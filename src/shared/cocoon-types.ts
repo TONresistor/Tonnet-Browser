@@ -128,3 +128,31 @@ export interface CocoonRecoveryAllResult {
     archivedAt?: number
   }>
 }
+
+export type RecoveryPhase = 'refund-pending' | 'cooldown' | 'claim-pending' | 'drain-pending' | 'done' | 'failed'
+
+/**
+ * A queued auto-recovery intent for an archived cocoon wallet whose client SC
+ * still locks user TON. Crosses main <-> renderer via IPC (RecoveryPanel reads it).
+ */
+export interface RecoveryEntry {
+  /** Joins this entry to its archive record (1:1 mapping). */
+  archivedAt: number
+  /** Address of the on-chain CocoonClient SC holding the locked stake. */
+  clientSCAddress: string
+  phase: RecoveryPhase
+  /** Unix ms when the entry was enqueued. */
+  addedAt: number
+  /** Last error message, set when phase transitions to 'failed' or on transient errors. */
+  lastError?: string
+  /** On-chain unlock timestamp (seconds since epoch). Populated once the SC reports state=1. */
+  unlockTs?: number
+  /** Hash of the boc broadcast for the initial refund tx (phase=refund-pending). */
+  refundBocHash?: string
+  /** Hash of the boc broadcast for the claim refund tx (phase=claim-pending). */
+  claimBocHash?: string
+  /** Hash of the boc broadcast for the cocoon_node drain tx (phase=drain-pending). */
+  drainBocHash?: string
+  /** Native wallet address the funds were sent to. */
+  sentToMain?: string
+}

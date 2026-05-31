@@ -8,19 +8,7 @@ import { Search, LoaderCircle, Copy, Check } from 'lucide-react'
 import { truncateAddress } from '@/lib/format'
 import { UI_COPY_FEEDBACK_MS } from '@shared/constants'
 import { useTranslation } from 'react-i18next'
-
-interface DnsResult {
-  wallet: string | null
-  site_adnl: string | null
-  has_storage: boolean
-  owner: string | null
-  nft_address: string | null
-  collection: string | null
-  editor: string | null
-  initialized: boolean
-  expiring_at: number | null
-  text_records?: Record<string, string>
-}
+import type { DnsResolveResult } from '@shared/types'
 
 function CopyButton({ value }: { value: string }) {
   const { t } = useTranslation('dns')
@@ -51,7 +39,7 @@ function CopyButton({ value }: { value: string }) {
 function DnsPage() {
   const { t } = useTranslation('dns')
   const [query, setQuery] = useState('')
-  const [result, setResult] = useState<DnsResult | null>(null)
+  const [result, setResult] = useState<DnsResolveResult | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [searched, setSearched] = useState(false)
