@@ -6,7 +6,6 @@ import { useState, useEffect, useRef, memo } from 'react'
 import { Copy, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useTranslation } from 'react-i18next'
-import QRCode from 'qrcode'
 import { UI_COPY_FEEDBACK_MS } from '@shared/constants'
 import { createLogger } from '@/logger'
 
@@ -21,17 +20,25 @@ function AddressQR({ address }: { address: string }) {
 
   useEffect(() => {
     if (!canvasRef.current || !address) return
-    QRCode.toCanvas(canvasRef.current, address, {
-      width: 200,
-      margin: 2,
-      color: {
-        dark: '#000000',
-        light: '#ffffff',
-      },
-      errorCorrectionLevel: 'M',
-    }).catch((err) => {
-      log.warn('QR code generation failed:', err)
+    let cancelled = false
+    // qrcode is a heavy lib; load it only when a QR actually needs rendering.
+    import('qrcode').then(({ default: QRCode }) => {
+      if (cancelled || !canvasRef.current) return
+      QRCode.toCanvas(canvasRef.current, address, {
+        width: 200,
+        margin: 2,
+        color: {
+          dark: '#000000',
+          light: '#ffffff',
+        },
+        errorCorrectionLevel: 'M',
+      }).catch((err) => {
+        log.warn('QR code generation failed:', err)
+      })
     })
+    return () => {
+      cancelled = true
+    }
   }, [address])
 
   return <canvas ref={canvasRef} className="rounded-lg" width={200} height={200} />

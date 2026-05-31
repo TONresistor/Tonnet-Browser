@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Check, CheckCircle2, Copy, Loader2 } from 'lucide-react'
-import QRCode from 'qrcode'
 import { Button } from '@/components/ui/button'
 import { getIpcError } from '@/lib/ipc-utils'
 
@@ -13,15 +12,22 @@ function AddressQR({ address }: { address: string }) {
 
   useEffect(() => {
     if (!canvasRef.current || !address) return
-    QRCode.toCanvas(canvasRef.current, address, {
-      width: 160,
-      margin: 2,
-      color: { dark: '#000000', light: '#ffffff' },
-      errorCorrectionLevel: 'M',
-    }).catch(() => {
-      // QR generation failures are non-fatal; the user can still copy the
-      // address manually below.
+    let cancelled = false
+    import('qrcode').then(({ default: QRCode }) => {
+      if (cancelled || !canvasRef.current) return
+      QRCode.toCanvas(canvasRef.current, address, {
+        width: 160,
+        margin: 2,
+        color: { dark: '#000000', light: '#ffffff' },
+        errorCorrectionLevel: 'M',
+      }).catch(() => {
+        // QR generation failures are non-fatal; the user can still copy the
+        // address manually below.
+      })
     })
+    return () => {
+      cancelled = true
+    }
   }, [address])
 
   return <canvas ref={canvasRef} className="rounded-lg" width={160} height={160} />
