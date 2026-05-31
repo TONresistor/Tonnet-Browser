@@ -72,10 +72,6 @@ export const IPC_CHANNELS = {
   HISTORY_GET_STATS: 'history:get-stats',
   HISTORY_HAS_PERSISTENT_FILE: 'history:has-persistent-file',
 
-  // Errors
-  ERRORS_GET_RECENT: 'errors:get-recent',
-  ERRORS_CLEAR: 'errors:clear',
-
   // Updater
   UPDATER_CHECK: 'updater:check',
   UPDATER_OPEN_DOWNLOAD_PAGE: 'updater:open-download-page',

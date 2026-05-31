@@ -391,7 +391,6 @@ declare global {
         recoveryAll: () => Promise<CocoonRecoveryAllResult | IpcError>
       }
       on: (channel: string, callback: (...args: unknown[]) => void) => () => void
-      off: (channel: string, callback: (...args: unknown[]) => void) => void
     }
   }
 }

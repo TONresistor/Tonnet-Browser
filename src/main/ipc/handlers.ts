@@ -17,7 +17,6 @@ import {
   registerWindowHandlers,
   registerSettingsHandlers,
   registerHistoryHandlers,
-  registerErrorHandlers,
   registerWalletHandlers,
   registerBridgeHandlers,
   registerCocoonHandlers,
@@ -51,7 +50,6 @@ export function registerIpcHandlers(registry: ServiceRegistry): void {
   registerWindowHandlers()
   registerSettingsHandlers(registry)
   registerHistoryHandlers(registry)
-  registerErrorHandlers()
   registerWalletHandlers(registry)
   registerBridgeHandlers(registry)
   registerCocoonHandlers(registry)

@@ -18,12 +18,6 @@ const VALID_EVENT_CHANNELS = [
   'storage:status',
   'context:open-link',
   'settings:changed',
-  'bookmark:open-new-tab',
-  'bookmark:edit',
-  'bookmark:delete',
-  'folder:rename',
-  'folder:delete',
-  'folder:open-all',
   'tab:history-reset',
   'wallet:balance-updated',
   'wallet:state-changed',
@@ -31,7 +25,6 @@ const VALID_EVENT_CHANNELS = [
   'wallet:payment-req',
   'wallet:payment-made',
   'wallet:payment-failed',
-  'bookmarks:changed',
   IPC_CHANNELS.OVERLAY_ACTION,
   IPC_CHANNELS.COCOON_STATE_CHANGED,
   IPC_CHANNELS.COCOON_LOG,
@@ -237,13 +230,6 @@ const electronAPI = {
       return () => ipcRenderer.removeListener(channel, listener)
     }
     return () => {} // No-op for invalid channels
-  },
-
-  // Remove a specific listener for a channel.
-  // Pass the same callback reference used in on() to remove only that listener.
-  off: (channel: string, callback: (...args: unknown[]) => void) => {
-    if (!VALID_EVENT_CHANNELS.includes(channel)) return
-    ipcRenderer.removeListener(channel, callback)
   },
 }
 
