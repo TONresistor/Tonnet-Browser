@@ -61,15 +61,25 @@ export const UTYA_DUCK_COLORS: ThemeColors = {
 }
 
 /**
+ * Extract the numeric H, S, L components from an "H S% L%" string.
+ * Returns null when the string does not contain at least three numbers.
+ */
+function parseHslParts(hsl: string): [number, number, number] | null {
+  const parts = hsl.match(/(\d+(?:\.\d+)?)/g)
+  if (!parts || parts.length < 3) return null
+  return [parseFloat(parts[0]), parseFloat(parts[1]), parseFloat(parts[2])]
+}
+
+/**
  * Convert HSL string "H S% L%" to hex color "#RRGGBB"
  */
 export function hslToHex(hsl: string): string {
-  const parts = hsl.match(/(\d+(?:\.\d+)?)/g)
-  if (!parts || parts.length < 3) return '#000000'
+  const parsed = parseHslParts(hsl)
+  if (!parsed) return '#000000'
 
-  const h = parseFloat(parts[0]) / 360
-  const s = parseFloat(parts[1]) / 100
-  const l = parseFloat(parts[2]) / 100
+  const h = parsed[0] / 360
+  const s = parsed[1] / 100
+  const l = parsed[2] / 100
 
   const hue2rgb = (p: number, q: number, t: number) => {
     if (t < 0) t += 1
@@ -140,20 +150,9 @@ export function hexToHsl(hex: string): string {
  * Parse HSL string to object
  */
 export function parseHsl(hsl: string): { h: number; s: number; l: number } {
-  const parts = hsl.match(/(\d+(?:\.\d+)?)/g)
-  if (!parts || parts.length < 3) return { h: 0, s: 0, l: 0 }
-  return {
-    h: parseFloat(parts[0]),
-    s: parseFloat(parts[1]),
-    l: parseFloat(parts[2]),
-  }
-}
-
-/**
- * Format HSL object to string
- */
-export function formatHsl(hsl: { h: number; s: number; l: number }): string {
-  return `${Math.round(hsl.h)} ${Math.round(hsl.s)}% ${Math.round(hsl.l)}%`
+  const parsed = parseHslParts(hsl)
+  if (!parsed) return { h: 0, s: 0, l: 0 }
+  return { h: parsed[0], s: parsed[1], l: parsed[2] }
 }
 
 /**
@@ -260,31 +259,11 @@ export function validateColors(colors: unknown): colors is ThemeColors {
  * Validate HSL string format
  */
 export function isValidHsl(hsl: string): boolean {
-  const parts = hsl.match(/(\d+(?:\.\d+)?)/g)
-  if (!parts || parts.length < 3) return false
+  const parsed = parseHslParts(hsl)
+  if (!parsed) return false
 
-  const h = parseFloat(parts[0])
-  const s = parseFloat(parts[1])
-  const l = parseFloat(parts[2])
-
+  const [h, s, l] = parsed
   return h >= 0 && h <= 360 && s >= 0 && s <= 100 && l >= 0 && l <= 100
-}
-
-/**
- * Validate a complete theme object
- */
-export function validateTheme(theme: unknown): theme is CustomTheme {
-  if (!theme || typeof theme !== 'object') return false
-
-  const t = theme as Record<string, unknown>
-  return (
-    typeof t.id === 'string' &&
-    typeof t.name === 'string' &&
-    typeof t.isDark === 'boolean' &&
-    typeof t.createdAt === 'number' &&
-    typeof t.updatedAt === 'number' &&
-    validateColors(t.colors)
-  )
 }
 
 /**
@@ -357,36 +336,8 @@ export function importThemeFromJson(json: string): CustomTheme | null {
 }
 
 /**
- * Calculate relative luminance for contrast checking
+ * Return the custom theme id from a "custom:<id>" marker, or null otherwise.
  */
-function getLuminance(hsl: string): number {
-  const hex = hslToHex(hsl)
-  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
-  if (!result) return 0
-
-  const r = parseInt(result[1], 16) / 255
-  const g = parseInt(result[2], 16) / 255
-  const b = parseInt(result[3], 16) / 255
-
-  const toLinear = (c: number) => (c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4))
-
-  return 0.2126 * toLinear(r) + 0.7152 * toLinear(g) + 0.0722 * toLinear(b)
-}
-
-/**
- * Calculate WCAG contrast ratio between two colors
- */
-export function getContrastRatio(fg: string, bg: string): number {
-  const l1 = getLuminance(fg)
-  const l2 = getLuminance(bg)
-  const lighter = Math.max(l1, l2)
-  const darker = Math.min(l1, l2)
-  return (lighter + 0.05) / (darker + 0.05)
-}
-
-/**
- * Check if contrast meets WCAG AA standard (4.5:1 for normal text)
- */
-export function meetsContrastAA(fg: string, bg: string): boolean {
-  return getContrastRatio(fg, bg) >= 4.5
+export function parseCustomThemeId(theme: string): string | null {
+  return theme.startsWith('custom:') ? theme.slice('custom:'.length) : null
 }
