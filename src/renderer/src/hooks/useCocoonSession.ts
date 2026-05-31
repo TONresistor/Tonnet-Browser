@@ -234,17 +234,15 @@ export function useCocoonSession(): UseCocoonSessionResult {
         }
       }
     })
-    const offState = window.electron.on(IPC_CHANNELS.COCOON_STATE_CHANGED, ((next: unknown) => {
-      const nextState = next as CocoonState
+    const offState = window.electron.on(IPC_CHANNELS.COCOON_STATE_CHANGED, (nextState) => {
       setState(nextState)
       if (nextState.kind === 'ready') setStartError(null)
-    }) as (...args: unknown[]) => void)
+    })
 
     // Withdraw driver pushes events as it auto-progresses. Refresh the snapshot
     // and the pending flag so the UI converges with the on-chain state without
     // needing the user to do anything.
-    const offWithdraw = window.electron.on(IPC_CHANNELS.COCOON_WITHDRAW_EVENT, ((event: unknown) => {
-      const e = event as { type: string }
+    const offWithdraw = window.electron.on(IPC_CHANNELS.COCOON_WITHDRAW_EVENT, (e) => {
       if (e.type === 'completed') {
         setPendingWithdraw(null)
         refresh()
@@ -255,7 +253,7 @@ export function useCocoonSession(): UseCocoonSessionResult {
         if (isIpcError(s)) return
         setStakeInfo(s as CocoonStakeInfo | null)
       })
-    }) as (...args: unknown[]) => void)
+    })
 
     return () => {
       cancelled = true

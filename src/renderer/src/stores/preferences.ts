@@ -361,8 +361,7 @@ export const usePreferencesStore = create<PreferencesState>()((set, get) => ({
 
 // Listen for settings changes from main process
 if (typeof window !== 'undefined' && window.electron) {
-  const unsubscribe = window.electron.on(IPC_CHANNELS.SETTINGS_CHANGED, (...args: unknown[]) => {
-    const data = args[0] as { reset?: boolean; category?: string; values?: object }
+  const unsubscribe = window.electron.on(IPC_CHANNELS.SETTINGS_CHANGED, (data) => {
     if (data.reset) {
       usePreferencesStore.setState({
         saved: { ...defaultPreferences },

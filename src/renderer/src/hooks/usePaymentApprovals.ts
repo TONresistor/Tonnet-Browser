@@ -62,8 +62,7 @@ export function usePaymentApprovals(): void {
   )
 
   useEffect(() => {
-    const unsubReq = window.electron.on(IPC_CHANNELS.WALLET_PAYMENT_REQ, (...args: unknown[]) => {
-      const data = args[0] as PaymentNotificationData
+    const unsubReq = window.electron.on(IPC_CHANNELS.WALLET_PAYMENT_REQ, (data) => {
       if (!data || data.status !== 'pending') return
       useWalletStore.getState().setPending402Notification(data)
       if (useWalletStore.getState().notificationStyle === 'popup') {

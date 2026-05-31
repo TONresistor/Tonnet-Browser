@@ -47,8 +47,7 @@ export function StoragePage() {
   useEffect(() => {
     loadBags()
 
-    const unsubscribe = window.electron.on(IPC_CHANNELS.STORAGE_BAGS_UPDATED, (...args: unknown[]) => {
-      const updatedBags = args[0] as StorageBag[]
+    const unsubscribe = window.electron.on(IPC_CHANNELS.STORAGE_BAGS_UPDATED, (updatedBags) => {
       setBags(updatedBags)
     })
 

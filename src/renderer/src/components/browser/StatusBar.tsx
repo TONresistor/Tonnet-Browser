@@ -16,7 +16,6 @@ import { usePreferencesStore } from '@/stores/preferences'
 import { useWalletStore, formatTonAmount } from '@/stores/wallet'
 import { useTabsStore } from '@/stores/tabs'
 import { APP_VERSION, TON_WALLET_PAGE, TUNNEL_SECTIONS } from '@shared/constants'
-import type { StorageBag } from '@shared/types'
 import { useTranslation } from 'react-i18next'
 import { formatSpeed } from '@/lib/format'
 
@@ -60,30 +59,27 @@ export const StatusBar = memo(function StatusBar() {
   const tunnelMode = usePreferencesStore((s) => s.saved.tunnelMode)
   useEffect(() => {
     // Listen for proxy status updates from main process
-    const unsubProxyStatus = window.electron.on(IPC_CHANNELS.PROXY_STATUS, (...args: unknown[]) => {
-      const data = args[0]
-      // Runtime validation
+    const unsubProxyStatus = window.electron.on(IPC_CHANNELS.PROXY_STATUS, (data) => {
+      // Runtime validation (the payload crosses an unchecked IPC boundary)
       if (!data || typeof data !== 'object') {
         log.error('Invalid proxy:status data:', data)
         return
       }
-      const status = data as { status: string; anonymousMode?: boolean; circuitRelays?: string[] }
-      if (typeof status.status !== 'string') {
+      if (typeof data.status !== 'string') {
         log.error('Invalid status field type')
         return
       }
       setProxyStatus(
-        status.status === 'connected',
-        status.status === 'syncing',
+        data.status === 'connected',
+        data.status === 'syncing',
         undefined,
-        status.anonymousMode,
-        status.circuitRelays
+        data.anonymousMode,
+        data.circuitRelays
       )
     })
 
     // Listen for storage bags updates
-    const unsubBagsUpdated = window.electron.on(IPC_CHANNELS.STORAGE_BAGS_UPDATED, (...args: unknown[]) => {
-      const bags = args[0] as StorageBag[]
+    const unsubBagsUpdated = window.electron.on(IPC_CHANNELS.STORAGE_BAGS_UPDATED, (bags) => {
       const downloadSpeed = bags.reduce((sum, b) => sum + b.downloadSpeed, 0)
       const uploadSpeed = bags.reduce((sum, b) => sum + b.uploadSpeed, 0)
       setStorageStats({

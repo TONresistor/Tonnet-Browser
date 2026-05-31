@@ -54,15 +54,13 @@ export const useWalletStore = create<WalletStore>((set, get) => {
     if (unsubState) unsubState()
     if (unsubNewTx) unsubNewTx()
 
-    unsubBalance = window.electron.on(IPC_CHANNELS.WALLET_BALANCE_UPDATED, (...args: unknown[]) => {
-      const balance = args[0] as string
+    unsubBalance = window.electron.on(IPC_CHANNELS.WALLET_BALANCE_UPDATED, (balance) => {
       if (typeof balance === 'string') {
         set({ balance })
       }
     })
 
-    unsubNewTx = window.electron.on(IPC_CHANNELS.WALLET_NEW_TRANSACTION, (...args: unknown[]) => {
-      const tx = args[0] as WalletTransaction | undefined
+    unsubNewTx = window.electron.on(IPC_CHANNELS.WALLET_NEW_TRANSACTION, (tx) => {
       if (!tx || typeof tx !== 'object' || typeof tx.id !== 'string') return
       // Functional set for atomic dedup: two pushes arriving back-to-back both
       // read the same snapshot with get(), so the check-then-set would race.
@@ -75,16 +73,7 @@ export const useWalletStore = create<WalletStore>((set, get) => {
       })
     })
 
-    unsubState = window.electron.on(IPC_CHANNELS.WALLET_STATE_CHANGED, (...args: unknown[]) => {
-      const state = args[0] as {
-        isCreated?: boolean
-        address?: string
-        addressRaw?: string
-        publicKey?: string
-        balance?: string
-        decryptFailed?: boolean
-        weakEncryption?: boolean
-      }
+    unsubState = window.electron.on(IPC_CHANNELS.WALLET_STATE_CHANGED, (state) => {
       if (state && typeof state === 'object') {
         set({
           isCreated: state.isCreated ?? get().isCreated,
@@ -304,8 +293,7 @@ export const useWalletStore = create<WalletStore>((set, get) => {
 
 // Refresh notificationStyle when wallet settings change
 if (typeof window !== 'undefined' && window.electron) {
-  const unsubSettings = window.electron.on(IPC_CHANNELS.SETTINGS_CHANGED, (...args: unknown[]) => {
-    const data = args[0] as { reset?: boolean; category?: string }
+  const unsubSettings = window.electron.on(IPC_CHANNELS.SETTINGS_CHANGED, (data) => {
     if (data.category === 'wallet' || data.reset) {
       window.electron.settings.get('wallet').then((ws) => {
         useWalletStore.setState({ notificationStyle: ws?.notificationStyle ?? 'popup' })

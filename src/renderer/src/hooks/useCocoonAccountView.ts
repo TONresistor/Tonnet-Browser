@@ -287,9 +287,9 @@ export function useCocoonAccountView(): UseCocoonAccountViewResult {
     }
     void tick()
 
-    const offWithdraw = window.electron.on(IPC_CHANNELS.COCOON_WITHDRAW_EVENT, (() => {
+    const offWithdraw = window.electron.on(IPC_CHANNELS.COCOON_WITHDRAW_EVENT, () => {
       void fetchOnce()
-    }) as (...args: unknown[]) => void)
+    })
 
     return () => {
       running = false
