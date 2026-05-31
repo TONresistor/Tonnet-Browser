@@ -147,18 +147,6 @@ export async function getNodeSecretBuffer(): Promise<Buffer> {
 }
 
 /**
- * Return the node Ed25519 secret as the original base64 string persisted on
- * disk. Used when archiving a consumed wallet so the recovery flow has
- * everything needed to re-instantiate the cocoon_wallet SC if the upstream
- * worker is ever restarted.
- */
-export async function getNodeSecretBase64(): Promise<string> {
-  const data = await loadCocoonWallet()
-  if (!data) throw new Error('Cocoon wallet not initialized')
-  return data.nodeSecretBase64
-}
-
-/**
  * Public-safe summary of the wallet for the renderer.
  * Returns addresses, timestamps, and setup state; secrets are never returned across IPC.
  *
