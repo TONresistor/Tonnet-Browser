@@ -91,10 +91,10 @@ import { WalletKeyStorage, WalletDecryptionError } from '../key-storage'
 
 const SENC_MARKER = Buffer.from('SENC')
 
-function makeEncryptedBuffer(data: object, storage: InMemorySecureStorage): Buffer {
+function makeEncryptedBuffer(data: object, storage: InMemorySecureStorage): Buffer<ArrayBuffer> {
   const json = JSON.stringify(data)
   const encrypted = storage.encrypt(json)
-  return Buffer.concat([SENC_MARKER, encrypted])
+  return Buffer.concat([SENC_MARKER, encrypted]) as Buffer<ArrayBuffer>
 }
 
 // --- Tests ---

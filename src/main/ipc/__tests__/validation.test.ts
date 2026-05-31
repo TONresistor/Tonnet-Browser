@@ -117,7 +117,7 @@ describe('Windows path validation', () => {
     Object.defineProperty(process, 'platform', { value: 'win32', writable: true })
     // Redirect path methods to their win32 equivalents so Windows paths are
     // parsed correctly when running tests on Linux/macOS CI
-    path.sep = '\\'
+    ;(path as { sep: string }).sep = '\\'
     vi.spyOn(path, 'isAbsolute').mockImplementation(path.win32.isAbsolute)
     vi.spyOn(path, 'normalize').mockImplementation(path.win32.normalize)
     vi.spyOn(path, 'parse').mockImplementation(path.win32.parse as typeof path.parse)
@@ -131,7 +131,7 @@ describe('Windows path validation', () => {
 
   afterEach(() => {
     Object.defineProperty(process, 'platform', { value: originalPlatform, writable: true })
-    path.sep = originalSep
+    ;(path as { sep: string }).sep = originalSep
     process.env.SystemRoot = originalSystemRoot
     process.env.windir = originalWindir
     process.env.USERPROFILE = originalUserProfile

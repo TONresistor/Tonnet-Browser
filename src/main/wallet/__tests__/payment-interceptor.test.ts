@@ -20,7 +20,7 @@ vi.mock('../../ipc/handlers', () => ({
   emitToRenderer: (...args: unknown[]) => mockEmitToRenderer(...args),
 }))
 
-const mockGetAllWebContents = vi.fn(() => [])
+const mockGetAllWebContents = vi.fn(() => [] as unknown[])
 const mockFromId = vi.fn()
 vi.mock('electron', () => ({
   webContents: {
@@ -87,8 +87,8 @@ function createMockWalletManager() {
 
 function createMockPolicyStore() {
   return {
-    getSiteMode: vi.fn(() => 'auto' as const),
-    reservePayment: vi.fn(() => 'reservation-1'),
+    getSiteMode: vi.fn((): 'auto' | 'manual' | 'off' => 'auto'),
+    reservePayment: vi.fn((): string | null => 'reservation-1'),
     confirmPayment: vi.fn(),
     rollbackPayment: vi.fn(),
     checkRateLimit: vi.fn(() => true),
@@ -168,7 +168,7 @@ describe('PaymentInterceptor', () => {
     // We test validation indirectly: when validation fails, handle402 returns
     // without reserving or emitting payment events.
 
-    function setupHandle402(paymentReq: PaymentRequirements, mode = 'auto') {
+    function setupHandle402(paymentReq: PaymentRequirements, mode: 'auto' | 'manual' | 'off' = 'auto') {
       const session = createMockSession({
         status: 402,
         ok: false,
@@ -309,7 +309,7 @@ describe('PaymentInterceptor', () => {
     })
 
     it('rejects when wallet not created', async () => {
-      walletManager.getState.mockReturnValue({ isCreated: false, addressRaw: '' })
+      walletManager.getState.mockReturnValue({ isCreated: false, addressRaw: '', address: '' })
       const req = makePaymentReq()
       const session = setupHandle402(req)
       await triggerHandle402(session)

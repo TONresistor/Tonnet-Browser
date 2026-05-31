@@ -398,7 +398,7 @@ describe('IPC Handlers', () => {
 
   describe('Proxy Handlers', () => {
     it('PROXY_CONNECT starts proxy and returns success', async () => {
-      const handler = mockHandlers.get(IPC_CHANNELS.PROXY_CONNECT)
+      const handler = mockHandlers.get(IPC_CHANNELS.PROXY_CONNECT)!
       expect(handler).toBeDefined()
 
       const result = await handler!(createMockEvent())
@@ -410,7 +410,7 @@ describe('IPC Handlers', () => {
     it('PROXY_CONNECT handles errors gracefully', async () => {
       vi.mocked(mockRegistry.proxyManager.start).mockRejectedValueOnce(new Error('Proxy failed'))
 
-      const handler = mockHandlers.get(IPC_CHANNELS.PROXY_CONNECT)
+      const handler = mockHandlers.get(IPC_CHANNELS.PROXY_CONNECT)!
       const result = await handler!(createMockEvent())
 
       expect(result.success).toBe(false)
@@ -418,7 +418,7 @@ describe('IPC Handlers', () => {
     })
 
     it('PROXY_DISCONNECT stops both storage and proxy', async () => {
-      const handler = mockHandlers.get(IPC_CHANNELS.PROXY_DISCONNECT)
+      const handler = mockHandlers.get(IPC_CHANNELS.PROXY_DISCONNECT)!
       const result = await handler!(createMockEvent())
 
       expect(mockRegistry.storageManager.stop).toHaveBeenCalled()
@@ -427,7 +427,7 @@ describe('IPC Handlers', () => {
     })
 
     it('PROXY_STATUS returns current status', async () => {
-      const handler = mockHandlers.get(IPC_CHANNELS.PROXY_STATUS)
+      const handler = mockHandlers.get(IPC_CHANNELS.PROXY_STATUS)!
       const result = await handler!(createMockEvent())
 
       expect(result.status).toBe('connected')
@@ -437,7 +437,7 @@ describe('IPC Handlers', () => {
 
   describe('Tab Handlers', () => {
     it('TAB_CREATE creates a new tab', async () => {
-      const handler = mockHandlers.get(IPC_CHANNELS.TAB_CREATE)
+      const handler = mockHandlers.get(IPC_CHANNELS.TAB_CREATE)!
       const result = await handler!(createMockEvent(), 'new-tab-id')
 
       expect(createTab).toHaveBeenCalledWith('new-tab-id')
@@ -445,7 +445,7 @@ describe('IPC Handlers', () => {
     })
 
     it('TAB_CLOSE closes a tab', async () => {
-      const handler = mockHandlers.get(IPC_CHANNELS.TAB_CLOSE)
+      const handler = mockHandlers.get(IPC_CHANNELS.TAB_CLOSE)!
       const result = await handler!(createMockEvent(), 'tab-to-close')
 
       expect(closeTab).toHaveBeenCalledWith('tab-to-close')
@@ -453,7 +453,7 @@ describe('IPC Handlers', () => {
     })
 
     it('TAB_SWITCH switches to a tab', async () => {
-      const handler = mockHandlers.get(IPC_CHANNELS.TAB_SWITCH)
+      const handler = mockHandlers.get(IPC_CHANNELS.TAB_SWITCH)!
       const result = await handler!(createMockEvent(), 'tab-to-activate')
 
       expect(switchTab).toHaveBeenCalledWith('tab-to-activate')
@@ -463,7 +463,7 @@ describe('IPC Handlers', () => {
 
   describe('Storage Handlers', () => {
     it('STORAGE_ADD_BAG forwards a valid bagId to addBag', async () => {
-      const handler = mockHandlers.get(IPC_CHANNELS.STORAGE_ADD_BAG)
+      const handler = mockHandlers.get(IPC_CHANNELS.STORAGE_ADD_BAG)!
       expect(handler).toBeDefined() // Skip if not registered
 
       // Valid 64-char hex
@@ -474,7 +474,7 @@ describe('IPC Handlers', () => {
     })
 
     it('STORAGE_ADD_BAG rejects invalid bagId', async () => {
-      const handler = mockHandlers.get(IPC_CHANNELS.STORAGE_ADD_BAG)
+      const handler = mockHandlers.get(IPC_CHANNELS.STORAGE_ADD_BAG)!
       expect(handler).toBeDefined()
 
       const invalidBagId = 'invalid-bag-id'
@@ -485,7 +485,7 @@ describe('IPC Handlers', () => {
     })
 
     it('STORAGE_REMOVE_BAG removes bag by id', async () => {
-      const handler = mockHandlers.get(IPC_CHANNELS.STORAGE_REMOVE_BAG)
+      const handler = mockHandlers.get(IPC_CHANNELS.STORAGE_REMOVE_BAG)!
       expect(handler).toBeDefined()
 
       const validBagId = 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2'
@@ -497,7 +497,7 @@ describe('IPC Handlers', () => {
 
   describe('Settings Handlers', () => {
     it('SETTINGS_SET updates a setting category', async () => {
-      const handler = mockHandlers.get(IPC_CHANNELS.SETTINGS_SET)
+      const handler = mockHandlers.get(IPC_CHANNELS.SETTINGS_SET)!
       expect(handler).toBeDefined()
 
       await handler(createMockEvent(), 'network', { proxyPort: 9000 })
@@ -506,7 +506,7 @@ describe('IPC Handlers', () => {
     })
 
     it('SETTINGS_RESET restores defaults', async () => {
-      const handler = mockHandlers.get(IPC_CHANNELS.SETTINGS_RESET)
+      const handler = mockHandlers.get(IPC_CHANNELS.SETTINGS_RESET)!
       expect(handler).toBeDefined()
 
       await handler(createMockEvent())
@@ -551,7 +551,7 @@ describe('Security - Input Validation', () => {
   beforeEach(resetHandlersTestEnv)
 
   it('navigation handler rejects javascript: URLs', async () => {
-    const handler = mockHandlers.get(IPC_CHANNELS.NAVIGATE)
+    const handler = mockHandlers.get(IPC_CHANNELS.NAVIGATE)!
     expect(handler).toBeDefined()
 
     const result = await handler(createMockEvent(), 'javascript:alert(1)')
@@ -562,7 +562,7 @@ describe('Security - Input Validation', () => {
   })
 
   it('navigation handler rejects data: URLs', async () => {
-    const handler = mockHandlers.get(IPC_CHANNELS.NAVIGATE)
+    const handler = mockHandlers.get(IPC_CHANNELS.NAVIGATE)!
     expect(handler).toBeDefined()
 
     const result = await handler(createMockEvent(), 'data:text/html,<script>alert(1)</script>')
@@ -572,7 +572,7 @@ describe('Security - Input Validation', () => {
   })
 
   it('navigation handler rejects file: URLs', async () => {
-    const handler = mockHandlers.get(IPC_CHANNELS.NAVIGATE)
+    const handler = mockHandlers.get(IPC_CHANNELS.NAVIGATE)!
     expect(handler).toBeDefined()
 
     const result = await handler(createMockEvent(), 'file:///etc/passwd')
@@ -759,6 +759,7 @@ describe('Cocoon AI Handlers', () => {
         nodeAddress: 'EQNode',
         nodePublicKeyHex: 'aabb',
         createdAt: 1_700_000_000_000,
+        setupCompletedAt: null,
       }
       vi.mocked(getCocoonWalletInfo).mockResolvedValueOnce(info)
       const handler = mockHandlers.get(IPC_CHANNELS.COCOON_WALLET_INFO)!
