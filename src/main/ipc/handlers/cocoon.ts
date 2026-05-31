@@ -8,6 +8,7 @@
  * crosses the IPC boundary in either direction.
  */
 
+import { z } from 'zod'
 import { IPC_CHANNELS } from '../../../shared/types'
 import { secureHandle, emitToRenderer, log } from './shared'
 import { checkCocoonAvailability } from '../../cocoon/platform'
@@ -110,6 +111,12 @@ async function waitForDrainConfirmed(
     pollMs = Math.min(pollMs * 2, DRAIN_CONFIRM_POLL_MAX_MS)
   }
 }
+
+// Renderer-supplied IPC param schemas. .parse() throws ZodError, which secureHandle
+// wraps into the {success:false,error} envelope.
+const FundCocoonParams = z.object({ amount: z.union([z.literal('max'), z.string().regex(/^\d+$/)]) })
+const ArchivedAtParams = z.object({ archivedAt: z.number() })
+const RecoveryEnqueueParams = z.object({ archivedAt: z.number(), clientSCAddress: z.string().min(1) })
 
 /** Returns the connected bridge client or throws the standard not-initialized error. */
 function requireBridge(registry: ServiceRegistry): WsBridgeClient {
@@ -271,12 +278,9 @@ export function registerCocoonHandlers(registry: ServiceRegistry): void {
   })
 
   secureHandle(IPC_CHANNELS.COCOON_SETUP_FUND_COCOON, async (params: unknown) => {
-    const p = params as { amount: string | 'max' }
-    if (!p || typeof p !== 'object' || !('amount' in p)) {
-      throw new Error('fundCocoon: params must be { amount: string | "max" }')
-    }
+    const { amount } = FundCocoonParams.parse(params)
     const bridge = requireBridge(registry)
-    const amountArg: bigint | 'max' = p.amount === 'max' ? 'max' : BigInt(p.amount as string)
+    const amountArg: bigint | 'max' = amount === 'max' ? 'max' : BigInt(amount)
     const result = await fundCocoonFromOwner(bridge, amountArg)
     return {
       bocHash: result.bocHash,
@@ -432,11 +436,8 @@ export function registerCocoonHandlers(registry: ServiceRegistry): void {
    * Caller is responsible for gating this behind a re-auth prompt.
    */
   secureHandle(IPC_CHANNELS.COCOON_ARCHIVE_EXPORT_MNEMONIC, async (params: unknown) => {
-    const p = params as { archivedAt: number }
-    if (!p || typeof p.archivedAt !== 'number') {
-      throw new Error('archive:export-mnemonic: { archivedAt } required')
-    }
-    const entry = await getConsumedArchive().getByArchivedAt(p.archivedAt)
+    const { archivedAt } = ArchivedAtParams.parse(params)
+    const entry = await getConsumedArchive().getByArchivedAt(archivedAt)
     if (!entry) throw new Error('Archive entry not found')
     return { mnemonic: entry.ownerMnemonic }
   })
@@ -453,11 +454,8 @@ export function registerCocoonHandlers(registry: ServiceRegistry): void {
    * tick. The driver autonomously progresses through cooldown → claim → drain.
    */
   secureHandle(IPC_CHANNELS.COCOON_RECOVERY_ENQUEUE, async (params: unknown) => {
-    const p = params as { archivedAt: number; clientSCAddress: string }
-    if (!p || typeof p.archivedAt !== 'number' || typeof p.clientSCAddress !== 'string') {
-      throw new Error('recovery:enqueue: { archivedAt, clientSCAddress } required')
-    }
-    const archive = await getConsumedArchive().getByArchivedAt(p.archivedAt)
+    const { archivedAt, clientSCAddress } = RecoveryEnqueueParams.parse(params)
+    const archive = await getConsumedArchive().getByArchivedAt(archivedAt)
     if (!archive) throw new Error('Archive entry not found')
 
     const bridge = requireBridge(registry)
@@ -465,8 +463,8 @@ export function registerCocoonHandlers(registry: ServiceRegistry): void {
     const native = requireNativeAddress(registry, 'enqueue recovery')
 
     const result = await enqueueRecovery(recoveryDriver, {
-      archivedAt: p.archivedAt,
-      clientSCAddress: p.clientSCAddress,
+      archivedAt,
+      clientSCAddress,
       bridge,
       archive,
       nativeAddress: native,
@@ -481,11 +479,8 @@ export function registerCocoonHandlers(registry: ServiceRegistry): void {
 
   /** Manually remove a stuck queue entry. Use with care: stops the driver from working it. */
   secureHandle(IPC_CHANNELS.COCOON_RECOVERY_REMOVE, async (params: unknown) => {
-    const p = params as { archivedAt: number }
-    if (!p || typeof p.archivedAt !== 'number') {
-      throw new Error('recovery:remove: { archivedAt } required')
-    }
-    await getRecoveryQueueStore().remove(p.archivedAt)
+    const { archivedAt } = ArchivedAtParams.parse(params)
+    await getRecoveryQueueStore().remove(archivedAt)
     return { success: true }
   })
 
