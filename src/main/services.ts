@@ -6,7 +6,6 @@
  */
 
 import { ElectronSafeStorageAdapter } from './adapters/electron-secure-storage'
-import { ElectronPathProvider } from './adapters/electron-path-provider'
 import { ProxyManager } from './proxy/manager'
 import { StorageManager } from './storage/daemon'
 import { WalletManager } from './wallet/manager'
@@ -21,11 +20,9 @@ import { ContentFilterManager } from './content-filter/filter-manager'
 import { CocoonManager } from './cocoon/manager'
 import { WithdrawDriver } from './cocoon/withdraw-driver'
 import { RecoveryDriver } from './cocoon/recovery-driver'
-import type { IPathProvider } from './ports/path-provider'
 import type { ISecureStorage } from './ports/secure-storage'
 
 export interface ServiceRegistry {
-  pathProvider: IPathProvider
   secureStorage: ISecureStorage
   proxyManager: ProxyManager
   storageManager: StorageManager
@@ -44,7 +41,6 @@ export interface ServiceRegistry {
 }
 
 export function createServices(): ServiceRegistry {
-  const pathProvider = new ElectronPathProvider()
   const secureStorage = new ElectronSafeStorageAdapter()
 
   // Create all services -- NO async init here, just construction
@@ -81,7 +77,6 @@ export function createServices(): ServiceRegistry {
   )
 
   return {
-    pathProvider,
     secureStorage,
     proxyManager,
     storageManager,

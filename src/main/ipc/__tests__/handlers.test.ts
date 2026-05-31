@@ -291,7 +291,6 @@ const mockStorageManager = (() => {
 
 function createMockRegistry(): ServiceRegistry {
   return {
-    pathProvider: { getUserDataPath: () => '/tmp/test', isPackaged: () => false },
     secureStorage: { isAvailable: () => false, encrypt: vi.fn(), decrypt: vi.fn(), getBackendName: () => 'mock' },
     proxyManager: mockProxyManager as any,
     storageManager: mockStorageManager as any,
