@@ -202,18 +202,20 @@ export function BookmarksBar() {
 
   const handleFolderClick = (e: React.MouseEvent, folderId: string) => {
     const folderBookmarks = getBookmarksByFolder(folderId)
-    const items = folderBookmarks.map((b) => ({
-      id: 'navigate',
-      label: b.title || b.url,
-      data: { url: b.url },
-    }))
+    const items: { id: string; label: string; disabled?: boolean; data: { url?: string } }[] = folderBookmarks.map(
+      (b) => ({
+        id: 'navigate',
+        label: b.title || b.url,
+        data: { url: b.url },
+      })
+    )
     if (items.length === 0) {
       items.push({
         id: 'empty',
         label: t('bookmarks.emptyFolder'),
         disabled: true,
         data: {},
-      } as unknown as (typeof items)[0])
+      })
     }
     const target = e.currentTarget.getBoundingClientRect()
     menu.show(
