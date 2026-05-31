@@ -234,27 +234,12 @@ interface LoadStorageBagOptions {
  * Handles both explicit bag ID loads (ton://storage) and domain-based loads (proxy cache).
  * Shows loading page, downloads bag if needed, then shows file browser or index.html.
  */
-export async function loadStorageBag(view: WebContentsView, opts: LoadStorageBagOptions): Promise<void> {
-  const { label, timeout = 30, useCache = false, checkIndexHtml = false } = opts
-
-  // Check cache first (for back navigation)
-  if (useCache) {
-    const cached = fileBrowserCache.get(view.webContents.id)
-    if (cached) {
-      await loadDataHtml(view.webContents, cached)
-      return
-    }
-  }
-
-  // Resolve bag ID
-  const bagId = opts.bagId ?? storageBagCache.get(opts.domain ?? '')
-  if (!bagId) throw new Error('No storage bag detected for this domain')
-
-  // Show loading page
-  const loadingHtml = generateLoadingPage(label)
-  await loadDataHtml(view.webContents, loadingHtml)
-
-  // Ensure bag is in daemon
+/**
+ * Ensure the bag is registered in the daemon, then poll up to `timeout` seconds
+ * for its files to appear. Returns the details once it has at least one file, or
+ * null if it never does (no files / download timed out).
+ */
+async function resolveBagDetails(bagId: string, timeout: number): Promise<BagDetails | null> {
   let details: BagDetails | null = null
   try {
     details = await getStorageManager().getBagDetails(bagId)
@@ -276,19 +261,25 @@ export async function loadStorageBag(view: WebContentsView, opts: LoadStorageBag
     }
   }
 
-  if (!details || details.files.length === 0) {
-    if (opts.domain) {
-      throw new Error('Bag has no files or failed to load')
-    }
-    loadErrorPage(view, 'Bag has no files or download timed out', `${bagId}.bag`)
-    return
-  }
+  return details && details.files.length > 0 ? details : null
+}
 
+/**
+ * Render resolved bag details into the view: load index.html directly when the
+ * caller wants website mode and one exists, otherwise the file-browser page
+ * (cached for back-navigation).
+ */
+async function renderBag(
+  view: WebContentsView,
+  details: BagDetails,
+  bagId: string,
+  opts: { domain?: string; checkIndexHtml?: boolean }
+): Promise<void> {
   const dirName = sanitizeDirName(details.dir_name || '')
   const basePath = dirName ? `${details.path}/${dirName}` : details.path
 
   // If index.html exists and caller wants website mode, load it
-  if (checkIndexHtml && details.files.some((f) => f.name === 'index.html')) {
+  if (opts.checkIndexHtml && details.files.some((f) => f.name === 'index.html')) {
     log.info('Bag has index.html, loading as website')
     await view.webContents.loadFile(`${basePath}/index.html`)
     return
@@ -299,6 +290,38 @@ export async function loadStorageBag(view: WebContentsView, opts: LoadStorageBag
   const html = generateFileBrowserPage(displayName, bagId, details.files, '/', basePath)
   fileBrowserCache.set(view.webContents.id, html)
   await loadDataHtml(view.webContents, html)
+}
+
+export async function loadStorageBag(view: WebContentsView, opts: LoadStorageBagOptions): Promise<void> {
+  const { label, timeout = 30, useCache = false, checkIndexHtml = false } = opts
+
+  // Check cache first (for back navigation)
+  if (useCache) {
+    const cached = fileBrowserCache.get(view.webContents.id)
+    if (cached) {
+      await loadDataHtml(view.webContents, cached)
+      return
+    }
+  }
+
+  // Resolve bag ID
+  const bagId = opts.bagId ?? storageBagCache.get(opts.domain ?? '')
+  if (!bagId) throw new Error('No storage bag detected for this domain')
+
+  // Show loading page
+  const loadingHtml = generateLoadingPage(label)
+  await loadDataHtml(view.webContents, loadingHtml)
+
+  const details = await resolveBagDetails(bagId, timeout)
+  if (!details) {
+    if (opts.domain) {
+      throw new Error('Bag has no files or failed to load')
+    }
+    loadErrorPage(view, 'Bag has no files or download timed out', `${bagId}.bag`)
+    return
+  }
+
+  await renderBag(view, details, bagId, { domain: opts.domain, checkIndexHtml })
 }
 
 /**
