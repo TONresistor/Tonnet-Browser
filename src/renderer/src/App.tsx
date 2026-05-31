@@ -25,7 +25,7 @@ import { useTabsStore } from '@/stores/tabs'
 import { usePreferencesStore } from '@/stores/preferences'
 import { useThemeStore } from '@/stores/themes'
 import { useWalletStore } from '@/stores/wallet'
-import { applyCustomTheme, removeCustomTheme } from '@/lib/theme-utils'
+import { applyCustomTheme, removeCustomTheme, parseCustomThemeId } from '@/lib/theme-utils'
 const WalletSidebar = lazy(() =>
   import('@/components/wallet/WalletSidebar').then((m) => ({ default: m.WalletSidebar }))
 )
@@ -49,10 +49,8 @@ import { usePaymentApprovals } from '@/hooks/usePaymentApprovals'
 const log = createLogger('app')
 
 function isLightTheme(theme: string, customThemes: { id: string; isDark: boolean }[]): boolean {
-  return (
-    theme === 'utya-duck' ||
-    (theme.startsWith('custom:') && customThemes.find((t) => t.id === theme.replace('custom:', ''))?.isDark === false)
-  )
+  const customId = parseCustomThemeId(theme)
+  return theme === 'utya-duck' || (customId !== null && customThemes.find((t) => t.id === customId)?.isDark === false)
 }
 
 // Wallet pill button — simple click opens ton://wallet page
@@ -126,9 +124,9 @@ function App() {
 
   // Apply theme to document
   useEffect(() => {
-    if (theme.startsWith('custom:')) {
+    const customThemeId = parseCustomThemeId(theme)
+    if (customThemeId !== null) {
       // Custom theme
-      const customThemeId = theme.replace('custom:', '')
       const customTheme = customThemes.find((t) => t.id === customThemeId)
       if (customTheme) {
         applyCustomTheme(customTheme)
