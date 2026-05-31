@@ -53,7 +53,8 @@ export function useKeyboardShortcuts(openOrSwitchToTab: (url: string) => void): 
       // Ctrl/Cmd+L: Focus address bar
       else if (mod && e.key === 'l') {
         e.preventDefault()
-        const addressInput = document.querySelector('input[placeholder*="ton"]') as HTMLInputElement
+        // Query by stable id so this does not break when the placeholder is translated.
+        const addressInput = document.getElementById('address-bar-input') as HTMLInputElement | null
         addressInput?.focus()
         addressInput?.select()
       }

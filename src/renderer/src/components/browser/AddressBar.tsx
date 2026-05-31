@@ -314,6 +314,7 @@ export const AddressBar = memo(function AddressBar() {
 
           <Input
             ref={inputRef}
+            id="address-bar-input"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onFocus={(e) => {
