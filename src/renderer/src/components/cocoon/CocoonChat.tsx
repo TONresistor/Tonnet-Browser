@@ -4,7 +4,7 @@
  * persists when the user switches between page and sidebar within a session.
  */
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, memo } from 'react'
 import {
   ArrowUp,
   Square,
@@ -245,7 +245,7 @@ const BUBBLE_VARIANTS = {
   error: 'bg-red-500/10 text-red-400 border border-red-500/40',
 } as const
 
-function ChatBubble({
+const ChatBubble = memo(function ChatBubble({
   message,
   groupedWithPrev,
   pending,
@@ -281,7 +281,7 @@ function ChatBubble({
       </div>
     </li>
   )
-}
+})
 
 function ThinkingSection({ text }: { text: string }) {
   const [open, setOpen] = useState(false)
