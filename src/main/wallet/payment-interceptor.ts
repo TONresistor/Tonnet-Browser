@@ -24,6 +24,7 @@ import {
   DEFAULT_APPROVAL_TIMEOUT_S,
 } from './constants'
 import { ERROR_TRUNCATE_LENGTH } from '../../shared/constants'
+import { PaymentRequirementsSchema } from '../../shared/schemas'
 import type { PaymentRequirements, PaymentNotificationData, WalletTransaction } from '../../shared/types'
 import { createLogger } from '../../shared/logger'
 const log = createLogger('payment-interceptor')
@@ -278,7 +279,12 @@ export class PaymentInterceptor {
     let paymentReq: PaymentRequirements
     try {
       const body = await readBoundedBody(response, MAX_RESPONSE_BODY)
-      paymentReq = JSON.parse(body) as PaymentRequirements
+      const parsed = PaymentRequirementsSchema.safeParse(JSON.parse(body))
+      if (!parsed.success) {
+        log.error('402 PaymentRequirements failed schema validation:', parsed.error.issues)
+        return
+      }
+      paymentReq = parsed.data
     } catch (err) {
       log.error('Failed to read or parse PaymentRequirements JSON:', err)
       return
@@ -645,7 +651,12 @@ export class PaymentInterceptor {
     let paymentReq: PaymentRequirements
     try {
       const body = await readBoundedBody(response, MAX_RESPONSE_BODY)
-      paymentReq = JSON.parse(body) as PaymentRequirements
+      const parsed = PaymentRequirementsSchema.safeParse(JSON.parse(body))
+      if (!parsed.success) {
+        log.error('XHR payment: PaymentRequirements failed schema validation:', parsed.error.issues)
+        return { success: false, error: 'parse-error' }
+      }
+      paymentReq = parsed.data
     } catch (err) {
       log.error('XHR payment: failed to parse PaymentRequirements:', err)
       return { success: false, error: 'parse-error' }

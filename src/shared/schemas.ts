@@ -260,3 +260,20 @@ export type PrivacySettings = z.infer<typeof PrivacySettingsSchema>
 export type ContentFilteringSettings = z.infer<typeof ContentFilteringSettingsSchema>
 export type AdvancedSettings = z.infer<typeof AdvancedSettingsSchema>
 export type AppSettings = z.infer<typeof AppSettingsSchema>
+
+// --- HTTP 402 PaymentRequirements (untrusted server response that drives wallet signing) ---
+
+/**
+ * Validates the load-bearing fields of a 402 PaymentRequirements body. Unknown
+ * keys (including the display-only `extra`, which the interceptor never reads)
+ * are stripped. Used fail-closed: a body that doesn't match is rejected before
+ * any payment is built, instead of blindly casting JSON.parse output.
+ */
+export const PaymentRequirementsSchema = z.object({
+  scheme: z.string(),
+  network: z.string(),
+  asset: z.string(),
+  amount: z.string(),
+  payTo: z.string(),
+  maxTimeoutSeconds: z.number(),
+})
