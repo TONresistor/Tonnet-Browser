@@ -18,7 +18,7 @@ import { getRecoveryQueueStore } from './recovery-queue'
 import { getStakeCacheStore } from './stake-cache'
 import { getStakeInfo } from './unstake'
 import { loadCocoonWallet } from './wallet'
-import { DRAIN_DUST_FLOOR_NANO, REFUND_GAS_NANO } from './constants'
+import { DRAIN_DUST_FLOOR_NANO, REFUND_GAS_NANO, narrowClientState } from './constants'
 import type { CocoonManager } from './manager'
 import type { WsBridgeClient } from '../wallet/ws-bridge-client'
 import type { CocoonRecoveryAllResult } from '../../shared/cocoon-types'
@@ -107,7 +107,7 @@ async function readClientState(
     const client = CocoonClient.createFromAddress(Address.parse(clientSCAddress))
     const opened = openBridgeContract(bridge, client)
     const data = await opened.getData()
-    return { state: data.state as 0 | 1 | 2, unlockTs: data.unlockTs }
+    return { state: narrowClientState(data.state), unlockTs: data.unlockTs }
   } catch (err) {
     log.warn(`client getData failed for ${clientSCAddress.slice(0, 8)}...: ${errorMessage(err)}`)
     return null

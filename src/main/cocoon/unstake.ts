@@ -22,7 +22,7 @@ import { openBridgeContract } from './contracts/bridge-provider'
 import { sendFromCocoonWallet, sendFromOwnerWallet, buildCocoonWalletInit } from './contracts'
 import { loadCocoonWallet, getNodeSecretBuffer } from './wallet'
 import { getStakeCacheStore } from './stake-cache'
-import { DRAIN_DUST_FLOOR_NANO } from './constants'
+import { DRAIN_DUST_FLOOR_NANO, narrowClientState } from './constants'
 import type { WsBridgeClient } from '../wallet/ws-bridge-client'
 import type { CocoonManager } from './manager'
 import type { CocoonStakeInfo, CocoonStakeStatus } from '../../shared/cocoon-types'
@@ -156,7 +156,7 @@ async function buildSnapshot(args: SnapshotArgs): Promise<CocoonStakeInfo> {
   }
 
   const cocoonBalance = wallet ? BigInt(await bridge.getBalance(wallet.nodeAddress)) : 0n
-  const onchainState = onchain.state as 0 | 1 | 2
+  const onchainState = narrowClientState(onchain.state)
   // When reading from cache, use on-chain state as the runner state proxy.
   const runnerState = runnerStateOverride ?? onchainState
 
@@ -185,7 +185,7 @@ function deriveStatus(runnerState: 0 | 1 | 2, onchainState: 0 | 1 | 2, unlockTs:
   // behind exp_sc_state during a request, but for the closed/closing distinction
   // they converge once the tx confirms. Prefer the higher of the two so the UI
   // never goes backwards.
-  const state = Math.max(runnerState, onchainState) as 0 | 1 | 2
+  const state = narrowClientState(Math.max(runnerState, onchainState))
   if (state === 0) return 'active'
   if (state === 1) {
     if (unlockTs === 0) return 'closing'
