@@ -1,5 +1,5 @@
-import { Minus, Plus } from 'lucide-react'
 import { Input } from '@/components/ui/input'
+import { StepperButtons } from '../shared/StepperButtons'
 
 export interface TonStepperFieldProps {
   value: string
@@ -39,30 +39,17 @@ export function TonStepperField({ value, onValueChange, onBlur, ariaLabel, step 
           TON
         </span>
       </div>
-      <div className="inline-flex items-center rounded-full bg-surface-hover border border-border-medium h-8">
-        <button
-          type="button"
-          onClick={() => {
-            decrement()
-            onBlur()
-          }}
-          disabled={numVal <= 0}
-          className="flex items-center justify-center w-9 h-full rounded-l-full text-foreground hover:bg-border/50 disabled:opacity-30 transition-colors"
-        >
-          <Minus className="h-3.5 w-3.5" />
-        </button>
-        <div className="w-px h-5 bg-border" />
-        <button
-          type="button"
-          onClick={() => {
-            increment()
-            onBlur()
-          }}
-          className="flex items-center justify-center w-9 h-full rounded-r-full text-foreground hover:bg-border/50 transition-colors"
-        >
-          <Plus className="h-3.5 w-3.5" />
-        </button>
-      </div>
+      <StepperButtons
+        onDecrement={() => {
+          decrement()
+          onBlur()
+        }}
+        onIncrement={() => {
+          increment()
+          onBlur()
+        }}
+        decrementDisabled={numVal <= 0}
+      />
     </div>
   )
 }

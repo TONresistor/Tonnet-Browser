@@ -3,7 +3,7 @@
  */
 
 import { useState } from 'react'
-import { Minus, Plus } from 'lucide-react'
+import { StepperButtons } from './StepperButtons'
 
 interface StepperInputProps {
   value: number
@@ -69,23 +69,12 @@ export function StepperInput({
     <div className="flex items-center gap-2">
       {valueDisplay}
       {suffix && <span className="text-sm text-muted-foreground">{suffix}</span>}
-      <div className="inline-flex items-center rounded-full bg-surface-hover border border-border-medium h-8">
-        <button
-          onClick={decrement}
-          disabled={value <= min}
-          className="flex items-center justify-center w-9 h-full rounded-l-full text-foreground hover:bg-border/50 disabled:opacity-30 transition-colors"
-        >
-          <Minus className="h-3.5 w-3.5" />
-        </button>
-        <div className="w-px h-5 bg-border" />
-        <button
-          onClick={increment}
-          disabled={value >= max}
-          className="flex items-center justify-center w-9 h-full rounded-r-full text-foreground hover:bg-border/50 disabled:opacity-30 transition-colors"
-        >
-          <Plus className="h-3.5 w-3.5" />
-        </button>
-      </div>
+      <StepperButtons
+        onDecrement={decrement}
+        onIncrement={increment}
+        decrementDisabled={value <= min}
+        incrementDisabled={value >= max}
+      />
     </div>
   )
 }
