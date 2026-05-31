@@ -3,10 +3,9 @@ import * as path from 'path'
 import { app } from 'electron'
 import { IPC_CHANNELS } from '../../../shared/types'
 import { secureHandle, tonsiteHandle, bridgeRestartLimiter, log } from './shared'
-import { REQUIRED_NAMESPACES } from '../../../shared/bridge-config'
+import { REQUIRED_NAMESPACES, BridgeConfigPartialSchema } from '../../../shared/bridge-config'
 import { writeSecureJsonAtomic } from '../../utils/secure-fs'
 import type { BridgeScope } from '../../../shared/types'
-import type { BridgeConfig } from '../../../shared/bridge-config'
 import type { ServiceRegistry } from '../../services'
 
 function getBridgeConfigPath(): string {
@@ -53,9 +52,14 @@ export function registerBridgeHandlers(registry: ServiceRegistry): void {
   })
 
   // Bridge config: write (deep-merge, enforce required namespaces)
-  secureHandle(IPC_CHANNELS.BRIDGE_SET_CONFIG, async (partial: Partial<BridgeConfig>) => {
+  secureHandle(IPC_CHANNELS.BRIDGE_SET_CONFIG, async (rawPartial: unknown) => {
     const configPath = getBridgeConfigPath()
     try {
+      const parsed = BridgeConfigPartialSchema.safeParse(rawPartial)
+      if (!parsed.success) {
+        return { success: false, error: parsed.error.message }
+      }
+      const partial = parsed.data
       let existing: Record<string, unknown> = {}
       try {
         existing = JSON.parse(await fs.promises.readFile(configPath, 'utf-8'))
