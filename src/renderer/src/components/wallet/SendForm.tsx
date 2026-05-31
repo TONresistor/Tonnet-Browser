@@ -3,6 +3,7 @@
  * NEVER uses parseFloat — all amounts handled via BigInt.
  */
 
+import { errorMessage } from '@shared/errors'
 import { useState, useEffect, memo } from 'react'
 import { UI_NOTIFICATION_TIMEOUT_MS } from '@shared/constants'
 import { Send, ArrowLeft, LoaderCircle, CheckCircle2 } from 'lucide-react'
@@ -83,7 +84,7 @@ export const SendForm = memo(function SendForm({ onSend, isSending, error, balan
         setResolve({ status: 'resolved', address: (r as { address: string }).address, domain: v.toLowerCase() })
       })
       .catch((e) => {
-        if (!cancelled) setResolve({ status: 'error', message: (e as Error).message })
+        if (!cancelled) setResolve({ status: 'error', message: errorMessage(e) })
       })
     return () => {
       cancelled = true

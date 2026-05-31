@@ -40,6 +40,7 @@
  * start picks the entry up exactly where it was.
  */
 
+import { errorMessage } from '../../shared/errors'
 import { EventEmitter } from 'events'
 import { Address, beginCell } from '@ton/core'
 import { createLogger } from '../../shared/logger'
@@ -121,10 +122,10 @@ export class RecoveryDriver extends EventEmitter {
   start(): void {
     if (this.timer) return
     this.timer = setInterval(() => {
-      this.tick().catch((err) => log.warn(`tick error: ${(err as Error).message}`))
+      this.tick().catch((err) => log.warn(`tick error: ${errorMessage(err)}`))
     }, TICK_INTERVAL_MS)
     setImmediate(() => {
-      this.tick().catch((err) => log.warn(`initial tick error: ${(err as Error).message}`))
+      this.tick().catch((err) => log.warn(`initial tick error: ${errorMessage(err)}`))
     })
   }
 
@@ -138,7 +139,7 @@ export class RecoveryDriver extends EventEmitter {
   /** Trigger an immediate tick (used right after enqueue). */
   triggerTick(): void {
     setImmediate(() => {
-      this.tick().catch((err) => log.warn(`triggered tick error: ${(err as Error).message}`))
+      this.tick().catch((err) => log.warn(`triggered tick error: ${errorMessage(err)}`))
     })
   }
 
@@ -158,7 +159,7 @@ export class RecoveryDriver extends EventEmitter {
           await this.advanceEntry(entry, bridge)
         } catch (err) {
           // Transient: log, persist lastError, keep phase. Next tick retries.
-          const message = (err as Error).message ?? String(err)
+          const message = errorMessage(err)
           log.warn(`Recovery tick failed for archivedAt=${entry.archivedAt}: ${message}`)
           await getRecoveryQueueStore().update(entry.archivedAt, { lastError: message })
         }
@@ -208,7 +209,7 @@ export class RecoveryDriver extends EventEmitter {
       // SC not deployed / not initialized — could mean the initial deploy
       // never confirmed or the SC self-destructed already. If we have no
       // unlockTs recorded, retry the initial refund.
-      log.warn(`getData failed for ${entry.clientSCAddress.slice(0, 8)}…: ${(err as Error).message}`)
+      log.warn(`getData failed for ${entry.clientSCAddress.slice(0, 8)}…: ${errorMessage(err)}`)
       throw err
     }
 

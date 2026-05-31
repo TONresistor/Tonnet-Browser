@@ -22,6 +22,7 @@
  * the tick and retries on the next interval.
  */
 
+import { errorMessage } from '../../shared/errors'
 import { EventEmitter } from 'events'
 import { createLogger } from '../../shared/logger'
 import { getStakeCacheStore } from './stake-cache'
@@ -63,11 +64,11 @@ export class WithdrawDriver extends EventEmitter {
   start(): void {
     if (this.timer) return
     this.timer = setInterval(() => {
-      this.tick().catch((err) => log.warn(`tick error: ${(err as Error).message}`))
+      this.tick().catch((err) => log.warn(`tick error: ${errorMessage(err)}`))
     }, TICK_INTERVAL_MS)
     // Fire one immediate tick so we don't wait the full interval on startup.
     setImmediate(() => {
-      this.tick().catch((err) => log.warn(`initial tick error: ${(err as Error).message}`))
+      this.tick().catch((err) => log.warn(`initial tick error: ${errorMessage(err)}`))
     })
   }
 
@@ -85,7 +86,7 @@ export class WithdrawDriver extends EventEmitter {
    */
   triggerTick(): void {
     setImmediate(() => {
-      this.tick().catch((err) => log.warn(`triggered tick error: ${(err as Error).message}`))
+      this.tick().catch((err) => log.warn(`triggered tick error: ${errorMessage(err)}`))
     })
   }
 
@@ -139,7 +140,7 @@ export class WithdrawDriver extends EventEmitter {
           break
       }
     } catch (err) {
-      const message = (err as Error).message ?? String(err)
+      const message = errorMessage(err)
       log.warn(`tick failed: ${message}`)
       this.emit('event', {
         type: 'error',
@@ -197,7 +198,7 @@ export class WithdrawDriver extends EventEmitter {
         bocHash: result.txs[0]?.bocHash ?? '',
       } satisfies WithdrawDriverEvent)
     } catch (err) {
-      const msg = (err as Error).message ?? String(err)
+      const msg = errorMessage(err)
       // 'Nothing to cashout' is the natural terminal — flag the withdraw done.
       if (!msg.includes('Nothing to cashout')) throw err
       log.info('Cashout: nothing to drain, terminal state reached')

@@ -3,6 +3,7 @@
  * Container qui orchestre toutes les sections
  */
 
+import { errorMessage } from '@shared/errors'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createLogger } from '@/logger'
 import { UI_NOTIFICATION_TIMEOUT_MS, UI_ERROR_TIMEOUT_MS } from '@shared/constants'
@@ -138,7 +139,7 @@ export function SettingsPage() {
           historyErrorTimerRef.current = setTimeout(() => setHistoryError(null), UI_ERROR_TIMEOUT_MS)
         }
       } catch (error) {
-        setHistoryError(t('errors.historyModeChangeError', { error: (error as Error).message }))
+        setHistoryError(t('errors.historyModeChangeError', { error: errorMessage(error) }))
         if (historyErrorTimerRef.current) clearTimeout(historyErrorTimerRef.current)
         historyErrorTimerRef.current = setTimeout(() => setHistoryError(null), UI_ERROR_TIMEOUT_MS)
       } finally {

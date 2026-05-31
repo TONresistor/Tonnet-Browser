@@ -8,6 +8,7 @@
  * crosses the IPC boundary in either direction.
  */
 
+import { errorMessage } from '../../../shared/errors'
 import { z } from 'zod'
 import { IPC_CHANNELS } from '../../../shared/ipc-channels'
 import { secureHandle, emitToRenderer, log } from './shared'
@@ -142,7 +143,7 @@ async function retireTerminalWalletBeforeCreate(registry: ServiceRegistry): Prom
   }
 
   const stakeInfo = await getStakeInfo(registry.cocoonManager, bridge).catch((err) => {
-    log.warn(`walletCreate terminal check: stake info unavailable: ${(err as Error).message}`)
+    log.warn(`walletCreate terminal check: stake info unavailable: ${errorMessage(err)}`)
     return null
   })
   const cache = await getStakeCacheStore().load()
@@ -173,7 +174,7 @@ async function retireTerminalWalletBeforeCreate(registry: ServiceRegistry): Prom
       await cashout(registry.cocoonManager, bridge, native)
       await waitForDrainConfirmed(bridge, wallet.ownerAddress, wallet.nodeAddress)
     } catch (err) {
-      const msg = (err as Error).message ?? String(err)
+      const msg = errorMessage(err)
       if (!msg.includes('Nothing to cashout')) throw err
     }
   }
@@ -228,7 +229,7 @@ export function registerCocoonHandlers(registry: ServiceRegistry): void {
     try {
       await startCocoonManager(cocoonManager)
     } catch (err) {
-      const message = (err as Error).message ?? String(err)
+      const message = errorMessage(err)
       if (message.includes('already starting')) {
         return { success: false, error: 'Already starting' }
       }
@@ -369,7 +370,7 @@ export function registerCocoonHandlers(registry: ServiceRegistry): void {
         try {
           await cashout(cocoonManager, bridge, registry.walletManager.getState().address || currentWallet.ownerAddress)
         } catch (err) {
-          const msg = (err as Error).message ?? String(err)
+          const msg = errorMessage(err)
           if (!msg.includes('Nothing to cashout')) throw err
           log.info('Activate: terminal Cocoon identity has no residual balance to cashout')
         }

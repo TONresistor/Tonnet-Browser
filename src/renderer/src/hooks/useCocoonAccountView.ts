@@ -13,6 +13,7 @@
  * read the same IPC state.
  */
 
+import { errorMessage } from '@shared/errors'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { isIpcError } from '@/lib/ipc-utils'
 import { createLogger } from '@/logger'
@@ -208,7 +209,7 @@ export function useCocoonAccountView(): UseCocoonAccountViewResult {
       snapshotRef.current = next
       setSnapshot(next)
     } catch (err) {
-      const message = (err as Error).message ?? String(err)
+      const message = errorMessage(err)
       log.warn(`account view refresh failed: ${message}`)
       setSnapshot((prev) => {
         const next = { ...prev, error: message }

@@ -13,6 +13,7 @@
  * re-cached on the next /jsonstats success.
  */
 
+import { errorMessage } from '../../shared/errors'
 import { promises as fs } from 'fs'
 import { dirname, join } from 'path'
 import { app } from 'electron'
@@ -61,7 +62,7 @@ export class StakeCacheStore {
       return parsed
     } catch (err) {
       if (isEnoent(err)) return null
-      log.warn(`Failed to read stake cache: ${(err as Error).message}`)
+      log.warn(`Failed to read stake cache: ${errorMessage(err)}`)
       return null
     }
   }

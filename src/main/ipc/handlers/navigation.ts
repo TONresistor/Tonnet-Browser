@@ -2,6 +2,7 @@
  * IPC handlers for page navigation, zoom, and devtools.
  */
 
+import { errorMessage } from '../../../shared/errors'
 import { IPC_CHANNELS } from '../../../shared/ipc-channels'
 import { isValidNavigationUrl } from '../validation'
 import { secureHandle, secureHandleWithEvent, navLimiter, log } from './shared'
@@ -40,7 +41,7 @@ export function registerNavigationHandlers(): void {
       log.info(`Browse bag: ${bagId}, tab: ${targetTab}`)
       if (targetTab) {
         loadStorageBagInTab(targetTab, bagId).catch((err) => {
-          log.error('Failed to browse bag:', (err as Error).message)
+          log.error('Failed to browse bag:', errorMessage(err))
         })
       }
       return { success: true }

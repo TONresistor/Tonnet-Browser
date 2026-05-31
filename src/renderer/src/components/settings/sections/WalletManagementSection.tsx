@@ -1,3 +1,4 @@
+import { errorMessage } from '@shared/errors'
 import { useState, useCallback, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { UI_COPY_FEEDBACK_MS } from '@shared/constants'
@@ -74,7 +75,7 @@ export function WalletManagementSection() {
         setIsRevealed(false)
       }, MNEMONIC_CLEAR_TIMEOUT)
     } catch (err) {
-      setExportError((err as Error).message)
+      setExportError(errorMessage(err))
     } finally {
       setExportLoading(false)
     }
@@ -112,7 +113,7 @@ export function WalletManagementSection() {
       setImportInput('')
       setShowImport(false)
     } catch (err) {
-      setImportError((err as Error).message)
+      setImportError(errorMessage(err))
     }
   }, [importInput, isCreated, showConfirm, importWallet, t])
 
