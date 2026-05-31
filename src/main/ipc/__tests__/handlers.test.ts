@@ -281,7 +281,6 @@ const mockStorageManager = (() => {
       port: 5555,
       storagePath: '/mock/downloads',
     })),
-    setStoragePath: vi.fn(),
     on: emitter.on.bind(emitter),
     emit: emitter.emit.bind(emitter),
   })

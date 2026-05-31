@@ -20,7 +20,6 @@ import path from 'path'
 export class StorageManager extends EventEmitter {
   private process: ChildProcess | null = null
   private port: number = 0
-  private storagePath: string
   private dbPath: string
   private isRunning = false
   private client: StorageHTTPClient | null = null
@@ -29,8 +28,12 @@ export class StorageManager extends EventEmitter {
 
   constructor() {
     super()
-    this.storagePath = getDownloadPath()
     this.dbPath = path.join(getStoragePath(), 'db') // DB stays in userData
+  }
+
+  // Download destination, always read live from settings (single source of truth).
+  private get storagePath(): string {
+    return getDownloadPath()
   }
 
   private loadSettings() {
@@ -38,13 +41,7 @@ export class StorageManager extends EventEmitter {
     const storage = getSetting('storage')
     const advanced = getSetting('advanced')
     this.port = network.storagePort
-    this.storagePath = storage.downloadPath
     return { network, storage, advanced }
-  }
-
-  setStoragePath(newPath: string): void {
-    this.storagePath = newPath
-    log.info(`Storage path updated to: ${newPath}`)
   }
 
   async start(): Promise<void> {
