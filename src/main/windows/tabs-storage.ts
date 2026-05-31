@@ -7,6 +7,7 @@ import { WebContentsView } from 'electron'
 import { EventEmitter } from 'events'
 import { generateFileBrowserPage, generateLoadingPage } from './file-browser'
 import { escapeHtml, loadDataHtml } from './page-templates'
+import { renderLottieBoot } from './lottie'
 import type { StorageManager } from '../storage/daemon'
 import { createLogger } from '../../shared/logger'
 import type { BagDetails } from '../../shared/types'
@@ -27,10 +28,6 @@ function getStorageManager(): StorageManager {
     throw new Error('StorageManager not initialized in tabs-storage. Call setTabStorageManager() first.')
   return _storageManager
 }
-
-// Build-time constants: lottie player + loading animation baked by electron-vite
-declare const __LOTTIE_PLAYER_JS__: string
-declare const __LOADING_ANIMATION_JSON__: object
 
 /** Cache of bag IDs detected by the proxy for .ton storage domains */
 export const storageBagCache = new Map<string, string>()
@@ -72,7 +69,6 @@ export function loadErrorPage(view: WebContentsView, errorMessage: string, faile
   const safeError = escapeHtml(errorMessage)
   const safeUrl = escapeHtml(failedUrl)
   const encodedUrl = encodeURIComponent(failedUrl)
-  const animJson = JSON.stringify(__LOADING_ANIMATION_JSON__)
 
   const errorHtml = `
 <!DOCTYPE html>
@@ -192,18 +188,7 @@ export function loadErrorPage(view: WebContentsView, errorMessage: string, faile
       <button class="btn-secondary" onclick="history.back()">Go Back</button>
     </div>
   </div>
-  <script>${__LOTTIE_PLAYER_JS__}</script>
-  <script>
-    try {
-      lottie.loadAnimation({
-        container: document.getElementById('lottie'),
-        renderer: 'svg',
-        loop: true,
-        autoplay: true,
-        animationData: ${animJson}
-      });
-    } catch(e) {}
-  </script>
+  ${renderLottieBoot()}
 </body>
 </html>`
 

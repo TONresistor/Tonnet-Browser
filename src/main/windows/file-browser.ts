@@ -4,10 +4,7 @@
  */
 
 import { escapeHtml } from './page-templates'
-
-// Build-time constants: lottie player + loading animation baked by electron-vite
-declare const __LOTTIE_PLAYER_JS__: string
-declare const __LOADING_ANIMATION_JSON__: object
+import { renderLottieBoot } from './lottie'
 
 // --- File type detection ---
 
@@ -82,7 +79,6 @@ const ICONS: Record<FileCategory, string> = {
  */
 export function generateLoadingPage(domain: string): string {
   const safeDomain = escapeHtml(domain)
-  const animJson = JSON.stringify(__LOADING_ANIMATION_JSON__)
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -103,18 +99,7 @@ export function generateLoadingPage(domain: string): string {
 </head>
 <body>
   <div id="lottie" style="width:180px;height:180px"></div>
-  <script>${__LOTTIE_PLAYER_JS__}</script>
-  <script>
-    try {
-      lottie.loadAnimation({
-        container: document.getElementById('lottie'),
-        renderer: 'svg',
-        loop: true,
-        autoplay: true,
-        animationData: ${animJson}
-      });
-    } catch(e) {}
-  </script>
+  ${renderLottieBoot()}
 </body>
 </html>`
 }
