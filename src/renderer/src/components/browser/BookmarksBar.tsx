@@ -23,6 +23,7 @@ import { useTabsStore } from '@/stores/tabs'
 import { ErrorBoundary } from '../ErrorBoundary'
 import { SortableBookmarkItem } from './SortableBookmarkItem'
 import { DroppableFolder } from './DroppableFolder'
+import { clampToViewport } from '@/lib/overlay-position'
 import { useTranslation } from 'react-i18next'
 import { useOverlay } from '@/hooks/useOverlay'
 
@@ -72,8 +73,12 @@ export function BookmarksBar() {
           editingBookmarkIdRef.current = d.id
           const editW = 320,
             editH = 270
-          const editX = Math.max(4, Math.min(lastClickPosRef.current.x - editW / 2, window.innerWidth - editW - 4))
-          const editY = Math.max(4, Math.min(lastClickPosRef.current.y + 8, window.innerHeight - editH - 4))
+          const { x: editX, y: editY } = clampToViewport(
+            lastClickPosRef.current.x - editW / 2,
+            lastClickPosRef.current.y + 8,
+            editW,
+            editH
+          )
           menuRef.current?.show(
             { x: Math.round(editX), y: Math.round(editY), width: editW, height: editH },
             {
@@ -110,11 +115,12 @@ export function BookmarksBar() {
           editingFolderIdRef.current = d.folderId
           const renameW = 320,
             renameH = 170
-          const renameX = Math.max(
-            4,
-            Math.min(lastClickPosRef.current.x - renameW / 2, window.innerWidth - renameW - 4)
+          const { x: renameX, y: renameY } = clampToViewport(
+            lastClickPosRef.current.x - renameW / 2,
+            lastClickPosRef.current.y + 8,
+            renameW,
+            renameH
           )
-          const renameY = Math.max(4, Math.min(lastClickPosRef.current.y + 8, window.innerHeight - renameH - 4))
           menuRef.current?.show(
             { x: Math.round(renameX), y: Math.round(renameY), width: renameW, height: renameH },
             {
@@ -175,8 +181,7 @@ export function BookmarksBar() {
       lastClickPosRef.current = { x: e.clientX, y: e.clientY }
       const menuW = 200,
         menuH = 160
-      const menuX = Math.max(4, Math.min(e.clientX, window.innerWidth - menuW - 4))
-      const menuY = Math.max(4, Math.min(e.clientY, window.innerHeight - menuH - 4))
+      const { x: menuX, y: menuY } = clampToViewport(e.clientX, e.clientY, menuW, menuH)
       menuRef.current?.show(
         { x: menuX, y: menuY, width: menuW, height: menuH },
         {
@@ -238,8 +243,7 @@ export function BookmarksBar() {
     lastClickPosRef.current = { x: e.clientX, y: e.clientY }
     const fMenuW = 200,
       fMenuH = 160
-    const fMenuX = Math.max(4, Math.min(e.clientX, window.innerWidth - fMenuW - 4))
-    const fMenuY = Math.max(4, Math.min(e.clientY, window.innerHeight - fMenuH - 4))
+    const { x: fMenuX, y: fMenuY } = clampToViewport(e.clientX, e.clientY, fMenuW, fMenuH)
     menu.show(
       { x: fMenuX, y: fMenuY, width: fMenuW, height: fMenuH },
       {

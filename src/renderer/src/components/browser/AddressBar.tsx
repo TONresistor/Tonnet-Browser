@@ -13,6 +13,7 @@ import { useBookmarksStore } from '@/stores/bookmarks'
 import { useTabsStore } from '@/stores/tabs'
 import { cn } from '@/lib/utils'
 import { processNavigationInput, stripHttpPrefix, getHostname } from '@/lib/url-utils'
+import { clampToViewport } from '@/lib/overlay-position'
 import tonIcon from '@/assets/ton.png'
 import { useTranslation } from 'react-i18next'
 import { useOverlay } from '@/hooks/useOverlay'
@@ -93,8 +94,7 @@ export const AddressBar = memo(function AddressBar() {
       ]
       const menuW = 180
       const menuH = 4 * 36 + 1 * 9 + 8
-      const menuX = Math.max(4, Math.min(e.clientX, window.innerWidth - menuW - 4))
-      const menuY = Math.max(4, Math.min(e.clientY, window.innerHeight - menuH - 4))
+      const { x: menuX, y: menuY } = clampToViewport(e.clientX, e.clientY, menuW, menuH)
       inputContextMenu.show({ x: menuX, y: menuY, width: menuW, height: menuH }, { type: 'menu', items })
     },
     [inputContextMenu, t]
