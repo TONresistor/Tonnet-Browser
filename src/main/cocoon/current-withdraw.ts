@@ -8,6 +8,7 @@
  * accidentally drained before the client SC closed.
  */
 
+import { errorMessage } from '../../shared/errors'
 import { Address, beginCell } from '@ton/core'
 import { createLogger } from '../../shared/logger'
 import { CocoonClient } from './contracts/wrappers/CocoonClient'
@@ -68,14 +69,14 @@ async function readClientState(
     const data = await opened.getData()
     return { state: data.state as 0 | 1 | 2, unlockTs: data.unlockTs }
   } catch (err) {
-    log.warn(`client getData failed for ${clientSCAddress.slice(0, 8)}...: ${(err as Error).message}`)
+    log.warn(`client getData failed for ${clientSCAddress.slice(0, 8)}...: ${errorMessage(err)}`)
     return null
   }
 }
 
 async function resolveClientSCAddress(manager: CocoonManager, bridge: WsBridgeClient): Promise<string> {
   const info = await getStakeInfo(manager, bridge).catch((err) => {
-    log.warn(`stake info unavailable: ${(err as Error).message}`)
+    log.warn(`stake info unavailable: ${errorMessage(err)}`)
     return null
   })
   if (info?.clientSCAddress) return info.clientSCAddress

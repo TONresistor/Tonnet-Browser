@@ -4,6 +4,7 @@
  * Send/Receive triggered via action buttons as inline views.
  */
 
+import { errorMessage } from '@shared/errors'
 import { useEffect, useRef, useState, useCallback, memo } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import {
@@ -121,7 +122,7 @@ export function WalletPage() {
       await importWallet(parsed)
       setRecoveryInput('')
     } catch (err) {
-      setRecoveryError((err as Error).message)
+      setRecoveryError(errorMessage(err))
     }
   }, [recoveryInput, importWallet, t])
 

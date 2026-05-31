@@ -2,6 +2,7 @@
  * Hook for starting the TON proxy connection from the landing screen.
  */
 
+import { errorMessage } from '@shared/errors'
 import { useState, useCallback } from 'react'
 import { useBrowserStore } from '../stores/browser'
 
@@ -25,7 +26,7 @@ export function useProxy() {
         setProxyStatus(false)
       }
     } catch (err) {
-      setError((err as Error).message)
+      setError(errorMessage(err))
       setProxyStatus(false)
     } finally {
       setIsConnecting(false)

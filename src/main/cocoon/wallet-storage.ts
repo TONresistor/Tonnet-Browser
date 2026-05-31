@@ -11,6 +11,7 @@
  *  - cached addresses for fast UI display (re-derivable from secrets)
  */
 
+import { errorMessage } from '../../shared/errors'
 import { promises as fs } from 'fs'
 import { join } from 'path'
 import { app } from 'electron'
@@ -108,7 +109,7 @@ export class CocoonKeyStorage {
         json = this.storage.decrypt(buf.subarray(4))
       } catch (err) {
         log.error('safeStorage.decrypt failed:', err)
-        throw new CocoonWalletDecryptionError((err as Error).message)
+        throw new CocoonWalletDecryptionError(errorMessage(err))
       }
       const parsed = JSON.parse(json) as CocoonWalletData
       this.cached = parsed

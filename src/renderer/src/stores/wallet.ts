@@ -3,6 +3,7 @@
  * Non-persisted runtime wallet state — synced from main via IPC.
  */
 
+import { errorMessage } from '@shared/errors'
 import { create } from 'zustand'
 import { getIpcError } from '@/lib/ipc-utils'
 import type { WalletTransaction, PaymentNotificationData, NotificationStyle } from '@shared/types'
@@ -164,7 +165,7 @@ export const useWalletStore = create<WalletStore>((set, get) => {
           set({ notificationStyle: walletSettings.notificationStyle })
         }
       } catch (err) {
-        set({ error: (err as Error).message })
+        set({ error: errorMessage(err) })
       } finally {
         set({ isLoading: false })
       }
@@ -188,7 +189,7 @@ export const useWalletStore = create<WalletStore>((set, get) => {
         }
         return null
       } catch (err) {
-        set({ error: (err as Error).message })
+        set({ error: errorMessage(err) })
         return null
       } finally {
         set({ isLoading: false })
@@ -211,7 +212,7 @@ export const useWalletStore = create<WalletStore>((set, get) => {
           weakEncryption: false,
         })
       } catch (err) {
-        set({ error: (err as Error).message })
+        set({ error: errorMessage(err) })
         throw err
       } finally {
         set({ isLoading: false })
@@ -233,7 +234,7 @@ export const useWalletStore = create<WalletStore>((set, get) => {
           set({ balance: result })
         }
       } catch (err) {
-        set({ error: (err as Error).message })
+        set({ error: errorMessage(err) })
       }
     },
 
@@ -246,7 +247,7 @@ export const useWalletStore = create<WalletStore>((set, get) => {
         await get().refreshBalance()
         await get().loadHistory()
       } catch (err) {
-        set({ error: (err as Error).message })
+        set({ error: errorMessage(err) })
         throw err
       } finally {
         set({ isSending: false })
@@ -265,7 +266,7 @@ export const useWalletStore = create<WalletStore>((set, get) => {
           set({ transactions: result })
         }
       } catch (err) {
-        set({ error: (err as Error).message })
+        set({ error: errorMessage(err) })
       }
     },
 
@@ -286,7 +287,7 @@ export const useWalletStore = create<WalletStore>((set, get) => {
           error: null,
         })
       } catch (err) {
-        set({ error: (err as Error).message })
+        set({ error: errorMessage(err) })
       }
     },
 
@@ -295,7 +296,7 @@ export const useWalletStore = create<WalletStore>((set, get) => {
         await window.electron.wallet.clearHistory()
         set({ transactions: [] })
       } catch (err) {
-        set({ error: (err as Error).message })
+        set({ error: errorMessage(err) })
       }
     },
   }

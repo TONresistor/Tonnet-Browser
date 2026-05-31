@@ -13,6 +13,7 @@
  * cashout (cocoon → owner) with the persisted node secret.
  */
 
+import { errorMessage } from '../../shared/errors'
 import { Address } from '@ton/core'
 import { createLogger } from '../../shared/logger'
 import { fetchJsonStats, requestRefund as runnerClose } from './runner-api'
@@ -67,7 +68,7 @@ export async function getStakeInfo(manager: CocoonManager, bridge: WsBridgeClien
               ownerAddress: wallet.ownerAddress,
               cachedAt: Date.now(),
             })
-            .catch((e) => log.warn(`stake cache save failed: ${(e as Error).message}`))
+            .catch((e) => log.warn(`stake cache save failed: ${errorMessage(e)}`))
         }
         return await buildSnapshot({
           bridge,
@@ -81,7 +82,7 @@ export async function getStakeInfo(manager: CocoonManager, bridge: WsBridgeClien
         })
       }
     } catch (err) {
-      log.warn(`fetchJsonStats failed: ${(err as Error).message}`)
+      log.warn(`fetchJsonStats failed: ${errorMessage(err)}`)
       // Fall through to cache path.
     }
   }
@@ -136,7 +137,7 @@ async function buildSnapshot(args: SnapshotArgs): Promise<CocoonStakeInfo> {
   } catch (err) {
     // Client SC not deployed yet, or read failed. Surface a partial snapshot
     // using whichever runner state we have (or 0 if cache only).
-    log.warn(`Client SC getData failed: ${(err as Error).message}`)
+    log.warn(`Client SC getData failed: ${errorMessage(err)}`)
     const fallbackRunnerState = runnerStateOverride ?? 0
     return {
       status: deriveStatus(fallbackRunnerState, 0),

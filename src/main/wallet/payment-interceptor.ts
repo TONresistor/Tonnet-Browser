@@ -4,6 +4,7 @@
  * validate PaymentRequirements, and handle auto/manual payment flows.
  */
 
+import { errorMessage } from '../../shared/errors'
 import { webContents } from 'electron'
 import { normalizeToSecondLevel, PaymentPolicyStore } from './payment-policy'
 import { rawToFriendly } from './address-utils'
@@ -452,7 +453,7 @@ export class PaymentInterceptor {
         payTo: paymentReq.payTo,
         payToFriendly: rawToFriendly(paymentReq.payTo),
         status: 'failed',
-        error: (err as Error).message,
+        error: errorMessage(err),
       }
       emitToRenderer(IPC_CHANNELS.WALLET_PAYMENT_FAILED, notification)
 
@@ -522,11 +523,11 @@ export class PaymentInterceptor {
           payTo: pending.paymentReq.payTo,
           payToFriendly: rawToFriendly(pending.paymentReq.payTo),
           status: 'failed',
-          error: (err as Error).message,
+          error: errorMessage(err),
         }
         emitToRenderer(IPC_CHANNELS.WALLET_PAYMENT_FAILED, notification)
         log.error(`XHR manual payment error for ${pending.domain}:`, err)
-        pending.xhrResolver({ success: false, error: (err as Error).message })
+        pending.xhrResolver({ success: false, error: errorMessage(err) })
       }
     } else {
       await this.executePayment(pending.request, pending.paymentReq, pending.domain, pending.reservationId)
@@ -643,7 +644,7 @@ export class PaymentInterceptor {
       response = await sessionFetch(session, url)
     } catch (err) {
       log.error('XHR payment: failed to fetch 402:', err)
-      return { success: false, error: (err as Error).message }
+      return { success: false, error: errorMessage(err) }
     }
 
     if (response.status !== 402) {
@@ -744,7 +745,7 @@ export class PaymentInterceptor {
         this.xhrTokens.delete(`${webContentsId}|${url}`)
         this.paymentPolicyStore.rollbackPayment(reservationId)
         log.error(`XHR auto payment error for ${originalDomain}:`, err)
-        return { success: false, error: (err as Error).message }
+        return { success: false, error: errorMessage(err) }
       }
     }
 

@@ -4,6 +4,7 @@
  * Supports both legacy raw-seed wallets and mnemonic-based wallets.
  */
 
+import { errorMessage } from '../../shared/errors'
 import { promises as fs, constants as fsConstants } from 'fs'
 import { join } from 'path'
 import { app } from 'electron'
@@ -393,7 +394,7 @@ export class WalletKeyStorage {
           decrypted = this.storage.decrypt(buffer.subarray(4))
         } catch (err) {
           log.error('safeStorage.decryptString failed:', err)
-          throw new WalletDecryptionError((err as Error).message)
+          throw new WalletDecryptionError(errorMessage(err))
         }
 
         // Try parsing as JSON first (new format)

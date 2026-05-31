@@ -2,6 +2,7 @@
  * IPC handlers for TON Storage bag management.
  */
 
+import { errorMessage } from '../../../shared/errors'
 import path from 'path'
 import { shell } from 'electron'
 import { IPC_CHANNELS } from '../../../shared/ipc-channels'
@@ -97,7 +98,7 @@ export function registerStorageHandlers(registry: ServiceRegistry): void {
       const details = await storageManager.getBagDetails(bagId)
       return { success: true, details }
     } catch (error) {
-      return { success: false, error: (error as Error).message }
+      return { success: false, error: errorMessage(error) }
     }
   })
 
@@ -114,7 +115,7 @@ export function registerStorageHandlers(registry: ServiceRegistry): void {
       const error = await shell.openPath(path.resolve(details.path))
       return error ? { success: false, error } : { success: true }
     } catch (error) {
-      return { success: false, error: (error as Error).message }
+      return { success: false, error: errorMessage(error) }
     }
   })
 
@@ -149,7 +150,7 @@ export function registerStorageHandlers(registry: ServiceRegistry): void {
       shell.showItemInFolder(path.resolve(fullPath))
       return { success: true }
     } catch (error) {
-      return { success: false, error: (error as Error).message }
+      return { success: false, error: errorMessage(error) }
     }
   })
 }

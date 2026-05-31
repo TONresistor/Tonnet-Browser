@@ -2,6 +2,7 @@
  * IPC handlers for app settings, browsing data, and download path management.
  */
 
+import { errorMessage } from '../../../shared/errors'
 import { dialog } from 'electron'
 import { getAllSessions } from '../../windows/tabs-session'
 import { IPC_CHANNELS } from '../../../shared/ipc-channels'
@@ -58,7 +59,7 @@ export function registerSettingsHandlers(registry: ServiceRegistry): void {
       return { success: true }
     } catch (error) {
       log.error(`Failed to set download path: ${String(error)}`)
-      return { success: false, error: (error as Error).message }
+      return { success: false, error: errorMessage(error) }
     }
   })
 

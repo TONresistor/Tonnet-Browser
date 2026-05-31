@@ -4,6 +4,7 @@
  * persists when the user switches between page and sidebar within a session.
  */
 
+import { errorMessage } from '@shared/errors'
 import { useEffect, useRef, useState, memo } from 'react'
 import {
   ArrowUp,
@@ -95,7 +96,7 @@ export function CocoonChat({ state, compact = false, startError = null, onRetryS
       updateMessage(assistantId, { content })
     } catch (err) {
       const aborted = (err as Error).name === 'AbortError'
-      const msg = aborted ? 'Cancelled.' : (err as Error).message
+      const msg = aborted ? 'Cancelled.' : errorMessage(err)
       updateMessage(assistantId, { content: msg, error: !aborted })
     } finally {
       setSending(false)

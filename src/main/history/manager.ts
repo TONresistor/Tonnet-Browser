@@ -4,6 +4,7 @@
  * - PERSISTENT: Automatically encrypted disk storage via OS keychain
  */
 
+import { errorMessage } from '../../shared/errors'
 import { EventEmitter } from 'events'
 import { getSetting, setSetting } from '../settings'
 import { SafeStorageWrapper } from './safe-storage-wrapper'
@@ -119,7 +120,7 @@ export class HistoryManager extends EventEmitter {
       // Rollback
       this.mode = oldMode
       setSetting('privacy', { historyMode: oldMode })
-      return { success: false, error: (error as Error).message }
+      return { success: false, error: errorMessage(error) }
     }
   }
 
