@@ -17,7 +17,6 @@ import {
   BridgeSettingsPartialSchema,
   CocoonSettingsPartialSchema,
 } from '../../shared/types'
-import { DEFAULT_SETTINGS } from '../../shared/defaults'
 import { createLogger } from '../../shared/logger'
 const log = createLogger('settings')
 
@@ -153,81 +152,7 @@ export function isValidSettingsObject(obj: unknown): obj is Partial<AppSettings>
  * Uses fixed paths suitable for testing.
  */
 export function getDefaultSettingsBase(): AppSettings {
-  const d = DEFAULT_SETTINGS
-  return {
-    general: {
-      homepage: d.homepage,
-      resolveEth: d.resolveEth,
-      ethRpc: d.ethRpc,
-      resolveSol: d.resolveSol,
-      solRpc: d.solRpc,
-    },
-    network: {
-      proxyPort: d.proxyPort,
-      storagePort: d.storagePort,
-      wsPort: d.wsPort,
-      autoConnect: d.autoConnect,
-      connectionTimeout: d.connectionTimeout,
-      syncCheckInterval: d.syncCheckInterval,
-      anonymousMode: d.anonymousMode,
-      tunnelMode: d.tunnelMode,
-    },
-    storage: {
-      downloadPath: '/tmp/tonnet-storage',
-      pollingInterval: d.pollingInterval,
-      seedingEnabled: d.seedingEnabled,
-      downloadSpeedLimit: d.downloadSpeedLimit,
-      uploadSpeedLimit: d.uploadSpeedLimit,
-    },
-    appearance: {
-      theme: d.theme,
-      customThemes: [...d.customThemes],
-      language: d.language,
-      defaultZoom: d.defaultZoom,
-      zoomMin: d.zoomMin,
-      zoomMax: d.zoomMax,
-      showBookmarksBar: d.showBookmarksBar,
-      showStatusBar: d.showStatusBar,
-      tabOrientation: d.tabOrientation,
-      sidebarWidth: d.sidebarWidth,
-    },
-    privacy: {
-      clearOnExit: d.clearOnExit,
-      disableCache: d.disableCache,
-      firstPartyIsolation: d.firstPartyIsolation,
-      cookieAutoDelete: d.cookieAutoDelete,
-      cookieAutoDeleteMinutes: d.cookieAutoDeleteMinutes,
-      historyMode: d.historyMode,
-      historyMaxEntries: d.historyMaxEntries,
-    },
-    contentFiltering: {
-      enabled: d.contentFiltering.enabled,
-      blockAds: d.contentFiltering.blockAds,
-      blockTrackers: d.contentFiltering.blockTrackers,
-      blockMiners: d.contentFiltering.blockMiners,
-      blockMalware: d.contentFiltering.blockMalware,
-      blockAnnoyances: d.contentFiltering.blockAnnoyances,
-      whitelistedDomains: [...d.contentFiltering.whitelistedDomains],
-    },
-    advanced: {
-      proxyVerbosity: d.proxyVerbosity,
-      storageVerbosity: d.storageVerbosity,
-      syncTestDomain: d.syncTestDomain,
-    },
-    wallet: {
-      paymentMode: d.wallet.paymentMode,
-      notificationStyle: d.wallet.notificationStyle,
-      limits: { ...d.wallet.limits },
-      sitePolicies: [...d.wallet.sitePolicies],
-      autoPayDomains: [...d.wallet.autoPayDomains],
-      autoLockMinutes: d.wallet.autoLockMinutes,
-    },
-    bridge: {
-      permissions: [],
-      defaultPolicy: 'ask',
-    },
-    cocoon: {
-      autostart: d.cocoon.autostart,
-    },
-  }
+  const defaults = AppSettingsSchema.parse({})
+  defaults.storage.downloadPath = '/tmp/tonnet-storage'
+  return defaults
 }
