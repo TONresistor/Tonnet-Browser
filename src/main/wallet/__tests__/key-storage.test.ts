@@ -69,17 +69,6 @@ vi.mock('@ton/crypto', () => ({
   })),
 }))
 
-vi.mock('@ton/ton', () => ({
-  WalletContractV5R1: {
-    create: vi.fn(() => ({
-      address: {
-        toString: () => 'UQTest...',
-        toRawString: () => '0:test...',
-      },
-    })),
-  },
-}))
-
 vi.mock('electron', () => ({
   app: { getPath: vi.fn(() => '/tmp/test') },
 }))
@@ -111,15 +100,15 @@ describe('WalletKeyStorage', () => {
     vi.mocked(fs.access).mockRejectedValue(Object.assign(new Error(), { code: 'ENOENT' }))
   })
 
-  // 1. generate() produces 24 words and stores encrypted
-  describe('generate()', () => {
+  // 1. generateFromMnemonic() produces 24 words and stores encrypted
+  describe('generateFromMnemonic()', () => {
     it('produces 24-word mnemonic and writes encrypted file', async () => {
-      const result = await ks.generate()
+      const { keypair } = await ks.generateFromMnemonic()
 
-      expect(result.publicKey).toBeInstanceOf(Buffer)
-      expect(result.publicKey.length).toBe(32)
-      expect(result.secretKey).toBeInstanceOf(Buffer)
-      expect(result.secretKey.length).toBe(64)
+      expect(keypair.publicKey).toBeInstanceOf(Buffer)
+      expect(keypair.publicKey.length).toBe(32)
+      expect(keypair.secretKey).toBeInstanceOf(Buffer)
+      expect(keypair.secretKey.length).toBe(64)
 
       expect(fs.writeFile).toHaveBeenCalledOnce()
       const [, written] = vi.mocked(fs.writeFile).mock.calls[0]
@@ -128,7 +117,7 @@ describe('WalletKeyStorage', () => {
       expect(buf.subarray(0, 4).toString()).toBe('SENC')
     })
 
-    it('generateFromMnemonic returns mnemonic array of length 24', async () => {
+    it('returns mnemonic array of length 24', async () => {
       const { mnemonic, keypair } = await ks.generateFromMnemonic()
 
       expect(mnemonic).toHaveLength(24)
@@ -142,7 +131,7 @@ describe('WalletKeyStorage', () => {
 
     it('throws if encryption is unavailable', async () => {
       storage.setAvailable(false)
-      await expect(ks.generate()).rejects.toThrow('Secure storage is not available')
+      await expect(ks.generateFromMnemonic()).rejects.toThrow('Secure storage is not available')
     })
   })
 
@@ -482,19 +471,6 @@ describe('WalletKeyStorage', () => {
     it('deleteFile rethrows other errors', async () => {
       vi.mocked(fs.unlink).mockRejectedValue(Object.assign(new Error('EPERM'), { code: 'EPERM' }))
       await expect(ks.deleteFile()).rejects.toThrow('EPERM')
-    })
-  })
-
-  // 10. getAddress() derives W5 v5r1 address
-  describe('getAddress()', () => {
-    it('derives wallet address from keypair', async () => {
-      const data = { type: 'mnemonic', mnemonic: Array(24).fill('test') }
-      vi.mocked(fs.readFile).mockResolvedValue(makeEncryptedBuffer(data, storage))
-
-      const { address, addressRaw } = await ks.getAddress()
-
-      expect(address).toBe('UQTest...')
-      expect(addressRaw).toBe('0:test...')
     })
   })
 

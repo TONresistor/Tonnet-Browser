@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { fetchJsonStats, requestRefund, withdrawSurplus, topUp } from '../runner-api'
+import { fetchJsonStats, requestRefund } from '../runner-api'
 
 const VALID_ADDR = 'EQCns7bYSp0igFvS1wpb5wsZjCKCV19MD5AVzI4EyxsnU73k'
 
@@ -68,20 +68,6 @@ describe('runner control endpoints', () => {
     const url = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0][0] as string
     expect(url).toContain('/request/close')
     expect(url).toContain(`proxy=${encodeURIComponent(VALID_ADDR)}`)
-  })
-
-  it('withdrawSurplus: hits /request/withdraw', async () => {
-    mockFetchOnce({ ok: true, _body: 'request sent' })
-    await withdrawSurplus(10000, VALID_ADDR)
-    const url = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0][0] as string
-    expect(url).toContain('/request/withdraw')
-  })
-
-  it('topUp: hits /request/topup', async () => {
-    mockFetchOnce({ ok: true, _body: 'request sent' })
-    await topUp(10000, VALID_ADDR)
-    const url = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0][0] as string
-    expect(url).toContain('/request/topup')
   })
 
   it('rejects when the runner returns a short-answer error body', async () => {

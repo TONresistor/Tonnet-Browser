@@ -8,7 +8,6 @@ import { promises as fs, constants as fsConstants } from 'fs'
 import { join } from 'path'
 import { app } from 'electron'
 import { keyPairFromSeed, mnemonicNew, mnemonicToPrivateKey, mnemonicValidate } from '@ton/crypto'
-import { WalletContractV5R1 } from '@ton/ton'
 import { WALLET_FILE_NAME, AUTO_LOCK_DEFAULT_MS } from './constants'
 import type { ISecureStorage } from '../ports/secure-storage'
 import { ElectronSafeStorageAdapter } from '../adapters/electron-secure-storage'
@@ -72,15 +71,6 @@ export class WalletKeyStorage {
     if (!this.storage.isAvailable()) {
       throw new Error('Secure storage is not available. Install a keyring (gnome-keyring, kwallet) to use the wallet.')
     }
-  }
-
-  /**
-   * Generate a new wallet from a 24-word mnemonic.
-   * All new wallets use mnemonic for compatibility with Tonkeeper/MyTonWallet.
-   */
-  async generate(): Promise<{ publicKey: Buffer; secretKey: Buffer }> {
-    const { keypair } = await this.generateFromMnemonic()
-    return keypair
   }
 
   /**
@@ -189,18 +179,6 @@ export class WalletKeyStorage {
       return true
     } catch {
       return false
-    }
-  }
-
-  /**
-   * Derive the W5 v5r1 wallet address from the stored keypair.
-   */
-  async getAddress(): Promise<{ address: string; addressRaw: string }> {
-    const keypair = await this.load()
-    const wallet = WalletContractV5R1.create({ publicKey: keypair.publicKey, workchain: 0 })
-    return {
-      address: wallet.address.toString({ bounceable: false }),
-      addressRaw: wallet.address.toRawString(),
     }
   }
 
