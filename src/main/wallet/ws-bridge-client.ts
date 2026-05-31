@@ -175,7 +175,7 @@ export class WsBridgeClient {
 
   async getBalance(address: string): Promise<string> {
     try {
-      const result = (await this.request('lite.getAccountState', { address })) as BridgeAccountState
+      const result = await this.request<BridgeAccountState>('lite.getAccountState', { address })
       const balance = result.balance ?? '0'
       this.cachedBalance = { address, value: balance }
       this.balanceDegraded = false
@@ -196,7 +196,7 @@ export class WsBridgeClient {
 
   async getSeqno(address: string): Promise<number> {
     try {
-      const result = (await this.request('wallet.getSeqno', { address })) as { seqno: number | string }
+      const result = await this.request<{ seqno: number | string }>('wallet.getSeqno', { address })
       const seqno = typeof result.seqno === 'number' ? result.seqno : Number(result.seqno)
       this.cachedSeqno = { address, value: seqno }
       this.seqnoDegraded = false
@@ -232,7 +232,7 @@ export class WsBridgeClient {
       params.last_lt = lastLt
       params.last_hash = lastHash
     }
-    const result = (await this.request('lite.getTransactions', params)) as { transactions?: BridgeTransaction[] }
+    const result = await this.request<{ transactions?: BridgeTransaction[] }>('lite.getTransactions', params)
     return result.transactions ?? []
   }
 
@@ -310,7 +310,7 @@ export class WsBridgeClient {
   // --- DNS ---
 
   async resolveDomain(domain: string): Promise<DnsResolveResult> {
-    return (await this.request('dns.resolve', { domain })) as DnsResolveResult
+    return await this.request<DnsResolveResult>('dns.resolve', { domain })
   }
 
   // --- Generic ---
@@ -321,17 +321,22 @@ export class WsBridgeClient {
 
   // --- Internal: JSON-RPC transport ---
 
-  private request(method: string, params: RpcParams): Promise<unknown> {
+  private request<T = unknown>(method: string, params: RpcParams, guard?: (value: unknown) => value is T): Promise<T> {
     const id = String(++this.nextId)
     const message = JSON.stringify({ jsonrpc: '2.0', id, method, params })
 
-    if (!this.connected) {
-      return new Promise((resolve, reject) => {
-        this.requestQueue.push({ message, resolve, reject, method })
-      })
-    }
+    const raw = this.connected
+      ? this.sendRequest(id, message, method)
+      : new Promise<unknown>((resolve, reject) => {
+          this.requestQueue.push({ message, resolve, reject, method })
+        })
 
-    return this.sendRequest(id, message, method)
+    return raw.then((value) => {
+      if (guard && !guard(value)) {
+        throw new Error(`Unexpected response shape for ${method}`)
+      }
+      return value as T
+    })
   }
 
   private sendRequest(id: string, message: string, method: string): Promise<unknown> {
