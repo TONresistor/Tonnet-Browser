@@ -4,11 +4,10 @@
  */
 
 import log from '../shared/logger'
-import { app, BrowserWindow, shell, screen, Menu, protocol, net, clipboard } from 'electron'
+import { app, BrowserWindow, shell, Menu, protocol, net, clipboard } from 'electron'
 import { join, resolve, dirname } from 'path'
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs'
+import { mkdirSync } from 'fs'
 import { migrateUserData } from './utils/migrate-userdata'
-import { writeFile } from 'fs/promises'
 import { EventEmitter } from 'events'
 import { pathToFileURL } from 'url'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
@@ -27,10 +26,10 @@ import {
   MIN_WINDOW_HEIGHT,
   WINDOW_BACKGROUND_COLOR,
   CONTEXT_MENU_WIDTH,
-  BOUNDS_SAVE_DEBOUNCE_MS,
 } from './windows/constants'
 import { IPC_CHANNELS } from '../shared/ipc-channels'
 import type { OverlayMenuItem } from '../shared/types'
+import { loadWindowBounds, saveWindowBounds, flushWindowBoundsOnQuit } from './windows/bounds'
 
 // Initialize electron-log IPC bridge so renderer can also log via electron-log
 log.initialize()
@@ -124,70 +123,7 @@ app.commandLine.appendSwitch(
   'IdleDetection,DirectSockets,WebOTP,DigitalGoods,WebPayments,HttpsUpgrades,NetworkPrediction'
 )
 
-// Window bounds persistence
-interface WindowBounds {
-  x: number
-  y: number
-  width: number
-  height: number
-  isMaximized: boolean
-}
-
-const boundsFile = join(app.getPath('userData'), 'window-bounds.json')
-let saveBoundsTimer: ReturnType<typeof setTimeout> | null = null
-
-function loadWindowBounds(): Partial<WindowBounds> {
-  try {
-    if (existsSync(boundsFile)) {
-      const data = readFileSync(boundsFile, 'utf-8')
-      const bounds = JSON.parse(data) as WindowBounds
-
-      if (
-        typeof bounds.x !== 'number' ||
-        typeof bounds.y !== 'number' ||
-        typeof bounds.width !== 'number' ||
-        typeof bounds.height !== 'number'
-      ) {
-        return {}
-      }
-
-      // Validate bounds are on a visible display (top-left corner must be on some display)
-      const displays = screen.getAllDisplays()
-      const isVisible = displays.some((display) => {
-        return (
-          bounds.x >= display.bounds.x &&
-          bounds.x < display.bounds.x + display.bounds.width &&
-          bounds.y >= display.bounds.y &&
-          bounds.y < display.bounds.y + display.bounds.height
-        )
-      })
-
-      if (isVisible) {
-        return bounds
-      }
-    }
-  } catch (err) {
-    appLog.error(`Failed to load bounds: ${String(err)}`)
-  }
-  return {}
-}
-
-function saveWindowBounds(win: BrowserWindow): void {
-  if (saveBoundsTimer) clearTimeout(saveBoundsTimer)
-  saveBoundsTimer = setTimeout(() => {
-    try {
-      const bounds: WindowBounds = {
-        ...win.getBounds(),
-        isMaximized: win.isMaximized(),
-      }
-      writeFile(boundsFile, JSON.stringify(bounds)).catch((err) => {
-        appLog.error(`Failed to save bounds: ${String(err)}`)
-      })
-    } catch (err) {
-      appLog.error(`Failed to save bounds: ${String(err)}`)
-    }
-  }, BOUNDS_SAVE_DEBOUNCE_MS)
-}
+// Window bounds persistence lives in ./windows/bounds (OPP-65 extraction).
 
 // Service registry -- populated in app.whenReady()
 let services: ServiceRegistry
@@ -603,19 +539,7 @@ app.on('before-quit', (event) => {
   isQuitting = true
 
   // Flush pending window bounds save synchronously before quit
-  if (saveBoundsTimer) {
-    clearTimeout(saveBoundsTimer)
-    saveBoundsTimer = null
-    const wins = BrowserWindow.getAllWindows()
-    if (wins.length > 0) {
-      try {
-        const bounds = { ...wins[0].getBounds(), isMaximized: wins[0].isMaximized() }
-        writeFileSync(boundsFile, JSON.stringify(bounds))
-      } catch (err) {
-        log.error(`Failed to flush bounds on quit: ${String(err)}`)
-      }
-    }
-  }
+  flushWindowBoundsOnQuit()
 
   // Cleanup history before quit -- must await, so use Promise chain
   services.historyManager
