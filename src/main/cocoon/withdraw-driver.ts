@@ -31,18 +31,14 @@ import { driveCurrentWithdrawStep, type TopUpNodeWallet } from './current-withdr
 import { retireCurrentCocoonWallet } from './retire-wallet'
 import type { CocoonManager } from './manager'
 import type { WsBridgeClient } from '../wallet/ws-bridge-client'
-import type { CocoonStakeInfo } from '../../shared/cocoon-types'
+import type { CocoonStakeInfo, WithdrawDriverEvent } from '../../shared/cocoon-types'
 
 const log = createLogger('cocoon:withdraw-driver')
 
 /** Idle poll cadence. The driver wakes more often during cooldown via state-change ticks. */
 const TICK_INTERVAL_MS = 30_000
 
-export type WithdrawDriverEvent =
-  | { type: 'progress'; status: CocoonStakeInfo['status'] }
-  | { type: 'cashout-done'; sentAmount: string; bocHash: string }
-  | { type: 'completed' }
-  | { type: 'error'; message: string; recoverable: boolean }
+export type { WithdrawDriverEvent }
 
 export class WithdrawDriver extends EventEmitter {
   private timer: ReturnType<typeof setInterval> | null = null
