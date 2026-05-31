@@ -3,10 +3,11 @@
  * Display and manage browsing history with 2 privacy modes.
  */
 
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { createLogger } from '@/logger'
-import { UI_COPY_FEEDBACK_MS, UI_NOTIFICATION_TIMEOUT_MS } from '@shared/constants'
+import { UI_COPY_FEEDBACK_MS } from '@shared/constants'
 import { Search, Trash2, Clock, ExternalLink, Filter, History, TriangleAlert } from 'lucide-react'
+import { useConfirmAction } from '../../hooks/useConfirmAction'
 
 const log = createLogger('history')
 import { useTranslation } from 'react-i18next'
@@ -25,12 +26,9 @@ export function HistoryPage() {
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('all')
   const [isLoading, setIsLoading] = useState(false)
   const [copiedId, setCopiedId] = useState<string | null>(null)
-  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
-  const [pendingClearAll, setPendingClearAll] = useState(false)
-  const [pendingClearRange, setPendingClearRange] = useState<string | null>(null)
-  const deleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const clearAllTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const clearRangeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const deleteConfirm = useConfirmAction()
+  const clearAllConfirm = useConfirmAction()
+  const clearRangeConfirm = useConfirmAction()
   const addTab = useTabsStore((state) => state.addTab)
 
   const loadHistory = useCallback(async () => {
@@ -76,46 +74,26 @@ export function HistoryPage() {
     return () => clearTimeout(timeoutId)
   }, [query, timeFilter, loadHistory])
 
-  useEffect(() => {
-    return () => {
-      if (deleteTimerRef.current) clearTimeout(deleteTimerRef.current)
-      if (clearAllTimerRef.current) clearTimeout(clearAllTimerRef.current)
-      if (clearRangeTimerRef.current) clearTimeout(clearRangeTimerRef.current)
-    }
-  }, [])
-
   const handleDelete = async (id: string) => {
-    if (pendingDeleteId === id) {
+    if (deleteConfirm.trigger(id)) {
       const result = await window.electron.history.delete(id)
       if (result.success) {
         loadHistory()
       }
-      setPendingDeleteId(null)
-      if (deleteTimerRef.current) clearTimeout(deleteTimerRef.current)
-    } else {
-      setPendingDeleteId(id)
-      if (deleteTimerRef.current) clearTimeout(deleteTimerRef.current)
-      deleteTimerRef.current = setTimeout(() => setPendingDeleteId(null), UI_NOTIFICATION_TIMEOUT_MS)
     }
   }
 
   const handleClearAll = async () => {
-    if (pendingClearAll) {
+    if (clearAllConfirm.trigger()) {
       const result = await window.electron.history.clear()
       if (result.success) {
         loadHistory()
       }
-      setPendingClearAll(false)
-      if (clearAllTimerRef.current) clearTimeout(clearAllTimerRef.current)
-    } else {
-      setPendingClearAll(true)
-      if (clearAllTimerRef.current) clearTimeout(clearAllTimerRef.current)
-      clearAllTimerRef.current = setTimeout(() => setPendingClearAll(false), UI_NOTIFICATION_TIMEOUT_MS)
     }
   }
 
   const handleClearTimeRange = async (range: 'hour' | 'day' | 'week') => {
-    if (pendingClearRange === range) {
+    if (clearRangeConfirm.trigger(range)) {
       const now = Date.now()
       const start = new Date(now)
 
@@ -131,12 +109,6 @@ export function HistoryPage() {
       await Promise.all(entriesToDelete.map((entry) => window.electron.history.delete(entry.id)))
 
       loadHistory()
-      setPendingClearRange(null)
-      if (clearRangeTimerRef.current) clearTimeout(clearRangeTimerRef.current)
-    } else {
-      setPendingClearRange(range)
-      if (clearRangeTimerRef.current) clearTimeout(clearRangeTimerRef.current)
-      clearRangeTimerRef.current = setTimeout(() => setPendingClearRange(null), UI_NOTIFICATION_TIMEOUT_MS)
     }
   }
 
@@ -252,30 +224,30 @@ export function HistoryPage() {
               <button
                 onClick={() => handleClearTimeRange('hour')}
                 className={`px-3 py-2 text-sm border border-border rounded-full transition-colors text-foreground flex items-center gap-1 ${
-                  pendingClearRange === 'hour' ? 'bg-destructive/20' : 'hover:bg-surface-hover'
+                  clearRangeConfirm.isArmed('hour') ? 'bg-destructive/20' : 'hover:bg-surface-hover'
                 }`}
               >
-                {pendingClearRange === 'hour' && <TriangleAlert className="w-3 h-3 text-destructive" />}
+                {clearRangeConfirm.isArmed('hour') && <TriangleAlert className="w-3 h-3 text-destructive" />}
                 {t('history.actions.clearLastHour')}
               </button>
               <button
                 onClick={() => handleClearTimeRange('day')}
                 className={`px-3 py-2 text-sm border border-border rounded-full transition-colors text-foreground flex items-center gap-1 ${
-                  pendingClearRange === 'day' ? 'bg-destructive/20' : 'hover:bg-surface-hover'
+                  clearRangeConfirm.isArmed('day') ? 'bg-destructive/20' : 'hover:bg-surface-hover'
                 }`}
               >
-                {pendingClearRange === 'day' && <TriangleAlert className="w-3 h-3 text-destructive" />}
+                {clearRangeConfirm.isArmed('day') && <TriangleAlert className="w-3 h-3 text-destructive" />}
                 {t('history.actions.clearLastDay')}
               </button>
               <button
                 onClick={handleClearAll}
                 className={`px-3 py-2 text-sm rounded-full transition-colors flex items-center gap-2 ${
-                  pendingClearAll
+                  clearAllConfirm.isArmed()
                     ? 'bg-destructive/20 text-destructive border border-destructive/50'
                     : 'bg-destructive text-white hover:bg-destructive/90'
                 }`}
               >
-                {pendingClearAll ? <TriangleAlert className="w-4 h-4" /> : <Trash2 className="w-4 h-4" />}
+                {clearAllConfirm.isArmed() ? <TriangleAlert className="w-4 h-4" /> : <Trash2 className="w-4 h-4" />}
                 {t('history.actions.clearAll')}
               </button>
             </div>
@@ -378,11 +350,11 @@ export function HistoryPage() {
                             <button
                               onClick={() => handleDelete(entry.id)}
                               className={`p-2 rounded-full transition-colors ${
-                                pendingDeleteId === entry.id ? 'bg-destructive/20' : 'hover:bg-destructive/10'
+                                deleteConfirm.isArmed(entry.id) ? 'bg-destructive/20' : 'hover:bg-destructive/10'
                               }`}
                               title={t('history.actions.delete')}
                             >
-                              {pendingDeleteId === entry.id ? (
+                              {deleteConfirm.isArmed(entry.id) ? (
                                 <TriangleAlert className="w-4 h-4 text-destructive" />
                               ) : (
                                 <Trash2 className="w-4 h-4 text-destructive" />

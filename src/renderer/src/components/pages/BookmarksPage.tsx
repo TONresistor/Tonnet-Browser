@@ -40,6 +40,7 @@ import { useTabsStore } from '@/stores/tabs'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 import { Favicon } from '@/components/ui/Favicon'
+import { useConfirmAction } from '@/hooks/useConfirmAction'
 
 // --- Sortable Bookmark Row ---
 
@@ -270,8 +271,8 @@ export const BookmarksPage = memo(function BookmarksPage() {
   const [query, setQuery] = useState('')
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null)
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set())
-  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
-  const [pendingFolderDeleteId, setPendingFolderDeleteId] = useState<string | null>(null)
+  const deleteConfirm = useConfirmAction()
+  const folderDeleteConfirm = useConfirmAction()
   const [showResetModal, setShowResetModal] = useState(false)
   const [maxDepthWarning, setMaxDepthWarning] = useState(false)
   const [activeId, setActiveId] = useState<string | null>(null)
@@ -290,14 +291,10 @@ export const BookmarksPage = memo(function BookmarksPage() {
   } | null>(null)
 
   // Timers
-  const deleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const folderDeleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const maxDepthTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     return () => {
-      if (deleteTimerRef.current) clearTimeout(deleteTimerRef.current)
-      if (folderDeleteTimerRef.current) clearTimeout(folderDeleteTimerRef.current)
       if (maxDepthTimerRef.current) clearTimeout(maxDepthTimerRef.current)
     }
   }, [])
@@ -332,33 +329,21 @@ export const BookmarksPage = memo(function BookmarksPage() {
 
   const handleDeleteBookmark = useCallback(
     (id: string) => {
-      if (pendingDeleteId === id) {
+      if (deleteConfirm.trigger(id)) {
         removeBookmark(id)
-        setPendingDeleteId(null)
-        if (deleteTimerRef.current) clearTimeout(deleteTimerRef.current)
-      } else {
-        setPendingDeleteId(id)
-        if (deleteTimerRef.current) clearTimeout(deleteTimerRef.current)
-        deleteTimerRef.current = setTimeout(() => setPendingDeleteId(null), UI_NOTIFICATION_TIMEOUT_MS)
       }
     },
-    [pendingDeleteId, removeBookmark]
+    [deleteConfirm, removeBookmark]
   )
 
   const handleDeleteFolder = useCallback(
     (folderId: string) => {
-      if (pendingFolderDeleteId === folderId) {
+      if (folderDeleteConfirm.trigger(folderId)) {
         removeFolder(folderId)
-        setPendingFolderDeleteId(null)
-        if (folderDeleteTimerRef.current) clearTimeout(folderDeleteTimerRef.current)
         if (selectedFolderId === folderId) setSelectedFolderId(null)
-      } else {
-        setPendingFolderDeleteId(folderId)
-        if (folderDeleteTimerRef.current) clearTimeout(folderDeleteTimerRef.current)
-        folderDeleteTimerRef.current = setTimeout(() => setPendingFolderDeleteId(null), UI_NOTIFICATION_TIMEOUT_MS)
       }
     },
-    [pendingFolderDeleteId, removeFolder, selectedFolderId]
+    [folderDeleteConfirm, removeFolder, selectedFolderId]
   )
 
   const handleNewFolder = useCallback(
@@ -479,7 +464,7 @@ export const BookmarksPage = memo(function BookmarksPage() {
           isExpanded={isExpanded}
           hasSubfolders={childFolders.length > 0}
           bookmarksCount={count}
-          isPendingDelete={pendingFolderDeleteId === folder.id}
+          isPendingDelete={folderDeleteConfirm.isArmed(folder.id)}
           onSelect={() => setSelectedFolderId(folder.id)}
           onToggleExpand={() => toggleExpand(folder.id)}
           onEdit={() => setEditingFolder({ id: folder.id, name: folder.name })}
@@ -600,7 +585,7 @@ export const BookmarksPage = memo(function BookmarksPage() {
                       <SortableBookmarkRow
                         key={bookmark.id}
                         bookmark={bookmark}
-                        isPendingDelete={pendingDeleteId === bookmark.id}
+                        isPendingDelete={deleteConfirm.isArmed(bookmark.id)}
                         onNavigate={navigateActiveTab}
                         onOpenNewTab={addTab}
                         onEdit={(b) =>
