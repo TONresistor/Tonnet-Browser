@@ -38,19 +38,6 @@ interface InterceptedRequest {
   session: Electron.Session
 }
 
-/** Pending manual approval requests, keyed by payment ID */
-const pendingApprovals = new Map<
-  string,
-  {
-    request: InterceptedRequest
-    paymentReq: PaymentRequirements
-    domain: string
-    ttl: ReturnType<typeof setTimeout>
-    reservationId?: string
-    xhrResolver?: (result: { success: boolean; error?: string }) => void
-  }
->()
-
 /** TON raw address regex: 0:<64 hex chars> */
 const TON_RAW_ADDRESS_RE = /^0:[0-9a-fA-F]{64}$/
 
@@ -171,6 +158,42 @@ async function readBoundedBody(response: Response, maxBytes: number): Promise<st
   return new TextDecoder('utf-8').decode(merged)
 }
 
+/**
+ * Build a PaymentNotificationData from the common 402 context. Single source so
+ * the payTo->friendly derivation and field set never diverge across the ~12
+ * emit sites (which previously hand-rolled the same object).
+ */
+function buildNotification(
+  id: string,
+  domain: string,
+  url: string,
+  paymentReq: Pick<PaymentRequirements, 'amount' | 'payTo'>,
+  status: PaymentNotificationData['status'],
+  error?: string
+): PaymentNotificationData {
+  return {
+    id,
+    domain,
+    url,
+    amount: paymentReq.amount,
+    payTo: paymentReq.payTo,
+    payToFriendly: rawToFriendly(paymentReq.payTo),
+    status,
+    ...(error !== undefined ? { error } : {}),
+  }
+}
+
+/** Emit a payment notification on the channel implied by its status. */
+function emitPaymentNotification(notification: PaymentNotificationData): void {
+  const channel =
+    notification.status === 'pending'
+      ? IPC_CHANNELS.WALLET_PAYMENT_REQ
+      : notification.status === 'completed'
+        ? IPC_CHANNELS.WALLET_PAYMENT_MADE
+        : IPC_CHANNELS.WALLET_PAYMENT_FAILED
+  emitToRenderer(channel, notification)
+}
+
 export class PaymentInterceptor {
   private walletManager: WalletManager
   private paymentPolicyStore: PaymentPolicyStore
@@ -179,6 +202,18 @@ export class PaymentInterceptor {
   private inflightXhrPayments = new Map<
     string,
     { promise: Promise<{ success: boolean; error?: string }>; count: number }
+  >()
+  /** Pending manual approval requests, keyed by payment ID */
+  private pendingApprovals = new Map<
+    string,
+    {
+      request: InterceptedRequest
+      paymentReq: PaymentRequirements
+      domain: string
+      ttl: ReturnType<typeof setTimeout>
+      reservationId?: string
+      xhrResolver?: (result: { success: boolean; error?: string }) => void
+    }
   >()
 
   constructor(
@@ -293,17 +328,16 @@ export class PaymentInterceptor {
 
     const reservationId = this.paymentPolicyStore.reservePayment(originalDomain, paymentReq.amount)
     if (!reservationId) {
-      const notification: PaymentNotificationData = {
-        id: crypto.randomUUID(),
-        domain: originalDomain,
-        url: request.url,
-        amount: paymentReq.amount,
-        payTo: paymentReq.payTo,
-        payToFriendly: rawToFriendly(paymentReq.payTo),
-        status: 'failed',
-        error: 'Spending limit reached',
-      }
-      emitToRenderer(IPC_CHANNELS.WALLET_PAYMENT_FAILED, notification)
+      emitPaymentNotification(
+        buildNotification(
+          crypto.randomUUID(),
+          originalDomain,
+          request.url,
+          paymentReq,
+          'failed',
+          'Spending limit reached'
+        )
+      )
       return
     }
 
@@ -315,39 +349,28 @@ export class PaymentInterceptor {
       // FIX 6: Auto-reject pending approvals after TTL
       const ttlTimeout = setTimeout(
         () => {
-          const pending = pendingApprovals.get(paymentId)
+          const pending = this.pendingApprovals.get(paymentId)
           if (pending) {
-            pendingApprovals.delete(paymentId)
+            this.pendingApprovals.delete(paymentId)
             if (pending.reservationId) this.paymentPolicyStore.rollbackPayment(pending.reservationId)
-            const notification: PaymentNotificationData = {
-              id: paymentId,
-              domain: originalDomain,
-              url: request.url,
-              amount: paymentReq.amount,
-              payTo: paymentReq.payTo,
-              payToFriendly: rawToFriendly(paymentReq.payTo),
-              status: 'rejected',
-              error: 'Approval timed out',
-            }
-            emitToRenderer(IPC_CHANNELS.WALLET_PAYMENT_FAILED, notification)
+            emitPaymentNotification(
+              buildNotification(paymentId, originalDomain, request.url, paymentReq, 'rejected', 'Approval timed out')
+            )
             log.info(`Payment approval timed out for ${originalDomain}`)
           }
         },
         (paymentReq.maxTimeoutSeconds || DEFAULT_APPROVAL_TIMEOUT_S) * 1_000
       )
 
-      pendingApprovals.set(paymentId, { request, paymentReq, domain: originalDomain, ttl: ttlTimeout, reservationId })
-
-      const notification: PaymentNotificationData = {
-        id: paymentId,
+      this.pendingApprovals.set(paymentId, {
+        request,
+        paymentReq,
         domain: originalDomain,
-        url: request.url,
-        amount: paymentReq.amount,
-        payTo: paymentReq.payTo,
-        payToFriendly: rawToFriendly(paymentReq.payTo),
-        status: 'pending',
-      }
-      emitToRenderer(IPC_CHANNELS.WALLET_PAYMENT_REQ, notification)
+        ttl: ttlTimeout,
+        reservationId,
+      })
+
+      emitPaymentNotification(buildNotification(paymentId, originalDomain, request.url, paymentReq, 'pending'))
     }
   }
 
@@ -397,16 +420,7 @@ export class PaymentInterceptor {
 
         await this.walletHistoryManager.updateStatus(paymentId, 'confirmed')
 
-        const notification: PaymentNotificationData = {
-          id: paymentId,
-          domain,
-          url: request.url,
-          amount: paymentReq.amount,
-          payTo: paymentReq.payTo,
-          payToFriendly: rawToFriendly(paymentReq.payTo),
-          status: 'completed',
-        }
-        emitToRenderer(IPC_CHANNELS.WALLET_PAYMENT_MADE, notification)
+        emitPaymentNotification(buildNotification(paymentId, domain, request.url, paymentReq, 'completed'))
 
         // Navigate the original webContents to reload with payment header
         const allWebContents = webContents.getAllWebContents()
@@ -425,17 +439,16 @@ export class PaymentInterceptor {
         const errorText = await readBoundedBody(retryResponse, MAX_RESPONSE_BODY).catch(() => 'read error')
         await this.walletHistoryManager.updateStatus(paymentId, 'failed')
 
-        const notification: PaymentNotificationData = {
-          id: paymentId,
-          domain,
-          url: request.url,
-          amount: paymentReq.amount,
-          payTo: paymentReq.payTo,
-          payToFriendly: rawToFriendly(paymentReq.payTo),
-          status: 'failed',
-          error: `Server returned ${retryResponse.status}: ${errorText.slice(0, ERROR_TRUNCATE_LENGTH)}`,
-        }
-        emitToRenderer(IPC_CHANNELS.WALLET_PAYMENT_FAILED, notification)
+        emitPaymentNotification(
+          buildNotification(
+            paymentId,
+            domain,
+            request.url,
+            paymentReq,
+            'failed',
+            `Server returned ${retryResponse.status}: ${errorText.slice(0, ERROR_TRUNCATE_LENGTH)}`
+          )
+        )
 
         log.warn(`402 payment retry failed for ${domain}: ${retryResponse.status}`)
       }
@@ -445,17 +458,9 @@ export class PaymentInterceptor {
         .updateStatus(paymentId, 'failed')
         .catch((err) => log.debug('Failed to update payment history status:', err))
 
-      const notification: PaymentNotificationData = {
-        id: paymentId,
-        domain,
-        url: request.url,
-        amount: paymentReq.amount,
-        payTo: paymentReq.payTo,
-        payToFriendly: rawToFriendly(paymentReq.payTo),
-        status: 'failed',
-        error: errorMessage(err),
-      }
-      emitToRenderer(IPC_CHANNELS.WALLET_PAYMENT_FAILED, notification)
+      emitPaymentNotification(
+        buildNotification(paymentId, domain, request.url, paymentReq, 'failed', errorMessage(err))
+      )
 
       log.error(`402 payment error for ${domain}:`, err)
     }
@@ -466,14 +471,14 @@ export class PaymentInterceptor {
    * Called from IPC when the user clicks "Approve" in the renderer.
    */
   async approvePayment(paymentId: string): Promise<void> {
-    const pending = pendingApprovals.get(paymentId)
+    const pending = this.pendingApprovals.get(paymentId)
     if (!pending) {
       log.warn(`No pending approval found for ${paymentId}`)
       return
     }
 
     clearTimeout(pending.ttl)
-    pendingApprovals.delete(paymentId)
+    this.pendingApprovals.delete(paymentId)
 
     if (pending.xhrResolver) {
       try {
@@ -500,32 +505,24 @@ export class PaymentInterceptor {
         }
         await this.walletHistoryManager.add(tx)
 
-        const notification: PaymentNotificationData = {
-          id: paymentId,
-          domain: pending.domain,
-          url: pending.request.url,
-          amount: pending.paymentReq.amount,
-          payTo: pending.paymentReq.payTo,
-          payToFriendly: rawToFriendly(pending.paymentReq.payTo),
-          status: 'completed',
-        }
-        emitToRenderer(IPC_CHANNELS.WALLET_PAYMENT_MADE, notification)
+        emitPaymentNotification(
+          buildNotification(paymentId, pending.domain, pending.request.url, pending.paymentReq, 'completed')
+        )
         log.debug(`XHR payment approved for ${pending.domain}`)
         pending.xhrResolver({ success: true })
       } catch (err) {
         this.xhrTokens.delete(`${pending.request.webContentsId}|${pending.request.url}`)
         if (pending.reservationId) this.paymentPolicyStore.rollbackPayment(pending.reservationId)
-        const notification: PaymentNotificationData = {
-          id: paymentId,
-          domain: pending.domain,
-          url: pending.request.url,
-          amount: pending.paymentReq.amount,
-          payTo: pending.paymentReq.payTo,
-          payToFriendly: rawToFriendly(pending.paymentReq.payTo),
-          status: 'failed',
-          error: errorMessage(err),
-        }
-        emitToRenderer(IPC_CHANNELS.WALLET_PAYMENT_FAILED, notification)
+        emitPaymentNotification(
+          buildNotification(
+            paymentId,
+            pending.domain,
+            pending.request.url,
+            pending.paymentReq,
+            'failed',
+            errorMessage(err)
+          )
+        )
         log.error(`XHR manual payment error for ${pending.domain}:`, err)
         pending.xhrResolver({ success: false, error: errorMessage(err) })
       }
@@ -538,23 +535,16 @@ export class PaymentInterceptor {
    * Reject a pending manual payment.
    */
   rejectPayment(paymentId: string): void {
-    const pending = pendingApprovals.get(paymentId)
+    const pending = this.pendingApprovals.get(paymentId)
     if (!pending) return
 
     clearTimeout(pending.ttl)
-    pendingApprovals.delete(paymentId)
+    this.pendingApprovals.delete(paymentId)
     if (pending.reservationId) this.paymentPolicyStore.rollbackPayment(pending.reservationId)
 
-    const notification: PaymentNotificationData = {
-      id: paymentId,
-      domain: pending.domain,
-      url: pending.request.url,
-      amount: pending.paymentReq.amount,
-      payTo: pending.paymentReq.payTo,
-      payToFriendly: rawToFriendly(pending.paymentReq.payTo),
-      status: 'rejected',
-    }
-    emitToRenderer(IPC_CHANNELS.WALLET_PAYMENT_FAILED, notification)
+    emitPaymentNotification(
+      buildNotification(paymentId, pending.domain, pending.request.url, pending.paymentReq, 'rejected')
+    )
     log.info(`Payment rejected for ${pending.domain}`)
     if (pending.xhrResolver) {
       pending.xhrResolver({ success: false, error: 'user-rejected' })
@@ -729,16 +719,7 @@ export class PaymentInterceptor {
         }
         await this.walletHistoryManager.add(tx)
 
-        const notification: PaymentNotificationData = {
-          id: paymentId,
-          domain: originalDomain,
-          url,
-          amount: paymentReq.amount,
-          payTo: paymentReq.payTo,
-          payToFriendly: rawToFriendly(paymentReq.payTo),
-          status: 'completed',
-        }
-        emitToRenderer(IPC_CHANNELS.WALLET_PAYMENT_MADE, notification)
+        emitPaymentNotification(buildNotification(paymentId, originalDomain, url, paymentReq, 'completed'))
         log.debug(`XHR payment signed for ${originalDomain}`)
         return { success: true }
       } catch (err) {
@@ -753,21 +734,13 @@ export class PaymentInterceptor {
     return new Promise((resolve) => {
       const ttlTimeout = setTimeout(
         () => {
-          const pending = pendingApprovals.get(paymentId)
+          const pending = this.pendingApprovals.get(paymentId)
           if (pending) {
-            pendingApprovals.delete(paymentId)
+            this.pendingApprovals.delete(paymentId)
             if (pending.reservationId) this.paymentPolicyStore.rollbackPayment(pending.reservationId)
-            const notification: PaymentNotificationData = {
-              id: paymentId,
-              domain: originalDomain,
-              url,
-              amount: paymentReq.amount,
-              payTo: paymentReq.payTo,
-              payToFriendly: rawToFriendly(paymentReq.payTo),
-              status: 'rejected',
-              error: 'Approval timed out',
-            }
-            emitToRenderer(IPC_CHANNELS.WALLET_PAYMENT_FAILED, notification)
+            emitPaymentNotification(
+              buildNotification(paymentId, originalDomain, url, paymentReq, 'rejected', 'Approval timed out')
+            )
             log.debug(`XHR payment approval timed out for ${originalDomain}`)
             pending.xhrResolver?.({ success: false, error: 'timeout' })
           }
@@ -775,7 +748,7 @@ export class PaymentInterceptor {
         (paymentReq.maxTimeoutSeconds || DEFAULT_APPROVAL_TIMEOUT_S) * 1_000
       )
 
-      pendingApprovals.set(paymentId, {
+      this.pendingApprovals.set(paymentId, {
         request: { url, webContentsId, session },
         paymentReq,
         domain: originalDomain,
@@ -784,16 +757,7 @@ export class PaymentInterceptor {
         xhrResolver: resolve,
       })
 
-      const notification: PaymentNotificationData = {
-        id: paymentId,
-        domain: originalDomain,
-        url,
-        amount: paymentReq.amount,
-        payTo: paymentReq.payTo,
-        payToFriendly: rawToFriendly(paymentReq.payTo),
-        status: 'pending',
-      }
-      emitToRenderer(IPC_CHANNELS.WALLET_PAYMENT_REQ, notification)
+      emitPaymentNotification(buildNotification(paymentId, originalDomain, url, paymentReq, 'pending'))
     })
   }
 
@@ -802,13 +766,13 @@ export class PaymentInterceptor {
    * Called on app exit via destroyServices().
    */
   destroy(): void {
-    for (const [, pending] of pendingApprovals) {
+    for (const [, pending] of this.pendingApprovals) {
       clearTimeout(pending.ttl)
       if (pending.reservationId) {
         this.paymentPolicyStore.rollbackPayment(pending.reservationId)
       }
     }
-    pendingApprovals.clear()
+    this.pendingApprovals.clear()
     this.xhrTokens.clear()
   }
 }
