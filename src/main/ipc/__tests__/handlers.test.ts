@@ -145,8 +145,6 @@ vi.mock('../error-handler', () => ({
     })
   },
   ipcErrorHandler: {
-    getRecentErrors: vi.fn(() => []),
-    clearLogs: vi.fn(),
     logError: vi.fn(),
   },
 }))
