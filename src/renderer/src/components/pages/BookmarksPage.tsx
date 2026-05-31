@@ -39,6 +39,7 @@ import { useBookmarksStore, type Bookmark, type BookmarkFolder } from '@/stores/
 import { useTabsStore } from '@/stores/tabs'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
+import { downloadJson } from '@/lib/download'
 import { Favicon } from '@/components/ui/Favicon'
 import { useConfirmAction } from '@/hooks/useConfirmAction'
 
@@ -394,14 +395,7 @@ export const BookmarksPage = memo(function BookmarksPage() {
   }, [editingFolder, updateFolder])
 
   const handleExport = useCallback(() => {
-    const data = JSON.stringify({ bookmarks, folders }, null, 2)
-    const blob = new Blob([data], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'ton-browser-bookmarks.json'
-    a.click()
-    URL.revokeObjectURL(url)
+    downloadJson({ bookmarks, folders }, 'ton-browser-bookmarks.json')
   }, [bookmarks, folders])
 
   const handleReset = useCallback(() => {
