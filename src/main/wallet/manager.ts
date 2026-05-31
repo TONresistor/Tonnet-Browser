@@ -62,8 +62,9 @@ export class WalletManager extends EventEmitter {
         this.keypair = await this.keyStorage.load()
         this.publicKey = Buffer.from(this.keypair.publicKey)
         this.walletContract = WalletContractV5R1.create({ publicKey: this.keypair.publicKey, workchain: 0 })
-        await this.warmupLiteserverPool()
-        await this.syncSeqno()
+        // warmup (balance priming) and seqno sync hit independent bridge
+        // methods with no data dependency, so run them concurrently.
+        await Promise.allSettled([this.warmupLiteserverPool(), this.syncSeqno()])
         this.subscribeAccount()
         const walletSettings = getSetting('wallet')
         this.keyStorage.setAutoLockMinutes(walletSettings.autoLockMinutes)
