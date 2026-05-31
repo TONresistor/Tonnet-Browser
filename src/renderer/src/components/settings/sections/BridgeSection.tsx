@@ -16,6 +16,7 @@ import { useTranslation } from 'react-i18next'
 import { REQUIRED_NAMESPACES, OPTIONAL_NAMESPACES, isRequiredNamespace } from '@shared/bridge-config'
 import type { BridgeConfig, NamespaceKey } from '@shared/bridge-config'
 import type { BridgePermission } from '@shared/types'
+import { useSectionHandle } from '@/hooks/useSectionHandle'
 
 const log = createLogger('bridge-settings')
 
@@ -100,11 +101,6 @@ export const BridgeSection = memo(function BridgeSection({ onDirtyChange, sectio
     load()
   }, [])
 
-  // Notify parent of dirty state
-  useEffect(() => {
-    onDirtyChange?.(hasChanges)
-  }, [hasChanges, onDirtyChange])
-
   // Save
   const saveToMain = useCallback(async () => {
     try {
@@ -128,16 +124,8 @@ export const BridgeSection = memo(function BridgeSection({ onDirtyChange, sectio
     setDraftPolicy(savedPolicy)
   }, [savedConfig, savedPolicy])
 
-  // Expose to parent via ref
-  useEffect(() => {
-    if (sectionRef) {
-      ;(sectionRef as React.MutableRefObject<BridgeSectionHandle | null>).current = {
-        save: saveToMain,
-        discard: discardChanges,
-        hasChanges,
-      }
-    }
-  }, [sectionRef, saveToMain, discardChanges, hasChanges])
+  // Notify parent of dirty state + expose save/discard handle via ref
+  useSectionHandle(sectionRef, { save: saveToMain, discard: discardChanges, hasChanges }, onDirtyChange)
 
   // Config updaters
   const setNamespaceEnabled = (ns: NamespaceKey, enabled: boolean) => {
