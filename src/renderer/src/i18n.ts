@@ -97,21 +97,4 @@ export async function loadLanguage(lang: string): Promise<void> {
   }
 }
 
-/**
- * Check if a language is currently loaded
- * @param lang - Language code
- * @returns true if language is loaded
- */
-export function isLanguageLoaded(lang: string): boolean {
-  return loadedLanguages.has(lang)
-}
-
-/**
- * Get list of loaded languages
- * @returns Array of loaded language codes
- */
-export function getLoadedLanguages(): string[] {
-  return Array.from(loadedLanguages)
-}
-
 export default i18n
