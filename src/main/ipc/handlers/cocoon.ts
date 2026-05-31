@@ -31,6 +31,7 @@ import { loadCocoonWallet } from '../../cocoon/wallet'
 import { recoverAllCocoonFunds } from '../../cocoon/recover-all'
 import { retireCurrentCocoonWallet } from '../../cocoon/retire-wallet'
 import type { ServiceRegistry } from '../../services'
+import type { WsBridgeClient } from '../../wallet/ws-bridge-client'
 import type { CocoonLogEvent } from '../../../shared/cocoon-types'
 
 /**
@@ -110,6 +111,20 @@ async function waitForDrainConfirmed(
   }
 }
 
+/** Returns the connected bridge client or throws the standard not-initialized error. */
+function requireBridge(registry: ServiceRegistry): WsBridgeClient {
+  const bridge = registry.walletManager.getBridgeClient()
+  if (!bridge) throw new Error('Bridge not connected — wallet not initialized')
+  return bridge
+}
+
+/** Returns the native wallet address or throws a not-initialized error naming the action. */
+function requireNativeAddress(registry: ServiceRegistry, action: string): string {
+  const native = registry.walletManager.getState().address
+  if (!native) throw new Error(`Native wallet not initialized — cannot ${action}`)
+  return native
+}
+
 async function retireTerminalWalletBeforeCreate(registry: ServiceRegistry): Promise<void> {
   const wallet = await loadCocoonWallet()
   if (!wallet) return
@@ -146,8 +161,7 @@ async function retireTerminalWalletBeforeCreate(registry: ServiceRegistry): Prom
   ])
   const hasResidual = ownerBalance >= DRAIN_FLOOR_NANO || nodeBalance >= DRAIN_FLOOR_NANO
   if (hasResidual) {
-    const native = registry.walletManager.getState().address
-    if (!native) throw new Error('Native wallet not initialized — cannot retire existing Cocoon setup')
+    const native = requireNativeAddress(registry, 'retire existing Cocoon setup')
     try {
       await cashout(registry.cocoonManager, bridge, native)
       await waitForDrainConfirmed(bridge, wallet.ownerAddress, wallet.nodeAddress)
@@ -245,15 +259,13 @@ export function registerCocoonHandlers(registry: ServiceRegistry): void {
   // ── Setup wizard ────────────────────────────────────────────────────────────
 
   secureHandle(IPC_CHANNELS.COCOON_SETUP_OWNER_BALANCE, async () => {
-    const bridge = registry.walletManager.getBridgeClient()
-    if (!bridge) throw new Error('Bridge not connected — wallet not initialized')
+    const bridge = requireBridge(registry)
     const balance = await getOwnerBalance(bridge)
     return balance.toString() // bigint -> decimal string (IPC-safe)
   })
 
   secureHandle(IPC_CHANNELS.COCOON_SETUP_COCOON_BALANCE, async () => {
-    const bridge = registry.walletManager.getBridgeClient()
-    if (!bridge) throw new Error('Bridge not connected — wallet not initialized')
+    const bridge = requireBridge(registry)
     const balance = await getCocoonWalletBalance(bridge)
     return balance.toString()
   })
@@ -263,8 +275,7 @@ export function registerCocoonHandlers(registry: ServiceRegistry): void {
     if (!p || typeof p !== 'object' || !('amount' in p)) {
       throw new Error('fundCocoon: params must be { amount: string | "max" }')
     }
-    const bridge = registry.walletManager.getBridgeClient()
-    if (!bridge) throw new Error('Bridge not connected — wallet not initialized')
+    const bridge = requireBridge(registry)
     const amountArg: bigint | 'max' = p.amount === 'max' ? 'max' : BigInt(p.amount as string)
     const result = await fundCocoonFromOwner(bridge, amountArg)
     return {
@@ -277,8 +288,7 @@ export function registerCocoonHandlers(registry: ServiceRegistry): void {
   // ── Stake lifecycle (unstake / cashout) ─────────────────────────────────────
 
   secureHandle(IPC_CHANNELS.COCOON_STAKE_INFO, async () => {
-    const bridge = registry.walletManager.getBridgeClient()
-    if (!bridge) throw new Error('Bridge not connected — wallet not initialized')
+    const bridge = requireBridge(registry)
     return getStakeInfo(cocoonManager, bridge)
   })
 
@@ -288,10 +298,8 @@ export function registerCocoonHandlers(registry: ServiceRegistry): void {
   })
 
   secureHandle(IPC_CHANNELS.COCOON_STAKE_CASHOUT, async () => {
-    const bridge = registry.walletManager.getBridgeClient()
-    if (!bridge) throw new Error('Bridge not connected — wallet not initialized')
-    const native = registry.walletManager.getState().address
-    if (!native) throw new Error('Native wallet not initialized — cannot cashout')
+    const bridge = requireBridge(registry)
+    const native = requireNativeAddress(registry, 'cashout')
     return cashout(cocoonManager, bridge, native)
   })
 
@@ -315,8 +323,7 @@ export function registerCocoonHandlers(registry: ServiceRegistry): void {
    * Returns once the runner reaches 'ready'.
    */
   secureHandle(IPC_CHANNELS.COCOON_FLOW_STAKE, async () => {
-    const bridge = registry.walletManager.getBridgeClient()
-    if (!bridge) throw new Error('Bridge not connected — wallet not initialized')
+    const bridge = requireBridge(registry)
 
     // 1. Inspect current state. wallet may be null on first ever use.
     const currentWallet = await loadCocoonWallet()
@@ -453,11 +460,9 @@ export function registerCocoonHandlers(registry: ServiceRegistry): void {
     const archive = await getConsumedArchive().getByArchivedAt(p.archivedAt)
     if (!archive) throw new Error('Archive entry not found')
 
-    const bridge = registry.walletManager.getBridgeClient()
-    if (!bridge) throw new Error('Bridge not connected — wallet not initialized')
+    const bridge = requireBridge(registry)
 
-    const native = registry.walletManager.getState().address
-    if (!native) throw new Error('Native wallet not initialized — cannot enqueue recovery')
+    const native = requireNativeAddress(registry, 'enqueue recovery')
 
     const result = await enqueueRecovery(recoveryDriver, {
       archivedAt: p.archivedAt,
@@ -490,10 +495,8 @@ export function registerCocoonHandlers(registry: ServiceRegistry): void {
    * on-chain client SC itself returns a future unlock timestamp.
    */
   secureHandle(IPC_CHANNELS.COCOON_RECOVERY_ALL, async () => {
-    const bridge = registry.walletManager.getBridgeClient()
-    if (!bridge) throw new Error('Bridge not connected — wallet not initialized')
-    const native = registry.walletManager.getState().address
-    if (!native) throw new Error('Native wallet not initialized — cannot recover Cocoon funds')
+    const bridge = requireBridge(registry)
+    const native = requireNativeAddress(registry, 'recover Cocoon funds')
     return recoverAllCocoonFunds(cocoonManager, bridge, native)
   })
 }
