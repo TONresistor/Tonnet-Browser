@@ -98,9 +98,11 @@ export class PaymentPolicyStore {
   cleanup(): void {
     const now = Date.now()
     const thirtyDaysMs = SPENDING_RETENTION_MS
+    let removed = 0
 
     for (const [domain, records] of this.spending) {
       const filtered = records.filter((r) => now - r.timestamp < thirtyDaysMs)
+      removed += records.length - filtered.length
       if (filtered.length === 0) {
         this.spending.delete(domain)
       } else {
@@ -111,10 +113,13 @@ export class PaymentPolicyStore {
     for (const [domain, entry] of this.rateLimits) {
       if (entry.timestamps.length === 0) {
         this.rateLimits.delete(domain)
+        removed++
       }
     }
 
-    log.info('Stale payment policy entries cleaned up')
+    if (removed > 0) {
+      log.info(`Cleaned up ${removed} stale payment policy entries`)
+    }
   }
 
   async destroy(): Promise<void> {
