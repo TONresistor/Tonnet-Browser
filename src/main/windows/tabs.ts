@@ -25,7 +25,7 @@ import {
 import { updateViewBounds, updateSidebarBounds, invalidateAppearanceCache } from './tabs-bounds'
 import { setupSecurityHandlers, ALLOWED_SCHEMES } from './tabs-security'
 import { setupViewEventListeners, setTabEventDeps } from './tabs-events'
-import { DisposableStore, IDisposable } from '../utils/disposable'
+import { DisposableStore, IDisposable, onWebContents } from '../utils/disposable'
 import type { OverlayManager } from './overlay-manager'
 import type { ProxyManager } from '../proxy/manager'
 import type { StorageManager } from '../storage/daemon'
@@ -144,7 +144,7 @@ function setupViewEvents(view: WebContentsView, tabId: string): void {
   const store = new DisposableStore()
   store.add(setupViewEventListeners(view, tabId))
   store.add(setupSecurityHandlers(view, tabId))
-  setupNavAwareAttach(view, tabId)
+  store.add(setupNavAwareAttach(view, tabId))
   viewDisposables.get(tabId)?.dispose()
   viewDisposables.set(tabId, store)
 }
@@ -158,8 +158,9 @@ function setupViewEvents(view: WebContentsView, tabId: string): void {
  * webContents and would otherwise expose the view's paint-holding color
  * during the pre-paint gap on Linux (electron/electron#44652).
  */
-function setupNavAwareAttach(view: WebContentsView, tabId: string): void {
-  view.webContents.on(
+function setupNavAwareAttach(view: WebContentsView, tabId: string): IDisposable {
+  return onWebContents(
+    view.webContents,
     'did-start-navigation',
     (_e: Electron.Event, url: string, isInPlace: boolean, isMainFrame: boolean) => {
       if (!isMainFrame || isInPlace) return
