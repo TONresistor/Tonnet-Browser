@@ -219,13 +219,6 @@ describe('StorageManager', () => {
     })
   })
 
-  describe('setStoragePath()', () => {
-    it('updates the storage path', () => {
-      manager.setStoragePath('/new/path')
-      expect(manager.getStatus().storagePath).toBe('/new/path')
-    })
-  })
-
   describe('Bag Operations', () => {
     beforeEach(async () => {
       await manager.start()

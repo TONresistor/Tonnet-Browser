@@ -54,8 +54,6 @@ export function registerSettingsHandlers(registry: ServiceRegistry): void {
 
     try {
       setDownloadPath(inputPath)
-      // Update the storage manager with new path
-      storageManager.setStoragePath(inputPath)
       log.info(`Download path set to: ${inputPath}`)
       return { success: true }
     } catch (error) {
@@ -82,7 +80,6 @@ export function registerSettingsHandlers(registry: ServiceRegistry): void {
 
     const selectedPath = result.filePaths[0]
     setDownloadPath(selectedPath)
-    storageManager.setStoragePath(selectedPath)
     log.info(`Download folder selected: ${selectedPath}`)
     return { success: true, path: selectedPath }
   })
