@@ -4,6 +4,7 @@
 
 import { useState } from 'react'
 import { UI_COPY_FEEDBACK_MS } from '@shared/constants'
+import { downloadTextFile } from '@/lib/download'
 import { X, Upload, Download, CircleAlert, Check } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
@@ -146,15 +147,7 @@ export function ExportDialog({ themeJson, themeName, onClose }: ExportDialogProp
   }
 
   const handleDownload = () => {
-    const blob = new Blob([themeJson], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `${themeName.toLowerCase().replace(/\s+/g, '-')}.json`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
+    downloadTextFile(themeJson, `${themeName.toLowerCase().replace(/\s+/g, '-')}.json`)
   }
 
   return (
