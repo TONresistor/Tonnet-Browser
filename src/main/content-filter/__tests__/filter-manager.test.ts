@@ -5,12 +5,21 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { ContentFilterManager } from '../filter-manager'
 
+const ALL_ENABLED = {
+  enabled: true,
+  blockAds: true,
+  blockTrackers: true,
+  blockMiners: true,
+  blockMalware: true,
+  blockAnnoyances: true,
+  whitelistedDomains: [] as string[],
+}
+
 describe('ContentFilterManager', () => {
   let filter: ContentFilterManager
 
   beforeEach(() => {
     filter = new ContentFilterManager()
-    filter.resetStats()
   })
 
   describe('Advertisement blocking', () => {
@@ -136,47 +145,9 @@ describe('ContentFilterManager', () => {
     })
   })
 
-  describe('Statistics', () => {
-    it('should track blocked count', () => {
-      filter.isBlocked('http://site.ton/ads/banner.jpg', 'image')
-      filter.isBlocked('http://site.ton/track.js', 'script')
-
-      const stats = filter.getStats()
-      expect(stats.totalBlocked).toBe(2)
-    })
-
-    it('should track allowed count', () => {
-      filter.isBlocked('http://site.ton/main.js', 'script')
-      filter.isBlocked('http://site.ton/style.css', 'stylesheet')
-
-      const stats = filter.getStats()
-      expect(stats.totalAllowed).toBe(2)
-    })
-
-    it('should track blocked by category', () => {
-      filter.isBlocked('http://site.ton/ads/banner.jpg', 'image') // ads
-      filter.isBlocked('http://site.ton/track.js', 'script') // trackers
-      filter.isBlocked('http://site.ton/miner.js', 'script') // miners
-
-      const stats = filter.getStats()
-      expect(stats.blockedByCategory.ads).toBeGreaterThan(0)
-      expect(stats.blockedByCategory.trackers).toBeGreaterThan(0)
-      expect(stats.blockedByCategory.miners).toBeGreaterThan(0)
-    })
-
-    it('should reset statistics', () => {
-      filter.isBlocked('http://site.ton/ads/banner.jpg', 'image')
-      filter.resetStats()
-
-      const stats = filter.getStats()
-      expect(stats.totalBlocked).toBe(0)
-      expect(stats.totalAllowed).toBe(0)
-    })
-  })
-
   describe('Enable/disable', () => {
     it('should allow everything when disabled', () => {
-      filter.setEnabled(false)
+      filter.applySettings({ ...ALL_ENABLED, enabled: false })
 
       expect(filter.isBlocked('http://site.ton/ads/banner.jpg', 'image')).toBe(false)
       expect(filter.isBlocked('http://site.ton/track.js', 'script')).toBe(false)
@@ -184,16 +155,10 @@ describe('ContentFilterManager', () => {
     })
 
     it('should block when re-enabled', () => {
-      filter.setEnabled(false)
-      filter.setEnabled(true)
+      filter.applySettings({ ...ALL_ENABLED, enabled: false })
+      filter.applySettings({ ...ALL_ENABLED, enabled: true })
 
       expect(filter.isBlocked('http://site.ton/ads/banner.jpg', 'image')).toBe(true)
-    })
-  })
-
-  describe('Rule count', () => {
-    it('should have loaded default rules', () => {
-      expect(filter.getRuleCount()).toBeGreaterThan(0)
     })
   })
 })

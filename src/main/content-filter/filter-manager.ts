@@ -3,7 +3,6 @@
  * Blocks ads, trackers, miners, and malicious content on .ton domains.
  */
 
-import { EventEmitter } from 'events'
 import { createLogger } from '../../shared/logger'
 const log = createLogger('filter')
 import type { ContentFilteringSettings } from '../../shared/types'
@@ -15,33 +14,8 @@ export interface FilterRule {
   description: string
 }
 
-export interface FilterStats {
-  totalBlocked: number
-  totalAllowed: number
-  blockedByCategory: {
-    ads: number
-    trackers: number
-    miners: number
-    malware: number
-    annoyances: number
-  }
-  sessionStarted: number
-}
-
-export class ContentFilterManager extends EventEmitter {
+export class ContentFilterManager {
   private rules: FilterRule[] = []
-  private stats: FilterStats = {
-    totalBlocked: 0,
-    totalAllowed: 0,
-    blockedByCategory: {
-      ads: 0,
-      trackers: 0,
-      miners: 0,
-      malware: 0,
-      annoyances: 0,
-    },
-    sessionStarted: Date.now(),
-  }
   private enabled: boolean = true
   private whitelistedDomains: Set<string> = new Set()
   private categoryEnabled = {
@@ -53,7 +27,6 @@ export class ContentFilterManager extends EventEmitter {
   }
 
   constructor() {
-    super()
     this.loadDefaultRules()
     log.info(`Loaded ${this.rules.length} filter rules`)
   }
@@ -178,14 +151,12 @@ export class ContentFilterManager extends EventEmitter {
    */
   isBlocked(url: string, resourceType: string): boolean {
     if (!this.enabled) {
-      this.stats.totalAllowed++
       return false
     }
 
     // Check whitelist FIRST (bypass all filters)
     const domain = this.extractDomain(url)
     if (domain && this.whitelistedDomains.has(domain)) {
-      this.stats.totalAllowed++
       log.debug(`Whitelisted: ${domain}`)
       return false
     }
@@ -204,108 +175,12 @@ export class ContentFilterManager extends EventEmitter {
 
       // Check if pattern matches
       if (rule.pattern.test(url)) {
-        // Blocked!
-        this.stats.totalBlocked++
-        this.stats.blockedByCategory[rule.category]++
-
         log.debug(`Blocked [${rule.category}] ${resourceType}: ${url.substring(0, 100)}...`)
-
-        // Emit event for UI updates
-        this.emit('blocked', {
-          url,
-          resourceType,
-          category: rule.category,
-          description: rule.description,
-          timestamp: Date.now(),
-        })
-
         return true
       }
     }
 
-    // Not blocked
-    this.stats.totalAllowed++
     return false
-  }
-
-  /**
-   * Get current statistics
-   */
-  getStats(): FilterStats {
-    return { ...this.stats }
-  }
-
-  /**
-   * Reset statistics
-   */
-  resetStats(): void {
-    this.stats = {
-      totalBlocked: 0,
-      totalAllowed: 0,
-      blockedByCategory: {
-        ads: 0,
-        trackers: 0,
-        miners: 0,
-        malware: 0,
-        annoyances: 0,
-      },
-      sessionStarted: Date.now(),
-    }
-    log.info('Statistics reset')
-  }
-
-  /**
-   * Enable/disable filtering
-   */
-  setEnabled(enabled: boolean): void {
-    this.enabled = enabled
-    log.info(`Filtering ${enabled ? 'enabled' : 'disabled'}`)
-  }
-
-  /**
-   * Check if filtering is enabled
-   */
-  isEnabled(): boolean {
-    return this.enabled
-  }
-
-  /**
-   * Get total rule count
-   */
-  getRuleCount(): number {
-    return this.rules.length
-  }
-
-  /**
-   * Set whitelist domains
-   */
-  setWhitelist(domains: string[]): void {
-    this.whitelistedDomains = new Set(domains.map((d) => d.toLowerCase()))
-    log.info(`Whitelist updated: ${domains.length} domains`)
-  }
-
-  /**
-   * Add domain to whitelist
-   */
-  addToWhitelist(domain: string): void {
-    this.whitelistedDomains.add(domain.toLowerCase())
-    log.info(`Added to whitelist: ${domain}`)
-  }
-
-  /**
-   * Remove domain from whitelist
-   */
-  removeFromWhitelist(domain: string): void {
-    this.whitelistedDomains.delete(domain.toLowerCase())
-    log.info(`Removed from whitelist: ${domain}`)
-  }
-
-  /**
-   * Set category enabled/disabled
-   */
-  setCategoryEnabled(category: 'ads' | 'trackers' | 'miners' | 'malware' | 'annoyances', enabled: boolean): void {
-    this.categoryEnabled[category] = enabled
-    log.info(`Category ${category}: ${enabled ? 'enabled' : 'disabled'}`)
   }
 
   /**
