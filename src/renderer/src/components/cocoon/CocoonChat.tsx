@@ -21,17 +21,7 @@ import cocoonAnimation from '@/assets/cocoon.json'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useCocoonChatStore, selectActiveMessages, type CocoonChatMessage } from '@/stores/cocoon-chat'
-
-const DEFAULT_MODEL = 'Qwen/Qwen3-32B'
-
-/** Split a Qwen3 response into its reasoning block and the final reply.
- * The `<think>...</think>` block, when present, always sits at the start of
- * the response. */
-function parseThinking(content: string): { thinking: string; reply: string } {
-  const match = content.match(/^<think>([\s\S]*?)<\/think>\s*/)
-  if (!match) return { thinking: '', reply: content }
-  return { thinking: match[1].trim(), reply: content.slice(match[0].length) }
-}
+import { DEFAULT_MODEL, parseThinking, sendChat } from '@/lib/cocoon-llm'
 
 export interface CocoonChatProps {
   state: CocoonState
@@ -96,29 +86,12 @@ export function CocoonChat({ state, compact = false, startError = null, onRetryS
     abortRef.current = ctrl
 
     try {
-      // Non-streaming: the cocoon-runner does not forward SSE chunks (returns
-      // 200 with an empty body when stream:true). Until that is fixed upstream,
-      // we use a single JSON response.
-      const apiMessages = thinkingEnabled ? history : [{ role: 'system', content: '/no_think' }, ...history]
-
-      const res = await fetch(`http://127.0.0.1:${state.httpPort}/v1/chat/completions`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: DEFAULT_MODEL,
-          messages: apiMessages,
-          stream: false,
-          max_tokens: 2048,
-        }),
+      const content = await sendChat({
+        port: state.httpPort,
+        messages: history,
+        thinkingEnabled,
         signal: ctrl.signal,
       })
-
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
-
-      const json = await res.json()
-      const content = json?.choices?.[0]?.message?.content
-      if (typeof content !== 'string') throw new Error('No content in response')
-
       updateMessage(assistantId, { content })
     } catch (err) {
       const aborted = (err as Error).name === 'AbortError'
