@@ -23,7 +23,7 @@
  */
 
 import { errorMessage } from '../../shared/errors'
-import { EventEmitter } from 'events'
+import { PollingDriver } from './polling-driver'
 import { createLogger } from '../../shared/logger'
 import { getStakeCacheStore } from './stake-cache'
 import { getStakeInfo, cashout } from './unstake'
@@ -40,57 +40,22 @@ const TICK_INTERVAL_MS = 30_000
 
 export type { WithdrawDriverEvent }
 
-export class WithdrawDriver extends EventEmitter {
-  private timer: ReturnType<typeof setInterval> | null = null
-  private inflight = false
-
+export class WithdrawDriver extends PollingDriver {
   constructor(
     private manager: CocoonManager,
     private getBridge: () => WsBridgeClient | null,
     private getNativeAddress: () => string | null,
     private topUpNodeWallet?: TopUpNodeWallet
   ) {
-    super()
+    super(TICK_INTERVAL_MS, log)
   }
 
-  /**
-   * Start the periodic ticker. Safe to call multiple times — subsequent calls
-   * are no-ops while the timer is already armed.
-   */
-  start(): void {
-    if (this.timer) return
-    this.timer = setInterval(() => {
-      this.tick().catch((err) => log.warn(`tick error: ${errorMessage(err)}`))
-    }, TICK_INTERVAL_MS)
-    // Fire one immediate tick so we don't wait the full interval on startup.
-    setImmediate(() => {
-      this.tick().catch((err) => log.warn(`initial tick error: ${errorMessage(err)}`))
-    })
-  }
-
-  stop(): void {
-    if (this.timer) {
-      clearInterval(this.timer)
-      this.timer = null
-    }
-  }
-
-  /**
-   * Trigger an immediate tick. Used right after the user sets the pending
-   * flag, and on manager state-change events so the driver reacts quickly to
-   * 'refundable' transitions without waiting the 30s interval.
-   */
-  triggerTick(): void {
-    setImmediate(() => {
-      this.tick().catch((err) => log.warn(`triggered tick error: ${errorMessage(err)}`))
-    })
-  }
-
+  /** Run a single tick that surfaces errors (used by the user-initiated retry path). */
   async runUserInitiatedTick(): Promise<void> {
     await this.tick(true)
   }
 
-  private async tick(surfaceErrors = false): Promise<void> {
+  protected async tick(surfaceErrors = false): Promise<void> {
     if (this.inflight) return
 
     const cache = await getStakeCacheStore().load()
