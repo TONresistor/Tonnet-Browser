@@ -3,6 +3,7 @@
  * Wraps a bookmark with dnd-kit's useSortable hook.
  */
 
+import { memo } from 'react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { Bookmark } from '@/stores/bookmarks'
@@ -15,7 +16,11 @@ interface SortableBookmarkItemProps {
   onContextMenu: (e: React.MouseEvent, bookmark: Bookmark) => void
 }
 
-export function SortableBookmarkItem({ bookmark, onNavigate, onContextMenu }: SortableBookmarkItemProps) {
+export const SortableBookmarkItem = memo(function SortableBookmarkItem({
+  bookmark,
+  onNavigate,
+  onContextMenu,
+}: SortableBookmarkItemProps) {
   const { t } = useTranslation('browser')
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: bookmark.id })
 
@@ -60,4 +65,4 @@ export function SortableBookmarkItem({ bookmark, onNavigate, onContextMenu }: So
       <span>{bookmark.title}</span>
     </button>
   )
-}
+})

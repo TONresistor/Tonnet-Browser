@@ -169,36 +169,39 @@ export function BookmarksBar() {
     })
   )
 
+  const handleContextMenu = useCallback(
+    (e: React.MouseEvent, bookmark: Bookmark) => {
+      e.preventDefault()
+      lastClickPosRef.current = { x: e.clientX, y: e.clientY }
+      const menuW = 200,
+        menuH = 160
+      const menuX = Math.max(4, Math.min(e.clientX, window.innerWidth - menuW - 4))
+      const menuY = Math.max(4, Math.min(e.clientY, window.innerHeight - menuH - 4))
+      menuRef.current?.show(
+        { x: menuX, y: menuY, width: menuW, height: menuH },
+        {
+          type: 'menu',
+          items: [
+            { id: 'open-new-tab', label: t('bookmarks.openInNewTab'), data: { url: bookmark.url } },
+            {
+              id: 'edit',
+              label: t('bookmarks.edit'),
+              data: { id: bookmark.id, title: bookmark.title, url: bookmark.url },
+            },
+            { id: '_sep1', label: '', separator: true },
+            { id: 'delete-bookmark', label: t('bookmarks.delete'), data: { id: bookmark.id }, destructive: true },
+          ],
+        }
+      )
+    },
+    [t]
+  )
+
   if (bookmarks.length === 0 && folders.length === 0) return null
 
   // Compute top-level items directly from selected state (not via get())
   const topLevelBookmarks = bookmarks.filter((b) => b.folderId === null).sort((a, b) => a.order - b.order)
   const topLevelFolders = folders.filter((f) => f.parentId === null).sort((a, b) => a.order - b.order)
-
-  const handleContextMenu = (e: React.MouseEvent, bookmark: Bookmark) => {
-    e.preventDefault()
-    lastClickPosRef.current = { x: e.clientX, y: e.clientY }
-    const menuW = 200,
-      menuH = 160
-    const menuX = Math.max(4, Math.min(e.clientX, window.innerWidth - menuW - 4))
-    const menuY = Math.max(4, Math.min(e.clientY, window.innerHeight - menuH - 4))
-    menu.show(
-      { x: menuX, y: menuY, width: menuW, height: menuH },
-      {
-        type: 'menu',
-        items: [
-          { id: 'open-new-tab', label: t('bookmarks.openInNewTab'), data: { url: bookmark.url } },
-          {
-            id: 'edit',
-            label: t('bookmarks.edit'),
-            data: { id: bookmark.id, title: bookmark.title, url: bookmark.url },
-          },
-          { id: '_sep1', label: '', separator: true },
-          { id: 'delete-bookmark', label: t('bookmarks.delete'), data: { id: bookmark.id }, destructive: true },
-        ],
-      }
-    )
-  }
 
   const handleFolderClick = (e: React.MouseEvent, folderId: string) => {
     const folderBookmarks = getBookmarksByFolder(folderId)
