@@ -9,28 +9,9 @@ import type { WalletTransaction, PaymentNotificationData, NotificationStyle } fr
 import { WALLET_TX_DISPLAY_CAP } from '@shared/constants'
 import { IPC_CHANNELS } from '@shared/ipc-channels'
 
-export function formatTonAmount(nanoTon: string): string {
-  if (!nanoTon) return '0'
-  try {
-    const ton = BigInt(nanoTon)
-    const whole = ton / 1000000000n
-    const frac = ton % 1000000000n
-    if (frac === 0n) return whole.toString()
-    const fracStr = frac.toString().padStart(9, '0').replace(/0+$/, '')
-    return `${whole}.${fracStr.slice(0, 4)}`
-  } catch {
-    return '0'
-  }
-}
-
-export function tonToNano(ton: string): string {
-  if (!ton || ton.startsWith('-')) throw new Error('Invalid amount')
-  const parts = ton.split('.')
-  const whole = BigInt(parts[0] || '0') * 1000000000n
-  if (!parts[1]) return whole.toString()
-  const fracStr = parts[1].padEnd(9, '0').slice(0, 9)
-  return (whole + BigInt(fracStr)).toString()
-}
+// Re-exported from lib/ton-utils for back-compat with the many components that
+// import these from the wallet store.
+export { formatTonAmount, tonToNano } from '@/lib/ton-utils'
 
 interface WalletStore {
   isCreated: boolean
