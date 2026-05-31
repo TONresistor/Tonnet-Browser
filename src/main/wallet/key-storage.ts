@@ -14,6 +14,7 @@ import type { ISecureStorage } from '../ports/secure-storage'
 import { ElectronSafeStorageAdapter } from '../adapters/electron-secure-storage'
 import { createLogger } from '../../shared/logger'
 import { isEnoent } from '../utils/errors'
+import { writeSecureFileAtomic } from '../utils/secure-fs'
 const log = createLogger('wallet:keys')
 
 const ENCRYPTED_MARKER = Buffer.from('SENC')
@@ -373,8 +374,9 @@ export class WalletKeyStorage {
     const json = JSON.stringify(data)
     const encrypted = this.storage.encrypt(json)
     const markedBuffer = Buffer.concat([ENCRYPTED_MARKER, encrypted])
-    await fs.writeFile(this.filePath, markedBuffer, { mode: 0o600 })
-    if (process.platform !== 'win32') await fs.chmod(this.filePath, 0o600)
+    // Atomic + fsync write (tmp -> rename, 0o600): a crash mid-write must never
+    // truncate the wallet key file into an unreadable state.
+    await writeSecureFileAtomic(this.filePath, markedBuffer)
   }
 
   /**
