@@ -112,7 +112,3 @@ export function getConsumedArchive(): ConsumedArchive {
   if (!singleton) singleton = new ConsumedArchive()
   return singleton
 }
-
-export function _setConsumedArchiveForTesting(s: ConsumedArchive | null): void {
-  singleton = s
-}

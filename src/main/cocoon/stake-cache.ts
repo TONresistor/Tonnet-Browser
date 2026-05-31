@@ -129,8 +129,3 @@ export function getStakeCacheStore(): StakeCacheStore {
   if (!singleton) singleton = new StakeCacheStore()
   return singleton
 }
-
-/** Test-only: replace the singleton (e.g. with an in-memory adapter). */
-export function _setStakeCacheForTesting(store: StakeCacheStore | null): void {
-  singleton = store
-}

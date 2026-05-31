@@ -45,11 +45,6 @@ function getStorage(): CocoonKeyStorage {
   return storageSingleton
 }
 
-/** Test-only: inject a custom storage instance (e.g. in-memory). */
-export function _setStorageForTesting(storage: CocoonKeyStorage | null): void {
-  storageSingleton = storage
-}
-
 /**
  * Generate a brand new Cocoon wallet pair and persist it (encrypted).
  * Returns the public-safe view of the data plus the mnemonic words for one-time

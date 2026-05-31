@@ -171,8 +171,3 @@ export function getRecoveryQueueStore(): RecoveryQueueStore {
   if (!singleton) singleton = new RecoveryQueueStore()
   return singleton
 }
-
-/** Test-only: replace the singleton (e.g. with an in-memory adapter). */
-export function _setRecoveryQueueForTesting(store: RecoveryQueueStore | null): void {
-  singleton = store
-}
