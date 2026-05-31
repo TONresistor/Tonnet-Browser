@@ -2,7 +2,7 @@
  * IPC handlers for page navigation, zoom, and devtools.
  */
 
-import { IPC_CHANNELS } from '../../../shared/types'
+import { IPC_CHANNELS } from '../../../shared/ipc-channels'
 import { isValidNavigationUrl } from '../validation'
 import { secureHandle, secureHandleWithEvent, navLimiter, log } from './shared'
 import { getSetting } from '../../settings'

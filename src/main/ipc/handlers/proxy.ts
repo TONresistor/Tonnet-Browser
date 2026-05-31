@@ -2,7 +2,7 @@
  * IPC handlers for proxy connection management.
  */
 
-import { IPC_CHANNELS } from '../../../shared/types'
+import { IPC_CHANNELS } from '../../../shared/ipc-channels'
 import { secureHandle, emitToRenderer, log } from './shared'
 import { startProxySequence } from '../../proxy/startup'
 import { getMainWindow } from '../../windows/main'

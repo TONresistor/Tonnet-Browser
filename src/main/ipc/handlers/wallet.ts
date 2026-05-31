@@ -2,7 +2,8 @@
  * IPC handlers for wallet operations.
  */
 
-import { IPC_CHANNELS, type WalletState, type WalletTransaction } from '../../../shared/types'
+import { IPC_CHANNELS } from '../../../shared/ipc-channels'
+import type { WalletState, WalletTransaction } from '../../../shared/types'
 import { secureHandle, tonsiteHandle, emitToRenderer, payForXhrLimiter, toError, log } from './shared'
 import { getMainWindow } from '../../windows/main'
 import { WALLET_HISTORY_DEFAULT_LIMIT, WALLET_HISTORY_LOCAL_PREFETCH } from '../../wallet/constants'

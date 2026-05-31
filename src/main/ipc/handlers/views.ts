@@ -3,7 +3,7 @@
  */
 
 import { ipcMain, IpcMainInvokeEvent } from 'electron'
-import { IPC_CHANNELS } from '../../../shared/types'
+import { IPC_CHANNELS } from '../../../shared/ipc-channels'
 import { secureHandle, emitToRenderer, log } from './shared'
 import { hideAllViews, showActiveView } from '../../windows/tabs'
 import type { ServiceRegistry } from '../../services'
