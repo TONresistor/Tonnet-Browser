@@ -25,6 +25,7 @@ export class StorageManager extends EventEmitter {
   private isRunning = false
   private client: StorageHTTPClient | null = null
   private pollInterval: NodeJS.Timeout | null = null
+  private lastBagsJson = ''
 
   constructor() {
     super()
@@ -191,6 +192,7 @@ export class StorageManager extends EventEmitter {
   private startPolling(): void {
     const { storage } = this.loadSettings()
     const interval = storage.pollingInterval
+    this.lastBagsJson = ''
 
     this.pollInterval = setInterval(async () => {
       if (!this.client || !this.isRunning) return
@@ -208,10 +210,12 @@ export class StorageManager extends EventEmitter {
           }
         }
 
-        this.emit(
-          'bags-updated',
-          bags.map((b) => this.mapBagInfo(b, storageSettings.seedingEnabled))
-        )
+        const mapped = bags.map((b) => this.mapBagInfo(b, storageSettings.seedingEnabled))
+        const snapshot = JSON.stringify(mapped)
+        if (snapshot !== this.lastBagsJson) {
+          this.lastBagsJson = snapshot
+          this.emit('bags-updated', mapped)
+        }
       } catch (err) {
         log.error(`Poll error: ${String(err)}`)
       }
