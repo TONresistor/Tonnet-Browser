@@ -29,32 +29,15 @@ import { enqueueRecovery, type RecoveryDriverEvent } from '../../cocoon/recovery
 import { getRecoveryQueueStore } from '../../cocoon/recovery-queue'
 import { getStakeCacheStore } from '../../cocoon/stake-cache'
 import { getConsumedArchive } from '../../cocoon/consumed-archive'
-import { loadCocoonWallet } from '../../cocoon/wallet'
 import { recoverAllCocoonFunds } from '../../cocoon/recover-all'
-import { retireCurrentCocoonWallet } from '../../cocoon/retire-wallet'
-import { requireBridge, requireNativeAddress, retireTerminalWalletBeforeCreate } from '../../cocoon/activation'
+import {
+  requireBridge,
+  requireNativeAddress,
+  retireTerminalWalletBeforeCreate,
+  flowStake,
+} from '../../cocoon/activation'
 import type { ServiceRegistry } from '../../services'
 import type { CocoonLogEvent } from '../../../shared/cocoon-types'
-
-/**
- * Stake amount used to fund the cocoon_node_wallet before starting the runner.
- *
- * On-chain floor (min_client_stake from the root SC config) is 15 TON, but
- * the canonical Cocoon Lite Client uses 20 TON as the standard stake — that
- * leaves headroom for tx fees and matches the recovery flows the user has
- * documented. Don't lower without explicit confirmation.
- */
-const MIN_STAKE_NANO = 20_000_000_000n // 20 TON
-
-/**
- * Extra reserve kept in the user's native wallet on top of the stake amount,
- * to cover the gas of the funding tx itself (~0.01-0.05 TON in practice) plus
- * a small safety margin so the V5R1 wallet retains funds for future ops.
- */
-const FUND_GAS_RESERVE_NANO = 100_000_000n // 0.1 TON
-
-/** Pause between fund tx and runner start, so the funding tx propagates. */
-const FUND_PROPAGATION_MS = 1500
 
 // Renderer-supplied IPC param schemas. .parse() throws ZodError, which secureHandle
 // wraps into the {success:false,error} envelope.
@@ -190,95 +173,11 @@ export function registerCocoonHandlers(registry: ServiceRegistry): void {
 
   // ── Composite flows (single user actions hiding multi-step protocols) ──────
 
-  /**
-   * Activate Cocoon with rotation semantics.
-   *
-   * The Cocoon proxy worker permanently caches client status per cocoon_node
-   * identity (cocoon-v2 ProxyClientInfo.h, sc_status_ field — never
-   * auto-refreshes). Re-staking with the same node identity after a withdraw
-   * cycle is therefore a dead-end: the worker rejects the new client SC as
-   * "consumed" until it is restarted out-of-band. To keep activation a
-   * one-click action, every "Activate" call rotates to a FRESH cocoon_node:
-   * the prior wallet (mnemonic + node secret) is archived for potential
-   * recovery, then a new wallet is generated and funded with 20 TON.
-   *
-   * Idempotent on already-active stake: if the runner+SC pair are already
-   * active we just (re)start the manager and return. No rotation, no spend.
-   *
-   * Returns once the runner reaches 'ready'.
-   */
+  // Activate Cocoon (rotation semantics + idempotent fast paths). All on-chain
+  // orchestration lives in cocoon/activation.ts:flowStake.
   secureHandle(IPC_CHANNELS.COCOON_FLOW_STAKE, async () => {
-    const bridge = requireBridge(registry)
-
-    // 1. Inspect current state. wallet may be null on first ever use.
-    const currentWallet = await loadCocoonWallet()
-    const stakeInfo = currentWallet ? await getStakeInfo(cocoonManager, bridge) : null
-
-    // 2. Idempotent fast path: already active → ensure the runner is up.
-    //    Re-clicking Activate while the SC is live must not rotate or spend.
-    if (stakeInfo && stakeInfo.status === 'active') {
-      log.info('Activate: stake already active, ensuring runner is started')
-      await startCocoonManager(cocoonManager)
-      return { success: true, httpPort: cocoonManager.getHttpPort() }
-    }
-
-    // 3. Interrupted-activate recovery fast path. A previous flowStake may
-    //    have funded the cocoon_node with 20 TON but crashed before the
-    //    runner reached 'ready' (e.g. process killed mid-handshake). The SC
-    //    is not yet 'active', but the funds are sitting on-chain on the
-    //    fresh node wallet. Rotating now would burn ~0.2 TON and 2 txs to
-    //    drain those funds back, regenerate, and re-fund — for nothing.
-    //    If the existing node wallet already holds >= MIN_STAKE_NANO, just
-    //    start the runner against it and let it complete the registration.
-    if (currentWallet) {
-      const nodeBalance = BigInt(await bridge.getBalance(currentWallet.nodeAddress))
-      if (nodeBalance >= MIN_STAKE_NANO) {
-        log.info(`Activate: cocoon_node already funded (${nodeBalance} nanoTON), resuming without rotation`)
-        await startCocoonManager(cocoonManager)
-        return { success: true, httpPort: cocoonManager.getHttpPort() }
-      }
-    }
-
-    // Terminal previous cycle: retire the consumed identity and continue with
-    // a fresh wallet. Non-terminal states must not rotate, because that would
-    // orphan the node key that owns the active/closing client SC.
-    if (currentWallet) {
-      const stakeCache = await getStakeCacheStore().load()
-      const noKnownClient = !stakeInfo && !stakeCache?.clientSCAddress
-      if (stakeInfo?.status === 'closed' || noKnownClient) {
-        log.info('Activate: retiring terminal Cocoon identity before restake')
-        try {
-          await cashout(cocoonManager, bridge, registry.walletManager.getState().address || currentWallet.ownerAddress)
-        } catch (err) {
-          const msg = errorMessage(err)
-          if (!msg.includes('Nothing to cashout')) throw err
-          log.info('Activate: terminal Cocoon identity has no residual balance to cashout')
-        }
-        await retireCurrentCocoonWallet('restake')
-      } else {
-        throw new Error(
-          `Cannot activate a new Cocoon stake while previous stake is ${stakeInfo?.status ?? 'unknown'}. Finish withdrawal/recovery first.`
-        )
-      }
-    }
-
-    // 5. Generate a fresh wallet (owner V4R2 + cocoon_node ed25519 pair).
-    const fresh = await generateCocoonWallet()
-
-    // 6. Fund 20 TON from the user's native wallet to the fresh cocoon_node.
-    const nativeBalance = BigInt(await registry.walletManager.getBalance())
-    const required = MIN_STAKE_NANO + FUND_GAS_RESERVE_NANO
-    if (nativeBalance < required) {
-      throw new Error(`Top up your TON wallet to at least ${required / 1_000_000_000n} TON to activate Cocoon`)
-    }
-
-    log.info(`Activate: native wallet → fresh cocoon_node, ${MIN_STAKE_NANO} nanoTON`)
-    await registry.walletManager.send(fresh.nodeAddress, MIN_STAKE_NANO.toString())
-    await new Promise<void>((r) => setTimeout(r, FUND_PROPAGATION_MS))
-
-    // 7. Start the runner. It registers a new client SC against the fresh node.
-    await startCocoonManager(cocoonManager)
-    return { success: true, httpPort: cocoonManager.getHttpPort() }
+    const { httpPort } = await flowStake(registry)
+    return { success: true, httpPort }
   })
 
   /**
