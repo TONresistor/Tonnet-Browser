@@ -7,7 +7,7 @@ import { memo } from 'react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { Bookmark } from '@/stores/bookmarks'
-import { Globe } from 'lucide-react'
+import { Favicon } from '@/components/ui/Favicon'
 import { useTranslation } from 'react-i18next'
 
 interface SortableBookmarkItemProps {
@@ -50,18 +50,11 @@ export const SortableBookmarkItem = memo(function SortableBookmarkItem({
       }}
       aria-label={t('dnd.bookmarkAriaLabel', { name: bookmark.title })}
     >
-      {bookmark.favicon ? (
-        <img
-          src={bookmark.favicon}
-          alt=""
-          className="w-4 h-4 flex-shrink-0 object-contain"
-          onError={(e) => {
-            e.currentTarget.style.display = 'none'
-          }}
-        />
-      ) : (
-        <Globe className="w-4 h-4 flex-shrink-0" />
-      )}
+      <Favicon
+        src={bookmark.favicon}
+        className="w-4 h-4 flex-shrink-0 object-contain"
+        fallbackClassName="w-4 h-4 flex-shrink-0"
+      />
       <span>{bookmark.title}</span>
     </button>
   )

@@ -27,7 +27,6 @@ import {
   Plus,
   SquarePen,
   Trash2,
-  Globe,
   Download,
   GripVertical,
   Folder,
@@ -40,6 +39,7 @@ import { useBookmarksStore, type Bookmark, type BookmarkFolder } from '@/stores/
 import { useTabsStore } from '@/stores/tabs'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
+import { Favicon } from '@/components/ui/Favicon'
 
 // --- Sortable Bookmark Row ---
 
@@ -84,18 +84,11 @@ function SortableBookmarkRow({
         <GripVertical className="w-4 h-4" />
       </div>
 
-      {bookmark.favicon ? (
-        <img
-          src={bookmark.favicon}
-          alt=""
-          className="w-4 h-4 flex-shrink-0 object-contain"
-          onError={(e) => {
-            e.currentTarget.style.display = 'none'
-          }}
-        />
-      ) : (
-        <Globe className="w-4 h-4 text-foreground-muted flex-shrink-0" />
-      )}
+      <Favicon
+        src={bookmark.favicon}
+        className="w-4 h-4 flex-shrink-0 object-contain"
+        fallbackClassName="w-4 h-4 text-foreground-muted flex-shrink-0"
+      />
 
       <div className="flex-1 min-w-0">
         <button
@@ -631,11 +624,11 @@ export const BookmarksPage = memo(function BookmarksPage() {
             {activeBookmark && (
               <div className="p-4 bg-card border border-border rounded-xl shadow-2xl opacity-90 flex items-center gap-3">
                 <GripVertical className="w-4 h-4 text-muted-foreground" />
-                {activeBookmark.favicon ? (
-                  <img src={activeBookmark.favicon} alt="" className="w-4 h-4 object-contain" />
-                ) : (
-                  <Globe className="w-4 h-4 text-foreground-muted" />
-                )}
+                <Favicon
+                  src={activeBookmark.favicon}
+                  className="w-4 h-4 object-contain"
+                  fallbackClassName="w-4 h-4 text-foreground-muted"
+                />
                 <span className="text-sm text-foreground">{activeBookmark.title}</span>
               </div>
             )}
