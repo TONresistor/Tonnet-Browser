@@ -52,9 +52,17 @@ export default defineConfig({
   renderer: {
     root: resolve(__dirname, 'src/renderer'),
     build: {
+      chunkSizeWarningLimit: 1500,
       rollupOptions: {
         input: {
           index: resolve(__dirname, 'src/renderer/index.html')
+        },
+        output: {
+          manualChunks: {
+            i18n: ['i18next', 'react-i18next'],
+            dnd: ['@dnd-kit/core', '@dnd-kit/sortable', '@dnd-kit/utilities'],
+            lottie: ['lottie-react', 'lottie-web']
+          }
         }
       }
     },
