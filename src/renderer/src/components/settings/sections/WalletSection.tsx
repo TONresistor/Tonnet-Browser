@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button'
 import { tonToNano, formatTonAmount } from '@/stores/wallet'
 import { WalletManagementSection } from './WalletManagementSection'
 import { TonStepperField } from './TonStepperField'
+import { useSectionHandle } from '@/hooks/useSectionHandle'
 
 const log = createLogger('wallet-settings')
 
@@ -91,11 +92,6 @@ export const WalletSection = memo(function WalletSection({ onDirtyChange, sectio
     load()
   }, [])
 
-  // Notify parent of dirty state
-  useEffect(() => {
-    onDirtyChange?.(hasChanges)
-  }, [hasChanges, onDirtyChange])
-
   const saveToMain = useCallback(async () => {
     try {
       await window.electron.settings.set('wallet', draft)
@@ -112,16 +108,8 @@ export const WalletSection = memo(function WalletSection({ onDirtyChange, sectio
     setPerSiteDisplay(nanoToTonDisplay(saved.limits.perSitePerMonth))
   }, [saved])
 
-  // Expose save/discard to parent via ref
-  useEffect(() => {
-    if (sectionRef) {
-      ;(sectionRef as React.MutableRefObject<WalletSectionHandle | null>).current = {
-        save: saveToMain,
-        discard: discardChanges,
-        hasChanges,
-      }
-    }
-  }, [sectionRef, saveToMain, discardChanges, hasChanges])
+  // Notify parent of dirty state + expose save/discard handle via ref
+  useSectionHandle(sectionRef, { save: saveToMain, discard: discardChanges, hasChanges }, onDirtyChange)
 
   const updateDraft = (updates: Partial<WalletSettings>) => {
     setDraft((prev) => ({ ...prev, ...updates }))
