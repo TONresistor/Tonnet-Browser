@@ -27,6 +27,14 @@ interface StorageManagerEventMap {
   'bags-updated': [bags: StorageBag[]]
 }
 
+/** Thrown by operations that require a running storage daemon when it isn't. */
+export class StorageNotRunningError extends Error {
+  constructor() {
+    super('Storage daemon not running')
+    this.name = 'StorageNotRunningError'
+  }
+}
+
 // Declaration merging gives on/once/off/emit typed overloads of the inherited
 // EventEmitter methods without changing runtime behavior. The merge only refines
 // existing method signatures, so the no-unsafe-declaration-merging footgun (an
@@ -302,13 +310,17 @@ export class StorageManager extends EventEmitter {
     return this.client
   }
 
+  /** Return the HTTP client or throw StorageNotRunningError. For ops that can't degrade gracefully. */
+  private requireClient(): StorageHTTPClient {
+    if (!this.client) throw new StorageNotRunningError()
+    return this.client
+  }
+
   // Bag operations
   async addBag(bagId: string, downloadPath?: string): Promise<StorageBag> {
-    if (!this.client) {
-      throw new Error('Storage daemon not running')
-    }
+    const client = this.requireClient()
 
-    await this.client.addBag({
+    await client.addBag({
       bag_id: bagId,
       path: downloadPath || this.storagePath,
       download_all: true,
@@ -329,11 +341,9 @@ export class StorageManager extends EventEmitter {
   }
 
   async removeBag(bagId: string, withFiles = false): Promise<boolean> {
-    if (!this.client) {
-      throw new Error('Storage daemon not running')
-    }
+    const client = this.requireClient()
 
-    const result = await this.client.removeBag({
+    const result = await client.removeBag({
       bag_id: bagId,
       with_files: withFiles,
     })
@@ -372,20 +382,16 @@ export class StorageManager extends EventEmitter {
   }
 
   async pauseBag(bagId: string): Promise<boolean> {
-    if (!this.client) {
-      throw new Error('Storage daemon not running')
-    }
+    const client = this.requireClient()
 
-    const result = await this.client.stopBag(bagId)
+    const result = await client.stopBag(bagId)
     return result.ok
   }
 
   async getBagDetails(bagId: string) {
-    if (!this.client) {
-      throw new Error('Storage daemon not running')
-    }
+    const client = this.requireClient()
 
-    return this.client.getBagDetails(bagId)
+    return client.getBagDetails(bagId)
   }
 }
 
