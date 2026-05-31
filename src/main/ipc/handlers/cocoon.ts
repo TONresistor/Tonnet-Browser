@@ -65,8 +65,11 @@ const DRAIN_FLOOR_NANO = 100_000_000n // 0.1 TON
 /** Hard timeout on the post-cashout drain confirmation poll. */
 const DRAIN_CONFIRM_TIMEOUT_MS = 60_000
 
-/** Interval between balance polls while waiting for the drain to confirm. */
+/** Initial interval between balance polls while waiting for the drain to confirm. */
 const DRAIN_CONFIRM_POLL_MS = 2000
+
+/** Upper bound for the exponential backoff between drain-confirm polls. */
+const DRAIN_CONFIRM_POLL_MAX_MS = 8000
 
 /**
  * Poll bridge balances for the cocoon owner+node addresses until both fall
@@ -80,6 +83,7 @@ async function waitForDrainConfirmed(
   nodeAddress: string
 ): Promise<void> {
   const deadline = Date.now() + DRAIN_CONFIRM_TIMEOUT_MS
+  let pollMs = DRAIN_CONFIRM_POLL_MS
 
   while (true) {
     const [ownerBal, nodeBal] = await Promise.all([
@@ -101,7 +105,8 @@ async function waitForDrainConfirmed(
     if (Date.now() >= deadline) {
       throw new Error('Drain transaction did not confirm within 60s — keys preserved, retry the activation')
     }
-    await new Promise<void>((r) => setTimeout(r, DRAIN_CONFIRM_POLL_MS))
+    await new Promise<void>((r) => setTimeout(r, pollMs))
+    pollMs = Math.min(pollMs * 2, DRAIN_CONFIRM_POLL_MAX_MS)
   }
 }
 
