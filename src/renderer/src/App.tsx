@@ -11,8 +11,8 @@ import { TabBar } from '@/components/browser/TabBar'
 import { BookmarksBar } from '@/components/browser/BookmarksBar'
 import { StatusBar } from '@/components/browser/StatusBar'
 import { ResizablePanel } from '@/components/browser/ResizablePanel'
-import { LandingPage } from '@/components/pages/LandingPage'
-import { StartPage } from '@/components/pages/StartPage'
+const LandingPage = lazy(() => import('@/components/pages/LandingPage').then((m) => ({ default: m.LandingPage })))
+const StartPage = lazy(() => import('@/components/pages/StartPage').then((m) => ({ default: m.StartPage })))
 const StoragePage = lazy(() => import('@/components/pages/StoragePage').then((m) => ({ default: m.StoragePage })))
 const SettingsPage = lazy(() => import('@/components/pages/SettingsPage').then((m) => ({ default: m.SettingsPage })))
 const HistoryPage = lazy(() => import('@/components/pages/HistoryPage').then((m) => ({ default: m.HistoryPage })))
@@ -38,8 +38,6 @@ import storageIcon from '@/assets/storage.svg'
 import cocoonIcon from '@/assets/cocoon.png'
 import { Button } from '@/components/ui/button'
 import Lottie from 'lottie-react'
-import loadingDark from '@/assets/loading.json'
-import loadingLight from '@/assets/loading-yellow.json'
 import i18n, { loadLanguage } from '@/i18n'
 import { useTranslation } from 'react-i18next'
 import { loadBookmarksFromMain } from '@/stores/bookmarks'
@@ -82,10 +80,8 @@ function App() {
   const [cocoonSidebarOpen, setCocoonSidebarOpen] = useState(false)
   const [cocoonSidebarWidth, setCocoonSidebarWidth] = useState(320)
 
-  // Animation data selected based on theme (loaded synchronously, never null)
-  const [animationData, setAnimationData] = useState<unknown>(() =>
-    isLightTheme(theme, customThemes) ? loadingLight : loadingDark
-  )
+  // Loading animation; dynamically imported so its JSON stays out of the main chunk.
+  const [animationData, setAnimationData] = useState<unknown>(null)
 
   // Debounce timer for settings save
   const settingsSaveTimer = useRef<NodeJS.Timeout | null>(null)
@@ -148,9 +144,18 @@ function App() {
     }
   }, [theme, customThemes])
 
-  // Switch animation on theme change
+  // Switch animation on theme change (dynamic import keeps the JSON out of the main chunk)
   useEffect(() => {
-    setAnimationData(isLightTheme(theme, customThemes) ? loadingLight : loadingDark)
+    let cancelled = false
+    const mod = isLightTheme(theme, customThemes)
+      ? import('@/assets/loading-yellow.json')
+      : import('@/assets/loading.json')
+    mod.then((m) => {
+      if (!cancelled) setAnimationData(m.default)
+    })
+    return () => {
+      cancelled = true
+    }
   }, [theme, customThemes])
 
   // Create default tab when proxy connects + prefetch lazy pages
@@ -188,7 +193,7 @@ function App() {
       // External page - WebContentsView handles this, this is just a background
       return (
         <div className="w-full h-full flex flex-col items-center justify-center bg-background-secondary">
-          <Lottie animationData={animationData} className="w-64 h-64" loop autoplay />
+          {animationData ? <Lottie animationData={animationData} className="w-64 h-64" loop autoplay /> : null}
         </div>
       )
     }
@@ -213,7 +218,7 @@ function App() {
       case 'loading':
         return (
           <div className="w-full h-full flex flex-col items-center justify-center bg-background-secondary">
-            <Lottie animationData={animationData} className="w-64 h-64" loop autoplay />
+            {animationData ? <Lottie animationData={animationData} className="w-64 h-64" loop autoplay /> : null}
           </div>
         )
       default:
