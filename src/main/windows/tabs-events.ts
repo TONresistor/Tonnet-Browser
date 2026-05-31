@@ -14,6 +14,7 @@ import { clipboard } from 'electron'
 import { DisposableStore, onWebContents } from '../utils/disposable'
 import type { HistoryManager } from '../history/manager'
 import type { OverlayManager } from './overlay-manager'
+import type { OverlayMenuItem } from '../../shared/types'
 
 const log = createLogger('tabs-events')
 
@@ -142,14 +143,7 @@ export function setupViewEventListeners(view: WebContentsView, tabId: string): D
   // Context menu for web pages (overlay instead of native menu)
   store.add(
     onWebContents(view.webContents, 'context-menu', (_e: unknown, params: Electron.ContextMenuParams) => {
-      const items: Array<{
-        id: string
-        label: string
-        separator?: boolean
-        disabled?: boolean
-        destructive?: boolean
-        data?: Record<string, string>
-      }> = []
+      const items: OverlayMenuItem[] = []
 
       // Text editing options
       if (params.isEditable) {

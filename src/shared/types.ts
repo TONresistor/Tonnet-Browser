@@ -21,6 +21,21 @@ export interface Bookmark {
   createdAt: number
 }
 
+/**
+ * A single item in a native overlay context menu. Built by both main-process
+ * (page/internal context menus) and renderer (tab, bookmark, address-bar menus)
+ * producers, then sent to the sandboxed overlay bundle for rendering. When an
+ * item is clicked, its `id` becomes the action type and `data` the action payload.
+ */
+export interface OverlayMenuItem {
+  id: string
+  label: string
+  separator?: boolean
+  disabled?: boolean
+  destructive?: boolean
+  data?: Record<string, string>
+}
+
 export interface ProxyStatus {
   connected: boolean
   port: number
