@@ -3,45 +3,33 @@ import type { BridgePermission, BridgeScope, BridgeDecision } from '../../shared
 import { createLogger } from '../../shared/logger'
 const log = createLogger('bridge-permissions')
 
+// WRITE scope: methods that broadcast or modify network state.
+const WRITE_METHODS = new Set([
+  'dht.storeAddress',
+  'dht.storeOverlayNodes',
+  'lite.sendMessage',
+  'lite.sendMessageWait',
+  'lite.sendAndWatch',
+  'adnl.sendMessage',
+  'adnl.setQueryHandler',
+  'adnl.answer',
+  'overlay.sendMessage',
+  'overlay.setQueryHandler',
+  'overlay.answer',
+])
+// P2P scope: connection namespaces.
+const P2P_NAMESPACES = new Set(['adnl', 'overlay', 'dht'])
+// READ scope: blockchain query namespaces.
+const READ_NAMESPACES = new Set(['lite', 'subscribe', 'dns', 'jetton', 'nft', 'wallet', 'sbt', 'payment', 'network'])
+
 /**
  * Maps a JSON-RPC method name to a permission scope.
  */
 export function methodToScope(method: string): BridgeScope | null {
+  if (WRITE_METHODS.has(method)) return 'write'
   const ns = method.split('.')[0]
-
-  // WRITE scope: methods that broadcast or modify state
-  const writeMethods = [
-    'dht.storeAddress',
-    'dht.storeOverlayNodes',
-    'lite.sendMessage',
-    'lite.sendMessageWait',
-    'lite.sendAndWatch',
-  ]
-  for (const wm of writeMethods) {
-    if (method === wm) return 'write'
-  }
-
-  // Also catch adnl/overlay write methods
-  const writePatterns = [
-    'adnl.sendMessage',
-    'adnl.setQueryHandler',
-    'adnl.answer',
-    'overlay.sendMessage',
-    'overlay.setQueryHandler',
-    'overlay.answer',
-  ]
-  for (const wp of writePatterns) {
-    if (method === wp) return 'write'
-  }
-
-  // CONNECT scope: P2P connection methods
-  const connectNamespaces = ['adnl', 'overlay', 'dht']
-  if (connectNamespaces.includes(ns)) return 'p2p'
-
-  // READ scope: everything else
-  const readNamespaces = ['lite', 'subscribe', 'dns', 'jetton', 'nft', 'wallet', 'sbt', 'payment', 'network']
-  if (readNamespaces.includes(ns)) return 'blockchain'
-
+  if (P2P_NAMESPACES.has(ns)) return 'p2p'
+  if (READ_NAMESPACES.has(ns)) return 'blockchain'
   return null
 }
 
@@ -51,28 +39,38 @@ export const SCOPE_DESCRIPTIONS: Record<BridgeScope, string> = {
   write: 'broadcast data to the network',
 }
 
+interface CachedGrant {
+  decision: BridgeDecision
+  grantedAt: number
+}
+
 export class BridgePermissionStore {
-  private cache = new Map<string, BridgeDecision>()
+  private cache = new Map<string, CachedGrant>()
 
   private key(domain: string, scope: BridgeScope): string {
     return `${domain}:${scope}`
+  }
+
+  private parseKey(key: string): { domain: string; scope: BridgeScope } {
+    const lastColon = key.lastIndexOf(':')
+    return { domain: key.substring(0, lastColon), scope: key.substring(lastColon + 1) as BridgeScope }
   }
 
   init(): void {
     const { permissions } = getSetting('bridge')
     this.cache.clear()
     for (const p of permissions) {
-      this.cache.set(this.key(p.domain, p.scope), p.decision)
+      this.cache.set(this.key(p.domain, p.scope), { decision: p.decision, grantedAt: p.grantedAt })
     }
     log.info(`Loaded ${permissions.length} bridge permissions`)
   }
 
   getPermission(domain: string, scope: BridgeScope): BridgeDecision | 'unknown' {
-    return this.cache.get(this.key(domain, scope)) ?? 'unknown'
+    return this.cache.get(this.key(domain, scope))?.decision ?? 'unknown'
   }
 
   setPermission(domain: string, scope: BridgeScope, decision: BridgeDecision): void {
-    this.cache.set(this.key(domain, scope), decision)
+    this.cache.set(this.key(domain, scope), { decision, grantedAt: Date.now() })
     this.persist()
     log.info(`Permission set: ${domain} / ${scope} = ${decision}`)
   }
@@ -85,14 +83,9 @@ export class BridgePermissionStore {
 
   getAllPermissions(): BridgePermission[] {
     const result: BridgePermission[] = []
-    for (const [key, decision] of this.cache) {
-      const lastColon = key.lastIndexOf(':')
-      result.push({
-        domain: key.substring(0, lastColon),
-        scope: key.substring(lastColon + 1) as BridgeScope,
-        decision,
-        grantedAt: Date.now(),
-      })
+    for (const [key, grant] of this.cache) {
+      const { domain, scope } = this.parseKey(key)
+      result.push({ domain, scope, decision: grant.decision, grantedAt: grant.grantedAt })
     }
     return result
   }
@@ -100,8 +93,8 @@ export class BridgePermissionStore {
   clearSessionGrants(): void {
     const entries = [...this.cache.entries()]
     let cleared = 0
-    for (const [key, decision] of entries) {
-      if (decision === 'session') {
+    for (const [key, grant] of entries) {
+      if (grant.decision === 'session') {
         this.cache.delete(key)
         cleared++
       }
@@ -118,12 +111,10 @@ export class BridgePermissionStore {
 
   private persist(): void {
     const permissions: BridgePermission[] = []
-    for (const [key, decision] of this.cache) {
-      if (decision === 'session') continue
-      const lastColon = key.lastIndexOf(':')
-      const domain = key.substring(0, lastColon)
-      const scope = key.substring(lastColon + 1) as BridgeScope
-      permissions.push({ domain, scope, decision, grantedAt: Date.now() })
+    for (const [key, grant] of this.cache) {
+      if (grant.decision === 'session') continue
+      const { domain, scope } = this.parseKey(key)
+      permissions.push({ domain, scope, decision: grant.decision, grantedAt: grant.grantedAt })
     }
     setSetting('bridge', { permissions })
   }
