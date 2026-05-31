@@ -17,7 +17,9 @@ import { DEFAULT_SETTINGS } from '../../shared/defaults'
 import { GeneralSettings } from '../../shared/schemas'
 import { createLogger } from '../../shared/logger'
 import { TUNNEL_SECTIONS } from '../../shared/constants'
-import { applyBridgeDefaults, writeProxyConfig } from './config-writer'
+import { writeProxyConfig } from './config-writer'
+import { BridgeManager } from './bridge-manager'
+import { killChildProcess } from './process-utils'
 const log = createLogger('proxy')
 
 /**
@@ -43,7 +45,7 @@ export type ProxyStatus = 'stopped' | 'starting' | 'syncing' | 'connected'
 
 export class ProxyManager extends EventEmitter {
   private process: ChildProcess | null = null
-  private bridgeProcess: ChildProcess | null = null
+  private readonly bridge = new BridgeManager()
   private port: number = 0
   private wsPort: number = DEFAULT_SETTINGS.wsPort
   private status: ProxyStatus = 'stopped'
@@ -57,6 +59,19 @@ export class ProxyManager extends EventEmitter {
 
   constructor() {
     super()
+    // The bridge is a distinct process; forward its events. A bridge-only crash
+    // must not mislabel a still-working proxy as stopped, so the session-wide
+    // 'exit' only fires here when the proxy is already gone.
+    this.bridge.on('ready', (wsPort: number) => this.emit('ws-bridge-ready', wsPort))
+    this.bridge.on('log', (line: string) => this.emit('log', line))
+    this.bridge.on('error', (message: string) => this.emit('error', message))
+    this.bridge.on('exit', (code: number | null) => {
+      this.emit('bridge-exit', code)
+      if (!this.process) {
+        this.setStatus('stopped')
+        this.emit('exit', code)
+      }
+    })
   }
 
   private loadSettings() {
@@ -194,104 +209,23 @@ export class ProxyManager extends EventEmitter {
     this.setStatus('connected')
 
     // Start bridge AFTER proxy is ready to avoid DHT contention
-    if (!this.bridgeProcess) {
-      await this.startBridge()
+    if (!this.bridge.isRunning()) {
+      await this.bridge.start(this.wsPort)
     }
-  }
-
-  private async startBridge(): Promise<void> {
-    const bridgeBinPath = getBinaryPath('tonutils-bridge')
-    const bridgeWorkDir = this.getBridgeWorkDir()
-    applyBridgeDefaults(bridgeWorkDir)
-    const bridgeArgs = ['-addr', `127.0.0.1:${this.wsPort}`, '-data-dir', bridgeWorkDir, '-verbosity', '2']
-
-    log.info(`Starting bridge from: ${bridgeBinPath}`)
-    log.info(`Bridge WS port: ${this.wsPort}`)
-
-    this.bridgeProcess = spawn(bridgeBinPath, bridgeArgs, {
-      windowsHide: true,
-    })
-
-    const handleBridgeOutput = (data: Buffer) => {
-      const raw = data.toString().trim()
-      if (!raw) return
-      const message = stripAnsi(raw)
-      log.debug(`[bridge] ${raw}`)
-      this.emit('log', `[bridge] ${raw}`)
-
-      if (message.toLowerCase().includes('websocket-adnl bridge started')) {
-        log.info(`WS bridge ready on port ${this.wsPort}`)
-        this.emit('ws-bridge-ready', this.wsPort)
-      }
-    }
-
-    this.bridgeProcess.stdout?.on('data', handleBridgeOutput)
-    this.bridgeProcess.stderr?.on('data', handleBridgeOutput)
-
-    this.bridgeProcess.on('exit', (code) => {
-      log.info(`Bridge exited with code: ${code}`)
-      this.bridgeProcess = null
-      this.emit('bridge-exit', code)
-      // Only tear down the whole session if the HTTP proxy is also gone; a
-      // bridge-only crash must not mislabel a still-working proxy as stopped.
-      if (!this.process) {
-        this.setStatus('stopped')
-        this.emit('exit', code)
-      }
-    })
-
-    this.bridgeProcess.on('error', (err) => {
-      log.error(`Failed to start bridge:`, err)
-      this.emit('error', err.message)
-    })
-  }
-
-  private killProcess(proc: ChildProcess): Promise<void> {
-    return new Promise((resolve) => {
-      proc.stdout?.removeAllListeners()
-      proc.stderr?.removeAllListeners()
-      proc.removeAllListeners()
-      const forceKill = setTimeout(() => {
-        try {
-          proc.kill('SIGKILL')
-        } catch {
-          /* process already dead */
-        }
-        resolve()
-      }, 5000)
-      proc.once('exit', () => {
-        clearTimeout(forceKill)
-        resolve()
-      })
-      proc.kill('SIGTERM')
-    })
   }
 
   private async stopRunningProcesses(): Promise<void> {
-    const promises: Promise<void>[] = []
-    if (this.bridgeProcess) {
-      const bridgeProc = this.bridgeProcess
-      this.bridgeProcess = null
-      promises.push(this.killProcess(bridgeProc))
-    }
+    const promises: Promise<void>[] = [this.bridge.stop()]
     if (this.process) {
       const proxyProc = this.process
       this.process = null
-      promises.push(this.killProcess(proxyProc))
+      promises.push(killChildProcess(proxyProc))
     }
     await Promise.allSettled(promises)
   }
 
   private getProxyWorkDir(): string {
     const dir = path.join(app.getPath('userData'), 'proxy')
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true })
-    }
-    return dir
-  }
-
-  private getBridgeWorkDir(): string {
-    const dir = path.join(app.getPath('userData'), 'bridge')
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true })
     }
@@ -305,23 +239,17 @@ export class ProxyManager extends EventEmitter {
   }
 
   async stop(): Promise<void> {
-    if (!this.process && !this.bridgeProcess) return
+    if (!this.process && !this.bridge.isRunning()) return
 
     log.info('Stopping proxy and bridge...')
     this.tunnelRoute = ''
 
-    const promises: Promise<void>[] = []
-
-    if (this.bridgeProcess) {
-      const bridgeProc = this.bridgeProcess
-      this.bridgeProcess = null
-      promises.push(this.killProcess(bridgeProc))
-    }
+    const promises: Promise<void>[] = [this.bridge.stop()]
 
     if (this.process) {
       const proxyProc = this.process
       this.process = null
-      promises.push(this.killProcess(proxyProc))
+      promises.push(killChildProcess(proxyProc))
     }
 
     await Promise.allSettled(promises)
@@ -341,7 +269,7 @@ export class ProxyManager extends EventEmitter {
   }
 
   isRunning(): boolean {
-    return this.process !== null && this.bridgeProcess !== null
+    return this.process !== null && this.bridge.isRunning()
   }
 
   isSynced(): boolean {
@@ -363,12 +291,8 @@ export class ProxyManager extends EventEmitter {
       throw new Error('Cannot restart bridge: proxy is not running')
     }
     log.info('Restarting bridge (keeping proxy)...')
-    if (this.bridgeProcess) {
-      const bridgeProc = this.bridgeProcess
-      this.bridgeProcess = null
-      await this.killProcess(bridgeProc)
-    }
-    await this.startBridge()
+    await this.bridge.stop()
+    await this.bridge.start(this.wsPort)
   }
 
   async applySettingsChange(): Promise<void> {
@@ -387,7 +311,7 @@ export class ProxyManager extends EventEmitter {
       if (this.process) {
         const proxyProc = this.process
         this.process = null
-        await this.killProcess(proxyProc)
+        await killChildProcess(proxyProc)
       }
       this.setStatus('stopped')
       await this.start()
