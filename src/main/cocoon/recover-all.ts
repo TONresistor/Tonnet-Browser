@@ -8,17 +8,22 @@
  */
 
 import { errorMessage } from '../../shared/errors'
-import { Address, beginCell } from '@ton/core'
+import { Address } from '@ton/core'
 import { createLogger } from '../../shared/logger'
 import { getConsumedArchive, type ArchivedCocoon } from './consumed-archive'
-import { openBridgeContract } from './contracts/bridge-provider'
-import { CocoonClient } from './contracts/wrappers/CocoonClient'
 import { buildCocoonWalletInit, sendFromCocoonWallet, sendFromOwnerWallet, type SendResult } from './contracts'
 import { getRecoveryQueueStore } from './recovery-queue'
 import { getStakeCacheStore } from './stake-cache'
 import { getStakeInfo } from './unstake'
 import { loadCocoonWallet } from './wallet'
-import { DRAIN_DUST_FLOOR_NANO, REFUND_GAS_NANO, narrowClientState } from './constants'
+import { DRAIN_DUST_FLOOR_NANO, REFUND_GAS_NANO } from './constants'
+import {
+  sleep,
+  decodeNodeSecret,
+  readClientState,
+  buildClientOpcodeBody,
+  OWNER_CLIENT_REQUEST_REFUND,
+} from './node-signing'
 import type { CocoonManager } from './manager'
 import type { WsBridgeClient } from '../wallet/ws-bridge-client'
 import type { CocoonRecoveryAllResult } from '../../shared/cocoon-types'
@@ -40,10 +45,6 @@ type RecoverableWallet = {
 type ClientRecoveryDisposition = {
   safeToDrain: boolean
   pending: boolean
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
 function toRecoverableWallet(wallet: NonNullable<Awaited<ReturnType<typeof loadCocoonWallet>>>): RecoverableWallet {
@@ -69,14 +70,6 @@ function toRecoverableArchive(archive: ArchivedCocoon): RecoverableWallet {
   }
 }
 
-function nodeSecret(wallet: RecoverableWallet): Buffer {
-  const secret = Buffer.from(wallet.nodeSecretBase64, 'base64')
-  if (secret.length !== 32) {
-    throw new Error(`Cocoon node secret must be 32 bytes, got ${secret.length}`)
-  }
-  return secret
-}
-
 async function sendClientOpcodeFromNode(
   bridge: WsBridgeClient,
   wallet: RecoverableWallet,
@@ -84,12 +77,12 @@ async function sendClientOpcodeFromNode(
   opcode: number,
   sendExcessesTo: string
 ): Promise<SendResult> {
-  const body = beginCell().storeUint(opcode, 32).storeUint(0, 64).storeAddress(Address.parse(sendExcessesTo)).endCell()
+  const body = buildClientOpcodeBody(opcode, sendExcessesTo)
 
   return sendFromCocoonWallet(
     bridge,
     wallet.nodeAddress,
-    nodeSecret(wallet),
+    decodeNodeSecret(wallet.nodeSecretBase64),
     Address.parse(clientSCAddress),
     REFUND_GAS_NANO,
     body,
@@ -97,21 +90,6 @@ async function sendClientOpcodeFromNode(
       init: buildCocoonWalletInit(wallet.ownerAddress, wallet.nodePublicKeyHex),
     }
   )
-}
-
-async function readClientState(
-  bridge: WsBridgeClient,
-  clientSCAddress: string
-): Promise<{ state: 0 | 1 | 2; unlockTs: number } | null> {
-  try {
-    const client = CocoonClient.createFromAddress(Address.parse(clientSCAddress))
-    const opened = openBridgeContract(bridge, client)
-    const data = await opened.getData()
-    return { state: narrowClientState(data.state), unlockTs: data.unlockTs }
-  } catch (err) {
-    log.warn(`client getData failed for ${clientSCAddress.slice(0, 8)}...: ${errorMessage(err)}`)
-    return null
-  }
 }
 
 async function drainNode(
@@ -126,7 +104,7 @@ async function drainNode(
   const tx = await sendFromCocoonWallet(
     bridge,
     wallet.nodeAddress,
-    nodeSecret(wallet),
+    decodeNodeSecret(wallet.nodeSecretBase64),
     Address.parse(destination),
     0n,
     undefined,
@@ -191,7 +169,7 @@ async function recoverClient(
   }
 
   if (state.state === 0) {
-    const tx = await sendClientOpcodeFromNode(bridge, wallet, clientSCAddress, 0xfafa6cc1, destination)
+    const tx = await sendClientOpcodeFromNode(bridge, wallet, clientSCAddress, OWNER_CLIENT_REQUEST_REFUND, destination)
     result.txs.push({
       source: 'client-refund-request',
       address: clientSCAddress,
@@ -222,7 +200,7 @@ async function recoverClient(
       return { safeToDrain: false, pending: true }
     }
 
-    const tx = await sendClientOpcodeFromNode(bridge, wallet, clientSCAddress, 0xfafa6cc1, destination)
+    const tx = await sendClientOpcodeFromNode(bridge, wallet, clientSCAddress, OWNER_CLIENT_REQUEST_REFUND, destination)
     result.txs.push({
       source: 'client-refund-claim',
       address: clientSCAddress,
