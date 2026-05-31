@@ -113,7 +113,7 @@ export function registerSettingsHandlers(registry: ServiceRegistry): void {
     }
     setSetting(category, validation.data as Partial<AppSettings[keyof AppSettings]>)
     // Notify renderer of settings change
-    emitToRenderer('settings:changed', { category, values })
+    emitToRenderer(IPC_CHANNELS.SETTINGS_CHANGED, { category, values })
     // If network settings changed, check if proxy needs restart (non-blocking)
     if (category === 'network' && proxyManager.isRunning()) {
       proxyManager.applySettingsChange().catch((err) => {
@@ -159,7 +159,7 @@ export function registerSettingsHandlers(registry: ServiceRegistry): void {
 
   secureHandle(IPC_CHANNELS.SETTINGS_RESET, () => {
     resetSettings()
-    emitToRenderer('settings:changed', { reset: true })
+    emitToRenderer(IPC_CHANNELS.SETTINGS_CHANGED, { reset: true })
 
     // Re-apply runtime state for every category that SETTINGS_SET also re-applies,
     // otherwise live services keep the pre-reset config until an app restart.

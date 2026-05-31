@@ -20,6 +20,7 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { isIpcError, getIpcError } from '@/lib/ipc-utils'
+import { IPC_CHANNELS } from '@shared/ipc-channels'
 import { createLogger } from '@/logger'
 import { useTranslation } from 'react-i18next'
 import type { CocoonRecoveryAllResult, RecoveryEntry, RecoveryPhase } from '../../../../shared/cocoon-types'
@@ -73,7 +74,7 @@ export const RecoveryPanel = memo(function RecoveryPanel() {
       refresh().catch((e) => log.warn('refresh failed', e))
     }, POLL_MS)
     const clockId = setInterval(() => setNow(Math.floor(Date.now() / 1000)), 1000)
-    const off = window.electron.on('cocoon:recovery:event', () => {
+    const off = window.electron.on(IPC_CHANNELS.COCOON_RECOVERY_EVENT, () => {
       refresh().catch((e) => log.warn('event refresh failed', e))
     })
     return () => {

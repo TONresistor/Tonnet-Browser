@@ -16,6 +16,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { isIpcError } from '@/lib/ipc-utils'
 import { createLogger } from '@/logger'
+import { IPC_CHANNELS } from '@shared/ipc-channels'
 import type { CocoonPendingWithdraw, CocoonStakeInfo } from '../../../shared/cocoon-types'
 
 const log = createLogger('cocoon:account-view')
@@ -285,7 +286,7 @@ export function useCocoonAccountView(): UseCocoonAccountViewResult {
     }
     void tick()
 
-    const offWithdraw = window.electron.on('cocoon:withdraw:event', (() => {
+    const offWithdraw = window.electron.on(IPC_CHANNELS.COCOON_WITHDRAW_EVENT, (() => {
       void fetchOnce()
     }) as (...args: unknown[]) => void)
 

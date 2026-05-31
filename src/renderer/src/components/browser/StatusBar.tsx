@@ -5,6 +5,7 @@
 
 import { useEffect, useState, memo } from 'react'
 import { createLogger } from '@/logger'
+import { IPC_CHANNELS } from '@shared/ipc-channels'
 
 const log = createLogger('status')
 import { Wifi, WifiOff, LoaderCircle, ArrowDown, ArrowUp } from 'lucide-react'
@@ -59,7 +60,7 @@ export const StatusBar = memo(function StatusBar() {
   const tunnelMode = usePreferencesStore((s) => s.saved.tunnelMode)
   useEffect(() => {
     // Listen for proxy status updates from main process
-    const unsubProxyStatus = window.electron.on('proxy:status', (...args: unknown[]) => {
+    const unsubProxyStatus = window.electron.on(IPC_CHANNELS.PROXY_STATUS, (...args: unknown[]) => {
       const data = args[0]
       // Runtime validation
       if (!data || typeof data !== 'object') {
@@ -81,7 +82,7 @@ export const StatusBar = memo(function StatusBar() {
     })
 
     // Listen for storage bags updates
-    const unsubBagsUpdated = window.electron.on('storage:bags-updated', (...args: unknown[]) => {
+    const unsubBagsUpdated = window.electron.on(IPC_CHANNELS.STORAGE_BAGS_UPDATED, (...args: unknown[]) => {
       const bags = args[0] as StorageBag[]
       const downloadSpeed = bags.reduce((sum, b) => sum + b.downloadSpeed, 0)
       const uploadSpeed = bags.reduce((sum, b) => sum + b.uploadSpeed, 0)

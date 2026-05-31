@@ -10,6 +10,7 @@ import { rawToFriendly } from './address-utils'
 import { WalletManager } from './manager'
 import { WalletHistoryManager } from './history'
 import { emitToRenderer } from '../ipc/handlers'
+import { IPC_CHANNELS } from '../../shared/ipc-channels'
 import { getSetting } from '../settings'
 import {
   WALLET_MAX_TIMEOUT_S,
@@ -301,7 +302,7 @@ export class PaymentInterceptor {
         status: 'failed',
         error: 'Spending limit reached',
       }
-      emitToRenderer('wallet:payment-failed', notification)
+      emitToRenderer(IPC_CHANNELS.WALLET_PAYMENT_FAILED, notification)
       return
     }
 
@@ -327,7 +328,7 @@ export class PaymentInterceptor {
               status: 'rejected',
               error: 'Approval timed out',
             }
-            emitToRenderer('wallet:payment-failed', notification)
+            emitToRenderer(IPC_CHANNELS.WALLET_PAYMENT_FAILED, notification)
             log.info(`Payment approval timed out for ${originalDomain}`)
           }
         },
@@ -345,7 +346,7 @@ export class PaymentInterceptor {
         payToFriendly: rawToFriendly(paymentReq.payTo),
         status: 'pending',
       }
-      emitToRenderer('wallet:payment-req', notification)
+      emitToRenderer(IPC_CHANNELS.WALLET_PAYMENT_REQ, notification)
     }
   }
 
@@ -404,7 +405,7 @@ export class PaymentInterceptor {
           payToFriendly: rawToFriendly(paymentReq.payTo),
           status: 'completed',
         }
-        emitToRenderer('wallet:payment-made', notification)
+        emitToRenderer(IPC_CHANNELS.WALLET_PAYMENT_MADE, notification)
 
         // Navigate the original webContents to reload with payment header
         const allWebContents = webContents.getAllWebContents()
@@ -433,7 +434,7 @@ export class PaymentInterceptor {
           status: 'failed',
           error: `Server returned ${retryResponse.status}: ${errorText.slice(0, ERROR_TRUNCATE_LENGTH)}`,
         }
-        emitToRenderer('wallet:payment-failed', notification)
+        emitToRenderer(IPC_CHANNELS.WALLET_PAYMENT_FAILED, notification)
 
         log.warn(`402 payment retry failed for ${domain}: ${retryResponse.status}`)
       }
@@ -453,7 +454,7 @@ export class PaymentInterceptor {
         status: 'failed',
         error: (err as Error).message,
       }
-      emitToRenderer('wallet:payment-failed', notification)
+      emitToRenderer(IPC_CHANNELS.WALLET_PAYMENT_FAILED, notification)
 
       log.error(`402 payment error for ${domain}:`, err)
     }
@@ -507,7 +508,7 @@ export class PaymentInterceptor {
           payToFriendly: rawToFriendly(pending.paymentReq.payTo),
           status: 'completed',
         }
-        emitToRenderer('wallet:payment-made', notification)
+        emitToRenderer(IPC_CHANNELS.WALLET_PAYMENT_MADE, notification)
         log.debug(`XHR payment approved for ${pending.domain}`)
         pending.xhrResolver({ success: true })
       } catch (err) {
@@ -523,7 +524,7 @@ export class PaymentInterceptor {
           status: 'failed',
           error: (err as Error).message,
         }
-        emitToRenderer('wallet:payment-failed', notification)
+        emitToRenderer(IPC_CHANNELS.WALLET_PAYMENT_FAILED, notification)
         log.error(`XHR manual payment error for ${pending.domain}:`, err)
         pending.xhrResolver({ success: false, error: (err as Error).message })
       }
@@ -552,7 +553,7 @@ export class PaymentInterceptor {
       payToFriendly: rawToFriendly(pending.paymentReq.payTo),
       status: 'rejected',
     }
-    emitToRenderer('wallet:payment-failed', notification)
+    emitToRenderer(IPC_CHANNELS.WALLET_PAYMENT_FAILED, notification)
     log.info(`Payment rejected for ${pending.domain}`)
     if (pending.xhrResolver) {
       pending.xhrResolver({ success: false, error: 'user-rejected' })
@@ -736,7 +737,7 @@ export class PaymentInterceptor {
           payToFriendly: rawToFriendly(paymentReq.payTo),
           status: 'completed',
         }
-        emitToRenderer('wallet:payment-made', notification)
+        emitToRenderer(IPC_CHANNELS.WALLET_PAYMENT_MADE, notification)
         log.debug(`XHR payment signed for ${originalDomain}`)
         return { success: true }
       } catch (err) {
@@ -765,7 +766,7 @@ export class PaymentInterceptor {
               status: 'rejected',
               error: 'Approval timed out',
             }
-            emitToRenderer('wallet:payment-failed', notification)
+            emitToRenderer(IPC_CHANNELS.WALLET_PAYMENT_FAILED, notification)
             log.debug(`XHR payment approval timed out for ${originalDomain}`)
             pending.xhrResolver?.({ success: false, error: 'timeout' })
           }
@@ -791,7 +792,7 @@ export class PaymentInterceptor {
         payToFriendly: rawToFriendly(paymentReq.payTo),
         status: 'pending',
       }
-      emitToRenderer('wallet:payment-req', notification)
+      emitToRenderer(IPC_CHANNELS.WALLET_PAYMENT_REQ, notification)
     })
   }
 

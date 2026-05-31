@@ -39,6 +39,7 @@ import { DEFAULT_SETTINGS } from '../../shared/defaults'
 import { createLogger } from '../../shared/logger'
 import { emitToRenderer } from '../ipc/handlers/shared'
 import { normalizeUrl } from '../../shared/utils/url'
+import { IPC_CHANNELS } from '../../shared/ipc-channels'
 
 const log = createLogger('tabs')
 
@@ -445,7 +446,7 @@ export async function navigateInTab(tabId: string, url: string): Promise<boolean
     setTabDomain(tabId, domain)
     updateDomainActivity(domain)
 
-    emitToRenderer('tab:history-reset', tabId)
+    emitToRenderer(IPC_CHANNELS.TAB_HISTORY_RESET, tabId)
 
     if (isActive) {
       attachViewWhenReady(newView, tabId)

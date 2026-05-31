@@ -44,7 +44,7 @@ export function LandingPage() {
     })
 
     // Auto-connect triggers the same loading state as manual connect
-    const unsubAutoConnect = window.electron.on('proxy:auto-connect', () => {
+    const unsubAutoConnect = window.electron.on(IPC_CHANNELS.PROXY_AUTO_CONNECT, () => {
       setAutoConnecting(true)
     })
 

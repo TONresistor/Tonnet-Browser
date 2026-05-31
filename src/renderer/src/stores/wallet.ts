@@ -303,7 +303,7 @@ export const useWalletStore = create<WalletStore>((set, get) => {
 
 // Refresh notificationStyle when wallet settings change
 if (typeof window !== 'undefined' && window.electron) {
-  const unsubSettings = window.electron.on('settings:changed', (...args: unknown[]) => {
+  const unsubSettings = window.electron.on(IPC_CHANNELS.SETTINGS_CHANGED, (...args: unknown[]) => {
     const data = args[0] as { reset?: boolean; category?: string }
     if (data.category === 'wallet' || data.reset) {
       window.electron.settings.get('wallet').then((ws) => {

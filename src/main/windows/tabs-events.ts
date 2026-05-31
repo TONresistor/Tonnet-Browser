@@ -8,6 +8,7 @@ import { loadStorageBrowser, loadErrorPage } from './tabs-storage'
 import { extractFavicon } from './browser-view'
 import { createLogger } from '../../shared/logger'
 import { emitToRenderer } from '../ipc/handlers/shared'
+import { IPC_CHANNELS } from '../../shared/ipc-channels'
 import { CONTEXT_MENU_WIDTH } from './constants'
 import { clipboard } from 'electron'
 import { DisposableStore, onWebContents } from '../utils/disposable'
@@ -39,18 +40,18 @@ export function setupViewEventListeners(view: WebContentsView, tabId: string): D
 
   store.add(
     onWebContents(view.webContents, 'did-start-loading', () => {
-      emitToRenderer('page:loading', true, tabId)
+      emitToRenderer(IPC_CHANNELS.PAGE_LOADING, true, tabId)
     })
   )
 
   store.add(
     onWebContents(view.webContents, 'did-stop-loading', () => {
-      emitToRenderer('page:loading', false, tabId)
+      emitToRenderer(IPC_CHANNELS.PAGE_LOADING, false, tabId)
     })
   )
 
   const handleNavigate = (_e: unknown, url: string): void => {
-    emitToRenderer('page:navigate', {
+    emitToRenderer(IPC_CHANNELS.PAGE_NAVIGATE, {
       tabId,
       url,
       canGoBack: view.webContents.navigationHistory.canGoBack(),
@@ -63,7 +64,7 @@ export function setupViewEventListeners(view: WebContentsView, tabId: string): D
 
   store.add(
     onWebContents(view.webContents, 'page-title-updated', (_e: unknown, title: string) => {
-      emitToRenderer('page:title', title, tabId)
+      emitToRenderer(IPC_CHANNELS.PAGE_TITLE, title, tabId)
 
       const url = view.webContents.getURL()
       historyManager.addEntry(url, title, undefined, false)
@@ -77,7 +78,7 @@ export function setupViewEventListeners(view: WebContentsView, tabId: string): D
         const favicon = await extractFavicon(view)
         if (view.webContents.isDestroyed()) return
         if (favicon) {
-          emitToRenderer('page:favicon', favicon, tabId)
+          emitToRenderer(IPC_CHANNELS.PAGE_FAVICON, favicon, tabId)
         }
       } catch (error) {
         log.debug(`Failed to extract favicon for tab ${tabId}:`, error)
@@ -223,7 +224,7 @@ export function setupViewEventListeners(view: WebContentsView, tabId: string): D
               view.webContents.selectAll()
               break
             case 'open-link-new-tab':
-              emitToRenderer('context:open-link', d.url)
+              emitToRenderer(IPC_CHANNELS.CONTEXT_OPEN_LINK, d.url)
               break
             case 'copy-link':
               clipboard.writeText(d.url)

@@ -14,6 +14,7 @@ import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import { Loader2, ShieldCheck, AlertTriangle, ArrowDownCircle, Check, Power, Wallet, Hourglass } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { getIpcError, isIpcError } from '@/lib/ipc-utils'
+import { IPC_CHANNELS } from '@shared/ipc-channels'
 import { formatTonFixed } from '@/lib/ton-utils'
 import { createLogger } from '@/logger'
 import { useTranslation } from 'react-i18next'
@@ -135,7 +136,7 @@ export const StakePanel = memo(function StakePanel() {
 
   // Refresh on driver progress events.
   useEffect(() => {
-    const off = window.electron.on('cocoon:withdraw:event', () => {
+    const off = window.electron.on(IPC_CHANNELS.COCOON_WITHDRAW_EVENT, () => {
       setTickNonce((n) => n + 1)
     })
     return off

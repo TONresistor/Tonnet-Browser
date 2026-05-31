@@ -7,24 +7,24 @@ import { contextBridge, ipcRenderer } from 'electron'
 import { IPC_CHANNELS } from '../shared/ipc-channels'
 
 const VALID_EVENT_CHANNELS = [
-  'page:loading',
-  'page:navigate',
-  'page:title',
-  'page:favicon',
-  'proxy:status',
+  IPC_CHANNELS.PAGE_LOADING,
+  IPC_CHANNELS.PAGE_NAVIGATE,
+  IPC_CHANNELS.PAGE_TITLE,
+  IPC_CHANNELS.PAGE_FAVICON,
+  IPC_CHANNELS.PROXY_STATUS,
   IPC_CHANNELS.PROXY_PROGRESS,
-  'proxy:auto-connect',
-  'storage:bags-updated',
-  'storage:status',
-  'context:open-link',
-  'settings:changed',
-  'tab:history-reset',
-  'wallet:balance-updated',
-  'wallet:state-changed',
-  'wallet:new-transaction',
-  'wallet:payment-req',
-  'wallet:payment-made',
-  'wallet:payment-failed',
+  IPC_CHANNELS.PROXY_AUTO_CONNECT,
+  IPC_CHANNELS.STORAGE_BAGS_UPDATED,
+  IPC_CHANNELS.STORAGE_STATUS,
+  IPC_CHANNELS.CONTEXT_OPEN_LINK,
+  IPC_CHANNELS.SETTINGS_CHANGED,
+  IPC_CHANNELS.TAB_HISTORY_RESET,
+  IPC_CHANNELS.WALLET_BALANCE_UPDATED,
+  IPC_CHANNELS.WALLET_STATE_CHANGED,
+  IPC_CHANNELS.WALLET_NEW_TRANSACTION,
+  IPC_CHANNELS.WALLET_PAYMENT_REQ,
+  IPC_CHANNELS.WALLET_PAYMENT_MADE,
+  IPC_CHANNELS.WALLET_PAYMENT_FAILED,
   IPC_CHANNELS.OVERLAY_ACTION,
   IPC_CHANNELS.COCOON_STATE_CHANGED,
   IPC_CHANNELS.COCOON_LOG,
@@ -223,7 +223,7 @@ const electronAPI = {
 
   // Event listeners - returns unsubscribe function for proper cleanup
   on: (channel: string, callback: (...args: unknown[]) => void): (() => void) => {
-    if (VALID_EVENT_CHANNELS.includes(channel)) {
+    if ((VALID_EVENT_CHANNELS as readonly string[]).includes(channel)) {
       const listener = (_event: Electron.IpcRendererEvent, ...args: unknown[]) => callback(...args)
       ipcRenderer.on(channel, listener)
       // Return unsubscribe function that removes only THIS listener
