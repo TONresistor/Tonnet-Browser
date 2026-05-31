@@ -19,13 +19,8 @@ import type {
   DnsResolveResult,
 } from '../../shared/types'
 import { createLogger } from '../../shared/logger'
+import { TON_DOMAIN_REGEX } from '../../shared/utils/ton'
 const log = createLogger('wallet')
-
-const TON_DOMAIN_REGEX = /^([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+ton$/
-
-function isTonDomain(s: string): boolean {
-  return s.endsWith('.ton') && s.length <= 126
-}
 
 export class WalletManager extends EventEmitter {
   private keyStorage: WalletKeyStorage
@@ -413,7 +408,9 @@ export class WalletManager extends EventEmitter {
     const trimmed = input.trim()
     const normalized = trimmed.toLowerCase()
 
-    if (!isTonDomain(normalized)) {
+    // Loose gate (suffix + length) decides address-vs-domain; strict TON_DOMAIN_REGEX
+    // validation follows below for anything that looks like a .ton domain.
+    if (!(normalized.endsWith('.ton') && normalized.length <= 126)) {
       const parsed = Address.parse(trimmed)
       if (parsed.workChain === -1) {
         throw new Error('Masterchain addresses not supported')
