@@ -11,8 +11,8 @@
  * wallet would burn more in on-chain gas than it recovers, so the sweep is
  * skipped entirely.
  *
- * NOTE: this is distinct from the IPC handler's post-drain confirmation floor
- * (0.1 TON, DRAIN_FLOOR_NANO in ipc/handlers/cocoon.ts). That threshold
+ * NOTE: this is distinct from the activation flow's post-drain confirmation
+ * floor (0.1 TON, DRAIN_FLOOR_NANO in cocoon/activation.ts). That threshold
  * answers "has the drain settled?" after the fact; this one answers "is a
  * sweep worth attempting?" beforehand. They are intentionally different values
  * for different purposes and must not be merged.
