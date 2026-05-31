@@ -63,6 +63,11 @@ export function sanitizeDirName(raw: string): string {
 // --- Error page ---
 
 export function loadErrorPage(view: WebContentsView, errorMessage: string, failedUrl: string): void {
+  const wc = view?.webContents
+  if (!wc || wc.isDestroyed()) {
+    log.debug('loadErrorPage skipped: view missing or destroyed')
+    return
+  }
   const safeError = errorMessage.replace(/</g, '&lt;').replace(/>/g, '&gt;')
   const safeUrl = failedUrl.replace(/</g, '&lt;').replace(/>/g, '&gt;')
   const encodedUrl = encodeURIComponent(failedUrl)
@@ -201,7 +206,7 @@ export function loadErrorPage(view: WebContentsView, errorMessage: string, faile
 </body>
 </html>`
 
-  view.webContents.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(errorHtml)}`).catch((err) => {
+  wc.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(errorHtml)}`).catch((err) => {
     log.error('Failed to load error page:', err)
   })
 }
