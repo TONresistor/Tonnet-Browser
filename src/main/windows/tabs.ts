@@ -221,6 +221,20 @@ export async function loadStorageBagInTab(tabId: string, bagId: string): Promise
   })
 }
 
+/**
+ * Detach a view from the main window's content view, tolerating an
+ * already-detached view (Electron throws if it was never attached).
+ * Passing `context` emits a debug log on failure; omit it to stay silent.
+ */
+function safeDetach(view: WebContentsView, context?: string): void {
+  if (!mainWindow) return
+  try {
+    mainWindow.contentView.removeChildView(view)
+  } catch {
+    if (context) log.debug(`View not attached during ${context}`)
+  }
+}
+
 export function closeTab(tabId: string): boolean {
   const view = views.get(tabId)
   if (!view) return false
@@ -229,13 +243,7 @@ export function closeTab(tabId: string): boolean {
   viewDisposables.get(tabId)?.dispose()
   viewDisposables.delete(tabId)
 
-  if (mainWindow) {
-    try {
-      mainWindow.contentView.removeChildView(view)
-    } catch {
-      log.debug('View not attached during closeTab')
-    }
-  }
+  safeDetach(view, 'closeTab')
 
   cleanupDomainForTab(tabId)
 
@@ -258,11 +266,7 @@ export function switchTab(tabId: string): boolean {
 
   const currentView = activeViewId ? views.get(activeViewId) : null
   if (currentView) {
-    try {
-      mainWindow.contentView.removeChildView(currentView)
-    } catch {
-      log.debug('View not attached during switchTab')
-    }
+    safeDetach(currentView, 'switchTab')
   }
   mainWindow.contentView.addChildView(view)
   updateViewBounds(view, mainWindow, currentWalletSidebarWidth)
@@ -286,11 +290,7 @@ export function hideAllViews(): void {
 
   const activeView = activeViewId ? views.get(activeViewId) : null
   if (activeView) {
-    try {
-      mainWindow.contentView.removeChildView(activeView)
-    } catch {
-      log.debug('View not attached during hideAllViews')
-    }
+    safeDetach(activeView, 'hideAllViews')
   }
 }
 
@@ -312,13 +312,7 @@ export function cleanupTabManager(): void {
 
   for (const [tabId, view] of views) {
     viewDisposables.get(tabId)?.dispose()
-    if (mainWindow) {
-      try {
-        mainWindow.contentView.removeChildView(view)
-      } catch {
-        // View may not be attached
-      }
-    }
+    safeDetach(view)
     view.webContents.close()
   }
   views.clear()
@@ -430,13 +424,7 @@ export async function navigateInTab(tabId: string, url: string): Promise<boolean
 
     viewDisposables.get(tabId)?.dispose()
     viewDisposables.delete(tabId)
-    if (mainWindow) {
-      try {
-        mainWindow.contentView.removeChildView(view)
-      } catch {
-        log.debug('View not attached during domain change')
-      }
-    }
+    safeDetach(view, 'domain change')
     view.webContents.close()
 
     const newSession = await getSessionForDomain(domain, proxyPort)
@@ -462,11 +450,7 @@ export async function navigateInTab(tabId: string, url: string): Promise<boolean
     updateDomainActivity(domain)
 
     if (isActive && mainWindow) {
-      try {
-        mainWindow.contentView.removeChildView(view)
-      } catch {
-        log.debug('View not attached during same-domain navigate')
-      }
+      safeDetach(view, 'same-domain navigate')
       mainWindow.contentView.addChildView(view)
       updateViewBounds(view, mainWindow, currentWalletSidebarWidth)
     }
