@@ -50,27 +50,14 @@ HTTP Request → onBeforeRequest → ContentFilterManager.isBlocked()
 ## Usage
 
 ```typescript
-import { contentFilterManager } from './content-filter/filter-manager'
+// Obtained from the ServiceRegistry (see services.ts), not a module singleton.
+const { contentFilterManager } = registry
 
-// Check if URL should be blocked
-const blocked = contentFilterManager.isBlocked(
-  'http://site.ton/ads/banner.jpg',
-  'image'
-)
+// Sync configuration from user settings (enabled state, whitelist, category toggles)
+contentFilterManager.applySettings(getSetting('contentFiltering'))
 
-// Get statistics
-const stats = contentFilterManager.getStats()
-console.log(`Blocked: ${stats.totalBlocked}`)
-console.log(`By category:`, stats.blockedByCategory)
-
-// Listen to block events
-contentFilterManager.on('blocked', (event) => {
-  console.log(`Blocked ${event.category}: ${event.url}`)
-})
-
-// Enable/disable
-contentFilterManager.setEnabled(false) // Disable filtering
-contentFilterManager.setEnabled(true)  // Re-enable
+// Check if a URL should be blocked
+const blocked = contentFilterManager.isBlocked('http://site.ton/ads/banner.jpg', 'image')
 ```
 
 ## Integration

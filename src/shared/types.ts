@@ -54,27 +54,6 @@ export interface BagDetails {
   dir_name?: string // Directory name from storage daemon response
 }
 
-export interface ContentFilterStats {
-  totalBlocked: number
-  totalAllowed: number
-  blockedByCategory: {
-    ads: number
-    trackers: number
-    miners: number
-    malware: number
-    annoyances: number
-  }
-  sessionStarted: number
-}
-
-export interface ContentFilterEvent {
-  url: string
-  resourceType: string
-  category: 'ads' | 'trackers' | 'miners' | 'malware' | 'annoyances'
-  description: string
-  timestamp: number
-}
-
 export interface HistoryEntry {
   id: string
   url: string
