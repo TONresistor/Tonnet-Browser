@@ -234,8 +234,13 @@ export class ProxyManager extends EventEmitter {
     this.bridgeProcess.on('exit', (code) => {
       log.info(`Bridge exited with code: ${code}`)
       this.bridgeProcess = null
-      this.setStatus('stopped')
-      this.emit('exit', code)
+      this.emit('bridge-exit', code)
+      // Only tear down the whole session if the HTTP proxy is also gone; a
+      // bridge-only crash must not mislabel a still-working proxy as stopped.
+      if (!this.process) {
+        this.setStatus('stopped')
+        this.emit('exit', code)
+      }
     })
 
     this.bridgeProcess.on('error', (err) => {
