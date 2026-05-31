@@ -153,15 +153,10 @@ function App() {
   useEffect(() => {
     if (proxyConnected) {
       ensureDefaultTab()
-      // Prefetch lazy chunks while idle so they're instant when clicked
+      // Prefetch only the most likely next page; the rest load on demand so
+      // code-splitting keeps its parse-time/memory benefit.
       requestIdleCallback(() => {
         import('@/components/pages/SettingsPage')
-        import('@/components/pages/StoragePage')
-        import('@/components/pages/HistoryPage')
-        import('@/components/pages/BookmarksPage')
-        import('@/components/pages/WalletPage')
-        import('@/components/pages/DnsPage')
-        import('@/components/pages/CocoonChatPage')
       })
     }
   }, [proxyConnected, ensureDefaultTab])
