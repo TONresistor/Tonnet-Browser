@@ -3,6 +3,8 @@
  * Mirrors the Go tonutils-bridge config.json structure.
  */
 
+import { z } from 'zod'
+
 // --- Namespace identifiers ---
 
 export const REQUIRED_NAMESPACES = ['lite', 'wallet', 'subscribe', 'dns'] as const
@@ -179,3 +181,17 @@ export function isNamespaceEnabled(config: BridgeConfig, ns: NamespaceKey): bool
 export function isRequiredNamespace(ns: NamespaceKey): ns is RequiredNamespace {
   return (REQUIRED_NAMESPACES as readonly string[]).includes(ns)
 }
+
+/**
+ * Structural validation for a partial bridge-config update from the renderer.
+ * The config is intentionally open-ended (index signature), so this only enforces
+ * the merged shapes: namespaces must be a record of objects and websocket an object;
+ * other top-level keys pass through. Rejects primitives/arrays/malformed namespaces.
+ */
+const NamespaceEntrySchema = z.object({ enabled: z.boolean().optional() }).passthrough()
+export const BridgeConfigPartialSchema = z
+  .object({
+    namespaces: z.record(z.string(), NamespaceEntrySchema).optional(),
+    websocket: z.record(z.string(), z.unknown()).optional(),
+  })
+  .passthrough()
