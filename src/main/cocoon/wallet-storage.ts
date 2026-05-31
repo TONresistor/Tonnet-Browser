@@ -19,10 +19,10 @@ import type { ISecureStorage } from '../ports/secure-storage'
 import { ElectronSafeStorageAdapter } from '../adapters/electron-secure-storage'
 import { createLogger } from '../../shared/logger'
 import { isEnoent } from '../utils/errors'
+import { SENC_MARKER, writeSencJsonFile } from '../utils/senc'
 
 const log = createLogger('cocoon:wallet-storage')
 
-const ENCRYPTED_MARKER = Buffer.from('SENC')
 const FILE_NAME = 'cocoon-wallet.dat'
 
 export interface CocoonWalletData {
@@ -100,7 +100,7 @@ export class CocoonKeyStorage {
     if (this.cached) return this.cached
     try {
       const buf = await fs.readFile(this.filePath)
-      if (!buf.subarray(0, 4).equals(ENCRYPTED_MARKER)) {
+      if (!buf.subarray(0, 4).equals(SENC_MARKER)) {
         log.error(`Unexpected file format at ${this.filePath} (no SENC marker)`)
         return null
       }
@@ -147,12 +147,6 @@ export class CocoonKeyStorage {
   }
 
   private async write(data: CocoonWalletData): Promise<void> {
-    const json = JSON.stringify(data)
-    const encrypted = this.storage.encrypt(json)
-    const marked = Buffer.concat([ENCRYPTED_MARKER, encrypted])
-    const tmp = `${this.filePath}.tmp`
-    await fs.writeFile(tmp, marked, { mode: 0o600 })
-    await fs.rename(tmp, this.filePath)
-    if (process.platform !== 'win32') await fs.chmod(this.filePath, 0o600)
+    await writeSencJsonFile(this.filePath, this.storage, data)
   }
 }

@@ -16,10 +16,9 @@ import type { ISecureStorage } from '../ports/secure-storage'
 import { ElectronSafeStorageAdapter } from '../adapters/electron-secure-storage'
 import { createLogger } from '../../shared/logger'
 import { isEnoent } from '../utils/errors'
+import { decodeSenc, writeSencJsonFile } from '../utils/senc'
 
 const log = createLogger('cocoon:archive')
-
-const ENCRYPTED_MARKER = Buffer.from('SENC')
 const FILE_NAME = 'cocoon-archive.dat'
 
 export interface ArchivedCocoon {
@@ -88,21 +87,12 @@ export class ConsumedArchive {
       if (isEnoent(err)) return null
       throw err
     }
-    if (!buf.subarray(0, 4).equals(ENCRYPTED_MARKER)) {
-      throw new Error(`Unexpected file format at ${this.filePath} (no SENC marker)`)
-    }
-    const json = this.storage.decrypt(buf.subarray(4))
+    const json = decodeSenc(this.storage, buf, this.filePath)
     return JSON.parse(json) as ArchiveFile
   }
 
   private async writeFile(data: ArchiveFile): Promise<void> {
-    const json = JSON.stringify(data)
-    const encrypted = this.storage.encrypt(json)
-    const marked = Buffer.concat([ENCRYPTED_MARKER, encrypted])
-    const tmp = `${this.filePath}.tmp`
-    await fs.writeFile(tmp, marked, { mode: 0o600 })
-    await fs.rename(tmp, this.filePath)
-    if (process.platform !== 'win32') await fs.chmod(this.filePath, 0o600)
+    await writeSencJsonFile(this.filePath, this.storage, data)
   }
 }
 
