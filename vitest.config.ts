@@ -10,6 +10,7 @@ export default defineConfig({
   },
   test: {
     globals: true,
+    clearMocks: true,
     environment: 'node',
     include: ['src/**/*.test.{ts,tsx}'],
     alias: {
