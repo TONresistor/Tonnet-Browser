@@ -30,6 +30,7 @@ import {
   BOUNDS_SAVE_DEBOUNCE_MS,
 } from './windows/constants'
 import { IPC_CHANNELS } from '../shared/ipc-channels'
+import type { OverlayMenuItem } from '../shared/types'
 
 // Initialize electron-log IPC bridge so renderer can also log via electron-log
 log.initialize()
@@ -282,13 +283,7 @@ function createWindow(): void {
 
   // Context menu for internal pages (overlay instead of native menu)
   mainWindow.webContents.on('context-menu', (_e, params) => {
-    const items: Array<{
-      id: string
-      label: string
-      separator?: boolean
-      disabled?: boolean
-      data?: Record<string, string>
-    }> = []
+    const items: OverlayMenuItem[] = []
 
     if (params.isEditable) {
       items.push(

@@ -6,6 +6,7 @@
 
 import { useState, useRef, useCallback } from 'react'
 import { UI_NOTIFICATION_TIMEOUT_MS } from '@shared/constants'
+import type { OverlayMenuItem } from '@shared/types'
 import {
   DndContext,
   DragEndEvent,
@@ -182,22 +183,17 @@ export function BookmarksBar() {
       const menuW = 200,
         menuH = 160
       const { x: menuX, y: menuY } = clampToViewport(e.clientX, e.clientY, menuW, menuH)
-      menuRef.current?.show(
-        { x: menuX, y: menuY, width: menuW, height: menuH },
+      const items: OverlayMenuItem[] = [
+        { id: 'open-new-tab', label: t('bookmarks.openInNewTab'), data: { url: bookmark.url } },
         {
-          type: 'menu',
-          items: [
-            { id: 'open-new-tab', label: t('bookmarks.openInNewTab'), data: { url: bookmark.url } },
-            {
-              id: 'edit',
-              label: t('bookmarks.edit'),
-              data: { id: bookmark.id, title: bookmark.title, url: bookmark.url },
-            },
-            { id: '_sep1', label: '', separator: true },
-            { id: 'delete-bookmark', label: t('bookmarks.delete'), data: { id: bookmark.id }, destructive: true },
-          ],
-        }
-      )
+          id: 'edit',
+          label: t('bookmarks.edit'),
+          data: { id: bookmark.id, title: bookmark.title, url: bookmark.url },
+        },
+        { id: '_sep1', label: '', separator: true },
+        { id: 'delete-bookmark', label: t('bookmarks.delete'), data: { id: bookmark.id }, destructive: true },
+      ]
+      menuRef.current?.show({ x: menuX, y: menuY, width: menuW, height: menuH }, { type: 'menu', items })
     },
     [t]
   )
@@ -210,13 +206,11 @@ export function BookmarksBar() {
 
   const handleFolderClick = (e: React.MouseEvent, folderId: string) => {
     const folderBookmarks = getBookmarksByFolder(folderId)
-    const items: { id: string; label: string; disabled?: boolean; data: { url?: string } }[] = folderBookmarks.map(
-      (b) => ({
-        id: 'navigate',
-        label: b.title || b.url,
-        data: { url: b.url },
-      })
-    )
+    const items: OverlayMenuItem[] = folderBookmarks.map((b) => ({
+      id: 'navigate',
+      label: b.title || b.url,
+      data: { url: b.url },
+    }))
     if (items.length === 0) {
       items.push({
         id: 'empty',
@@ -244,18 +238,13 @@ export function BookmarksBar() {
     const fMenuW = 200,
       fMenuH = 160
     const { x: fMenuX, y: fMenuY } = clampToViewport(e.clientX, e.clientY, fMenuW, fMenuH)
-    menu.show(
-      { x: fMenuX, y: fMenuY, width: fMenuW, height: fMenuH },
-      {
-        type: 'menu',
-        items: [
-          { id: 'rename-folder', label: t('bookmarks.rename'), data: { folderId, folderName } },
-          { id: 'open-all', label: t('bookmarks.openAllBookmarks'), data: { folderId } },
-          { id: '_sep1', label: '', separator: true },
-          { id: 'delete-folder', label: t('bookmarks.delete'), data: { folderId }, destructive: true },
-        ],
-      }
-    )
+    const items: OverlayMenuItem[] = [
+      { id: 'rename-folder', label: t('bookmarks.rename'), data: { folderId, folderName } },
+      { id: 'open-all', label: t('bookmarks.openAllBookmarks'), data: { folderId } },
+      { id: '_sep1', label: '', separator: true },
+      { id: 'delete-folder', label: t('bookmarks.delete'), data: { folderId }, destructive: true },
+    ]
+    menu.show({ x: fMenuX, y: fMenuY, width: fMenuW, height: fMenuH }, { type: 'menu', items })
   }
 
   // Drag & drop handlers

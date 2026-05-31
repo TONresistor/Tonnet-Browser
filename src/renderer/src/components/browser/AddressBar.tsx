@@ -14,6 +14,7 @@ import { useTabsStore } from '@/stores/tabs'
 import { cn } from '@/lib/utils'
 import { processNavigationInput, stripHttpPrefix, getHostname } from '@/lib/url-utils'
 import { clampToViewport } from '@/lib/overlay-position'
+import type { OverlayMenuItem } from '@shared/types'
 import tonIcon from '@/assets/ton.png'
 import { useTranslation } from 'react-i18next'
 import { useOverlay } from '@/hooks/useOverlay'
@@ -85,7 +86,7 @@ export const AddressBar = memo(function AddressBar() {
       e.preventDefault()
       const sel = window.getSelection()
       const hasSelection = !!(sel && sel.toString().length > 0)
-      const items: Array<{ id: string; label: string; separator?: boolean; disabled?: boolean }> = [
+      const items: OverlayMenuItem[] = [
         { id: 'cut', label: t('addressBar.cut'), disabled: !hasSelection },
         { id: 'copy', label: t('addressBar.copy'), disabled: !hasSelection },
         { id: 'paste', label: t('addressBar.paste') },
