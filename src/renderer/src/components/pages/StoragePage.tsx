@@ -41,6 +41,17 @@ export function StoragePage() {
   const [detailTab, setDetailTab] = useState<'info' | 'files'>('info')
   const [showAddModal, setShowAddModal] = useState(false)
 
+  const loadBags = useCallback(async () => {
+    try {
+      const result = await window.electron.storage.listBags()
+      if (result.success) {
+        setBags(result.bags as StorageBag[])
+      }
+    } catch (err) {
+      log.error('Failed to load bags:', err)
+    }
+  }, [])
+
   // Load bags on mount and listen for real-time updates
   useEffect(() => {
     loadBags()
@@ -54,17 +65,6 @@ export function StoragePage() {
       unsubscribe()
     }
   }, [loadBags])
-
-  const loadBags = useCallback(async () => {
-    try {
-      const result = await window.electron.storage.listBags()
-      if (result.success) {
-        setBags(result.bags as StorageBag[])
-      }
-    } catch (err) {
-      log.error('Failed to load bags:', err)
-    }
-  }, [])
 
   const handleRemoveBag = useCallback(
     async (bagId: string) => {
