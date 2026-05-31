@@ -41,7 +41,7 @@
  */
 
 import { errorMessage } from '../../shared/errors'
-import { EventEmitter } from 'events'
+import { PollingDriver } from './polling-driver'
 import { Address } from '@ton/core'
 import { createLogger } from '../../shared/logger'
 import { getRecoveryQueueStore, type RecoveryEntry } from './recovery-queue'
@@ -88,43 +88,15 @@ const TICK_INTERVAL_MS = 60_000
 
 export type { RecoveryDriverEvent }
 
-export class RecoveryDriver extends EventEmitter {
-  private timer: ReturnType<typeof setInterval> | null = null
-  private inflight = false
-
+export class RecoveryDriver extends PollingDriver {
   constructor(
     private getBridge: () => WsBridgeClient | null,
     private getNativeAddress: () => string | null
   ) {
-    super()
+    super(TICK_INTERVAL_MS, log)
   }
 
-  /** Start the periodic ticker. Idempotent. */
-  start(): void {
-    if (this.timer) return
-    this.timer = setInterval(() => {
-      this.tick().catch((err) => log.warn(`tick error: ${errorMessage(err)}`))
-    }, TICK_INTERVAL_MS)
-    setImmediate(() => {
-      this.tick().catch((err) => log.warn(`initial tick error: ${errorMessage(err)}`))
-    })
-  }
-
-  stop(): void {
-    if (this.timer) {
-      clearInterval(this.timer)
-      this.timer = null
-    }
-  }
-
-  /** Trigger an immediate tick (used right after enqueue). */
-  triggerTick(): void {
-    setImmediate(() => {
-      this.tick().catch((err) => log.warn(`triggered tick error: ${errorMessage(err)}`))
-    })
-  }
-
-  private async tick(): Promise<void> {
+  protected async tick(): Promise<void> {
     if (this.inflight) return
     const queue = await getRecoveryQueueStore().list()
     if (queue.length === 0) return
