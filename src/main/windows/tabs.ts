@@ -359,8 +359,11 @@ function attachViewWhenReady(view: WebContentsView, tabId: string): void {
 
   const performAttach = (): void => {
     if (!mainWindow) return
-    if (view.webContents.isDestroyed()) return
+    // A failed cold-start load can replace/tear down this view before the
+    // deferred attach fires; bail before touching a stale/undefined webContents.
     if (views.get(tabId) !== view) return
+    const wc = view.webContents
+    if (!wc || wc.isDestroyed()) return
     if (activeViewId !== tabId) return
     try {
       if (!mainWindow.contentView.children.includes(view)) {
