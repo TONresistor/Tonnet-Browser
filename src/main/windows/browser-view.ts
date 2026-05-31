@@ -67,32 +67,25 @@ function isLoopbackHost(hostname: string): boolean {
   return false
 }
 
-export async function createTonSession(proxyPort: number, partitionName: string = SESSION_PARTITION) {
-  if (!sessionDeps) throw new Error('Session dependencies not initialized. Call setSessionDeps() first.')
-  const { contentFilterManager, paymentInterceptor } = sessionDeps
-
-  const ses = session.fromPartition(partitionName)
-
-  // Configure proxy - route ALL requests through proxy (no bypass)
+/** Route ALL requests through the local proxy (no bypass). Must await before any loadURL. */
+async function installProxy(ses: Electron.Session, proxyPort: number): Promise<void> {
   // MUST await: loadURL before proxy is ready causes ERR_ABORTED (-3)
   await ses.setProxy({
     proxyRules: `http://127.0.0.1:${proxyPort}`,
   })
+}
 
-  // Block all permissions by default (privacy)
+/** Block all permission / device-permission requests by default (privacy). */
+function installPermissionHandlers(ses: Electron.Session): void {
   ses.setPermissionRequestHandler((_webContents, _permission, callback) => {
     callback(false)
   })
   ses.setPermissionCheckHandler(() => false)
   ses.setDevicePermissionHandler(() => false)
+}
 
-  // Set uniform User-Agent
-  ses.setUserAgent(USER_AGENT)
-
-  // Sync content filter settings from user preferences
-  contentFilterManager.applySettings(getSetting('contentFiltering'))
-
-  // Content Filtering + WS blocking: single handler for all request types
+/** Cancel loopback (SSRF) and content-filtered requests. */
+function installRequestFilter(ses: Electron.Session, contentFilterManager: ContentFilterManager): void {
   ses.webRequest.onBeforeRequest((details, callback) => {
     const { url, resourceType } = details
 
@@ -116,8 +109,10 @@ export async function createTonSession(proxyPort: number, partitionName: string 
 
     callback({})
   })
+}
 
-  // Privacy: Normalize headers, strip referer and ETag tracking headers
+/** Normalize request headers, strip referer/ETag/client-hints, inject X-PAYMENT, optional no-cache. */
+function installHeaderPrivacy(ses: Electron.Session, paymentInterceptor: PaymentInterceptor): void {
   ses.webRequest.onBeforeSendHeaders((details, callback) => {
     const wcId = details.webContentsId
     const xPaymentToken =
@@ -150,11 +145,10 @@ export async function createTonSession(proxyPort: number, partitionName: string 
     }
     callback({ requestHeaders: headers })
   })
+}
 
-  // Register 402 payment interceptor on this session
-  paymentInterceptor.registerOnSession(ses)
-
-  // Privacy: Enforce no-referrer policy, strip ETag, and add CSP
+/** Enforce no-referrer policy, strip ETag, and set the response CSP. */
+function installResponseSecurity(ses: Electron.Session): void {
   ses.webRequest.onHeadersReceived({ urls: ['http://*/*', 'https://*/*'] }, (details, callback) => {
     const headers = { ...details.responseHeaders }
     headers['Referrer-Policy'] = ['no-referrer']
@@ -168,6 +162,24 @@ export async function createTonSession(proxyPort: number, partitionName: string 
     ]
     callback({ responseHeaders: headers })
   })
+}
+
+export async function createTonSession(proxyPort: number, partitionName: string = SESSION_PARTITION) {
+  if (!sessionDeps) throw new Error('Session dependencies not initialized. Call setSessionDeps() first.')
+  const { contentFilterManager, paymentInterceptor } = sessionDeps
+
+  const ses = session.fromPartition(partitionName)
+
+  await installProxy(ses, proxyPort)
+  installPermissionHandlers(ses)
+  ses.setUserAgent(USER_AGENT)
+  // Sync content filter settings from user preferences before the request filter runs
+  contentFilterManager.applySettings(getSetting('contentFiltering'))
+  installRequestFilter(ses, contentFilterManager)
+  installHeaderPrivacy(ses, paymentInterceptor)
+  // Register 402 payment interceptor on this session
+  paymentInterceptor.registerOnSession(ses)
+  installResponseSecurity(ses)
 
   return ses
 }
