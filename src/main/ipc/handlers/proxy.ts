@@ -14,7 +14,7 @@ export function registerProxyHandlers(registry: ServiceRegistry): void {
 
   // ===== Proxy Status Events =====
   proxyManager.on('status', (status) => {
-    emitToRenderer('proxy:status', proxyManager.getStatus())
+    emitToRenderer(IPC_CHANNELS.PROXY_STATUS, proxyManager.getStatus())
     // Update window title to show connection status
     const win = getMainWindow()
     if (win) {

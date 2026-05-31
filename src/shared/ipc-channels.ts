@@ -158,4 +158,19 @@ export const IPC_CHANNELS = {
   OVERLAY_HIDE_ALL: 'overlay:hide-all',
   OVERLAY_UPDATE_BOUNDS: 'overlay:update-bounds',
   OVERLAY_ACTION: 'overlay:action',
+
+  // Push events (main -> renderer)
+  PAGE_LOADING: 'page:loading',
+  PAGE_NAVIGATE: 'page:navigate',
+  PAGE_TITLE: 'page:title',
+  PAGE_FAVICON: 'page:favicon',
+  CONTEXT_OPEN_LINK: 'context:open-link',
+  PROXY_AUTO_CONNECT: 'proxy:auto-connect',
+  STORAGE_BAGS_UPDATED: 'storage:bags-updated',
+  STORAGE_STATUS: 'storage:status',
+  SETTINGS_CHANGED: 'settings:changed',
+  TAB_HISTORY_RESET: 'tab:history-reset',
+  WALLET_PAYMENT_REQ: 'wallet:payment-req',
+  WALLET_PAYMENT_MADE: 'wallet:payment-made',
+  WALLET_PAYMENT_FAILED: 'wallet:payment-failed',
 } as const

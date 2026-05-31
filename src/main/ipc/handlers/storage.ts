@@ -41,15 +41,15 @@ export function registerStorageHandlers(registry: ServiceRegistry): void {
 
   // ===== Storage Events =====
   storageManager.on('bags-updated', (bags) => {
-    emitToRenderer('storage:bags-updated', bags)
+    emitToRenderer(IPC_CHANNELS.STORAGE_BAGS_UPDATED, bags)
   })
 
   storageManager.on('started', () => {
-    emitToRenderer('storage:status', { running: true })
+    emitToRenderer(IPC_CHANNELS.STORAGE_STATUS, { running: true })
   })
 
   storageManager.on('stopped', () => {
-    emitToRenderer('storage:status', { running: false })
+    emitToRenderer(IPC_CHANNELS.STORAGE_STATUS, { running: false })
   })
 
   storageManager.on('error', (message) => {

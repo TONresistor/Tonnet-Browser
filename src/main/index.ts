@@ -251,7 +251,7 @@ function createWindow(): void {
         emitToRenderer(IPC_CHANNELS.PROXY_PROGRESS, { step, message })
       }
       // Tell renderer to show loading state
-      emitToRenderer('proxy:auto-connect')
+      emitToRenderer(IPC_CHANNELS.PROXY_AUTO_CONNECT)
       try {
         const tabDeps = {
           overlayManager: services.overlayManager,
@@ -264,11 +264,11 @@ function createWindow(): void {
         await startProxySequence(sendProgress, services.proxyManager, services.storageManager, mainWindow, tabDeps)
         appLog.info('Auto-connect complete')
         // Notify renderer of connection status
-        emitToRenderer('proxy:status', { ...services.proxyManager.getStatus(), status: 'connected' })
+        emitToRenderer(IPC_CHANNELS.PROXY_STATUS, { ...services.proxyManager.getStatus(), status: 'connected' })
       } catch (error) {
         appLog.error(`Auto-connect failed: ${String(error)}`)
         // Notify renderer of connection failure (field name matches ProxyStatus.error)
-        emitToRenderer('proxy:status', {
+        emitToRenderer(IPC_CHANNELS.PROXY_STATUS, {
           status: 'error',
           error: error instanceof Error ? error.message : String(error),
         })

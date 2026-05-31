@@ -10,6 +10,7 @@ import { Plus, Search, HardDrive, X, Settings, Upload, Folder, Copy, FileText } 
 const log = createLogger('storage')
 import { useTranslation } from 'react-i18next'
 import type { StorageBag, BagDetails } from '@shared/types'
+import { IPC_CHANNELS } from '@shared/ipc-channels'
 import { cn } from '@/lib/utils'
 import { useTabsStore } from '@/stores/tabs'
 import { usePreferencesStore } from '@/stores/preferences'
@@ -46,7 +47,7 @@ export function StoragePage() {
   useEffect(() => {
     loadBags()
 
-    const unsubscribe = window.electron.on('storage:bags-updated', (...args: unknown[]) => {
+    const unsubscribe = window.electron.on(IPC_CHANNELS.STORAGE_BAGS_UPDATED, (...args: unknown[]) => {
       const updatedBags = args[0] as StorageBag[]
       setBags(updatedBags)
     })
