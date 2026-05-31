@@ -31,6 +31,39 @@ export function writeJsonAtomic(filePath: string, data: unknown, indent: string 
 }
 
 /**
+ * Like writeJsonAtomic but fsyncs the file handle before rename, so a crash or
+ * power loss after the write leaves a complete file on disk (crash durability).
+ * Synchronous; default permissions (non-secret data).
+ */
+export function writeJsonAtomicDurable(
+  filePath: string,
+  data: unknown,
+  indent: string | number = 2,
+  mode?: number
+): void {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true })
+  const tmp = `${filePath}.tmp`
+  const content = JSON.stringify(data, null, indent)
+  try {
+    const fd = fs.openSync(tmp, 'w', mode)
+    try {
+      fs.writeSync(fd, content)
+      fs.fsyncSync(fd)
+    } finally {
+      fs.closeSync(fd)
+    }
+    fs.renameSync(tmp, filePath)
+  } catch (err) {
+    try {
+      fs.unlinkSync(tmp)
+    } catch {
+      /* tmp may not exist */
+    }
+    throw err
+  }
+}
+
+/**
  * Atomic write of a JSON file with 0o600 permissions on POSIX.
  * Use for files that may contain secrets (api keys, private keys, tokens).
  *
