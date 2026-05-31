@@ -30,6 +30,7 @@ import { SortableTab } from './SortableTab'
 import { useTranslation } from 'react-i18next'
 import { usePreferencesStore } from '@/stores/preferences'
 import { useOverlay } from '@/hooks/useOverlay'
+import { clampToViewport } from '@/lib/overlay-position'
 
 interface TabBarProps {
   sidebarWidth?: number
@@ -165,8 +166,7 @@ export const TabBar = memo(function TabBar({ sidebarWidth }: TabBarProps) {
       e.preventDefault()
       const menuW = 200,
         menuH = 160
-      const menuX = Math.max(4, Math.min(e.clientX, window.innerWidth - menuW - 4))
-      const menuY = Math.max(4, Math.min(e.clientY, window.innerHeight - menuH - 4))
+      const { x: menuX, y: menuY } = clampToViewport(e.clientX, e.clientY, menuW, menuH)
       menu.show(
         { x: menuX, y: menuY, width: menuW, height: menuH },
         {
