@@ -12,8 +12,7 @@ export function useIpcEvents(updateTab: ReturnType<typeof useTabsStore.getState>
   useEffect(() => {
     const { setNavigation, setLoading, setTitle } = useBrowserStore.getState()
 
-    const unsubNavigate = window.electron.on(IPC_CHANNELS.PAGE_NAVIGATE, (...args: unknown[]) => {
-      const data = args[0] as { tabId?: string; url: string; canGoBack: boolean; canGoForward: boolean }
+    const unsubNavigate = window.electron.on(IPC_CHANNELS.PAGE_NAVIGATE, (data) => {
       setNavigation(data.url, data.canGoBack, data.canGoForward)
       // Update tab state + push to history for bag file navigation
       if (data.tabId) {
@@ -34,42 +33,34 @@ export function useIpcEvents(updateTab: ReturnType<typeof useTabsStore.getState>
       }
     })
 
-    const unsubLoading = window.electron.on(IPC_CHANNELS.PAGE_LOADING, (...args: unknown[]) => {
-      const loading = args[0] as boolean
-      const tabId = args[1] as string | undefined
+    const unsubLoading = window.electron.on(IPC_CHANNELS.PAGE_LOADING, (loading, tabId) => {
       setLoading(loading)
       if (tabId) {
         updateTab(tabId, { isLoading: loading })
       }
     })
 
-    const unsubTitle = window.electron.on(IPC_CHANNELS.PAGE_TITLE, (...args: unknown[]) => {
-      const title = args[0] as string
-      const tabId = args[1] as string | undefined
+    const unsubTitle = window.electron.on(IPC_CHANNELS.PAGE_TITLE, (title, tabId) => {
       setTitle(title)
       if (tabId) {
         updateTab(tabId, { title })
       }
     })
 
-    const unsubFavicon = window.electron.on(IPC_CHANNELS.PAGE_FAVICON, (...args: unknown[]) => {
-      const favicon = args[0] as string
-      const tabId = args[1] as string | undefined
+    const unsubFavicon = window.electron.on(IPC_CHANNELS.PAGE_FAVICON, (favicon, tabId) => {
       if (tabId) {
         updateTab(tabId, { favicon })
       }
     })
 
     // Handle "Open Link in New Tab" from context menu
-    const unsubOpenLink = window.electron.on(IPC_CHANNELS.CONTEXT_OPEN_LINK, (...args: unknown[]) => {
-      const url = args[0] as string
+    const unsubOpenLink = window.electron.on(IPC_CHANNELS.CONTEXT_OPEN_LINK, (url) => {
       useTabsStore.getState().addTab(url)
     })
 
     // Handle first-party isolation view recreation: reset renderer history so
     // back/forward buttons don't point to URLs of a destroyed WebContentsView
-    const unsubHistoryReset = window.electron.on(IPC_CHANNELS.TAB_HISTORY_RESET, (...args: unknown[]) => {
-      const tabId = args[0] as string
+    const unsubHistoryReset = window.electron.on(IPC_CHANNELS.TAB_HISTORY_RESET, (tabId) => {
       const tab = useTabsStore.getState().tabs.find((t) => t.id === tabId)
       if (tab) {
         useTabsStore.getState().updateTab(tabId, {
