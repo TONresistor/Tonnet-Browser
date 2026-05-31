@@ -25,6 +25,7 @@ import { ErrorBoundary } from '../ErrorBoundary'
 import { SortableBookmarkItem } from './SortableBookmarkItem'
 import { DroppableFolder } from './DroppableFolder'
 import { clampToViewport } from '@/lib/overlay-position'
+import { classifyDrop } from '@/lib/bookmark-dnd'
 import { useTranslation } from 'react-i18next'
 import { useOverlay } from '@/hooks/useOverlay'
 
@@ -256,37 +257,17 @@ export function BookmarksBar() {
     const { active, over } = event
     setActiveId(null)
 
-    if (!over) return
-
-    const activeId = active.id as string
-    const overId = over.id as string
-
-    const isActiveFolder = activeId.startsWith('folder-')
-    const isOverFolder = overId.startsWith('folder-') || overId.startsWith('droppable-')
-
-    if (isActiveFolder && isOverFolder && activeId !== overId) {
-      const actualOverId = overId.startsWith('droppable-') ? overId.replace('droppable-', '') : overId
-      if (activeId === actualOverId) return
-      const oldIndex = topLevelFolders.findIndex((f) => f.id === activeId)
-      const newIndex = topLevelFolders.findIndex((f) => f.id === actualOverId)
-      if (oldIndex !== -1 && newIndex !== -1) {
-        reorderFolders(activeId, newIndex, null)
-      }
-      return
-    }
-
-    if (!isActiveFolder && over.data.current?.type === 'folder') {
-      const targetFolderId = over.data.current.folderId
-      reorderBookmarks(activeId, targetFolderId, 0)
-      return
-    }
-
-    if (!isActiveFolder && !isOverFolder && activeId !== overId) {
-      const oldIndex = topLevelBookmarks.findIndex((b) => b.id === activeId)
-      const newIndex = topLevelBookmarks.findIndex((b) => b.id === overId)
-      if (oldIndex !== -1 && newIndex !== -1) {
-        reorderBookmarks(activeId, null, newIndex)
-      }
+    const action = classifyDrop(active, over, topLevelFolders, topLevelBookmarks)
+    switch (action.kind) {
+      case 'reorder-folder':
+        reorderFolders(action.folderId, action.newIndex, null)
+        break
+      case 'bookmark-into-folder':
+        reorderBookmarks(action.bookmarkId, action.folderId, 0)
+        break
+      case 'reorder-bookmark':
+        reorderBookmarks(action.bookmarkId, null, action.newIndex)
+        break
     }
   }
 
