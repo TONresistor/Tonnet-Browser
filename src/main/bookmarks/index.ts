@@ -36,11 +36,7 @@ export interface BookmarksData {
 }
 
 // File paths
-let _basePath: string | undefined
-export function setBasePath(path: string): void {
-  _basePath = path
-}
-const getBookmarksDir = () => _basePath ?? join(app.getPath('userData'))
+const getBookmarksDir = () => join(app.getPath('userData'))
 export const getBookmarksFile = () => join(getBookmarksDir(), 'bookmarks.json')
 
 function createDefaultBookmarks(): Bookmark[] {

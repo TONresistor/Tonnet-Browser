@@ -37,13 +37,9 @@ export type {
 }
 
 // File paths
-let _basePath: string | undefined
-export function setBasePath(path: string): void {
-  _basePath = path
-}
-const getSettingsDir = () => _basePath ?? join(app.getPath('userData'))
+const getSettingsDir = () => join(app.getPath('userData'))
 const getSettingsFile = () => join(getSettingsDir(), 'app-settings.json')
-const getDefaultStoragePath = () => join(_basePath ?? app.getPath('userData'), 'storage')
+const getDefaultStoragePath = () => join(app.getPath('userData'), 'storage')
 
 // Default settings (using shared defaults)
 export function getDefaultSettings(): AppSettings {
