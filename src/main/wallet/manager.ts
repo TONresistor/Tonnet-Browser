@@ -8,7 +8,12 @@ import { internal, beginCell, storeMessage, Address, SendMode, Cell } from '@ton
 import { WalletContractV5R1 } from '@ton/ton'
 import { WalletKeyStorage, WalletDecryptionError } from './key-storage'
 import type { ISecureStorage } from '../ports/secure-storage'
-import { WsBridgeClient, type BridgeTransaction, type BridgeAccountState } from './ws-bridge-client'
+import {
+  WsBridgeClient,
+  isContractNotDeployedError,
+  type BridgeTransaction,
+  type BridgeAccountState,
+} from './ws-bridge-client'
 import { getSetting } from '../settings'
 import { WALLET_MAX_TIMEOUT_S, WALLET_HISTORY_DEFAULT_LIMIT } from './constants'
 import type {
@@ -595,8 +600,7 @@ export class WalletManager extends EventEmitter {
       // locally but the remote never broadcasts (failed verify/settle in x402 fire-and-forget).
       this.localSeqno = onChainSeqno
     } catch (error) {
-      const msg = (error as Error).message ?? ''
-      if (msg.includes('not initialized') || msg.includes('-256')) {
+      if (isContractNotDeployedError(error)) {
         log.debug('Seqno sync: contract not yet deployed, using local seqno')
       } else {
         log.error('Seqno sync failed:', error)

@@ -10,6 +10,16 @@ import type { DnsResolveResult } from '../../shared/types'
 
 const log = createLogger('wallet:ws-bridge')
 
+/**
+ * True when a bridge get-method error indicates the contract is not yet deployed
+ * (uninitialized). The bridge surfaces this as a "not initialized" message or
+ * exit code -256; callers treat it as "seqno 0, init will deploy".
+ */
+export function isContractNotDeployedError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err ?? '')
+  return msg.includes('not initialized') || msg.includes('-256')
+}
+
 const REQUEST_TIMEOUT_MS = 10_000
 const HEARTBEAT_INTERVAL_MS = 54_000
 const PONG_TIMEOUT_MS = 60_000
