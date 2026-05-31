@@ -12,13 +12,12 @@ import { EventEmitter } from 'events'
 import { pathToFileURL } from 'url'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { registerIpcHandlers, emitToRenderer } from './ipc/handlers'
-import { getActiveView, getAllSessions, cleanupTabManager } from './windows/tabs'
+import { getActiveView } from './windows/tabs'
 import { setMainWindow } from './windows/main'
-import { getSetting, loadSettings, saveSettings } from './settings'
+import { getSetting } from './settings'
 import { startProxySequence } from './proxy/startup'
 import { initUpdater } from './updater'
-import { createServices, destroyServices, type ServiceRegistry } from './services'
-import { loadCocoonWallet } from './cocoon/wallet'
+import { createServices, type ServiceRegistry } from './services'
 import {
   DEFAULT_WINDOW_WIDTH,
   DEFAULT_WINDOW_HEIGHT,
@@ -30,6 +29,8 @@ import {
 import { IPC_CHANNELS } from '../shared/ipc-channels'
 import type { OverlayMenuItem } from '../shared/types'
 import { loadWindowBounds, saveWindowBounds, flushWindowBoundsOnQuit } from './windows/bounds'
+import { autostartCocoonIfEnabled } from './cocoon/autostart'
+import { runCleanup, isCleanupInProgress } from './app-cleanup'
 
 // Initialize electron-log IPC bridge so renderer can also log via electron-log
 log.initialize()
@@ -420,7 +421,7 @@ app.whenReady().then(() => {
     // at construction (avoids an immediate disk-reading tick before bridge ready).
     services.withdrawDriver.start()
     services.recoveryDriver.start()
-    autostartCocoonIfEnabled().catch((e) => log.error('Cocoon autostart failed:', e))
+    autostartCocoonIfEnabled(services).catch((e) => log.error('Cocoon autostart failed:', e))
   })
   createWindow()
 
@@ -431,101 +432,10 @@ app.whenReady().then(() => {
   })
 })
 
-const COCOON_ROOT_MAINNET = 'EQCns7bYSp0igFvS1wpb5wsZjCKCV19MD5AVzI4EyxsnU73k'
-
-/**
- * Start the Cocoon runner at boot if the user has opted in via settings AND
- * the wallet has finished setup. Fired after the WS bridge becomes ready,
- * so the runner sees a connected proxy/bridge/storage stack.
- */
-async function autostartCocoonIfEnabled(): Promise<void> {
-  if (!services) return
-  const { autostart } = getSetting('cocoon')
-  if (!autostart) return
-  const data = await loadCocoonWallet()
-  // Only auto-start when the user has already completed the setup wizard.
-  if (!data || data.setupCompletedAt == null) {
-    log.info('Cocoon autostart skipped (no completed wallet)')
-    return
-  }
-  log.info('Cocoon autostart: launching runner...')
-  try {
-    await services.cocoonManager.start({
-      ownerAddress: data.ownerAddress,
-      nodeWalletKeyBase64: data.nodeSecretBase64,
-      rootContractAddress: COCOON_ROOT_MAINNET,
-    })
-  } catch (err) {
-    log.error('Cocoon autostart failed:', err)
-  }
-}
-
-let isCleaningUp = false
-
-async function runCleanup(): Promise<void> {
-  if (isCleaningUp) return
-  isCleaningUp = true
-
-  // Clear browsing data on exit if enabled
-  const { clearOnExit } = getSetting('privacy')
-  if (clearOnExit) {
-    log.info('Clearing browsing data on exit...')
-    try {
-      const sessions = getAllSessions()
-
-      for (const ses of sessions) {
-        await ses.clearCache()
-        await ses.clearStorageData({
-          storages: ['cookies', 'localstorage', 'indexdb', 'websql', 'serviceworkers', 'cachestorage'],
-        })
-      }
-
-      log.info(`Cleared browsing data for ${sessions.length} session(s)`)
-    } catch (error) {
-      log.error(`Failed to clear browsing data: ${String(error)}`)
-    }
-
-    // Clear bookmarks file (privacy: leave no browsing trace)
-    try {
-      const { getBookmarksFile } = await import('./bookmarks')
-      const { unlinkSync, existsSync } = await import('fs')
-      const file = getBookmarksFile()
-      if (existsSync(file)) {
-        unlinkSync(file)
-        log.info('Cleared bookmarks file')
-      }
-    } catch (error) {
-      log.error(`Failed to clear bookmarks: ${String(error)}`)
-    }
-
-    // Clear domain lists passively accumulated from prompts (permissions,
-    // payment policies). User-configured preferences stay untouched.
-    try {
-      const settings = loadSettings()
-      const hasTraces =
-        settings.bridge.permissions.length > 0 ||
-        settings.wallet.sitePolicies.length > 0 ||
-        settings.wallet.autoPayDomains.length > 0
-      if (hasTraces) {
-        settings.bridge.permissions = []
-        settings.wallet.sitePolicies = []
-        settings.wallet.autoPayDomains = []
-        saveSettings(settings)
-        log.info('Cleared browsing traces from settings file')
-      }
-    } catch (error) {
-      log.error(`Failed to clear browsing traces from settings: ${String(error)}`)
-    }
-  }
-
-  cleanupTabManager()
-  await destroyServices(services)
-}
-
 app.on('window-all-closed', async () => {
-  if (isCleaningUp) return
+  if (isCleanupInProgress()) return
 
-  await runCleanup()
+  await runCleanup(services)
 
   if (process.platform !== 'darwin') {
     app.quit()
@@ -544,7 +454,7 @@ app.on('before-quit', (event) => {
   // Cleanup history before quit -- must await, so use Promise chain
   services.historyManager
     .onAppExit()
-    .then(() => runCleanup())
-    .catch(() => runCleanup())
+    .then(() => runCleanup(services))
+    .catch(() => runCleanup(services))
     .finally(() => app.quit())
 })
