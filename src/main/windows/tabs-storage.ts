@@ -6,6 +6,7 @@
 import { WebContentsView } from 'electron'
 import { EventEmitter } from 'events'
 import { generateFileBrowserPage, generateLoadingPage } from './file-browser'
+import { escapeHtml, loadDataHtml } from './page-templates'
 import type { StorageManager } from '../storage/daemon'
 import { createLogger } from '../../shared/logger'
 import type { BagDetails } from '../../shared/types'
@@ -68,8 +69,8 @@ export function loadErrorPage(view: WebContentsView, errorMessage: string, faile
     log.debug('loadErrorPage skipped: view missing or destroyed')
     return
   }
-  const safeError = errorMessage.replace(/</g, '&lt;').replace(/>/g, '&gt;')
-  const safeUrl = failedUrl.replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  const safeError = escapeHtml(errorMessage)
+  const safeUrl = escapeHtml(failedUrl)
   const encodedUrl = encodeURIComponent(failedUrl)
   const animJson = JSON.stringify(__LOADING_ANIMATION_JSON__)
 
@@ -206,7 +207,7 @@ export function loadErrorPage(view: WebContentsView, errorMessage: string, faile
 </body>
 </html>`
 
-  wc.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(errorHtml)}`).catch((err) => {
+  loadDataHtml(wc, errorHtml).catch((err) => {
     log.error('Failed to load error page:', err)
   })
 }
@@ -240,7 +241,7 @@ export async function loadStorageBag(view: WebContentsView, opts: LoadStorageBag
   if (useCache) {
     const cached = fileBrowserCache.get(view.webContents.id)
     if (cached) {
-      await view.webContents.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(cached)}`)
+      await loadDataHtml(view.webContents, cached)
       return
     }
   }
@@ -251,7 +252,7 @@ export async function loadStorageBag(view: WebContentsView, opts: LoadStorageBag
 
   // Show loading page
   const loadingHtml = generateLoadingPage(label)
-  await view.webContents.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(loadingHtml)}`)
+  await loadDataHtml(view.webContents, loadingHtml)
 
   // Ensure bag is in daemon
   let details: BagDetails | null = null
@@ -297,7 +298,7 @@ export async function loadStorageBag(view: WebContentsView, opts: LoadStorageBag
   const displayName = opts.domain ?? details.description ?? bagId.slice(0, 16)
   const html = generateFileBrowserPage(displayName, bagId, details.files, '/', basePath)
   fileBrowserCache.set(view.webContents.id, html)
-  await view.webContents.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`)
+  await loadDataHtml(view.webContents, html)
 }
 
 /**

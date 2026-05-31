@@ -3,20 +3,11 @@
  * Produces an HTML string for browsing bag contents when no index.html exists.
  */
 
+import { escapeHtml } from './page-templates'
+
 // Build-time constants: lottie player + loading animation baked by electron-vite
 declare const __LOTTIE_PLAYER_JS__: string
 declare const __LOADING_ANIMATION_JSON__: object
-
-// --- XSS sanitization ---
-
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
-}
 
 // --- File type detection ---
 
