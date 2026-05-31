@@ -371,16 +371,21 @@ describe('ProxyManager', () => {
       expect(manager.isRunning()).toBe(false)
     })
 
-    it('handles bridge process exit', async () => {
+    it('emits bridge-exit without stopping the session when the proxy is still alive', async () => {
       emitProxyReady()
 
       const exitSpy = vi.fn()
+      const bridgeExitSpy = vi.fn()
       manager.on('exit', exitSpy)
+      manager.on('bridge-exit', bridgeExitSpy)
 
       await manager.start()
       mockBridgeProcess.emit('exit', 1)
 
-      expect(exitSpy).toHaveBeenCalledWith(1)
+      // Bridge-only crash: signalled via bridge-exit, NOT the session-wide exit.
+      expect(bridgeExitSpy).toHaveBeenCalledWith(1)
+      expect(exitSpy).not.toHaveBeenCalled()
+      // No longer fully running (bridge gone) but the proxy process survives.
       expect(manager.isRunning()).toBe(false)
     })
 
