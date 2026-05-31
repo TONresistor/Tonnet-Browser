@@ -66,15 +66,6 @@ vi.mock('../../storage/daemon', () => ({
 }))
 
 // Mock storage bags
-vi.mock('../../storage/bags', () => ({
-  addBag: vi.fn(() => Promise.resolve({ id: 'test-bag', status: 'downloading' })),
-  removeBag: vi.fn(() => Promise.resolve(true)),
-  listBags: vi.fn(() => Promise.resolve([])),
-  pauseBag: vi.fn(() => Promise.resolve(true)),
-  resumeBag: vi.fn(() => Promise.resolve(true)),
-  getBagDetails: vi.fn(() => Promise.resolve({ id: 'test-bag', files: [] })),
-  setBagsStorageManager: vi.fn(),
-}))
 
 // Mock settings
 vi.mock('../../settings', () => ({
@@ -236,7 +227,6 @@ vi.mock('../../cocoon/platform', () => ({
 // Import after mocks
 import { registerIpcHandlers, _resetHandlersForTesting } from '../handlers'
 import { IPC_CHANNELS } from '../../../shared/types'
-import { addBag, removeBag } from '../../storage/bags'
 import { setSetting, resetSettings } from '../../settings'
 import { createTab, closeTab, switchTab, navigateInTab } from '../../windows/tabs'
 import type { ServiceRegistry } from '../../services'
@@ -281,6 +271,11 @@ const mockStorageManager = (() => {
       port: 5555,
       storagePath: '/mock/downloads',
     })),
+    addBag: vi.fn(() => Promise.resolve({ id: 'test-bag', status: 'downloading' })),
+    removeBag: vi.fn(() => Promise.resolve(true)),
+    listBags: vi.fn(() => Promise.resolve([])),
+    pauseBag: vi.fn(() => Promise.resolve(true)),
+    getBagDetails: vi.fn(() => Promise.resolve({ id: 'test-bag', files: [] })),
     on: emitter.on.bind(emitter),
     emit: emitter.emit.bind(emitter),
   })
@@ -466,7 +461,7 @@ describe('IPC Handlers', () => {
       const validBagId = 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2'
       await handler(createMockEvent(), validBagId, 'Test Bag')
 
-      expect(addBag).toHaveBeenCalledWith(validBagId, 'Test Bag')
+      expect(mockStorageManager.addBag).toHaveBeenCalledWith(validBagId)
     })
 
     it('STORAGE_ADD_BAG rejects invalid bagId', async () => {
@@ -477,7 +472,7 @@ describe('IPC Handlers', () => {
       const result = await handler(createMockEvent(), invalidBagId, 'Test')
 
       expect(result.success).toBe(false)
-      expect(addBag).not.toHaveBeenCalled()
+      expect(mockStorageManager.addBag).not.toHaveBeenCalled()
     })
 
     it('STORAGE_REMOVE_BAG removes bag by id', async () => {
@@ -487,7 +482,7 @@ describe('IPC Handlers', () => {
       const validBagId = 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2'
       await handler(createMockEvent(), validBagId)
 
-      expect(removeBag).toHaveBeenCalledWith(validBagId)
+      expect(mockStorageManager.removeBag).toHaveBeenCalledWith(validBagId)
     })
   })
 

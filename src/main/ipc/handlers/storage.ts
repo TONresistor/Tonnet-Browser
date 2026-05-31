@@ -7,7 +7,6 @@ import { shell } from 'electron'
 import { IPC_CHANNELS } from '../../../shared/types'
 import { isValidBagId } from '../validation'
 import { secureHandle, secureHandleWithEvent, emitToRenderer, storageLimiter, log } from './shared'
-import { addBag, removeBag, listBags, pauseBag, getBagDetails, setBagsStorageManager } from '../../storage/bags'
 import { getDownloadPath } from '../../settings'
 import type { ServiceRegistry } from '../../services'
 
@@ -39,7 +38,6 @@ function validateBagIdOrFail(bagId: string): { success: false; error: string } |
 
 export function registerStorageHandlers(registry: ServiceRegistry): void {
   const { storageManager } = registry
-  setBagsStorageManager(storageManager)
 
   // ===== Storage Events =====
   storageManager.on('bags-updated', (bags) => {
@@ -59,7 +57,7 @@ export function registerStorageHandlers(registry: ServiceRegistry): void {
   })
 
   // ===== Storage Handlers =====
-  secureHandle(IPC_CHANNELS.STORAGE_ADD_BAG, async (bagId: string, name?: string) => {
+  secureHandle(IPC_CHANNELS.STORAGE_ADD_BAG, async (bagId: string, _name?: string) => {
     // Rate limit storage operations
     if (!storageLimiter.check()) {
       return { success: false, error: 'Rate limited' }
@@ -69,26 +67,26 @@ export function registerStorageHandlers(registry: ServiceRegistry): void {
     const bagIdError = validateBagIdOrFail(bagId)
     if (bagIdError) return bagIdError
 
-    const bag = await addBag(bagId, name)
+    const bag = await storageManager.addBag(bagId)
     return { success: true, bag }
   })
 
   secureHandleWithEvent(IPC_CHANNELS.STORAGE_REMOVE_BAG, async (_event, bagId: string) => {
     const bagIdError = validateBagIdOrFail(bagId)
     if (bagIdError) return bagIdError
-    const result = await removeBag(bagId)
+    const result = await storageManager.removeBag(bagId)
     return { success: result }
   })
 
   secureHandle(IPC_CHANNELS.STORAGE_LIST_BAGS, async () => {
-    const bags = await listBags()
+    const bags = await storageManager.listBags()
     return { success: true, bags }
   })
 
   secureHandleWithEvent(IPC_CHANNELS.STORAGE_PAUSE_BAG, async (_event, bagId: string) => {
     const bagIdError = validateBagIdOrFail(bagId)
     if (bagIdError) return bagIdError
-    const result = await pauseBag(bagId)
+    const result = await storageManager.pauseBag(bagId)
     return { success: result }
   })
 
@@ -96,7 +94,7 @@ export function registerStorageHandlers(registry: ServiceRegistry): void {
     const bagIdError = validateBagIdOrFail(bagId)
     if (bagIdError) return bagIdError
     try {
-      const details = await getBagDetails(bagId)
+      const details = await storageManager.getBagDetails(bagId)
       return { success: true, details }
     } catch (error) {
       return { success: false, error: (error as Error).message }
@@ -107,7 +105,7 @@ export function registerStorageHandlers(registry: ServiceRegistry): void {
     const bagIdError = validateBagIdOrFail(bagId)
     if (bagIdError) return bagIdError
     try {
-      const details = await getBagDetails(bagId)
+      const details = await storageManager.getBagDetails(bagId)
       if (!details?.path) {
         return { success: false, error: 'Bag path not found' }
       }
@@ -141,7 +139,7 @@ export function registerStorageHandlers(registry: ServiceRegistry): void {
     }
 
     try {
-      const details = await getBagDetails(bagId)
+      const details = await storageManager.getBagDetails(bagId)
       if (!details?.path) {
         return { success: false, error: 'Bag path not found' }
       }
