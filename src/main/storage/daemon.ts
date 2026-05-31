@@ -210,7 +210,7 @@ export class StorageManager extends EventEmitter {
 
         this.emit(
           'bags-updated',
-          bags.map((b) => this.mapBagInfo(b))
+          bags.map((b) => this.mapBagInfo(b, storageSettings.seedingEnabled))
         )
       } catch (err) {
         log.error(`Poll error: ${String(err)}`)
@@ -225,15 +225,14 @@ export class StorageManager extends EventEmitter {
     }
   }
 
-  private mapBagInfo(info: BagInfo): StorageBag {
-    const { storage } = this.loadSettings()
+  private mapBagInfo(info: BagInfo, seedingEnabled: boolean): StorageBag {
     let status: StorageBag['status'] = 'downloading'
     if (info.completed && info.active) {
       status = 'seeding'
     } else if (info.completed && !info.active) {
       // Completed but paused: show 'seeding' if seeding is globally enabled (temporarily paused),
       // show 'paused' if seeding is disabled (expected state)
-      status = storage.seedingEnabled ? 'paused' : 'seeding'
+      status = seedingEnabled ? 'paused' : 'seeding'
     } else if (!info.active) {
       status = 'paused'
     }
@@ -322,8 +321,9 @@ export class StorageManager extends EventEmitter {
       return []
     }
 
+    const { storage } = this.loadSettings()
     const bags = await this.client.listBags()
-    return bags.map((b) => this.mapBagInfo(b))
+    return bags.map((b) => this.mapBagInfo(b, storage.seedingEnabled))
   }
 
   async resumeSeeding(): Promise<void> {
