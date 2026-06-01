@@ -13,6 +13,9 @@ export function useProxy() {
 
   const connect = useCallback(async () => {
     setIsConnecting(true)
+    // Warm the StartPage chunk during the proxy bootstrap so it is already loaded
+    // by the time proxyConnected flips true, avoiding the Suspense fallback flash.
+    void import('@/components/pages/StartPage')
     setError(null)
 
     try {

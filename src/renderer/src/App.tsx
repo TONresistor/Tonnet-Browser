@@ -160,10 +160,20 @@ function App() {
   useEffect(() => {
     if (proxyConnected) {
       ensureDefaultTab()
-      // Prefetch only the most likely next page; the rest load on demand so
-      // code-splitting keeps its parse-time/memory benefit.
+      // Warm every lazy page + sidebar chunk during idle after connect so they
+      // open instantly. Code-splitting keeps the initial bundle small (faster
+      // cold start in prod); idle-prefetch keeps navigation instant. Complementary.
       requestIdleCallback(() => {
+        import('@/components/pages/StartPage')
         import('@/components/pages/SettingsPage')
+        import('@/components/pages/StoragePage')
+        import('@/components/pages/HistoryPage')
+        import('@/components/pages/BookmarksPage')
+        import('@/components/pages/WalletPage')
+        import('@/components/pages/DnsPage')
+        import('@/components/pages/CocoonChatPage')
+        import('@/components/wallet/WalletSidebar')
+        import('@/components/cocoon/CocoonSidebar')
       })
     }
   }, [proxyConnected, ensureDefaultTab])
