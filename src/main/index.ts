@@ -52,6 +52,21 @@ protocol.registerSchemesAsPrivileged([
 
 // Log MaxListenersExceededWarning to help detect memory leaks during development
 const appLog = log.scope('app')
+
+/**
+ * Run a deferred startup step (sync or async), logging on failure instead of
+ * throwing, so one service failing to init/start cannot abort the rest of the
+ * boot sequence. DRY: unifies the bare calls and ad-hoc .catch() at the
+ * ws-bridge-ready hook into one guarded path.
+ */
+function safeStartup(label: string, run: () => void | Promise<unknown>): void {
+  try {
+    const result = run()
+    if (result instanceof Promise) result.catch((e) => log.error(`${label} failed:`, e))
+  } catch (e) {
+    log.error(`${label} failed:`, e)
+  }
+}
 process.on('warning', (warning) => {
   if (warning.name === 'MaxListenersExceededWarning') {
     appLog.warn(`Potential listener leak detected: ${warning.message}`)
@@ -355,14 +370,14 @@ app.whenReady().then(() => {
 
   // Defer wallet + bridge interceptor init until WS bridge is ready (proxy must be running first)
   services.proxyManager.once('ws-bridge-ready', () => {
-    services.walletManager.init().catch((e) => log.error('Wallet init failed:', e))
-    services.paymentPolicyStore.init().catch((e) => log.error('Payment policy init failed:', e))
-    services.bridgeInterceptor.init()
+    safeStartup('Wallet init', () => services.walletManager.init())
+    safeStartup('Payment policy init', () => services.paymentPolicyStore.init())
+    safeStartup('Bridge interceptor init', () => services.bridgeInterceptor.init())
     // Cocoon drivers need the bridge to do work, so start them here rather than
     // at construction (avoids an immediate disk-reading tick before bridge ready).
-    services.withdrawDriver.start()
-    services.recoveryDriver.start()
-    autostartCocoonIfEnabled(services).catch((e) => log.error('Cocoon autostart failed:', e))
+    safeStartup('Withdraw driver start', () => services.withdrawDriver.start())
+    safeStartup('Recovery driver start', () => services.recoveryDriver.start())
+    safeStartup('Cocoon autostart', () => autostartCocoonIfEnabled(services))
   })
   createWindow()
 
