@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Storage page: peers column with per-row hover actions.
 
 ### Changed
+- Bundled proxy updated to v1.10.0: ENSIP-7 contenthash resolution for `.eth` (ADNL multicodec `0xb69910`) with legacy `adnl` text-record fallback; tonutils-go v1.17.2 (fixes 32-bit Android build).
+- Bundled bridge updated to v0.3.0: tonutils-go v1.17.2 (fixes 32-bit Android build).
+- Bundled storage updated to v1.5.1: faster downloads and speed calc, parallel filesystem reads, and optimized DHT bag-overlay store/refresh; tonutils-go v1.17.1.
+- Bundled cocoon runtime (gocoon/cocoon-runner) updated to v0.2.1: transport keepalive ping, OpenAI tools translation; tonutils-go v1.17.2 (fixes 32-bit Android build).
 - BookmarksBar context menu and Wallet strings fully localized across all 10 locales.
 - Storage page: completed bag status uses primary color.
 - Dependencies bumped: Electron 41.3.0, Tailwind 4.2.4, i18next 26.0.8, react-i18next 17.0.4, @ton/ton 16.2.4, happy-dom 20.9.0, globals 17.5.0.
