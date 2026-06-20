@@ -19,8 +19,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Bundled cocoon runtime (gocoon/cocoon-runner) updated to v0.2.1: transport keepalive ping, OpenAI tools translation; tonutils-go v1.17.2 (fixes 32-bit Android build).
 - BookmarksBar context menu and Wallet strings fully localized across all 10 locales.
 - Storage page: completed bag status uses primary color.
-- Dependencies bumped: Electron 41.3.0, Tailwind 4.2.4, i18next 26.0.8, react-i18next 17.0.4, @ton/ton 16.2.4, happy-dom 20.9.0, globals 17.5.0.
+- Dependencies bumped: Electron 41.3.0, Tailwind 4.2.4, i18next 26.0.8, react-i18next 17.0.4, @ton/ton 16.3.0, happy-dom 20.9.0, globals 17.5.0.
 - CI runs on `dev` branch pushes and PRs; Dependabot capped at 5 npm PRs.
+
+### Security
+- Resolved all high/moderate `npm audit` advisories: axios 1.15.0 → 1.18.0 (via @ton/ton 16.3.0), plus ws 8.21.0, tmp 0.2.7, form-data 4.0.6, vite 7.3.5 and other transitive build-tooling bumps.
 
 ## [2.0.0] - 2026-04-25
 
