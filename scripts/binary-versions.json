@@ -4,35 +4,35 @@
     {
       "name": "tonutils-proxy",
       "repo": "TONresistor/Tonutils-Proxy",
-      "version": "v1.9.5",
+      "version": "v1.10.0",
       "entry_point": "./cmd/proxy-cli/",
       "ldflags": "-s -w -X main.GitCommit=${VERSION}"
     },
     {
       "name": "tonutils-bridge",
       "repo": "TONresistor/tonutils-bridge",
-      "version": "v0.2.1",
+      "version": "v0.3.0",
       "entry_point": ".",
       "ldflags": "-s -w"
     },
     {
       "name": "tonutils-storage",
       "repo": "xssnick/tonutils-storage",
-      "version": "v1.4.1",
+      "version": "v1.5.1",
       "entry_point": "./cli/",
       "ldflags": "-s -w"
     },
     {
       "name": "gocoon",
       "repo": "TONresistor/gocoon",
-      "version": "v0.1.0",
+      "version": "v0.2.1",
       "entry_point": "./cmd/gocoon",
       "ldflags": "-s -w -X 'github.com/TONresistor/gocoon/pkg/cocoon.Version=${VERSION}'"
     },
     {
       "name": "cocoon-runner",
       "repo": "TONresistor/gocoon",
-      "version": "v0.1.0",
+      "version": "v0.2.1",
       "entry_point": "./cmd/gocoon-runner",
       "ldflags": "-s -w -X 'github.com/TONresistor/gocoon/pkg/cocoon.Version=${VERSION}'"
     }
