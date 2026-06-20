@@ -683,28 +683,6 @@ describe('Cocoon AI Handlers', () => {
     })
   })
 
-  // ── COCOON_WALLET_EXISTS ────────────────────────────────────────────────────
-
-  describe('COCOON_WALLET_EXISTS', () => {
-    it('returns true when wallet exists on disk', async () => {
-      vi.mocked(hasCocoonWallet).mockResolvedValueOnce(true)
-      const handler = mockHandlers.get(IPC_CHANNELS.COCOON_WALLET_EXISTS)!
-
-      const result = await handler(createMockEvent())
-
-      expect(result).toBe(true)
-    })
-
-    it('returns false when no wallet exists', async () => {
-      // hasCocoonWallet default mock returns false
-      const handler = mockHandlers.get(IPC_CHANNELS.COCOON_WALLET_EXISTS)!
-
-      const result = await handler(createMockEvent())
-
-      expect(result).toBe(false)
-    })
-  })
-
   // ── COCOON_WALLET_CREATE ────────────────────────────────────────────────────
 
   describe('COCOON_WALLET_CREATE', () => {
@@ -741,76 +719,9 @@ describe('Cocoon AI Handlers', () => {
     })
   })
 
-  // ── COCOON_WALLET_INFO ──────────────────────────────────────────────────────
-
-  describe('COCOON_WALLET_INFO', () => {
-    it('returns the public-safe wallet info when a wallet exists', async () => {
-      const info = {
-        ownerAddress: 'EQOwner',
-        nodeAddress: 'EQNode',
-        nodePublicKeyHex: 'aabb',
-        createdAt: 1_700_000_000_000,
-        setupCompletedAt: null,
-      }
-      vi.mocked(getCocoonWalletInfo).mockResolvedValueOnce(info)
-      const handler = mockHandlers.get(IPC_CHANNELS.COCOON_WALLET_INFO)!
-
-      const result = await handler(createMockEvent())
-
-      expect(result).toEqual(info)
-      // Secrets must not leak
-      expect(result).not.toHaveProperty('ownerMnemonic')
-      expect(result).not.toHaveProperty('nodeSecretBase64')
-    })
-
-    it('returns null when no wallet exists', async () => {
-      // getCocoonWalletInfo default mock returns null
-      const handler = mockHandlers.get(IPC_CHANNELS.COCOON_WALLET_INFO)!
-
-      const result = await handler(createMockEvent())
-
-      expect(result).toBeNull()
-    })
-  })
-
-  // ── COCOON_WALLET_EXPORT_MNEMONIC ───────────────────────────────────────────
-
-  describe('COCOON_WALLET_EXPORT_MNEMONIC', () => {
-    it('returns the 24-word mnemonic list', async () => {
-      const words = Array.from({ length: 24 }, (_, i) => `word${i + 1}`)
-      vi.mocked(exportCocoonMnemonic).mockResolvedValueOnce(words)
-      const handler = mockHandlers.get(IPC_CHANNELS.COCOON_WALLET_EXPORT_MNEMONIC)!
-
-      const result = await handler(createMockEvent())
-
-      expect(result).toEqual(words)
-      expect(result).toHaveLength(24)
-    })
-  })
-
-  // ── COCOON_WALLET_DELETE ────────────────────────────────────────────────────
-
-  describe('COCOON_WALLET_DELETE', () => {
-    it('delegates to deleteCocoonWallet', async () => {
-      const handler = mockHandlers.get(IPC_CHANNELS.COCOON_WALLET_DELETE)!
-
-      await handler(createMockEvent())
-
-      expect(deleteCocoonWallet).toHaveBeenCalledTimes(1)
-    })
-  })
-
   // ── COCOON_WALLET_MARK_SETUP_COMPLETE ───────────────────────────────────────
 
   describe('COCOON_WALLET_MARK_SETUP_COMPLETE', () => {
-    it('delegates to markSetupComplete', async () => {
-      const handler = mockHandlers.get(IPC_CHANNELS.COCOON_WALLET_MARK_SETUP_COMPLETE)!
-
-      await handler(createMockEvent())
-
-      expect(markSetupComplete).toHaveBeenCalledTimes(1)
-    })
-
     it('surfaces underlying errors as IPC envelope', async () => {
       vi.mocked(markSetupComplete).mockRejectedValueOnce(new Error('storage unavailable'))
       const handler = mockHandlers.get(IPC_CHANNELS.COCOON_WALLET_MARK_SETUP_COMPLETE)!

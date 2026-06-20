@@ -387,11 +387,19 @@ describe('WalletKeyStorage', () => {
       expect(ks.getPublicKey()).not.toBeNull()
     })
 
-    it('is idempotent when called twice', () => {
+    it('is idempotent when called twice', async () => {
+      const data = { type: 'mnemonic', mnemonic: Array(24).fill('test') }
+      vi.mocked(fs.readFile).mockResolvedValue(makeEncryptedBuffer(data, storage))
+
+      await ks.load()
+      const publicKey = ks.getPublicKey()
+      expect(publicKey).not.toBeNull()
+
       ks.lock()
-      ks.lock()
-      // No throw
-      expect(ks.isLocked()).toBe(false) // no public key loaded either
+      ks.lock() // second call on an already-locked wallet must be a safe no-op
+
+      expect(ks.isLocked()).toBe(true) // still locked, not corrupted
+      expect(ks.getPublicKey()).toEqual(publicKey) // public key retained
     })
   })
 
