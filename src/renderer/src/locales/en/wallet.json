@@ -15,7 +15,7 @@
     "recipientLabel": "Recipient Address",
     "recipientPlaceholder": "EQ... or 0:...",
     "amountLabel": "Amount",
-    "feeNote": "Network fee: {{fee}} TON",
+    "feeNote": "Network fee: {{fee}} GRAM",
     "reviewButton": "Review Transaction",
     "confirm": "Confirm Transaction",
     "to": "To",
@@ -30,7 +30,7 @@
     "invalidAmount": "Invalid amount",
     "insufficientBalance": "Insufficient balance",
     "max": "Max",
-    "estimatedFee": "~0.01 TON"
+    "estimatedFee": "~0.01 GRAM"
   },
   "receive": {
     "addressLabel": "Your Wallet Address",
@@ -104,7 +104,7 @@
     "orImport": "or import an existing wallet"
   },
   "statusBar": {
-    "balance": "{{amount}} TON"
+    "balance": "{{amount}} GRAM"
   },
   "settings": {
     "title": "Wallet Settings",
@@ -132,7 +132,7 @@
       "perDay": "Per Day",
       "perSitePerMonth": "Per Site / Month",
       "placeholder": "0 = no limit",
-      "unit": "TON",
+      "unit": "GRAM",
       "perRequestDesc": "Maximum amount for a single 402 payment",
       "perDayDesc": "Maximum total spending in a rolling 24-hour window",
       "perSitePerMonthDesc": "Maximum spending per domain in a rolling 30-day window",
@@ -142,7 +142,7 @@
       "title": "Site Permissions",
       "empty": "No site-specific permissions configured",
       "remove": "Remove",
-      "spent": "Spent: {{amount}} TON",
+      "spent": "Spent: {{amount}} GRAM",
       "removePolicy": "Remove site policy"
     }
   },
@@ -189,7 +189,7 @@
       "withdrawing": "Withdrawing…"
     },
     "actions": {
-      "activate": "Activate Cocoon (20 TON)",
+      "activate": "Activate Cocoon (20 GRAM)",
       "withdrawAll": "Withdraw",
       "withdraw": "Withdraw from Cocoon",
       "withdrawing": "Withdraw in progress…"

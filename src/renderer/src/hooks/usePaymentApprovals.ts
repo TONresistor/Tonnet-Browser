@@ -42,7 +42,12 @@ export function usePaymentApprovals(): void {
           title: t('payment.title'),
           fields: [
             { id: '_domain', label: t('payment.domain'), value: data.domain, readonly: true },
-            { id: '_amount', label: t('payment.amount'), value: `${formatTonAmount(data.amount)} TON`, readonly: true },
+            {
+              id: '_amount',
+              label: t('payment.amount'),
+              value: `${formatTonAmount(data.amount)} GRAM`,
+              readonly: true,
+            },
             {
               id: '_recipient',
               label: t('payment.recipient'),

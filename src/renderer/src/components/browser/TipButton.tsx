@@ -93,7 +93,7 @@ export function TipButton({ domain }: TipButtonProps) {
               showError && 'bg-destructive/15 text-destructive',
               isProcessing && !isActive && 'opacity-40 pointer-events-none'
             )}
-            title={`Tip ${amount} TON to ${domain}`}
+            title={`Tip ${amount} GRAM to ${domain}`}
           >
             {showSpinner ? (
               <LoaderCircle className="h-3 w-3 animate-spin" />

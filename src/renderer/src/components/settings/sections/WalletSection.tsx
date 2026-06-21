@@ -222,7 +222,7 @@ export const WalletSection = memo(function WalletSection({ onDirtyChange, sectio
                       <p className="text-xs text-muted-foreground">
                         {t(`wallet.mode${policy.mode.charAt(0).toUpperCase() + policy.mode.slice(1)}`)}
                         {' · '}
-                        {t('wallet.spent')}: {nanoToTonDisplay(policy.totalSpent)} TON
+                        {t('wallet.spent')}: {nanoToTonDisplay(policy.totalSpent)} GRAM
                       </p>
                     </div>
                     <Button

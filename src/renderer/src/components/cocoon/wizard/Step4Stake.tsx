@@ -94,7 +94,7 @@ export function Step4Stake({ onComplete, onBack, initialFunded = false }: Props)
         return 'Transferring to cocoon wallet…'
       case 'transferred':
         return sentAmount
-          ? `Transfer sent (${formatTonFixed(sentAmount)} TON). Waiting for confirmation…`
+          ? `Transfer sent (${formatTonFixed(sentAmount)} GRAM). Waiting for confirmation…`
           : 'Transfer sent. Waiting for confirmation…'
       case 'starting':
         return 'Starting Cocoon AI runner…'
@@ -112,7 +112,7 @@ export function Step4Stake({ onComplete, onBack, initialFunded = false }: Props)
         <p className="text-sm text-muted-foreground">
           {funded
             ? 'Cocoon wallet already funded on-chain. Click Start to launch the inference client.'
-            : 'Your owner balance (minus 0.5 TON gas reserve) will be transferred to the cocoon wallet, then the inference client will start.'}
+            : 'Your owner balance (minus 0.5 GRAM gas reserve) will be transferred to the cocoon wallet, then the inference client will start.'}
         </p>
       </div>
 

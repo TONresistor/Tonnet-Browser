@@ -57,7 +57,7 @@
   },
   "tip": {
     "resolveError": "无法解析域名",
-    "title": "向 {{domain}} 打赏 {{amount}} TON"
+    "title": "向 {{domain}} 打赏 {{amount}} GRAM"
   },
   "statusBar": {
     "connected": "已连接到 TON 网络",

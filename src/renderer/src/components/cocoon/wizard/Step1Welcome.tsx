@@ -34,7 +34,7 @@ export function Step1Welcome({ onComplete }: Props) {
       <div>
         <h2 className="text-lg font-semibold text-foreground mb-2">Welcome to Cocoon AI</h2>
         <p className="text-sm text-muted-foreground leading-relaxed">
-          Cocoon runs AI inference inside Intel TDX enclaves on TON. Stake 20 TON to use the network. Fully recoverable
+          Cocoon runs AI inference inside Intel TDX enclaves on TON. Stake 20 GRAM to use the network. Fully recoverable
           on unstake.
         </p>
       </div>
@@ -44,7 +44,7 @@ export function Step1Welcome({ onComplete }: Props) {
         <ol className="list-decimal list-inside space-y-1 pl-1 text-xs">
           <li>Generate a Cocoon wallet</li>
           <li>Back up your 24-word recovery phrase</li>
-          <li>Fund the wallet with at least 20 TON</li>
+          <li>Fund the wallet with at least 20 GRAM</li>
           <li>Stake and start the inference client</li>
         </ol>
       </div>

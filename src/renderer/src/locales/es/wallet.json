@@ -15,7 +15,7 @@
     "recipientLabel": "Dirección del destinatario",
     "recipientPlaceholder": "EQ... o 0:...",
     "amountLabel": "Cantidad",
-    "feeNote": "Comisión de red: {{fee}} TON",
+    "feeNote": "Comisión de red: {{fee}} GRAM",
     "reviewButton": "Revisar transacción",
     "confirm": "Confirmar transacción",
     "to": "Para",
@@ -30,7 +30,7 @@
     "invalidAmount": "Cantidad no válida",
     "insufficientBalance": "Saldo insuficiente",
     "max": "Máx",
-    "estimatedFee": "~0,01 TON"
+    "estimatedFee": "~0,01 GRAM"
   },
   "receive": {
     "addressLabel": "Tu dirección de cartera",
@@ -104,7 +104,7 @@
     "orImport": "o importar una cartera existente"
   },
   "statusBar": {
-    "balance": "{{amount}} TON"
+    "balance": "{{amount}} GRAM"
   },
   "settings": {
     "title": "Configuración de la cartera",
@@ -132,7 +132,7 @@
       "perDay": "Por día",
       "perSitePerMonth": "Por sitio / mes",
       "placeholder": "0 = sin límite",
-      "unit": "TON",
+      "unit": "GRAM",
       "perRequestDesc": "Monto máximo para un solo pago 402",
       "perDayDesc": "Gasto total máximo en una ventana de 24 horas",
       "perSitePerMonthDesc": "Gasto máximo por dominio en una ventana de 30 días",
@@ -142,7 +142,7 @@
       "title": "Permisos por sitio",
       "empty": "No hay permisos específicos configurados",
       "remove": "Eliminar",
-      "spent": "Gastado: {{amount}} TON",
+      "spent": "Gastado: {{amount}} GRAM",
       "removePolicy": "Eliminar política del sitio"
     }
   },

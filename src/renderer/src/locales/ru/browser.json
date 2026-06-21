@@ -57,7 +57,7 @@
   },
   "tip": {
     "resolveError": "Не удалось разрешить домен",
-    "title": "Чаевые {{amount}} TON для {{domain}}"
+    "title": "Чаевые {{amount}} GRAM для {{domain}}"
   },
   "statusBar": {
     "connected": "Подключено к сети TON",

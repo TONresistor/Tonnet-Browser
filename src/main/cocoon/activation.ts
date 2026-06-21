@@ -239,7 +239,7 @@ export async function flowStake(registry: ServiceRegistry): Promise<{ httpPort: 
   const nativeBalance = BigInt(await registry.walletManager.getBalance())
   const required = MIN_STAKE_NANO + FUND_GAS_RESERVE_NANO
   if (nativeBalance < required) {
-    throw new Error(`Top up your TON wallet to at least ${required / 1_000_000_000n} TON to activate Cocoon`)
+    throw new Error(`Top up your TON wallet to at least ${required / 1_000_000_000n} GRAM to activate Cocoon`)
   }
 
   log.info(`Activate: native wallet → fresh cocoon_node, ${MIN_STAKE_NANO} nanoTON`)

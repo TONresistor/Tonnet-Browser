@@ -154,7 +154,7 @@ export const SendForm = memo(function SendForm({ onSend, isSending, error, balan
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">{t('send.amount')}</span>
-              <span className="font-medium text-foreground">{amount} TON</span>
+              <span className="font-medium text-foreground">{amount} GRAM</span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">{t('send.fee')}</span>
@@ -242,7 +242,7 @@ export const SendForm = memo(function SendForm({ onSend, isSending, error, balan
             >
               {t('send.max')}
             </button>
-            <span className="text-sm text-foreground pointer-events-none">TON</span>
+            <span className="text-sm text-foreground pointer-events-none">GRAM</span>
           </div>
         </div>
         {amount && !amountValid && <p className="text-xs text-destructive">{t('send.invalidAmount')}</p>}

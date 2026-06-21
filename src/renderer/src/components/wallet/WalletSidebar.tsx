@@ -337,7 +337,7 @@ function SidebarOverviewBody({
     <>
       <div className="px-4 pt-3 pb-2 text-center">
         <p className="text-3xl font-bold text-foreground tracking-tight">{formatTonAmount(balance)}</p>
-        <p className="text-xs text-muted-foreground mt-0.5">TON</p>
+        <p className="text-xs text-muted-foreground mt-0.5">GRAM</p>
       </div>
 
       <div className="px-4 pb-3">

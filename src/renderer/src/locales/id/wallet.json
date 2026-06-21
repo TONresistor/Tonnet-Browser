@@ -15,7 +15,7 @@
     "recipientLabel": "Alamat Penerima",
     "recipientPlaceholder": "EQ... atau 0:...",
     "amountLabel": "Jumlah",
-    "feeNote": "Biaya jaringan: {{fee}} TON",
+    "feeNote": "Biaya jaringan: {{fee}} GRAM",
     "reviewButton": "Tinjau Transaksi",
     "confirm": "Konfirmasi Transaksi",
     "to": "Kepada",
@@ -30,7 +30,7 @@
     "invalidAmount": "Jumlah tidak valid",
     "insufficientBalance": "Saldo tidak cukup",
     "max": "Maks",
-    "estimatedFee": "~0,01 TON"
+    "estimatedFee": "~0,01 GRAM"
   },
   "receive": {
     "addressLabel": "Alamat Dompet Anda",
@@ -104,7 +104,7 @@
     "orImport": "atau impor dompet yang sudah ada"
   },
   "statusBar": {
-    "balance": "{{amount}} TON"
+    "balance": "{{amount}} GRAM"
   },
   "settings": {
     "title": "Pengaturan Dompet",
@@ -132,7 +132,7 @@
       "perDay": "Per Hari",
       "perSitePerMonth": "Per Situs / Bulan",
       "placeholder": "0 = tanpa batas",
-      "unit": "TON",
+      "unit": "GRAM",
       "perRequestDesc": "Jumlah maksimum untuk satu pembayaran 402",
       "perDayDesc": "Total pengeluaran maksimum dalam jendela 24 jam bergulir",
       "perSitePerMonthDesc": "Pengeluaran maksimum per domain dalam jendela 30 hari bergulir",
@@ -142,7 +142,7 @@
       "title": "Izin Situs",
       "empty": "Belum ada izin khusus situs yang dikonfigurasi",
       "remove": "Hapus",
-      "spent": "Dibelanjakan: {{amount}} TON",
+      "spent": "Dibelanjakan: {{amount}} GRAM",
       "removePolicy": "Hapus kebijakan situs"
     }
   },

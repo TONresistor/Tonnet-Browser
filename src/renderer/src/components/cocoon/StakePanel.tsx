@@ -531,7 +531,7 @@ function WalletsCard({ wallets }: { wallets: WalletSnapshot }) {
           <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-foreground-muted">Total balance</p>
           <p className="mt-1 text-4xl font-bold tracking-tight text-foreground tabular-nums">
             {formatTonFixed(cocoonTotal, 4)}
-            <span className="ml-1.5 text-2xl font-semibold text-muted-foreground">TON</span>
+            <span className="ml-1.5 text-2xl font-semibold text-muted-foreground">GRAM</span>
           </p>
         </div>
       </div>

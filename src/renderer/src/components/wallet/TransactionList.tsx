@@ -76,7 +76,7 @@ export const TransactionList = memo(function TransactionList({ transactions }: T
 
             <div className={cn('text-sm font-medium flex-shrink-0', amountColor)}>
               {amountPrefix}
-              {formatTonAmount(tx.amount)} TON
+              {formatTonAmount(tx.amount)} GRAM
             </div>
           </div>
         )

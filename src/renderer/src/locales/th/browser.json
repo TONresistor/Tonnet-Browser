@@ -54,7 +54,7 @@
   },
   "tip": {
     "resolveError": "ไม่สามารถแก้ไขโดเมนได้",
-    "title": "ทิป {{amount}} TON ให้ {{domain}}"
+    "title": "ทิป {{amount}} GRAM ให้ {{domain}}"
   },
   "bookmarksBar": {
     "title": "บุ๊กมาร์ก"

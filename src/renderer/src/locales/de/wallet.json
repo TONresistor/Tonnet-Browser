@@ -15,7 +15,7 @@
     "recipientLabel": "Empfängeradresse",
     "recipientPlaceholder": "EQ... oder 0:...",
     "amountLabel": "Betrag",
-    "feeNote": "Netzwerkgebühr: {{fee}} TON",
+    "feeNote": "Netzwerkgebühr: {{fee}} GRAM",
     "reviewButton": "Transaktion prüfen",
     "confirm": "Transaktion bestätigen",
     "to": "An",
@@ -30,7 +30,7 @@
     "invalidAmount": "Ungültiger Betrag",
     "insufficientBalance": "Unzureichendes Guthaben",
     "max": "Max",
-    "estimatedFee": "~0,01 TON"
+    "estimatedFee": "~0,01 GRAM"
   },
   "receive": {
     "addressLabel": "Ihre Geldbörsen-Adresse",
@@ -104,7 +104,7 @@
     "orImport": "oder eine vorhandene Geldbörse importieren"
   },
   "statusBar": {
-    "balance": "{{amount}} TON"
+    "balance": "{{amount}} GRAM"
   },
   "settings": {
     "title": "Geldbörsen-Einstellungen",
@@ -132,7 +132,7 @@
       "perDay": "Pro Tag",
       "perSitePerMonth": "Pro Website / Monat",
       "placeholder": "0 = kein Limit",
-      "unit": "TON",
+      "unit": "GRAM",
       "perRequestDesc": "Maximaler Betrag für eine einzelne 402-Zahlung",
       "perDayDesc": "Maximale Gesamtausgaben in einem rollierenden 24-Stunden-Fenster",
       "perSitePerMonthDesc": "Maximale Ausgaben pro Domain in einem rollierenden 30-Tage-Fenster",
@@ -142,7 +142,7 @@
       "title": "Website-Berechtigungen",
       "empty": "Keine websitespezifischen Berechtigungen konfiguriert",
       "remove": "Entfernen",
-      "spent": "Ausgegeben: {{amount}} TON",
+      "spent": "Ausgegeben: {{amount}} GRAM",
       "removePolicy": "Website-Richtlinie entfernen"
     }
   },

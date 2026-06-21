@@ -424,7 +424,7 @@ function AccountPanel({ balance, onSend, onReceive, t }: AccountPanelProps) {
     <div className="mb-6 space-y-3">
       <div className="text-center">
         <p className="text-4xl font-bold text-foreground tracking-tight">
-          {formatTonAmount(balance)} <span className="text-2xl font-semibold text-muted-foreground">TON</span>
+          {formatTonAmount(balance)} <span className="text-2xl font-semibold text-muted-foreground">GRAM</span>
         </p>
       </div>
 

@@ -57,7 +57,7 @@
   },
   "tip": {
     "resolveError": "No se pudo resolver el dominio",
-    "title": "Propina de {{amount}} TON a {{domain}}"
+    "title": "Propina de {{amount}} GRAM a {{domain}}"
   },
   "statusBar": {
     "connected": "Conectado a la Red TON",

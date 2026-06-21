@@ -54,7 +54,7 @@
   },
   "tip": {
     "resolveError": "Tidak dapat menyelesaikan domain",
-    "title": "Tip {{amount}} TON ke {{domain}}"
+    "title": "Tip {{amount}} GRAM ke {{domain}}"
   },
   "bookmarksBar": {
     "title": "Penanda"

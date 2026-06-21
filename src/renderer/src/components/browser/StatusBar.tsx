@@ -212,7 +212,7 @@ export const StatusBar = memo(function StatusBar() {
               aria-label={t('statusBar.walletAria')}
             >
               <img src={walletIcon} alt="" className="h-3 w-3" />
-              <span>{formatTonAmount(walletBalance)} TON</span>
+              <span>{formatTonAmount(walletBalance)} GRAM</span>
             </button>
             <Separator />
           </>

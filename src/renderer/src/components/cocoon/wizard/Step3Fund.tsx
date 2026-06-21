@@ -108,7 +108,7 @@ export function Step3Fund({ ownerAddress, onComplete, onBack }: Props) {
     <div className="space-y-5">
       <div>
         <h2 className="text-lg font-semibold text-foreground mb-1">Step 3: Fund your wallet</h2>
-        <p className="text-sm text-muted-foreground">Send at least 20 TON to your owner address (stake amount).</p>
+        <p className="text-sm text-muted-foreground">Send at least 20 GRAM to your owner address (stake amount).</p>
       </div>
 
       <div className="p-3 bg-muted rounded-lg border border-border space-y-3">
@@ -137,9 +137,9 @@ export function Step3Fund({ ownerAddress, onComplete, onBack }: Props) {
         <div>
           <p className="text-xs text-muted-foreground mb-1">Current balance</p>
           <p className="text-2xl font-mono font-semibold text-foreground">
-            {balance !== null ? `${formatTonFixed(balance)} TON` : '0.00 TON'}
+            {balance !== null ? `${formatTonFixed(balance)} GRAM` : '0.00 GRAM'}
           </p>
-          <p className="text-[11px] text-muted-foreground mt-1">Required: 20.00 TON minimum</p>
+          <p className="text-[11px] text-muted-foreground mt-1">Required: 20.00 GRAM minimum</p>
           {balanceError && (
             <p className="text-[11px] text-red-400 mt-1">Failed to load balance: {balanceError}. Retrying…</p>
           )}

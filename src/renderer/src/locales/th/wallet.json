@@ -15,7 +15,7 @@
     "recipientLabel": "ที่อยู่ผู้รับ",
     "recipientPlaceholder": "EQ... หรือ 0:...",
     "amountLabel": "จำนวน",
-    "feeNote": "ค่าธรรมเนียมเครือข่าย: {{fee}} TON",
+    "feeNote": "ค่าธรรมเนียมเครือข่าย: {{fee}} GRAM",
     "reviewButton": "ตรวจสอบธุรกรรม",
     "confirm": "ยืนยันธุรกรรม",
     "to": "ถึง",
@@ -30,7 +30,7 @@
     "invalidAmount": "จำนวนไม่ถูกต้อง",
     "insufficientBalance": "ยอดเงินไม่เพียงพอ",
     "max": "สูงสุด",
-    "estimatedFee": "~0.01 TON"
+    "estimatedFee": "~0.01 GRAM"
   },
   "receive": {
     "addressLabel": "ที่อยู่กระเป๋าเงินของคุณ",
@@ -104,7 +104,7 @@
     "orImport": "หรือนำเข้ากระเป๋าเงินที่มีอยู่"
   },
   "statusBar": {
-    "balance": "{{amount}} TON"
+    "balance": "{{amount}} GRAM"
   },
   "settings": {
     "title": "การตั้งค่ากระเป๋าเงิน",
@@ -132,7 +132,7 @@
       "perDay": "ต่อวัน",
       "perSitePerMonth": "ต่อเว็บไซต์ / เดือน",
       "placeholder": "0 = ไม่จำกัด",
-      "unit": "TON",
+      "unit": "GRAM",
       "perRequestDesc": "จำนวนสูงสุดสำหรับการชำระเงิน 402 หนึ่งครั้ง",
       "perDayDesc": "การใช้จ่ายสูงสุดในช่วง 24 ชั่วโมง",
       "perSitePerMonthDesc": "การใช้จ่ายสูงสุดต่อโดเมนในช่วง 30 วัน",
@@ -142,7 +142,7 @@
       "title": "สิทธิ์ของเว็บไซต์",
       "empty": "ยังไม่มีการกำหนดสิทธิ์เฉพาะเว็บไซต์",
       "remove": "ลบ",
-      "spent": "ใช้จ่ายแล้ว: {{amount}} TON",
+      "spent": "ใช้จ่ายแล้ว: {{amount}} GRAM",
       "removePolicy": "ลบนโยบายเว็บไซต์"
     }
   },
