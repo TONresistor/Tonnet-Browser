@@ -118,7 +118,7 @@ export function WalletManagementSection() {
   }, [importInput, isCreated, showConfirm, importWallet, t])
 
   return (
-    <div className="mt-6 glass-card px-4 py-4 space-y-4">
+    <div className="mt-6 settings-group px-4 py-4 space-y-4">
       <p className="text-foreground font-medium">{t('settings.walletManagement')}</p>
 
       {/* Export mnemonic */}

@@ -216,7 +216,7 @@ export const BridgeSection = memo(function BridgeSection({ onDirtyChange, sectio
     return (
       <div>
         <SectionHeader title={t('bridge.title')} description={t('bridge.description')} />
-        <div className="glass-card p-8 flex items-center justify-center">
+        <div className="settings-group p-8 flex items-center justify-center">
           <span className="text-muted-foreground text-sm">{t('bridge.loading')}</span>
         </div>
       </div>
@@ -229,7 +229,7 @@ export const BridgeSection = memo(function BridgeSection({ onDirtyChange, sectio
 
       {/* Restart required banner */}
       {restartRequired && (
-        <div className="mb-6 glass-card px-4 py-3 border border-yellow-500/30 bg-yellow-500/5">
+        <div className="mb-6 settings-group px-4 py-3 border border-yellow-500/30 bg-yellow-500/5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <AlertTriangle className="h-4 w-4 text-yellow-500 shrink-0" />
@@ -248,7 +248,7 @@ export const BridgeSection = memo(function BridgeSection({ onDirtyChange, sectio
       )}
 
       {/* Default Policy */}
-      <div className="glass-card px-4">
+      <div className="settings-group px-4">
         <SettingRow label={t('bridge.defaultPolicy')} description={t('bridge.defaultPolicyDesc')}>
           <ToggleGroup
             value={draftPolicy}
@@ -263,7 +263,7 @@ export const BridgeSection = memo(function BridgeSection({ onDirtyChange, sectio
 
       {/* Namespaces */}
       {draftConfig && (
-        <div className="mt-6 glass-card px-4">
+        <div className="mt-6 settings-group px-4">
           <div className="py-4 border-b border-border">
             <p className="text-foreground font-medium">{t('bridge.namespaces.title')}</p>
             <p className="text-muted-foreground text-sm mt-0.5">{t('bridge.namespaces.description')}</p>
@@ -303,7 +303,7 @@ export const BridgeSection = memo(function BridgeSection({ onDirtyChange, sectio
 
       {/* Security */}
       {draftConfig && (
-        <div className="mt-6 glass-card px-4">
+        <div className="mt-6 settings-group px-4">
           <div className="py-4 border-b border-border">
             <p className="text-foreground font-medium">{t('bridge.security.title')}</p>
           </div>
@@ -326,7 +326,7 @@ export const BridgeSection = memo(function BridgeSection({ onDirtyChange, sectio
 
       {/* Advanced (collapsible) */}
       {draftConfig && (
-        <div className="mt-6 glass-card">
+        <div className="mt-6 settings-group">
           <button
             type="button"
             onClick={() => setAdvancedOpen(!advancedOpen)}
@@ -386,7 +386,7 @@ export const BridgeSection = memo(function BridgeSection({ onDirtyChange, sectio
         ) : (
           <div className="space-y-4">
             {Object.entries(grouped).map(([domain, perms]) => (
-              <div key={domain} className="glass-card p-4">
+              <div key={domain} className="settings-group p-4">
                 <h4 className="text-foreground font-medium mb-3">{domain}</h4>
                 <div className="space-y-2">
                   {perms.map((p) => (

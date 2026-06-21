@@ -1,5 +1,5 @@
 /**
- * Groupe de toggles (sélecteur de mode)
+ * Sélecteur de mode — style iOS segmented control (pilule élevée neutre pour l'option active).
  */
 
 import { cn } from '@/lib/utils'
@@ -13,25 +13,26 @@ interface ToggleGroupProps<T extends string> {
 
 export function ToggleGroup<T extends string>({ value, onChange, options, disabled }: ToggleGroupProps<T>) {
   return (
-    <div className="inline-flex rounded-full border border-border-medium bg-surface-hover p-0.5">
-      {options.map((option, index) => (
-        <button
-          key={option.value}
-          onClick={() => !disabled && onChange(option.value)}
-          disabled={disabled}
-          className={cn(
-            'flex items-center gap-1.5 px-3 py-1 text-sm font-medium transition-all duration-200 disabled:opacity-50',
-            index === 0 && 'rounded-l-full',
-            index === options.length - 1 && 'rounded-r-full',
-            value === option.value
-              ? 'bg-primary text-primary-foreground rounded-full shadow-sm'
-              : 'text-muted-foreground hover:text-foreground'
-          )}
-        >
-          {option.icon}
-          {option.label}
-        </button>
-      ))}
+    <div className="inline-flex rounded-[9px] bg-surface p-[2px]">
+      {options.map((option) => {
+        const selected = value === option.value
+        return (
+          <button
+            key={option.value}
+            onClick={() => !disabled && onChange(option.value)}
+            disabled={disabled}
+            className={cn(
+              'flex items-center gap-1.5 rounded-[7px] px-3 py-1 text-[13px] font-medium transition-all duration-200 disabled:opacity-50',
+              selected
+                ? 'bg-elevation-4 text-foreground shadow-[0_1px_3px_rgba(0,0,0,0.25)]'
+                : 'text-muted-foreground hover:text-foreground'
+            )}
+          >
+            {option.icon}
+            {option.label}
+          </button>
+        )
+      })}
     </div>
   )
 }

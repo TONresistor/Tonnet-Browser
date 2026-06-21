@@ -90,7 +90,7 @@ export const CocoonSection = memo(function CocoonSection({ draft, setDraft }: Se
       <div>
         <SectionHeader title={t('cocoon.title')} description={t('cocoon.description')} />
 
-        <div className="glass-card px-4">
+        <div className="settings-group px-4">
           <SettingRow label={t('cocoon.autostart')} description={t('cocoon.autostartDesc')}>
             <Toggle
               checked={draft.cocoonAutostart}

@@ -1,14 +1,14 @@
 /**
- * Sidebar de navigation pour les paramètres — liste groupée style iOS / Telegram.
+ * Sidebar de navigation pour les paramètres — carte flottante style iOS / Telegram.
  *
  * Chaque section est une ligne avec une tuile d'icône colorée arrondie (29px, rounded-7),
  * un label et un chevron. Les sections sont regroupées en blocs inset (cartes arrondies),
- * séparées par des hairlines inset (qui démarrent après l'icône). Une barre de recherche
- * filtre les sections par label. La ligne active est surlignée (layout master-detail).
+ * séparées par des hairlines inset (qui démarrent après l'icône). La ligne active est
+ * surlignée (layout master-detail).
  */
 
-import { useRef, useState } from 'react'
-import { Search, ChevronRight } from 'lucide-react'
+import { useRef } from 'react'
+import { ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { SECTIONS } from './constants'
 import type { SectionInfo, SettingsSection } from './types'
@@ -22,7 +22,6 @@ interface SettingsSidebarProps {
 export function SettingsSidebar({ activeSection, onSectionChange }: SettingsSidebarProps) {
   const { t } = useTranslation('settings')
   const navRef = useRef<HTMLDivElement>(null)
-  const [query, setQuery] = useState('')
 
   const getSectionLabel = (section: SectionInfo): string => {
     // kebab-case id -> camelCase i18n key (e.g. 'content-filtering' -> 'contentFiltering')
@@ -30,12 +29,9 @@ export function SettingsSidebar({ activeSection, onSectionChange }: SettingsSide
     return t(`sections.${key}`, { defaultValue: section.label })
   }
 
-  const needle = query.trim().toLowerCase()
-  const visible = needle ? SECTIONS.filter((s) => getSectionLabel(s).toLowerCase().includes(needle)) : SECTIONS
-
-  // Bucket the visible sections into their ordered inset groups.
+  // Bucket the sections into their ordered inset groups.
   const groups: SectionInfo[][] = []
-  for (const section of visible) {
+  for (const section of SECTIONS) {
     ;(groups[section.group] ??= []).push(section)
   }
   const groupList = groups.filter((g) => g && g.length > 0)
@@ -53,20 +49,9 @@ export function SettingsSidebar({ activeSection, onSectionChange }: SettingsSide
 
   return (
     <div className="m-3 flex w-[288px] shrink-0 flex-col overflow-hidden rounded-[18px] border border-border-subtle bg-elevation-1 shadow-[0_10px_30px_-6px_rgba(0,0,0,0.45)]">
-      {/* Header + search */}
-      <div className="px-4 pt-4 pb-3">
-        <h2 className="text-foreground text-[22px] font-bold tracking-tight">{t('title')}</h2>
-        <div className="mt-3 flex h-9 items-center gap-2 rounded-[10px] bg-surface px-3">
-          <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder={t('searchPlaceholder', { defaultValue: 'Rechercher' })}
-            aria-label={t('searchPlaceholder', { defaultValue: 'Rechercher' })}
-            className="w-full bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
-          />
-        </div>
+      {/* Header */}
+      <div className="px-4 pb-3 pt-4">
+        <h2 className="text-[22px] font-bold tracking-tight text-foreground">{t('title')}</h2>
       </div>
 
       {/* Grouped inset list */}
@@ -120,12 +105,6 @@ export function SettingsSidebar({ activeSection, onSectionChange }: SettingsSide
             })}
           </div>
         ))}
-
-        {groupList.length === 0 && (
-          <p className="px-2 pt-6 text-center text-sm text-muted-foreground">
-            {t('noResults', { defaultValue: 'Aucun résultat' })}
-          </p>
-        )}
       </div>
     </div>
   )

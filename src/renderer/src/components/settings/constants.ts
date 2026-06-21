@@ -45,16 +45,16 @@ const mod = (key: string): string => {
  * Liste des sections disponibles avec leurs métadonnées
  */
 export const SECTIONS: SectionInfo[] = [
-  // Group 0 — TON identity
-  { id: 'wallet', label: 'Wallet', icon: WalletIcon, color: '#0098EA', group: 0 },
-  { id: 'cocoon', label: 'Cocoon AI', icon: CocoonIcon, color: '#7B61FF', group: 0 },
-  { id: 'bridge', label: 'Bridge', icon: Cable, color: '#FF9500', group: 0 },
-  // Group 1 — Preferences
-  { id: 'general', label: 'General', icon: Globe, color: '#8E8E93', group: 1 },
-  { id: 'appearance', label: 'Appearance', icon: AppearanceIcon, color: '#FF2D55', group: 1 },
-  { id: 'privacy', label: 'Privacy', icon: PrivacyIcon, color: '#34C759', group: 1 },
-  { id: 'network', label: 'Network', icon: NetworkIcon, color: '#5AC8FA', group: 1 },
-  { id: 'storage', label: 'Storage', icon: HardDrive, color: '#5856D6', group: 1 },
+  // Group 0 — Preferences
+  { id: 'general', label: 'General', icon: Globe, color: '#8E8E93', group: 0 },
+  { id: 'appearance', label: 'Appearance', icon: AppearanceIcon, color: '#FF2D55', group: 0 },
+  { id: 'privacy', label: 'Privacy', icon: PrivacyIcon, color: '#34C759', group: 0 },
+  { id: 'network', label: 'Network', icon: NetworkIcon, color: '#5AC8FA', group: 0 },
+  { id: 'storage', label: 'Storage', icon: HardDrive, color: '#5856D6', group: 0 },
+  // Group 1 — TON identity
+  { id: 'wallet', label: 'Wallet', icon: WalletIcon, color: '#0098EA', group: 1 },
+  { id: 'cocoon', label: 'Cocoon AI', icon: CocoonIcon, color: '#7B61FF', group: 1 },
+  { id: 'bridge', label: 'Bridge', icon: Cable, color: '#FF9500', group: 1 },
   // Group 2 — Content
   { id: 'bookmarks', label: 'Bookmarks', icon: BookmarkIcon, color: '#FFB300', group: 2 },
   { id: 'advanced', label: 'Advanced', icon: Wrench, color: '#636366', group: 2 },

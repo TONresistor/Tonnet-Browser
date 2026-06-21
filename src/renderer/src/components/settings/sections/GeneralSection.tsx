@@ -20,7 +20,7 @@ export const GeneralSection = memo(function GeneralSection({ draft, setDraft }: 
       <SectionHeader title={t('general.title')} description={t('general.description')} />
 
       {/* Anonymous Mode */}
-      <div className="glass-card px-4">
+      <div className="settings-group px-4">
         <SettingRow label={t('general.anonymousMode')} description={t('general.anonymousModeDesc')}>
           <Toggle
             checked={draft.anonymousMode}
@@ -43,7 +43,7 @@ export const GeneralSection = memo(function GeneralSection({ draft, setDraft }: 
       </div>
 
       {/* Settings */}
-      <div className="mt-6 glass-card px-4">
+      <div className="mt-6 settings-group px-4">
         <SettingRow label={t('network.autoConnect')} description={t('network.autoConnectDesc')}>
           <Toggle
             checked={draft.autoConnect}
@@ -107,7 +107,7 @@ export const GeneralSection = memo(function GeneralSection({ draft, setDraft }: 
       </div>
 
       {/* Chain resolvers */}
-      <div className="mt-6 glass-card px-4">
+      <div className="mt-6 settings-group px-4">
         <div className="py-4 border-b border-border">
           <p className="text-foreground font-medium">{t('general.chainResolvers')}</p>
           <p className="text-muted-foreground text-sm mt-0.5">{t('general.chainResolversDesc')}</p>

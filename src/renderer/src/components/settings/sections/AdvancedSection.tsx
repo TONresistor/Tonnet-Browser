@@ -50,7 +50,7 @@ export const AdvancedSection = memo(function AdvancedSection({
   return (
     <div>
       <SectionHeader title={t('advanced.title')} description={t('advanced.description')} />
-      <div className="glass-card px-4">
+      <div className="settings-group px-4">
         <SettingRow label={t('advanced.proxyVerbosity')} description={t('advanced.proxyVerbosityDesc')}>
           <ToggleGroup
             value={String(draft.proxyVerbosity)}
@@ -86,7 +86,7 @@ export const AdvancedSection = memo(function AdvancedSection({
       </div>
 
       {/* Content Filtering */}
-      <div className="mt-6 glass-card px-4">
+      <div className="mt-6 settings-group px-4">
         <SettingRow
           label={t('contentFiltering.enableFiltering')}
           description={t('contentFiltering.enableFilteringDesc')}

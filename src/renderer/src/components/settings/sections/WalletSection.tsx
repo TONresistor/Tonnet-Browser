@@ -8,6 +8,7 @@ import { memo, useState, useEffect, useCallback } from 'react'
 import { SectionHeader } from '../shared/SectionHeader'
 import { SettingRow } from '../shared/SettingRow'
 import { ToggleGroup } from '../shared/ToggleGroup'
+import { Collapsible } from '../shared/Collapsible'
 import { createLogger } from '@/logger'
 import { useTranslation } from 'react-i18next'
 import type { WalletSettings, PaymentMode, NotificationStyle, SitePolicy } from '@shared/types'
@@ -137,105 +138,110 @@ export const WalletSection = memo(function WalletSection({ onDirtyChange, sectio
     <div>
       <SectionHeader title={t('wallet.title')} description={t('wallet.description')} />
 
-      {/* Payment mode */}
-      <div className="glass-card px-4">
-        <SettingRow label={t('wallet.paymentMode')} description={t('wallet.paymentModeDesc')}>
-          <ToggleGroup
-            value={draft.paymentMode}
-            onChange={(v) => updateDraft({ paymentMode: v as PaymentMode })}
-            options={[
-              { value: 'off', label: t('wallet.modeOff') },
-              { value: 'manual', label: t('wallet.modeManual') },
-              { value: 'auto', label: t('wallet.modeAuto') },
-            ]}
-          />
-        </SettingRow>
-        <SettingRow label={t('wallet.notificationStyle')} description={t('wallet.notificationStyleDesc')}>
-          <ToggleGroup
-            value={draft.notificationStyle}
-            onChange={(v) => updateDraft({ notificationStyle: v as NotificationStyle })}
-            options={[
-              { value: 'popup', label: t('wallet.notifPopup') },
-              { value: 'addressbar', label: t('wallet.notifAddressbar') },
-            ]}
-          />
-        </SettingRow>
-      </div>
-
-      {/* Spending limits */}
-      <div className="mt-6 glass-card px-4">
-        <div className="py-4 border-b border-border">
-          <p className="text-foreground font-medium mb-0.5">{t('wallet.spendingLimits')}</p>
-          <p className="text-muted-foreground text-sm">{t('wallet.spendingLimitsDesc')}</p>
-        </div>
-
-        <SettingRow label={t('wallet.perRequest')} description={t('wallet.perRequestDesc')}>
-          <TonStepperField
-            value={perRequestDisplay}
-            onValueChange={setPerRequestDisplay}
-            onBlur={() => handleLimitBlur('perRequest', perRequestDisplay)}
-            ariaLabel={t('wallet.perRequest')}
-            step={0.5}
-          />
-        </SettingRow>
-
-        <SettingRow label={t('wallet.perDay')} description={t('wallet.perDayDesc')}>
-          <TonStepperField
-            value={perDayDisplay}
-            onValueChange={setPerDayDisplay}
-            onBlur={() => handleLimitBlur('perDay', perDayDisplay)}
-            ariaLabel={t('wallet.perDay')}
-            step={1}
-          />
-        </SettingRow>
-
-        <SettingRow label={t('wallet.perSitePerMonth')} description={t('wallet.perSitePerMonthDesc')}>
-          <TonStepperField
-            value={perSiteDisplay}
-            onValueChange={setPerSiteDisplay}
-            onBlur={() => handleLimitBlur('perSitePerMonth', perSiteDisplay)}
-            ariaLabel={t('wallet.perSitePerMonth')}
-            step={1}
-          />
-        </SettingRow>
-      </div>
-
       {/* Wallet management: export / import */}
       <WalletManagementSection />
 
-      {/* Per-site policies */}
-      {draft.sitePolicies.length > 0 && (
-        <div className="mt-6 glass-card px-4">
-          <div className="py-4 border-b border-border">
-            <p className="text-foreground font-medium">{t('wallet.sitePolicies')}</p>
-            <p className="text-muted-foreground text-sm mt-0.5">{t('wallet.sitePoliciesDesc')}</p>
+      {/* HTTP 402 payment settings — collapsible dropdown under wallet management */}
+      <div className="mt-6">
+        <Collapsible title={t('wallet.http402', { defaultValue: 'HTTP 402' })}>
+          {/* Payment mode */}
+          <div className="settings-group px-4">
+            <SettingRow label={t('wallet.paymentMode')} description={t('wallet.paymentModeDesc')}>
+              <ToggleGroup
+                value={draft.paymentMode}
+                onChange={(v) => updateDraft({ paymentMode: v as PaymentMode })}
+                options={[
+                  { value: 'off', label: t('wallet.modeOff') },
+                  { value: 'manual', label: t('wallet.modeManual') },
+                  { value: 'auto', label: t('wallet.modeAuto') },
+                ]}
+              />
+            </SettingRow>
+            <SettingRow label={t('wallet.notificationStyle')} description={t('wallet.notificationStyleDesc')}>
+              <ToggleGroup
+                value={draft.notificationStyle}
+                onChange={(v) => updateDraft({ notificationStyle: v as NotificationStyle })}
+                options={[
+                  { value: 'popup', label: t('wallet.notifPopup') },
+                  { value: 'addressbar', label: t('wallet.notifAddressbar') },
+                ]}
+              />
+            </SettingRow>
           </div>
-          <div className="divide-y divide-border">
-            {draft.sitePolicies.map((policy: SitePolicy) => (
-              <div key={policy.domain} className="flex items-center gap-3 py-3">
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-foreground truncate">{policy.domain}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {t(`wallet.mode${policy.mode.charAt(0).toUpperCase() + policy.mode.slice(1)}`)}
-                    {' · '}
-                    {t('wallet.spent')}: {nanoToTonDisplay(policy.totalSpent)} TON
-                  </p>
-                </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                  onClick={() => handleRemoveSitePolicy(policy.domain)}
-                  aria-label={t('wallet.removeSitePolicy', { domain: policy.domain })}
-                >
-                  <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-                </Button>
+
+          {/* Spending limits */}
+          <div className="settings-group px-4">
+            <div className="py-4 border-b border-border">
+              <p className="text-foreground font-medium mb-0.5">{t('wallet.spendingLimits')}</p>
+              <p className="text-muted-foreground text-sm">{t('wallet.spendingLimitsDesc')}</p>
+            </div>
+
+            <SettingRow label={t('wallet.perRequest')} description={t('wallet.perRequestDesc')}>
+              <TonStepperField
+                value={perRequestDisplay}
+                onValueChange={setPerRequestDisplay}
+                onBlur={() => handleLimitBlur('perRequest', perRequestDisplay)}
+                ariaLabel={t('wallet.perRequest')}
+                step={0.5}
+              />
+            </SettingRow>
+
+            <SettingRow label={t('wallet.perDay')} description={t('wallet.perDayDesc')}>
+              <TonStepperField
+                value={perDayDisplay}
+                onValueChange={setPerDayDisplay}
+                onBlur={() => handleLimitBlur('perDay', perDayDisplay)}
+                ariaLabel={t('wallet.perDay')}
+                step={1}
+              />
+            </SettingRow>
+
+            <SettingRow label={t('wallet.perSitePerMonth')} description={t('wallet.perSitePerMonthDesc')}>
+              <TonStepperField
+                value={perSiteDisplay}
+                onValueChange={setPerSiteDisplay}
+                onBlur={() => handleLimitBlur('perSitePerMonth', perSiteDisplay)}
+                ariaLabel={t('wallet.perSitePerMonth')}
+                step={1}
+              />
+            </SettingRow>
+          </div>
+
+          {/* Per-site policies */}
+          {draft.sitePolicies.length > 0 && (
+            <div className="settings-group px-4">
+              <div className="py-4 border-b border-border">
+                <p className="text-foreground font-medium">{t('wallet.sitePolicies')}</p>
+                <p className="text-muted-foreground text-sm mt-0.5">{t('wallet.sitePoliciesDesc')}</p>
               </div>
-            ))}
-          </div>
-        </div>
-      )}
+              <div className="divide-y divide-border">
+                {draft.sitePolicies.map((policy: SitePolicy) => (
+                  <div key={policy.domain} className="flex items-center gap-3 py-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">{policy.domain}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {t(`wallet.mode${policy.mode.charAt(0).toUpperCase() + policy.mode.slice(1)}`)}
+                        {' · '}
+                        {t('wallet.spent')}: {nanoToTonDisplay(policy.totalSpent)} TON
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                      onClick={() => handleRemoveSitePolicy(policy.domain)}
+                      aria-label={t('wallet.removeSitePolicy', { domain: policy.domain })}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </Collapsible>
+      </div>
     </div>
   )
 })

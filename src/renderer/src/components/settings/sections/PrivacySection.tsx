@@ -56,7 +56,7 @@ export const PrivacySection = memo(function PrivacySection({
   return (
     <div>
       <SectionHeader title={t('privacy.title')} description={t('privacy.description')} />
-      <div className="glass-card px-4">
+      <div className="settings-group px-4">
         <SettingRow label={t('privacy.clearData')} description={t('privacy.clearDataDesc')}>
           <button
             onClick={onClearData}
@@ -114,7 +114,7 @@ export const PrivacySection = memo(function PrivacySection({
       </div>
 
       {/* History */}
-      <div className="mt-6 glass-card px-4">
+      <div className="mt-6 settings-group px-4">
         <SettingRow label={t('history.historyMode')} description={getModeDescription(draft.historyMode)}>
           <ToggleGroup
             value={draft.historyMode}
