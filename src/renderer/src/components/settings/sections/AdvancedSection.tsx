@@ -94,35 +94,35 @@ export const AdvancedSection = memo(function AdvancedSection({
           <Toggle
             checked={draft.contentFilteringEnabled}
             onChange={(v) => setDraft('contentFilteringEnabled', v)}
-            label={t('contentFiltering.enableFilteringLabel')}
+            ariaLabel={t('contentFiltering.enableFilteringLabel')}
           />
         </SettingRow>
         <SettingRow label={t('contentFiltering.blockAds')} description={t('contentFiltering.blockAdsDesc')}>
           <Toggle
             checked={draft.blockAds}
             onChange={(v) => setDraft('blockAds', v)}
-            label={t('contentFiltering.blockAdsLabel')}
+            ariaLabel={t('contentFiltering.blockAdsLabel')}
           />
         </SettingRow>
         <SettingRow label={t('contentFiltering.blockTrackers')} description={t('contentFiltering.blockTrackersDesc')}>
           <Toggle
             checked={draft.blockTrackers}
             onChange={(v) => setDraft('blockTrackers', v)}
-            label={t('contentFiltering.blockTrackersLabel')}
+            ariaLabel={t('contentFiltering.blockTrackersLabel')}
           />
         </SettingRow>
         <SettingRow label={t('contentFiltering.blockMiners')} description={t('contentFiltering.blockMinersDesc')}>
           <Toggle
             checked={draft.blockMiners}
             onChange={(v) => setDraft('blockMiners', v)}
-            label={t('contentFiltering.blockMinersLabel')}
+            ariaLabel={t('contentFiltering.blockMinersLabel')}
           />
         </SettingRow>
         <SettingRow label={t('contentFiltering.blockMalware')} description={t('contentFiltering.blockMalwareDesc')}>
           <Toggle
             checked={draft.blockMalware}
             onChange={(v) => setDraft('blockMalware', v)}
-            label={t('contentFiltering.blockMalwareLabel')}
+            ariaLabel={t('contentFiltering.blockMalwareLabel')}
           />
         </SettingRow>
         <SettingRow
@@ -132,7 +132,7 @@ export const AdvancedSection = memo(function AdvancedSection({
           <Toggle
             checked={draft.blockAnnoyances}
             onChange={(v) => setDraft('blockAnnoyances', v)}
-            label={t('contentFiltering.blockAnnoyancesLabel')}
+            ariaLabel={t('contentFiltering.blockAnnoyancesLabel')}
           />
         </SettingRow>
         <SettingRow

@@ -9,6 +9,8 @@ import { SettingRow } from '../shared/SettingRow'
 import { Toggle } from '../shared/Toggle'
 import { ToggleGroup } from '../shared/ToggleGroup'
 import { SelectInput } from '../shared/SelectInput'
+import { GroupHeader } from '../shared/GroupHeader'
+import { TextInput } from '../shared/TextInput'
 import type { SectionProps } from '../types'
 import { useTranslation } from 'react-i18next'
 
@@ -25,7 +27,7 @@ export const GeneralSection = memo(function GeneralSection({ draft, setDraft }: 
           <Toggle
             checked={draft.anonymousMode}
             onChange={(v) => setDraft('anonymousMode', v)}
-            label={t('general.enableAnonymousMode')}
+            ariaLabel={t('general.enableAnonymousMode')}
           />
         </SettingRow>
         {draft.anonymousMode && (
@@ -48,7 +50,7 @@ export const GeneralSection = memo(function GeneralSection({ draft, setDraft }: 
           <Toggle
             checked={draft.autoConnect}
             onChange={(v) => setDraft('autoConnect', v)}
-            label={t('network.autoConnectLabel')}
+            ariaLabel={t('network.autoConnectLabel')}
           />
         </SettingRow>
         <SettingRow label={t('appearance.language.label')} description={t('appearance.language.description')}>
@@ -101,34 +103,29 @@ export const GeneralSection = memo(function GeneralSection({ draft, setDraft }: 
           <Toggle
             checked={draft.clearOnExit}
             onChange={(v) => setDraft('clearOnExit', v)}
-            label={t('privacy.clearOnExitLabel')}
+            ariaLabel={t('privacy.clearOnExitLabel')}
           />
         </SettingRow>
       </div>
 
       {/* Chain resolvers */}
       <div className="mt-6 settings-group px-4">
-        <div className="py-4 border-b border-border">
-          <p className="text-foreground font-medium">{t('general.chainResolvers')}</p>
-          <p className="text-muted-foreground text-sm mt-0.5">{t('general.chainResolversDesc')}</p>
-        </div>
+        <GroupHeader title={t('general.chainResolvers')} description={t('general.chainResolversDesc')} />
 
         {/* Ethereum */}
         <SettingRow label={t('general.resolveEth')} description={t('general.resolveEthDesc')}>
           <Toggle
             checked={draft.resolveEth}
             onChange={(v) => setDraft('resolveEth', v)}
-            label={t('general.resolveEth')}
+            ariaLabel={t('general.resolveEth')}
           />
         </SettingRow>
         {draft.resolveEth && (
           <SettingRow label={t('general.ethRpc')} description={t('general.ethRpcDesc')}>
-            <input
-              type="text"
+            <TextInput
               value={draft.ethRpc}
-              onChange={(e) => setDraft('ethRpc', e.target.value)}
+              onChange={(v) => setDraft('ethRpc', v)}
               placeholder={t('general.ethRpcPlaceholder')}
-              className="w-64 h-8 rounded-md bg-input border border-border px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
             />
           </SettingRow>
         )}
@@ -138,17 +135,15 @@ export const GeneralSection = memo(function GeneralSection({ draft, setDraft }: 
           <Toggle
             checked={draft.resolveSol}
             onChange={(v) => setDraft('resolveSol', v)}
-            label={t('general.resolveSol')}
+            ariaLabel={t('general.resolveSol')}
           />
         </SettingRow>
         {draft.resolveSol && (
           <SettingRow label={t('general.solRpc')} description={t('general.solRpcDesc')}>
-            <input
-              type="text"
+            <TextInput
               value={draft.solRpc}
-              onChange={(e) => setDraft('solRpc', e.target.value)}
+              onChange={(v) => setDraft('solRpc', v)}
               placeholder={t('general.solRpcPlaceholder')}
-              className="w-64 h-8 rounded-md bg-input border border-border px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
             />
           </SettingRow>
         )}

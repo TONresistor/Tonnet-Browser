@@ -9,14 +9,15 @@ import { SectionHeader } from '../shared/SectionHeader'
 import { SettingRow } from '../shared/SettingRow'
 import { ToggleGroup } from '../shared/ToggleGroup'
 import { Collapsible } from '../shared/Collapsible'
+import { GroupHeader } from '../shared/GroupHeader'
 import { createLogger } from '@/logger'
 import { useTranslation } from 'react-i18next'
 import type { WalletSettings, PaymentMode, NotificationStyle, SitePolicy } from '@shared/types'
 import { Trash2, LoaderCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { tonToNano, formatTonAmount } from '@/stores/wallet'
-import { WalletManagementSection } from './WalletManagementSection'
-import { TonStepperField } from './TonStepperField'
+import { WalletManagementPanel } from './WalletManagementPanel'
+import { TonStepperField } from '../shared/TonStepperField'
 import { useSectionHandle } from '@/hooks/useSectionHandle'
 
 const log = createLogger('wallet-settings')
@@ -139,7 +140,7 @@ export const WalletSection = memo(function WalletSection({ onDirtyChange, sectio
       <SectionHeader title={t('wallet.title')} description={t('wallet.description')} />
 
       {/* Wallet management: export / import */}
-      <WalletManagementSection />
+      <WalletManagementPanel />
 
       {/* HTTP 402 payment settings — collapsible dropdown under wallet management */}
       <div className="mt-6">
@@ -171,15 +172,12 @@ export const WalletSection = memo(function WalletSection({ onDirtyChange, sectio
 
           {/* Spending limits */}
           <div className="settings-group px-4">
-            <div className="py-4 border-b border-border">
-              <p className="text-foreground font-medium mb-0.5">{t('wallet.spendingLimits')}</p>
-              <p className="text-muted-foreground text-sm">{t('wallet.spendingLimitsDesc')}</p>
-            </div>
+            <GroupHeader title={t('wallet.spendingLimits')} description={t('wallet.spendingLimitsDesc')} />
 
             <SettingRow label={t('wallet.perRequest')} description={t('wallet.perRequestDesc')}>
               <TonStepperField
                 value={perRequestDisplay}
-                onValueChange={setPerRequestDisplay}
+                onChange={setPerRequestDisplay}
                 onBlur={() => handleLimitBlur('perRequest', perRequestDisplay)}
                 ariaLabel={t('wallet.perRequest')}
                 step={0.5}
@@ -189,7 +187,7 @@ export const WalletSection = memo(function WalletSection({ onDirtyChange, sectio
             <SettingRow label={t('wallet.perDay')} description={t('wallet.perDayDesc')}>
               <TonStepperField
                 value={perDayDisplay}
-                onValueChange={setPerDayDisplay}
+                onChange={setPerDayDisplay}
                 onBlur={() => handleLimitBlur('perDay', perDayDisplay)}
                 ariaLabel={t('wallet.perDay')}
                 step={1}
@@ -199,7 +197,7 @@ export const WalletSection = memo(function WalletSection({ onDirtyChange, sectio
             <SettingRow label={t('wallet.perSitePerMonth')} description={t('wallet.perSitePerMonthDesc')}>
               <TonStepperField
                 value={perSiteDisplay}
-                onValueChange={setPerSiteDisplay}
+                onChange={setPerSiteDisplay}
                 onBlur={() => handleLimitBlur('perSitePerMonth', perSiteDisplay)}
                 ariaLabel={t('wallet.perSitePerMonth')}
                 step={1}
@@ -210,10 +208,7 @@ export const WalletSection = memo(function WalletSection({ onDirtyChange, sectio
           {/* Per-site policies */}
           {draft.sitePolicies.length > 0 && (
             <div className="settings-group px-4">
-              <div className="py-4 border-b border-border">
-                <p className="text-foreground font-medium">{t('wallet.sitePolicies')}</p>
-                <p className="text-muted-foreground text-sm mt-0.5">{t('wallet.sitePoliciesDesc')}</p>
-              </div>
+              <GroupHeader title={t('wallet.sitePolicies')} description={t('wallet.sitePoliciesDesc')} />
               <div className="divide-y divide-border">
                 {draft.sitePolicies.map((policy: SitePolicy) => (
                   <div key={policy.domain} className="flex items-center gap-3 py-3">

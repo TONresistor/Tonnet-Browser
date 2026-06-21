@@ -32,7 +32,7 @@ export const StorageSection = memo(function StorageSection({
           <Toggle
             checked={draft.seedingEnabled}
             onChange={(v) => setDraft('seedingEnabled', v)}
-            label={t('storage.seedingEnabledLabel')}
+            ariaLabel={t('storage.seedingEnabledLabel')}
           />
         </SettingRow>
         <SettingRow label={t('storage.downloadSpeedLimit')} description={t('storage.downloadSpeedLimitDesc')}>

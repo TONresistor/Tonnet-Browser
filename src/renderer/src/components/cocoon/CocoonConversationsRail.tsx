@@ -118,7 +118,7 @@ export function CocoonConversationsRail({
             <Brain className={cn('h-3.5 w-3.5', thinkingEnabled ? 'text-primary' : 'text-muted-foreground')} />
             <span className={cn('text-xs', thinkingEnabled ? 'text-foreground' : 'text-muted-foreground')}>Think</span>
           </span>
-          <Toggle checked={thinkingEnabled} onChange={setThinking} label="Toggle thinking" />
+          <Toggle checked={thinkingEnabled} onChange={setThinking} ariaLabel="Toggle thinking" />
         </label>
       </div>
     </aside>

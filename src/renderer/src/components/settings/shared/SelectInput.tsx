@@ -16,7 +16,7 @@ export function SelectInput({ value, onChange, options }: SelectInputProps) {
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="h-8 cursor-pointer appearance-none rounded-[8px] bg-surface py-1 pl-3 pr-8 text-sm text-foreground outline-none"
+        className="h-8 cursor-pointer appearance-none rounded-field bg-surface py-1 pl-3 pr-8 text-sm text-foreground outline-none"
       >
         {options.map((opt) => (
           <option key={opt.value} value={opt.value} className="bg-background text-foreground">

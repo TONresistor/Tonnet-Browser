@@ -6,6 +6,7 @@ import { memo } from 'react'
 import { Bookmark } from 'lucide-react'
 import { SectionHeader } from '../shared/SectionHeader'
 import { SettingRow } from '../shared/SettingRow'
+import { OpenPageButton } from '../shared/OpenPageButton'
 import { useTabsStore } from '@/stores/tabs'
 import { useBookmarksStore } from '@/stores/bookmarks'
 import { useTranslation } from 'react-i18next'
@@ -23,13 +24,11 @@ export const BookmarksSection = memo(function BookmarksSection() {
           label={t('bookmarks.savedBookmarks')}
           description={t('bookmarks.savedBookmarksCount', { count: bookmarksCount })}
         >
-          <button
+          <OpenPageButton
+            icon={<Bookmark className="h-4 w-4" />}
+            label={t('history.open')}
             onClick={() => addTab('ton://bookmarks')}
-            className="flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-200 bg-surface-hover border border-border-medium text-foreground hover:bg-surface-active"
-          >
-            <Bookmark className="h-4 w-4" />
-            {t('history.open')}
-          </button>
+          />
         </SettingRow>
       </div>
     </div>

@@ -11,6 +11,7 @@ import { SettingRow } from '../shared/SettingRow'
 import { Toggle } from '../shared/Toggle'
 import { ToggleGroup } from '../shared/ToggleGroup'
 import { NumberInput } from '../shared/NumberInput'
+import { GroupHeader } from '../shared/GroupHeader'
 import { createLogger } from '@/logger'
 import { useTranslation } from 'react-i18next'
 import { REQUIRED_NAMESPACES, OPTIONAL_NAMESPACES, isRequiredNamespace } from '@shared/bridge-config'
@@ -264,10 +265,7 @@ export const BridgeSection = memo(function BridgeSection({ onDirtyChange, sectio
       {/* Namespaces */}
       {draftConfig && (
         <div className="mt-6 settings-group px-4">
-          <div className="py-4 border-b border-border">
-            <p className="text-foreground font-medium">{t('bridge.namespaces.title')}</p>
-            <p className="text-muted-foreground text-sm mt-0.5">{t('bridge.namespaces.description')}</p>
-          </div>
+          <GroupHeader title={t('bridge.namespaces.title')} description={t('bridge.namespaces.description')} />
 
           {/* Required namespaces */}
           <div className="py-2">
@@ -276,7 +274,7 @@ export const BridgeSection = memo(function BridgeSection({ onDirtyChange, sectio
             </p>
             {REQUIRED_NAMESPACES.map((ns) => (
               <SettingRow key={ns} label={getNamespaceLabel(ns)} description={getNamespaceDescription(ns)}>
-                <Toggle checked={true} onChange={() => {}} label={getNamespaceLabel(ns)} disabled />
+                <Toggle checked={true} onChange={() => {}} ariaLabel={getNamespaceLabel(ns)} disabled />
               </SettingRow>
             ))}
           </div>
@@ -293,7 +291,7 @@ export const BridgeSection = memo(function BridgeSection({ onDirtyChange, sectio
                 <Toggle
                   checked={getNamespaceEnabled(draftConfig, ns)}
                   onChange={(v) => setNamespaceEnabled(ns, v)}
-                  label={getNamespaceLabel(ns)}
+                  ariaLabel={getNamespaceLabel(ns)}
                 />
               </SettingRow>
             ))}
@@ -304,21 +302,19 @@ export const BridgeSection = memo(function BridgeSection({ onDirtyChange, sectio
       {/* Security */}
       {draftConfig && (
         <div className="mt-6 settings-group px-4">
-          <div className="py-4 border-b border-border">
-            <p className="text-foreground font-medium">{t('bridge.security.title')}</p>
-          </div>
+          <GroupHeader title={t('bridge.security.title')} />
           <SettingRow label={t('bridge.security.ssrfProtection')} description={t('bridge.security.ssrfProtectionDesc')}>
             <Toggle
               checked={draftConfig.namespaces?.adnl?.ssrf_protection !== false}
               onChange={(v) => setSecurityField('adnl', 'ssrf_protection', v)}
-              label={t('bridge.security.ssrfProtection')}
+              ariaLabel={t('bridge.security.ssrfProtection')}
             />
           </SettingRow>
           <SettingRow label={t('bridge.security.dhtWriteAccess')} description={t('bridge.security.dhtWriteAccessDesc')}>
             <Toggle
               checked={draftConfig.namespaces?.dht?.allow_write === true}
               onChange={(v) => setSecurityField('dht', 'allow_write', v)}
-              label={t('bridge.security.dhtWriteAccess')}
+              ariaLabel={t('bridge.security.dhtWriteAccess')}
             />
           </SettingRow>
         </div>

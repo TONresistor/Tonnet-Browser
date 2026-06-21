@@ -1,25 +1,25 @@
 import { Input } from '@/components/ui/input'
-import { StepperButtons } from '../shared/StepperButtons'
+import { StepperButtons } from './StepperButtons'
 
 export interface TonStepperFieldProps {
   value: string
-  onValueChange: (v: string) => void
+  onChange: (v: string) => void
   onBlur: () => void
   ariaLabel: string
   step?: number
 }
 
-export function TonStepperField({ value, onValueChange, onBlur, ariaLabel, step = 0.5 }: TonStepperFieldProps) {
+export function TonStepperField({ value, onChange, onBlur, ariaLabel, step = 0.5 }: TonStepperFieldProps) {
   const numVal = parseFloat(value) || 0
   const decrement = () => {
     const next = Math.max(0, numVal - step)
     const display = Number.isInteger(next) ? String(next) : next.toFixed(1)
-    onValueChange(display)
+    onChange(display)
   }
   const increment = () => {
     const next = numVal + step
     const display = Number.isInteger(next) ? String(next) : next.toFixed(1)
-    onValueChange(display)
+    onChange(display)
   }
 
   return (
@@ -28,7 +28,7 @@ export function TonStepperField({ value, onValueChange, onBlur, ariaLabel, step 
         <Input
           value={value}
           onChange={(e) => {
-            if (/^(\d*\.?\d*)$/.test(e.target.value)) onValueChange(e.target.value)
+            if (/^(\d*\.?\d*)$/.test(e.target.value)) onChange(e.target.value)
           }}
           onBlur={onBlur}
           inputMode="decimal"

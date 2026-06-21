@@ -10,21 +10,21 @@ import { cn } from '@/lib/utils'
 interface ToggleProps {
   checked: boolean
   onChange: (checked: boolean) => void
-  label: string
+  ariaLabel: string
   disabled?: boolean
 }
 
-export function Toggle({ checked, onChange, label, disabled }: ToggleProps) {
+export function Toggle({ checked, onChange, ariaLabel, disabled }: ToggleProps) {
   return (
     <button
       role="switch"
       aria-checked={checked}
-      aria-label={label}
+      aria-label={ariaLabel}
       disabled={disabled}
       onClick={() => onChange(!checked)}
       className={cn(
         'relative h-[28px] w-[64px] shrink-0 overflow-hidden rounded-full transition-colors duration-200 ease-out',
-        checked ? 'bg-primary' : 'bg-[rgba(120,120,120,0.2)]',
+        checked ? 'bg-primary' : 'bg-switch-off',
         disabled && 'cursor-not-allowed opacity-50'
       )}
     >

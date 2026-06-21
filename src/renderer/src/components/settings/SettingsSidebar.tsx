@@ -48,7 +48,7 @@ export function SettingsSidebar({ activeSection, onSectionChange }: SettingsSide
   }
 
   return (
-    <div className="m-3 flex w-[288px] shrink-0 flex-col overflow-hidden rounded-[18px] border border-border-subtle bg-elevation-1 shadow-[0_10px_30px_-6px_rgba(0,0,0,0.45)]">
+    <div className="m-3 flex w-[288px] shrink-0 flex-col overflow-hidden rounded-panel border border-border-subtle bg-elevation-1 shadow-panel">
       {/* Header */}
       <div className="px-4 pb-3 pt-4">
         <h2 className="text-[22px] font-bold tracking-tight text-foreground">{t('title')}</h2>
@@ -63,7 +63,7 @@ export function SettingsSidebar({ activeSection, onSectionChange }: SettingsSide
         className="flex-1 space-y-5 overflow-y-auto px-3 pb-5"
       >
         {groupList.map((group, gi) => (
-          <div key={gi} className="overflow-hidden rounded-[12px] bg-elevation-2">
+          <div key={gi} className="overflow-hidden rounded-group bg-elevation-2">
             {group.map((section, i) => {
               const Icon = section.icon
               const isActive = activeSection === section.id
@@ -80,7 +80,7 @@ export function SettingsSidebar({ activeSection, onSectionChange }: SettingsSide
                 >
                   {/* Colored rounded icon tile */}
                   <span
-                    className="grid h-[29px] w-[29px] shrink-0 place-items-center rounded-[7px]"
+                    className="grid h-[29px] w-[29px] shrink-0 place-items-center rounded-control"
                     style={{ backgroundColor: section.color }}
                   >
                     <Icon className="h-[17px] w-[17px] text-white" />

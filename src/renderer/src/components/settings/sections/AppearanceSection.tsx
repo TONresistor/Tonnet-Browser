@@ -212,14 +212,14 @@ export const AppearanceSection = memo(function AppearanceSection({ draft, setDra
           <Toggle
             checked={draft.showBookmarksBar}
             onChange={(v) => setDraft('showBookmarksBar', v)}
-            label={t('appearance.ui.showBookmarksBar')}
+            ariaLabel={t('appearance.ui.showBookmarksBar')}
           />
         </SettingRow>
         <SettingRow label={t('appearance.ui.showStatusBar')} description={t('appearance.ui.showStatusBarDesc')}>
           <Toggle
             checked={draft.showStatusBar}
             onChange={(v) => setDraft('showStatusBar', v)}
-            label={t('appearance.ui.showStatusBar')}
+            ariaLabel={t('appearance.ui.showStatusBar')}
           />
         </SettingRow>
       </div>

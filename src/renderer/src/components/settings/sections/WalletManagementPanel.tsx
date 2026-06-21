@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils'
 
 const MNEMONIC_CLEAR_TIMEOUT = 60_000
 
-export function WalletManagementSection() {
+export function WalletManagementPanel() {
   const { t } = useTranslation('wallet')
   const { isCreated, importWallet, exportMnemonic, deleteWallet, isLoading } = useWalletStore()
   const [words, setWords] = useState<string[] | null>(null)

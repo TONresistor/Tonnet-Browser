@@ -13,7 +13,7 @@ interface ToggleGroupProps<T extends string> {
 
 export function ToggleGroup<T extends string>({ value, onChange, options, disabled }: ToggleGroupProps<T>) {
   return (
-    <div className="inline-flex rounded-[9px] bg-surface p-[2px]">
+    <div className="inline-flex rounded-segment bg-surface p-[2px]">
       {options.map((option) => {
         const selected = value === option.value
         return (
@@ -22,10 +22,8 @@ export function ToggleGroup<T extends string>({ value, onChange, options, disabl
             onClick={() => !disabled && onChange(option.value)}
             disabled={disabled}
             className={cn(
-              'flex items-center gap-1.5 rounded-[7px] px-3 py-1 text-[13px] font-medium transition-all duration-200 disabled:opacity-50',
-              selected
-                ? 'bg-elevation-4 text-foreground shadow-[0_1px_3px_rgba(0,0,0,0.25)]'
-                : 'text-muted-foreground hover:text-foreground'
+              'flex items-center gap-1.5 rounded-control px-3 py-1 text-[13px] font-medium transition-all duration-200 disabled:opacity-50',
+              selected ? 'bg-elevation-4 text-foreground shadow-control' : 'text-muted-foreground hover:text-foreground'
             )}
           >
             {option.icon}

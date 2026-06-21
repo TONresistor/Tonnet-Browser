@@ -95,7 +95,7 @@ export const CocoonSection = memo(function CocoonSection({ draft, setDraft }: Se
             <Toggle
               checked={draft.cocoonAutostart}
               onChange={(v) => setDraft('cocoonAutostart', v)}
-              label={t('cocoon.autostart')}
+              ariaLabel={t('cocoon.autostart')}
             />
           </SettingRow>
           <SettingRow label="Cocoon contract" description={contractStatus?.description ?? 'Checking Cocoon state…'}>
@@ -123,7 +123,7 @@ export const CocoonSection = memo(function CocoonSection({ draft, setDraft }: Se
         </div>
       </div>
 
-      <div className="rounded-lg border border-border bg-[hsl(var(--elevation-1))]">
+      <div className="rounded-lg border border-border bg-elevation-1">
         <button
           type="button"
           className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
