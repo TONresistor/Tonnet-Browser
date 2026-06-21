@@ -52,7 +52,7 @@ export function SettingsSidebar({ activeSection, onSectionChange }: SettingsSide
   }
 
   return (
-    <div className="w-[300px] shrink-0 border-r border-border/60 flex flex-col bg-background-secondary">
+    <div className="m-3 flex w-[288px] shrink-0 flex-col overflow-hidden rounded-[18px] border border-border-subtle bg-elevation-1 shadow-[0_10px_30px_-6px_rgba(0,0,0,0.45)]">
       {/* Header + search */}
       <div className="px-4 pt-4 pb-3">
         <h2 className="text-foreground text-[22px] font-bold tracking-tight">{t('title')}</h2>
