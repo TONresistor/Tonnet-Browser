@@ -1,12 +1,17 @@
 /**
- * Sidebar de navigation pour les paramètres
+ * Sidebar de navigation pour les paramètres — liste groupée style iOS / Telegram.
+ *
+ * Chaque section est une ligne avec une tuile d'icône colorée arrondie (29px, rounded-7),
+ * un label et un chevron. Les sections sont regroupées en blocs inset (cartes arrondies),
+ * séparées par des hairlines inset (qui démarrent après l'icône). Une barre de recherche
+ * filtre les sections par label. La ligne active est surlignée (layout master-detail).
  */
 
-import { useRef } from 'react'
-import { Settings } from 'lucide-react'
+import { useRef, useState } from 'react'
+import { Search, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { SECTIONS } from './constants'
-import type { SettingsSection } from './types'
+import type { SectionInfo, SettingsSection } from './types'
 import { useTranslation } from 'react-i18next'
 
 interface SettingsSidebarProps {
@@ -16,13 +21,24 @@ interface SettingsSidebarProps {
 
 export function SettingsSidebar({ activeSection, onSectionChange }: SettingsSidebarProps) {
   const { t } = useTranslation('settings')
-  const navRef = useRef<HTMLElement>(null)
+  const navRef = useRef<HTMLDivElement>(null)
+  const [query, setQuery] = useState('')
 
-  const getSectionLabel = (sectionId: string): string => {
-    // Convert kebab-case to camelCase (e.g. 'content-filtering' -> 'contentFiltering')
-    const sectionKey = sectionId.replace(/-([a-z])/g, (g) => g[1].toUpperCase())
-    return t(`sections.${sectionKey}`)
+  const getSectionLabel = (section: SectionInfo): string => {
+    // kebab-case id -> camelCase i18n key (e.g. 'content-filtering' -> 'contentFiltering')
+    const key = section.id.replace(/-([a-z])/g, (g) => g[1].toUpperCase())
+    return t(`sections.${key}`, { defaultValue: section.label })
   }
+
+  const needle = query.trim().toLowerCase()
+  const visible = needle ? SECTIONS.filter((s) => getSectionLabel(s).toLowerCase().includes(needle)) : SECTIONS
+
+  // Bucket the visible sections into their ordered inset groups.
+  const groups: SectionInfo[][] = []
+  for (const section of visible) {
+    ;(groups[section.group] ??= []).push(section)
+  }
+  const groupList = groups.filter((g) => g && g.length > 0)
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLElement>) => {
     if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return
@@ -36,35 +52,81 @@ export function SettingsSidebar({ activeSection, onSectionChange }: SettingsSide
   }
 
   return (
-    <div className="w-56 border-r border-border p-4 flex flex-col bg-[hsl(var(--elevation-1))]">
-      <div className="flex items-center justify-center gap-2 mb-4">
-        <Settings className="h-5 w-5 text-primary" />
-        <h2 className="text-foreground text-xl font-bold">{t('title')}</h2>
+    <div className="w-[300px] shrink-0 border-r border-border/60 flex flex-col bg-background-secondary">
+      {/* Header + search */}
+      <div className="px-4 pt-4 pb-3">
+        <h2 className="text-foreground text-[22px] font-bold tracking-tight">{t('title')}</h2>
+        <div className="mt-3 flex h-9 items-center gap-2 rounded-[10px] bg-surface px-3">
+          <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={t('searchPlaceholder', { defaultValue: 'Rechercher' })}
+            aria-label={t('searchPlaceholder', { defaultValue: 'Rechercher' })}
+            className="w-full bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
+          />
+        </div>
       </div>
 
-      <nav ref={navRef} role="listbox" onKeyDown={handleKeyDown} className="space-y-2">
-        {SECTIONS.map((section) => {
-          const Icon = section.icon
-          const isActive = activeSection === section.id
-          return (
-            <button
-              key={section.id}
-              role="option"
-              aria-selected={isActive}
-              onClick={() => onSectionChange(section.id)}
-              className={cn(
-                'w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors',
-                isActive
-                  ? 'bg-accent/60 text-foreground'
-                  : 'text-muted-foreground hover:bg-accent/40 hover:text-foreground'
-              )}
-            >
-              <Icon className={cn('h-4 w-4', !isActive && 'opacity-70')} />
-              <span>{getSectionLabel(section.id)}</span>
-            </button>
-          )
-        })}
-      </nav>
+      {/* Grouped inset list */}
+      <div
+        ref={navRef}
+        role="listbox"
+        aria-label={t('title')}
+        onKeyDown={handleKeyDown}
+        className="flex-1 space-y-5 overflow-y-auto px-3 pb-5"
+      >
+        {groupList.map((group, gi) => (
+          <div key={gi} className="overflow-hidden rounded-[12px] bg-elevation-2">
+            {group.map((section, i) => {
+              const Icon = section.icon
+              const isActive = activeSection === section.id
+              return (
+                <button
+                  key={section.id}
+                  role="option"
+                  aria-selected={isActive}
+                  onClick={() => onSectionChange(section.id)}
+                  className={cn(
+                    'flex w-full items-center gap-3 pl-3 text-left transition-colors',
+                    isActive ? 'bg-[hsl(var(--primary)/0.14)]' : 'hover:bg-surface-hover'
+                  )}
+                >
+                  {/* Colored rounded icon tile */}
+                  <span
+                    className="grid h-[29px] w-[29px] shrink-0 place-items-center rounded-[7px]"
+                    style={{ backgroundColor: section.color }}
+                  >
+                    <Icon className="h-[17px] w-[17px] text-white" />
+                  </span>
+
+                  {/* Label + chevron, with an inset hairline above every row but the first */}
+                  <span
+                    className={cn(
+                      'flex h-[50px] min-w-0 flex-1 items-center gap-2 pr-3',
+                      i > 0 && 'border-t border-border-subtle'
+                    )}
+                  >
+                    <span className="flex-1 truncate text-[15px] font-medium text-foreground">
+                      {getSectionLabel(section)}
+                    </span>
+                    <ChevronRight
+                      className={cn('h-4 w-4 shrink-0', isActive ? 'text-foreground/40' : 'text-muted-foreground/60')}
+                    />
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        ))}
+
+        {groupList.length === 0 && (
+          <p className="px-2 pt-6 text-center text-sm text-muted-foreground">
+            {t('noResults', { defaultValue: 'Aucun résultat' })}
+          </p>
+        )}
+      </div>
     </div>
   )
 }
