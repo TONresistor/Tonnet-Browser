@@ -351,7 +351,7 @@ export const AddressBar = memo(function AddressBar() {
               <button
                 type="button"
                 onClick={approvePending402}
-                aria-label={`${tw('payment.approve')}: ${formatTonAmount(pending402Notification.amount)} TON → ${pending402Notification.domain}`}
+                aria-label={`${tw('payment.approve')}: ${formatTonAmount(pending402Notification.amount)} GRAM → ${pending402Notification.domain}`}
                 className="rounded-full px-2 py-0.5 text-[10px] font-medium bg-green-600/50 hover:bg-green-600/75 text-white transition-colors whitespace-nowrap"
               >
                 {tw('payment.approve')}

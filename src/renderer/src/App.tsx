@@ -256,49 +256,54 @@ function App() {
         <div className="no-drag flex-1">
           <AddressBar />
         </div>
-        <div className="no-drag flex items-center gap-0.5 rounded-full px-1 py-0.5 glass-surface">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7 rounded-full"
-            onClick={() => openOrSwitchToTab('ton://storage')}
-            title={t('tooltips.storage')}
-          >
-            <img src={storageIcon} alt="" className="h-4 w-4 brightness-0 invert" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7 rounded-full"
-            onClick={() => {
-              setCocoonSidebarOpen((v) => !v)
-              setWalletSidebarOpen(false)
-            }}
-            title={t('tooltips.cocoon')}
-          >
-            <img src={cocoonIcon} alt="" className="h-5 w-5 brightness-0 invert" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7 rounded-full"
-            onClick={() => {
-              setWalletSidebarOpen((v) => !v)
-              setCocoonSidebarOpen(false)
-            }}
-            title={t('tooltips.wallet')}
-          >
-            <img src={walletIcon} alt="" className="h-4 w-4 brightness-0 invert" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7 rounded-full"
-            onClick={() => openOrSwitchToTab('ton://settings')}
-            title={t('tooltips.settings')}
-          >
-            <Settings className="h-4 w-4" />
-          </Button>
+        {/* Quick-access: two pills — [wallet · cocoon] and [storage · settings] */}
+        <div className="flex items-center gap-1">
+          <div className="no-drag flex items-center gap-0.5 rounded-full px-1 py-0.5 glass-surface">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 rounded-full"
+              onClick={() => {
+                setWalletSidebarOpen((v) => !v)
+                setCocoonSidebarOpen(false)
+              }}
+              title={t('tooltips.wallet')}
+            >
+              <img src={walletIcon} alt="" className="h-4 w-4 brightness-0 invert" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 rounded-full"
+              onClick={() => {
+                setCocoonSidebarOpen((v) => !v)
+                setWalletSidebarOpen(false)
+              }}
+              title={t('tooltips.cocoon')}
+            >
+              <img src={cocoonIcon} alt="" className="h-5 w-5 brightness-0 invert" />
+            </Button>
+          </div>
+          <div className="no-drag flex items-center gap-0.5 rounded-full px-1 py-0.5 glass-surface">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 rounded-full"
+              onClick={() => openOrSwitchToTab('ton://storage')}
+              title={t('tooltips.storage')}
+            >
+              <img src={storageIcon} alt="" className="h-4 w-4 brightness-0 invert" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 rounded-full"
+              onClick={() => openOrSwitchToTab('ton://settings')}
+              title={t('tooltips.settings')}
+            >
+              <Settings className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
         {/* Window Controls in nav bar - Only in vertical/sidebar mode */}
         {isVertical && (
