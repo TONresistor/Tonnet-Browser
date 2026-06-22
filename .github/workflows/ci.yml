@@ -143,9 +143,11 @@ jobs:
           if [ "$BRANCH" = "dev" ]; then
             if [ "$BEFORE_SHA" = "$NULL_SHA" ] || ! git merge-base --is-ancestor "$BEFORE_SHA" "$AFTER_SHA" 2>/dev/null; then
               COUNT=$(git rev-list --count "$AFTER_SHA")
+              RANGE="$AFTER_SHA"
               URL="$REPO_URL/commits/$BRANCH"
             else
               COUNT=$(git rev-list --count "$BEFORE_SHA..$AFTER_SHA")
+              RANGE="$BEFORE_SHA..$AFTER_SHA"
               URL="$REPO_URL/compare/$BEFORE_SHA...$AFTER_SHA"
             fi
             NOUN=commits; [ "$COUNT" = "1" ] && NOUN=commit
@@ -155,6 +157,19 @@ jobs:
               printf -v TEXT '%s\n%s %s pushed to dev' "$TEXT" "$COUNT" "$NOUN"
             else
               printf -v TEXT '%s\nCI failed on dev (%s %s)' "$TEXT" "$COUNT" "$NOUN"
+            fi
+            # Commit titles (HTML-escaped), oldest first, capped to avoid huge messages.
+            MAX=20
+            TITLES=$(git log --reverse --max-count="$MAX" --pretty=format:'%s' "$RANGE" \
+              | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g')
+            if [ "$COUNT" -gt "$MAX" ]; then
+              printf -v TITLES '%s\n… and %s more' "$TITLES" "$((COUNT - MAX))"
+            fi
+            if [ "$COUNT" -gt 1 ]; then
+              # Multiple commits: collapse the title list into an expandable quote.
+              printf -v TEXT '%s\n\n<blockquote expandable>%s</blockquote>' "$TEXT" "$TITLES"
+            elif [ -n "$TITLES" ]; then
+              printf -v TEXT '%s\n\n<blockquote>%s</blockquote>' "$TEXT" "$TITLES"
             fi
             printf -v TEXT '%s\n\n<a href="%s">View commits</a>' "$TEXT" "$URL"
             curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
