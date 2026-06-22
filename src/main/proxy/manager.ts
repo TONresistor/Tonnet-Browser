@@ -20,6 +20,7 @@ import { TUNNEL_SECTIONS } from '../../shared/constants'
 import { writeProxyConfig } from './config-writer'
 import { BridgeManager } from './bridge-manager'
 import { killChildProcess } from './process-utils'
+import { trackDaemon } from '../daemon-registry'
 const log = createLogger('proxy')
 
 /**
@@ -143,6 +144,7 @@ export class ProxyManager extends EventEmitter {
       windowsHide: true,
       cwd: proxyWorkDir,
     })
+    trackDaemon('tonutils-proxy', this.process)
 
     // Proxy output handler
     const handleProxyOutput = (data: Buffer) => {

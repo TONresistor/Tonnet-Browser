@@ -13,6 +13,7 @@ import { resolve } from 'path'
 import { createLogger } from '../../shared/logger'
 import { getCocoonBinaryPath, getTonConfigPath, getClientConfigTemplatePath } from './paths'
 import { checkCocoonAvailability } from './platform'
+import { trackDaemon } from '../daemon-registry'
 
 const log = createLogger('cocoon:manager')
 
@@ -231,6 +232,7 @@ export class CocoonManager extends EventEmitter {
         COCOON_SKIP_PROXY_HASH: '1',
       },
     })
+    trackDaemon('cocoon-runner', this.runnerProcess)
 
     this.attachOutputHandlers(this.runnerProcess, 'runner')
 

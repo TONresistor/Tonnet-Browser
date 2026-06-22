@@ -29,6 +29,7 @@ import { IPC_CHANNELS } from '../shared/ipc-channels'
 import { loadWindowBounds, saveWindowBounds, flushWindowBoundsOnQuit } from './windows/bounds'
 import { autostartCocoonIfEnabled } from './cocoon/autostart'
 import { runCleanup, isCleanupInProgress } from './app-cleanup'
+import { reapStaleDaemons, installDaemonSignalHandlers } from './daemon-registry'
 import { setupMainContextMenu } from './windows/main-context-menu'
 
 // Initialize electron-log IPC bridge so renderer can also log via electron-log
@@ -96,6 +97,11 @@ process.on('uncaughtException', (error: NodeJS.ErrnoException) => {
   }
   process.exit(1)
 })
+
+// Kill native daemons on POSIX signals (dev restart, terminal close, OS
+// shutdown) -- Electron's before-quit only runs on a graceful quit, so without
+// this the daemons would orphan and keep holding their ports.
+installDaemonSignalHandlers()
 
 // WM_CLASS for Linux taskbar (display name only, does not affect userData path)
 if (process.platform === 'linux') {
@@ -258,6 +264,9 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
+  // Reap any daemons orphaned by a previous run before we spawn fresh ones.
+  reapStaleDaemons()
+
   // macOS: Set application menu for copy/paste shortcuts
   if (process.platform === 'darwin') {
     const template: Electron.MenuItemConstructorOptions[] = [

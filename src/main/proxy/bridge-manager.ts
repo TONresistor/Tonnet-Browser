@@ -19,6 +19,7 @@ import { stripAnsi } from '../utils/strip-ansi'
 import { createLogger } from '../../shared/logger'
 import { applyBridgeDefaults } from './config-writer'
 import { killChildProcess } from './process-utils'
+import { trackDaemon } from '../daemon-registry'
 
 const log = createLogger('proxy')
 
@@ -49,6 +50,7 @@ export class BridgeManager extends EventEmitter {
     this.process = spawn(bridgeBinPath, bridgeArgs, {
       windowsHide: true,
     })
+    trackDaemon('tonutils-bridge', this.process)
 
     const handleBridgeOutput = (data: Buffer) => {
       const raw = data.toString().trim()

@@ -12,6 +12,8 @@ import { StorageHTTPClient, BagInfo } from './http-client'
 import type { StorageBag } from '../../shared/types'
 import { getSetting, getDownloadPath } from '../settings'
 import { PING_RETRY_DELAY_MS, PING_MAX_ATTEMPTS } from './constants'
+import { killChildProcess } from '../proxy/process-utils'
+import { trackDaemon } from '../daemon-registry'
 import { createLogger } from '../../shared/logger'
 const log = createLogger('storage')
 import fs from 'fs'
@@ -134,6 +136,7 @@ export class StorageManager extends EventEmitter {
 
     // Start tonutils-storage in daemon mode with HTTP API + auth
     this.process = spawn(binPath, args, { windowsHide: true })
+    trackDaemon('tonutils-storage', this.process)
 
     this.process.stdout?.on('data', (data: Buffer) => {
       const message = data.toString().trim()
@@ -286,14 +289,14 @@ export class StorageManager extends EventEmitter {
     this.stopPolling()
     if (this.process) {
       log.info('Stopping storage daemon...')
-      // Clean up all listeners before killing to prevent memory leaks
-      this.process.stdout?.removeAllListeners()
-      this.process.stderr?.removeAllListeners()
-      this.process.removeAllListeners()
-      this.process.kill('SIGTERM')
+      const proc = this.process
       this.process = null
       this.client = null
       this.isRunning = false
+      // killChildProcess detaches listeners, sends SIGTERM and escalates to
+      // SIGKILL; state is reset synchronously above so callers (sync stop) and
+      // tests see the daemon as stopped immediately.
+      void killChildProcess(proc)
       this.emit('stopped')
     }
   }
