@@ -1,8 +1,9 @@
 import { useState, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import { X } from 'lucide-react'
+import { Loader2, Plus, X } from 'lucide-react'
 import { createLogger } from '@/logger'
 import { useFocusTrap } from '@/hooks/useFocusTrap'
+import { ActionButton } from '@/components/ui/ios/ActionButton'
 
 const log = createLogger('storage')
 
@@ -75,26 +76,25 @@ export function AddBagModal({ isOpen, onClose, onBagAdded }: AddBagModalProps) {
     >
       <div
         ref={addModalRef}
-        className="rounded-lg border border-border bg-[hsl(var(--elevation-2))] p-5 w-full max-w-md mx-4 shadow-sm"
+        className="relative w-full max-w-md overflow-hidden rounded-panel border border-border-subtle bg-elevation-1 p-5 shadow-panel"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between mb-4">
-          <h3 id="add-bag-title" className="text-foreground font-semibold text-lg">
-            {t('storage.addModal.title')}
-          </h3>
-          <button
-            type="button"
-            onClick={handleClose}
-            className="text-muted-foreground hover:text-foreground hover:bg-accent/40 p-1.5 rounded-md transition-colors"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={handleClose}
+          aria-label={t('storage.addModal.cancel')}
+          className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-surface hover:text-foreground"
+        >
+          <X className="h-4 w-4" />
+        </button>
 
-        <p className="text-muted-foreground text-sm mb-4">{t('storage.addModal.bagIdDescription')}</p>
+        <h3 id="add-bag-title" className="pr-8 text-[17px] font-semibold text-foreground">
+          {t('storage.addModal.title')}
+        </h3>
+        <p className="mt-1 mb-4 text-[13px] text-muted-foreground">{t('storage.addModal.bagIdDescription')}</p>
 
-        <div className="mb-4">
-          <label className="block text-muted-foreground text-xs uppercase tracking-wider mb-2">
+        <div className="mb-5">
+          <label className="mb-2 block text-xs font-medium uppercase tracking-wider text-muted-foreground">
             {t('storage.addModal.bagIdLabel')}
           </label>
           <input
@@ -110,28 +110,25 @@ export function AddBagModal({ isOpen, onClose, onBagAdded }: AddBagModalProps) {
               }
             }}
             placeholder={t('storage.addModal.bagIdPlaceholder')}
-            className={`w-full px-3 py-2 bg-[hsl(var(--elevation-3))] rounded-md text-foreground placeholder:text-muted-foreground/50 font-mono text-sm focus:outline-none focus:ring-1 focus:ring-ring transition-colors ${bagIdError ? 'ring-1 ring-destructive' : ''}`}
+            className={`w-full rounded-card bg-surface px-3 py-2.5 font-mono text-sm text-foreground transition-colors placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring ${bagIdError ? 'ring-2 ring-destructive' : ''}`}
             autoFocus
           />
-          {bagIdError && <p className="mt-2 text-destructive text-xs">{bagIdError}</p>}
+          {bagIdError && <p className="mt-2 text-xs text-destructive">{bagIdError}</p>}
         </div>
 
         <div className="flex gap-3">
-          <button
-            type="button"
-            onClick={handleClose}
-            className="flex-1 py-2.5 rounded-md text-sm font-medium text-muted-foreground transition-colors hover:text-foreground hover:bg-accent/40"
-          >
+          <ActionButton variant="gray" onClick={handleClose} className="flex-1">
             {t('storage.addModal.cancel')}
-          </button>
-          <button
-            type="button"
+          </ActionButton>
+          <ActionButton
+            variant="filled"
             onClick={handleAddBag}
             disabled={!newBagId.trim() || isAdding}
-            className="flex-1 py-2.5 rounded-md text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed bg-accent/60 text-foreground hover:bg-accent/80"
+            className="flex-1"
+            icon={isAdding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
           >
             {isAdding ? t('storage.addModal.adding') : t('storage.addModal.add')}
-          </button>
+          </ActionButton>
         </div>
       </div>
     </div>
