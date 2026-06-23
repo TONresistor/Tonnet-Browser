@@ -20,8 +20,9 @@ import { useTabsStore } from '@/stores/tabs'
 import { formatBytes } from '@/lib/format'
 import { InsetGroup } from '@/components/ui/ios/InsetGroup'
 import { EmptyState } from '@/components/ui/ios/EmptyState'
-import { StorageSidebar, type FilterType } from './storage/StorageSidebar'
+import { StorageSidebar } from './storage/StorageSidebar'
 import { BagInspector } from './storage/BagInspector'
+import { filterBags, bagCounts, type FilterType } from './storage/bag-filter'
 import { AddBagModal } from './storage/AddBagModal'
 
 export function StoragePage() {
@@ -120,24 +121,8 @@ export function StoragePage() {
     }
   }
 
-  // Filter bags
-  const isComplete = (bag: StorageBag) => bag.size > 0 && bag.downloaded >= bag.size
-  const filteredBags = bags.filter((bag) => {
-    if (filter === 'downloading' && bag.status !== 'downloading') return false
-    if (filter === 'complete' && !isComplete(bag)) return false
-
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase()
-      return bag.name.toLowerCase().includes(query) || bag.id.toLowerCase().includes(query)
-    }
-    return true
-  })
-
-  const counts: Record<FilterType, number> = {
-    all: bags.length,
-    downloading: bags.filter((b) => b.status === 'downloading').length,
-    complete: bags.filter(isComplete).length,
-  }
+  const filteredBags = filterBags(bags, filter, searchQuery)
+  const counts = bagCounts(bags)
 
   const handleCopyBagId = useCallback(async (bagId: string) => {
     try {

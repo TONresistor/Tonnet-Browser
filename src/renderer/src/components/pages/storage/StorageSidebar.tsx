@@ -16,8 +16,7 @@ import { useTabsStore } from '@/stores/tabs'
 import { ActionButton } from '@/components/ui/ios/ActionButton'
 import { Toggle } from '@/components/settings/shared/Toggle'
 import storageIcon from '@/assets/storage.svg'
-
-export type FilterType = 'all' | 'downloading' | 'complete'
+import type { FilterType } from './bag-filter'
 
 interface FilterDef {
   id: FilterType
