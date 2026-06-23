@@ -128,7 +128,7 @@
     --ring: 200 100% 46%; /* #0098ea - TON blue */
     --radius: 0.5rem;
     /* Status colors */
-    --success: 120 100% 55%; /* #39FF14 - Vert fluo neon */
+    --success: 145 55% 58%; /* #59cf8a - soft green */
     --success-foreground: 0 0% 100%;
     --warning: 38 92% 50%; /* #f59e0b */
     --warning-foreground: 0 0% 0%;
@@ -199,7 +199,7 @@
     --ring: 200 85% 55%; /* #2AABEE - Bleu Telegram */
     --radius: 0.5rem;
     /* Status colors */
-    --success: 120 100% 35%; /* #00B300 - Vert fluo pour light theme */
+    --success: 145 48% 40%; /* #35976a - soft green (light theme) */
     --success-foreground: 0 0% 100%;
     --warning: 15 90% 40%; /* #C24D0A - Rouge-orange */
     --warning-foreground: 0 0% 100%;

@@ -143,6 +143,9 @@ export const WalletSettingsSchema = z.object({
   sitePolicies: z.array(SitePolicySchema).default([]),
   autoPayDomains: z.array(z.string()).default([]),
   autoLockMinutes: z.number().min(0).max(1440).default(5),
+  indexerEnabled: z.boolean().default(false),
+  indexerEndpoint: z.string().default('https://toncenter.com/api/v3'),
+  indexerApiKey: z.string().default(''),
 })
 
 export const WalletSettingsPartialSchema = z

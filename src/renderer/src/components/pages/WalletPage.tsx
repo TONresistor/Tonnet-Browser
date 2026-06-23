@@ -5,11 +5,12 @@
  */
 
 import { errorMessage } from '@shared/errors'
+import type { WalletTransaction } from '@shared/types'
 import { useEffect, useRef, useState, useCallback, memo } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import {
-  Send,
-  Download,
+  ArrowUp,
+  ArrowDown,
   RefreshCw,
   Plus,
   LoaderCircle,
@@ -25,12 +26,17 @@ import Lottie from 'lottie-react'
 import explorerAnimation from '@/assets/explorer.json'
 import walletIcon from '@/assets/wallet.svg'
 import { Button } from '@/components/ui/button'
-import { truncateAddress } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { useWalletStore, formatTonAmount } from '@/stores/wallet'
 import { SendForm } from '@/components/wallet/SendForm'
 import { ReceivePanel } from '@/components/wallet/ReceivePanel'
 import { TransactionList } from '@/components/wallet/TransactionList'
+import { TransactionDetailSheet } from '@/components/wallet/TransactionDetailSheet'
+import { ActionButton } from '@/components/ui/ios/ActionButton'
+import { ActionTile } from '@/components/ui/ios/ActionTile'
+import { BalanceHero } from '@/components/ui/ios/BalanceHero'
+import { InsetGroup } from '@/components/ui/ios/InsetGroup'
+import { AddressChip } from '@/components/ui/ios/AddressChip'
 import { UI_COPY_FEEDBACK_MS } from '@shared/constants'
 import { useTranslation } from 'react-i18next'
 
@@ -76,6 +82,7 @@ export function WalletPage() {
   const [newMnemonic, setNewMnemonic] = useState<string[] | null>(null)
   const [copied, setCopied] = useState(false)
   const [actionView, setActionView] = useState<ActionView>(null)
+  const [selectedTx, setSelectedTx] = useState<WalletTransaction | null>(null)
   const [recoveryInput, setRecoveryInput] = useState('')
   const [recoveryError, setRecoveryError] = useState<string | null>(null)
   const [backupAcknowledged, setBackupAcknowledged] = useState(false)
@@ -168,13 +175,13 @@ export function WalletPage() {
         <div className="p-8 max-w-4xl mx-auto">
           <div className="mb-8">
             <div className="flex items-center gap-3">
-              <img src={walletIcon} alt="" className="w-8 h-8" />
-              <h1 className="text-3xl font-bold text-foreground">{t('page.title')}</h1>
+              <img src={walletIcon} alt="" className="h-6 w-6" />
+              <h1 className="text-xl font-semibold text-foreground">{t('page.title')}</h1>
             </div>
           </div>
 
           <div className="max-w-lg mx-auto space-y-6">
-            <div className="flex items-start gap-3 p-4 bg-muted border border-border rounded-2xl">
+            <div className="flex items-start gap-3 p-4 bg-muted border border-border rounded-card">
               <AlertTriangle className="h-5 w-5 text-warning mt-0.5 shrink-0" aria-hidden="true" />
               <div>
                 <p className="text-sm font-semibold text-foreground">{t('recovery.title')}</p>
@@ -182,7 +189,7 @@ export function WalletPage() {
               </div>
             </div>
 
-            <div className="glass-card p-5 space-y-3">
+            <div className="space-y-3 rounded-card border border-border-subtle bg-elevation-2 p-5">
               <textarea
                 className={cn(
                   'w-full h-24 p-3 text-sm rounded-lg border bg-background text-foreground resize-none',
@@ -203,19 +210,21 @@ export function WalletPage() {
                 </span>
                 {recoveryError && <span className="text-xs text-destructive">{recoveryError}</span>}
               </div>
-              <Button
-                type="button"
+              <ActionButton
+                variant="filled"
                 onClick={handleRecoveryImport}
                 disabled={isLoading || recoveryWordCount !== 24}
                 className="w-full"
+                icon={
+                  isLoading ? (
+                    <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
+                  ) : (
+                    <Upload className="h-4 w-4" aria-hidden="true" />
+                  )
+                }
               >
-                {isLoading ? (
-                  <LoaderCircle className="h-4 w-4 mr-2 animate-spin" aria-hidden="true" />
-                ) : (
-                  <Upload className="h-4 w-4 mr-2" aria-hidden="true" />
-                )}
                 {isLoading ? t('import.importing') : t('recovery.importButton')}
-              </Button>
+              </ActionButton>
             </div>
 
             <div className="flex items-center gap-3">
@@ -224,14 +233,21 @@ export function WalletPage() {
               <div className="flex-1 h-px bg-border" />
             </div>
 
-            <Button type="button" variant="outline" onClick={handleCreate} disabled={isLoading} className="w-full">
-              {isLoading ? (
-                <LoaderCircle className="h-4 w-4 mr-2 animate-spin" aria-hidden="true" />
-              ) : (
-                <Plus className="h-4 w-4 mr-2" aria-hidden="true" />
-              )}
+            <ActionButton
+              variant="gray"
+              onClick={handleCreate}
+              disabled={isLoading}
+              className="w-full"
+              icon={
+                isLoading ? (
+                  <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
+                ) : (
+                  <Plus className="h-4 w-4" aria-hidden="true" />
+                )
+              }
+            >
               {t('page.createWallet')}
-            </Button>
+            </ActionButton>
           </div>
         </div>
       </div>
@@ -245,13 +261,13 @@ export function WalletPage() {
         <div className="p-8 max-w-4xl mx-auto">
           <div className="mb-8">
             <div className="flex items-center gap-3">
-              <img src={walletIcon} alt="" className="w-8 h-8" />
-              <h1 className="text-3xl font-bold text-foreground">{t('backup.title')}</h1>
+              <img src={walletIcon} alt="" className="h-6 w-6" />
+              <h1 className="text-xl font-semibold text-foreground">{t('backup.title')}</h1>
             </div>
           </div>
 
           <div className="max-w-lg mx-auto space-y-6">
-            <div className="flex items-start gap-3 p-4 bg-warning/10 border border-warning/20 rounded-2xl">
+            <div className="flex items-start gap-3 p-4 bg-warning/10 border border-warning/20 rounded-card">
               <AlertTriangle className="h-5 w-5 text-warning mt-0.5 shrink-0" aria-hidden="true" />
               <div>
                 <p className="text-sm font-medium text-foreground">{t('backup.warning')}</p>
@@ -259,7 +275,7 @@ export function WalletPage() {
               </div>
             </div>
 
-            <div className="glass-card p-5">
+            <div className="rounded-card border border-border-subtle bg-elevation-2 p-5">
               <div className="flex items-center justify-between mb-4">
                 <p className="text-sm font-medium text-foreground">{t('backup.yourPhrase')}</p>
                 <Button type="button" variant="ghost" size="sm" onClick={() => setMnemonicRevealed(!mnemonicRevealed)}>
@@ -282,10 +298,14 @@ export function WalletPage() {
                 ))}
               </div>
 
-              <Button type="button" variant="outline" onClick={handleCopyMnemonic} className="w-full mt-4">
-                {copied ? <Check className="h-4 w-4 mr-2" /> : <Copy className="h-4 w-4 mr-2" />}
+              <ActionButton
+                variant="gray"
+                onClick={handleCopyMnemonic}
+                className="mt-4 w-full"
+                icon={copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+              >
                 {copied ? t('export.copied') : t('backup.copy')}
-              </Button>
+              </ActionButton>
             </div>
 
             <label className="flex items-start gap-3 cursor-pointer select-none">
@@ -298,8 +318,8 @@ export function WalletPage() {
               <span className="text-xs text-muted-foreground leading-relaxed">{t('backup.acknowledgement')}</span>
             </label>
 
-            <Button
-              type="button"
+            <ActionButton
+              variant="filled"
               onClick={() => {
                 setNewMnemonic(null)
                 setBackupAcknowledged(false)
@@ -308,7 +328,7 @@ export function WalletPage() {
               className="w-full"
             >
               {t('backup.confirm')}
-            </Button>
+            </ActionButton>
           </div>
         </div>
       </div>
@@ -341,46 +361,48 @@ export function WalletPage() {
     <div className="h-full bg-background-secondary overflow-auto" style={{ fontFamily: 'Inter, sans-serif' }}>
       <div className="p-5 max-w-4xl mx-auto">
         {/* Header */}
-        <div className="mb-4 text-center">
-          <div className="flex items-center justify-center gap-2">
-            <img src={walletIcon} alt="" className="w-5 h-5" />
-            <h1 className="text-xl font-semibold text-foreground">{t('page.title')}</h1>
-            {isCreated && (
-              <span className="text-xs text-muted-foreground font-mono">{truncateAddress(address, 10, 8)}</span>
-            )}
-            {isCreated && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-6 w-6 ml-1"
-                onClick={handleRefresh}
-                title={t('page.refresh')}
-                aria-label={t('page.refresh')}
-              >
-                <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
-              </Button>
-            )}
-          </div>
+        <div className="mb-5 flex items-center justify-center gap-2">
+          <img src={walletIcon} alt="" className="h-5 w-5" />
+          <h1 className="text-xl font-semibold text-foreground">{t('page.title')}</h1>
+          {isCreated && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="ml-1 h-6 w-6"
+              onClick={handleRefresh}
+              title={t('page.refresh')}
+              aria-label={t('page.refresh')}
+            >
+              <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
+            </Button>
+          )}
         </div>
 
         {!isCreated ? (
           /* Empty state */
-          <div className="flex flex-col items-center justify-center py-10 gap-3">
-            <Lottie animationData={explorerAnimation} className="w-24 h-24 mb-3" loop autoplay />
-            <div className="text-center">
-              <h2 className="text-base font-semibold text-foreground mb-1">{t('page.noWalletTitle')}</h2>
-              <p className="text-sm text-muted-foreground max-w-xs">{t('page.noWalletDesc')}</p>
+          <div className="flex flex-col items-center justify-center gap-4 py-10 text-center">
+            <Lottie animationData={explorerAnimation} className="mb-1 h-24 w-24" loop autoplay />
+            <div>
+              <h2 className="text-base font-semibold text-foreground">{t('page.noWalletTitle')}</h2>
+              <p className="mt-1 max-w-xs text-sm text-muted-foreground">{t('page.noWalletDesc')}</p>
             </div>
             {error && <p className="text-sm text-destructive">{error}</p>}
-            <Button type="button" onClick={handleCreate} disabled={isLoading} className="w-full max-w-xs">
-              {isLoading ? (
-                <LoaderCircle className="h-4 w-4 mr-2 animate-spin" aria-hidden="true" />
-              ) : (
-                <Plus className="h-4 w-4 mr-2" aria-hidden="true" />
-              )}
+            <ActionButton
+              variant="filled"
+              onClick={handleCreate}
+              disabled={isLoading}
+              className="w-full max-w-xs"
+              icon={
+                isLoading ? (
+                  <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
+                ) : (
+                  <Plus className="h-4 w-4" aria-hidden="true" />
+                )
+              }
+            >
               {t('page.createWallet')}
-            </Button>
+            </ActionButton>
           </div>
         ) : (
           <div className="max-w-lg mx-auto">
@@ -394,13 +416,17 @@ export function WalletPage() {
 
             <AccountPanel
               balance={balance}
+              address={address}
               onSend={() => setActionView('send')}
               onReceive={() => setActionView('receive')}
               t={t}
             />
 
-            {/* Transaction history (always visible — main account history) */}
-            <TransactionList transactions={transactions} />
+            <InsetGroup title={t('overview.recent')} bodyClassName="py-1">
+              <TransactionList transactions={transactions} onSelect={setSelectedTx} />
+            </InsetGroup>
+
+            <TransactionDetailSheet tx={selectedTx} selfAddress={address} onClose={() => setSelectedTx(null)} />
           </div>
         )}
       </div>
@@ -414,37 +440,26 @@ export default memo(WalletPage)
 
 interface AccountPanelProps {
   balance: string
+  address: string
   onSend: () => void
   onReceive: () => void
   t: ReturnType<typeof useTranslation>['t']
 }
 
-function AccountPanel({ balance, onSend, onReceive, t }: AccountPanelProps) {
+function AccountPanel({ balance, address, onSend, onReceive, t }: AccountPanelProps) {
   return (
-    <div className="mb-6 space-y-3">
-      <div className="text-center">
-        <p className="text-4xl font-bold text-foreground tracking-tight">
-          {formatTonAmount(balance)} <span className="text-2xl font-semibold text-muted-foreground">GRAM</span>
-        </p>
-      </div>
+    <div className="mb-6 space-y-5">
+      <BalanceHero amount={formatTonAmount(balance)} unit="GRAM">
+        <AddressChip address={address} full />
+      </BalanceHero>
 
-      <div className="grid grid-cols-2 gap-3">
-        <button
-          type="button"
-          onClick={onSend}
-          className="h-9 flex items-center justify-center gap-2 rounded-full bg-surface-hover backdrop-blur-[10px] border border-border-medium text-sm font-medium text-foreground hover:bg-surface-active transition-all duration-200"
-        >
-          <Send className="h-3.5 w-3.5" />
-          {t('tabs.send')}
-        </button>
-        <button
-          type="button"
+      <div className="flex justify-center gap-3">
+        <ActionTile icon={<ArrowUp className="h-6 w-6" strokeWidth={2.5} />} label={t('tabs.send')} onClick={onSend} />
+        <ActionTile
+          icon={<ArrowDown className="h-6 w-6" strokeWidth={2.5} />}
+          label={t('tabs.receive')}
           onClick={onReceive}
-          className="h-9 flex items-center justify-center gap-2 rounded-full bg-surface-hover backdrop-blur-[10px] border border-border-medium text-sm font-medium text-foreground hover:bg-surface-active transition-all duration-200"
-        >
-          <Download className="h-3.5 w-3.5" />
-          {t('tabs.receive')}
-        </button>
+        />
       </div>
     </div>
   )

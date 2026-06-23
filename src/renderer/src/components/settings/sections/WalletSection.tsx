@@ -7,7 +7,9 @@
 import { memo, useState, useEffect, useCallback } from 'react'
 import { SectionHeader } from '../shared/SectionHeader'
 import { SettingRow } from '../shared/SettingRow'
-import { ToggleGroup } from '../shared/ToggleGroup'
+import { Toggle } from '../shared/Toggle'
+import { TextInput } from '../shared/TextInput'
+import { Segmented } from '@/components/ui/ios/Segmented'
 import { Collapsible } from '../shared/Collapsible'
 import { GroupHeader } from '../shared/GroupHeader'
 import { createLogger } from '@/logger'
@@ -29,6 +31,9 @@ const DEFAULT_WALLET_SETTINGS: WalletSettings = {
   sitePolicies: [],
   autoPayDomains: [],
   autoLockMinutes: 5,
+  indexerEnabled: false,
+  indexerEndpoint: 'https://toncenter.com/api/v3',
+  indexerApiKey: '',
 }
 
 function nanoToTonDisplay(nano: string): string {
@@ -142,13 +147,61 @@ export const WalletSection = memo(function WalletSection({ onDirtyChange, sectio
       {/* Wallet management: export / import */}
       <WalletManagementPanel />
 
+      <div className="mt-6">
+        <h3 className="mb-2 px-1 text-[13px] font-medium uppercase tracking-wide text-muted-foreground">
+          {t('wallet.historyGroup', { defaultValue: 'Transaction history' })}
+        </h3>
+        <div className="settings-group px-4">
+          <SettingRow
+            label={t('wallet.indexerEnabled', { defaultValue: 'Full history via indexer' })}
+            description={t('wallet.indexerEnabledDesc', {
+              defaultValue: 'Recover full history via an HTTP indexer (clearnet, exposes your address).',
+            })}
+          >
+            <Toggle
+              checked={draft.indexerEnabled}
+              onChange={(v) => updateDraft({ indexerEnabled: v })}
+              ariaLabel={t('wallet.indexerEnabled', { defaultValue: 'Full history via indexer' })}
+            />
+          </SettingRow>
+          {draft.indexerEnabled && (
+            <>
+              <SettingRow
+                label={t('wallet.indexerEndpoint', { defaultValue: 'Indexer endpoint' })}
+                description={t('wallet.indexerEndpointDesc', {
+                  defaultValue: 'Toncenter-compatible v3 API base URL (Orbs or a self-hosted instance also work).',
+                })}
+              >
+                <TextInput
+                  value={draft.indexerEndpoint}
+                  onChange={(v) => updateDraft({ indexerEndpoint: v })}
+                  placeholder="https://toncenter.com/api/v3"
+                  ariaLabel={t('wallet.indexerEndpoint', { defaultValue: 'Indexer endpoint' })}
+                />
+              </SettingRow>
+              <SettingRow
+                label={t('wallet.indexerApiKey', { defaultValue: 'API key (optional)' })}
+                description={t('wallet.indexerApiKeyDesc', { defaultValue: 'Relaxes rate limits on shared indexers.' })}
+              >
+                <TextInput
+                  value={draft.indexerApiKey}
+                  onChange={(v) => updateDraft({ indexerApiKey: v })}
+                  placeholder="Optional"
+                  ariaLabel={t('wallet.indexerApiKey', { defaultValue: 'API key' })}
+                />
+              </SettingRow>
+            </>
+          )}
+        </div>
+      </div>
+
       {/* HTTP 402 payment settings — collapsible dropdown under wallet management */}
       <div className="mt-6">
         <Collapsible title={t('wallet.http402', { defaultValue: 'HTTP 402' })}>
           {/* Payment mode */}
           <div className="settings-group px-4">
             <SettingRow label={t('wallet.paymentMode')} description={t('wallet.paymentModeDesc')}>
-              <ToggleGroup
+              <Segmented
                 value={draft.paymentMode}
                 onChange={(v) => updateDraft({ paymentMode: v as PaymentMode })}
                 options={[
@@ -159,7 +212,7 @@ export const WalletSection = memo(function WalletSection({ onDirtyChange, sectio
               />
             </SettingRow>
             <SettingRow label={t('wallet.notificationStyle')} description={t('wallet.notificationStyleDesc')}>
-              <ToggleGroup
+              <Segmented
                 value={draft.notificationStyle}
                 onChange={(v) => updateDraft({ notificationStyle: v as NotificationStyle })}
                 options={[

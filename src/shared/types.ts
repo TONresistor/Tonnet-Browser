@@ -110,6 +110,9 @@ export interface WalletTransaction {
   timestamp: number
   status: 'pending' | 'confirmed' | 'failed'
   hash?: string
+  lt?: string
+  fee?: string
+  comment?: string
   x402Domain?: string
   x402Url?: string
 }

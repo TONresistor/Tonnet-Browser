@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils'
 import { SectionHeader } from '../shared/SectionHeader'
 import { SettingRow } from '../shared/SettingRow'
 import { Toggle } from '../shared/Toggle'
-import { ToggleGroup } from '../shared/ToggleGroup'
+import { Segmented } from '@/components/ui/ios/Segmented'
 import { NumberInput } from '../shared/NumberInput'
 import { GroupHeader } from '../shared/GroupHeader'
 import { createLogger } from '@/logger'
@@ -251,7 +251,7 @@ export const BridgeSection = memo(function BridgeSection({ onDirtyChange, sectio
       {/* Default Policy */}
       <div className="settings-group px-4">
         <SettingRow label={t('bridge.defaultPolicy')} description={t('bridge.defaultPolicyDesc')}>
-          <ToggleGroup
+          <Segmented
             value={draftPolicy}
             onChange={(v) => setDraftPolicy(v as 'ask' | 'deny')}
             options={[

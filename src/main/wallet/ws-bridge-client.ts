@@ -44,6 +44,7 @@ export interface BridgeTransaction {
   lt: string
   /** Unix timestamp in seconds from the block's header (tx.Now in the Go serializer). */
   now: number
+  total_fees?: string
   in_msg?: { source: string; destination: string; value: string; body?: string }
   out_msgs?: Array<{ source: string; destination: string; value: string; body?: string }>
 }

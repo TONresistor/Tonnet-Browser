@@ -7,7 +7,7 @@ import { Trash2, CircleCheckBig, History as HistoryIcon, Lock } from 'lucide-rea
 import { SectionHeader } from '../shared/SectionHeader'
 import { SettingRow } from '../shared/SettingRow'
 import { Toggle } from '../shared/Toggle'
-import { ToggleGroup } from '../shared/ToggleGroup'
+import { Segmented } from '@/components/ui/ios/Segmented'
 import { StepperInput } from '../shared/StepperInput'
 import { OpenPageButton } from '../shared/OpenPageButton'
 import { useTabsStore } from '@/stores/tabs'
@@ -117,7 +117,7 @@ export const PrivacySection = memo(function PrivacySection({
       {/* History */}
       <div className="mt-6 settings-group px-4">
         <SettingRow label={t('history.historyMode')} description={getModeDescription(draft.historyMode)}>
-          <ToggleGroup
+          <Segmented
             value={draft.historyMode}
             onChange={(v) => !changingHistoryMode && onHistoryModeChange(v)}
             options={historyModeOptions}

@@ -7,7 +7,7 @@ import { RotateCcw, Plus, X } from 'lucide-react'
 import { SectionHeader } from '../shared/SectionHeader'
 import { SettingRow } from '../shared/SettingRow'
 import { Toggle } from '../shared/Toggle'
-import { ToggleGroup } from '../shared/ToggleGroup'
+import { Segmented } from '@/components/ui/ios/Segmented'
 import type { SectionProps } from '../types'
 import { useTranslation } from 'react-i18next'
 
@@ -52,7 +52,7 @@ export const AdvancedSection = memo(function AdvancedSection({
       <SectionHeader title={t('advanced.title')} description={t('advanced.description')} />
       <div className="settings-group px-4">
         <SettingRow label={t('advanced.proxyVerbosity')} description={t('advanced.proxyVerbosityDesc')}>
-          <ToggleGroup
+          <Segmented
             value={String(draft.proxyVerbosity)}
             onChange={(v) => setDraft('proxyVerbosity', Number(v))}
             options={[
@@ -64,7 +64,7 @@ export const AdvancedSection = memo(function AdvancedSection({
           />
         </SettingRow>
         <SettingRow label={t('advanced.storageVerbosity')} description={t('advanced.storageVerbosityDesc')}>
-          <ToggleGroup
+          <Segmented
             value={String(draft.storageVerbosity)}
             onChange={(v) => setDraft('storageVerbosity', Number(v))}
             options={[

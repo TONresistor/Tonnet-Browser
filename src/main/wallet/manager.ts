@@ -27,6 +27,19 @@ import { createLogger } from '../../shared/logger'
 import { TON_DOMAIN_REGEX } from '../../shared/utils/ton'
 const log = createLogger('wallet')
 
+function decodeComment(body?: string): string | undefined {
+  if (!body) return undefined
+  try {
+    const slice = Cell.fromBase64(body).beginParse()
+    if (slice.remainingBits < 32) return undefined
+    if (slice.loadUint(32) !== 0) return undefined
+    const text = slice.loadStringTail()
+    return text.length > 0 ? text : undefined
+  } catch {
+    return undefined
+  }
+}
+
 export class WalletManager extends EventEmitter {
   private keyStorage: WalletKeyStorage
   private wsBridge: WsBridgeClient | null = null
@@ -296,16 +309,19 @@ export class WalletManager extends EventEmitter {
     let type: 'send' | 'receive' = 'receive'
     let amount = '0'
     let counterparty = ''
+    let body: string | undefined
 
     if (outMsgs.length > 0) {
       type = 'send'
       const msg = outMsgs[0]
       amount = msg.value ?? '0'
       counterparty = msg.destination ?? ''
+      body = msg.body
     } else if (inMsg) {
       type = 'receive'
       amount = inMsg.value ?? '0'
       counterparty = inMsg.source ?? ''
+      body = inMsg.body
     }
 
     if (amount === '0') return null
@@ -322,6 +338,9 @@ export class WalletManager extends EventEmitter {
       timestamp: rawTime * 1000,
       status: 'confirmed' as const,
       hash: tx.hash ?? '',
+      lt: tx.lt || undefined,
+      fee: tx.total_fees,
+      comment: decodeComment(body),
     }
   }
 
@@ -331,13 +350,19 @@ export class WalletManager extends EventEmitter {
   async fetchOnChainHistory(limit: number = WALLET_HISTORY_DEFAULT_LIMIT): Promise<WalletTransaction[]> {
     if (!this.wsBridge || !this.walletContract) return []
 
-    try {
-      const rawTxs = await this.wsBridge.getTransactions(this.walletContract.address.toString(), limit)
-      return rawTxs.map((tx) => this.convertRawTx(tx)).filter((tx): tx is WalletTransaction => tx !== null)
-    } catch (error) {
-      log.error('Failed to fetch on-chain history:', error)
-      throw error
+    const address = this.walletContract.address.toString()
+    let lastError: unknown
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const rawTxs = await this.wsBridge.getTransactions(address, limit)
+        return rawTxs.map((tx) => this.convertRawTx(tx)).filter((tx): tx is WalletTransaction => tx !== null)
+      } catch (error) {
+        lastError = error
+        if (attempt < 2) await new Promise((r) => setTimeout(r, 600))
+      }
     }
+    log.error('Failed to fetch on-chain history:', lastError)
+    throw lastError
   }
 
   /**

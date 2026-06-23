@@ -7,7 +7,7 @@ import { Home, HardDrive, Rows3, Columns3 } from 'lucide-react'
 import { SectionHeader } from '../shared/SectionHeader'
 import { SettingRow } from '../shared/SettingRow'
 import { Toggle } from '../shared/Toggle'
-import { ToggleGroup } from '../shared/ToggleGroup'
+import { Segmented } from '@/components/ui/ios/Segmented'
 import { SelectInput } from '../shared/SelectInput'
 import { GroupHeader } from '../shared/GroupHeader'
 import { TextInput } from '../shared/TextInput'
@@ -32,7 +32,7 @@ export const GeneralSection = memo(function GeneralSection({ draft, setDraft }: 
         </SettingRow>
         {draft.anonymousMode && (
           <SettingRow label={t('general.tunnelMode')} description={t('general.tunnelModeDesc')}>
-            <ToggleGroup
+            <Segmented
               value={draft.tunnelMode}
               onChange={(v) => setDraft('tunnelMode', v)}
               options={[
@@ -72,7 +72,7 @@ export const GeneralSection = memo(function GeneralSection({ draft, setDraft }: 
           />
         </SettingRow>
         <SettingRow label={t('general.homepage')} description={t('general.homepageDesc')}>
-          <ToggleGroup
+          <Segmented
             value={draft.homepage}
             onChange={(v) => setDraft('homepage', v)}
             options={[
@@ -82,7 +82,7 @@ export const GeneralSection = memo(function GeneralSection({ draft, setDraft }: 
           />
         </SettingRow>
         <SettingRow label={t('appearance.ui.tabOrientation')} description={t('appearance.ui.tabOrientationDesc')}>
-          <ToggleGroup
+          <Segmented
             value={draft.tabOrientation}
             onChange={(v) => setDraft('tabOrientation', v as 'horizontal' | 'vertical')}
             options={[

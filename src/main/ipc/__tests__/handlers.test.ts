@@ -291,8 +291,14 @@ function createMockRegistry(): ServiceRegistry {
       getState: vi.fn(() => ({ isCreated: false })),
       setAutoLockMinutes: vi.fn(),
       getBridgeClient: vi.fn(() => null),
+      fetchOnChainHistory: vi.fn(() => []),
     } as any,
-    walletHistoryManager: { add: vi.fn(), getRecent: vi.fn(), merge: vi.fn(), clear: vi.fn() } as any,
+    walletHistoryManager: {
+      add: vi.fn(),
+      getAll: vi.fn(() => []),
+      reconcile: vi.fn((tx) => tx),
+      clear: vi.fn(),
+    } as any,
     paymentInterceptor: { approvePayment: vi.fn(), rejectPayment: vi.fn(), registerOnSession: vi.fn() } as any,
     paymentPolicyStore: { destroy: vi.fn(), init: vi.fn() } as any,
     overlayManager: {
