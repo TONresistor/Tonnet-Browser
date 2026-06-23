@@ -13,6 +13,9 @@ import walletIcon from '@/assets/wallet.svg'
 import storageIcon from '@/assets/storage.svg'
 import settingsIcon from '@/assets/settings.svg'
 import cocoonIcon from '@/assets/cocoon.png'
+import bookmarkIcon from '@/assets/bookmark.svg'
+import historyIcon from '@/assets/history.svg'
+import dnsIcon from '@/assets/dns.svg'
 
 const log = createLogger('tabs')
 
@@ -39,6 +42,12 @@ export function getInternalPageTitle(url: string): string | null {
       return i18n.t('title', { ns: 'settings' })
     case 'cocoon':
       return i18n.t('tooltips.cocoon', { ns: 'common' })
+    case 'bookmarks':
+      return i18n.t('bookmarks.title', { ns: 'settings' })
+    case 'history':
+      return i18n.t('history.title', { ns: 'pages' })
+    case 'dns':
+      return i18n.t('title', { ns: 'dns' })
     default:
       return i18n.t('appName', { ns: 'common' })
   }
@@ -56,6 +65,12 @@ export function getInternalPageFavicon(url: string): string | null {
       return settingsIcon
     case 'cocoon':
       return cocoonIcon
+    case 'bookmarks':
+      return bookmarkIcon
+    case 'history':
+      return historyIcon
+    case 'dns':
+      return dnsIcon
     default:
       return null
   }
