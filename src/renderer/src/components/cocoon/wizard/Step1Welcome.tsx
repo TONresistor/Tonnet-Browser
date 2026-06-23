@@ -9,7 +9,7 @@ interface Props {
   onComplete: (data: { ownerAddress: string; nodeAddress: string; mnemonic: string[] }) => void
 }
 
-const SETUP_STEPS = ['Generate wallet', 'Back up recovery phrase', 'Fund 20 GRAM', 'Stake & start']
+const SETUP_STEPS = ['Generate wallet', 'Back up recovery phrase', 'Fund 20 GRAM', 'Fund channel & start']
 
 export function Step1Welcome({ onComplete }: Props) {
   const [loading, setLoading] = useState(false)

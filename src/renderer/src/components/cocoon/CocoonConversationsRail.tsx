@@ -43,20 +43,6 @@ export function CocoonConversationsRail({
         <span className="text-xl font-bold text-foreground">Cocoon Ai</span>
       </div>
 
-      <div className="px-3">
-        <ActionButton
-          variant="gray"
-          className="w-full"
-          icon={<Plus className="h-4 w-4" />}
-          onClick={() => {
-            newConversation()
-            onSelectChat?.()
-          }}
-        >
-          New chat
-        </ActionButton>
-      </div>
-
       <nav className="min-h-0 flex-1 overflow-y-auto px-2 py-3">
         {sorted.length === 0 ? (
           <p className="px-2 py-4 text-center text-xs text-muted-foreground">No conversations yet.</p>
@@ -105,6 +91,20 @@ export function CocoonConversationsRail({
           </ul>
         )}
       </nav>
+
+      <div className="shrink-0 px-3 pb-2 pt-1">
+        <ActionButton
+          variant="gray"
+          className="w-full"
+          icon={<Plus className="h-4 w-4" />}
+          onClick={() => {
+            newConversation()
+            onSelectChat?.()
+          }}
+        >
+          New chat
+        </ActionButton>
+      </div>
 
       <div className="shrink-0 space-y-1 border-t border-border-subtle px-2 py-2">
         <button

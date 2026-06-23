@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useCocoonChatStore, selectActiveMessages, type CocoonChatMessage } from '@/stores/cocoon-chat'
 import { DEFAULT_MODEL, parseThinking, sendChat } from '@/lib/cocoon-llm'
+import { ChatMarkdown } from './ChatMarkdown'
 
 export interface CocoonChatProps {
   state: CocoonState
@@ -194,7 +195,7 @@ export function CocoonChat({ state, compact = false, startError = null, onRetryS
 
       {/* Floating write bar — same shadow as the sidebar; messages scroll beneath it. */}
       <div className={cn('pointer-events-none absolute inset-x-0 bottom-0', compact ? 'px-2 pb-2' : 'px-4 pb-4')}>
-        <div className="pointer-events-auto flex items-end gap-2 rounded-2xl border border-border-subtle bg-elevation-2 p-2 shadow-panel">
+        <div className="pointer-events-auto flex items-end gap-2 rounded-full border border-border-subtle bg-elevation-2 p-2 shadow-panel">
           <textarea
             ref={textareaRef}
             className="max-h-40 flex-1 resize-none bg-transparent px-2 py-1.5 text-sm placeholder:text-muted-foreground focus:outline-none"
@@ -261,7 +262,15 @@ const ChatBubble = memo(function ChatBubble({
         ) : (
           <>
             {thinking && <ThinkingSection text={thinking} />}
-            {reply && <div className="px-3.5 py-2 whitespace-pre-wrap">{reply}</div>}
+            {reply && (
+              <div className="px-3.5 py-2">
+                {isUser || message.error ? (
+                  <span className="whitespace-pre-wrap">{reply}</span>
+                ) : (
+                  <ChatMarkdown content={reply} />
+                )}
+              </div>
+            )}
           </>
         )}
       </div>

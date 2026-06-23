@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Step1Welcome } from './wizard/Step1Welcome'
 import { Step2Backup } from './wizard/Step2Backup'
@@ -12,7 +12,7 @@ const STEP_LABELS: Record<StepNum, string> = {
   1: 'Generate',
   2: 'Backup',
   3: 'Fund',
-  4: 'Stake',
+  4: 'Connect',
 }
 
 const STEPS: StepNum[] = [1, 2, 3, 4]
@@ -83,15 +83,28 @@ export function SetupWizard({ onComplete, compact = false, resumeFrom }: Props) 
           compact ? 'max-w-none p-1' : 'max-w-[600px] bg-elevation-1 border border-border-subtle rounded-panel p-6'
         }`}
       >
-        {/* Progress indicator
-            Dot widths: h-2.5 w-2.5 (10px) × 4 + connector w-12 (48px) × 3 = 184px total.
-            Labels row uses the same 184px so each label tracks its dot. */}
-        <div className="flex flex-col items-center gap-2">
-          <div className="flex items-center">
-            {STEPS.map((s, i) => (
-              <Fragment key={s}>
+        {/* Progress indicator — each step is an equal column with the dot and its
+            label centered together; connectors are absolute lines between dots. */}
+        <div className="mx-auto flex w-full max-w-[300px]">
+          {STEPS.map((s, i) => (
+            <div key={s} className="flex flex-1 flex-col items-center gap-2">
+              <div className="relative flex h-2.5 w-full items-center justify-center">
+                {i > 0 && (
+                  <span
+                    className={`absolute left-0 right-1/2 top-1/2 h-0.5 -translate-y-1/2 transition-colors ${
+                      step >= s ? 'bg-primary' : 'bg-border'
+                    }`}
+                  />
+                )}
+                {i < 3 && (
+                  <span
+                    className={`absolute left-1/2 right-0 top-1/2 h-0.5 -translate-y-1/2 transition-colors ${
+                      step > s ? 'bg-primary' : 'bg-border'
+                    }`}
+                  />
+                )}
                 <div
-                  className={`h-2.5 w-2.5 rounded-full border-2 transition-all ${
+                  className={`relative z-10 h-2.5 w-2.5 rounded-full border-2 transition-all ${
                     step === s
                       ? 'bg-primary border-primary ring-2 ring-primary/30'
                       : step > s
@@ -99,23 +112,16 @@ export function SetupWizard({ onComplete, compact = false, resumeFrom }: Props) 
                         : 'bg-transparent border-border'
                   }`}
                 />
-                {i < 3 && <div className={`h-0.5 w-12 transition-colors ${step > s ? 'bg-primary' : 'bg-border'}`} />}
-              </Fragment>
-            ))}
-          </div>
-          {/* w-[184px]: matches 4×10px dots + 3×48px connectors = 184px */}
-          <div className="flex items-center w-[184px]">
-            {STEPS.map((s) => (
+              </div>
               <span
-                key={s}
-                className={`flex-1 text-[10px] text-center transition-colors ${
+                className={`text-center text-[10px] transition-colors ${
                   step === s ? 'text-primary font-medium' : 'text-muted-foreground'
                 }`}
               >
                 {STEP_LABELS[s]}
               </span>
-            ))}
-          </div>
+            </div>
+          ))}
         </div>
 
         {/* Step content */}
