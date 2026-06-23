@@ -76,7 +76,7 @@ function CocoonChatPage() {
   }
 
   return (
-    <div className="flex h-full w-full">
+    <div className="flex h-full w-full bg-background-secondary">
       <CocoonConversationsRail
         activeView={activeView}
         onSelectChat={() => setActiveView('chat')}
@@ -85,7 +85,7 @@ function CocoonChatPage() {
       {activeView === 'wallet' ? (
         <CocoonWalletView />
       ) : (
-        <div className="flex-1 min-w-0 flex flex-col">
+        <div className="flex min-w-0 flex-1 flex-col">
           <CocoonChat state={phase.state} startError={phase.startError} onRetryStart={retryStart} />
         </div>
       )}

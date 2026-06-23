@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { CheckCircle2, Loader2 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 import { getIpcError } from '@/lib/ipc-utils'
 import { formatTonFixed } from '@/lib/ton-utils'
+import { cn } from '@/lib/utils'
+import { ActionButton } from '@/components/ui/ios/ActionButton'
 
 type StakeStatus = 'idle' | 'transferring' | 'transferred' | 'starting' | 'done' | 'error'
 
@@ -83,13 +84,10 @@ export function Step4Stake({ onComplete, onBack, initialFunded = false }: Props)
 
   const busy = status === 'transferring' || status === 'transferred' || status === 'starting'
 
-  const idleLabel = funded ? 'Click "Start" to begin.' : 'Click "Stake & Start" to begin.'
-  const actionLabel = funded ? 'Start' : 'Stake & Start'
-
   const statusLine = (): string => {
     switch (status) {
       case 'idle':
-        return idleLabel
+        return ''
       case 'transferring':
         return 'Transferring to cocoon wallet…'
       case 'transferred':
@@ -107,57 +105,58 @@ export function Step4Stake({ onComplete, onBack, initialFunded = false }: Props)
 
   return (
     <div className="space-y-5">
-      <div>
-        <h2 className="text-lg font-semibold text-foreground mb-1">Step 4: Stake & Start</h2>
-        <p className="text-sm text-muted-foreground">
-          {funded
-            ? 'Cocoon wallet already funded on-chain. Click Start to launch the inference client.'
-            : 'Your owner balance (minus 0.5 GRAM gas reserve) will be transferred to the cocoon wallet, then the inference client will start.'}
+      <div className="text-center">
+        <h2 className="text-lg font-semibold text-foreground">Connect to Cocoon</h2>
+        <p className="mx-auto mt-1 max-w-sm text-[13px] leading-relaxed text-muted-foreground">
+          Keep your browser open while your Cocoon wallet opens a channel with the Cocoon network.
         </p>
       </div>
 
-      <div className="p-4 bg-muted rounded-lg border border-border flex items-center gap-3 min-h-[64px]">
-        {status === 'done' && <CheckCircle2 className="h-5 w-5 text-green-400 shrink-0" />}
-        {busy && <Loader2 className="h-5 w-5 text-primary animate-spin shrink-0" />}
-        <p
-          className={`text-sm ${
-            status === 'error' ? 'text-red-400' : status === 'done' ? 'text-green-400' : 'text-foreground'
-          }`}
-        >
-          {statusLine()}
-        </p>
-      </div>
+      {/* Progress — only once the connection is underway. */}
+      {status !== 'idle' && (
+        <div className="flex min-h-[60px] items-center gap-3 rounded-card border border-border-subtle bg-elevation-2 p-4">
+          {status === 'done' && <CheckCircle2 className="h-5 w-5 shrink-0 text-success" />}
+          {busy && <Loader2 className="h-5 w-5 shrink-0 animate-spin text-primary" />}
+          <p
+            className={cn(
+              'text-sm',
+              status === 'error' ? 'text-destructive' : status === 'done' ? 'text-success' : 'text-foreground'
+            )}
+          >
+            {statusLine()}
+          </p>
+        </div>
+      )}
 
-      <div className={`flex pt-1 ${onBack ? 'justify-between' : 'justify-end'}`}>
+      {/* Stacked so the CTA stays on one line in the narrow sidebar. */}
+      <div className="flex flex-col gap-2">
+        {status === 'error' ? (
+          <ActionButton variant="filled" onClick={handleStake} className="w-full">
+            Retry
+          </ActionButton>
+        ) : (
+          <ActionButton
+            variant="filled"
+            onClick={handleStake}
+            disabled={busy || status === 'done'}
+            className="w-full"
+            icon={busy ? <Loader2 className="h-4 w-4 animate-spin" /> : undefined}
+          >
+            {busy ? 'Connecting…' : 'Connect to Cocoon'}
+          </ActionButton>
+        )}
+
         {onBack && (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
+          <ActionButton
+            variant="gray"
             onClick={onBack}
             // Once funded, the owner is at gas reserve and Step 3's polling
             // will never reach the 20 TON threshold again. Lock the back path.
             disabled={busy || status === 'done' || funded}
+            className="w-full"
           >
             Back
-          </Button>
-        )}
-
-        {status === 'error' ? (
-          <Button type="button" size="sm" onClick={handleStake}>
-            Retry
-          </Button>
-        ) : (
-          <Button type="button" size="sm" onClick={handleStake} disabled={busy || status === 'done'}>
-            {busy ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Working…
-              </>
-            ) : (
-              actionLabel
-            )}
-          </Button>
+          </ActionButton>
         )}
       </div>
     </div>

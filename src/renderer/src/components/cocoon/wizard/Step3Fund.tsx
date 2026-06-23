@@ -106,7 +106,7 @@ export function Step3Fund({ ownerAddress, onComplete, onBack }: Props) {
 
   return (
     <div className="space-y-5">
-      <div>
+      <div className="text-center">
         <h2 className="text-lg font-semibold text-foreground mb-1">Step 3: Fund your wallet</h2>
         <p className="text-sm text-muted-foreground">Send at least 20 GRAM to your owner address (stake amount).</p>
       </div>

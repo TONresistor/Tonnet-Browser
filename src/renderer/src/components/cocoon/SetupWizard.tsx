@@ -4,6 +4,7 @@ import { Step1Welcome } from './wizard/Step1Welcome'
 import { Step2Backup } from './wizard/Step2Backup'
 import { Step3Fund } from './wizard/Step3Fund'
 import { Step4Stake } from './wizard/Step4Stake'
+import { StartOverControl } from './wizard/StartOverControl'
 
 type StepNum = 1 | 2 | 3 | 4
 
@@ -79,7 +80,7 @@ export function SetupWizard({ onComplete, compact = false, resumeFrom }: Props) 
     <div className={`flex-1 overflow-auto flex items-start justify-center ${compact ? 'p-3' : 'p-6'}`}>
       <div
         className={`w-full space-y-6 ${
-          compact ? 'max-w-none p-1' : 'max-w-[600px] bg-[hsl(var(--elevation-1))] border border-border rounded-xl p-6'
+          compact ? 'max-w-none p-1' : 'max-w-[600px] bg-elevation-1 border border-border-subtle rounded-panel p-6'
         }`}
       >
         {/* Progress indicator
@@ -173,6 +174,11 @@ export function SetupWizard({ onComplete, compact = false, resumeFrom }: Props) 
             initialFunded={resumeFrom?.initialStep === 4}
           />
         )}
+
+        {/* Resume mode has no Back (Step 1/2 are meaningless on a restart): give
+            the user an explicit escape to delete the unfinished wallet and
+            start fresh. Balance-gated inside the control. */}
+        {resumeFrom && <StartOverControl onReset={onComplete} />}
       </div>
     </div>
   )
