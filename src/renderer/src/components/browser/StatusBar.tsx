@@ -167,8 +167,10 @@ export const StatusBar = memo(function StatusBar() {
 
         {/* Storage Bags */}
         <Separator />
-        <div
-          className="flex items-center gap-1.5 text-muted-foreground"
+        <button
+          type="button"
+          onClick={() => openOrSwitchToTab('ton://storage')}
+          className="flex items-center gap-1.5 text-muted-foreground transition-colors hover:text-foreground"
           aria-label={`${storageStats.bagsCount} ${storageStats.bagsCount === 1 ? t('statusBar.bag') : t('statusBar.bags')}`}
         >
           <span>{t('statusBar.storage')}</span>
@@ -176,7 +178,7 @@ export const StatusBar = memo(function StatusBar() {
             {storageStats.bagsCount} {storageStats.bagsCount === 1 ? t('statusBar.bag') : t('statusBar.bags')}
           </span>
           {seedingEnabled && <span className="text-success">{t('statusBar.seeding')}</span>}
-        </div>
+        </button>
 
         {/* Transfer Speeds */}
         {(storageStats.downloadSpeed > 0 || storageStats.uploadSpeed > 0) && (
