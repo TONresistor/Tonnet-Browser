@@ -21,6 +21,14 @@ export interface Bookmark {
   createdAt: number
 }
 
+export interface TonConnectSession {
+  domain: string
+  appName: string
+  appIconUrl?: string
+  url: string
+  grantedAt: number
+}
+
 /**
  * A single item in a native overlay context menu. Built by both main-process
  * (page/internal context menus) and renderer (tab, bookmark, address-bar menus)

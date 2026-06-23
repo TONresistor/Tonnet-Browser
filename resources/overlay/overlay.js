@@ -163,6 +163,92 @@ function renderForm(content) {
   if (firstInput) firstInput.focus()
 }
 
+function renderApproval(content) {
+  currentItems = []
+  selectedIndex = -1
+  root.className = 'modal-mode'
+  root.innerHTML = ''
+
+  const scrim = document.createElement('div')
+  scrim.className = 'tc-scrim'
+  scrim.addEventListener('click', () => window.overlayBridge.sendAction('dismiss', {}))
+
+  const card = document.createElement('div')
+  card.className = 'tc-card'
+  card.addEventListener('click', (e) => e.stopPropagation())
+
+  if (content.icon) {
+    const img = document.createElement('img')
+    img.className = 'tc-icon'
+    img.src = content.icon
+    card.appendChild(img)
+  } else if (content.iconFallback) {
+    const fb = document.createElement('div')
+    fb.className = 'tc-icon-fallback'
+    fb.textContent = content.iconFallback
+    card.appendChild(fb)
+  }
+
+  if (content.title) {
+    const t = document.createElement('div')
+    t.className = 'tc-title'
+    t.textContent = content.title
+    card.appendChild(t)
+  }
+  if (content.subtitle) {
+    const s = document.createElement('div')
+    s.className = 'tc-subtitle'
+    s.textContent = content.subtitle
+    card.appendChild(s)
+  }
+  if (content.amount) {
+    const a = document.createElement('div')
+    a.className = 'tc-amount'
+    a.textContent = content.amount
+    card.appendChild(a)
+  }
+
+  if (content.warning) {
+    const w = document.createElement('div')
+    w.className = 'tc-warning'
+    w.textContent = content.warning
+    card.appendChild(w)
+  }
+
+  if (Array.isArray(content.rows) && content.rows.length) {
+    const rows = document.createElement('div')
+    rows.className = 'tc-rows'
+    for (const r of content.rows) {
+      const row = document.createElement('div')
+      row.className = 'tc-row'
+      const label = document.createElement('span')
+      label.className = 'tc-row-label'
+      label.textContent = r.label || ''
+      const value = document.createElement('span')
+      value.className = 'tc-row-value'
+      value.textContent = r.value || ''
+      row.appendChild(label)
+      row.appendChild(value)
+      rows.appendChild(row)
+    }
+    card.appendChild(rows)
+  }
+
+  const actions = document.createElement('div')
+  actions.className = 'tc-actions'
+  for (const action of (content.actions || [])) {
+    const btn = document.createElement('button')
+    btn.className = 'tc-btn ' + (action.primary ? 'tc-btn-primary' : 'tc-btn-secondary')
+    btn.textContent = action.label || action.id
+    btn.addEventListener('click', () => window.overlayBridge.sendAction(action.id, {}))
+    actions.appendChild(btn)
+  }
+  card.appendChild(actions)
+
+  scrim.appendChild(card)
+  root.appendChild(scrim)
+}
+
 function updateSelection(index) {
   const items = root.querySelectorAll('.suggestion-item, .menu-item:not(.disabled)')
   items.forEach((el) => el.classList.remove('selected'))
@@ -178,11 +264,13 @@ function updateSelection(index) {
 window.overlayBridge.onContent((content) => {
   if (!content) {
     root.innerHTML = ''
+    root.className = ''
     currentItems = []
     selectedIndex = -1
     return
   }
 
+  root.className = ''
   if (content.type === 'suggestions' && content.items) {
     renderSuggestions(content.items)
     if (typeof content.selectedIndex === 'number') {
@@ -192,6 +280,8 @@ window.overlayBridge.onContent((content) => {
     renderMenu(content.items)
   } else if (content.type === 'form') {
     renderForm(content)
+  } else if (content.type === 'approval') {
+    renderApproval(content)
   }
 })
 
@@ -204,6 +294,12 @@ window.overlayBridge.onTheme((theme) => {
 })
 
 document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    e.preventDefault()
+    window.overlayBridge.sendAction('dismiss', {})
+    return
+  }
+
   const selectableItems = root.querySelectorAll('.suggestion-item, .menu-item:not(.disabled)')
   const count = selectableItems.length
   if (count === 0) return
@@ -217,8 +313,5 @@ document.addEventListener('keydown', (e) => {
   } else if (e.key === 'Enter' && selectedIndex >= 0) {
     e.preventDefault()
     selectableItems[selectedIndex].click()
-  } else if (e.key === 'Escape') {
-    e.preventDefault()
-    window.overlayBridge.sendAction('dismiss', {})
   }
 })

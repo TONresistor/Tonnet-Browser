@@ -12,7 +12,7 @@ import { getSetting } from '../../settings'
 import type { ServiceRegistry } from '../../services'
 
 export function registerWalletHandlers(registry: ServiceRegistry): void {
-  const { walletManager, walletHistoryManager, paymentInterceptor, overlayManager } = registry
+  const { walletManager, walletHistoryManager, paymentInterceptor, overlayManager, tonConnectService } = registry
 
   walletManager.on('balance-updated', (balance: string) => {
     emitToRenderer(IPC_CHANNELS.WALLET_BALANCE_UPDATED, balance)
@@ -167,6 +167,7 @@ export function registerWalletHandlers(registry: ServiceRegistry): void {
     }
     const result = await walletManager.deleteWallet()
     await walletHistoryManager.clear()
+    tonConnectService.clearSessions()
     return result
   })
 

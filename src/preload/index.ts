@@ -171,6 +171,11 @@ const electronAPI = {
     restart: () => ipcRenderer.invoke(IPC_CHANNELS.BRIDGE_RESTART),
   },
 
+  tonconnect: {
+    getSessions: () => ipcRenderer.invoke(IPC_CHANNELS.TONCONNECT_GET_SESSIONS),
+    disconnectSession: (domain: string) => ipcRenderer.invoke(IPC_CHANNELS.TONCONNECT_DISCONNECT_SESSION, domain),
+  },
+
   // DNS
   dns: {
     resolve: (domain: string) => ipcRenderer.invoke(IPC_CHANNELS.DNS_RESOLVE, domain),

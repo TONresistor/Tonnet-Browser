@@ -19,6 +19,7 @@ import { Trash2, LoaderCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { tonToNano, formatTonAmount } from '@/stores/wallet'
 import { WalletManagementPanel } from './WalletManagementPanel'
+import { ConnectedAppsPanel } from './ConnectedAppsPanel'
 import { TonStepperField } from '../shared/TonStepperField'
 import { useSectionHandle } from '@/hooks/useSectionHandle'
 
@@ -146,6 +147,8 @@ export const WalletSection = memo(function WalletSection({ onDirtyChange, sectio
 
       {/* Wallet management: export / import */}
       <WalletManagementPanel />
+
+      <ConnectedAppsPanel />
 
       <div className="mt-6">
         <h3 className="mb-2 px-1 text-[13px] font-medium uppercase tracking-wide text-muted-foreground">

@@ -278,6 +278,10 @@ declare global {
         setConfig: (config: object) => Promise<{ success: boolean; error?: string }>
         restart: () => Promise<{ success: boolean; error?: string }>
       }
+      tonconnect: {
+        getSessions: () => Promise<import('../shared/types').TonConnectSession[]>
+        disconnectSession: (domain: string) => Promise<{ success: boolean }>
+      }
       dns: {
         resolve(domain: string): Promise<import('../shared/types').DnsResolveResult>
       }

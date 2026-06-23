@@ -15,6 +15,8 @@ import { PaymentPolicyStore } from './wallet/payment-policy'
 import { OverlayManager } from './windows/overlay-manager'
 import { BridgePermissionInterceptor } from './bridge/permission-interceptor'
 import { BridgePermissionStore } from './bridge/permission-store'
+import { TonConnectService } from './tonconnect/service'
+import { TonConnectSessionStore } from './tonconnect/session-store'
 import { HistoryManager } from './history/manager'
 import { ContentFilterManager } from './content-filter/filter-manager'
 import { CocoonManager } from './cocoon/manager'
@@ -33,6 +35,8 @@ export interface ServiceRegistry {
   overlayManager: OverlayManager
   bridgeInterceptor: BridgePermissionInterceptor
   bridgePermissionStore: BridgePermissionStore
+  tonConnectService: TonConnectService
+  tonConnectSessionStore: TonConnectSessionStore
   historyManager: HistoryManager
   contentFilterManager: ContentFilterManager
   cocoonManager: CocoonManager
@@ -55,6 +59,8 @@ export function createServices(): ServiceRegistry {
   const walletManager = new WalletManager(secureStorage)
   const paymentInterceptor = new PaymentInterceptor(walletManager, paymentPolicyStore, walletHistoryManager)
   const bridgeInterceptor = new BridgePermissionInterceptor(bridgePermissionStore, overlayManager)
+  const tonConnectSessionStore = new TonConnectSessionStore()
+  const tonConnectService = new TonConnectService(walletManager, tonConnectSessionStore, overlayManager)
   const cocoonManager = new CocoonManager()
   const withdrawDriver = new WithdrawDriver(
     cocoonManager,
@@ -87,6 +93,8 @@ export function createServices(): ServiceRegistry {
     overlayManager,
     bridgeInterceptor,
     bridgePermissionStore,
+    tonConnectService,
+    tonConnectSessionStore,
     historyManager,
     contentFilterManager,
     cocoonManager,

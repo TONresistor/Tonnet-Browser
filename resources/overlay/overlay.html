@@ -234,6 +234,99 @@
     .form-btn-primary:hover {
       transform: scale(1.02);
     }
+
+    #root.modal-mode {
+      background: transparent;
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+      border: none;
+      box-shadow: none;
+      border-radius: 0;
+      overflow: visible;
+    }
+
+    .tc-scrim {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.55);
+      backdrop-filter: blur(6px) saturate(1.2);
+      -webkit-backdrop-filter: blur(6px) saturate(1.2);
+      animation: tc-fade 140ms ease-out;
+    }
+
+    .tc-card {
+      width: 340px;
+      max-width: calc(100vw - 40px);
+      max-height: calc(100vh - 40px);
+      overflow-y: auto;
+      background: #1c1c1e;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 22px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+      padding: 24px 20px 20px;
+      text-align: center;
+      animation: tc-pop 180ms cubic-bezier(0.2, 0.9, 0.3, 1.2);
+    }
+
+    @keyframes tc-fade { from { opacity: 0 } to { opacity: 1 } }
+    @keyframes tc-pop {
+      from { opacity: 0; transform: translateY(8px) scale(0.96) }
+      to { opacity: 1; transform: none }
+    }
+
+    .tc-icon {
+      width: 56px; height: 56px; border-radius: 16px;
+      object-fit: cover; display: block; margin: 0 auto 12px;
+      background: rgba(255, 255, 255, 0.06);
+    }
+    .tc-icon-fallback {
+      width: 56px; height: 56px; border-radius: 16px;
+      display: flex; align-items: center; justify-content: center; margin: 0 auto 12px;
+      background: rgba(0, 152, 234, 0.16); font-size: 26px;
+    }
+
+    .tc-title { font-size: 17px; font-weight: 600; color: var(--text); }
+    .tc-subtitle { font-size: 13px; color: var(--text-secondary); margin-top: 3px; }
+    .tc-amount {
+      font-size: 30px; font-weight: 700; color: var(--text);
+      margin: 14px 0 2px; letter-spacing: -0.5px;
+    }
+
+    .tc-warning {
+      margin-top: 14px; padding: 10px 12px; text-align: left;
+      background: rgba(255, 170, 0, 0.14);
+      border: 1px solid rgba(255, 170, 0, 0.32);
+      border-radius: 12px;
+      color: #ffcf66; font-size: 12px; line-height: 1.4;
+    }
+
+    .tc-rows {
+      margin-top: 16px; text-align: left;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 14px; overflow: hidden;
+    }
+    .tc-row { display: flex; align-items: center; gap: 12px; padding: 11px 14px; }
+    .tc-row + .tc-row { border-top: 1px solid rgba(255, 255, 255, 0.06); }
+    .tc-row-label { font-size: 13px; color: var(--text-secondary); flex-shrink: 0; }
+    .tc-row-value {
+      font-size: 13px; color: var(--text); margin-left: auto;
+      text-align: right; word-break: break-all;
+    }
+
+    .tc-actions { display: flex; gap: 10px; margin-top: 20px; }
+    .tc-btn {
+      flex: 1; padding: 13px 0; border-radius: 14px;
+      font-size: 15px; font-weight: 600; font-family: inherit;
+      cursor: pointer; border: none; transition: transform 120ms, background 120ms, filter 120ms;
+    }
+    .tc-btn:active { transform: scale(0.97); }
+    .tc-btn-secondary { background: rgba(255, 255, 255, 0.08); color: var(--text); }
+    .tc-btn-secondary:hover { background: rgba(255, 255, 255, 0.12); }
+    .tc-btn-primary { background: var(--primary); color: #fff; }
+    .tc-btn-primary:hover { filter: brightness(1.08); }
   </style>
 </head>
 <body>

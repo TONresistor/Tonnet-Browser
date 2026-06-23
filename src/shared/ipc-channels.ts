@@ -110,6 +110,11 @@ export const IPC_CHANNELS = {
   BRIDGE_SET_CONFIG: 'bridge:set-config',
   BRIDGE_RESTART: 'bridge:restart',
 
+  TONCONNECT_REQUEST: 'tonconnect:request',
+  TONCONNECT_EVENT: 'tonconnect:event',
+  TONCONNECT_GET_SESSIONS: 'tonconnect:get-sessions',
+  TONCONNECT_DISCONNECT_SESSION: 'tonconnect:disconnect-session',
+
   // Cocoon AI lifecycle
   COCOON_START: 'cocoon:start',
   COCOON_STOP: 'cocoon:stop',

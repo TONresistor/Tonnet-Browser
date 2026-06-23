@@ -19,6 +19,7 @@ import {
   registerHistoryHandlers,
   registerWalletHandlers,
   registerBridgeHandlers,
+  registerTonConnectHandlers,
   registerCocoonHandlers,
 } from './handlers/index'
 
@@ -52,5 +53,6 @@ export function registerIpcHandlers(registry: ServiceRegistry): void {
   registerHistoryHandlers(registry)
   registerWalletHandlers(registry)
   registerBridgeHandlers(registry)
+  registerTonConnectHandlers(registry)
   registerCocoonHandlers(registry)
 }

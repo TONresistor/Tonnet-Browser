@@ -376,6 +376,7 @@ app.whenReady().then(() => {
 
   services = createServices()
   registerIpcHandlers(services)
+  services.tonConnectService.init()
 
   // Defer wallet + bridge interceptor init until WS bridge is ready (proxy must be running first)
   services.proxyManager.once('ws-bridge-ready', () => {

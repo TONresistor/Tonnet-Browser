@@ -315,6 +315,14 @@ function createMockRegistry(): ServiceRegistry {
     } as any,
     bridgeInterceptor: { handleRequest: vi.fn(), init: vi.fn(), destroy: vi.fn() } as any,
     bridgePermissionStore: { getAllPermissions: vi.fn(() => []), revokePermission: vi.fn() } as any,
+    tonConnectService: {
+      init: vi.fn(),
+      handleRequest: vi.fn(),
+      getSessions: vi.fn(() => []),
+      disconnectSession: vi.fn(),
+      clearSessions: vi.fn(),
+    } as any,
+    tonConnectSessionStore: { init: vi.fn(), list: vi.fn(() => []) } as any,
     historyManager: {
       changeMode: vi.fn(() => Promise.resolve({ success: true })),
       search: vi.fn(() => []),

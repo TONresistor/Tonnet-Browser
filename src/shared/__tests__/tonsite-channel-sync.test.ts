@@ -15,4 +15,10 @@ describe('tonsite.js IPC channel sync', () => {
     const src = readFileSync(resolve(process.cwd(), 'resources/preload/tonsite.js'), 'utf-8')
     expect(src).toContain(`'${IPC_CHANNELS.WALLET_PAY_FOR_XHR}'`)
   })
+
+  it('hardcodes the current TON Connect channel values', () => {
+    const src = readFileSync(resolve(process.cwd(), 'resources/preload/tonsite.js'), 'utf-8')
+    expect(src).toContain(`'${IPC_CHANNELS.TONCONNECT_REQUEST}'`)
+    expect(src).toContain(`'${IPC_CHANNELS.TONCONNECT_EVENT}'`)
+  })
 })
