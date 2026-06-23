@@ -9,6 +9,10 @@ import i18n from '@/i18n'
 import type { Tab as BaseTab } from '@shared/types'
 import { shortId } from '@/lib/id'
 import { createLogger } from '@/logger'
+import walletIcon from '@/assets/wallet.svg'
+import storageIcon from '@/assets/storage.svg'
+import settingsIcon from '@/assets/settings.svg'
+import cocoonIcon from '@/assets/cocoon.png'
 
 const log = createLogger('tabs')
 
@@ -27,12 +31,33 @@ export function getInternalPageTitle(url: string): string | null {
   switch (page) {
     case 'start':
       return i18n.t('tabs.newTab', { ns: 'browser' })
+    case 'wallet':
+      return i18n.t('page.title', { ns: 'wallet' })
     case 'storage':
       return i18n.t('storage.title', { ns: 'settings' })
     case 'settings':
       return i18n.t('title', { ns: 'settings' })
+    case 'cocoon':
+      return i18n.t('tooltips.cocoon', { ns: 'common' })
     default:
       return i18n.t('appName', { ns: 'common' })
+  }
+}
+
+export function getInternalPageFavicon(url: string): string | null {
+  if (!url.startsWith('ton://')) return null
+  const page = url.replace('ton://', '')
+  switch (page) {
+    case 'wallet':
+      return walletIcon
+    case 'storage':
+      return storageIcon
+    case 'settings':
+      return settingsIcon
+    case 'cocoon':
+      return cocoonIcon
+    default:
+      return null
   }
 }
 
@@ -108,6 +133,7 @@ export const useTabsStore = create<TabsState>((set, get) => ({
       id,
       url: targetUrl,
       title,
+      favicon: getInternalPageFavicon(targetUrl) ?? undefined,
       isLoading: false,
       canGoBack: false,
       canGoForward: false,
@@ -255,6 +281,9 @@ export const useTabsStore = create<TabsState>((set, get) => ({
     if (internalTitle) {
       updates.title = internalTitle
     }
+    if (url.startsWith('ton://')) {
+      updates.favicon = getInternalPageFavicon(url) ?? undefined
+    }
 
     await applyTabNavigation(set, currentActiveTabId, updates, 'Failed to navigate:')
   },
@@ -308,6 +337,9 @@ export const useTabsStore = create<TabsState>((set, get) => ({
     if (internalTitle) {
       updates.title = internalTitle
     }
+    if (newUrl.startsWith('ton://')) {
+      updates.favicon = getInternalPageFavicon(newUrl) ?? undefined
+    }
 
     await applyTabNavigation(set, activeTabId, updates, 'Failed to go back:')
   },
@@ -331,6 +363,9 @@ export const useTabsStore = create<TabsState>((set, get) => ({
     }
     if (internalTitle) {
       updates.title = internalTitle
+    }
+    if (newUrl.startsWith('ton://')) {
+      updates.favicon = getInternalPageFavicon(newUrl) ?? undefined
     }
 
     await applyTabNavigation(set, activeTabId, updates, 'Failed to go forward:')
