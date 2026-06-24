@@ -264,13 +264,11 @@ export class TonConnectService {
     const approved = await this.showApproval({
       type: 'approval',
       icon: icon ?? undefined,
-      iconFallback: icon ? undefined : '🌐',
+      iconTon: icon ? undefined : true,
       title: appName,
       subtitle: 'wants to connect to your wallet',
-      rows: [
-        { label: 'Site', value: domain },
-        { label: 'Wallet', value: shortAddress(account.addressRaw) },
-      ],
+      domain,
+      rows: [{ label: 'Wallet', value: shortAddress(account.addressRaw) }],
       actions: [
         { id: 'deny', label: 'Cancel' },
         { id: 'approve', label: 'Connect', primary: true },
@@ -439,6 +437,7 @@ export class TonConnectService {
       iconFallback: '↑',
       title: 'Confirm transaction',
       subtitle: appName,
+      domain,
       amount: `${formatGram(totalNano.toString())} GRAM`,
       warning: hasPayload ? 'Includes a contract payload — this is not a plain transfer.' : undefined,
       rows: out.map((m, i) => ({
@@ -478,6 +477,7 @@ export class TonConnectService {
       iconFallback: '✎',
       title: 'Sign data',
       subtitle: appName,
+      domain,
       rows: buildSignDataRows(payload),
       actions: [
         { id: 'deny', label: 'Reject' },

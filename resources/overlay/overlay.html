@@ -258,15 +258,15 @@
     }
 
     .tc-card {
-      width: 340px;
+      width: 344px;
       max-width: calc(100vw - 40px);
       max-height: calc(100vh - 40px);
       overflow-y: auto;
-      background: #1c1c1e;
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 22px;
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-      padding: 24px 20px 20px;
+      background: hsl(210 26% 13%);
+      border: 1px solid rgba(255, 255, 255, 0.10);
+      border-radius: 20px;
+      box-shadow: 0 24px 70px rgba(0, 0, 0, 0.55);
+      padding: 22px 18px 18px;
       text-align: center;
       animation: tc-pop 180ms cubic-bezier(0.2, 0.9, 0.3, 1.2);
     }
@@ -287,13 +287,25 @@
       display: flex; align-items: center; justify-content: center; margin: 0 auto 12px;
       background: rgba(0, 152, 234, 0.16); font-size: 26px;
     }
+    .tc-icon-ton {
+      width: 56px; height: 56px; display: flex; align-items: center;
+      justify-content: center; margin: 0 auto 12px;
+    }
 
     .tc-title { font-size: 17px; font-weight: 600; color: var(--text); }
     .tc-subtitle { font-size: 13px; color: var(--text-secondary); margin-top: 3px; }
-    .tc-amount {
-      font-size: 30px; font-weight: 700; color: var(--text);
-      margin: 14px 0 2px; letter-spacing: -0.5px;
+    .tc-domain {
+      display: inline-flex; align-items: center; gap: 5px; margin-top: 8px;
+      padding: 4px 10px; border-radius: 999px; background: rgba(255, 255, 255, 0.06);
+      font-size: 12px; color: rgba(255, 255, 255, 0.75);
+      font-family: ui-monospace, SFMono-Regular, monospace;
     }
+    .tc-domain svg { width: 12px; height: 12px; color: #30d158; flex-shrink: 0; }
+    .tc-amount {
+      font-size: 32px; font-weight: 720; color: var(--text);
+      margin: 16px 0 2px; letter-spacing: -0.6px;
+    }
+    .tc-amount .unit { font-size: 18px; font-weight: 600; color: var(--text-secondary); margin-left: 5px; }
 
     .tc-warning {
       margin-top: 14px; padding: 10px 12px; text-align: left;

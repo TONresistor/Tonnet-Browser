@@ -68,7 +68,7 @@ export interface TonAddressItemReply {
 }
 
 export interface TonProofReplyPayload {
-  timestamp: string
+  timestamp: number // UNIX seconds — MUST be a number per TON Connect spec; @tonconnect/sdk rejects a string with "Invalid 'proof.timestamp'"
   domain: { lengthBytes: number; value: string }
   signature: string
   payload: string

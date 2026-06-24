@@ -526,7 +526,7 @@ export class WalletManager extends EventEmitter {
     const signature = await this.signWithKey((secretKey) => sign(digest, secretKey))
 
     return {
-      timestamp: String(timestamp),
+      timestamp, // number (UNIX seconds) — a string fails @tonconnect/sdk validation ("Invalid 'proof.timestamp'")
       domain: { lengthBytes: domainBuf.byteLength, value: domain },
       signature: signature.toString('base64'),
       payload,
