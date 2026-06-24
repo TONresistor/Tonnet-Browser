@@ -32,6 +32,7 @@ export const IPC_CHANNELS = {
   STORAGE_LIST_BAGS: 'storage:list-bags',
   STORAGE_PAUSE_BAG: 'storage:pause-bag',
   STORAGE_GET_DETAILS: 'storage:get-details',
+  STORAGE_READ_FILE: 'storage:read-file',
   STORAGE_OPEN_FOLDER: 'storage:open-folder',
   STORAGE_SHOW_FILE: 'storage:show-file',
 

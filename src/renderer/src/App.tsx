@@ -17,6 +17,9 @@ const StoragePage = lazy(() => import('@/components/pages/StoragePage').then((m)
 const StorageBrowsePage = lazy(() =>
   import('@/components/pages/StorageBrowsePage').then((m) => ({ default: m.StorageBrowsePage }))
 )
+const StorageFileViewerPage = lazy(() =>
+  import('@/components/pages/StorageFileViewerPage').then((m) => ({ default: m.StorageFileViewerPage }))
+)
 const SettingsPage = lazy(() => import('@/components/pages/SettingsPage').then((m) => ({ default: m.SettingsPage })))
 const HistoryPage = lazy(() => import('@/components/pages/HistoryPage').then((m) => ({ default: m.HistoryPage })))
 const BookmarksPage = lazy(() => import('@/components/pages/BookmarksPage').then((m) => ({ default: m.BookmarksPage })))
@@ -212,6 +215,22 @@ function App() {
     // ton://storage/browse/<bagId> — in-app master-detail file browser
     if (internalPage.startsWith('storage/browse/')) {
       return <StorageBrowsePage bagId={internalPage.slice('storage/browse/'.length)} />
+    }
+
+    // ton://storage/view/<bagId>/<encodedPath> — in-app CSV/JSONL table viewer
+    if (internalPage.startsWith('storage/view/')) {
+      const rest = internalPage.slice('storage/view/'.length)
+      const slash = rest.indexOf('/')
+      if (slash > 0) {
+        const bagId = rest.slice(0, slash)
+        let filePath = rest.slice(slash + 1)
+        try {
+          filePath = decodeURIComponent(filePath)
+        } catch {
+          /* keep raw on malformed encoding */
+        }
+        return <StorageFileViewerPage bagId={bagId} filePath={filePath} />
+      }
     }
 
     // ton://storage/file/<bagId>/<path> — main loads the file into the WebContentsView;

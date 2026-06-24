@@ -4,12 +4,17 @@
 
 import { errorMessage } from '../../../shared/errors'
 import path from 'path'
+import { promises as fsp } from 'fs'
 import { shell } from 'electron'
 import { IPC_CHANNELS } from '../../../shared/ipc-channels'
 import { isValidBagId } from '../validation'
 import { secureHandle, secureHandleWithEvent, emitToRenderer, storageLimiter, log } from './shared'
 import { getDownloadPath } from '../../settings'
+import { resolveBagFilePath } from '../../windows/tabs-storage'
 import type { ServiceRegistry } from '../../services'
+
+/** Max bytes read for the in-app table viewer (CSV/JSONL); guards memory. */
+const MAX_READ_BYTES = 32 * 1024 * 1024
 
 /**
  * Validate that a resolved path is within the configured download directory.
@@ -114,6 +119,29 @@ export function registerStorageHandlers(registry: ServiceRegistry): void {
       if (pathError) return pathError
       const error = await shell.openPath(path.resolve(details.path))
       return error ? { success: false, error } : { success: true }
+    } catch (error) {
+      return { success: false, error: errorMessage(error) }
+    }
+  })
+
+  // Read a bag file's text for the in-app table viewer (CSV/JSONL). Path is
+  // validated by resolveBagFilePath (no traversal); reads at most MAX_READ_BYTES.
+  secureHandleWithEvent(IPC_CHANNELS.STORAGE_READ_FILE, async (_event, bagId: string, relPath: string) => {
+    const bagIdError = validateBagIdOrFail(bagId)
+    if (bagIdError) return bagIdError
+
+    try {
+      const fullPath = await resolveBagFilePath(bagId, relPath)
+      const stat = await fsp.stat(fullPath)
+      const len = Math.min(stat.size, MAX_READ_BYTES)
+      const fh = await fsp.open(fullPath, 'r')
+      try {
+        const buf = Buffer.alloc(len)
+        await fh.read(buf, 0, len, 0)
+        return { success: true, content: buf.toString('utf8'), truncated: stat.size > len, size: stat.size }
+      } finally {
+        await fh.close()
+      }
     } catch (error) {
       return { success: false, error: errorMessage(error) }
     }

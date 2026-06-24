@@ -46,6 +46,7 @@ import {
   type FileCategory,
   type SortField,
 } from './storage/bag-files'
+import { isTabularFile } from './storage/table-data'
 
 const log = createLogger('storage-browse')
 
@@ -144,9 +145,11 @@ export function StorageBrowsePage({ bagId }: { bagId: string }) {
     }
   }
 
-  // Open the file inline in a new tab (audio/pdf/image render in the browser).
+  // Open the file in a new tab: CSV/JSONL get the in-app table viewer, the rest
+  // render inline in the browser (audio/pdf/image).
   const openFile = (fullPath: string) => {
-    useTabsStore.getState().addTab(`ton://storage/file/${selectedId}/${encodeURIComponent(fullPath)}`)
+    const kind = isTabularFile(fullPath) ? 'view' : 'file'
+    useTabsStore.getState().addTab(`ton://storage/${kind}/${selectedId}/${encodeURIComponent(fullPath)}`)
   }
 
   return (

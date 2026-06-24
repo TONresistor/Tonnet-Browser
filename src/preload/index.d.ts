@@ -121,6 +121,16 @@ declare global {
           details?: BagDetails
           error?: string
         }>
+        readFile: (
+          bagId: string,
+          relPath: string
+        ) => Promise<{
+          success: boolean
+          content?: string
+          truncated?: boolean
+          size?: number
+          error?: string
+        }>
         openFolder: (bagId: string) => Promise<{ success: boolean; error?: string }>
         showFile: (bagId: string, fileName: string) => Promise<{ success: boolean; error?: string }>
       }

@@ -94,6 +94,7 @@ const electronAPI = {
     listBags: () => ipcRenderer.invoke(IPC_CHANNELS.STORAGE_LIST_BAGS),
     pauseBag: (bagId: string) => ipcRenderer.invoke(IPC_CHANNELS.STORAGE_PAUSE_BAG, bagId),
     getBagDetails: (bagId: string) => ipcRenderer.invoke(IPC_CHANNELS.STORAGE_GET_DETAILS, bagId),
+    readFile: (bagId: string, relPath: string) => ipcRenderer.invoke(IPC_CHANNELS.STORAGE_READ_FILE, bagId, relPath),
     getDownloadPath: () => ipcRenderer.invoke(IPC_CHANNELS.STORAGE_GET_DOWNLOAD_PATH),
     setDownloadPath: (path: string) => ipcRenderer.invoke(IPC_CHANNELS.STORAGE_SET_DOWNLOAD_PATH, path),
     selectDownloadFolder: () => ipcRenderer.invoke(IPC_CHANNELS.STORAGE_SELECT_DOWNLOAD_FOLDER),
