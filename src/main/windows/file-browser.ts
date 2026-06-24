@@ -89,7 +89,7 @@ export function generateLoadingPage(domain: string): string {
   <style>
     body {
       margin: 0;
-      background: #17212b;
+      background: hsl(210 32% 9%);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -141,64 +141,73 @@ export function generateFileBrowserPage(
   <title>${safeDomain} - File Browser</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg: hsl(210 32% 9%);
+      --panel: hsl(210 26% 13%);
+      --fg: hsl(0 0% 96%);
+      --muted: hsl(210 18% 52%);
+      --primary: hsl(200 100% 46%);
+      --surface: hsl(0 0% 100% / 0.06);
+      --surface-hover: hsl(0 0% 100% / 0.08);
+      --divider: hsl(0 0% 100% / 0.07);
+      --border: hsl(0 0% 100% / 0.1);
+    }
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-      background: #17212b;
-      color: #f5f5f5;
+      background: var(--bg);
+      color: var(--fg);
       min-height: 100vh;
       padding: 24px;
     }
     .card {
-      max-width: 860px;
+      max-width: 820px;
       margin: 0 auto;
-      background: rgba(255, 255, 255, 0.07);
-      backdrop-filter: blur(12px) saturate(1.4);
-      -webkit-backdrop-filter: blur(12px) saturate(1.4);
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      border-radius: 20px;
-      padding: 28px 24px 20px;
-      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 22px 20px 14px;
+      box-shadow: 0 10px 30px -6px rgba(0, 0, 0, 0.45);
     }
-    .header {
-      margin-bottom: 20px;
-    }
+    .header { margin-bottom: 18px; }
     .header h1 {
-      font-size: 20px;
+      font-size: 18px;
       font-weight: 600;
-      color: #f5f5f5;
-      margin-bottom: 4px;
+      color: var(--fg);
+      margin-bottom: 7px;
+      word-break: break-word;
     }
     .header .meta {
-      font-size: 12px;
-      color: #708499;
+      font-size: 12.5px;
+      color: var(--muted);
       display: flex;
       flex-wrap: wrap;
-      gap: 12px;
+      gap: 10px;
       align-items: center;
     }
     .header .meta .bag-id {
-      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-family: 'SF Mono', 'Fira Code', ui-monospace, monospace;
       font-size: 11px;
-      background: rgba(255, 255, 255, 0.06);
-      padding: 2px 8px;
-      border-radius: 6px;
+      color: var(--muted);
+      background: var(--surface);
+      padding: 3px 9px;
+      border-radius: 999px;
     }
     .breadcrumb {
       display: flex;
       align-items: center;
-      gap: 4px;
+      gap: 5px;
       font-size: 13px;
-      margin-bottom: 14px;
+      margin-bottom: 10px;
       flex-wrap: wrap;
     }
     .breadcrumb a {
-      color: #0098ea;
+      color: var(--primary);
       text-decoration: none;
       cursor: pointer;
     }
     .breadcrumb a:hover { text-decoration: underline; }
-    .breadcrumb .sep { color: #708499; }
-    .breadcrumb .current { color: #f5f5f5; }
+    .breadcrumb .sep { color: var(--muted); }
+    .breadcrumb .current { color: var(--muted); }
     .file-table {
       width: 100%;
       border-collapse: collapse;
@@ -206,59 +215,54 @@ export function generateFileBrowserPage(
     .file-table th {
       text-align: left;
       font-size: 11px;
-      font-weight: 500;
-      color: #708499;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      padding: 8px 10px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      font-weight: 600;
+      color: var(--muted);
+      padding: 6px 12px;
+      border-bottom: 1px solid var(--border);
       cursor: pointer;
       user-select: none;
       white-space: nowrap;
     }
-    .file-table th:hover { color: #f5f5f5; }
-    .file-table th .sort-indicator { margin-left: 4px; font-size: 10px; }
+    .file-table th:hover { color: var(--fg); }
+    .file-table th .sort-indicator { margin-left: 4px; font-size: 9px; color: var(--primary); }
     .file-table td {
-      padding: 8px 10px;
-      font-size: 13px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      padding: 10px 12px;
+      font-size: 14px;
+      border-bottom: 1px solid var(--divider);
       vertical-align: middle;
     }
-    .file-table tr:hover td {
-      background: rgba(255, 255, 255, 0.04);
-    }
-    .file-table .col-icon { width: 36px; text-align: center; }
+    .file-table tbody tr:last-child td { border-bottom: 0; }
+    .file-table tbody tr:hover td { background: var(--surface-hover); }
+    .file-table tbody tr:hover td:first-child { border-top-left-radius: 9px; border-bottom-left-radius: 9px; }
+    .file-table tbody tr:hover td:last-child { border-top-right-radius: 9px; border-bottom-right-radius: 9px; }
+    .file-table .col-icon { width: 34px; text-align: center; line-height: 0; }
+    .file-table .col-icon svg { vertical-align: middle; }
     .file-table .col-size {
-      width: 90px;
+      width: 96px;
       text-align: right;
-      color: #708499;
-      font-family: 'SF Mono', 'Fira Code', monospace;
-      font-size: 12px;
+      color: var(--muted);
+      font-family: 'SF Mono', 'Fira Code', ui-monospace, monospace;
+      font-size: 12.5px;
+      white-space: nowrap;
     }
     .file-table .col-name a {
-      color: #f5f5f5;
+      color: var(--fg);
       text-decoration: none;
     }
-    .file-table .col-name a:hover {
-      color: #0098ea;
-      text-decoration: underline;
-    }
-    .file-table .col-name .folder-link {
-      color: #0098ea;
-      cursor: pointer;
-    }
+    .file-table .col-name a:hover { color: var(--primary); }
+    .file-table .col-name .folder-link { color: var(--primary); cursor: pointer; }
     .empty-state {
       text-align: center;
-      padding: 40px 20px;
-      color: #708499;
+      padding: 44px 20px;
+      color: var(--muted);
       font-size: 14px;
     }
     @media (max-width: 600px) {
       body { padding: 12px; }
-      .card { padding: 16px 14px 14px; border-radius: 14px; }
-      .header h1 { font-size: 17px; }
-      .file-table td, .file-table th { padding: 6px 6px; }
-      .file-table .col-size { font-size: 11px; width: 70px; }
+      .card { padding: 16px 14px 10px; border-radius: 16px; }
+      .header h1 { font-size: 16px; }
+      .file-table td, .file-table th { padding: 9px 8px; }
+      .file-table .col-size { font-size: 11.5px; width: 74px; }
     }
   </style>
 </head>

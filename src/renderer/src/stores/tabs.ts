@@ -31,6 +31,7 @@ const MAX_HISTORY = 10
 export function getInternalPageTitle(url: string): string | null {
   if (!url.startsWith('ton://')) return null
   const page = url.replace('ton://', '')
+  if (page.startsWith('storage/browse/')) return i18n.t('storage.title', { ns: 'settings' })
   switch (page) {
     case 'start':
       return i18n.t('tabs.newTab', { ns: 'browser' })
@@ -56,6 +57,7 @@ export function getInternalPageTitle(url: string): string | null {
 export function getInternalPageFavicon(url: string): string | null {
   if (!url.startsWith('ton://')) return null
   const page = url.replace('ton://', '')
+  if (page.startsWith('storage/browse/')) return storageIcon
   switch (page) {
     case 'wallet':
       return walletIcon

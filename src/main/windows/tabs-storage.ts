@@ -5,6 +5,8 @@
 
 import { WebContentsView } from 'electron'
 import { EventEmitter } from 'events'
+import { realpathSync } from 'fs'
+import { resolve as resolvePath, sep } from 'path'
 import { generateFileBrowserPage, generateLoadingPage } from './file-browser'
 import { escapeHtml, loadDataHtml } from './page-templates'
 import { renderLottieBoot } from './lottie'
@@ -60,6 +62,31 @@ export function initStorageListener(proxyMgr: EventEmitter): IDisposable {
 export function sanitizeDirName(raw: string): string {
   const trimmed = raw.replace(/\/$/, '')
   return trimmed.replace(/\.\./g, '').replace(/[/\\]/g, '')
+}
+
+/**
+ * Resolve a file inside a bag to its real on-disk path, validating that it
+ * stays within the bag directory (no traversal). Used to open a bag file
+ * inline in a browser tab. Throws on invalid path / missing bag.
+ */
+export async function resolveBagFilePath(bagId: string, relPath: string): Promise<string> {
+  if (!relPath || relPath.includes('\0') || relPath.startsWith('/') || relPath.startsWith('\\')) {
+    throw new Error('Invalid file path')
+  }
+  if (relPath.split(/[/\\]/).includes('..')) {
+    throw new Error('Invalid file path')
+  }
+  const details = await getStorageManager().getBagDetails(bagId)
+  if (!details?.path) throw new Error('Bag path not found')
+
+  const dirName = sanitizeDirName(details.dir_name || '')
+  const basePath = dirName ? `${details.path}/${dirName}` : details.path
+  const realBase = realpathSync(resolvePath(basePath))
+  const realFull = realpathSync(resolvePath(`${basePath}/${relPath}`))
+  if (!realFull.startsWith(realBase + sep) && realFull !== realBase) {
+    throw new Error('Path traversal blocked')
+  }
+  return realFull
 }
 
 // --- Error page ---

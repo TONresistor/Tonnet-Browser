@@ -13,8 +13,8 @@ import {
   hideAllViews,
   navigateInTab,
   getActiveTabId,
-  loadStorageBagInTab,
   fileBrowserCache,
+  loadBagFileInTab,
 } from '../../windows/tabs'
 
 export function registerNavigationHandlers(): void {
@@ -33,15 +33,25 @@ export function registerNavigationHandlers(): void {
       return { success: false, error: validation.error }
     }
 
-    // Intercept ton://storage/browse/<bagId> to download bag and show file browser
-    const browseMatch = url.match(/^ton:\/\/storage\/browse\/([a-fA-F0-9]{64})$/)
-    if (browseMatch) {
-      const bagId = browseMatch[1]
+    // ton://storage/browse/<bagId> is handled in-app by the React master-detail
+    // file browser (StorageBrowsePage); it falls through to the internal ton://
+    // branch below which hides the WebContentsView so React can render.
+
+    // ton://storage/file/<bagId>/<encodedRelPath> opens a single bag file inline
+    // in this tab (audio/pdf/image render in the browser, like the old browser).
+    const fileMatch = url.match(/^ton:\/\/storage\/file\/([a-fA-F0-9]{64})\/(.+)$/)
+    if (fileMatch) {
+      const bagId = fileMatch[1]
+      let relPath: string
+      try {
+        relPath = decodeURIComponent(fileMatch[2])
+      } catch {
+        return { success: false, error: 'Invalid file path' }
+      }
       const targetTab = tabId || getActiveTabId()
-      log.info(`Browse bag: ${bagId}, tab: ${targetTab}`)
       if (targetTab) {
-        loadStorageBagInTab(targetTab, bagId).catch((err) => {
-          log.error('Failed to browse bag:', errorMessage(err))
+        loadBagFileInTab(targetTab, bagId, relPath).catch((err) => {
+          log.error('Failed to open bag file:', errorMessage(err))
         })
       }
       return { success: true }

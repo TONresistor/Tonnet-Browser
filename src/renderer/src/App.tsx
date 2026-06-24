@@ -14,6 +14,9 @@ import { ResizablePanel } from '@/components/browser/ResizablePanel'
 const LandingPage = lazy(() => import('@/components/pages/LandingPage').then((m) => ({ default: m.LandingPage })))
 const StartPage = lazy(() => import('@/components/pages/StartPage').then((m) => ({ default: m.StartPage })))
 const StoragePage = lazy(() => import('@/components/pages/StoragePage').then((m) => ({ default: m.StoragePage })))
+const StorageBrowsePage = lazy(() =>
+  import('@/components/pages/StorageBrowsePage').then((m) => ({ default: m.StorageBrowsePage }))
+)
 const SettingsPage = lazy(() => import('@/components/pages/SettingsPage').then((m) => ({ default: m.SettingsPage })))
 const HistoryPage = lazy(() => import('@/components/pages/HistoryPage').then((m) => ({ default: m.HistoryPage })))
 const BookmarksPage = lazy(() => import('@/components/pages/BookmarksPage').then((m) => ({ default: m.BookmarksPage })))
@@ -201,6 +204,21 @@ function App() {
       // External page - WebContentsView handles this, this is just a background
       return (
         <div className="w-full h-full flex flex-col items-center justify-center bg-background-secondary">
+          {animationData ? <Lottie animationData={animationData} className="w-64 h-64" loop autoplay /> : null}
+        </div>
+      )
+    }
+
+    // ton://storage/browse/<bagId> — in-app master-detail file browser
+    if (internalPage.startsWith('storage/browse/')) {
+      return <StorageBrowsePage bagId={internalPage.slice('storage/browse/'.length)} />
+    }
+
+    // ton://storage/file/<bagId>/<path> — main loads the file into the WebContentsView;
+    // show a neutral background while it does (avoids a StartPage flash).
+    if (internalPage.startsWith('storage/file/')) {
+      return (
+        <div className="flex h-full w-full flex-col items-center justify-center bg-background-secondary">
           {animationData ? <Lottie animationData={animationData} className="w-64 h-64" loop autoplay /> : null}
         </div>
       )

@@ -21,6 +21,7 @@ import {
   fileBrowserCache as _fileBrowserCache,
   initStorageListener,
   setTabStorageManager,
+  resolveBagFilePath,
 } from './tabs-storage'
 import { updateViewBounds, updateSidebarBounds, invalidateAppearanceCache } from './tabs-bounds'
 import { setupSecurityHandlers, ALLOWED_SCHEMES } from './tabs-security'
@@ -219,6 +220,17 @@ export async function loadStorageBagInTab(tabId: string, bagId: string): Promise
     useCache: true,
     checkIndexHtml: true,
   })
+}
+
+/**
+ * Open a single file from a bag inline in a tab (audio/pdf/image render in the
+ * browser). The path is resolved + traversal-checked in tabs-storage.
+ */
+export async function loadBagFileInTab(tabId: string, bagId: string, relPath: string): Promise<void> {
+  const view = views.get(tabId)
+  if (!view) throw new Error(`View not found for tab ${tabId}`)
+  const fullPath = await resolveBagFilePath(bagId, relPath)
+  await view.webContents.loadFile(fullPath)
 }
 
 /**
