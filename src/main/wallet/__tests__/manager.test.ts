@@ -100,6 +100,8 @@ function makeDnsResult(overrides: Partial<DnsResolveResult> = {}): DnsResolveRes
     wallet: VALID_ADDRESS,
     site_adnl: null,
     has_storage: false,
+    storage_bag_id: null,
+    next_resolver: null,
     owner: null,
     nft_address: null,
     collection: null,
