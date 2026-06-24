@@ -3,6 +3,7 @@
  * Produces an HTML string for browsing bag contents when no index.html exists.
  */
 
+import { randomBytes } from 'crypto'
 import { escapeHtml, jsonForScript } from './page-templates'
 import { renderLottieBoot } from './lottie'
 
@@ -133,10 +134,20 @@ export function generateFileBrowserPage(
 
   const iconsJson = jsonForScript(ICONS)
 
+  // Per-render nonce: the page's own <script> carries it; injected inline
+  // handlers (e.g. an onerror from a hostile file name) and injected <script>
+  // tags lack it, so the CSP blocks them. Defence-in-depth behind the
+  // attribute escaping below.
+  const nonce = randomBytes(16).toString('base64')
+  const csp =
+    `default-src 'none'; script-src 'nonce-${nonce}'; ` +
+    `style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'`
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="${csp}">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${safeDomain} - File Browser</title>
   <style>
@@ -288,7 +299,7 @@ export function generateFileBrowserPage(
     </table>
     <div id="empty" class="empty-state" style="display:none">No files in this directory</div>
   </div>
-  <script>
+  <script nonce="${nonce}">
   (function() {
     var domain = ${jsonForScript(domain)};
     var basePath = ${jsonForScript(basePath || '')};
@@ -302,6 +313,17 @@ export function generateFileBrowserPage(
       var d = document.createElement('div');
       d.textContent = s;
       return d.innerHTML;
+    }
+
+    // escapeH (textContent) does NOT escape quotes, so it is unsafe for an
+    // attribute value. This escapes &, <, > and " for use in double-quoted
+    // attributes (e.g. data-path), which is what the navigation links need.
+    function escapeAttr(s) {
+      return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
     }
 
     function fmtSize(b) {
@@ -359,7 +381,7 @@ export function generateFileBrowserPage(
         return;
       }
       var parts = path.replace(/^\\//, '').replace(/\\/$/, '').split('/');
-      var html = '<a onclick="window.__fb_nav(\\'/\\')">root</a>';
+      var html = '<a data-path="/">root</a>';
       var built = '/';
       for (var i = 0; i < parts.length; i++) {
         built += parts[i] + '/';
@@ -367,7 +389,7 @@ export function generateFileBrowserPage(
         if (i === parts.length - 1) {
           html += '<span class="current">' + escapeH(parts[i]) + '</span>';
         } else {
-          html += '<a onclick="window.__fb_nav(\\'' + built.replace(/'/g, "\\\\'") + '\\')">' + escapeH(parts[i]) + '</a>';
+          html += '<a data-path="' + escapeAttr(built) + '">' + escapeH(parts[i]) + '</a>';
         }
       }
       bc.innerHTML = html;
@@ -433,7 +455,7 @@ export function generateFileBrowserPage(
         html += '<tr>';
         if (e.isFolder) {
           html += '<td class="col-icon">' + icons.folder + '</td>';
-          html += '<td class="col-name"><a class="folder-link" onclick="window.__fb_nav(\\'' + normPath(currentPath + '/' + e.name).replace(/'/g, "\\\\'") + '\\')">' + escapeH(e.name) + '/</a></td>';
+          html += '<td class="col-name"><a class="folder-link" data-path="' + escapeAttr(normPath(currentPath + '/' + e.name)) + '">' + escapeH(e.name) + '/</a></td>';
           html += '<td class="col-size">' + fmtSize(e.size) + '</td>';
         } else {
           var cat = e.category || 'other';
@@ -442,7 +464,7 @@ export function generateFileBrowserPage(
             ? 'bagfile://' + encodeURIComponent(basePath) + '/' + e.fullPath.split('/').map(encodeURIComponent).join('/')
             : 'http://' + encodeURIComponent(domain).replace(/%2E/g, '.') + '/' + e.fullPath.split('/').map(encodeURIComponent).join('/');
           html += '<td class="col-icon">' + icon + '</td>';
-          html += '<td class="col-name"><a href="' + escapeH(href) + '">' + escapeH(e.name) + '</a></td>';
+          html += '<td class="col-name"><a href="' + escapeAttr(href) + '">' + escapeH(e.name) + '</a></td>';
           html += '<td class="col-size">' + fmtSize(e.size) + '</td>';
         }
         html += '</tr>';
@@ -450,10 +472,21 @@ export function generateFileBrowserPage(
       tbody.innerHTML = html;
     }
 
-    window.__fb_nav = function(path) {
+    function nav(path) {
       currentPath = path;
       render();
-    };
+    }
+
+    // Delegated navigation: links carry the target in data-path (escaped), so
+    // no attacker-controlled path is ever interpolated into an inline handler.
+    function onNavClick(ev) {
+      var a = ev.target.closest && ev.target.closest('a[data-path]');
+      if (!a) return;
+      ev.preventDefault();
+      nav(a.getAttribute('data-path'));
+    }
+    document.getElementById('breadcrumb').addEventListener('click', onNavClick);
+    document.getElementById('file-list').addEventListener('click', onNavClick);
 
     document.getElementById('sort-name').addEventListener('click', function() {
       if (sortField === 'name') sortAsc = !sortAsc;
