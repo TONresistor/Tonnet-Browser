@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- TON Connect support for tonsites.
+- In-app file browser for storage bags with a bag sidebar.
+- DNS page resolves full records with an open-site shortcut.
+- Tab title and favicon for internal pages.
+
+### Changed
+- Redesigned settings, wallet, storage, cocoon, bookmarks, history and DNS pages.
+- Cocoon chat renders markdown; setup wizard redesigned with a reset option.
+- Coin amounts shown as GRAM.
+- More reliable wallet transaction history.
+
+### Fixed
+- Orphaned native daemons no longer block startup.
+- Wallet key storage writes are atomic and durable.
+
+### Security
+- File browser escapes bag file names; update check drops the identifying User-Agent; sign-data prompt shows payload details.
+
 ## [2.1.0] - 2026-06-20
 
 ### Added
