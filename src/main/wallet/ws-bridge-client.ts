@@ -311,7 +311,31 @@ export class WsBridgeClient {
   // --- DNS ---
 
   async resolveDomain(domain: string): Promise<DnsResolveResult> {
-    return await this.request<DnsResolveResult>('dns.resolve', { domain })
+    const raw = await this.request<Record<string, unknown>>('dns.resolve', { domain })
+
+    // Normalize to the full DnsResolveResult shape so we capture all records the bridge/contract provides.
+    // The bridge returns mapped fields from dnsresolve (wallet, site, storage, text, next, + NFT metadata).
+    // We defensively fill new fields (storage_bag_id, next_resolver) if the bridge already sends them
+    // under common keys (e.g. storage_bag_id, dns_storage_bag_id, next_resolver, etc.).
+    const normalized: DnsResolveResult = {
+      wallet: (raw.wallet as string) ?? null,
+      site_adnl: (raw.site_adnl as string) ?? (raw.site as string) ?? null,
+      has_storage: Boolean(raw.has_storage ?? raw.storage ?? false),
+      storage_bag_id:
+        (raw.storage_bag_id as string) ?? (raw.dns_storage_bag_id as string) ?? (raw.bag_id as string) ?? null,
+      next_resolver: (raw.next_resolver as string) ?? (raw.dns_next_resolver as string) ?? (raw.next as string) ?? null,
+      owner: (raw.owner as string) ?? null,
+      nft_address: (raw.nft_address as string) ?? null,
+      collection: (raw.collection as string) ?? null,
+      editor: (raw.editor as string) ?? null,
+      initialized: raw.initialized !== false,
+      expiring_at: (raw.expiring_at as number) ?? null,
+      text_records: (raw.text_records as Record<string, string>) ?? undefined,
+      // preserve any extra fields the bridge may return
+      ...raw,
+    }
+
+    return normalized
   }
 
   // --- Generic ---

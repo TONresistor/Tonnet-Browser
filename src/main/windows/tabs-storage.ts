@@ -32,6 +32,10 @@ function getStorageManager(): StorageManager {
 /** Cache of bag IDs detected by the proxy for .ton storage domains */
 export const storageBagCache = new Map<string, string>()
 
+export function getStorageBagForDomain(domain: string): string | undefined {
+  return storageBagCache.get(domain)
+}
+
 /** Prevent concurrent loadStorageBrowser calls per webContents */
 const storageBrowserLoading = new Set<number>()
 

@@ -6,21 +6,24 @@
   "notFound": "Domain not found or has no records",
   "error": "Failed to resolve domain",
   "fields": {
+    "adnl": "ADNL (tonsite)",
+    "storage": "Storage",
+    "storageBagId": "Storage Bag ID",
+    "nextResolver": "Next resolver",
     "wallet": "Wallet",
-    "owner": "Owner",
-    "siteAdnl": "Site ADNL",
-    "hasStorage": "Storage",
-    "nftAddress": "NFT Address",
-    "collection": "Collection",
-    "editor": "Editor",
-    "initialized": "Initialized",
-    "expiringAt": "Expires",
-    "textRecords": "Text Records"
+    "textRecords": "TXT"
   },
   "values": {
     "yes": "Yes",
     "no": "No",
     "none": "Not set"
   },
-  "copied": "Copied!"
+  "copied": "Copied!",
+  "visit": "Visit site",
+  "browseStorage": "Browse files",
+  "send": "Send",
+  "actions": {
+    "visit": "Visit",
+    "sendTo": "Send to this address"
+  }
 }

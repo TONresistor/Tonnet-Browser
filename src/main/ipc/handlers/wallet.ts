@@ -5,6 +5,7 @@
 import { IPC_CHANNELS } from '../../../shared/ipc-channels'
 import type { WalletState, WalletTransaction } from '../../../shared/types'
 import { secureHandle, tonsiteHandle, emitToRenderer, payForXhrLimiter, toError, log } from './shared'
+import { getStorageBagForDomain } from '../../windows/tabs-storage'
 import { getMainWindow } from '../../windows/main'
 import { WALLET_HISTORY_DEFAULT_LIMIT } from '../../wallet/constants'
 import { fetchHistoryViaIndexer } from '../../wallet/indexer-client'
@@ -223,7 +224,19 @@ export function registerWalletHandlers(registry: ServiceRegistry): void {
     if (!domain || typeof domain !== 'string') {
       throw new Error('Invalid domain')
     }
-    return await walletManager.resolveDomain(domain)
+    const result = await walletManager.resolveDomain(domain)
+
+    // Enrich with storage bag ID if the proxy has already discovered it for this domain
+    // (discovered via log parsing when serving .ton sites that use TON Storage).
+    // This gives us the real bag ID from the contract/proxy without extra on-chain queries.
+    if (result.has_storage && !result.storage_bag_id) {
+      const knownBag = getStorageBagForDomain(domain.toLowerCase())
+      if (knownBag) {
+        result.storage_bag_id = knownBag
+      }
+    }
+
+    return result
   })
 
   log.info('Wallet handlers registered')
