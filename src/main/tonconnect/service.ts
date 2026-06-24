@@ -8,6 +8,7 @@ import { createLogger } from '../../shared/logger'
 import type { WalletManager } from '../wallet/manager'
 import type { OverlayManager } from '../windows/overlay-manager'
 import { TonConnectSessionStore } from './session-store'
+import { buildSignDataRows } from './sign-data-preview'
 import {
   TONCONNECT_PROTOCOL_VERSION,
   TON_MAINNET_CHAIN,
@@ -472,16 +473,12 @@ export class TonConnectService {
       return rpcError(message.id, TONCONNECT_ERROR.BAD_REQUEST, 'Unsupported sign-data type')
     }
 
-    const preview = payload.type === 'text' ? payload.text : payload.type === 'binary' ? '(binary data)' : '(cell data)'
     const approved = await this.showApproval({
       type: 'approval',
       iconFallback: '✎',
       title: 'Sign data',
       subtitle: appName,
-      rows: [
-        { label: 'Type', value: payload.type },
-        { label: 'Data', value: preview },
-      ],
+      rows: buildSignDataRows(payload),
       actions: [
         { id: 'deny', label: 'Reject' },
         { id: 'approve', label: 'Sign', primary: true },

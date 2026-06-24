@@ -61,37 +61,36 @@ export function initUpdater(): void {
 
 function fetchManifest(): Promise<UpdateManifest> {
   return new Promise((resolve, reject) => {
-    const req = https.get(
-      MANIFEST_URL,
-      { timeout: FETCH_TIMEOUT_MS, headers: { 'User-Agent': `TON-Browser/${app.getVersion()}` } },
-      (res) => {
-        if (res.statusCode !== 200) {
-          res.resume()
-          reject(new Error(`Update server returned HTTP ${res.statusCode}`))
-          return
-        }
-        const chunks: Buffer[] = []
-        res.on('data', (chunk: Buffer) => chunks.push(chunk))
-        res.on('end', () => {
-          try {
-            const body = Buffer.concat(chunks).toString('utf8')
-            const parsed = JSON.parse(body) as unknown
-            if (
-              typeof parsed !== 'object' ||
-              parsed === null ||
-              typeof (parsed as { version?: unknown }).version !== 'string'
-            ) {
-              reject(new Error('Update manifest missing version field'))
-              return
-            }
-            resolve(parsed as UpdateManifest)
-          } catch (err) {
-            reject(err instanceof Error ? err : new Error(String(err)))
-          }
-        })
-        res.on('error', reject)
+    // No custom User-Agent: node:https sends none by default, so the update
+    // check does not leak the app identity or installed version to the server
+    // or any on-path observer. The server compares versions client-side.
+    const req = https.get(MANIFEST_URL, { timeout: FETCH_TIMEOUT_MS }, (res) => {
+      if (res.statusCode !== 200) {
+        res.resume()
+        reject(new Error(`Update server returned HTTP ${res.statusCode}`))
+        return
       }
-    )
+      const chunks: Buffer[] = []
+      res.on('data', (chunk: Buffer) => chunks.push(chunk))
+      res.on('end', () => {
+        try {
+          const body = Buffer.concat(chunks).toString('utf8')
+          const parsed = JSON.parse(body) as unknown
+          if (
+            typeof parsed !== 'object' ||
+            parsed === null ||
+            typeof (parsed as { version?: unknown }).version !== 'string'
+          ) {
+            reject(new Error('Update manifest missing version field'))
+            return
+          }
+          resolve(parsed as UpdateManifest)
+        } catch (err) {
+          reject(err instanceof Error ? err : new Error(String(err)))
+        }
+      })
+      res.on('error', reject)
+    })
     req.on('error', reject)
     req.on('timeout', () => {
       req.destroy(new Error('Update check timed out'))

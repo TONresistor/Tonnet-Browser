@@ -3,7 +3,7 @@
  * Produces an HTML string for browsing bag contents when no index.html exists.
  */
 
-import { escapeHtml } from './page-templates'
+import { escapeHtml, jsonForScript } from './page-templates'
 import { renderLottieBoot } from './lottie'
 
 // --- File type detection ---
@@ -119,9 +119,11 @@ export function generateFileBrowserPage(
   const truncatedBag =
     bagId.length > 16 ? `${escapeHtml(bagId.slice(0, 8))}...${escapeHtml(bagId.slice(-8))}` : safeBagId
 
-  // Build folder structure: detect virtual directories from file paths
-  // Serialize files and icons as JSON for the client-side JS to render
-  const filesJson = JSON.stringify(
+  // Build folder structure: detect virtual directories from file paths.
+  // Serialize files and icons for the client-side JS. File names are
+  // attacker-controlled (bag contents), so use jsonForScript to prevent a
+  // name like `</script>...` from breaking out of the inline <script> below.
+  const filesJson = jsonForScript(
     files.map((f) => ({
       name: f.name,
       size: f.size,
@@ -129,7 +131,7 @@ export function generateFileBrowserPage(
     }))
   )
 
-  const iconsJson = JSON.stringify(ICONS)
+  const iconsJson = jsonForScript(ICONS)
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -284,11 +286,11 @@ export function generateFileBrowserPage(
   </div>
   <script>
   (function() {
-    var domain = ${JSON.stringify(domain)};
-    var basePath = ${JSON.stringify(basePath || '')};
+    var domain = ${jsonForScript(domain)};
+    var basePath = ${jsonForScript(basePath || '')};
     var allFiles = ${filesJson};
     var icons = ${iconsJson};
-    var currentPath = ${JSON.stringify(currentPath)};
+    var currentPath = ${jsonForScript(currentPath)};
     var sortField = 'name';
     var sortAsc = true;
 
