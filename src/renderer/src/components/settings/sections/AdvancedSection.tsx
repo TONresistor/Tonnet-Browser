@@ -7,7 +7,7 @@ import { RotateCcw, Plus, X } from 'lucide-react'
 import { SectionHeader } from '../shared/SectionHeader'
 import { SettingRow } from '../shared/SettingRow'
 import { Toggle } from '../shared/Toggle'
-import { ToggleGroup } from '../shared/ToggleGroup'
+import { Segmented } from '@/components/ui/ios/Segmented'
 import type { SectionProps } from '../types'
 import { useTranslation } from 'react-i18next'
 
@@ -50,9 +50,9 @@ export const AdvancedSection = memo(function AdvancedSection({
   return (
     <div>
       <SectionHeader title={t('advanced.title')} description={t('advanced.description')} />
-      <div className="glass-card px-4">
+      <div className="settings-group px-4">
         <SettingRow label={t('advanced.proxyVerbosity')} description={t('advanced.proxyVerbosityDesc')}>
-          <ToggleGroup
+          <Segmented
             value={String(draft.proxyVerbosity)}
             onChange={(v) => setDraft('proxyVerbosity', Number(v))}
             options={[
@@ -64,7 +64,7 @@ export const AdvancedSection = memo(function AdvancedSection({
           />
         </SettingRow>
         <SettingRow label={t('advanced.storageVerbosity')} description={t('advanced.storageVerbosityDesc')}>
-          <ToggleGroup
+          <Segmented
             value={String(draft.storageVerbosity)}
             onChange={(v) => setDraft('storageVerbosity', Number(v))}
             options={[
@@ -86,7 +86,7 @@ export const AdvancedSection = memo(function AdvancedSection({
       </div>
 
       {/* Content Filtering */}
-      <div className="mt-6 glass-card px-4">
+      <div className="mt-6 settings-group px-4">
         <SettingRow
           label={t('contentFiltering.enableFiltering')}
           description={t('contentFiltering.enableFilteringDesc')}
@@ -94,35 +94,35 @@ export const AdvancedSection = memo(function AdvancedSection({
           <Toggle
             checked={draft.contentFilteringEnabled}
             onChange={(v) => setDraft('contentFilteringEnabled', v)}
-            label={t('contentFiltering.enableFilteringLabel')}
+            ariaLabel={t('contentFiltering.enableFilteringLabel')}
           />
         </SettingRow>
         <SettingRow label={t('contentFiltering.blockAds')} description={t('contentFiltering.blockAdsDesc')}>
           <Toggle
             checked={draft.blockAds}
             onChange={(v) => setDraft('blockAds', v)}
-            label={t('contentFiltering.blockAdsLabel')}
+            ariaLabel={t('contentFiltering.blockAdsLabel')}
           />
         </SettingRow>
         <SettingRow label={t('contentFiltering.blockTrackers')} description={t('contentFiltering.blockTrackersDesc')}>
           <Toggle
             checked={draft.blockTrackers}
             onChange={(v) => setDraft('blockTrackers', v)}
-            label={t('contentFiltering.blockTrackersLabel')}
+            ariaLabel={t('contentFiltering.blockTrackersLabel')}
           />
         </SettingRow>
         <SettingRow label={t('contentFiltering.blockMiners')} description={t('contentFiltering.blockMinersDesc')}>
           <Toggle
             checked={draft.blockMiners}
             onChange={(v) => setDraft('blockMiners', v)}
-            label={t('contentFiltering.blockMinersLabel')}
+            ariaLabel={t('contentFiltering.blockMinersLabel')}
           />
         </SettingRow>
         <SettingRow label={t('contentFiltering.blockMalware')} description={t('contentFiltering.blockMalwareDesc')}>
           <Toggle
             checked={draft.blockMalware}
             onChange={(v) => setDraft('blockMalware', v)}
-            label={t('contentFiltering.blockMalwareLabel')}
+            ariaLabel={t('contentFiltering.blockMalwareLabel')}
           />
         </SettingRow>
         <SettingRow
@@ -132,7 +132,7 @@ export const AdvancedSection = memo(function AdvancedSection({
           <Toggle
             checked={draft.blockAnnoyances}
             onChange={(v) => setDraft('blockAnnoyances', v)}
-            label={t('contentFiltering.blockAnnoyancesLabel')}
+            ariaLabel={t('contentFiltering.blockAnnoyancesLabel')}
           />
         </SettingRow>
         <SettingRow

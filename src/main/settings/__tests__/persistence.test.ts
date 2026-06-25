@@ -30,6 +30,9 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync, renameSync } from '
 describe('Settings Persistence', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    // clearAllMocks does not undo mockImplementation, so explicitly reset the
+    // write mock to a no-op (a prior test sets it to throw to test error paths).
+    vi.mocked(writeFileSync).mockReset()
     // Reset the internal cache by importing fresh
     vi.resetModules()
   })
@@ -187,7 +190,7 @@ describe('Settings Persistence', () => {
       expect(writtenContent).toContain('\n')
     })
 
-    it('handles write errors gracefully', async () => {
+    it('propagates write errors so callers can surface the failure', async () => {
       vi.resetModules()
       const { saveSettings: freshSave, getDefaultSettings: getDefaults } = await import('../index')
 
@@ -196,8 +199,8 @@ describe('Settings Persistence', () => {
         throw new Error('Disk full')
       })
 
-      // Should not throw
-      expect(() => freshSave(getDefaults())).not.toThrow()
+      // saveSettings now rethrows so SETTINGS_SET reports failure honestly.
+      expect(() => freshSave(getDefaults())).toThrow('Disk full')
     })
   })
 

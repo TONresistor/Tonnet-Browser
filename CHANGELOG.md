@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-06-25
+
+### Added
+- TON Connect support for tonsites.
+- In-app file browser for storage bags with a bag sidebar.
+- Table viewer for CSV and JSONL files in storage bags.
+- DNS page resolves full records with an open-site shortcut.
+- Tab title and favicon for internal pages.
+
+### Changed
+- Redesigned settings, wallet, storage, cocoon, bookmarks, history and DNS pages.
+- Redesigned the TON Connect approval popup.
+- Cocoon chat renders markdown; setup wizard redesigned with a reset option.
+- Coin amounts shown as GRAM.
+- More reliable wallet transaction history.
+
+### Fixed
+- Orphaned native daemons no longer block startup.
+- Single-instance lock prevents a second launch from deadlocking on daemon ports.
+- Native daemons are terminated with their child tree on Windows.
+- Wallet key storage writes are atomic and durable.
+
+### Security
+- File browser escapes bag file names and adds a nonce CSP; update check drops the identifying User-Agent; sign-data prompt shows payload details.
+
 ## [2.1.0] - 2026-06-20
 
 ### Added
@@ -258,18 +283,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Preload script path for ES module builds.
 - Utya Duck theme persistence and colors.
 
-[Unreleased]: https://github.com/TONresistor/Tonnet-Browser-stable/compare/v1.6.2...HEAD
-[1.6.2]: https://github.com/TONresistor/Tonnet-Browser-stable/compare/v1.6.1...v1.6.2
-[1.6.1]: https://github.com/TONresistor/Tonnet-Browser-stable/compare/v1.6.0...v1.6.1
-[1.6.0]: https://github.com/TONresistor/Tonnet-Browser-stable/compare/v1.5.3...v1.6.0
-[1.5.3]: https://github.com/TONresistor/Tonnet-Browser-stable/compare/v1.5.2...v1.5.3
-[1.5.2]: https://github.com/TONresistor/Tonnet-Browser-stable/compare/v1.5.1...v1.5.2
-[1.5.1]: https://github.com/TONresistor/Tonnet-Browser-stable/compare/v1.5.0...v1.5.1
-[1.5.0]: https://github.com/TONresistor/Tonnet-Browser-stable/compare/v1.4.2...v1.5.0
-[1.4.2]: https://github.com/TONresistor/Tonnet-Browser-stable/compare/v1.4.1...v1.4.2
-[1.4.1]: https://github.com/TONresistor/Tonnet-Browser-stable/compare/v1.4.0...v1.4.1
-[1.4.0]: https://github.com/TONresistor/Tonnet-Browser-stable/compare/v1.3.0...v1.4.0
-[1.3.0]: https://github.com/TONresistor/Tonnet-Browser-stable/compare/v1.1.0...v1.3.0
-[1.1.0]: https://github.com/TONresistor/Tonnet-Browser-stable/compare/v1.0.1...v1.1.0
-[1.0.1]: https://github.com/TONresistor/Tonnet-Browser-stable/compare/v1.0.0...v1.0.1
-[1.0.0]: https://github.com/TONresistor/Tonnet-Browser-stable/releases/tag/v1.0.0
+[Unreleased]: https://github.com/TONresistor/Tonnet-Browser/compare/v2.2.0...HEAD
+[2.2.0]: https://github.com/TONresistor/Tonnet-Browser/compare/v2.1.0...v2.2.0
+[2.1.0]: https://github.com/TONresistor/Tonnet-Browser/compare/v2.0.0...v2.1.0
+[2.0.0]: https://github.com/TONresistor/Tonnet-Browser/compare/v1.6.2...v2.0.0
+[1.6.2]: https://github.com/TONresistor/Tonnet-Browser/compare/v1.6.1...v1.6.2
+[1.6.1]: https://github.com/TONresistor/Tonnet-Browser/compare/v1.6.0...v1.6.1
+[1.6.0]: https://github.com/TONresistor/Tonnet-Browser/compare/v1.5.3...v1.6.0
+[1.5.3]: https://github.com/TONresistor/Tonnet-Browser/compare/v1.5.2...v1.5.3
+[1.5.2]: https://github.com/TONresistor/Tonnet-Browser/compare/v1.5.1...v1.5.2
+[1.5.1]: https://github.com/TONresistor/Tonnet-Browser/compare/v1.5.0...v1.5.1
+[1.5.0]: https://github.com/TONresistor/Tonnet-Browser/compare/v1.4.2...v1.5.0
+[1.4.2]: https://github.com/TONresistor/Tonnet-Browser/compare/v1.4.1...v1.4.2
+[1.4.1]: https://github.com/TONresistor/Tonnet-Browser/compare/v1.4.0...v1.4.1
+[1.4.0]: https://github.com/TONresistor/Tonnet-Browser/compare/v1.3.0...v1.4.0
+[1.3.0]: https://github.com/TONresistor/Tonnet-Browser/compare/v1.1.0...v1.3.0
+[1.1.0]: https://github.com/TONresistor/Tonnet-Browser/compare/v1.0.1...v1.1.0
+[1.0.1]: https://github.com/TONresistor/Tonnet-Browser/compare/v1.0.0...v1.0.1
+[1.0.0]: https://github.com/TONresistor/Tonnet-Browser/releases/tag/v1.0.0

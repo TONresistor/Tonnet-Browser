@@ -13,6 +13,7 @@
  * cashout (cocoon → owner) with the persisted node secret.
  */
 
+import { errorMessage } from '../../shared/errors'
 import { Address } from '@ton/core'
 import { createLogger } from '../../shared/logger'
 import { fetchJsonStats, requestRefund as runnerClose } from './runner-api'
@@ -20,19 +21,13 @@ import { CocoonClient } from './contracts/wrappers/CocoonClient'
 import { openBridgeContract } from './contracts/bridge-provider'
 import { sendFromCocoonWallet, sendFromOwnerWallet, buildCocoonWalletInit } from './contracts'
 import { loadCocoonWallet, getNodeSecretBuffer } from './wallet'
-import { getStakeCacheStore, type StakeCache } from './stake-cache'
+import { getStakeCacheStore } from './stake-cache'
+import { DRAIN_DUST_FLOOR_NANO, narrowClientState } from './constants'
 import type { WsBridgeClient } from '../wallet/ws-bridge-client'
 import type { CocoonManager } from './manager'
 import type { CocoonStakeInfo, CocoonStakeStatus } from '../../shared/cocoon-types'
 
 const log = createLogger('cocoon:unstake')
-
-/**
- * Cocoon-node floor (nano-TON): below this we don't even attempt the sweep
- * (the on-chain gas wouldn't leave anything to send). Above this, the cocoon
- * node wallet is drained to zero and self-destructed via mode 128+32.
- */
-const COCOON_DRAIN_FLOOR = 50_000_000n // 0.05 TON
 
 /**
  * Build a full stake snapshot.
@@ -73,7 +68,7 @@ export async function getStakeInfo(manager: CocoonManager, bridge: WsBridgeClien
               ownerAddress: wallet.ownerAddress,
               cachedAt: Date.now(),
             })
-            .catch((e) => log.warn(`stake cache save failed: ${(e as Error).message}`))
+            .catch((e) => log.warn(`stake cache save failed: ${errorMessage(e)}`))
         }
         return await buildSnapshot({
           bridge,
@@ -87,7 +82,7 @@ export async function getStakeInfo(manager: CocoonManager, bridge: WsBridgeClien
         })
       }
     } catch (err) {
-      log.warn(`fetchJsonStats failed: ${(err as Error).message}`)
+      log.warn(`fetchJsonStats failed: ${errorMessage(err)}`)
       // Fall through to cache path.
     }
   }
@@ -142,7 +137,7 @@ async function buildSnapshot(args: SnapshotArgs): Promise<CocoonStakeInfo> {
   } catch (err) {
     // Client SC not deployed yet, or read failed. Surface a partial snapshot
     // using whichever runner state we have (or 0 if cache only).
-    log.warn(`Client SC getData failed: ${(err as Error).message}`)
+    log.warn(`Client SC getData failed: ${errorMessage(err)}`)
     const fallbackRunnerState = runnerStateOverride ?? 0
     return {
       status: deriveStatus(fallbackRunnerState, 0),
@@ -161,7 +156,7 @@ async function buildSnapshot(args: SnapshotArgs): Promise<CocoonStakeInfo> {
   }
 
   const cocoonBalance = wallet ? BigInt(await bridge.getBalance(wallet.nodeAddress)) : 0n
-  const onchainState = onchain.state as 0 | 1 | 2
+  const onchainState = narrowClientState(onchain.state)
   // When reading from cache, use on-chain state as the runner state proxy.
   const runnerState = runnerStateOverride ?? onchainState
 
@@ -190,7 +185,7 @@ function deriveStatus(runnerState: 0 | 1 | 2, onchainState: 0 | 1 | 2, unlockTs:
   // behind exp_sc_state during a request, but for the closed/closing distinction
   // they converge once the tx confirms. Prefer the higher of the two so the UI
   // never goes backwards.
-  const state = Math.max(runnerState, onchainState) as 0 | 1 | 2
+  const state = narrowClientState(Math.max(runnerState, onchainState))
   if (state === 0) return 'active'
   if (state === 1) {
     if (unlockTs === 0) return 'closing'
@@ -229,13 +224,6 @@ export async function unstake(manager: CocoonManager): Promise<void> {
   log.info(`Unstake: proxy=${proxy.proxy_sc_address.slice(0, 8)}… runnerState=${proxy.state}`)
   await runnerClose(manager.getHttpPort(), proxy.proxy_sc_address)
 }
-
-/**
- * Owner-side floor (nano-TON): below this we don't even attempt the sweep
- * (the on-chain gas wouldn't leave anything to send). Above this, the legacy
- * V4R2 is drained to zero and self-destructed via mode 128+32.
- */
-const OWNER_DRAIN_FLOOR = 50_000_000n // 0.05 TON
 
 /**
  * Drain ALL residual cocoon-controlled balances back to the user's native
@@ -278,7 +266,7 @@ export async function cashout(
   //    The init is attached so an uninit cocoon_wallet (TON arrived but code
   //    never deployed) gets deployed by this very tx and then drained.
   const nodeBalance = BigInt(await bridge.getBalance(wallet.nodeAddress))
-  if (nodeBalance > COCOON_DRAIN_FLOOR) {
+  if (nodeBalance > DRAIN_DUST_FLOOR_NANO) {
     log.info(`Cashout step 1: cocoon_node_wallet → native, draining ${nodeBalance} nanoTON (mode 128+32)`)
     const nodeSecret = await getNodeSecretBuffer()
     const result = await sendFromCocoonWallet(bridge, wallet.nodeAddress, nodeSecret, dest, 0n, undefined, {
@@ -295,7 +283,7 @@ export async function cashout(
   //    The mode 128+32 transfer keeps no reserve — perfect for a final sweep
   //    where we don't intend to reuse this wallet.
   const ownerBalance = BigInt(await bridge.getBalance(wallet.ownerAddress))
-  if (ownerBalance > OWNER_DRAIN_FLOOR) {
+  if (ownerBalance > DRAIN_DUST_FLOOR_NANO) {
     log.info(`Cashout step 2 (legacy): cocoon owner → native, draining ${ownerBalance} nanoTON (mode 128+32)`)
     const result = await sendFromOwnerWallet(bridge, wallet.ownerMnemonic, dest, 0n, undefined, { drainAll: true })
     // We send exactly ownerBalance minus chain-side gas; surface the pre-fee

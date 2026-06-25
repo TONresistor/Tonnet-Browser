@@ -11,15 +11,16 @@ import fs from 'fs'
 import { app } from 'electron'
 import { getBinaryPath } from '../utils/paths'
 import { validatePort } from '../utils/validators'
-import { writeSecureJsonAtomic } from '../utils/secure-fs'
+import { stripAnsi } from '../utils/strip-ansi'
 import { getSetting } from '../settings'
-import { randomBytes } from 'crypto'
-import { cpus } from 'os'
 import { DEFAULT_SETTINGS } from '../../shared/defaults'
 import { GeneralSettings } from '../../shared/schemas'
 import { createLogger } from '../../shared/logger'
 import { TUNNEL_SECTIONS } from '../../shared/constants'
-import { DEFAULT_NAMESPACE_STATE, REQUIRED_NAMESPACES } from '../../shared/bridge-config'
+import { writeProxyConfig } from './config-writer'
+import { BridgeManager } from './bridge-manager'
+import { killChildProcess } from './process-utils'
+import { trackDaemon } from '../daemon-registry'
 const log = createLogger('proxy')
 
 /**
@@ -45,7 +46,7 @@ export type ProxyStatus = 'stopped' | 'starting' | 'syncing' | 'connected'
 
 export class ProxyManager extends EventEmitter {
   private process: ChildProcess | null = null
-  private bridgeProcess: ChildProcess | null = null
+  private readonly bridge = new BridgeManager()
   private port: number = 0
   private wsPort: number = DEFAULT_SETTINGS.wsPort
   private status: ProxyStatus = 'stopped'
@@ -59,6 +60,19 @@ export class ProxyManager extends EventEmitter {
 
   constructor() {
     super()
+    // The bridge is a distinct process; forward its events. A bridge-only crash
+    // must not mislabel a still-working proxy as stopped, so the session-wide
+    // 'exit' only fires here when the proxy is already gone.
+    this.bridge.on('ready', (wsPort: number) => this.emit('ws-bridge-ready', wsPort))
+    this.bridge.on('log', (line: string) => this.emit('log', line))
+    this.bridge.on('error', (message: string) => this.emit('error', message))
+    this.bridge.on('exit', (code: number | null) => {
+      this.emit('bridge-exit', code)
+      if (!this.process) {
+        this.setStatus('stopped')
+        this.emit('exit', code)
+      }
+    })
   }
 
   private loadSettings() {
@@ -66,7 +80,7 @@ export class ProxyManager extends EventEmitter {
     const advanced = getSetting('advanced')
     const general = getSetting('general')
     this.port = network.proxyPort
-    this.wsPort = network.wsPort
+    this.wsPort = validatePort(network.wsPort, DEFAULT_SETTINGS.wsPort)
     return { network, advanced, general }
   }
 
@@ -114,7 +128,7 @@ export class ProxyManager extends EventEmitter {
 
     // Write proxy config to control tunnel mode
     const tunnelSections = this.anonymousMode ? TUNNEL_SECTIONS[this.tunnelMode] : 0
-    this.writeProxyConfig(proxyWorkDir, tunnelSections)
+    writeProxyConfig(proxyWorkDir, tunnelSections)
 
     // Spawn proxy process (HTTP proxy for .ton sites)
     if (this.anonymousMode) {
@@ -130,14 +144,14 @@ export class ProxyManager extends EventEmitter {
       windowsHide: true,
       cwd: proxyWorkDir,
     })
+    trackDaemon('tonutils-proxy', this.process)
 
     // Proxy output handler
     const handleProxyOutput = (data: Buffer) => {
       const raw = data.toString().trim()
       if (!raw) return
       // Strip ANSI escape codes for parsing
-      // eslint-disable-next-line no-control-regex
-      const message = raw.replace(/\x1b\[[0-9;]*m/g, '')
+      const message = stripAnsi(raw)
       log.debug(raw)
       this.emit('log', raw)
 
@@ -197,86 +211,17 @@ export class ProxyManager extends EventEmitter {
     this.setStatus('connected')
 
     // Start bridge AFTER proxy is ready to avoid DHT contention
-    if (!this.bridgeProcess) {
-      await this.startBridge()
+    if (!this.bridge.isRunning()) {
+      await this.bridge.start(this.wsPort)
     }
-  }
-
-  private async startBridge(): Promise<void> {
-    const bridgeBinPath = getBinaryPath('tonutils-bridge')
-    const bridgeWorkDir = this.getBridgeWorkDir()
-    this.applyBridgeDefaults(bridgeWorkDir)
-    const bridgeArgs = ['-addr', `127.0.0.1:${this.wsPort}`, '-data-dir', bridgeWorkDir, '-verbosity', '2']
-
-    log.info(`Starting bridge from: ${bridgeBinPath}`)
-    log.info(`Bridge WS port: ${this.wsPort}`)
-
-    this.bridgeProcess = spawn(bridgeBinPath, bridgeArgs, {
-      windowsHide: true,
-    })
-
-    const handleBridgeOutput = (data: Buffer) => {
-      const raw = data.toString().trim()
-      if (!raw) return
-      // eslint-disable-next-line no-control-regex
-      const message = raw.replace(/\x1b\[[0-9;]*m/g, '')
-      log.debug(`[bridge] ${raw}`)
-      this.emit('log', `[bridge] ${raw}`)
-
-      if (message.toLowerCase().includes('websocket-adnl bridge started')) {
-        log.info(`WS bridge ready on port ${this.wsPort}`)
-        this.emit('ws-bridge-ready', this.wsPort)
-      }
-    }
-
-    this.bridgeProcess.stdout?.on('data', handleBridgeOutput)
-    this.bridgeProcess.stderr?.on('data', handleBridgeOutput)
-
-    this.bridgeProcess.on('exit', (code) => {
-      log.info(`Bridge exited with code: ${code}`)
-      this.bridgeProcess = null
-      this.setStatus('stopped')
-      this.emit('exit', code)
-    })
-
-    this.bridgeProcess.on('error', (err) => {
-      log.error(`Failed to start bridge:`, err)
-      this.emit('error', err.message)
-    })
-  }
-
-  private killProcess(proc: ChildProcess): Promise<void> {
-    return new Promise((resolve) => {
-      proc.stdout?.removeAllListeners()
-      proc.stderr?.removeAllListeners()
-      proc.removeAllListeners()
-      const forceKill = setTimeout(() => {
-        try {
-          proc.kill('SIGKILL')
-        } catch {
-          /* process already dead */
-        }
-        resolve()
-      }, 5000)
-      proc.once('exit', () => {
-        clearTimeout(forceKill)
-        resolve()
-      })
-      proc.kill('SIGTERM')
-    })
   }
 
   private async stopRunningProcesses(): Promise<void> {
-    const promises: Promise<void>[] = []
-    if (this.bridgeProcess) {
-      const bridgeProc = this.bridgeProcess
-      this.bridgeProcess = null
-      promises.push(this.killProcess(bridgeProc))
-    }
+    const promises: Promise<void>[] = [this.bridge.stop()]
     if (this.process) {
       const proxyProc = this.process
       this.process = null
-      promises.push(this.killProcess(proxyProc))
+      promises.push(killChildProcess(proxyProc))
     }
     await Promise.allSettled(promises)
   }
@@ -289,119 +234,6 @@ export class ProxyManager extends EventEmitter {
     return dir
   }
 
-  private getBridgeWorkDir(): string {
-    const dir = path.join(app.getPath('userData'), 'bridge')
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true })
-    }
-    return dir
-  }
-
-  /**
-   * Apply browser namespace defaults to the bridge config.json.
-   * Runs once per install: disables unused namespaces (least privilege),
-   * preserves user overrides on subsequent launches via _browserDefaults flag.
-   * Required namespaces are always re-enforced regardless.
-   */
-  private applyBridgeDefaults(workDir: string): void {
-    const configPath = path.join(workDir, 'config.json')
-    if (!fs.existsSync(configPath)) return
-
-    try {
-      const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'))
-      if (config._browserDefaults) {
-        // Already applied, only enforce required namespaces
-        let changed = false
-        const ns = config.namespaces as Record<string, Record<string, unknown>> | undefined
-        if (ns) {
-          for (const required of REQUIRED_NAMESPACES) {
-            if (ns[required] && ns[required].enabled === false) {
-              ns[required].enabled = true
-              changed = true
-            }
-          }
-        }
-        if (changed) {
-          writeSecureJsonAtomic(configPath, config)
-          log.info('Re-enforced required bridge namespaces')
-        }
-        return
-      }
-
-      // First application: set namespace defaults
-      const ns = config.namespaces as Record<string, Record<string, unknown>> | undefined
-      if (ns) {
-        for (const [name, enabled] of Object.entries(DEFAULT_NAMESPACE_STATE)) {
-          if (!ns[name]) ns[name] = {}
-          ns[name].enabled = enabled
-        }
-      }
-      config._browserDefaults = true
-      writeSecureJsonAtomic(configPath, config)
-
-      const disabled = Object.entries(DEFAULT_NAMESPACE_STATE)
-        .filter(([, v]) => !v)
-        .map(([k]) => k)
-      log.info(`Bridge namespace defaults applied, disabled: ${disabled.join(', ')}`)
-    } catch (err) {
-      log.warn('Failed to apply bridge defaults:', err)
-    }
-  }
-
-  private writeProxyConfig(workDir: string, tunnelSections: number): void {
-    const configPath = path.join(workDir, 'config.json')
-
-    if (fs.existsSync(configPath)) {
-      // Patch existing config
-      try {
-        const existing = JSON.parse(fs.readFileSync(configPath, 'utf-8'))
-        if (existing.TunnelConfig) {
-          existing.TunnelConfig.NodesPoolConfigPath = ''
-          existing.TunnelConfig.TunnelSectionsNum = tunnelSections
-        }
-        existing.BlockHTTP = true // always block cleartext HTTP
-        writeSecureJsonAtomic(configPath, existing, 2)
-        log.info(`Proxy config updated: tunnelSections=${tunnelSections}`)
-        return
-      } catch {
-        // Corrupted config -- regenerate below
-      }
-    }
-
-    // First run: generate config with correct tunnel settings immediately
-    // This avoids the double-start (direct -> restart -> tunnel)
-    const generateKey = () => Array.from(randomBytes(32))
-    const config = {
-      Version: 1,
-      ADNLKey: generateKey(),
-      BlockHTTP: true,
-      CustomTunnelNetworkConfigPath: '',
-      TunnelConfig: {
-        TunnelServerKey: generateKey(),
-        TunnelThreads: cpus().length,
-        TunnelSectionsNum: tunnelSections,
-        NodesPoolConfigPath: '',
-        PaymentsEnabled: false,
-        Payments: {
-          ADNLServerKey: generateKey(),
-          PaymentsNodeKey: generateKey(),
-          WalletPrivateKey: generateKey(),
-          DBPath: './payments-db/',
-          SecureProofPolicy: false,
-          ChannelsConfig: {
-            SupportedCoins: { Ton: { Enabled: true }, Jettons: {}, ExtraCurrencies: {} },
-            BufferTimeToCommit: 10800,
-            QuarantineDurationSec: 21600,
-            ConditionalCloseDurationSec: 10800,
-            MinSafeVirtualChannelTimeoutSec: 300,
-          },
-        },
-      },
-    }
-    writeSecureJsonAtomic(configPath, config, 2)
-    log.info(`Proxy config generated: tunnelSections=${tunnelSections}`)
-  }
-
   private setStatus(status: ProxyStatus): void {
     this.status = status
     this.emit('status', status)
@@ -409,23 +241,17 @@ export class ProxyManager extends EventEmitter {
   }
 
   async stop(): Promise<void> {
-    if (!this.process && !this.bridgeProcess) return
+    if (!this.process && !this.bridge.isRunning()) return
 
     log.info('Stopping proxy and bridge...')
     this.tunnelRoute = ''
 
-    const promises: Promise<void>[] = []
-
-    if (this.bridgeProcess) {
-      const bridgeProc = this.bridgeProcess
-      this.bridgeProcess = null
-      promises.push(this.killProcess(bridgeProc))
-    }
+    const promises: Promise<void>[] = [this.bridge.stop()]
 
     if (this.process) {
       const proxyProc = this.process
       this.process = null
-      promises.push(this.killProcess(proxyProc))
+      promises.push(killChildProcess(proxyProc))
     }
 
     await Promise.allSettled(promises)
@@ -445,7 +271,7 @@ export class ProxyManager extends EventEmitter {
   }
 
   isRunning(): boolean {
-    return this.process !== null && this.bridgeProcess !== null
+    return this.process !== null && this.bridge.isRunning()
   }
 
   isSynced(): boolean {
@@ -467,12 +293,8 @@ export class ProxyManager extends EventEmitter {
       throw new Error('Cannot restart bridge: proxy is not running')
     }
     log.info('Restarting bridge (keeping proxy)...')
-    if (this.bridgeProcess) {
-      const bridgeProc = this.bridgeProcess
-      this.bridgeProcess = null
-      await this.killProcess(bridgeProc)
-    }
-    await this.startBridge()
+    await this.bridge.stop()
+    await this.bridge.start(this.wsPort)
   }
 
   async applySettingsChange(): Promise<void> {
@@ -491,7 +313,7 @@ export class ProxyManager extends EventEmitter {
       if (this.process) {
         const proxyProc = this.process
         this.process = null
-        await this.killProcess(proxyProc)
+        await killChildProcess(proxyProc)
       }
       this.setStatus('stopped')
       await this.start()
@@ -525,8 +347,7 @@ export class ProxyManager extends EventEmitter {
 
       const checkOutput = (data: Buffer) => {
         const raw = data.toString()
-        // eslint-disable-next-line no-control-regex
-        const output = raw.replace(/\x1b\[[0-9;]*m/g, '').toLowerCase()
+        const output = stripAnsi(raw).toLowerCase()
         // In direct mode: "starting proxy server" comes immediately
         // In tunnel mode: "starting proxy server" comes AFTER tunnel init (~10-15s)
         // We must wait for the proxy to actually be listening before starting sync checks

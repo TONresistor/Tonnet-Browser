@@ -15,7 +15,7 @@
     "recipientLabel": "Endereço do destinatário",
     "recipientPlaceholder": "EQ... ou 0:...",
     "amountLabel": "Valor",
-    "feeNote": "Taxa de rede: {{fee}} TON",
+    "feeNote": "Taxa de rede: {{fee}} GRAM",
     "reviewButton": "Revisar transação",
     "confirm": "Confirmar transação",
     "to": "Para",
@@ -30,7 +30,7 @@
     "invalidAmount": "Valor inválido",
     "insufficientBalance": "Saldo insuficiente",
     "max": "Max",
-    "estimatedFee": "~0,01 TON"
+    "estimatedFee": "~0,01 GRAM"
   },
   "receive": {
     "addressLabel": "Seu endereço de carteira",
@@ -104,7 +104,7 @@
     "orImport": "ou importar uma carteira existente"
   },
   "statusBar": {
-    "balance": "{{amount}} TON"
+    "balance": "{{amount}} GRAM"
   },
   "settings": {
     "title": "Configurações da carteira",
@@ -132,7 +132,7 @@
       "perDay": "Por dia",
       "perSitePerMonth": "Por site / mês",
       "placeholder": "0 = sem limite",
-      "unit": "TON",
+      "unit": "GRAM",
       "perRequestDesc": "Valor máximo para um único pagamento 402",
       "perDayDesc": "Gasto total máximo em uma janela de 24 horas",
       "perSitePerMonthDesc": "Gasto máximo por domínio em uma janela de 30 dias",
@@ -142,7 +142,7 @@
       "title": "Permissões por site",
       "empty": "Nenhuma permissão específica configurada",
       "remove": "Remover",
-      "spent": "Gasto: {{amount}} TON",
+      "spent": "Gasto: {{amount}} GRAM",
       "removePolicy": "Remover política do site"
     }
   },

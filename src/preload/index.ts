@@ -5,33 +5,27 @@
 
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC_CHANNELS } from '../shared/ipc-channels'
+import type { IpcEventMap } from '../shared/ipc-events'
 
 const VALID_EVENT_CHANNELS = [
-  'page:loading',
-  'page:navigate',
-  'page:title',
-  'page:favicon',
-  'proxy:status',
+  IPC_CHANNELS.PAGE_LOADING,
+  IPC_CHANNELS.PAGE_NAVIGATE,
+  IPC_CHANNELS.PAGE_TITLE,
+  IPC_CHANNELS.PAGE_FAVICON,
+  IPC_CHANNELS.PROXY_STATUS,
   IPC_CHANNELS.PROXY_PROGRESS,
-  'proxy:auto-connect',
-  'storage:bags-updated',
-  'storage:status',
-  'context:open-link',
-  'settings:changed',
-  'bookmark:open-new-tab',
-  'bookmark:edit',
-  'bookmark:delete',
-  'folder:rename',
-  'folder:delete',
-  'folder:open-all',
-  'tab:history-reset',
-  'wallet:balance-updated',
-  'wallet:state-changed',
-  'wallet:new-transaction',
-  'wallet:payment-req',
-  'wallet:payment-made',
-  'wallet:payment-failed',
-  'bookmarks:changed',
+  IPC_CHANNELS.PROXY_AUTO_CONNECT,
+  IPC_CHANNELS.STORAGE_BAGS_UPDATED,
+  IPC_CHANNELS.STORAGE_STATUS,
+  IPC_CHANNELS.CONTEXT_OPEN_LINK,
+  IPC_CHANNELS.SETTINGS_CHANGED,
+  IPC_CHANNELS.TAB_HISTORY_RESET,
+  IPC_CHANNELS.WALLET_BALANCE_UPDATED,
+  IPC_CHANNELS.WALLET_STATE_CHANGED,
+  IPC_CHANNELS.WALLET_NEW_TRANSACTION,
+  IPC_CHANNELS.WALLET_PAYMENT_REQ,
+  IPC_CHANNELS.WALLET_PAYMENT_MADE,
+  IPC_CHANNELS.WALLET_PAYMENT_FAILED,
   IPC_CHANNELS.OVERLAY_ACTION,
   IPC_CHANNELS.COCOON_STATE_CHANGED,
   IPC_CHANNELS.COCOON_LOG,
@@ -100,6 +94,7 @@ const electronAPI = {
     listBags: () => ipcRenderer.invoke(IPC_CHANNELS.STORAGE_LIST_BAGS),
     pauseBag: (bagId: string) => ipcRenderer.invoke(IPC_CHANNELS.STORAGE_PAUSE_BAG, bagId),
     getBagDetails: (bagId: string) => ipcRenderer.invoke(IPC_CHANNELS.STORAGE_GET_DETAILS, bagId),
+    readFile: (bagId: string, relPath: string) => ipcRenderer.invoke(IPC_CHANNELS.STORAGE_READ_FILE, bagId, relPath),
     getDownloadPath: () => ipcRenderer.invoke(IPC_CHANNELS.STORAGE_GET_DOWNLOAD_PATH),
     setDownloadPath: (path: string) => ipcRenderer.invoke(IPC_CHANNELS.STORAGE_SET_DOWNLOAD_PATH, path),
     selectDownloadFolder: () => ipcRenderer.invoke(IPC_CHANNELS.STORAGE_SELECT_DOWNLOAD_FOLDER),
@@ -177,6 +172,11 @@ const electronAPI = {
     restart: () => ipcRenderer.invoke(IPC_CHANNELS.BRIDGE_RESTART),
   },
 
+  tonconnect: {
+    getSessions: () => ipcRenderer.invoke(IPC_CHANNELS.TONCONNECT_GET_SESSIONS),
+    disconnectSession: (domain: string) => ipcRenderer.invoke(IPC_CHANNELS.TONCONNECT_DISCONNECT_SESSION, domain),
+  },
+
   // DNS
   dns: {
     resolve: (domain: string) => ipcRenderer.invoke(IPC_CHANNELS.DNS_RESOLVE, domain),
@@ -229,21 +229,14 @@ const electronAPI = {
   },
 
   // Event listeners - returns unsubscribe function for proper cleanup
-  on: (channel: string, callback: (...args: unknown[]) => void): (() => void) => {
-    if (VALID_EVENT_CHANNELS.includes(channel)) {
-      const listener = (_event: Electron.IpcRendererEvent, ...args: unknown[]) => callback(...args)
+  on: <K extends keyof IpcEventMap>(channel: K, callback: (...args: IpcEventMap[K]) => void): (() => void) => {
+    if ((VALID_EVENT_CHANNELS as readonly string[]).includes(channel)) {
+      const listener = (_event: Electron.IpcRendererEvent, ...args: unknown[]) => callback(...(args as IpcEventMap[K]))
       ipcRenderer.on(channel, listener)
       // Return unsubscribe function that removes only THIS listener
       return () => ipcRenderer.removeListener(channel, listener)
     }
     return () => {} // No-op for invalid channels
-  },
-
-  // Remove a specific listener for a channel.
-  // Pass the same callback reference used in on() to remove only that listener.
-  off: (channel: string, callback: (...args: unknown[]) => void) => {
-    if (!VALID_EVENT_CHANNELS.includes(channel)) return
-    ipcRenderer.removeListener(channel, callback)
   },
 }
 

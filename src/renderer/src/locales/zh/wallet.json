@@ -15,7 +15,7 @@
     "recipientLabel": "收款地址",
     "recipientPlaceholder": "EQ... 或 0:...",
     "amountLabel": "金额",
-    "feeNote": "网络手续费: {{fee}} TON",
+    "feeNote": "网络手续费: {{fee}} GRAM",
     "reviewButton": "审核交易",
     "confirm": "确认交易",
     "to": "收款方",
@@ -30,7 +30,7 @@
     "invalidAmount": "无效的金额",
     "insufficientBalance": "余额不足",
     "max": "最大",
-    "estimatedFee": "~0.01 TON"
+    "estimatedFee": "~0.01 GRAM"
   },
   "receive": {
     "addressLabel": "您的钱包地址",
@@ -104,7 +104,7 @@
     "orImport": "或导入现有钱包"
   },
   "statusBar": {
-    "balance": "{{amount}} TON"
+    "balance": "{{amount}} GRAM"
   },
   "settings": {
     "title": "钱包设置",
@@ -132,7 +132,7 @@
       "perDay": "每天",
       "perSitePerMonth": "每站点 / 月",
       "placeholder": "0 = 无限制",
-      "unit": "TON",
+      "unit": "GRAM",
       "perRequestDesc": "单次 402 支付的最大金额",
       "perDayDesc": "24 小时滚动窗口内的最大支出",
       "perSitePerMonthDesc": "每个域名 30 天滚动窗口内的最大支出",
@@ -142,7 +142,7 @@
       "title": "网站权限",
       "empty": "尚未配置特定网站的权限",
       "remove": "移除",
-      "spent": "已花费: {{amount}} TON",
+      "spent": "已花费: {{amount}} GRAM",
       "removePolicy": "移除网站策略"
     }
   },

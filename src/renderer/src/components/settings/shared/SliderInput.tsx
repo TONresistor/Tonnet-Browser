@@ -21,7 +21,7 @@ const SLIDER_CSS = `
   height: 20px;
   border-radius: 50%;
   background: #fff;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+  box-shadow: var(--shadow-control);
   cursor: pointer;
   margin-top: -8px;
 }
@@ -35,7 +35,7 @@ const SLIDER_CSS = `
   height: 20px;
   border-radius: 50%;
   background: #fff;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+  box-shadow: var(--shadow-control);
   cursor: pointer;
   border: none;
 }

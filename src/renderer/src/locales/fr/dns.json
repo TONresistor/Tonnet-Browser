@@ -6,21 +6,24 @@
   "notFound": "Domaine introuvable ou sans enregistrements",
   "error": "Echec de la resolution du domaine",
   "fields": {
-    "wallet": "Portefeuille",
-    "owner": "Proprietaire",
-    "siteAdnl": "Site ADNL",
-    "hasStorage": "Stockage",
-    "nftAddress": "Adresse NFT",
-    "collection": "Collection",
-    "editor": "Editeur",
-    "initialized": "Initialise",
-    "expiringAt": "Expiration",
-    "textRecords": "Enregistrements texte"
+    "adnl": "ADNL (tonsite)",
+    "storage": "Storage",
+    "storageBagId": "ID Bag Storage",
+    "nextResolver": "Next resolver",
+    "wallet": "Wallet",
+    "textRecords": "TXT"
   },
   "values": {
     "yes": "Oui",
     "no": "Non",
     "none": "Non defini"
   },
-  "copied": "Copie !"
+  "copied": "Copie !",
+  "visit": "Visiter le site",
+  "browseStorage": "Explorer les fichiers",
+  "send": "Envoyer",
+  "actions": {
+    "visit": "Visiter",
+    "sendTo": "Envoyer vers cette adresse"
+  }
 }

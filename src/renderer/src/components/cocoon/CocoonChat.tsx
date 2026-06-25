@@ -4,34 +4,17 @@
  * persists when the user switches between page and sidebar within a session.
  */
 
-import { useEffect, useRef, useState } from 'react'
-import {
-  ArrowUp,
-  Square,
-  CheckCircle2,
-  LoaderCircle,
-  AlertCircle,
-  CircleDashed,
-  Brain,
-  ChevronDown,
-} from 'lucide-react'
+import { errorMessage } from '@shared/errors'
+import { useEffect, useRef, useState, memo } from 'react'
+import { ArrowUp, Square, Brain, ChevronDown, Trash2 } from 'lucide-react'
 import Lottie from 'lottie-react'
 import type { CocoonState } from '../../../../shared/cocoon-types'
 import cocoonAnimation from '@/assets/cocoon.json'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useCocoonChatStore, selectActiveMessages, type CocoonChatMessage } from '@/stores/cocoon-chat'
-
-const DEFAULT_MODEL = 'Qwen/Qwen3-32B'
-
-/** Split a Qwen3 response into its reasoning block and the final reply.
- * The `<think>...</think>` block, when present, always sits at the start of
- * the response. */
-function parseThinking(content: string): { thinking: string; reply: string } {
-  const match = content.match(/^<think>([\s\S]*?)<\/think>\s*/)
-  if (!match) return { thinking: '', reply: content }
-  return { thinking: match[1].trim(), reply: content.slice(match[0].length) }
-}
+import { DEFAULT_MODEL, parseThinking, sendChat } from '@/lib/cocoon-llm'
+import { ChatMarkdown } from './ChatMarkdown'
 
 export interface CocoonChatProps {
   state: CocoonState
@@ -96,33 +79,16 @@ export function CocoonChat({ state, compact = false, startError = null, onRetryS
     abortRef.current = ctrl
 
     try {
-      // Non-streaming: the cocoon-runner does not forward SSE chunks (returns
-      // 200 with an empty body when stream:true). Until that is fixed upstream,
-      // we use a single JSON response.
-      const apiMessages = thinkingEnabled ? history : [{ role: 'system', content: '/no_think' }, ...history]
-
-      const res = await fetch(`http://127.0.0.1:${state.httpPort}/v1/chat/completions`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: DEFAULT_MODEL,
-          messages: apiMessages,
-          stream: false,
-          max_tokens: 2048,
-        }),
+      const content = await sendChat({
+        port: state.httpPort,
+        messages: history,
+        thinkingEnabled,
         signal: ctrl.signal,
       })
-
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
-
-      const json = await res.json()
-      const content = json?.choices?.[0]?.message?.content
-      if (typeof content !== 'string') throw new Error('No content in response')
-
       updateMessage(assistantId, { content })
     } catch (err) {
       const aborted = (err as Error).name === 'AbortError'
-      const msg = aborted ? 'Cancelled.' : (err as Error).message
+      const msg = aborted ? 'Cancelled.' : errorMessage(err)
       updateMessage(assistantId, { content: msg, error: !aborted })
     } finally {
       setSending(false)
@@ -138,56 +104,67 @@ export function CocoonChat({ state, compact = false, startError = null, onRetryS
   }
 
   return (
-    <div className="flex flex-col h-full w-full min-h-0">
+    <div className="relative flex h-full w-full min-h-0 flex-col">
+      {/* Floating header — model + clear as pills; messages scroll beneath. */}
       {!compact && (
-        <header className="flex items-center justify-between border-b border-border px-6 py-4">
-          <span className="text-sm text-muted-foreground truncate">{DEFAULT_MODEL}</span>
-          <div className="flex items-center gap-2">
+        <>
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-x-0 top-0 z-10 h-20 backdrop-blur-md [mask-image:linear-gradient(to_bottom,black_55%,transparent)] [-webkit-mask-image:linear-gradient(to_bottom,black_55%,transparent)]"
+          />
+          <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-center justify-between gap-2 px-4 pt-4">
+            {/* Model pill — future: opens a model selector */}
+            <button
+              type="button"
+              title={DEFAULT_MODEL}
+              className="pointer-events-auto inline-flex max-w-[60%] items-center gap-1.5 rounded-full border border-border-subtle bg-elevation-2 px-3 py-1.5 text-sm font-medium text-foreground shadow-panel transition-colors hover:bg-surface-hover"
+            >
+              <span className="truncate">{DEFAULT_MODEL}</span>
+              <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+            </button>
             {messages.length > 0 && (
-              <Button variant="ghost" size="sm" onClick={clearChat} disabled={sending}>
+              <button
+                type="button"
+                onClick={clearChat}
+                disabled={sending}
+                className="pointer-events-auto inline-flex shrink-0 items-center gap-1.5 rounded-full border border-border-subtle bg-elevation-2 px-3 py-1.5 text-sm font-medium text-foreground shadow-panel transition-colors hover:bg-surface-hover disabled:opacity-50"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
                 Clear
+              </button>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* Scroll area — top/bottom padding clears the floating header + write bar. */}
+      <div
+        ref={scrollRef}
+        className={cn('min-h-0 flex-1 overflow-y-auto', compact ? 'px-2 pb-20 pt-3' : 'px-4 pb-24 pt-16')}
+      >
+        {state.kind === 'crashed' && (
+          <div className="mb-2 rounded-card border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+            <div className="mb-2">{state.error}</div>
+            {onRetryStart && (
+              <Button size="sm" variant="outline" onClick={onRetryStart} className="h-7">
+                Retry
               </Button>
             )}
-            <StatusBadge state={state} verbose={false} />
           </div>
-        </header>
-      )}
+        )}
+        {state.kind === 'stopped' && startError && (
+          <div className="mb-2 rounded-card border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+            <div className="mb-2">{startError}</div>
+            {onRetryStart && (
+              <Button size="sm" variant="outline" onClick={onRetryStart} className="h-7">
+                Retry
+              </Button>
+            )}
+          </div>
+        )}
 
-      {state.kind === 'crashed' && (
-        <div
-          className={cn(
-            'mt-3 p-3 rounded-lg border border-red-500/40 bg-red-500/10 text-red-400 text-sm',
-            compact ? 'mx-3' : 'mx-6'
-          )}
-        >
-          <div className="mb-2">{state.error}</div>
-          {onRetryStart && (
-            <Button size="sm" variant="outline" onClick={onRetryStart} className="h-7">
-              Retry
-            </Button>
-          )}
-        </div>
-      )}
-
-      {state.kind === 'stopped' && startError && (
-        <div
-          className={cn(
-            'mt-3 p-3 rounded-lg border border-red-500/40 bg-red-500/10 text-red-400 text-sm',
-            compact ? 'mx-3' : 'mx-6'
-          )}
-        >
-          <div className="mb-2">{startError}</div>
-          {onRetryStart && (
-            <Button size="sm" variant="outline" onClick={onRetryStart} className="h-7">
-              Retry
-            </Button>
-          )}
-        </div>
-      )}
-
-      <div ref={scrollRef} className={cn('flex-1 overflow-y-auto min-h-0', compact ? 'px-2 py-3' : 'px-4 py-6')}>
         {messages.length === 0 ? (
-          <div className="h-full flex items-center justify-center text-sm text-muted-foreground text-center">
+          <div className="flex h-full items-center justify-center text-center text-sm text-muted-foreground">
             {state.kind === 'ready' ? 'Type a message to start a conversation.' : 'Waiting for Cocoon to be ready…'}
           </div>
         ) : (
@@ -204,36 +181,46 @@ export function CocoonChat({ state, compact = false, startError = null, onRetryS
         )}
       </div>
 
+      {/* Progressive blur — confined to the write-bar level (where text slides under
+          it), with a short fade at the top edge. Doesn't blur readable messages above. */}
       <div
+        aria-hidden
         className={cn(
-          'flex items-end gap-2 rounded-2xl bg-[hsl(var(--elevation-1))] border border-border p-2',
-          compact ? 'mx-2 mb-2 mt-1' : 'mx-4 mb-4 mt-2'
+          'pointer-events-none absolute inset-x-0 bottom-0 backdrop-blur-md',
+          '[mask-image:linear-gradient(to_top,black_60%,transparent)]',
+          '[-webkit-mask-image:linear-gradient(to_top,black_60%,transparent)]',
+          compact ? 'h-16' : 'h-20'
         )}
-      >
-        <textarea
-          ref={textareaRef}
-          className="flex-1 bg-transparent px-2 py-1.5 text-sm resize-none focus:outline-none placeholder:text-muted-foreground max-h-40"
-          rows={1}
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-          placeholder={state.kind === 'ready' ? 'Message' : 'Cocoon must be ready to chat'}
-          disabled={inputDisabled}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault()
-              send()
-            }
-          }}
-        />
-        {sending ? (
-          <Button size="icon" variant="destructive" className="h-8 w-8 shrink-0" onClick={cancel} aria-label="Cancel">
-            <Square size={12} fill="currentColor" />
-          </Button>
-        ) : (
-          <Button size="icon" className="h-8 w-8 shrink-0" onClick={send} disabled={!canSend} aria-label="Send">
-            <ArrowUp size={16} strokeWidth={2.5} />
-          </Button>
-        )}
+      />
+
+      {/* Floating write bar — same shadow as the sidebar; messages scroll beneath it. */}
+      <div className={cn('pointer-events-none absolute inset-x-0 bottom-0', compact ? 'px-2 pb-2' : 'px-4 pb-4')}>
+        <div className="pointer-events-auto flex items-end gap-2 rounded-full border border-border-subtle bg-elevation-2 p-2 shadow-panel">
+          <textarea
+            ref={textareaRef}
+            className="max-h-40 flex-1 resize-none bg-transparent px-2 py-1.5 text-sm placeholder:text-muted-foreground focus:outline-none"
+            rows={1}
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            placeholder={state.kind === 'ready' ? 'Message' : 'Cocoon must be ready to chat'}
+            disabled={inputDisabled}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault()
+                send()
+              }
+            }}
+          />
+          {sending ? (
+            <Button size="icon" variant="destructive" className="h-8 w-8 shrink-0" onClick={cancel} aria-label="Cancel">
+              <Square size={12} fill="currentColor" />
+            </Button>
+          ) : (
+            <Button size="icon" className="h-8 w-8 shrink-0" onClick={send} disabled={!canSend} aria-label="Send">
+              <ArrowUp size={16} strokeWidth={2.5} />
+            </Button>
+          )}
+        </div>
       </div>
     </div>
   )
@@ -245,7 +232,7 @@ const BUBBLE_VARIANTS = {
   error: 'bg-red-500/10 text-red-400 border border-red-500/40',
 } as const
 
-function ChatBubble({
+const ChatBubble = memo(function ChatBubble({
   message,
   groupedWithPrev,
   pending,
@@ -275,13 +262,21 @@ function ChatBubble({
         ) : (
           <>
             {thinking && <ThinkingSection text={thinking} />}
-            {reply && <div className="px-3.5 py-2 whitespace-pre-wrap">{reply}</div>}
+            {reply && (
+              <div className="px-3.5 py-2">
+                {isUser || message.error ? (
+                  <span className="whitespace-pre-wrap">{reply}</span>
+                ) : (
+                  <ChatMarkdown content={reply} />
+                )}
+              </div>
+            )}
           </>
         )}
       </div>
     </li>
   )
-}
+})
 
 function ThinkingSection({ text }: { text: string }) {
   const [open, setOpen] = useState(false)
@@ -307,39 +302,4 @@ function ThinkingSection({ text }: { text: string }) {
 
 function TypingDots() {
   return <Lottie animationData={cocoonAnimation} className="h-6 w-6" loop autoplay aria-label="Thinking" />
-}
-
-const STATUS_ICONS = {
-  ready: { Icon: CheckCircle2, color: 'text-green-400', spin: false },
-  starting: { Icon: LoaderCircle, color: 'text-yellow-400', spin: true },
-  crashed: { Icon: AlertCircle, color: 'text-red-400', spin: false },
-  stopped: { Icon: CircleDashed, color: 'text-muted-foreground', spin: false },
-} as const
-
-function statusLabel(state: CocoonState): string {
-  switch (state.kind) {
-    case 'ready':
-      return `Ready (port ${state.httpPort})`
-    case 'starting':
-      return `Starting: ${state.phase}`
-    case 'crashed':
-      return `Crashed: ${state.error}`
-    case 'stopped':
-      return 'Stopped'
-  }
-}
-
-export function StatusBadge({ state, verbose = true }: { state: CocoonState; verbose?: boolean }) {
-  const { Icon, color, spin } = STATUS_ICONS[state.kind]
-  const label = statusLabel(state)
-  return (
-    <span
-      className={cn('inline-flex items-center gap-1.5', color, !verbose && 'p-0.5')}
-      title={label}
-      aria-label={label}
-    >
-      <Icon className={cn('h-4 w-4', spin && 'animate-spin')} aria-hidden="true" />
-      {verbose && <span className="text-xs">{label}</span>}
-    </span>
-  )
 }

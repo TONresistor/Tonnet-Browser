@@ -13,6 +13,7 @@
  * re-cached on the next /jsonstats success.
  */
 
+import { errorMessage } from '../../shared/errors'
 import { promises as fs } from 'fs'
 import { dirname, join } from 'path'
 import { app } from 'electron'
@@ -61,7 +62,7 @@ export class StakeCacheStore {
       return parsed
     } catch (err) {
       if (isEnoent(err)) return null
-      log.warn(`Failed to read stake cache: ${(err as Error).message}`)
+      log.warn(`Failed to read stake cache: ${errorMessage(err)}`)
       return null
     }
   }
@@ -128,9 +129,4 @@ let singleton: StakeCacheStore | null = null
 export function getStakeCacheStore(): StakeCacheStore {
   if (!singleton) singleton = new StakeCacheStore()
   return singleton
-}
-
-/** Test-only: replace the singleton (e.g. with an in-memory adapter). */
-export function _setStakeCacheForTesting(store: StakeCacheStore | null): void {
-  singleton = store
 }

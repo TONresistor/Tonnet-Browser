@@ -123,7 +123,7 @@ export const AboutSection = memo(function AboutSection() {
   return (
     <div>
       <SectionHeader title={t('about.title')} />
-      <div className="glass-card p-6 text-center">
+      <div className="settings-group p-6 text-center">
         <div className="w-16 h-16 mx-auto mb-4">
           <img src={tonLogo} alt="TON" className="w-full h-full object-contain" />
         </div>

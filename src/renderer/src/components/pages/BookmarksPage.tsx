@@ -27,7 +27,6 @@ import {
   Plus,
   SquarePen,
   Trash2,
-  Globe,
   Download,
   GripVertical,
   Folder,
@@ -40,6 +39,9 @@ import { useBookmarksStore, type Bookmark, type BookmarkFolder } from '@/stores/
 import { useTabsStore } from '@/stores/tabs'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
+import { downloadJson } from '@/lib/download'
+import { Favicon } from '@/components/ui/Favicon'
+import { useConfirmAction } from '@/hooks/useConfirmAction'
 
 // --- Sortable Bookmark Row ---
 
@@ -72,7 +74,7 @@ function SortableBookmarkRow({
       ref={setNodeRef}
       style={style}
       className={cn(
-        'p-4 hover:bg-surface-hover transition-colors group flex items-center gap-3',
+        'group flex items-center gap-3 px-4 py-3 transition-colors hover:bg-surface-hover',
         isDragging && 'z-10 shadow-lg'
       )}
     >
@@ -84,23 +86,16 @@ function SortableBookmarkRow({
         <GripVertical className="w-4 h-4" />
       </div>
 
-      {bookmark.favicon ? (
-        <img
-          src={bookmark.favicon}
-          alt=""
-          className="w-4 h-4 flex-shrink-0 object-contain"
-          onError={(e) => {
-            e.currentTarget.style.display = 'none'
-          }}
-        />
-      ) : (
-        <Globe className="w-4 h-4 text-foreground-muted flex-shrink-0" />
-      )}
+      <Favicon
+        src={bookmark.favicon}
+        className="w-4 h-4 flex-shrink-0 object-contain"
+        fallbackClassName="w-4 h-4 text-muted-foreground flex-shrink-0"
+      />
 
       <div className="flex-1 min-w-0">
         <button
           onClick={() => onNavigate(bookmark.url)}
-          className="font-medium text-primary hover:text-primary/80 truncate text-left block"
+          className="block truncate text-left text-[14px] font-medium text-foreground transition-colors hover:text-primary"
         >
           {bookmark.title}
         </button>
@@ -110,14 +105,14 @@ function SortableBookmarkRow({
       <div className="flex items-center gap-1 flex-shrink-0">
         <button
           onClick={() => onOpenNewTab(bookmark.url)}
-          className="p-2 hover:bg-surface-active rounded transition-colors"
+          className="rounded-full p-2 text-muted-foreground transition-colors hover:bg-surface hover:text-foreground"
           title={t('bookmarks.openInNewTab')}
         >
           <ExternalLink className="w-4 h-4 text-foreground" />
         </button>
         <button
           onClick={() => onEdit(bookmark)}
-          className="p-2 hover:bg-surface-active rounded transition-colors"
+          className="rounded-full p-2 text-muted-foreground transition-colors hover:bg-surface hover:text-foreground"
           title={t('bookmarks.edit')}
         >
           <SquarePen className="w-4 h-4 text-foreground" />
@@ -125,12 +120,14 @@ function SortableBookmarkRow({
         <button
           onClick={() => onDelete(bookmark.id)}
           className={cn(
-            'p-2 rounded transition-colors',
-            isPendingDelete ? 'bg-destructive/20' : 'hover:bg-destructive/10'
+            'rounded-full p-2 transition-colors',
+            isPendingDelete
+              ? 'bg-destructive/15 text-destructive'
+              : 'text-muted-foreground hover:bg-destructive/10 hover:text-destructive'
           )}
           title={t('bookmarks.delete')}
         >
-          <Trash2 className="w-4 h-4 text-destructive" />
+          <Trash2 className="h-4 w-4" />
         </button>
       </div>
     </div>
@@ -184,10 +181,10 @@ function DroppableFolderItem({
           onSelect()
         }}
         className={cn(
-          'w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors rounded-lg group',
+          'group flex w-full items-center gap-2 rounded-control px-3 py-2 text-sm transition-colors',
           isOver && 'ring-2 ring-primary bg-primary/10',
           isSelected
-            ? 'bg-surface-active text-foreground'
+            ? 'bg-[hsl(var(--primary)/0.14)] text-foreground'
             : 'text-muted-foreground hover:bg-surface-hover hover:text-foreground'
         )}
         style={{ paddingLeft: `${12 + level * 16}px` }}
@@ -198,7 +195,7 @@ function DroppableFolderItem({
               e.stopPropagation()
               onToggleExpand()
             }}
-            className="p-0.5 hover:bg-surface-active rounded transition-colors"
+            className="rounded-full p-0.5 transition-colors hover:bg-surface"
           >
             {isExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
           </span>
@@ -215,7 +212,9 @@ function DroppableFolderItem({
         <span className="flex-1 text-left truncate">{isRoot ? t('bookmarks.allBookmarks') : folder!.name}</span>
 
         {bookmarksCount > 0 && (
-          <span className="text-xs px-1.5 py-0.5 rounded-full bg-surface/50">{bookmarksCount}</span>
+          <span className="rounded-full bg-elevation-3 px-1.5 py-0.5 text-xs text-muted-foreground">
+            {bookmarksCount}
+          </span>
         )}
 
         {!isRoot && folder && (
@@ -225,7 +224,7 @@ function DroppableFolderItem({
                 e.stopPropagation()
                 onEdit()
               }}
-              className="p-1 hover:bg-surface-active rounded transition-colors cursor-pointer"
+              className="cursor-pointer rounded-full p-1 transition-colors hover:bg-surface"
               title={t('bookmarks.renameFolder')}
             >
               <Pen className="w-3.5 h-3.5" />
@@ -236,7 +235,7 @@ function DroppableFolderItem({
                 onDelete(e)
               }}
               className={cn(
-                'p-1 rounded transition-colors cursor-pointer',
+                'cursor-pointer rounded-full p-1 transition-colors',
                 isPendingDelete ? 'bg-destructive/20' : 'hover:bg-destructive/10'
               )}
               title={t('bookmarks.deleteFolder')}
@@ -270,14 +269,15 @@ export const BookmarksPage = memo(function BookmarksPage() {
   const getSubfolders = useBookmarksStore((s) => s.getSubfolders)
   const resetBookmarks = useBookmarksStore((s) => s.resetBookmarks)
   const reorderBookmarks = useBookmarksStore((s) => s.reorderBookmarks)
-  const { navigateActiveTab, addTab } = useTabsStore()
+  const navigateActiveTab = useTabsStore((s) => s.navigateActiveTab)
+  const addTab = useTabsStore((s) => s.addTab)
 
   // Local state
   const [query, setQuery] = useState('')
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null)
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set())
-  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
-  const [pendingFolderDeleteId, setPendingFolderDeleteId] = useState<string | null>(null)
+  const deleteConfirm = useConfirmAction()
+  const folderDeleteConfirm = useConfirmAction()
   const [showResetModal, setShowResetModal] = useState(false)
   const [maxDepthWarning, setMaxDepthWarning] = useState(false)
   const [activeId, setActiveId] = useState<string | null>(null)
@@ -296,14 +296,10 @@ export const BookmarksPage = memo(function BookmarksPage() {
   } | null>(null)
 
   // Timers
-  const deleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const folderDeleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const maxDepthTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     return () => {
-      if (deleteTimerRef.current) clearTimeout(deleteTimerRef.current)
-      if (folderDeleteTimerRef.current) clearTimeout(folderDeleteTimerRef.current)
       if (maxDepthTimerRef.current) clearTimeout(maxDepthTimerRef.current)
     }
   }, [])
@@ -338,33 +334,21 @@ export const BookmarksPage = memo(function BookmarksPage() {
 
   const handleDeleteBookmark = useCallback(
     (id: string) => {
-      if (pendingDeleteId === id) {
+      if (deleteConfirm.trigger(id)) {
         removeBookmark(id)
-        setPendingDeleteId(null)
-        if (deleteTimerRef.current) clearTimeout(deleteTimerRef.current)
-      } else {
-        setPendingDeleteId(id)
-        if (deleteTimerRef.current) clearTimeout(deleteTimerRef.current)
-        deleteTimerRef.current = setTimeout(() => setPendingDeleteId(null), UI_NOTIFICATION_TIMEOUT_MS)
       }
     },
-    [pendingDeleteId, removeBookmark]
+    [deleteConfirm, removeBookmark]
   )
 
   const handleDeleteFolder = useCallback(
     (folderId: string) => {
-      if (pendingFolderDeleteId === folderId) {
+      if (folderDeleteConfirm.trigger(folderId)) {
         removeFolder(folderId)
-        setPendingFolderDeleteId(null)
-        if (folderDeleteTimerRef.current) clearTimeout(folderDeleteTimerRef.current)
         if (selectedFolderId === folderId) setSelectedFolderId(null)
-      } else {
-        setPendingFolderDeleteId(folderId)
-        if (folderDeleteTimerRef.current) clearTimeout(folderDeleteTimerRef.current)
-        folderDeleteTimerRef.current = setTimeout(() => setPendingFolderDeleteId(null), UI_NOTIFICATION_TIMEOUT_MS)
       }
     },
-    [pendingFolderDeleteId, removeFolder, selectedFolderId]
+    [folderDeleteConfirm, removeFolder, selectedFolderId]
   )
 
   const handleNewFolder = useCallback(
@@ -415,14 +399,7 @@ export const BookmarksPage = memo(function BookmarksPage() {
   }, [editingFolder, updateFolder])
 
   const handleExport = useCallback(() => {
-    const data = JSON.stringify({ bookmarks, folders }, null, 2)
-    const blob = new Blob([data], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'ton-browser-bookmarks.json'
-    a.click()
-    URL.revokeObjectURL(url)
+    downloadJson({ bookmarks, folders }, 'ton-browser-bookmarks.json')
   }, [bookmarks, folders])
 
   const handleReset = useCallback(() => {
@@ -485,7 +462,7 @@ export const BookmarksPage = memo(function BookmarksPage() {
           isExpanded={isExpanded}
           hasSubfolders={childFolders.length > 0}
           bookmarksCount={count}
-          isPendingDelete={pendingFolderDeleteId === folder.id}
+          isPendingDelete={folderDeleteConfirm.isArmed(folder.id)}
           onSelect={() => setSelectedFolderId(folder.id)}
           onToggleExpand={() => toggleExpand(folder.id)}
           onEdit={() => setEditingFolder({ id: folder.id, name: folder.name })}
@@ -497,169 +474,144 @@ export const BookmarksPage = memo(function BookmarksPage() {
     })
   }
 
-  // Empty state
-  if (bookmarks.length === 0 && folders.length === 0) {
-    return (
-      <div className="h-full overflow-auto bg-background">
-        <div className="max-w-4xl mx-auto p-8">
-          <h1 className="text-2xl font-bold text-foreground mb-2">{t('bookmarks.title')}</h1>
-          <div className="text-center py-24 text-muted-foreground">{t('bookmarks.noBookmarks')}</div>
-        </div>
-      </div>
-    )
-  }
-
   return (
-    <div className="h-full overflow-auto bg-background">
-      <div className="max-w-4xl mx-auto p-8">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">{t('bookmarks.title')}</h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              {bookmarks.length} {t('bookmarks.savedBookmarks').toLowerCase()}
-            </p>
+    <div className="flex h-full bg-background-secondary" style={{ fontFamily: 'Inter, sans-serif' }}>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+      >
+        {/* Floating folder sidebar */}
+        <aside className="m-3 flex w-[260px] shrink-0 flex-col overflow-hidden rounded-panel border border-border-subtle bg-elevation-1 shadow-panel">
+          <div className="flex items-center justify-between px-4 pb-2 pt-4">
+            <h1 className="text-[22px] font-bold tracking-tight text-foreground">{t('bookmarks.title')}</h1>
+            <button
+              onClick={() => handleNewFolder(selectedFolderId)}
+              className="grid h-7 w-7 place-items-center rounded-full bg-primary text-primary-foreground transition-colors hover:bg-primary/90"
+              title={t('bookmarks.newFolder')}
+            >
+              <Plus className="h-4 w-4" />
+            </button>
           </div>
-          <div className="flex gap-2">
+          {maxDepthWarning && <p className="px-4 pb-1 text-xs text-warning">{t('bookmarks.maxDepthReached')}</p>}
+
+          <nav className="min-h-0 flex-1 space-y-0.5 overflow-y-auto px-2 py-2">
+            <DroppableFolderItem
+              folder={null}
+              isRoot={true}
+              level={0}
+              isSelected={selectedFolderId === null}
+              isExpanded={true}
+              hasSubfolders={false}
+              bookmarksCount={bookmarks.length}
+              isPendingDelete={false}
+              onSelect={() => setSelectedFolderId(null)}
+              onToggleExpand={() => {}}
+              onEdit={() => {}}
+              onDelete={() => {}}
+            />
+            {renderFolderTree(null, 0)}
+          </nav>
+
+          <div className="shrink-0 space-y-0.5 border-t border-border-subtle p-2">
             <button
               onClick={handleExport}
-              className="flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium text-muted-foreground transition-all duration-200 hover:text-foreground bg-surface-hover border border-border-medium"
+              className="flex w-full items-center gap-2 rounded-control px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
             >
               <Download className="h-4 w-4" />
               {t('bookmarks.export')}
             </button>
             <button
               onClick={() => setShowResetModal(true)}
-              className="flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-200 bg-neutral-500/15 border border-neutral-500/30 text-neutral-400 hover:text-neutral-300"
+              className="flex w-full items-center gap-2 rounded-control px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
             >
               <RotateCcw className="h-4 w-4" />
               {t('bookmarks.reset')}
             </button>
           </div>
-        </div>
+        </aside>
 
-        {/* Search */}
-        <div className="flex items-center gap-3 mb-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <input
-              type="text"
-              placeholder={t('bookmarks.searchPlaceholder')}
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-border rounded-full focus:ring-2 focus:ring-primary focus:border-transparent bg-background text-foreground"
-            />
-          </div>
-        </div>
-
-        {/* Two-column layout */}
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragStart={handleDragStart}
-          onDragEnd={handleDragEnd}
-        >
-          <div className="flex gap-4">
-            {/* Folder tree */}
-            <div className="w-64 flex-shrink-0">
-              <div className="flex items-center justify-between mb-3">
-                <h4 className="text-sm font-semibold text-foreground">{t('bookmarks.folders')}</h4>
-                <button
-                  onClick={() => handleNewFolder(selectedFolderId)}
-                  className="w-6 h-6 flex items-center justify-center rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-                  title={t('bookmarks.newFolder')}
-                >
-                  <Plus className="w-4 h-4" />
-                </button>
-              </div>
-              {maxDepthWarning && <p className="text-xs text-amber-500 mb-2">{t('bookmarks.maxDepthReached')}</p>}
-              <div className="bg-card rounded-2xl border border-border p-3 space-y-1">
-                {/* All Bookmarks */}
-                <DroppableFolderItem
-                  folder={null}
-                  isRoot={true}
-                  level={0}
-                  isSelected={selectedFolderId === null}
-                  isExpanded={true}
-                  hasSubfolders={false}
-                  bookmarksCount={bookmarks.length}
-                  isPendingDelete={false}
-                  onSelect={() => setSelectedFolderId(null)}
-                  onToggleExpand={() => {}}
-                  onEdit={() => {}}
-                  onDelete={() => {}}
-                />
-                {renderFolderTree(null, 0)}
-              </div>
+        {/* Main content */}
+        <div className="flex min-w-0 flex-1 flex-col overflow-auto">
+          <div className="px-6 pb-3 pt-5">
+            <div className="relative">
+              <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <input
+                type="text"
+                placeholder={t('bookmarks.searchPlaceholder')}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                className="h-10 w-full rounded-full bg-surface pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              />
             </div>
+          </div>
 
-            {/* Bookmark list */}
-            <div className="flex-1 min-w-0">
-              {sortedDisplayBookmarks.length === 0 ? (
-                <div className="text-center py-12 text-muted-foreground">
-                  {query ? t('bookmarks.noMatch') : t('bookmarks.noBookmarks')}
+          <div className="flex-1 px-6 pb-6">
+            {sortedDisplayBookmarks.length === 0 ? (
+              <div className="py-16 text-center text-sm text-muted-foreground">
+                {query ? t('bookmarks.noMatch') : t('bookmarks.noBookmarks')}
+              </div>
+            ) : (
+              <SortableContext items={sortedDisplayBookmarks.map((b) => b.id)} strategy={verticalListSortingStrategy}>
+                <div className="overflow-hidden rounded-card border border-border-subtle bg-elevation-2 divide-y divide-border-subtle">
+                  {sortedDisplayBookmarks.map((bookmark) => (
+                    <SortableBookmarkRow
+                      key={bookmark.id}
+                      bookmark={bookmark}
+                      isPendingDelete={deleteConfirm.isArmed(bookmark.id)}
+                      onNavigate={navigateActiveTab}
+                      onOpenNewTab={addTab}
+                      onEdit={(b) =>
+                        setEditingBookmark({
+                          id: b.id,
+                          title: b.title,
+                          url: b.url,
+                          folderId: b.folderId,
+                        })
+                      }
+                      onDelete={handleDeleteBookmark}
+                    />
+                  ))}
                 </div>
-              ) : (
-                <SortableContext items={sortedDisplayBookmarks.map((b) => b.id)} strategy={verticalListSortingStrategy}>
-                  <div className="bg-card rounded-2xl border border-border divide-y divide-border overflow-hidden">
-                    {sortedDisplayBookmarks.map((bookmark) => (
-                      <SortableBookmarkRow
-                        key={bookmark.id}
-                        bookmark={bookmark}
-                        isPendingDelete={pendingDeleteId === bookmark.id}
-                        onNavigate={navigateActiveTab}
-                        onOpenNewTab={addTab}
-                        onEdit={(b) =>
-                          setEditingBookmark({
-                            id: b.id,
-                            title: b.title,
-                            url: b.url,
-                            folderId: b.folderId,
-                          })
-                        }
-                        onDelete={handleDeleteBookmark}
-                      />
-                    ))}
-                  </div>
-                </SortableContext>
-              )}
-            </div>
-          </div>
-
-          <DragOverlay>
-            {activeBookmark && (
-              <div className="p-4 bg-card border border-border rounded-xl shadow-2xl opacity-90 flex items-center gap-3">
-                <GripVertical className="w-4 h-4 text-muted-foreground" />
-                {activeBookmark.favicon ? (
-                  <img src={activeBookmark.favicon} alt="" className="w-4 h-4 object-contain" />
-                ) : (
-                  <Globe className="w-4 h-4 text-foreground-muted" />
-                )}
-                <span className="text-sm text-foreground">{activeBookmark.title}</span>
-              </div>
+              </SortableContext>
             )}
-          </DragOverlay>
-        </DndContext>
-      </div>
+          </div>
+        </div>
+
+        <DragOverlay>
+          {activeBookmark && (
+            <div className="flex items-center gap-3 rounded-card border border-border-subtle bg-elevation-2 p-4 opacity-90 shadow-panel">
+              <GripVertical className="w-4 h-4 text-muted-foreground" />
+              <Favicon
+                src={activeBookmark.favicon}
+                className="w-4 h-4 object-contain"
+                fallbackClassName="w-4 h-4 text-muted-foreground"
+              />
+              <span className="text-sm text-foreground">{activeBookmark.title}</span>
+            </div>
+          )}
+        </DragOverlay>
+      </DndContext>
 
       {/* Edit Bookmark Modal */}
       {editingBookmark && (
         <div
-          className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
           onClick={() => setEditingBookmark(null)}
         >
           <div
-            className="rounded-2xl p-6 w-full max-w-md mx-4 bg-background border border-border shadow-2xl"
+            className="w-full max-w-md mx-4 rounded-panel border border-border-subtle bg-elevation-1 p-6 shadow-panel"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-lg font-bold mb-4">{t('bookmarks.editBookmark')}</h3>
+            <h3 className="text-[17px] font-semibold mb-4">{t('bookmarks.editBookmark')}</h3>
             <div className="space-y-4">
               <div>
                 <label className="text-sm text-muted-foreground block mb-2">{t('bookmarks.bookmarkTitle')}</label>
                 <input
                   value={editingBookmark.title}
                   onChange={(e) => setEditingBookmark({ ...editingBookmark, title: e.target.value })}
-                  className="w-full px-4 py-2 rounded-full border border-border bg-background text-foreground focus:ring-2 focus:ring-primary focus:outline-none"
+                  className="w-full rounded-card bg-surface px-4 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                   autoFocus
                 />
               </div>
@@ -668,7 +620,7 @@ export const BookmarksPage = memo(function BookmarksPage() {
                 <input
                   value={editingBookmark.url}
                   onChange={(e) => setEditingBookmark({ ...editingBookmark, url: e.target.value })}
-                  className="w-full px-4 py-2 rounded-full border border-border bg-background text-foreground focus:ring-2 focus:ring-primary focus:outline-none"
+                  className="w-full rounded-card bg-surface px-4 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                 />
               </div>
               <div>
@@ -676,7 +628,7 @@ export const BookmarksPage = memo(function BookmarksPage() {
                 <select
                   value={editingBookmark.folderId ?? ''}
                   onChange={(e) => setEditingBookmark({ ...editingBookmark, folderId: e.target.value || null })}
-                  className="w-full px-4 py-2 rounded-full border border-border bg-background text-foreground focus:ring-2 focus:ring-primary focus:outline-none"
+                  className="w-full rounded-card bg-surface px-4 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                 >
                   <option value="">{t('bookmarks.unfiledBookmarks')}</option>
                   {folders.map((folder) => (
@@ -689,13 +641,13 @@ export const BookmarksPage = memo(function BookmarksPage() {
             </div>
             <div className="flex gap-3 mt-6">
               <button
-                className="flex-1 py-2.5 rounded-full text-sm font-medium border border-border hover:bg-surface-hover transition-colors"
+                className="flex-1 rounded-full border border-border-subtle bg-surface-hover py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-surface-active"
                 onClick={() => setEditingBookmark(null)}
               >
                 {t('bookmarks.cancel')}
               </button>
               <button
-                className="flex-1 py-2.5 rounded-full text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                className="flex-1 rounded-full bg-primary py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
                 onClick={handleSaveEdit}
               >
                 {t('bookmarks.save')}
@@ -708,14 +660,14 @@ export const BookmarksPage = memo(function BookmarksPage() {
       {/* New Folder Modal */}
       {creatingFolder && (
         <div
-          className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
           onClick={() => setCreatingFolder(null)}
         >
           <div
-            className="rounded-2xl p-6 w-full max-w-md mx-4 bg-background border border-border shadow-2xl"
+            className="w-full max-w-md mx-4 rounded-panel border border-border-subtle bg-elevation-1 p-6 shadow-panel"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-lg font-bold mb-4">{t('bookmarks.newFolderTitle')}</h3>
+            <h3 className="text-[17px] font-semibold mb-4">{t('bookmarks.newFolderTitle')}</h3>
             <div className="space-y-4">
               <div>
                 <label className="text-sm text-muted-foreground block mb-2">{t('bookmarks.name')}</label>
@@ -725,7 +677,7 @@ export const BookmarksPage = memo(function BookmarksPage() {
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') handleSaveNewFolder()
                   }}
-                  className="w-full px-4 py-2 rounded-full border border-border bg-background text-foreground focus:ring-2 focus:ring-primary focus:outline-none"
+                  className="w-full rounded-card bg-surface px-4 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                   placeholder={t('bookmarks.folderPlaceholder')}
                   autoFocus
                 />
@@ -733,13 +685,13 @@ export const BookmarksPage = memo(function BookmarksPage() {
             </div>
             <div className="flex gap-3 mt-6">
               <button
-                className="flex-1 py-2.5 rounded-full text-sm font-medium border border-border hover:bg-surface-hover transition-colors"
+                className="flex-1 rounded-full border border-border-subtle bg-surface-hover py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-surface-active"
                 onClick={() => setCreatingFolder(null)}
               >
                 {t('bookmarks.cancel')}
               </button>
               <button
-                className="flex-1 py-2.5 rounded-full text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 rounded-full bg-primary py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
                 onClick={handleSaveNewFolder}
                 disabled={!creatingFolder.name.trim()}
               >
@@ -753,14 +705,14 @@ export const BookmarksPage = memo(function BookmarksPage() {
       {/* Edit Folder Modal */}
       {editingFolder && (
         <div
-          className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
           onClick={() => setEditingFolder(null)}
         >
           <div
-            className="rounded-2xl p-6 w-full max-w-md mx-4 bg-background border border-border shadow-2xl"
+            className="w-full max-w-md mx-4 rounded-panel border border-border-subtle bg-elevation-1 p-6 shadow-panel"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-lg font-bold mb-4">{t('bookmarks.renameFolder')}</h3>
+            <h3 className="text-[17px] font-semibold mb-4">{t('bookmarks.renameFolder')}</h3>
             <div className="space-y-4">
               <div>
                 <label className="text-sm text-muted-foreground block mb-2">{t('bookmarks.name')}</label>
@@ -770,20 +722,20 @@ export const BookmarksPage = memo(function BookmarksPage() {
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') handleSaveFolderEdit()
                   }}
-                  className="w-full px-4 py-2 rounded-full border border-border bg-background text-foreground focus:ring-2 focus:ring-primary focus:outline-none"
+                  className="w-full rounded-card bg-surface px-4 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                   autoFocus
                 />
               </div>
             </div>
             <div className="flex gap-3 mt-6">
               <button
-                className="flex-1 py-2.5 rounded-full text-sm font-medium border border-border hover:bg-surface-hover transition-colors"
+                className="flex-1 rounded-full border border-border-subtle bg-surface-hover py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-surface-active"
                 onClick={() => setEditingFolder(null)}
               >
                 {t('bookmarks.cancel')}
               </button>
               <button
-                className="flex-1 py-2.5 rounded-full text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                className="flex-1 rounded-full bg-primary py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
                 onClick={handleSaveFolderEdit}
               >
                 {t('bookmarks.save')}
@@ -796,24 +748,24 @@ export const BookmarksPage = memo(function BookmarksPage() {
       {/* Reset Confirmation Modal */}
       {showResetModal && (
         <div
-          className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
           onClick={() => setShowResetModal(false)}
         >
           <div
-            className="rounded-2xl p-6 w-full max-w-sm mx-4 bg-background border border-border shadow-2xl"
+            className="w-full max-w-sm mx-4 rounded-panel border border-border-subtle bg-elevation-1 p-6 shadow-panel"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-lg font-bold mb-2">{t('bookmarks.resetBookmarks')}</h3>
+            <h3 className="text-[17px] font-semibold mb-2">{t('bookmarks.resetBookmarks')}</h3>
             <p className="text-sm text-muted-foreground mb-6">{t('bookmarks.deleteFolderConfirm')}</p>
             <div className="flex gap-3">
               <button
-                className="flex-1 py-2.5 rounded-full text-sm font-medium border border-border hover:bg-surface-hover transition-colors"
+                className="flex-1 rounded-full border border-border-subtle bg-surface-hover py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-surface-active"
                 onClick={() => setShowResetModal(false)}
               >
                 {t('bookmarks.cancel')}
               </button>
               <button
-                className="flex-1 py-2.5 rounded-full text-sm font-medium bg-destructive text-white hover:bg-destructive/90 transition-colors"
+                className="flex-1 rounded-full bg-destructive py-2.5 text-sm font-medium text-destructive-foreground transition-colors hover:bg-destructive/90"
                 onClick={handleReset}
               >
                 {t('bookmarks.confirm')}

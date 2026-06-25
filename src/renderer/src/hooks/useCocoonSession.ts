@@ -17,6 +17,7 @@ import type {
   CocoonStakeInfo,
 } from '../../../shared/cocoon-types'
 import { isIpcError } from '@/lib/ipc-utils'
+import { IPC_CHANNELS } from '@shared/ipc-channels'
 
 /** cocoon_wallet balance (nano-TON) above which the funding step is considered done. */
 const COCOON_WALLET_FUNDED_THRESHOLD_NANO = 1_000_000_000n
@@ -233,17 +234,15 @@ export function useCocoonSession(): UseCocoonSessionResult {
         }
       }
     })
-    const offState = window.electron.on('cocoon:state-changed', ((next: unknown) => {
-      const nextState = next as CocoonState
+    const offState = window.electron.on(IPC_CHANNELS.COCOON_STATE_CHANGED, (nextState) => {
       setState(nextState)
       if (nextState.kind === 'ready') setStartError(null)
-    }) as (...args: unknown[]) => void)
+    })
 
     // Withdraw driver pushes events as it auto-progresses. Refresh the snapshot
     // and the pending flag so the UI converges with the on-chain state without
     // needing the user to do anything.
-    const offWithdraw = window.electron.on('cocoon:withdraw:event', ((event: unknown) => {
-      const e = event as { type: string }
+    const offWithdraw = window.electron.on(IPC_CHANNELS.COCOON_WITHDRAW_EVENT, (e) => {
       if (e.type === 'completed') {
         setPendingWithdraw(null)
         refresh()
@@ -254,7 +253,7 @@ export function useCocoonSession(): UseCocoonSessionResult {
         if (isIpcError(s)) return
         setStakeInfo(s as CocoonStakeInfo | null)
       })
-    }) as (...args: unknown[]) => void)
+    })
 
     return () => {
       cancelled = true

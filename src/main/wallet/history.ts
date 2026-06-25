@@ -4,7 +4,7 @@
  */
 
 import { SafeStorageWrapper } from '../history/safe-storage-wrapper'
-import { WALLET_HISTORY_FILE_NAME } from './constants'
+import { WALLET_HISTORY_FILE_NAME, WALLET_HISTORY_CACHE_LIMIT } from './constants'
 import type { WalletTransaction } from '../../shared/types'
 import { createLogger } from '../../shared/logger'
 import { rawToFriendly } from './address-utils'
@@ -77,44 +77,40 @@ export class WalletHistoryManager {
     }
   }
 
-  /**
-   * Merge on-chain transactions with local ones.
-   * On-chain is source of truth. Local pending txs are kept until confirmed on-chain.
-   * x402 metadata from local records is transferred to matching on-chain records.
-   */
-  merge(onChain: WalletTransaction[], local: WalletTransaction[]): WalletTransaction[] {
-    const merged = [...onChain]
+  async reconcile(onChain: WalletTransaction[]): Promise<WalletTransaction[]> {
+    const cached = await this.getAll()
+    const keyOf = (tx: WalletTransaction): string => (tx.hash ? `h:${tx.hash}` : `i:${tx.id}`)
+    const byKey = new Map<string, WalletTransaction>()
 
-    for (const localTx of local) {
-      if (localTx.status === 'pending') {
-        const confirmedOnChain = onChain.some(
-          (onTx) =>
-            onTx.hash === localTx.hash ||
-            (onTx.address === localTx.address &&
-              onTx.amount === localTx.amount &&
-              Math.abs(onTx.timestamp - localTx.timestamp) < 120000)
-        )
-        if (!confirmedOnChain) {
-          merged.unshift(localTx)
-        }
-      }
+    for (const tx of cached) byKey.set(keyOf(tx), tx)
 
-      if (localTx.type === 'x402' && localTx.x402Domain) {
-        const match = merged.find(
-          (m) =>
-            m.address === localTx.address &&
-            m.amount === localTx.amount &&
-            Math.abs(m.timestamp - localTx.timestamp) < 120000
-        )
-        if (match) {
-          match.type = 'x402'
-          match.x402Domain = localTx.x402Domain
-          match.x402Url = localTx.x402Url
-        }
+    for (const tx of onChain) {
+      const key = keyOf(tx)
+      const prev = byKey.get(key)
+      if (prev?.type === 'x402') {
+        tx.type = 'x402'
+        tx.x402Domain = prev.x402Domain
+        tx.x402Url = prev.x402Url
       }
+      byKey.set(key, tx)
     }
 
-    return merged.sort((a, b) => b.timestamp - a.timestamp)
+    const result = [...byKey.values()].filter((tx) => {
+      if (tx.status !== 'pending') return true
+      return !onChain.some(
+        (on) =>
+          keyOf(on) !== keyOf(tx) &&
+          on.address === tx.address &&
+          on.amount === tx.amount &&
+          Math.abs(on.timestamp - tx.timestamp) < 120000
+      )
+    })
+
+    result.sort((a, b) => b.timestamp - a.timestamp)
+    const capped = result.slice(0, WALLET_HISTORY_CACHE_LIMIT)
+    await this.storage.write(capped)
+    this.cache = capped
+    return capped
   }
 
   /**

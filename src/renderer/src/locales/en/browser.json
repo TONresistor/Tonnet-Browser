@@ -46,7 +46,7 @@
   },
   "tip": {
     "resolveError": "Could not resolve domain",
-    "title": "Tip {{amount}} TON to {{domain}}"
+    "title": "Tip {{amount}} GRAM to {{domain}}"
   },
   "dnd": {
     "pickedUp": "Picked up {{type}}: {{name}}",

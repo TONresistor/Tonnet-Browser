@@ -7,7 +7,6 @@ import { app } from 'electron'
 import { join } from 'path'
 import { existsSync, readFileSync } from 'fs'
 import { writeSecureJsonAtomic } from '../utils/secure-fs'
-import { DEFAULT_SETTINGS } from '../../shared/defaults'
 import type { ThemeType } from '../../shared/defaults'
 import type {
   GeneralSettings,
@@ -37,92 +36,17 @@ export type {
 }
 
 // File paths
-let _basePath: string | undefined
-export function setBasePath(path: string): void {
-  _basePath = path
-}
-const getSettingsDir = () => _basePath ?? join(app.getPath('userData'))
+const getSettingsDir = () => join(app.getPath('userData'))
 const getSettingsFile = () => join(getSettingsDir(), 'app-settings.json')
-const getDefaultStoragePath = () => join(_basePath ?? app.getPath('userData'), 'storage')
+const getDefaultStoragePath = () => join(app.getPath('userData'), 'storage')
 
-// Default settings (using shared defaults)
+// Default settings, derived from the Zod schema's field-level `.default()`s
+// (single source of truth). Only the platform-specific download path is
+// applied on top, since the schema cannot know it.
 export function getDefaultSettings(): AppSettings {
-  return {
-    general: {
-      homepage: DEFAULT_SETTINGS.homepage,
-      resolveEth: DEFAULT_SETTINGS.resolveEth,
-      ethRpc: DEFAULT_SETTINGS.ethRpc,
-      resolveSol: DEFAULT_SETTINGS.resolveSol,
-      solRpc: DEFAULT_SETTINGS.solRpc,
-    },
-    network: {
-      proxyPort: DEFAULT_SETTINGS.proxyPort,
-      storagePort: DEFAULT_SETTINGS.storagePort,
-      wsPort: DEFAULT_SETTINGS.wsPort,
-      autoConnect: DEFAULT_SETTINGS.autoConnect,
-      connectionTimeout: DEFAULT_SETTINGS.connectionTimeout,
-      syncCheckInterval: DEFAULT_SETTINGS.syncCheckInterval,
-      anonymousMode: DEFAULT_SETTINGS.anonymousMode,
-      tunnelMode: DEFAULT_SETTINGS.tunnelMode,
-    },
-    storage: {
-      downloadPath: getDefaultStoragePath(), // Platform-specific override
-      pollingInterval: DEFAULT_SETTINGS.pollingInterval,
-      seedingEnabled: DEFAULT_SETTINGS.seedingEnabled,
-      downloadSpeedLimit: DEFAULT_SETTINGS.downloadSpeedLimit,
-      uploadSpeedLimit: DEFAULT_SETTINGS.uploadSpeedLimit,
-    },
-    appearance: {
-      theme: DEFAULT_SETTINGS.theme,
-      customThemes: DEFAULT_SETTINGS.customThemes,
-      language: DEFAULT_SETTINGS.language,
-      defaultZoom: DEFAULT_SETTINGS.defaultZoom,
-      zoomMin: DEFAULT_SETTINGS.zoomMin,
-      zoomMax: DEFAULT_SETTINGS.zoomMax,
-      showBookmarksBar: DEFAULT_SETTINGS.showBookmarksBar,
-      showStatusBar: DEFAULT_SETTINGS.showStatusBar,
-      tabOrientation: DEFAULT_SETTINGS.tabOrientation,
-      sidebarWidth: DEFAULT_SETTINGS.sidebarWidth,
-    },
-    privacy: {
-      clearOnExit: DEFAULT_SETTINGS.clearOnExit,
-      disableCache: DEFAULT_SETTINGS.disableCache,
-      firstPartyIsolation: DEFAULT_SETTINGS.firstPartyIsolation,
-      cookieAutoDelete: DEFAULT_SETTINGS.cookieAutoDelete,
-      cookieAutoDeleteMinutes: DEFAULT_SETTINGS.cookieAutoDeleteMinutes,
-      historyMode: DEFAULT_SETTINGS.historyMode,
-      historyMaxEntries: DEFAULT_SETTINGS.historyMaxEntries,
-    },
-    contentFiltering: {
-      enabled: DEFAULT_SETTINGS.contentFiltering.enabled,
-      blockAds: DEFAULT_SETTINGS.contentFiltering.blockAds,
-      blockTrackers: DEFAULT_SETTINGS.contentFiltering.blockTrackers,
-      blockMiners: DEFAULT_SETTINGS.contentFiltering.blockMiners,
-      blockMalware: DEFAULT_SETTINGS.contentFiltering.blockMalware,
-      blockAnnoyances: DEFAULT_SETTINGS.contentFiltering.blockAnnoyances,
-      whitelistedDomains: DEFAULT_SETTINGS.contentFiltering.whitelistedDomains,
-    },
-    advanced: {
-      proxyVerbosity: DEFAULT_SETTINGS.proxyVerbosity,
-      storageVerbosity: DEFAULT_SETTINGS.storageVerbosity,
-      syncTestDomain: DEFAULT_SETTINGS.syncTestDomain,
-    },
-    wallet: {
-      paymentMode: DEFAULT_SETTINGS.wallet.paymentMode,
-      notificationStyle: DEFAULT_SETTINGS.wallet.notificationStyle,
-      limits: { ...DEFAULT_SETTINGS.wallet.limits },
-      sitePolicies: [...DEFAULT_SETTINGS.wallet.sitePolicies],
-      autoPayDomains: [...DEFAULT_SETTINGS.wallet.autoPayDomains],
-      autoLockMinutes: DEFAULT_SETTINGS.wallet.autoLockMinutes,
-    },
-    bridge: {
-      permissions: [],
-      defaultPolicy: 'ask',
-    },
-    cocoon: {
-      autostart: DEFAULT_SETTINGS.cocoon.autostart,
-    },
-  }
+  const defaults = AppSettingsSchema.parse({})
+  defaults.storage.downloadPath = getDefaultStoragePath()
+  return defaults
 }
 
 // In-memory cache
@@ -213,6 +137,43 @@ export function migrateSettings(raw: unknown): { migrated: boolean; data: unknow
   }
 }
 
+// Migrate legacy theme names to current ones (pre-Zod; the schema still accepts
+// the legacy literals, so rewriting here removes them from disk on next persist).
+const LEGACY_THEME_MAP: Record<string, string> = {
+  'midnight-blue': 'resistance-dog',
+  'canard-yellow': 'utya-duck',
+}
+export function migrateTheme(raw: unknown): { migrated: boolean; data: unknown } {
+  if (!raw || typeof raw !== 'object') return { migrated: false, data: raw }
+  const obj = raw as Record<string, unknown>
+  const appearance = obj.appearance as Record<string, unknown> | undefined
+  const theme = appearance?.theme
+  if (typeof theme === 'string' && LEGACY_THEME_MAP[theme]) {
+    return {
+      migrated: true,
+      data: { ...obj, appearance: { ...appearance, theme: LEGACY_THEME_MAP[theme] } },
+    }
+  }
+  return { migrated: false, data: raw }
+}
+
+/** Run all pre-validation migrations in sequence, reporting if any changed the data. */
+function migrateAll(raw: unknown): { migrated: boolean; data: unknown } {
+  const r1 = migrateSettings(raw)
+  const r2 = migrateNotificationStyle(r1.data)
+  const r3 = migrateTheme(r2.data)
+  return { migrated: r1.migrated || r2.migrated || r3.migrated, data: r3.data }
+}
+
+/** Persist during load without letting a transient write failure abort startup. */
+function persistBestEffort(settings: AppSettings): void {
+  try {
+    saveSettings(settings)
+  } catch {
+    /* saveSettings already logged; in-memory settings are still usable */
+  }
+}
+
 // Load settings from disk
 export function loadSettings(): AppSettings {
   if (settingsCache) {
@@ -224,54 +185,37 @@ export function loadSettings(): AppSettings {
 
   if (!existsSync(settingsFile)) {
     settingsCache = defaults
-    saveSettings(defaults)
+    persistBestEffort(defaults)
     return defaults
   }
 
   try {
-    const data = readFileSync(settingsFile, 'utf-8')
-    const raw: unknown = JSON.parse(data)
+    const raw: unknown = JSON.parse(readFileSync(settingsFile, 'utf-8'))
 
-    // Migrate legacy v1.5.3 fields before Zod validation
-    const { migrated: m1, data: d1 } = migrateSettings(raw)
-    if (m1) {
-      log.info('Migrated legacy network settings (circuitRotation/rotateInterval → tunnelMode)')
+    const { migrated, data: parsed } = migrateAll(raw)
+    if (migrated) {
+      log.info('Migrated legacy settings to current schema')
     }
-    const { migrated: m2, data: parsed } = migrateNotificationStyle(d1)
-    if (m2) {
-      log.info('Migrated legacy notificationStyle')
-    }
-    const migrated = m1 || m2
 
     // Use Zod to validate and apply defaults for missing fields
     const result = AppSettingsSchema.safeParse(parsed)
-
     if (!result.success) {
       log.warn(`Invalid settings file format: ${result.error.message}, using defaults`)
       settingsCache = defaults
-      saveSettings(defaults)
+      persistBestEffort(defaults)
       return defaults
     }
 
     settingsCache = result.data
 
-    // Persist migrated settings immediately so legacy keys are removed from disk
-    if (migrated) {
-      saveSettings(settingsCache)
-    }
-
-    // Apply dynamic default for downloadPath if not set
+    // Apply dynamic default for downloadPath if not set (in-memory only)
     if (!settingsCache.storage.downloadPath) {
       settingsCache.storage.downloadPath = getDefaultStoragePath()
     }
 
-    // Migrate old theme names to new ones
-    if (settingsCache.appearance.theme === ('midnight-blue' as ThemeType)) {
-      settingsCache.appearance.theme = 'resistance-dog'
-      saveSettings(settingsCache)
-    } else if (settingsCache.appearance.theme === ('canard-yellow' as ThemeType)) {
-      settingsCache.appearance.theme = 'utya-duck'
-      saveSettings(settingsCache)
+    // Persist once if any migration rewrote the data, so legacy keys leave disk
+    if (migrated) {
+      persistBestEffort(settingsCache)
     }
 
     return settingsCache
@@ -288,6 +232,7 @@ export function saveSettings(settings: AppSettings): void {
     settingsCache = settings
   } catch (error) {
     log.error(`Failed to save settings: ${String(error)}`)
+    throw error
   }
 }
 

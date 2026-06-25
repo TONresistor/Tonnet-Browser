@@ -1,5 +1,8 @@
 /**
- * Composant Toggle réutilisable
+ * Switch réutilisable — reproduit à l'identique du composant "Toggle - Switch" du
+ * Telegram iOS UI Kit (Figma node 6028:3502) : track 64×28 rounded-full overflow-clip,
+ * knob blanc 39×24 rounded-full inset 2px. Le ON utilise le bleu TON (theme primary)
+ * au lieu du vert iOS du kit (#34c759).
  */
 
 import { cn } from '@/lib/utils'
@@ -7,29 +10,29 @@ import { cn } from '@/lib/utils'
 interface ToggleProps {
   checked: boolean
   onChange: (checked: boolean) => void
-  label: string
+  ariaLabel: string
   disabled?: boolean
 }
 
-export function Toggle({ checked, onChange, label, disabled }: ToggleProps) {
+export function Toggle({ checked, onChange, ariaLabel, disabled }: ToggleProps) {
   return (
     <button
       role="switch"
       aria-checked={checked}
-      aria-label={label}
+      aria-label={ariaLabel}
       disabled={disabled}
       onClick={() => onChange(!checked)}
       className={cn(
-        'w-11 h-6 rounded-full transition-colors relative border-2',
-        checked ? 'bg-primary border-primary' : 'bg-border/50 border-border',
-        disabled && 'opacity-50 cursor-not-allowed'
+        'relative h-[28px] w-[64px] shrink-0 overflow-hidden rounded-full transition-colors duration-200 ease-out',
+        checked ? 'bg-primary' : 'bg-switch-off',
+        disabled && 'cursor-not-allowed opacity-50'
       )}
     >
       <span
         aria-hidden="true"
         className={cn(
-          'absolute top-0.5 left-0.5 w-4 h-4 rounded-full transition-all duration-200',
-          checked ? 'left-5 bg-primary-foreground' : 'bg-foreground'
+          'absolute left-[2px] top-1/2 h-[24px] w-[39px] -translate-y-1/2 rounded-full bg-white transition-transform duration-200 ease-out',
+          checked && 'translate-x-[21px]'
         )}
       />
     </button>

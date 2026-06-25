@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Check, CheckCircle2, Copy, Loader2 } from 'lucide-react'
-import QRCode from 'qrcode'
 import { Button } from '@/components/ui/button'
-import { getIpcError } from '@/lib/ipc-utils'
+import { isIpcError } from '@/lib/ipc-utils'
+import { formatTonFixed } from '@/lib/ton-utils'
 
 /**
  * Renders a scannable QR code for the given address. Mirrors the pattern used
@@ -13,15 +13,22 @@ function AddressQR({ address }: { address: string }) {
 
   useEffect(() => {
     if (!canvasRef.current || !address) return
-    QRCode.toCanvas(canvasRef.current, address, {
-      width: 160,
-      margin: 2,
-      color: { dark: '#000000', light: '#ffffff' },
-      errorCorrectionLevel: 'M',
-    }).catch(() => {
-      // QR generation failures are non-fatal; the user can still copy the
-      // address manually below.
+    let cancelled = false
+    import('qrcode').then(({ default: QRCode }) => {
+      if (cancelled || !canvasRef.current) return
+      QRCode.toCanvas(canvasRef.current, address, {
+        width: 160,
+        margin: 2,
+        color: { dark: '#000000', light: '#ffffff' },
+        errorCorrectionLevel: 'M',
+      }).catch(() => {
+        // QR generation failures are non-fatal; the user can still copy the
+        // address manually below.
+      })
     })
+    return () => {
+      cancelled = true
+    }
   }, [address])
 
   return <canvas ref={canvasRef} className="rounded-lg" width={160} height={160} />
@@ -33,10 +40,6 @@ function AddressQR({ address }: { address: string }) {
 // e.g. 19.995) but BigInt strict-compare against 20_000_000_000n fails and
 // the wizard stays stuck on "Waiting…".
 const FUND_THRESHOLD_NANO = 19_990_000_000n
-
-function nanoToTon(nano: string): string {
-  return (Number(nano) / 1e9).toFixed(2)
-}
 
 interface Props {
   ownerAddress: string
@@ -67,9 +70,8 @@ export function Step3Fund({ ownerAddress, onComplete, onBack }: Props) {
       // Guard against IPC error envelopes: if the main side returned
       // {success:false, error:'...'} instead of a nano-TON string, skip
       // the update rather than calling BigInt() on an object.
-      const err = getIpcError(b)
-      if (err) {
-        setBalanceError(err)
+      if (isIpcError(b)) {
+        setBalanceError(b.error ?? 'Operation failed')
         return
       }
       setBalanceError(null)
@@ -104,9 +106,9 @@ export function Step3Fund({ ownerAddress, onComplete, onBack }: Props) {
 
   return (
     <div className="space-y-5">
-      <div>
+      <div className="text-center">
         <h2 className="text-lg font-semibold text-foreground mb-1">Step 3: Fund your wallet</h2>
-        <p className="text-sm text-muted-foreground">Send at least 20 TON to your owner address (stake amount).</p>
+        <p className="text-sm text-muted-foreground">Send at least 20 GRAM to your owner address (stake amount).</p>
       </div>
 
       <div className="p-3 bg-muted rounded-lg border border-border space-y-3">
@@ -135,9 +137,9 @@ export function Step3Fund({ ownerAddress, onComplete, onBack }: Props) {
         <div>
           <p className="text-xs text-muted-foreground mb-1">Current balance</p>
           <p className="text-2xl font-mono font-semibold text-foreground">
-            {balance !== null ? `${nanoToTon(balance)} TON` : '0.00 TON'}
+            {balance !== null ? `${formatTonFixed(balance)} GRAM` : '0.00 GRAM'}
           </p>
-          <p className="text-[11px] text-muted-foreground mt-1">Required: 20.00 TON minimum</p>
+          <p className="text-[11px] text-muted-foreground mt-1">Required: 20.00 GRAM minimum</p>
           {balanceError && (
             <p className="text-[11px] text-red-400 mt-1">Failed to load balance: {balanceError}. Retrying…</p>
           )}

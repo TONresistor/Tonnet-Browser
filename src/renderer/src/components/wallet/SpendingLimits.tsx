@@ -60,7 +60,7 @@ function LimitField({ label, description, value, onChange }: LimitFieldProps) {
           placeholder="0 (unlimited)"
           className="w-full px-3 py-2 pr-14 text-sm rounded-md border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
         />
-        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">TON</span>
+        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">GRAM</span>
       </div>
     </div>
   )

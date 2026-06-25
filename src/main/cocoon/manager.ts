@@ -13,6 +13,7 @@ import { resolve } from 'path'
 import { createLogger } from '../../shared/logger'
 import { getCocoonBinaryPath, getTonConfigPath, getClientConfigTemplatePath } from './paths'
 import { checkCocoonAvailability } from './platform'
+import { trackDaemon } from '../daemon-registry'
 
 const log = createLogger('cocoon:manager')
 
@@ -49,7 +50,6 @@ export class CocoonManager extends EventEmitter {
   private state: CocoonState = { kind: 'stopped' }
   private runDir: string | null = null
   private httpPort: number = 10000
-  private readinessTimer: ReturnType<typeof setTimeout> | null = null
   private killTimer: ReturnType<typeof setTimeout> | null = null
   private stopping = false
 
@@ -106,7 +106,6 @@ export class CocoonManager extends EventEmitter {
       clearTimeout(this.killTimer)
       this.killTimer = null
     }
-    this.clearReadinessTimer()
 
     const runner = this.runnerProcess
 
@@ -233,6 +232,7 @@ export class CocoonManager extends EventEmitter {
         COCOON_SKIP_PROXY_HASH: '1',
       },
     })
+    trackDaemon('cocoon-runner', this.runnerProcess)
 
     this.attachOutputHandlers(this.runnerProcess, 'runner')
 
@@ -291,13 +291,6 @@ export class CocoonManager extends EventEmitter {
     }
 
     throw new Error(`Cocoon not ready after ${READINESS_TIMEOUT_MS / 1000}s`)
-  }
-
-  private clearReadinessTimer(): void {
-    if (this.readinessTimer) {
-      clearTimeout(this.readinessTimer)
-      this.readinessTimer = null
-    }
   }
 
   private transition(next: CocoonState): void {

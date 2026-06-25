@@ -3,34 +3,16 @@
  * Non-persisted runtime wallet state — synced from main via IPC.
  */
 
+import { errorMessage } from '@shared/errors'
 import { create } from 'zustand'
 import { getIpcError } from '@/lib/ipc-utils'
 import type { WalletTransaction, PaymentNotificationData, NotificationStyle } from '@shared/types'
 import { WALLET_TX_DISPLAY_CAP } from '@shared/constants'
 import { IPC_CHANNELS } from '@shared/ipc-channels'
 
-export function formatTonAmount(nanoTon: string): string {
-  if (!nanoTon) return '0'
-  try {
-    const ton = BigInt(nanoTon)
-    const whole = ton / 1000000000n
-    const frac = ton % 1000000000n
-    if (frac === 0n) return whole.toString()
-    const fracStr = frac.toString().padStart(9, '0').replace(/0+$/, '')
-    return `${whole}.${fracStr.slice(0, 4)}`
-  } catch {
-    return '0'
-  }
-}
-
-export function tonToNano(ton: string): string {
-  if (!ton || ton.startsWith('-')) throw new Error('Invalid amount')
-  const parts = ton.split('.')
-  const whole = BigInt(parts[0] || '0') * 1000000000n
-  if (!parts[1]) return whole.toString()
-  const fracStr = parts[1].padEnd(9, '0').slice(0, 9)
-  return (whole + BigInt(fracStr)).toString()
-}
+// Re-exported from lib/ton-utils for back-compat with the many components that
+// import these from the wallet store.
+export { formatTonAmount, tonToNano } from '@/lib/ton-utils'
 
 interface WalletStore {
   isCreated: boolean
@@ -72,15 +54,13 @@ export const useWalletStore = create<WalletStore>((set, get) => {
     if (unsubState) unsubState()
     if (unsubNewTx) unsubNewTx()
 
-    unsubBalance = window.electron.on(IPC_CHANNELS.WALLET_BALANCE_UPDATED, (...args: unknown[]) => {
-      const balance = args[0] as string
+    unsubBalance = window.electron.on(IPC_CHANNELS.WALLET_BALANCE_UPDATED, (balance) => {
       if (typeof balance === 'string') {
         set({ balance })
       }
     })
 
-    unsubNewTx = window.electron.on(IPC_CHANNELS.WALLET_NEW_TRANSACTION, (...args: unknown[]) => {
-      const tx = args[0] as WalletTransaction | undefined
+    unsubNewTx = window.electron.on(IPC_CHANNELS.WALLET_NEW_TRANSACTION, (tx) => {
       if (!tx || typeof tx !== 'object' || typeof tx.id !== 'string') return
       // Functional set for atomic dedup: two pushes arriving back-to-back both
       // read the same snapshot with get(), so the check-then-set would race.
@@ -93,16 +73,7 @@ export const useWalletStore = create<WalletStore>((set, get) => {
       })
     })
 
-    unsubState = window.electron.on(IPC_CHANNELS.WALLET_STATE_CHANGED, (...args: unknown[]) => {
-      const state = args[0] as {
-        isCreated?: boolean
-        address?: string
-        addressRaw?: string
-        publicKey?: string
-        balance?: string
-        decryptFailed?: boolean
-        weakEncryption?: boolean
-      }
+    unsubState = window.electron.on(IPC_CHANNELS.WALLET_STATE_CHANGED, (state) => {
       if (state && typeof state === 'object') {
         set({
           isCreated: state.isCreated ?? get().isCreated,
@@ -183,7 +154,7 @@ export const useWalletStore = create<WalletStore>((set, get) => {
           set({ notificationStyle: walletSettings.notificationStyle })
         }
       } catch (err) {
-        set({ error: (err as Error).message })
+        set({ error: errorMessage(err) })
       } finally {
         set({ isLoading: false })
       }
@@ -207,7 +178,7 @@ export const useWalletStore = create<WalletStore>((set, get) => {
         }
         return null
       } catch (err) {
-        set({ error: (err as Error).message })
+        set({ error: errorMessage(err) })
         return null
       } finally {
         set({ isLoading: false })
@@ -230,7 +201,7 @@ export const useWalletStore = create<WalletStore>((set, get) => {
           weakEncryption: false,
         })
       } catch (err) {
-        set({ error: (err as Error).message })
+        set({ error: errorMessage(err) })
         throw err
       } finally {
         set({ isLoading: false })
@@ -252,7 +223,7 @@ export const useWalletStore = create<WalletStore>((set, get) => {
           set({ balance: result })
         }
       } catch (err) {
-        set({ error: (err as Error).message })
+        set({ error: errorMessage(err) })
       }
     },
 
@@ -265,7 +236,7 @@ export const useWalletStore = create<WalletStore>((set, get) => {
         await get().refreshBalance()
         await get().loadHistory()
       } catch (err) {
-        set({ error: (err as Error).message })
+        set({ error: errorMessage(err) })
         throw err
       } finally {
         set({ isSending: false })
@@ -284,7 +255,7 @@ export const useWalletStore = create<WalletStore>((set, get) => {
           set({ transactions: result })
         }
       } catch (err) {
-        set({ error: (err as Error).message })
+        set({ error: errorMessage(err) })
       }
     },
 
@@ -305,7 +276,7 @@ export const useWalletStore = create<WalletStore>((set, get) => {
           error: null,
         })
       } catch (err) {
-        set({ error: (err as Error).message })
+        set({ error: errorMessage(err) })
       }
     },
 
@@ -314,7 +285,7 @@ export const useWalletStore = create<WalletStore>((set, get) => {
         await window.electron.wallet.clearHistory()
         set({ transactions: [] })
       } catch (err) {
-        set({ error: (err as Error).message })
+        set({ error: errorMessage(err) })
       }
     },
   }
@@ -322,16 +293,13 @@ export const useWalletStore = create<WalletStore>((set, get) => {
 
 // Refresh notificationStyle when wallet settings change
 if (typeof window !== 'undefined' && window.electron) {
-  const unsubSettings = window.electron.on('settings:changed', (...args: unknown[]) => {
-    const data = args[0] as { reset?: boolean; category?: string }
+  const unsubSettings = window.electron.on(IPC_CHANNELS.SETTINGS_CHANGED, (data) => {
     if (data.category === 'wallet' || data.reset) {
       window.electron.settings.get('wallet').then((ws) => {
         useWalletStore.setState({ notificationStyle: ws?.notificationStyle ?? 'popup' })
       })
     }
   })
-  const hot = (import.meta as unknown as Record<string, unknown>).hot as
-    | { dispose: (cb: () => void) => void }
-    | undefined
+  const hot = import.meta.hot
   if (hot) hot.dispose(() => unsubSettings())
 }

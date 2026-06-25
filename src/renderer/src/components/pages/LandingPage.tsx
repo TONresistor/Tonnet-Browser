@@ -37,14 +37,13 @@ export function LandingPage() {
 
   // Listen for proxy progress events and auto-connect trigger
   useEffect(() => {
-    const unsubProgress = window.electron.on(IPC_CHANNELS.PROXY_PROGRESS, (...args: unknown[]) => {
-      const data = args[0] as { step: number; message: string }
+    const unsubProgress = window.electron.on(IPC_CHANNELS.PROXY_PROGRESS, (data) => {
       setCurrentStep(data.step)
       setStepMessage(data.message)
     })
 
     // Auto-connect triggers the same loading state as manual connect
-    const unsubAutoConnect = window.electron.on('proxy:auto-connect', () => {
+    const unsubAutoConnect = window.electron.on(IPC_CHANNELS.PROXY_AUTO_CONNECT, () => {
       setAutoConnecting(true)
     })
 

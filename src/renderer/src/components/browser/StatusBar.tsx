@@ -5,6 +5,7 @@
 
 import { useEffect, useState, memo } from 'react'
 import { createLogger } from '@/logger'
+import { IPC_CHANNELS } from '@shared/ipc-channels'
 
 const log = createLogger('status')
 import { Wifi, WifiOff, LoaderCircle, ArrowDown, ArrowUp } from 'lucide-react'
@@ -15,7 +16,6 @@ import { usePreferencesStore } from '@/stores/preferences'
 import { useWalletStore, formatTonAmount } from '@/stores/wallet'
 import { useTabsStore } from '@/stores/tabs'
 import { APP_VERSION, TON_WALLET_PAGE, TUNNEL_SECTIONS } from '@shared/constants'
-import type { StorageBag } from '@shared/types'
 import { useTranslation } from 'react-i18next'
 import { formatSpeed } from '@/lib/format'
 
@@ -26,6 +26,16 @@ function formatTime(date: Date, locale?: string): string {
 // Separator component
 function Separator() {
   return <div className="w-px h-3 bg-border" />
+}
+
+// Leaf component so the 1 Hz tick re-renders only the clock, not the whole footer.
+function Clock({ locale }: { locale?: string }) {
+  const [now, setNow] = useState(() => new Date())
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 1000)
+    return () => clearInterval(timer)
+  }, [])
+  return <span className="text-foreground">{formatTime(now, locale)}</span>
 }
 
 export const StatusBar = memo(function StatusBar() {
@@ -47,39 +57,29 @@ export const StatusBar = memo(function StatusBar() {
   const openOrSwitchToTab = useTabsStore((s) => s.openOrSwitchToTab)
   const seedingEnabled = usePreferencesStore((s) => s.saved.seedingEnabled)
   const tunnelMode = usePreferencesStore((s) => s.saved.tunnelMode)
-  const [currentTime, setCurrentTime] = useState(new Date())
-  // Clock update
-  useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000)
-    return () => clearInterval(timer)
-  }, [])
-
   useEffect(() => {
     // Listen for proxy status updates from main process
-    const unsubProxyStatus = window.electron.on('proxy:status', (...args: unknown[]) => {
-      const data = args[0]
-      // Runtime validation
+    const unsubProxyStatus = window.electron.on(IPC_CHANNELS.PROXY_STATUS, (data) => {
+      // Runtime validation (the payload crosses an unchecked IPC boundary)
       if (!data || typeof data !== 'object') {
         log.error('Invalid proxy:status data:', data)
         return
       }
-      const status = data as { status: string; anonymousMode?: boolean; circuitRelays?: string[] }
-      if (typeof status.status !== 'string') {
+      if (typeof data.status !== 'string') {
         log.error('Invalid status field type')
         return
       }
       setProxyStatus(
-        status.status === 'connected',
-        status.status === 'syncing',
+        data.status === 'connected',
+        data.status === 'syncing',
         undefined,
-        status.anonymousMode,
-        status.circuitRelays
+        data.anonymousMode,
+        data.circuitRelays
       )
     })
 
     // Listen for storage bags updates
-    const unsubBagsUpdated = window.electron.on('storage:bags-updated', (...args: unknown[]) => {
-      const bags = args[0] as StorageBag[]
+    const unsubBagsUpdated = window.electron.on(IPC_CHANNELS.STORAGE_BAGS_UPDATED, (bags) => {
       const downloadSpeed = bags.reduce((sum, b) => sum + b.downloadSpeed, 0)
       const uploadSpeed = bags.reduce((sum, b) => sum + b.uploadSpeed, 0)
       setStorageStats({
@@ -167,8 +167,10 @@ export const StatusBar = memo(function StatusBar() {
 
         {/* Storage Bags */}
         <Separator />
-        <div
-          className="flex items-center gap-1.5 text-muted-foreground"
+        <button
+          type="button"
+          onClick={() => openOrSwitchToTab('ton://storage')}
+          className="flex items-center gap-1.5 text-muted-foreground transition-colors hover:text-foreground"
           aria-label={`${storageStats.bagsCount} ${storageStats.bagsCount === 1 ? t('statusBar.bag') : t('statusBar.bags')}`}
         >
           <span>{t('statusBar.storage')}</span>
@@ -176,7 +178,7 @@ export const StatusBar = memo(function StatusBar() {
             {storageStats.bagsCount} {storageStats.bagsCount === 1 ? t('statusBar.bag') : t('statusBar.bags')}
           </span>
           {seedingEnabled && <span className="text-success">{t('statusBar.seeding')}</span>}
-        </div>
+        </button>
 
         {/* Transfer Speeds */}
         {(storageStats.downloadSpeed > 0 || storageStats.uploadSpeed > 0) && (
@@ -212,14 +214,14 @@ export const StatusBar = memo(function StatusBar() {
               aria-label={t('statusBar.walletAria')}
             >
               <img src={walletIcon} alt="" className="h-3 w-3" />
-              <span>{formatTonAmount(walletBalance)} TON</span>
+              <span>{formatTonAmount(walletBalance)} GRAM</span>
             </button>
             <Separator />
           </>
         )}
         <span aria-label={`Version ${APP_VERSION}`}>v{APP_VERSION}</span>
         <Separator />
-        <span className="text-foreground">{formatTime(currentTime, i18n.language)}</span>
+        <Clock locale={i18n.language} />
       </div>
     </footer>
   )

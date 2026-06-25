@@ -6,7 +6,7 @@
 import { app } from 'electron'
 import { join } from 'path'
 import { existsSync, readFileSync } from 'fs'
-import { writeJsonAtomic } from '../utils/secure-fs'
+import { writeJsonAtomicDurable } from '../utils/secure-fs'
 import { DEFAULT_BOOKMARKS } from '../../shared/constants'
 import { createLogger } from '../../shared/logger'
 
@@ -36,11 +36,7 @@ export interface BookmarksData {
 }
 
 // File paths
-let _basePath: string | undefined
-export function setBasePath(path: string): void {
-  _basePath = path
-}
-const getBookmarksDir = () => _basePath ?? join(app.getPath('userData'))
+const getBookmarksDir = () => join(app.getPath('userData'))
 export const getBookmarksFile = () => join(getBookmarksDir(), 'bookmarks.json')
 
 function createDefaultBookmarks(): Bookmark[] {
@@ -79,12 +75,12 @@ export function loadBookmarks(): BookmarksData {
     const parsed = JSON.parse(raw)
 
     // Support old Zustand persist format { state: { bookmarks, folders }, version }
-    const data = parsed.state ?? parsed
+    const data = parsed && typeof parsed === 'object' ? (parsed.state ?? parsed) : {}
 
-    let bookmarks: Bookmark[] = data.bookmarks
-    const folders: BookmarkFolder[] = data.folders ?? []
+    let bookmarks: Bookmark[] = Array.isArray(data.bookmarks) ? data.bookmarks : []
+    const folders: BookmarkFolder[] = Array.isArray(data.folders) ? data.folders : []
 
-    if (!bookmarks || bookmarks.length === 0) {
+    if (bookmarks.length === 0) {
       bookmarksCache = { bookmarks: createDefaultBookmarks(), folders: [] }
       saveBookmarks(bookmarksCache)
       return bookmarksCache
@@ -114,7 +110,7 @@ export function loadBookmarks(): BookmarksData {
 
 export function saveBookmarks(data: BookmarksData): void {
   try {
-    writeJsonAtomic(getBookmarksFile(), data)
+    writeJsonAtomicDurable(getBookmarksFile(), data)
     bookmarksCache = data
   } catch (error) {
     log.error(`Failed to save bookmarks: ${String(error)}`)

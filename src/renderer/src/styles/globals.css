@@ -55,6 +55,13 @@
   --radius-md: var(--radius-item);
   --radius-sm: 6px;
 
+  --radius-control: 7px;
+  --radius-field: 8px;
+  --radius-segment: 9px;
+  --radius-group: 12px;
+  --radius-card: 14px;
+  --radius-panel: 18px;
+
   --color-glass-tint: var(--glass-tint);
   --color-glass-border: var(--glass-border);
   --color-elevation-0: hsl(var(--elevation-0));
@@ -62,6 +69,11 @@
   --color-elevation-2: hsl(var(--elevation-2));
   --color-elevation-3: hsl(var(--elevation-3));
   --color-elevation-4: hsl(var(--elevation-4));
+
+  --color-switch-off: rgba(120, 120, 120, 0.2);
+
+  --shadow-control: 0 1px 3px rgba(0, 0, 0, 0.25);
+  --shadow-panel: 0 10px 30px -6px rgba(0, 0, 0, 0.45);
 
   --font-sans: Inter, system-ui, sans-serif;
 }
@@ -116,7 +128,7 @@
     --ring: 200 100% 46%; /* #0098ea - TON blue */
     --radius: 0.5rem;
     /* Status colors */
-    --success: 120 100% 55%; /* #39FF14 - Vert fluo neon */
+    --success: 145 55% 58%; /* #59cf8a - soft green */
     --success-foreground: 0 0% 100%;
     --warning: 38 92% 50%; /* #f59e0b */
     --warning-foreground: 0 0% 0%;
@@ -187,7 +199,7 @@
     --ring: 200 85% 55%; /* #2AABEE - Bleu Telegram */
     --radius: 0.5rem;
     /* Status colors */
-    --success: 120 100% 35%; /* #00B300 - Vert fluo pour light theme */
+    --success: 145 48% 40%; /* #35976a - soft green (light theme) */
     --success-foreground: 0 0% 100%;
     --warning: 15 90% 40%; /* #C24D0A - Rouge-orange */
     --warning-foreground: 0 0% 100%;
@@ -247,11 +259,6 @@
     overflow: hidden;
   }
 
-  /* Only disable text selection on specific UI elements, not globally */
-  .no-select {
-    user-select: none;
-  }
-
   /* Custom scrollbar */
   ::-webkit-scrollbar {
     width: 8px;
@@ -281,29 +288,6 @@
   -webkit-app-region: no-drag;
 }
 
-/* Tab transitions */
-.tab-enter {
-  opacity: 0;
-  transform: translateY(-10px);
-}
-
-.tab-enter-active {
-  opacity: 1;
-  transform: translateY(0);
-  transition:
-    opacity 150ms ease-out,
-    transform 150ms ease-out;
-}
-
-.tab-exit {
-  opacity: 1;
-}
-
-.tab-exit-active {
-  opacity: 0;
-  transition: opacity 100ms ease-in;
-}
-
 /* Tonsite badge color - #0098EA */
 .bg-tonsite {
   background-color: #0098ea;
@@ -316,22 +300,6 @@
 /* Theme gradient utilities */
 .gradient-primary {
   background: linear-gradient(to right, hsl(var(--primary)), hsl(var(--accent)));
-}
-
-.gradient-primary-hover {
-  background: linear-gradient(to right, hsl(var(--primary) / 0.8), hsl(var(--accent) / 0.8));
-}
-
-.gradient-muted {
-  background: linear-gradient(to right, hsl(var(--muted)), hsl(var(--background)));
-}
-
-.gradient-connecting {
-  background: linear-gradient(to right, hsl(var(--muted)), hsl(var(--card)));
-}
-
-.gradient-card {
-  background: linear-gradient(to bottom, hsl(var(--card)), hsl(var(--background)));
 }
 
 /* Theme-specific scrollbar for Utya Duck theme */
@@ -355,14 +323,6 @@
   -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.4);
   border: 1px solid var(--glass-border);
   box-shadow: var(--glass-shadow);
-}
-
-.glass-surface-subtle {
-  position: relative;
-  background: var(--glass-wash);
-  backdrop-filter: blur(var(--glass-blur)) saturate(1.2);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.2);
-  border: 1px solid var(--glass-border);
 }
 
 /* Glass card (elevated glass with stronger tint) */

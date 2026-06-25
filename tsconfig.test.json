@@ -1,0 +1,8 @@
+{
+  "extends": "./tsconfig.main.json",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "include": ["src/test-globals.d.ts", "src/main/**/*", "src/shared/**/*"],
+  "exclude": []
+}

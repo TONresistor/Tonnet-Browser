@@ -32,6 +32,7 @@ export const IPC_CHANNELS = {
   STORAGE_LIST_BAGS: 'storage:list-bags',
   STORAGE_PAUSE_BAG: 'storage:pause-bag',
   STORAGE_GET_DETAILS: 'storage:get-details',
+  STORAGE_READ_FILE: 'storage:read-file',
   STORAGE_OPEN_FOLDER: 'storage:open-folder',
   STORAGE_SHOW_FILE: 'storage:show-file',
 
@@ -72,10 +73,6 @@ export const IPC_CHANNELS = {
   HISTORY_GET_STATS: 'history:get-stats',
   HISTORY_HAS_PERSISTENT_FILE: 'history:has-persistent-file',
 
-  // Errors
-  ERRORS_GET_RECENT: 'errors:get-recent',
-  ERRORS_CLEAR: 'errors:clear',
-
   // Updater
   UPDATER_CHECK: 'updater:check',
   UPDATER_OPEN_DOWNLOAD_PAGE: 'updater:open-download-page',
@@ -113,6 +110,11 @@ export const IPC_CHANNELS = {
   BRIDGE_GET_CONFIG: 'bridge:get-config',
   BRIDGE_SET_CONFIG: 'bridge:set-config',
   BRIDGE_RESTART: 'bridge:restart',
+
+  TONCONNECT_REQUEST: 'tonconnect:request',
+  TONCONNECT_EVENT: 'tonconnect:event',
+  TONCONNECT_GET_SESSIONS: 'tonconnect:get-sessions',
+  TONCONNECT_DISCONNECT_SESSION: 'tonconnect:disconnect-session',
 
   // Cocoon AI lifecycle
   COCOON_START: 'cocoon:start',
@@ -162,4 +164,19 @@ export const IPC_CHANNELS = {
   OVERLAY_HIDE_ALL: 'overlay:hide-all',
   OVERLAY_UPDATE_BOUNDS: 'overlay:update-bounds',
   OVERLAY_ACTION: 'overlay:action',
+
+  // Push events (main -> renderer)
+  PAGE_LOADING: 'page:loading',
+  PAGE_NAVIGATE: 'page:navigate',
+  PAGE_TITLE: 'page:title',
+  PAGE_FAVICON: 'page:favicon',
+  CONTEXT_OPEN_LINK: 'context:open-link',
+  PROXY_AUTO_CONNECT: 'proxy:auto-connect',
+  STORAGE_BAGS_UPDATED: 'storage:bags-updated',
+  STORAGE_STATUS: 'storage:status',
+  SETTINGS_CHANGED: 'settings:changed',
+  TAB_HISTORY_RESET: 'tab:history-reset',
+  WALLET_PAYMENT_REQ: 'wallet:payment-req',
+  WALLET_PAYMENT_MADE: 'wallet:payment-made',
+  WALLET_PAYMENT_FAILED: 'wallet:payment-failed',
 } as const

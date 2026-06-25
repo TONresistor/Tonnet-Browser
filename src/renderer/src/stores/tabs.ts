@@ -7,7 +7,15 @@ import { create } from 'zustand'
 import { useBrowserStore } from './browser'
 import i18n from '@/i18n'
 import type { Tab as BaseTab } from '@shared/types'
+import { shortId } from '@/lib/id'
 import { createLogger } from '@/logger'
+import walletIcon from '@/assets/wallet.svg'
+import storageIcon from '@/assets/storage.svg'
+import settingsIcon from '@/assets/settings.svg'
+import cocoonIcon from '@/assets/cocoon.png'
+import bookmarkIcon from '@/assets/bookmark.svg'
+import historyIcon from '@/assets/history.svg'
+import dnsIcon from '@/assets/dns.svg'
 
 const log = createLogger('tabs')
 
@@ -23,15 +31,51 @@ const MAX_HISTORY = 10
 export function getInternalPageTitle(url: string): string | null {
   if (!url.startsWith('ton://')) return null
   const page = url.replace('ton://', '')
+  if (page.startsWith('storage/browse/') || page.startsWith('storage/view/'))
+    return i18n.t('storage.title', { ns: 'settings' })
   switch (page) {
     case 'start':
       return i18n.t('tabs.newTab', { ns: 'browser' })
+    case 'wallet':
+      return i18n.t('page.title', { ns: 'wallet' })
     case 'storage':
       return i18n.t('storage.title', { ns: 'settings' })
     case 'settings':
       return i18n.t('title', { ns: 'settings' })
+    case 'cocoon':
+      return i18n.t('tooltips.cocoon', { ns: 'common' })
+    case 'bookmarks':
+      return i18n.t('bookmarks.title', { ns: 'settings' })
+    case 'history':
+      return i18n.t('history.title', { ns: 'pages' })
+    case 'dns':
+      return i18n.t('title', { ns: 'dns' })
     default:
       return i18n.t('appName', { ns: 'common' })
+  }
+}
+
+export function getInternalPageFavicon(url: string): string | null {
+  if (!url.startsWith('ton://')) return null
+  const page = url.replace('ton://', '')
+  if (page.startsWith('storage/browse/') || page.startsWith('storage/view/')) return storageIcon
+  switch (page) {
+    case 'wallet':
+      return walletIcon
+    case 'storage':
+      return storageIcon
+    case 'settings':
+      return settingsIcon
+    case 'cocoon':
+      return cocoonIcon
+    case 'bookmarks':
+      return bookmarkIcon
+    case 'history':
+      return historyIcon
+    case 'dns':
+      return dnsIcon
+    default:
+      return null
   }
 }
 
@@ -57,12 +101,6 @@ interface TabsState {
   reorderTabs: (tabId: string, newIndex: number) => void
 }
 
-// Generate cryptographically secure random ID
-const generateId = () => {
-  // Use crypto.randomUUID() for secure IDs, extract first 7 chars for compatibility
-  return crypto.randomUUID().replace(/-/g, '').substring(0, 7)
-}
-
 // Get homepage from main process settings
 async function getHomepage(): Promise<string> {
   try {
@@ -70,6 +108,32 @@ async function getHomepage(): Promise<string> {
     return general?.homepage || 'ton://start'
   } catch {
     return 'ton://start'
+  }
+}
+
+/**
+ * Applies a navigation result to a tab: writes the tab state, syncs the browser
+ * store (nav buttons + optional title), then tells main to navigate. Callers pass
+ * the already-computed url/canGoBack/canGoForward/title in `updates`.
+ */
+async function applyTabNavigation(
+  set: (updater: (state: TabsState) => Partial<TabsState>) => void,
+  tabId: string,
+  updates: Partial<Tab>,
+  errorLabel: string
+): Promise<void> {
+  set((state) => ({
+    tabs: state.tabs.map((t) => (t.id === tabId ? { ...t, ...updates } : t)),
+  }))
+  const browser = useBrowserStore.getState()
+  if (updates.url !== undefined) {
+    browser.setNavigation(updates.url, updates.canGoBack ?? false, updates.canGoForward ?? false)
+    if (updates.title) browser.setTitle(updates.title)
+    try {
+      await window.electron.navigate(updates.url, tabId)
+    } catch (error) {
+      log.error(errorLabel, error)
+    }
   }
 }
 
@@ -81,12 +145,13 @@ export const useTabsStore = create<TabsState>((set, get) => ({
   addTab: async (url?: string) => {
     // Use homepage if no URL provided
     const targetUrl = url ?? (await getHomepage())
-    const id = generateId()
+    const id = shortId()
     const title = getInternalPageTitle(targetUrl) || i18n.t('tabs.newTab', { ns: 'browser' })
     const newTab: Tab = {
       id,
       url: targetUrl,
       title,
+      favicon: getInternalPageFavicon(targetUrl) ?? undefined,
       isLoading: false,
       canGoBack: false,
       canGoForward: false,
@@ -234,24 +299,11 @@ export const useTabsStore = create<TabsState>((set, get) => ({
     if (internalTitle) {
       updates.title = internalTitle
     }
-
-    // Update tab state
-    set((state) => ({
-      tabs: state.tabs.map((t) => (t.id === currentActiveTabId ? { ...t, ...updates } : t)),
-    }))
-
-    // Sync settings store
-    useBrowserStore.getState().setNavigation(url, newHistoryIndex > 0, false)
-    if (internalTitle) {
-      useBrowserStore.getState().setTitle(internalTitle)
+    if (url.startsWith('ton://')) {
+      updates.favicon = getInternalPageFavicon(url) ?? undefined
     }
 
-    // Navigate (handles hide/show WebContentsView)
-    try {
-      await window.electron.navigate(url, currentActiveTabId)
-    } catch (error) {
-      log.error('Failed to navigate:', error)
-    }
+    await applyTabNavigation(set, currentActiveTabId, updates, 'Failed to navigate:')
   },
 
   openOrSwitchToTab: async (url: string) => {
@@ -303,23 +355,11 @@ export const useTabsStore = create<TabsState>((set, get) => ({
     if (internalTitle) {
       updates.title = internalTitle
     }
-
-    set((state) => ({
-      tabs: state.tabs.map((t) => (t.id === activeTabId ? { ...t, ...updates } : t)),
-    }))
-
-    // Sync settings store
-    useBrowserStore.getState().setNavigation(newUrl, newIndex > 0, true)
-    if (internalTitle) {
-      useBrowserStore.getState().setTitle(internalTitle)
+    if (newUrl.startsWith('ton://')) {
+      updates.favicon = getInternalPageFavicon(newUrl) ?? undefined
     }
 
-    // Navigate
-    try {
-      await window.electron.navigate(newUrl, activeTabId)
-    } catch (error) {
-      log.error('Failed to go back:', error)
-    }
+    await applyTabNavigation(set, activeTabId, updates, 'Failed to go back:')
   },
 
   goForward: async () => {
@@ -342,23 +382,11 @@ export const useTabsStore = create<TabsState>((set, get) => ({
     if (internalTitle) {
       updates.title = internalTitle
     }
-
-    set((state) => ({
-      tabs: state.tabs.map((t) => (t.id === activeTabId ? { ...t, ...updates } : t)),
-    }))
-
-    // Sync settings store
-    useBrowserStore.getState().setNavigation(newUrl, true, newIndex < activeTab.history.length - 1)
-    if (internalTitle) {
-      useBrowserStore.getState().setTitle(internalTitle)
+    if (newUrl.startsWith('ton://')) {
+      updates.favicon = getInternalPageFavicon(newUrl) ?? undefined
     }
 
-    // Navigate
-    try {
-      await window.electron.navigate(newUrl, activeTabId)
-    } catch (error) {
-      log.error('Failed to go forward:', error)
-    }
+    await applyTabNavigation(set, activeTabId, updates, 'Failed to go forward:')
   },
 
   duplicateTab: async (id: string) => {

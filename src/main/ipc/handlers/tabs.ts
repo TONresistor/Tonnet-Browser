@@ -2,7 +2,7 @@
  * IPC handlers for tab management.
  */
 
-import { IPC_CHANNELS } from '../../../shared/types'
+import { IPC_CHANNELS } from '../../../shared/ipc-channels'
 import { secureHandleWithEvent, log } from './shared'
 import { createTab, closeTab, switchTab } from '../../windows/tabs'
 

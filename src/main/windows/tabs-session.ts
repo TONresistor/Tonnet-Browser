@@ -38,10 +38,6 @@ export function setTabDomain(tabId: string, domain: string): void {
   tabDomains.set(tabId, domain)
 }
 
-export function deleteTabDomain(tabId: string): void {
-  tabDomains.delete(tabId)
-}
-
 // --- Domain activity tracking ---
 
 export function updateDomainActivity(domain: string): void {

@@ -6,6 +6,7 @@
 import { useState, useCallback, useEffect } from 'react'
 import { LoaderCircle, Check } from 'lucide-react'
 import { useWalletStore, tonToNano } from '@/stores/wallet'
+import { TX_FEE_RESERVE_NANO } from '@/lib/ton-utils'
 import { getIpcError } from '@/lib/ipc-utils'
 import { cn } from '@/lib/utils'
 
@@ -28,7 +29,7 @@ export function TipButton({ domain }: TipButtonProps) {
       const balanceBig = BigInt(balance)
       const amountBig = BigInt(nanoAmount)
 
-      if (amountBig + 10000000n > balanceBig) {
+      if (amountBig + TX_FEE_RESERVE_NANO > balanceBig) {
         setState('error')
         setActiveAmount(amount)
         return
@@ -92,7 +93,7 @@ export function TipButton({ domain }: TipButtonProps) {
               showError && 'bg-destructive/15 text-destructive',
               isProcessing && !isActive && 'opacity-40 pointer-events-none'
             )}
-            title={`Tip ${amount} TON to ${domain}`}
+            title={`Tip ${amount} GRAM to ${domain}`}
           >
             {showSpinner ? (
               <LoaderCircle className="h-3 w-3 animate-spin" />

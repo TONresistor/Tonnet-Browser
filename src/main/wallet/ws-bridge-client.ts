@@ -10,6 +10,16 @@ import type { DnsResolveResult } from '../../shared/types'
 
 const log = createLogger('wallet:ws-bridge')
 
+/**
+ * True when a bridge get-method error indicates the contract is not yet deployed
+ * (uninitialized). The bridge surfaces this as a "not initialized" message or
+ * exit code -256; callers treat it as "seqno 0, init will deploy".
+ */
+export function isContractNotDeployedError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err ?? '')
+  return msg.includes('not initialized') || msg.includes('-256')
+}
+
 const REQUEST_TIMEOUT_MS = 10_000
 const HEARTBEAT_INTERVAL_MS = 54_000
 const PONG_TIMEOUT_MS = 60_000
@@ -34,6 +44,7 @@ export interface BridgeTransaction {
   lt: string
   /** Unix timestamp in seconds from the block's header (tx.Now in the Go serializer). */
   now: number
+  total_fees?: string
   in_msg?: { source: string; destination: string; value: string; body?: string }
   out_msgs?: Array<{ source: string; destination: string; value: string; body?: string }>
 }
@@ -115,6 +126,8 @@ export class WsBridgeClient {
   private pongTimer: ReturnType<typeof setTimeout> | null = null
   private cachedBalance: AddressScoped<string> | null = null
   private cachedSeqno: AddressScoped<number> | null = null
+  private balanceDegraded = false
+  private seqnoDegraded = false
 
   constructor(wsPort: number) {
     this.wsPort = wsPort
@@ -163,13 +176,19 @@ export class WsBridgeClient {
 
   async getBalance(address: string): Promise<string> {
     try {
-      const result = (await this.request('lite.getAccountState', { address })) as BridgeAccountState
+      const result = await this.request<BridgeAccountState>('lite.getAccountState', { address })
       const balance = result.balance ?? '0'
       this.cachedBalance = { address, value: balance }
+      this.balanceDegraded = false
       return balance
     } catch (err) {
       if (this.cachedBalance && this.cachedBalance.address === address) {
-        log.warn('getBalance failed, returning cached value')
+        if (this.balanceDegraded) {
+          log.debug('getBalance still failing, returning cached value')
+        } else {
+          log.warn('getBalance failed, returning cached value')
+          this.balanceDegraded = true
+        }
         return this.cachedBalance.value
       }
       throw err
@@ -178,13 +197,19 @@ export class WsBridgeClient {
 
   async getSeqno(address: string): Promise<number> {
     try {
-      const result = (await this.request('wallet.getSeqno', { address })) as { seqno: number | string }
+      const result = await this.request<{ seqno: number | string }>('wallet.getSeqno', { address })
       const seqno = typeof result.seqno === 'number' ? result.seqno : Number(result.seqno)
       this.cachedSeqno = { address, value: seqno }
+      this.seqnoDegraded = false
       return seqno
     } catch (err) {
       if (this.cachedSeqno && this.cachedSeqno.address === address) {
-        log.warn('getSeqno failed, returning cached value')
+        if (this.seqnoDegraded) {
+          log.debug('getSeqno still failing, returning cached value')
+        } else {
+          log.warn('getSeqno failed, returning cached value')
+          this.seqnoDegraded = true
+        }
         return this.cachedSeqno.value
       }
       throw err
@@ -208,7 +233,7 @@ export class WsBridgeClient {
       params.last_lt = lastLt
       params.last_hash = lastHash
     }
-    const result = (await this.request('lite.getTransactions', params)) as { transactions?: BridgeTransaction[] }
+    const result = await this.request<{ transactions?: BridgeTransaction[] }>('lite.getTransactions', params)
     return result.transactions ?? []
   }
 
@@ -286,7 +311,31 @@ export class WsBridgeClient {
   // --- DNS ---
 
   async resolveDomain(domain: string): Promise<DnsResolveResult> {
-    return (await this.request('dns.resolve', { domain })) as DnsResolveResult
+    const raw = await this.request<Record<string, unknown>>('dns.resolve', { domain })
+
+    // Normalize to the full DnsResolveResult shape so we capture all records the bridge/contract provides.
+    // The bridge returns mapped fields from dnsresolve (wallet, site, storage, text, next, + NFT metadata).
+    // We defensively fill new fields (storage_bag_id, next_resolver) if the bridge already sends them
+    // under common keys (e.g. storage_bag_id, dns_storage_bag_id, next_resolver, etc.).
+    const normalized: DnsResolveResult = {
+      wallet: (raw.wallet as string) ?? null,
+      site_adnl: (raw.site_adnl as string) ?? (raw.site as string) ?? null,
+      has_storage: Boolean(raw.has_storage ?? raw.storage ?? false),
+      storage_bag_id:
+        (raw.storage_bag_id as string) ?? (raw.dns_storage_bag_id as string) ?? (raw.bag_id as string) ?? null,
+      next_resolver: (raw.next_resolver as string) ?? (raw.dns_next_resolver as string) ?? (raw.next as string) ?? null,
+      owner: (raw.owner as string) ?? null,
+      nft_address: (raw.nft_address as string) ?? null,
+      collection: (raw.collection as string) ?? null,
+      editor: (raw.editor as string) ?? null,
+      initialized: raw.initialized !== false,
+      expiring_at: (raw.expiring_at as number) ?? null,
+      text_records: (raw.text_records as Record<string, string>) ?? undefined,
+      // preserve any extra fields the bridge may return
+      ...raw,
+    }
+
+    return normalized
   }
 
   // --- Generic ---
@@ -297,17 +346,22 @@ export class WsBridgeClient {
 
   // --- Internal: JSON-RPC transport ---
 
-  private request(method: string, params: RpcParams): Promise<unknown> {
+  private request<T = unknown>(method: string, params: RpcParams, guard?: (value: unknown) => value is T): Promise<T> {
     const id = String(++this.nextId)
     const message = JSON.stringify({ jsonrpc: '2.0', id, method, params })
 
-    if (!this.connected) {
-      return new Promise((resolve, reject) => {
-        this.requestQueue.push({ message, resolve, reject, method })
-      })
-    }
+    const raw = this.connected
+      ? this.sendRequest(id, message, method)
+      : new Promise<unknown>((resolve, reject) => {
+          this.requestQueue.push({ message, resolve, reject, method })
+        })
 
-    return this.sendRequest(id, message, method)
+    return raw.then((value) => {
+      if (guard && !guard(value)) {
+        throw new Error(`Unexpected response shape for ${method}`)
+      }
+      return value as T
+    })
   }
 
   private sendRequest(id: string, message: string, method: string): Promise<unknown> {

@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import { AlertTriangle, Check, Copy, Eye, EyeOff } from 'lucide-react'
+import { Check, Copy, Eye, EyeOff } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { ActionButton } from '@/components/ui/ios/ActionButton'
+import { cn } from '@/lib/utils'
 
 interface Props {
   mnemonic: string[]
@@ -30,69 +32,82 @@ export function Step2Backup({ mnemonic, onComplete, onBack }: Props) {
   }
 
   return (
-    <div className="space-y-4">
-      <div>
-        <h2 className="text-lg font-semibold text-foreground mb-1">Step 2: Back up your recovery phrase</h2>
-        <p className="text-sm text-muted-foreground">
-          Write down all 24 words in order. This is the only way to recover your wallet.
+    <div className="space-y-5">
+      <div className="text-center">
+        <h2 className="text-lg font-semibold text-foreground">Back up your recovery phrase</h2>
+        <p className="mx-auto mt-1 max-w-sm text-[13px] text-muted-foreground">
+          Write the 24 words down and keep them offline. Anyone with them controls your wallet.
         </p>
       </div>
 
-      <div className="flex items-start gap-2 p-3 bg-warning/10 border border-warning/20 rounded-lg">
-        <AlertTriangle className="h-4 w-4 text-warning mt-0.5 shrink-0" aria-hidden="true" />
-        <div>
-          <p className="text-xs font-medium text-foreground">Never share your recovery phrase</p>
-          <p className="text-[11px] text-muted-foreground mt-1">
-            Anyone with these 24 words has full control of your wallet. Store them offline in a safe place.
-          </p>
+      <div className="rounded-card border border-border-subtle bg-elevation-2 p-4">
+        <div className="mb-3 flex items-center justify-between">
+          <p className="text-xs font-medium text-foreground">Your recovery phrase</p>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-6 text-xs"
+            onClick={() => setRevealed(!revealed)}
+          >
+            {revealed ? (
+              <EyeOff className="mr-1 h-3 w-3" aria-hidden="true" />
+            ) : (
+              <Eye className="mr-1 h-3 w-3" aria-hidden="true" />
+            )}
+            {revealed ? 'Hide' : 'Show'}
+          </Button>
         </div>
+
+        <div className="grid grid-cols-3 gap-1.5">
+          {mnemonic.map((word, i) => (
+            <div key={i} className="flex items-center gap-1.5 rounded-lg bg-muted px-2 py-1.5 text-xs">
+              <span className="w-4 text-right font-mono text-[10px] text-muted-foreground">{i + 1}</span>
+              <span className="font-mono text-[11px] text-foreground">{revealed ? word : '•••••'}</span>
+            </div>
+          ))}
+        </div>
+
+        <ActionButton
+          variant="gray"
+          onClick={handleCopy}
+          className="mt-3 w-full"
+          icon={copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+        >
+          {copied ? 'Copied, clears in 30s' : 'Copy phrase'}
+        </ActionButton>
       </div>
 
-      <div className="flex items-center justify-between">
-        <p className="text-xs font-medium text-foreground">Your recovery phrase</p>
-        <Button type="button" variant="ghost" size="sm" className="h-6 text-xs" onClick={() => setRevealed(!revealed)}>
-          {revealed ? (
-            <EyeOff className="h-3 w-3 mr-1" aria-hidden="true" />
-          ) : (
-            <Eye className="h-3 w-3 mr-1" aria-hidden="true" />
-          )}
-          {revealed ? 'Hide' : 'Show'}
-        </Button>
-      </div>
-
-      <div className="grid grid-cols-3 gap-1.5">
-        {mnemonic.map((word, i) => (
-          <div key={i} className="flex items-center gap-1 px-2 py-1.5 bg-muted rounded text-xs">
-            <span className="text-muted-foreground w-4 text-right font-mono text-[10px]">{i + 1}.</span>
-            <span className="font-mono text-foreground text-[11px]">{revealed ? word : '•••••'}</span>
-          </div>
-        ))}
-      </div>
-
-      <Button type="button" variant="outline" size="sm" onClick={handleCopy} className="w-full">
-        {copied ? <Check className="h-3.5 w-3.5 mr-1.5" /> : <Copy className="h-3.5 w-3.5 mr-1.5" />}
-        {copied ? 'Copied, clears in 30s' : 'Copy phrase'}
-      </Button>
-
-      <label className="flex items-start gap-2 cursor-pointer select-none">
+      <label className="group flex cursor-pointer select-none items-start gap-3">
         <input
           type="checkbox"
           checked={acknowledged}
           onChange={(e) => setAcknowledged(e.target.checked)}
-          className="mt-0.5 h-3.5 w-3.5 rounded border-border accent-primary shrink-0"
+          className="peer sr-only"
         />
-        <span className="text-[11px] text-muted-foreground leading-relaxed">
+        <span
+          className={cn(
+            'mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-md border transition-colors',
+            'peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-1',
+            acknowledged
+              ? 'border-primary bg-primary text-primary-foreground'
+              : 'border-border-medium bg-surface group-hover:border-border-strong'
+          )}
+        >
+          {acknowledged && <Check className="h-3.5 w-3.5" strokeWidth={3} aria-hidden="true" />}
+        </span>
+        <span className="text-[12px] leading-relaxed text-muted-foreground">
           I have safely backed up my recovery phrase and understand it cannot be recovered if lost.
         </span>
       </label>
 
-      <div className="flex justify-between pt-1">
-        <Button type="button" variant="outline" size="sm" onClick={onBack}>
+      <div className="flex gap-3">
+        <ActionButton variant="gray" onClick={onBack} className="flex-1">
           Back
-        </Button>
-        <Button type="button" size="sm" onClick={onComplete} disabled={!acknowledged}>
+        </ActionButton>
+        <ActionButton variant="filled" onClick={onComplete} disabled={!acknowledged} className="flex-1">
           Continue
-        </Button>
+        </ActionButton>
       </div>
     </div>
   )

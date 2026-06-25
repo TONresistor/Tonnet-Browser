@@ -2,14 +2,19 @@
  * IPC handlers for TON Storage bag management.
  */
 
+import { errorMessage } from '../../../shared/errors'
 import path from 'path'
+import { promises as fsp } from 'fs'
 import { shell } from 'electron'
-import { IPC_CHANNELS } from '../../../shared/types'
+import { IPC_CHANNELS } from '../../../shared/ipc-channels'
 import { isValidBagId } from '../validation'
 import { secureHandle, secureHandleWithEvent, emitToRenderer, storageLimiter, log } from './shared'
-import { addBag, removeBag, listBags, pauseBag, getBagDetails, setBagsStorageManager } from '../../storage/bags'
 import { getDownloadPath } from '../../settings'
+import { resolveBagFilePath } from '../../windows/tabs-storage'
 import type { ServiceRegistry } from '../../services'
+
+/** Max bytes read for the in-app table viewer (CSV/JSONL); guards memory. */
+const MAX_READ_BYTES = 32 * 1024 * 1024
 
 /**
  * Validate that a resolved path is within the configured download directory.
@@ -39,19 +44,18 @@ function validateBagIdOrFail(bagId: string): { success: false; error: string } |
 
 export function registerStorageHandlers(registry: ServiceRegistry): void {
   const { storageManager } = registry
-  setBagsStorageManager(storageManager)
 
   // ===== Storage Events =====
   storageManager.on('bags-updated', (bags) => {
-    emitToRenderer('storage:bags-updated', bags)
+    emitToRenderer(IPC_CHANNELS.STORAGE_BAGS_UPDATED, bags)
   })
 
   storageManager.on('started', () => {
-    emitToRenderer('storage:status', { running: true })
+    emitToRenderer(IPC_CHANNELS.STORAGE_STATUS, { running: true })
   })
 
   storageManager.on('stopped', () => {
-    emitToRenderer('storage:status', { running: false })
+    emitToRenderer(IPC_CHANNELS.STORAGE_STATUS, { running: false })
   })
 
   storageManager.on('error', (message) => {
@@ -59,7 +63,7 @@ export function registerStorageHandlers(registry: ServiceRegistry): void {
   })
 
   // ===== Storage Handlers =====
-  secureHandle(IPC_CHANNELS.STORAGE_ADD_BAG, async (bagId: string, name?: string) => {
+  secureHandle(IPC_CHANNELS.STORAGE_ADD_BAG, async (bagId: string, _name?: string) => {
     // Rate limit storage operations
     if (!storageLimiter.check()) {
       return { success: false, error: 'Rate limited' }
@@ -69,26 +73,26 @@ export function registerStorageHandlers(registry: ServiceRegistry): void {
     const bagIdError = validateBagIdOrFail(bagId)
     if (bagIdError) return bagIdError
 
-    const bag = await addBag(bagId, name)
+    const bag = await storageManager.addBag(bagId)
     return { success: true, bag }
   })
 
   secureHandleWithEvent(IPC_CHANNELS.STORAGE_REMOVE_BAG, async (_event, bagId: string) => {
     const bagIdError = validateBagIdOrFail(bagId)
     if (bagIdError) return bagIdError
-    const result = await removeBag(bagId)
+    const result = await storageManager.removeBag(bagId)
     return { success: result }
   })
 
   secureHandle(IPC_CHANNELS.STORAGE_LIST_BAGS, async () => {
-    const bags = await listBags()
+    const bags = await storageManager.listBags()
     return { success: true, bags }
   })
 
   secureHandleWithEvent(IPC_CHANNELS.STORAGE_PAUSE_BAG, async (_event, bagId: string) => {
     const bagIdError = validateBagIdOrFail(bagId)
     if (bagIdError) return bagIdError
-    const result = await pauseBag(bagId)
+    const result = await storageManager.pauseBag(bagId)
     return { success: result }
   })
 
@@ -96,10 +100,10 @@ export function registerStorageHandlers(registry: ServiceRegistry): void {
     const bagIdError = validateBagIdOrFail(bagId)
     if (bagIdError) return bagIdError
     try {
-      const details = await getBagDetails(bagId)
+      const details = await storageManager.getBagDetails(bagId)
       return { success: true, details }
     } catch (error) {
-      return { success: false, error: (error as Error).message }
+      return { success: false, error: errorMessage(error) }
     }
   })
 
@@ -107,7 +111,7 @@ export function registerStorageHandlers(registry: ServiceRegistry): void {
     const bagIdError = validateBagIdOrFail(bagId)
     if (bagIdError) return bagIdError
     try {
-      const details = await getBagDetails(bagId)
+      const details = await storageManager.getBagDetails(bagId)
       if (!details?.path) {
         return { success: false, error: 'Bag path not found' }
       }
@@ -116,7 +120,30 @@ export function registerStorageHandlers(registry: ServiceRegistry): void {
       const error = await shell.openPath(path.resolve(details.path))
       return error ? { success: false, error } : { success: true }
     } catch (error) {
-      return { success: false, error: (error as Error).message }
+      return { success: false, error: errorMessage(error) }
+    }
+  })
+
+  // Read a bag file's text for the in-app table viewer (CSV/JSONL). Path is
+  // validated by resolveBagFilePath (no traversal); reads at most MAX_READ_BYTES.
+  secureHandleWithEvent(IPC_CHANNELS.STORAGE_READ_FILE, async (_event, bagId: string, relPath: string) => {
+    const bagIdError = validateBagIdOrFail(bagId)
+    if (bagIdError) return bagIdError
+
+    try {
+      const fullPath = await resolveBagFilePath(bagId, relPath)
+      const stat = await fsp.stat(fullPath)
+      const len = Math.min(stat.size, MAX_READ_BYTES)
+      const fh = await fsp.open(fullPath, 'r')
+      try {
+        const buf = Buffer.alloc(len)
+        await fh.read(buf, 0, len, 0)
+        return { success: true, content: buf.toString('utf8'), truncated: stat.size > len, size: stat.size }
+      } finally {
+        await fh.close()
+      }
+    } catch (error) {
+      return { success: false, error: errorMessage(error) }
     }
   })
 
@@ -141,7 +168,7 @@ export function registerStorageHandlers(registry: ServiceRegistry): void {
     }
 
     try {
-      const details = await getBagDetails(bagId)
+      const details = await storageManager.getBagDetails(bagId)
       if (!details?.path) {
         return { success: false, error: 'Bag path not found' }
       }
@@ -151,7 +178,7 @@ export function registerStorageHandlers(registry: ServiceRegistry): void {
       shell.showItemInFolder(path.resolve(fullPath))
       return { success: true }
     } catch (error) {
-      return { success: false, error: (error as Error).message }
+      return { success: false, error: errorMessage(error) }
     }
   })
 }

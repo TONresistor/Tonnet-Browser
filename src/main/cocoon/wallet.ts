@@ -45,11 +45,6 @@ function getStorage(): CocoonKeyStorage {
   return storageSingleton
 }
 
-/** Test-only: inject a custom storage instance (e.g. in-memory). */
-export function _setStorageForTesting(storage: CocoonKeyStorage | null): void {
-  storageSingleton = storage
-}
-
 /**
  * Generate a brand new Cocoon wallet pair and persist it (encrypted).
  * Returns the public-safe view of the data plus the mnemonic words for one-time
@@ -149,18 +144,6 @@ export async function getNodeSecretBuffer(): Promise<Buffer> {
     throw new Error(`Invalid node secret length: expected 32 bytes, got ${buf.length}`)
   }
   return buf
-}
-
-/**
- * Return the node Ed25519 secret as the original base64 string persisted on
- * disk. Used when archiving a consumed wallet so the recovery flow has
- * everything needed to re-instantiate the cocoon_wallet SC if the upstream
- * worker is ever restarted.
- */
-export async function getNodeSecretBase64(): Promise<string> {
-  const data = await loadCocoonWallet()
-  if (!data) throw new Error('Cocoon wallet not initialized')
-  return data.nodeSecretBase64
 }
 
 /**

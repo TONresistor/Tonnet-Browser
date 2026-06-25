@@ -71,6 +71,7 @@ function isSupportedPlatform(platform: NodeJS.Platform): boolean {
 
 function isSupportedArch(platform: NodeJS.Platform, arch: NodeJS.Architecture): boolean {
   if (platform === 'darwin') return arch === 'x64' || arch === 'arm64'
+  if (platform === 'linux') return arch === 'x64' || arch === 'arm64'
   return arch === 'x64'
 }
 
@@ -83,9 +84,4 @@ function detectGlibcVersion(): { major: number; minor: number } | null {
   } catch {
     return null
   }
-}
-
-/** Test-only: reset cached result */
-export function resetCocoonAvailabilityCache(): void {
-  cachedResult = null
 }

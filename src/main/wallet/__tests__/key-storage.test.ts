@@ -37,6 +37,10 @@ class InMemorySecureStorage implements ISecureStorage {
 
 // --- Mocks ---
 
+// Shared spy for the FileHandle.writeFile used by writeSecureFileAtomic
+// (storeData's atomic path). Hoisted so the vi.mock factory can reference it.
+const { atomicHandleWriteFile } = vi.hoisted(() => ({ atomicHandleWriteFile: vi.fn() }))
+
 vi.mock('fs', async () => {
   const actual = await vi.importActual<typeof import('fs')>('fs')
   return {
@@ -50,6 +54,13 @@ vi.mock('fs', async () => {
       copyFile: vi.fn(),
       rename: vi.fn(),
       chmod: vi.fn(),
+      mkdir: vi.fn(),
+      // writeSecureFileAtomic opens a tmp file handle, writes+fsyncs, then renames.
+      open: vi.fn(async () => ({
+        writeFile: atomicHandleWriteFile,
+        sync: vi.fn(),
+        close: vi.fn(),
+      })),
     },
   }
 })
@@ -69,17 +80,6 @@ vi.mock('@ton/crypto', () => ({
   })),
 }))
 
-vi.mock('@ton/ton', () => ({
-  WalletContractV5R1: {
-    create: vi.fn(() => ({
-      address: {
-        toString: () => 'UQTest...',
-        toRawString: () => '0:test...',
-      },
-    })),
-  },
-}))
-
 vi.mock('electron', () => ({
   app: { getPath: vi.fn(() => '/tmp/test') },
 }))
@@ -91,10 +91,10 @@ import { WalletKeyStorage, WalletDecryptionError } from '../key-storage'
 
 const SENC_MARKER = Buffer.from('SENC')
 
-function makeEncryptedBuffer(data: object, storage: InMemorySecureStorage): Buffer {
+function makeEncryptedBuffer(data: object, storage: InMemorySecureStorage): Buffer<ArrayBuffer> {
   const json = JSON.stringify(data)
   const encrypted = storage.encrypt(json)
-  return Buffer.concat([SENC_MARKER, encrypted])
+  return Buffer.concat([SENC_MARKER, encrypted]) as Buffer<ArrayBuffer>
 }
 
 // --- Tests ---
@@ -111,24 +111,27 @@ describe('WalletKeyStorage', () => {
     vi.mocked(fs.access).mockRejectedValue(Object.assign(new Error(), { code: 'ENOENT' }))
   })
 
-  // 1. generate() produces 24 words and stores encrypted
-  describe('generate()', () => {
+  // 1. generateFromMnemonic() produces 24 words and stores encrypted
+  describe('generateFromMnemonic()', () => {
     it('produces 24-word mnemonic and writes encrypted file', async () => {
-      const result = await ks.generate()
+      const { keypair } = await ks.generateFromMnemonic()
 
-      expect(result.publicKey).toBeInstanceOf(Buffer)
-      expect(result.publicKey.length).toBe(32)
-      expect(result.secretKey).toBeInstanceOf(Buffer)
-      expect(result.secretKey.length).toBe(64)
+      expect(keypair.publicKey).toBeInstanceOf(Buffer)
+      expect(keypair.publicKey.length).toBe(32)
+      expect(keypair.secretKey).toBeInstanceOf(Buffer)
+      expect(keypair.secretKey.length).toBe(64)
 
-      expect(fs.writeFile).toHaveBeenCalledOnce()
-      const [, written] = vi.mocked(fs.writeFile).mock.calls[0]
+      // storeData writes atomically (open tmp -> writeFile -> rename), so the
+      // payload lands on the file handle, not a direct fs.writeFile.
+      expect(atomicHandleWriteFile).toHaveBeenCalledOnce()
+      expect(fs.rename).toHaveBeenCalledOnce()
+      const [written] = atomicHandleWriteFile.mock.calls[0]
       const buf = written as Buffer
       // Starts with SENC marker
       expect(buf.subarray(0, 4).toString()).toBe('SENC')
     })
 
-    it('generateFromMnemonic returns mnemonic array of length 24', async () => {
+    it('returns mnemonic array of length 24', async () => {
       const { mnemonic, keypair } = await ks.generateFromMnemonic()
 
       expect(mnemonic).toHaveLength(24)
@@ -142,7 +145,7 @@ describe('WalletKeyStorage', () => {
 
     it('throws if encryption is unavailable', async () => {
       storage.setAvailable(false)
-      await expect(ks.generate()).rejects.toThrow('Secure storage is not available')
+      await expect(ks.generateFromMnemonic()).rejects.toThrow('Secure storage is not available')
     })
   })
 
@@ -154,7 +157,7 @@ describe('WalletKeyStorage', () => {
 
       expect(result.publicKey.length).toBe(32)
       expect(result.secretKey.length).toBe(64)
-      expect(fs.writeFile).toHaveBeenCalledOnce()
+      expect(atomicHandleWriteFile).toHaveBeenCalledOnce()
     })
 
     it('rejects invalid mnemonic (wrong length)', async () => {
@@ -384,11 +387,19 @@ describe('WalletKeyStorage', () => {
       expect(ks.getPublicKey()).not.toBeNull()
     })
 
-    it('is idempotent when called twice', () => {
+    it('is idempotent when called twice', async () => {
+      const data = { type: 'mnemonic', mnemonic: Array(24).fill('test') }
+      vi.mocked(fs.readFile).mockResolvedValue(makeEncryptedBuffer(data, storage))
+
+      await ks.load()
+      const publicKey = ks.getPublicKey()
+      expect(publicKey).not.toBeNull()
+
       ks.lock()
-      ks.lock()
-      // No throw
-      expect(ks.isLocked()).toBe(false) // no public key loaded either
+      ks.lock() // second call on an already-locked wallet must be a safe no-op
+
+      expect(ks.isLocked()).toBe(true) // still locked, not corrupted
+      expect(ks.getPublicKey()).toEqual(publicKey) // public key retained
     })
   })
 
@@ -482,19 +493,6 @@ describe('WalletKeyStorage', () => {
     it('deleteFile rethrows other errors', async () => {
       vi.mocked(fs.unlink).mockRejectedValue(Object.assign(new Error('EPERM'), { code: 'EPERM' }))
       await expect(ks.deleteFile()).rejects.toThrow('EPERM')
-    })
-  })
-
-  // 10. getAddress() derives W5 v5r1 address
-  describe('getAddress()', () => {
-    it('derives wallet address from keypair', async () => {
-      const data = { type: 'mnemonic', mnemonic: Array(24).fill('test') }
-      vi.mocked(fs.readFile).mockResolvedValue(makeEncryptedBuffer(data, storage))
-
-      const { address, addressRaw } = await ks.getAddress()
-
-      expect(address).toBe('UQTest...')
-      expect(addressRaw).toBe('0:test...')
     })
   })
 

@@ -20,6 +20,11 @@ import pagesEn from './locales/en/pages.json'
 import walletEn from './locales/en/wallet.json'
 import dnsEn from './locales/en/dns.json'
 
+// Single source of truth for the translation namespaces.
+const NAMESPACES = ['common', 'landing', 'browser', 'settings', 'storage', 'pages', 'wallet', 'dns'] as const
+// Namespaces that may be missing in some locales: fall back to an empty bundle.
+const OPTIONAL_NS = new Set<string>(['wallet', 'dns'])
+
 // Track which languages have been loaded
 const loadedLanguages = new Set<string>(['en'])
 
@@ -40,7 +45,7 @@ i18n.use(initReactI18next).init({
   lng: 'en', // Default language (will be overridden by settings)
   fallbackLng: 'en',
   defaultNS: 'common',
-  ns: ['common', 'landing', 'browser', 'settings', 'storage', 'pages', 'wallet', 'dns'],
+  ns: [...NAMESPACES],
   interpolation: {
     escapeValue: false, // React already escapes
   },
@@ -62,27 +67,15 @@ export async function loadLanguage(lang: string): Promise<void> {
   }
 
   try {
-    // Dynamic imports for the requested language
-    const [common, landing, browser, settings, storage, pages, wallet, dns] = await Promise.all([
-      import(`./locales/${lang}/common.json`),
-      import(`./locales/${lang}/landing.json`),
-      import(`./locales/${lang}/browser.json`),
-      import(`./locales/${lang}/settings.json`),
-      import(`./locales/${lang}/storage.json`),
-      import(`./locales/${lang}/pages.json`),
-      import(`./locales/${lang}/wallet.json`).catch(() => ({ default: {} })),
-      import(`./locales/${lang}/dns.json`).catch(() => ({ default: {} })),
-    ])
-
-    // Add resources to i18next
-    i18n.addResourceBundle(lang, 'common', common.default)
-    i18n.addResourceBundle(lang, 'landing', landing.default)
-    i18n.addResourceBundle(lang, 'browser', browser.default)
-    i18n.addResourceBundle(lang, 'settings', settings.default)
-    i18n.addResourceBundle(lang, 'storage', storage.default)
-    i18n.addResourceBundle(lang, 'pages', pages.default)
-    i18n.addResourceBundle(lang, 'wallet', wallet.default)
-    i18n.addResourceBundle(lang, 'dns', dns.default)
+    // Dynamic imports for the requested language, one per namespace.
+    await Promise.all(
+      NAMESPACES.map(async (ns) => {
+        const mod = OPTIONAL_NS.has(ns)
+          ? await import(`./locales/${lang}/${ns}.json`).catch(() => ({ default: {} }))
+          : await import(`./locales/${lang}/${ns}.json`)
+        i18n.addResourceBundle(lang, ns, mod.default)
+      })
+    )
 
     // Mark as loaded
     loadedLanguages.add(lang)
@@ -95,23 +88,6 @@ export async function loadLanguage(lang: string): Promise<void> {
     await i18n.changeLanguage('en')
     throw error
   }
-}
-
-/**
- * Check if a language is currently loaded
- * @param lang - Language code
- * @returns true if language is loaded
- */
-export function isLanguageLoaded(lang: string): boolean {
-  return loadedLanguages.has(lang)
-}
-
-/**
- * Get list of loaded languages
- * @returns Array of loaded language codes
- */
-export function getLoadedLanguages(): string[] {
-  return Array.from(loadedLanguages)
 }
 
 export default i18n

@@ -1,12 +1,11 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import { app } from 'electron'
-import { IPC_CHANNELS } from '../../../shared/types'
+import { IPC_CHANNELS } from '../../../shared/ipc-channels'
 import { secureHandle, tonsiteHandle, bridgeRestartLimiter, log } from './shared'
-import { REQUIRED_NAMESPACES } from '../../../shared/bridge-config'
+import { REQUIRED_NAMESPACES, BridgeConfigPartialSchema } from '../../../shared/bridge-config'
 import { writeSecureJsonAtomic } from '../../utils/secure-fs'
 import type { BridgeScope } from '../../../shared/types'
-import type { BridgeConfig } from '../../../shared/bridge-config'
 import type { ServiceRegistry } from '../../services'
 
 function getBridgeConfigPath(): string {
@@ -40,25 +39,32 @@ export function registerBridgeHandlers(registry: ServiceRegistry): void {
   })
 
   // Bridge config: read
-  secureHandle(IPC_CHANNELS.BRIDGE_GET_CONFIG, () => {
+  secureHandle(IPC_CHANNELS.BRIDGE_GET_CONFIG, async () => {
     const configPath = getBridgeConfigPath()
     try {
-      if (!fs.existsSync(configPath)) return null
-      const data = fs.readFileSync(configPath, 'utf-8')
+      const data = await fs.promises.readFile(configPath, 'utf-8')
       return JSON.parse(data)
     } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') return null
       log.error('Failed to read bridge config:', err)
       return null
     }
   })
 
   // Bridge config: write (deep-merge, enforce required namespaces)
-  secureHandle(IPC_CHANNELS.BRIDGE_SET_CONFIG, (partial: Partial<BridgeConfig>) => {
+  secureHandle(IPC_CHANNELS.BRIDGE_SET_CONFIG, async (rawPartial: unknown) => {
     const configPath = getBridgeConfigPath()
     try {
+      const parsed = BridgeConfigPartialSchema.safeParse(rawPartial)
+      if (!parsed.success) {
+        return { success: false, error: parsed.error.message }
+      }
+      const partial = parsed.data
       let existing: Record<string, unknown> = {}
-      if (fs.existsSync(configPath)) {
-        existing = JSON.parse(fs.readFileSync(configPath, 'utf-8'))
+      try {
+        existing = JSON.parse(await fs.promises.readFile(configPath, 'utf-8'))
+      } catch (err) {
+        if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err
       }
 
       // Destructure to avoid mutating the caller's object

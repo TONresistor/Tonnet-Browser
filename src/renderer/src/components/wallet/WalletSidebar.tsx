@@ -5,10 +5,11 @@
  */
 
 import { useEffect, useRef, useState, useCallback } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import {
   X,
-  Send,
-  Download,
+  ArrowUp,
+  ArrowDown,
   RefreshCw,
   ExternalLink,
   Copy,
@@ -22,10 +23,16 @@ import walletIcon from '@/assets/wallet.svg'
 import { useWalletStore, formatTonAmount } from '@/stores/wallet'
 import type { WalletTransaction } from '@shared/types'
 import { useTabsStore } from '@/stores/tabs'
-import { truncateAddress } from '@/lib/format'
 import { TransactionList } from '@/components/wallet/TransactionList'
 import { SendForm } from '@/components/wallet/SendForm'
 import { ReceivePanel } from '@/components/wallet/ReceivePanel'
+import { TransactionDetailSheet } from '@/components/wallet/TransactionDetailSheet'
+import { ActionButton } from '@/components/ui/ios/ActionButton'
+import { ActionTile } from '@/components/ui/ios/ActionTile'
+import { BalanceHero } from '@/components/ui/ios/BalanceHero'
+import { InsetGroup } from '@/components/ui/ios/InsetGroup'
+import { EmptyState } from '@/components/ui/ios/EmptyState'
+import { AddressChip } from '@/components/ui/ios/AddressChip'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { TON_WALLET_PAGE, UI_COPY_FEEDBACK_MS } from '@shared/constants'
@@ -51,11 +58,26 @@ export function WalletSidebar({ onClose }: WalletSidebarProps) {
     send,
     loadHistory,
     refreshBalance,
-  } = useWalletStore()
+  } = useWalletStore(
+    useShallow((s) => ({
+      isCreated: s.isCreated,
+      address: s.address,
+      balance: s.balance,
+      transactions: s.transactions,
+      isLoading: s.isLoading,
+      isSending: s.isSending,
+      error: s.error,
+      init: s.init,
+      create: s.create,
+      send: s.send,
+      loadHistory: s.loadHistory,
+      refreshBalance: s.refreshBalance,
+    }))
+  )
   const openOrSwitchToTab = useTabsStore((s) => s.openOrSwitchToTab)
-  const [copied, setCopied] = useState(false)
   const [mnemonicCopied, setMnemonicCopied] = useState(false)
   const [view, setView] = useState<SidebarView>('overview')
+  const [selectedTx, setSelectedTx] = useState<WalletTransaction | null>(null)
   const [newMnemonic, setNewMnemonic] = useState<string[] | null>(null)
   const [backupAcknowledged, setBackupAcknowledged] = useState(false)
   const [mnemonicRevealed, setMnemonicRevealed] = useState(false)
@@ -94,12 +116,6 @@ export function WalletSidebar({ onClose }: WalletSidebarProps) {
     loadHistory()
   }, [refreshBalance, loadHistory])
 
-  const handleCopyAddress = useCallback(() => {
-    navigator.clipboard.writeText(address)
-    setCopied(true)
-    setTimeout(() => setCopied(false), UI_COPY_FEEDBACK_MS)
-  }, [address])
-
   const handleCreate = useCallback(async () => {
     const words = await create()
     if (words) setNewMnemonic(words)
@@ -128,7 +144,7 @@ export function WalletSidebar({ onClose }: WalletSidebarProps) {
         </div>
 
         <div className="flex-1 overflow-auto px-4 py-4 space-y-4">
-          <div className="flex items-start gap-2 p-3 bg-warning/10 border border-warning/20 rounded-lg">
+          <div className="flex items-start gap-2 rounded-card border border-warning/20 bg-warning/10 p-3">
             <AlertTriangle className="h-4 w-4 text-warning mt-0.5 shrink-0" aria-hidden="true" />
             <div>
               <p className="text-xs font-medium text-foreground">{t('backup.warning')}</p>
@@ -155,7 +171,7 @@ export function WalletSidebar({ onClose }: WalletSidebarProps) {
           </div>
           <div className="grid grid-cols-3 gap-1.5">
             {newMnemonic.map((word, i) => (
-              <div key={i} className="flex items-center gap-1 px-2 py-1.5 bg-muted rounded text-xs">
+              <div key={i} className="flex items-center gap-1 rounded-control bg-muted px-2 py-1.5 text-xs">
                 <span className="text-muted-foreground w-4 text-right font-mono text-[10px]">{i + 1}.</span>
                 <span className="font-mono text-foreground text-[11px]">
                   {mnemonicRevealed ? word : '\u2022\u2022\u2022\u2022\u2022'}
@@ -205,21 +221,34 @@ export function WalletSidebar({ onClose }: WalletSidebarProps) {
             <img src={walletIcon} alt="" className="h-4 w-4" />
             <span className="text-sm font-semibold text-foreground">{t('page.title')}</span>
           </div>
-          <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full" onClick={onClose}>
-            <X className="h-3.5 w-3.5" />
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 rounded-full"
+            onClick={onClose}
+            title={t('page.close', { defaultValue: 'Close' })}
+            aria-label={t('page.close', { defaultValue: 'Close' })}
+          >
+            <X className="h-3.5 w-3.5" aria-hidden="true" />
           </Button>
         </div>
 
-        {/* Empty state */}
-        <div className="flex-1 flex flex-col items-center justify-center px-6 gap-4">
-          <img src={walletIcon} alt="" className="h-12 w-12 opacity-40" />
-          <div className="text-center">
-            <p className="text-sm font-medium text-foreground mb-1">{t('page.noWalletTitle')}</p>
-            <p className="text-xs text-muted-foreground">{t('page.noWalletDesc')}</p>
-          </div>
-          <Button type="button" onClick={handleCreate} disabled={isLoading} className="w-full max-w-[200px]">
-            {t('page.createWallet')}
-          </Button>
+        <div className="flex flex-1 items-center justify-center">
+          <EmptyState
+            icon={<img src={walletIcon} alt="" className="h-7 w-7 opacity-70" />}
+            title={t('page.noWalletTitle')}
+            description={t('page.noWalletDesc')}
+            action={
+              <ActionButton
+                variant="filled"
+                onClick={handleCreate}
+                disabled={isLoading}
+                className="w-full max-w-[200px]"
+              >
+                {t('page.createWallet')}
+              </ActionButton>
+            }
+          />
         </div>
       </div>
     )
@@ -231,8 +260,15 @@ export function WalletSidebar({ onClose }: WalletSidebarProps) {
       <div className="px-4 py-3 border-b border-border flex items-center justify-between">
         <div className="flex items-center gap-2">
           {view !== 'overview' ? (
-            <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full" onClick={() => setView('overview')}>
-              <ArrowLeft className="h-3.5 w-3.5" />
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 rounded-full"
+              onClick={() => setView('overview')}
+              title={t('send.back')}
+              aria-label={t('send.back')}
+            >
+              <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
             </Button>
           ) : (
             <img src={walletIcon} alt="" className="h-4 w-4" />
@@ -243,12 +279,26 @@ export function WalletSidebar({ onClose }: WalletSidebarProps) {
         </div>
         <div className="flex items-center gap-1">
           {view === 'overview' && (
-            <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full" onClick={handleRefresh}>
-              <RefreshCw className="h-3 w-3" />
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 rounded-full"
+              onClick={handleRefresh}
+              title={t('page.refresh')}
+              aria-label={t('page.refresh')}
+            >
+              <RefreshCw className="h-3 w-3" aria-hidden="true" />
             </Button>
           )}
-          <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full" onClick={onClose}>
-            <X className="h-3.5 w-3.5" />
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 rounded-full"
+            onClick={onClose}
+            title={t('page.close', { defaultValue: 'Close' })}
+            aria-label={t('page.close', { defaultValue: 'Close' })}
+          >
+            <X className="h-3.5 w-3.5" aria-hidden="true" />
           </Button>
         </div>
       </div>
@@ -258,11 +308,10 @@ export function WalletSidebar({ onClose }: WalletSidebarProps) {
           <SidebarOverviewBody
             balance={balance}
             address={address}
-            copied={copied}
-            handleCopyAddress={handleCopyAddress}
             onSend={() => setView('send')}
             onReceive={() => setView('receive')}
             transactions={transactions}
+            onSelect={setSelectedTx}
             t={t}
           />
 
@@ -292,6 +341,8 @@ export function WalletSidebar({ onClose }: WalletSidebarProps) {
           <ReceivePanel address={address} />
         </div>
       )}
+
+      <TransactionDetailSheet tx={selectedTx} selfAddress={address} onClose={() => setSelectedTx(null)} />
     </div>
   )
 }
@@ -299,73 +350,43 @@ export function WalletSidebar({ onClose }: WalletSidebarProps) {
 interface SidebarOverviewBodyProps {
   balance: string
   address: string
-  copied: boolean
-  handleCopyAddress: () => void
   onSend: () => void
   onReceive: () => void
   transactions: WalletTransaction[]
+  onSelect: (tx: WalletTransaction) => void
   t: ReturnType<typeof useTranslation>['t']
 }
 
 function SidebarOverviewBody({
   balance,
   address,
-  copied,
-  handleCopyAddress,
   onSend,
   onReceive,
   transactions,
+  onSelect,
   t,
 }: SidebarOverviewBodyProps) {
   return (
     <>
-      <div className="px-4 pt-3 pb-2 text-center">
-        <p className="text-3xl font-bold text-foreground tracking-tight">{formatTonAmount(balance)}</p>
-        <p className="text-xs text-muted-foreground mt-0.5">TON</p>
+      <div className="px-4 pb-4 pt-4">
+        <BalanceHero amount={formatTonAmount(balance)} unit="GRAM" size="lg">
+          <AddressChip address={address} startChars={8} endChars={6} />
+        </BalanceHero>
       </div>
 
-      <div className="px-4 pb-3">
-        <button
-          type="button"
-          onClick={handleCopyAddress}
-          className="w-full flex items-center justify-center gap-1.5 text-xs text-muted-foreground
-            hover:text-foreground transition-colors font-mono"
-          title={address}
-        >
-          <span>{truncateAddress(address, 8, 6)}</span>
-          {copied ? <Check className="h-3 w-3 text-success" /> : <Copy className="h-3 w-3" />}
-        </button>
-      </div>
-
-      <div className="px-4 pb-3 grid grid-cols-2 gap-2">
-        <button
-          type="button"
-          onClick={onSend}
-          className="h-10 flex items-center justify-center gap-1.5 rounded-full bg-surface-hover
-            border border-border-medium text-sm font-medium text-foreground hover:bg-surface-active
-            transition-all duration-150"
-        >
-          <Send className="h-3.5 w-3.5" />
-          {t('tabs.send')}
-        </button>
-        <button
-          type="button"
+      <div className="flex justify-center gap-3 px-4 pb-4">
+        <ActionTile icon={<ArrowUp className="h-6 w-6" strokeWidth={2.5} />} label={t('tabs.send')} onClick={onSend} />
+        <ActionTile
+          icon={<ArrowDown className="h-6 w-6" strokeWidth={2.5} />}
+          label={t('tabs.receive')}
           onClick={onReceive}
-          className="h-10 flex items-center justify-center gap-1.5 rounded-full bg-surface-hover
-            border border-border-medium text-sm font-medium text-foreground hover:bg-surface-active
-            transition-all duration-150"
-        >
-          <Download className="h-3.5 w-3.5" />
-          {t('tabs.receive')}
-        </button>
+        />
       </div>
 
-      <div className="border-t border-border mt-1" />
-      <div className="flex-1 overflow-auto min-h-0 px-3">
-        <div className="py-3">
-          <h3 className="text-xs font-medium text-muted-foreground mb-2 px-1">{t('overview.recent')}</h3>
-          <TransactionList transactions={transactions} />
-        </div>
+      <div className="min-h-0 flex-1 overflow-auto px-3 pb-3">
+        <InsetGroup title={t('overview.recent')} bodyClassName="py-1">
+          <TransactionList transactions={transactions} onSelect={onSelect} compact />
+        </InsetGroup>
       </div>
     </>
   )

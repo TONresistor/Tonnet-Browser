@@ -15,7 +15,7 @@
     "recipientLabel": "Адрес получателя",
     "recipientPlaceholder": "EQ... или 0:...",
     "amountLabel": "Сумма",
-    "feeNote": "Комиссия сети: {{fee}} TON",
+    "feeNote": "Комиссия сети: {{fee}} GRAM",
     "reviewButton": "Проверить транзакцию",
     "confirm": "Подтвердить транзакцию",
     "to": "Кому",
@@ -30,7 +30,7 @@
     "invalidAmount": "Неверная сумма",
     "insufficientBalance": "Недостаточный баланс",
     "max": "Максимум",
-    "estimatedFee": "~0,01 TON"
+    "estimatedFee": "~0,01 GRAM"
   },
   "receive": {
     "addressLabel": "Адрес вашего кошелька",
@@ -104,7 +104,7 @@
     "orImport": "или импортировать существующий кошелёк"
   },
   "statusBar": {
-    "balance": "{{amount}} TON"
+    "balance": "{{amount}} GRAM"
   },
   "settings": {
     "title": "Настройки кошелька",
@@ -132,7 +132,7 @@
       "perDay": "В день",
       "perSitePerMonth": "На сайт / месяц",
       "placeholder": "0 = без лимита",
-      "unit": "TON",
+      "unit": "GRAM",
       "perRequestDesc": "Максимальная сумма за одну оплату 402",
       "perDayDesc": "Максимальные расходы за скользящие 24 часа",
       "perSitePerMonthDesc": "Максимальные расходы на домен за скользящие 30 дней",
@@ -142,7 +142,7 @@
       "title": "Разрешения сайтов",
       "empty": "Нет настроенных разрешений для отдельных сайтов",
       "remove": "Удалить",
-      "spent": "Потрачено: {{amount}} TON",
+      "spent": "Потрачено: {{amount}} GRAM",
       "removePolicy": "Удалить политику сайта"
     }
   },

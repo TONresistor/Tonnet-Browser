@@ -588,32 +588,105 @@ contextBridge.exposeInMainWorld('tonBridge', {
   },
 })
 
-function injectFetchShim() {
-  if (!document.documentElement) {
-    document.addEventListener('DOMContentLoaded', injectFetchShim, { once: true })
-    return
-  }
+var TONCONNECT_FEATURES = [
+  { name: 'SendTransaction', maxMessages: 4, extraCurrencySupported: false },
+  { name: 'SignData', types: ['text', 'binary', 'cell'] },
+]
+var TONNET_WALLET_IMAGE =
+  'data:image/svg+xml;base64,PHN2ZyBwcmVzZXJ2ZUFzcGVjdFJhdGlvPSJub25lIiB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBvdmVyZmxvdz0idmlzaWJsZSIgc3R5bGU9ImRpc3BsYXk6IGJsb2NrOyIgdmlld0JveD0iMCAwIDIyIDE4IiBmaWxsPSJub25lIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPgo8ZyBpZD0iU2hhcGUiPgo8cGF0aCBkPSJNMCA1LjIzNjM2QzAgMy40MDM0NiAwIDIuNDg3MDEgMC4zMzk1MiAxLjc4Njk0QzAuNjM4MTY5IDEuMTcxMTQgMS4xMTQ3MSAwLjY3MDQ3MyAxLjcwMDg0IDAuMzU2NzA2QzIuMzY3MTkgMCAzLjIzOTQ4IDAgNC45ODQwNyAwSDE2LjA0MjVDMTcuNzg3MSAwIDE4LjY1OTQgMCAxOS4zMjU3IDAuMzU2NzA2QzE5LjkxMTggMC42NzA0NzMgMjAuMzg4NCAxLjE3MTE0IDIwLjY4NyAxLjc4Njk0QzIwLjk0NzEgMi4zMjMxNCAyMS4wMDc5IDIuOTg2MjggMjEuMDIyMiA0LjA5MDkxSDE1LjU3NTJDMTQuMTIzOCA0LjA5MDkxIDEzLjM5ODEgNC4wOTA5MSAxMi44MjU2IDQuMzQwMDNDMTIuMDYyNCA0LjY3MjE5IDExLjQ1NTkgNS4zMDkzMSAxMS4xMzk4IDYuMTExMjJDMTAuOTAyNyA2LjcxMjY1IDEwLjkwMjcgNy40NzUxIDEwLjkwMjcgOUMxMC45MDI3IDEwLjUyNDkgMTAuOTAyNyAxMS4yODczIDExLjEzOTggMTEuODg4OEMxMS40NTU5IDEyLjY5MDcgMTIuMDYyNCAxMy4zMjc4IDEyLjgyNTYgMTMuNjZDMTMuMzk4MSAxMy45MDkxIDE0LjEyMzggMTMuOTA5MSAxNS41NzUyIDEzLjkwOTFIMjEuMDIyMkMyMS4wMDc5IDE1LjAxMzcgMjAuOTQ3MSAxNS42NzY5IDIwLjY4NyAxNi4yMTMxQzIwLjM4ODQgMTYuODI4OSAxOS45MTE4IDE3LjMyOTUgMTkuMzI1NyAxNy42NDMzQzE4LjY1OTQgMTggMTcuNzg3MSAxOCAxNi4wNDI1IDE4SDQuOTg0MDdDMy4yMzk0OCAxOCAyLjM2NzE5IDE4IDEuNzAwODQgMTcuNjQzM0MxLjExNDcxIDE3LjMyOTUgMC42MzgxNjkgMTYuODI4OSAwLjMzOTUyIDE2LjIxMzFDMCAxNS41MTMgMCAxNC41OTY1IDAgMTIuNzYzNlY1LjIzNjM2WiIgZmlsbD0iIzAwOEJGRiIvPgo8cGF0aCBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGNsaXAtcnVsZT0iZXZlbm9kZCIgZD0iTTEyLjI2NTUgOC43OTU0NUMxMi4yNjU1IDcuNjQ5ODkgMTIuMjY1NSA3LjA3NzExIDEyLjQ3NzcgNi42Mzk1NkMxMi42NjQzIDYuMjU0NjkgMTIuOTYyMiA1Ljk0MTc3IDEzLjMyODUgNS43NDU2N0MxMy43NDUgNS41MjI3MyAxNC4yOTAyIDUuNTIyNzMgMTUuMzgwNSA1LjUyMjczSDE4Ljg4NUMxOS45NzUzIDUuNTIyNzMgMjAuNTIwNSA1LjUyMjczIDIwLjkzNyA1Ljc0NTY3QzIxLjMwMzMgNS45NDE3NyAyMS42MDExIDYuMjU0NjkgMjEuNzg3OCA2LjYzOTU2QzIyIDcuMDc3MTEgMjIgNy42NDk4OSAyMiA4Ljc5NTQ1VjkuMjA0NTVDMjIgMTAuMzUwMSAyMiAxMC45MjI5IDIxLjc4NzggMTEuMzYwNEMyMS42MDExIDExLjc0NTMgMjEuMzAzMyAxMi4wNTgyIDIwLjkzNyAxMi4yNTQzQzIwLjUyMDUgMTIuNDc3MyAxOS45NzUzIDEyLjQ3NzMgMTguODg1IDEyLjQ3NzNIMTUuMzgwNUMxNC4yOTAyIDEyLjQ3NzMgMTMuNzQ1IDEyLjQ3NzMgMTMuMzI4NSAxMi4yNTQzQzEyLjk2MjIgMTIuMDU4MiAxMi42NjQzIDExLjc0NTMgMTIuNDc3NyAxMS4zNjA0QzEyLjI2NTUgMTAuOTIyOSAxMi4yNjU1IDEwLjM1MDEgMTIuMjY1NSA5LjIwNDU1VjguNzk1NDVaTTE3LjEzMjcgOUMxNy4xMzI3IDkuOTAzNzQgMTYuNDM1NCAxMC42MzY0IDE1LjU3NTIgMTAuNjM2NEMxNC43MTUgMTAuNjM2NCAxNC4wMTc3IDkuOTAzNzQgMTQuMDE3NyA5QzE0LjAxNzcgOC4wOTYyNiAxNC43MTUgNy4zNjM2NCAxNS41NzUyIDcuMzYzNjRDMTYuNDM1NCA3LjM2MzY0IDE3LjEzMjcgOC4wOTYyNiAxNy4xMzI3IDlaIiBmaWxsPSIjMDA4QkZGIi8+CjwvZz4KPC9zdmc+Cg=='
+
+contextBridge.exposeInMainWorld('tonnet', {
+  tonconnect: {
+    deviceInfo: {
+      platform: 'browser',
+      appName: 'tonnet',
+      appVersion: '1.0.0',
+      maxProtocolVersion: 2,
+      features: TONCONNECT_FEATURES,
+    },
+    walletInfo: {
+      name: 'Tonnet',
+      app_name: 'tonnet',
+      image: TONNET_WALLET_IMAGE,
+      about_url: 'https://github.com/TONresistor/Tonnet-Browser',
+      platforms: ['macos', 'windows', 'linux'],
+      features: TONCONNECT_FEATURES,
+    },
+    protocolVersion: 2,
+    isWalletBrowser: true,
+    connect: function (protocolVersion, request) {
+      return ipcRenderer.invoke('tonconnect:request', {
+        method: 'connect',
+        protocolVersion: protocolVersion,
+        request: request,
+      })
+    },
+    restoreConnection: function () {
+      return ipcRenderer.invoke('tonconnect:request', { method: 'restore' })
+    },
+    send: function (message) {
+      return ipcRenderer.invoke('tonconnect:request', { method: 'send', message: message })
+    },
+    disconnect: function () {
+      return ipcRenderer.invoke('tonconnect:request', { method: 'disconnect' })
+    },
+    listen: function (callback) {
+      var listener = function (_event, data) {
+        callback(data)
+      }
+      ipcRenderer.on('tonconnect:event', listener)
+      return function () {
+        ipcRenderer.removeListener('tonconnect:event', listener)
+      }
+    },
+  },
+})
+
+function doInjectFetchShim(parent) {
   var script = document.createElement('script')
   script.textContent = [
     ';(function(){',
-    '  if (!window.tonBridge || typeof window.tonBridge.payForXhr !== "function") return;',
+    '  if (window.__tonnetFetchPatched) return;',
+    '  window.__tonnetFetchPatched = true;',
     '  var origFetch = window.fetch.bind(window);',
     '  window.fetch = async function(input, init){',
+    '    var url = "";',
+    '    try { url = (typeof input === "string") ? input : (input && input.url) || ""; } catch (e) {}',
+    '    if (/wallets-v2\\.json/.test(url) && window.tonnet && window.tonnet.tonconnect && window.tonnet.tonconnect.walletInfo) {',
+    '      var wi = window.tonnet.tonconnect.walletInfo;',
+    '      var entry = { app_name: wi.app_name, name: wi.name, image: wi.image, about_url: wi.about_url, bridge: [{ type: "js", key: "tonnet" }], platforms: wi.platforms, features: wi.features };',
+    '      return new Response(JSON.stringify([entry]), { status: 200, headers: { "Content-Type": "application/json" } });',
+    '    }',
+    '    if (!window.tonBridge || typeof window.tonBridge.payForXhr !== "function") return origFetch(input, init);',
     '    var req;',
     '    try { req = new Request(input, init); } catch (e) { return origFetch(input, init); }',
     '    var cloned = req.clone();',
     '    var res = await origFetch(req);',
     '    if (res.status !== 402) return res;',
-    '    var url = req.url;',
+    '    var u = req.url;',
     '    try {',
-    '      var result = await window.tonBridge.payForXhr(url);',
+    '      var result = await window.tonBridge.payForXhr(u);',
     '      if (!result || !result.success) return res;',
     '      return await origFetch(cloned);',
     '    } catch (e) { return res; }',
     '  };',
     '})();',
-  ].join("\n")
-  document.documentElement.appendChild(script)
+  ].join('\n')
+  parent.appendChild(script)
   script.remove()
+}
+
+function injectFetchShim() {
+  if (document.documentElement) {
+    doInjectFetchShim(document.documentElement)
+    return
+  }
+  var obs = new MutationObserver(function () {
+    if (document.documentElement) {
+      obs.disconnect()
+      doInjectFetchShim(document.documentElement)
+    }
+  })
+  obs.observe(document, { childList: true, subtree: true })
 }
 injectFetchShim()

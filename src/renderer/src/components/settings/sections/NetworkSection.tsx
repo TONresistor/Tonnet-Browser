@@ -15,7 +15,7 @@ export const NetworkSection = memo(function NetworkSection({ draft, setDraft }: 
   return (
     <div>
       <SectionHeader title={t('network.title')} description={t('network.description')} />
-      <div className="glass-card px-4">
+      <div className="settings-group px-4">
         <SettingRow label={t('network.proxyPort')} description={t('network.proxyPortDesc')}>
           <NumberInput value={draft.proxyPort} onChange={(v) => setDraft('proxyPort', v)} min={1024} max={65535} />
         </SettingRow>

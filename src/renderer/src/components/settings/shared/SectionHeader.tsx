@@ -1,5 +1,5 @@
 /**
- * Header réutilisable pour toutes les sections de paramètres
+ * Header réutilisable pour les sections de paramètres — grand titre style iOS.
  */
 
 interface SectionHeaderProps {
@@ -10,8 +10,8 @@ interface SectionHeaderProps {
 export function SectionHeader({ title, description }: SectionHeaderProps) {
   return (
     <div className="mb-6">
-      <h3 className="text-xl font-semibold text-foreground mb-1">{title}</h3>
-      {description && <p className="text-muted-foreground text-sm">{description}</p>}
+      <h3 className="text-[26px] font-bold tracking-tight text-foreground">{title}</h3>
+      {description && <p className="mt-1 text-sm text-muted-foreground">{description}</p>}
     </div>
   )
 }

@@ -6,7 +6,6 @@
  */
 
 import { ElectronSafeStorageAdapter } from './adapters/electron-secure-storage'
-import { ElectronPathProvider } from './adapters/electron-path-provider'
 import { ProxyManager } from './proxy/manager'
 import { StorageManager } from './storage/daemon'
 import { WalletManager } from './wallet/manager'
@@ -16,16 +15,16 @@ import { PaymentPolicyStore } from './wallet/payment-policy'
 import { OverlayManager } from './windows/overlay-manager'
 import { BridgePermissionInterceptor } from './bridge/permission-interceptor'
 import { BridgePermissionStore } from './bridge/permission-store'
+import { TonConnectService } from './tonconnect/service'
+import { TonConnectSessionStore } from './tonconnect/session-store'
 import { HistoryManager } from './history/manager'
 import { ContentFilterManager } from './content-filter/filter-manager'
 import { CocoonManager } from './cocoon/manager'
 import { WithdrawDriver } from './cocoon/withdraw-driver'
 import { RecoveryDriver } from './cocoon/recovery-driver'
-import type { IPathProvider } from './ports/path-provider'
 import type { ISecureStorage } from './ports/secure-storage'
 
 export interface ServiceRegistry {
-  pathProvider: IPathProvider
   secureStorage: ISecureStorage
   proxyManager: ProxyManager
   storageManager: StorageManager
@@ -36,6 +35,8 @@ export interface ServiceRegistry {
   overlayManager: OverlayManager
   bridgeInterceptor: BridgePermissionInterceptor
   bridgePermissionStore: BridgePermissionStore
+  tonConnectService: TonConnectService
+  tonConnectSessionStore: TonConnectSessionStore
   historyManager: HistoryManager
   contentFilterManager: ContentFilterManager
   cocoonManager: CocoonManager
@@ -44,7 +45,6 @@ export interface ServiceRegistry {
 }
 
 export function createServices(): ServiceRegistry {
-  const pathProvider = new ElectronPathProvider()
   const secureStorage = new ElectronSafeStorageAdapter()
 
   // Create all services -- NO async init here, just construction
@@ -59,6 +59,8 @@ export function createServices(): ServiceRegistry {
   const walletManager = new WalletManager(secureStorage)
   const paymentInterceptor = new PaymentInterceptor(walletManager, paymentPolicyStore, walletHistoryManager)
   const bridgeInterceptor = new BridgePermissionInterceptor(bridgePermissionStore, overlayManager)
+  const tonConnectSessionStore = new TonConnectSessionStore()
+  const tonConnectService = new TonConnectService(walletManager, tonConnectSessionStore, overlayManager)
   const cocoonManager = new CocoonManager()
   const withdrawDriver = new WithdrawDriver(
     cocoonManager,
@@ -68,24 +70,19 @@ export function createServices(): ServiceRegistry {
       await walletManager.send(nodeAddress, amountNano.toString())
     }
   )
-  // The driver only does work when a pending intent flag is set in the stake
-  // cache, so it's safe to start unconditionally — quiet ticks return early.
-  withdrawDriver.start()
   // React to runner state changes so refundable transitions are picked up
-  // immediately instead of waiting the full 30s tick.
+  // immediately instead of waiting the full 30s tick. start() is deferred to
+  // the ws-bridge-ready handler since the driver needs the bridge to do work.
   cocoonManager.on('state-change', () => withdrawDriver.triggerTick())
 
   // Recovery driver runs in parallel for ARCHIVED wallets whose client SC
-  // still locks user TON. Reads the queue on every tick and is a no-op when
-  // empty, so it's safe to start unconditionally.
+  // still locks user TON. start() is deferred to the ws-bridge-ready handler.
   const recoveryDriver = new RecoveryDriver(
     () => walletManager.getBridgeClient(),
     () => walletManager.getState().address || null
   )
-  recoveryDriver.start()
 
   return {
-    pathProvider,
     secureStorage,
     proxyManager,
     storageManager,
@@ -96,6 +93,8 @@ export function createServices(): ServiceRegistry {
     overlayManager,
     bridgeInterceptor,
     bridgePermissionStore,
+    tonConnectService,
+    tonConnectSessionStore,
     historyManager,
     contentFilterManager,
     cocoonManager,

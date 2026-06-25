@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useOverlay } from '@/hooks/useOverlay'
 import { formatTonAmount, useWalletStore } from '@/stores/wallet'
+import { IPC_CHANNELS } from '@shared/ipc-channels'
 import type { PaymentNotificationData } from '@shared/types'
 
 const OVERLAY_ID = 'wallet-payment-approval'
@@ -41,7 +42,12 @@ export function usePaymentApprovals(): void {
           title: t('payment.title'),
           fields: [
             { id: '_domain', label: t('payment.domain'), value: data.domain, readonly: true },
-            { id: '_amount', label: t('payment.amount'), value: `${formatTonAmount(data.amount)} TON`, readonly: true },
+            {
+              id: '_amount',
+              label: t('payment.amount'),
+              value: `${formatTonAmount(data.amount)} GRAM`,
+              readonly: true,
+            },
             {
               id: '_recipient',
               label: t('payment.recipient'),
@@ -61,8 +67,7 @@ export function usePaymentApprovals(): void {
   )
 
   useEffect(() => {
-    const unsubReq = window.electron.on('wallet:payment-req', (...args: unknown[]) => {
-      const data = args[0] as PaymentNotificationData
+    const unsubReq = window.electron.on(IPC_CHANNELS.WALLET_PAYMENT_REQ, (data) => {
       if (!data || data.status !== 'pending') return
       useWalletStore.getState().setPending402Notification(data)
       if (useWalletStore.getState().notificationStyle === 'popup') {
@@ -79,8 +84,10 @@ export function usePaymentApprovals(): void {
       }
     }
 
-    const unsubMade = window.electron.on('wallet:payment-made', (...args: unknown[]) => resolveEvent(args))
-    const unsubFailed = window.electron.on('wallet:payment-failed', (...args: unknown[]) => resolveEvent(args))
+    const unsubMade = window.electron.on(IPC_CHANNELS.WALLET_PAYMENT_MADE, (...args: unknown[]) => resolveEvent(args))
+    const unsubFailed = window.electron.on(IPC_CHANNELS.WALLET_PAYMENT_FAILED, (...args: unknown[]) =>
+      resolveEvent(args)
+    )
 
     return () => {
       unsubReq()

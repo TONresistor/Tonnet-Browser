@@ -3,6 +3,8 @@
  * Mirrors the Go tonutils-bridge config.json structure.
  */
 
+import { z } from 'zod'
+
 // --- Namespace identifiers ---
 
 export const REQUIRED_NAMESPACES = ['lite', 'wallet', 'subscribe', 'dns'] as const
@@ -102,40 +104,6 @@ export interface BridgeConfig {
   [key: string]: unknown
 }
 
-// --- Display metadata ---
-
-export const NAMESPACE_LABELS: Record<NamespaceKey, string> = {
-  lite: 'Lite Client',
-  wallet: 'Wallet',
-  subscribe: 'Subscriptions',
-  dns: 'DNS Resolver',
-  jetton: 'Jettons',
-  nft: 'NFT',
-  sbt: 'SBT',
-  payment: 'Payment Channels',
-  network: 'Network Info',
-  adnl: 'ADNL',
-  overlay: 'Overlay',
-  dht: 'DHT',
-  subscribe_trace: 'Transaction Tracing',
-}
-
-export const NAMESPACE_DESCRIPTIONS: Record<NamespaceKey, string> = {
-  lite: 'Blockchain queries: accounts, transactions, blocks',
-  wallet: 'Wallet seqno and public key queries',
-  subscribe: 'Real-time subscriptions for accounts and transactions',
-  dns: 'TON DNS domain resolution',
-  jetton: 'Jetton token data and wallet addresses',
-  nft: 'NFT item and collection data',
-  sbt: 'Soul-bound token queries',
-  payment: 'Payment channel state queries',
-  network: 'Network status and connectivity info',
-  adnl: 'Peer-to-peer ADNL connections',
-  overlay: 'Overlay network participation',
-  dht: 'Distributed hash table lookups',
-  subscribe_trace: 'Deep transaction trace subscriptions',
-}
-
 // --- Default namespace state ---
 // Principle of least privilege: only enable namespaces the browser actively uses.
 // Required: used by WsBridgeClient for core wallet/DNS operations.
@@ -170,12 +138,20 @@ export const DEFAULT_NAMESPACE_STATE: Record<NamespaceKey, boolean> = {
 
 // --- Helpers ---
 
-export function isNamespaceEnabled(config: BridgeConfig, ns: NamespaceKey): boolean {
-  const nsConfig = config.namespaces[ns]
-  if (!nsConfig) return true
-  return nsConfig.enabled !== false
-}
-
 export function isRequiredNamespace(ns: NamespaceKey): ns is RequiredNamespace {
   return (REQUIRED_NAMESPACES as readonly string[]).includes(ns)
 }
+
+/**
+ * Structural validation for a partial bridge-config update from the renderer.
+ * The config is intentionally open-ended (index signature), so this only enforces
+ * the merged shapes: namespaces must be a record of objects and websocket an object;
+ * other top-level keys pass through. Rejects primitives/arrays/malformed namespaces.
+ */
+const NamespaceEntrySchema = z.object({ enabled: z.boolean().optional() }).passthrough()
+export const BridgeConfigPartialSchema = z
+  .object({
+    namespaces: z.record(z.string(), NamespaceEntrySchema).optional(),
+    websocket: z.record(z.string(), z.unknown()).optional(),
+  })
+  .passthrough()

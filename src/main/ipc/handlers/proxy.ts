@@ -2,7 +2,7 @@
  * IPC handlers for proxy connection management.
  */
 
-import { IPC_CHANNELS } from '../../../shared/types'
+import { IPC_CHANNELS } from '../../../shared/ipc-channels'
 import { secureHandle, emitToRenderer, log } from './shared'
 import { startProxySequence } from '../../proxy/startup'
 import { getMainWindow } from '../../windows/main'
@@ -14,7 +14,7 @@ export function registerProxyHandlers(registry: ServiceRegistry): void {
 
   // ===== Proxy Status Events =====
   proxyManager.on('status', (status) => {
-    emitToRenderer('proxy:status', proxyManager.getStatus())
+    emitToRenderer(IPC_CHANNELS.PROXY_STATUS, proxyManager.getStatus())
     // Update window title to show connection status
     const win = getMainWindow()
     if (win) {

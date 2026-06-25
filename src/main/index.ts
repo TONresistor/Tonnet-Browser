@@ -4,32 +4,33 @@
  */
 
 import log from '../shared/logger'
-import { app, BrowserWindow, shell, screen, Menu, protocol, net, clipboard } from 'electron'
+import { app, BrowserWindow, shell, Menu, protocol, net } from 'electron'
 import { join, resolve, dirname } from 'path'
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs'
+import { mkdirSync } from 'fs'
 import { migrateUserData } from './utils/migrate-userdata'
-import { writeFile } from 'fs/promises'
 import { EventEmitter } from 'events'
 import { pathToFileURL } from 'url'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { registerIpcHandlers, emitToRenderer } from './ipc/handlers'
-import { getActiveView, getAllSessions, cleanupTabManager } from './windows/tabs'
+import { getActiveView } from './windows/tabs'
 import { setMainWindow } from './windows/main'
-import { getSetting, loadSettings, saveSettings } from './settings'
+import { getSetting } from './settings'
 import { startProxySequence } from './proxy/startup'
 import { initUpdater } from './updater'
-import { createServices, destroyServices, type ServiceRegistry } from './services'
-import { loadCocoonWallet } from './cocoon/wallet'
+import { createServices, type ServiceRegistry } from './services'
 import {
   DEFAULT_WINDOW_WIDTH,
   DEFAULT_WINDOW_HEIGHT,
   MIN_WINDOW_WIDTH,
   MIN_WINDOW_HEIGHT,
   WINDOW_BACKGROUND_COLOR,
-  CONTEXT_MENU_WIDTH,
-  BOUNDS_SAVE_DEBOUNCE_MS,
 } from './windows/constants'
 import { IPC_CHANNELS } from '../shared/ipc-channels'
+import { loadWindowBounds, saveWindowBounds, flushWindowBoundsOnQuit } from './windows/bounds'
+import { autostartCocoonIfEnabled } from './cocoon/autostart'
+import { runCleanup, isCleanupInProgress } from './app-cleanup'
+import { reapStaleDaemons, installDaemonSignalHandlers } from './daemon-registry'
+import { setupMainContextMenu } from './windows/main-context-menu'
 
 // Initialize electron-log IPC bridge so renderer can also log via electron-log
 log.initialize()
@@ -52,6 +53,21 @@ protocol.registerSchemesAsPrivileged([
 
 // Log MaxListenersExceededWarning to help detect memory leaks during development
 const appLog = log.scope('app')
+
+/**
+ * Run a deferred startup step (sync or async), logging on failure instead of
+ * throwing, so one service failing to init/start cannot abort the rest of the
+ * boot sequence. DRY: unifies the bare calls and ad-hoc .catch() at the
+ * ws-bridge-ready hook into one guarded path.
+ */
+function safeStartup(label: string, run: () => void | Promise<unknown>): void {
+  try {
+    const result = run()
+    if (result instanceof Promise) result.catch((e) => log.error(`${label} failed:`, e))
+  } catch (e) {
+    log.error(`${label} failed:`, e)
+  }
+}
 process.on('warning', (warning) => {
   if (warning.name === 'MaxListenersExceededWarning') {
     appLog.warn(`Potential listener leak detected: ${warning.message}`)
@@ -81,6 +97,11 @@ process.on('uncaughtException', (error: NodeJS.ErrnoException) => {
   }
   process.exit(1)
 })
+
+// Kill native daemons on POSIX signals (dev restart, terminal close, OS
+// shutdown) -- Electron's before-quit only runs on a graceful quit, so without
+// this the daemons would orphan and keep holding their ports.
+installDaemonSignalHandlers()
 
 // WM_CLASS for Linux taskbar (display name only, does not affect userData path)
 if (process.platform === 'linux') {
@@ -123,70 +144,7 @@ app.commandLine.appendSwitch(
   'IdleDetection,DirectSockets,WebOTP,DigitalGoods,WebPayments,HttpsUpgrades,NetworkPrediction'
 )
 
-// Window bounds persistence
-interface WindowBounds {
-  x: number
-  y: number
-  width: number
-  height: number
-  isMaximized: boolean
-}
-
-const boundsFile = join(app.getPath('userData'), 'window-bounds.json')
-let saveBoundsTimer: ReturnType<typeof setTimeout> | null = null
-
-function loadWindowBounds(): Partial<WindowBounds> {
-  try {
-    if (existsSync(boundsFile)) {
-      const data = readFileSync(boundsFile, 'utf-8')
-      const bounds = JSON.parse(data) as WindowBounds
-
-      if (
-        typeof bounds.x !== 'number' ||
-        typeof bounds.y !== 'number' ||
-        typeof bounds.width !== 'number' ||
-        typeof bounds.height !== 'number'
-      ) {
-        return {}
-      }
-
-      // Validate bounds are on a visible display (top-left corner must be on some display)
-      const displays = screen.getAllDisplays()
-      const isVisible = displays.some((display) => {
-        return (
-          bounds.x >= display.bounds.x &&
-          bounds.x < display.bounds.x + display.bounds.width &&
-          bounds.y >= display.bounds.y &&
-          bounds.y < display.bounds.y + display.bounds.height
-        )
-      })
-
-      if (isVisible) {
-        return bounds
-      }
-    }
-  } catch (err) {
-    appLog.error(`Failed to load bounds: ${String(err)}`)
-  }
-  return {}
-}
-
-function saveWindowBounds(win: BrowserWindow): void {
-  if (saveBoundsTimer) clearTimeout(saveBoundsTimer)
-  saveBoundsTimer = setTimeout(() => {
-    try {
-      const bounds: WindowBounds = {
-        ...win.getBounds(),
-        isMaximized: win.isMaximized(),
-      }
-      writeFile(boundsFile, JSON.stringify(bounds)).catch((err) => {
-        appLog.error(`Failed to save bounds: ${String(err)}`)
-      })
-    } catch (err) {
-      appLog.error(`Failed to save bounds: ${String(err)}`)
-    }
-  }, BOUNDS_SAVE_DEBOUNCE_MS)
-}
+// Window bounds persistence lives in ./windows/bounds (OPP-65 extraction).
 
 // Service registry -- populated in app.whenReady()
 let services: ServiceRegistry
@@ -251,7 +209,7 @@ function createWindow(): void {
         emitToRenderer(IPC_CHANNELS.PROXY_PROGRESS, { step, message })
       }
       // Tell renderer to show loading state
-      emitToRenderer('proxy:auto-connect')
+      emitToRenderer(IPC_CHANNELS.PROXY_AUTO_CONNECT)
       try {
         const tabDeps = {
           overlayManager: services.overlayManager,
@@ -264,11 +222,11 @@ function createWindow(): void {
         await startProxySequence(sendProgress, services.proxyManager, services.storageManager, mainWindow, tabDeps)
         appLog.info('Auto-connect complete')
         // Notify renderer of connection status
-        emitToRenderer('proxy:status', { ...services.proxyManager.getStatus(), status: 'connected' })
+        emitToRenderer(IPC_CHANNELS.PROXY_STATUS, { ...services.proxyManager.getStatus(), status: 'connected' })
       } catch (error) {
         appLog.error(`Auto-connect failed: ${String(error)}`)
         // Notify renderer of connection failure (field name matches ProxyStatus.error)
-        emitToRenderer('proxy:status', {
+        emitToRenderer(IPC_CHANNELS.PROXY_STATUS, {
           status: 'error',
           error: error instanceof Error ? error.message : String(error),
         })
@@ -281,71 +239,7 @@ function createWindow(): void {
   mainWindow.on('moved', () => saveWindowBounds(mainWindow))
 
   // Context menu for internal pages (overlay instead of native menu)
-  mainWindow.webContents.on('context-menu', (_e, params) => {
-    const items: Array<{
-      id: string
-      label: string
-      separator?: boolean
-      disabled?: boolean
-      data?: Record<string, string>
-    }> = []
-
-    if (params.isEditable) {
-      items.push(
-        { id: 'cut', label: 'Cut', disabled: !params.editFlags.canCut },
-        { id: 'copy', label: 'Copy', disabled: !params.editFlags.canCopy },
-        { id: 'paste', label: 'Paste', disabled: !params.editFlags.canPaste },
-        { id: '_sep1', label: '', separator: true },
-        { id: 'select-all', label: 'Select All' }
-      )
-    } else if (params.selectionText) {
-      items.push({ id: 'copy', label: 'Copy' })
-    }
-
-    if (params.linkURL) {
-      if (items.length > 0) items.push({ id: '_sep2', label: '', separator: true })
-      items.push({ id: 'copy-link', label: 'Copy Link Address', data: { url: params.linkURL } })
-    }
-
-    if (items.length === 0) return
-
-    const visibleItems = items.filter((i) => !i.separator).length
-    const separators = items.filter((i) => i.separator).length
-    const menuH = visibleItems * 36 + separators * 9 + 8
-    const menuW = CONTEXT_MENU_WIDTH
-
-    const [winW, winH] = mainWindow.getContentSize()
-    const menuX = Math.max(0, Math.min(params.x, winW - menuW))
-    const menuY = Math.max(0, Math.min(params.y, winH - menuH))
-
-    services.overlayManager.show(
-      'main-context-menu',
-      { x: menuX, y: menuY, width: menuW, height: menuH },
-      { type: 'menu', items },
-      (actionType, actionData) => {
-        switch (actionType) {
-          case 'cut':
-            mainWindow.webContents.cut()
-            break
-          case 'copy':
-            mainWindow.webContents.copy()
-            break
-          case 'paste':
-            mainWindow.webContents.paste()
-            break
-          case 'select-all':
-            mainWindow.webContents.selectAll()
-            break
-          case 'copy-link':
-            clipboard.writeText((actionData as Record<string, string>).url)
-            break
-          case 'dismiss':
-            break
-        }
-        services.overlayManager.hide('main-context-menu')
-      }
-    )
-  })
+  setupMainContextMenu(mainWindow, services.overlayManager)
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
     try {
@@ -369,7 +263,27 @@ function createWindow(): void {
   }
 }
 
+// Single-instance lock: a second launch would spawn duplicate daemons that
+// collide on the fixed ports (proxy 8080, bridge 8081, storage 5555) and
+// deadlock. The loser exits immediately (app.exit skips before-quit, whose
+// cleanup touches services that this instance never built); the winner just
+// focuses its existing window when another launch is attempted.
+if (!app.requestSingleInstanceLock()) {
+  app.exit(0)
+}
+
+app.on('second-instance', () => {
+  const win = BrowserWindow.getAllWindows()[0]
+  if (win) {
+    if (win.isMinimized()) win.restore()
+    win.focus()
+  }
+})
+
 app.whenReady().then(() => {
+  // Reap any daemons orphaned by a previous run before we spawn fresh ones.
+  reapStaleDaemons()
+
   // macOS: Set application menu for copy/paste shortcuts
   if (process.platform === 'darwin') {
     const template: Electron.MenuItemConstructorOptions[] = [
@@ -479,13 +393,18 @@ app.whenReady().then(() => {
 
   services = createServices()
   registerIpcHandlers(services)
+  services.tonConnectService.init()
 
   // Defer wallet + bridge interceptor init until WS bridge is ready (proxy must be running first)
   services.proxyManager.once('ws-bridge-ready', () => {
-    services.walletManager.init().catch((e) => log.error('Wallet init failed:', e))
-    services.paymentPolicyStore.init().catch((e) => log.error('Payment policy init failed:', e))
-    services.bridgeInterceptor.init()
-    autostartCocoonIfEnabled().catch((e) => log.error('Cocoon autostart failed:', e))
+    safeStartup('Wallet init', () => services.walletManager.init())
+    safeStartup('Payment policy init', () => services.paymentPolicyStore.init())
+    safeStartup('Bridge interceptor init', () => services.bridgeInterceptor.init())
+    // Cocoon drivers need the bridge to do work, so start them here rather than
+    // at construction (avoids an immediate disk-reading tick before bridge ready).
+    safeStartup('Withdraw driver start', () => services.withdrawDriver.start())
+    safeStartup('Recovery driver start', () => services.recoveryDriver.start())
+    safeStartup('Cocoon autostart', () => autostartCocoonIfEnabled(services))
   })
   createWindow()
 
@@ -496,101 +415,10 @@ app.whenReady().then(() => {
   })
 })
 
-const COCOON_ROOT_MAINNET = 'EQCns7bYSp0igFvS1wpb5wsZjCKCV19MD5AVzI4EyxsnU73k'
-
-/**
- * Start the Cocoon runner at boot if the user has opted in via settings AND
- * the wallet has finished setup. Fired after the WS bridge becomes ready,
- * so the runner sees a connected proxy/bridge/storage stack.
- */
-async function autostartCocoonIfEnabled(): Promise<void> {
-  if (!services) return
-  const { autostart } = getSetting('cocoon')
-  if (!autostart) return
-  const data = await loadCocoonWallet()
-  // Only auto-start when the user has already completed the setup wizard.
-  if (!data || data.setupCompletedAt == null) {
-    log.info('Cocoon autostart skipped (no completed wallet)')
-    return
-  }
-  log.info('Cocoon autostart: launching runner...')
-  try {
-    await services.cocoonManager.start({
-      ownerAddress: data.ownerAddress,
-      nodeWalletKeyBase64: data.nodeSecretBase64,
-      rootContractAddress: COCOON_ROOT_MAINNET,
-    })
-  } catch (err) {
-    log.error('Cocoon autostart failed:', err)
-  }
-}
-
-let isCleaningUp = false
-
-async function runCleanup(): Promise<void> {
-  if (isCleaningUp) return
-  isCleaningUp = true
-
-  // Clear browsing data on exit if enabled
-  const { clearOnExit } = getSetting('privacy')
-  if (clearOnExit) {
-    log.info('Clearing browsing data on exit...')
-    try {
-      const sessions = getAllSessions()
-
-      for (const ses of sessions) {
-        await ses.clearCache()
-        await ses.clearStorageData({
-          storages: ['cookies', 'localstorage', 'indexdb', 'websql', 'serviceworkers', 'cachestorage'],
-        })
-      }
-
-      log.info(`Cleared browsing data for ${sessions.length} session(s)`)
-    } catch (error) {
-      log.error(`Failed to clear browsing data: ${String(error)}`)
-    }
-
-    // Clear bookmarks file (privacy: leave no browsing trace)
-    try {
-      const { getBookmarksFile } = await import('./bookmarks')
-      const { unlinkSync, existsSync } = await import('fs')
-      const file = getBookmarksFile()
-      if (existsSync(file)) {
-        unlinkSync(file)
-        log.info('Cleared bookmarks file')
-      }
-    } catch (error) {
-      log.error(`Failed to clear bookmarks: ${String(error)}`)
-    }
-
-    // Clear domain lists passively accumulated from prompts (permissions,
-    // payment policies). User-configured preferences stay untouched.
-    try {
-      const settings = loadSettings()
-      const hasTraces =
-        settings.bridge.permissions.length > 0 ||
-        settings.wallet.sitePolicies.length > 0 ||
-        settings.wallet.autoPayDomains.length > 0
-      if (hasTraces) {
-        settings.bridge.permissions = []
-        settings.wallet.sitePolicies = []
-        settings.wallet.autoPayDomains = []
-        saveSettings(settings)
-        log.info('Cleared browsing traces from settings file')
-      }
-    } catch (error) {
-      log.error(`Failed to clear browsing traces from settings: ${String(error)}`)
-    }
-  }
-
-  cleanupTabManager()
-  await destroyServices(services)
-}
-
 app.on('window-all-closed', async () => {
-  if (isCleaningUp) return
+  if (isCleanupInProgress()) return
 
-  await runCleanup()
+  await runCleanup(services)
 
   if (process.platform !== 'darwin') {
     app.quit()
@@ -604,24 +432,12 @@ app.on('before-quit', (event) => {
   isQuitting = true
 
   // Flush pending window bounds save synchronously before quit
-  if (saveBoundsTimer) {
-    clearTimeout(saveBoundsTimer)
-    saveBoundsTimer = null
-    const wins = BrowserWindow.getAllWindows()
-    if (wins.length > 0) {
-      try {
-        const bounds = { ...wins[0].getBounds(), isMaximized: wins[0].isMaximized() }
-        writeFileSync(boundsFile, JSON.stringify(bounds))
-      } catch (err) {
-        log.error(`Failed to flush bounds on quit: ${String(err)}`)
-      }
-    }
-  }
+  flushWindowBoundsOnQuit()
 
   // Cleanup history before quit -- must await, so use Promise chain
   services.historyManager
     .onAppExit()
-    .then(() => runCleanup())
-    .catch(() => runCleanup())
+    .then(() => runCleanup(services))
+    .catch(() => runCleanup(services))
     .finally(() => app.quit())
 })

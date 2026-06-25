@@ -57,7 +57,7 @@
   },
   "tip": {
     "resolveError": "Impossible de résoudre le domaine",
-    "title": "Envoyer {{amount}} TON à {{domain}}"
+    "title": "Envoyer {{amount}} GRAM à {{domain}}"
   },
   "statusBar": {
     "connected": "Connecté au Réseau TON",

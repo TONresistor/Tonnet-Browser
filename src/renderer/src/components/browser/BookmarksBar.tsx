@@ -4,8 +4,7 @@
  * Includes drag & drop functionality for reordering.
  */
 
-import { useState, useRef, useCallback } from 'react'
-import { UI_NOTIFICATION_TIMEOUT_MS } from '@shared/constants'
+import { useState } from 'react'
 import {
   DndContext,
   DragEndEvent,
@@ -23,139 +22,27 @@ import { useTabsStore } from '@/stores/tabs'
 import { ErrorBoundary } from '../ErrorBoundary'
 import { SortableBookmarkItem } from './SortableBookmarkItem'
 import { DroppableFolder } from './DroppableFolder'
+import { classifyDrop } from '@/lib/bookmark-dnd'
+import { useBookmarkContextMenu } from '@/hooks/useBookmarkContextMenu'
 import { useTranslation } from 'react-i18next'
-import { useOverlay } from '@/hooks/useOverlay'
 
 export function BookmarksBar() {
   const { t } = useTranslation('settings')
   const { t: tBrowser } = useTranslation('browser')
   const bookmarks = useBookmarksStore((s) => s.bookmarks)
   const folders = useBookmarksStore((s) => s.folders)
-  const getBookmarksByFolder = useBookmarksStore((s) => s.getBookmarksByFolder)
-  const updateBookmark = useBookmarksStore((s) => s.updateBookmark)
-  const removeBookmark = useBookmarksStore((s) => s.removeBookmark)
-  const updateFolder = useBookmarksStore((s) => s.updateFolder)
-  const removeFolder = useBookmarksStore((s) => s.removeFolder)
   const reorderBookmarks = useBookmarksStore((s) => s.reorderBookmarks)
   const reorderFolders = useBookmarksStore((s) => s.reorderFolders)
   const navigateActiveTab = useTabsStore((s) => s.navigateActiveTab)
-  const addTab = useTabsStore((s) => s.addTab)
   const [activeId, setActiveId] = useState<string | null>(null)
-  const [pendingFolderDeleteId, setPendingFolderDeleteId] = useState<string | null>(null)
-  const folderDeleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const editingBookmarkIdRef = useRef<string | null>(null)
-  const editingFolderIdRef = useRef<string | null>(null)
-  const lastClickPosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
-  const menuRef = useRef<{
-    show: (
-      bounds: { x: number; y: number; width: number; height: number },
-      content: { type: string; [key: string]: unknown }
-    ) => void
-    hide: () => void
-  } | null>(null)
-
-  // Overlay menu action handler
-  const handleMenuAction = useCallback(
-    (actionType: string, data: unknown) => {
-      const d = data as Record<string, string>
-      switch (actionType) {
-        case 'open-new-tab':
-          menuRef.current?.hide()
-          addTab(d.url)
-          break
-        case 'navigate':
-          menuRef.current?.hide()
-          navigateActiveTab(d.url)
-          break
-        case 'edit': {
-          // Transition menu -> form, positioned below the original right-click, clamped to window
-          editingBookmarkIdRef.current = d.id
-          const editW = 320,
-            editH = 270
-          const editX = Math.max(4, Math.min(lastClickPosRef.current.x - editW / 2, window.innerWidth - editW - 4))
-          const editY = Math.max(4, Math.min(lastClickPosRef.current.y + 8, window.innerHeight - editH - 4))
-          menuRef.current?.show(
-            { x: Math.round(editX), y: Math.round(editY), width: editW, height: editH },
-            {
-              type: 'form',
-              title: t('bookmarks.editBookmark'),
-              fields: [
-                { id: 'name', label: t('bookmarks.name'), value: d.title },
-                { id: 'url', label: t('bookmarks.url'), value: d.url },
-              ],
-              actions: [
-                { id: 'dismiss', label: t('bookmarks.cancel') },
-                { id: 'save-edit', label: t('bookmarks.save'), primary: true },
-              ],
-            }
-          )
-          break
-        }
-        case 'save-edit':
-          menuRef.current?.hide()
-          if (editingBookmarkIdRef.current) {
-            updateBookmark(editingBookmarkIdRef.current, {
-              title: (d.name as string)?.trim() || '',
-              url: (d.url as string)?.trim() || '',
-            })
-            editingBookmarkIdRef.current = null
-          }
-          break
-        case 'delete-bookmark':
-          menuRef.current?.hide()
-          removeBookmark(d.id)
-          break
-        case 'rename-folder': {
-          // Transition menu -> form, positioned below the original right-click, clamped to window
-          editingFolderIdRef.current = d.folderId
-          const renameW = 320,
-            renameH = 170
-          const renameX = Math.max(
-            4,
-            Math.min(lastClickPosRef.current.x - renameW / 2, window.innerWidth - renameW - 4)
-          )
-          const renameY = Math.max(4, Math.min(lastClickPosRef.current.y + 8, window.innerHeight - renameH - 4))
-          menuRef.current?.show(
-            { x: Math.round(renameX), y: Math.round(renameY), width: renameW, height: renameH },
-            {
-              type: 'form',
-              title: t('bookmarks.renameFolder'),
-              fields: [{ id: 'name', label: t('bookmarks.name'), value: d.folderName }],
-              actions: [
-                { id: 'dismiss', label: t('bookmarks.cancel') },
-                { id: 'save-rename', label: t('bookmarks.save'), primary: true },
-              ],
-            }
-          )
-          break
-        }
-        case 'save-rename':
-          menuRef.current?.hide()
-          if (editingFolderIdRef.current) {
-            updateFolder(editingFolderIdRef.current, { name: (d.name as string)?.trim() || '' })
-            editingFolderIdRef.current = null
-          }
-          break
-        case 'open-all':
-          menuRef.current?.hide()
-          getBookmarksByFolder(d.folderId).forEach((b) => addTab(b.url))
-          break
-        case 'delete-folder':
-          menuRef.current?.hide()
-          setPendingFolderDeleteId(d.folderId)
-          if (folderDeleteTimerRef.current) clearTimeout(folderDeleteTimerRef.current)
-          folderDeleteTimerRef.current = setTimeout(() => setPendingFolderDeleteId(null), UI_NOTIFICATION_TIMEOUT_MS)
-          break
-        case 'dismiss':
-          menuRef.current?.hide()
-          break
-      }
-    },
-    [addTab, navigateActiveTab, removeBookmark, getBookmarksByFolder, updateBookmark, updateFolder, t]
-  )
-
-  const menu = useOverlay('bookmark-menu', handleMenuAction)
-  menuRef.current = menu
+  const {
+    handleBookmarkContextMenu,
+    handleFolderClick,
+    handleFolderContextMenu,
+    pendingFolderDeleteId,
+    confirmFolderDelete,
+    cancelFolderDelete,
+  } = useBookmarkContextMenu()
 
   // Configure drag & drop sensors
   const sensors = useSensors(
@@ -175,80 +62,6 @@ export function BookmarksBar() {
   const topLevelBookmarks = bookmarks.filter((b) => b.folderId === null).sort((a, b) => a.order - b.order)
   const topLevelFolders = folders.filter((f) => f.parentId === null).sort((a, b) => a.order - b.order)
 
-  const handleContextMenu = (e: React.MouseEvent, bookmark: Bookmark) => {
-    e.preventDefault()
-    lastClickPosRef.current = { x: e.clientX, y: e.clientY }
-    const menuW = 200,
-      menuH = 160
-    const menuX = Math.max(4, Math.min(e.clientX, window.innerWidth - menuW - 4))
-    const menuY = Math.max(4, Math.min(e.clientY, window.innerHeight - menuH - 4))
-    menu.show(
-      { x: menuX, y: menuY, width: menuW, height: menuH },
-      {
-        type: 'menu',
-        items: [
-          { id: 'open-new-tab', label: t('bookmarks.openInNewTab'), data: { url: bookmark.url } },
-          {
-            id: 'edit',
-            label: t('bookmarks.edit'),
-            data: { id: bookmark.id, title: bookmark.title, url: bookmark.url },
-          },
-          { id: '_sep1', label: '', separator: true },
-          { id: 'delete-bookmark', label: t('bookmarks.delete'), data: { id: bookmark.id }, destructive: true },
-        ],
-      }
-    )
-  }
-
-  const handleFolderClick = (e: React.MouseEvent, folderId: string) => {
-    const folderBookmarks = getBookmarksByFolder(folderId)
-    const items = folderBookmarks.map((b) => ({
-      id: 'navigate',
-      label: b.title || b.url,
-      data: { url: b.url },
-    }))
-    if (items.length === 0) {
-      items.push({
-        id: 'empty',
-        label: t('bookmarks.emptyFolder'),
-        disabled: true,
-        data: {},
-      } as unknown as (typeof items)[0])
-    }
-    const target = e.currentTarget.getBoundingClientRect()
-    menu.show(
-      {
-        x: Math.round(target.left),
-        y: Math.round(target.bottom + 4),
-        width: 220,
-        height: Math.min(items.length * 40 + 8, 300),
-      },
-      { type: 'menu', items }
-    )
-  }
-
-  const handleFolderContextMenu = (e: React.MouseEvent, folderId: string, folderName: string) => {
-    e.preventDefault()
-    e.stopPropagation()
-    lastClickPosRef.current = { x: e.clientX, y: e.clientY }
-    const fMenuW = 200,
-      fMenuH = 160
-    const fMenuX = Math.max(4, Math.min(e.clientX, window.innerWidth - fMenuW - 4))
-    const fMenuY = Math.max(4, Math.min(e.clientY, window.innerHeight - fMenuH - 4))
-    menu.show(
-      { x: fMenuX, y: fMenuY, width: fMenuW, height: fMenuH },
-      {
-        type: 'menu',
-        items: [
-          { id: 'rename-folder', label: t('bookmarks.rename'), data: { folderId, folderName } },
-          { id: 'open-all', label: t('bookmarks.openAllBookmarks'), data: { folderId } },
-          { id: '_sep1', label: '', separator: true },
-          { id: 'delete-folder', label: t('bookmarks.delete'), data: { folderId }, destructive: true },
-        ],
-      }
-    )
-  }
-
   // Drag & drop handlers
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(event.active.id as string)
@@ -258,37 +71,17 @@ export function BookmarksBar() {
     const { active, over } = event
     setActiveId(null)
 
-    if (!over) return
-
-    const activeId = active.id as string
-    const overId = over.id as string
-
-    const isActiveFolder = activeId.startsWith('folder-')
-    const isOverFolder = overId.startsWith('folder-') || overId.startsWith('droppable-')
-
-    if (isActiveFolder && isOverFolder && activeId !== overId) {
-      const actualOverId = overId.startsWith('droppable-') ? overId.replace('droppable-', '') : overId
-      if (activeId === actualOverId) return
-      const oldIndex = topLevelFolders.findIndex((f) => f.id === activeId)
-      const newIndex = topLevelFolders.findIndex((f) => f.id === actualOverId)
-      if (oldIndex !== -1 && newIndex !== -1) {
-        reorderFolders(activeId, newIndex, null)
-      }
-      return
-    }
-
-    if (!isActiveFolder && over.data.current?.type === 'folder') {
-      const targetFolderId = over.data.current.folderId
-      reorderBookmarks(activeId, targetFolderId, 0)
-      return
-    }
-
-    if (!isActiveFolder && !isOverFolder && activeId !== overId) {
-      const oldIndex = topLevelBookmarks.findIndex((b) => b.id === activeId)
-      const newIndex = topLevelBookmarks.findIndex((b) => b.id === overId)
-      if (oldIndex !== -1 && newIndex !== -1) {
-        reorderBookmarks(activeId, null, newIndex)
-      }
+    const action = classifyDrop(active, over, topLevelFolders, topLevelBookmarks)
+    switch (action.kind) {
+      case 'reorder-folder':
+        reorderFolders(action.folderId, action.newIndex, null)
+        break
+      case 'bookmark-into-folder':
+        reorderBookmarks(action.bookmarkId, action.folderId, 0)
+        break
+      case 'reorder-bookmark':
+        reorderBookmarks(action.bookmarkId, null, action.newIndex)
+        break
     }
   }
 
@@ -361,7 +154,7 @@ export function BookmarksBar() {
                 key={bookmark.id}
                 bookmark={bookmark}
                 onNavigate={navigateActiveTab}
-                onContextMenu={handleContextMenu}
+                onContextMenu={handleBookmarkContextMenu}
               />
             ))}
           </SortableContext>
@@ -397,20 +190,13 @@ export function BookmarksBar() {
         <div className="flex items-center gap-2 px-3 py-1.5 text-sm bg-destructive/15 border-t border-destructive/30 text-destructive">
           <span className="flex-1">{t('bookmarks.deleteFolderConfirm')}</span>
           <button
-            onClick={() => {
-              removeFolder(pendingFolderDeleteId)
-              setPendingFolderDeleteId(null)
-              if (folderDeleteTimerRef.current) clearTimeout(folderDeleteTimerRef.current)
-            }}
+            onClick={confirmFolderDelete}
             className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-destructive/25 hover:bg-destructive/40 transition-colors"
           >
             {t('bookmarks.confirm')}
           </button>
           <button
-            onClick={() => {
-              setPendingFolderDeleteId(null)
-              if (folderDeleteTimerRef.current) clearTimeout(folderDeleteTimerRef.current)
-            }}
+            onClick={cancelFolderDelete}
             className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-surface-hover hover:bg-surface-active transition-colors text-muted-foreground"
           >
             {t('bookmarks.cancel')}

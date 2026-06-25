@@ -2,14 +2,18 @@
  * IPC handlers for wallet operations.
  */
 
-import { IPC_CHANNELS, type WalletState, type WalletTransaction } from '../../../shared/types'
+import { IPC_CHANNELS } from '../../../shared/ipc-channels'
+import type { WalletState, WalletTransaction } from '../../../shared/types'
 import { secureHandle, tonsiteHandle, emitToRenderer, payForXhrLimiter, toError, log } from './shared'
+import { getStorageBagForDomain } from '../../windows/tabs-storage'
 import { getMainWindow } from '../../windows/main'
-import { WALLET_HISTORY_DEFAULT_LIMIT, WALLET_HISTORY_LOCAL_PREFETCH } from '../../wallet/constants'
+import { WALLET_HISTORY_DEFAULT_LIMIT } from '../../wallet/constants'
+import { fetchHistoryViaIndexer } from '../../wallet/indexer-client'
+import { getSetting } from '../../settings'
 import type { ServiceRegistry } from '../../services'
 
 export function registerWalletHandlers(registry: ServiceRegistry): void {
-  const { walletManager, walletHistoryManager, paymentInterceptor, overlayManager } = registry
+  const { walletManager, walletHistoryManager, paymentInterceptor, overlayManager, tonConnectService } = registry
 
   walletManager.on('balance-updated', (balance: string) => {
     emitToRenderer(IPC_CHANNELS.WALLET_BALANCE_UPDATED, balance)
@@ -21,6 +25,9 @@ export function registerWalletHandlers(registry: ServiceRegistry): void {
 
   walletManager.on('new-transaction', (tx: WalletTransaction) => {
     emitToRenderer(IPC_CHANNELS.WALLET_NEW_TRANSACTION, tx)
+    void walletHistoryManager.reconcile([tx]).catch((err) => {
+      log.warn(`Failed to cache live transaction: ${toError(err).message}`)
+    })
   })
 
   secureHandle(IPC_CHANNELS.WALLET_CREATE, async () => {
@@ -62,21 +69,34 @@ export function registerWalletHandlers(registry: ServiceRegistry): void {
 
   secureHandle(IPC_CHANNELS.WALLET_GET_HISTORY, async (limit?: number) => {
     const safeLimit = typeof limit === 'number' && limit > 0 ? limit : WALLET_HISTORY_DEFAULT_LIMIT
-    const [onChainResult, localResult] = await Promise.allSettled([
-      walletManager.fetchOnChainHistory(safeLimit),
-      walletHistoryManager.getRecent(WALLET_HISTORY_LOCAL_PREFETCH),
-    ])
-    const local = localResult.status === 'fulfilled' ? localResult.value : []
-    if (onChainResult.status === 'fulfilled') {
-      return walletHistoryManager.merge(onChainResult.value, local)
+    try {
+      const onChain = await walletManager.fetchOnChainHistory(safeLimit)
+      return await walletHistoryManager.reconcile(onChain)
+    } catch (error) {
+      const walletSettings = getSetting('wallet')
+      if (walletSettings.indexerEnabled) {
+        try {
+          const address = walletManager.getState().address
+          const viaIndexer = await fetchHistoryViaIndexer(
+            address,
+            safeLimit,
+            walletSettings.indexerEndpoint,
+            walletSettings.indexerApiKey
+          )
+          if (viaIndexer.length > 0) {
+            return await walletHistoryManager.reconcile(viaIndexer)
+          }
+        } catch (indexerError) {
+          log.warn(`Indexer history fetch failed: ${toError(indexerError).message}`)
+        }
+      }
+      const cached = await walletHistoryManager.getAll()
+      if (cached.length > 0) {
+        log.warn(`On-chain history fetch failed, serving cached history: ${toError(error).message}`)
+        return cached
+      }
+      throw toError(error)
     }
-    // On-chain fetch failed: serve local pending tx if any, otherwise
-    // propagate so the renderer preserves its existing list.
-    if (local.length > 0) {
-      log.warn('On-chain history fetch failed, serving local cache only')
-      return local
-    }
-    throw toError(onChainResult.reason)
   })
 
   secureHandle(IPC_CHANNELS.WALLET_CLEAR_HISTORY, async () => {
@@ -146,7 +166,10 @@ export function registerWalletHandlers(registry: ServiceRegistry): void {
     if (!state.isCreated && !state.decryptFailed) {
       throw new Error('No wallet to delete')
     }
-    return await walletManager.deleteWallet()
+    const result = await walletManager.deleteWallet()
+    await walletHistoryManager.clear()
+    tonConnectService.clearSessions()
+    return result
   })
 
   secureHandle(IPC_CHANNELS.WALLET_EXPORT_MNEMONIC, async () => {
@@ -201,7 +224,19 @@ export function registerWalletHandlers(registry: ServiceRegistry): void {
     if (!domain || typeof domain !== 'string') {
       throw new Error('Invalid domain')
     }
-    return await walletManager.resolveDomain(domain)
+    const result = await walletManager.resolveDomain(domain)
+
+    // Enrich with storage bag ID if the proxy has already discovered it for this domain
+    // (discovered via log parsing when serving .ton sites that use TON Storage).
+    // This gives us the real bag ID from the contract/proxy without extra on-chain queries.
+    if (result.has_storage && !result.storage_bag_id) {
+      const knownBag = getStorageBagForDomain(domain.toLowerCase())
+      if (knownBag) {
+        result.storage_bag_id = knownBag
+      }
+    }
+
+    return result
   })
 
   log.info('Wallet handlers registered')

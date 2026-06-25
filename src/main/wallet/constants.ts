@@ -49,3 +49,5 @@ export const AUTO_LOCK_DEFAULT_MS = 5 * 60 * 1_000
 export const WALLET_HISTORY_DEFAULT_LIMIT = 20
 /** Number of local transactions to load for merge with on-chain results */
 export const WALLET_HISTORY_LOCAL_PREFETCH = 100
+/** Maximum transactions retained in the accumulated local cache */
+export const WALLET_HISTORY_CACHE_LIMIT = 500

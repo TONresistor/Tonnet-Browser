@@ -3,12 +3,14 @@
  * Container qui orchestre toutes les sections
  */
 
+import { errorMessage } from '@shared/errors'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createLogger } from '@/logger'
 import { UI_NOTIFICATION_TIMEOUT_MS, UI_ERROR_TIMEOUT_MS } from '@shared/constants'
 import { usePreferencesStore } from '@/stores/preferences'
 import { useUIStore } from '@/stores/ui'
 import { useTranslation } from 'react-i18next'
+import { useConfirmAction } from '@/hooks/useConfirmAction'
 
 const log = createLogger('settings')
 import { SettingsLayout } from '@/components/settings/SettingsLayout'
@@ -40,14 +42,13 @@ export function SettingsPage() {
   const [clearing, setClearing] = useState(false)
   const [cleared, setCleared] = useState(false)
   const [changingHistoryMode, setChangingHistoryMode] = useState(false)
-  const [pendingReset, setPendingReset] = useState(false)
+  const resetConfirm = useConfirmAction()
   const [historyError, setHistoryError] = useState<string | null>(null)
   const [walletDirty, setWalletDirty] = useState(false)
   const [bridgeDirty, setBridgeDirty] = useState(false)
 
   // Refs
   const clearTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const historyErrorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const walletSectionRef = useRef<WalletSectionHandle | null>(null)
   const bridgeSectionRef = useRef<BridgeSectionHandle | null>(null)
@@ -75,7 +76,6 @@ export function SettingsPage() {
   useEffect(() => {
     return () => {
       if (clearTimeoutRef.current) clearTimeout(clearTimeoutRef.current)
-      if (resetTimerRef.current) clearTimeout(resetTimerRef.current)
       if (historyErrorTimerRef.current) clearTimeout(historyErrorTimerRef.current)
     }
   }, [])
@@ -105,14 +105,8 @@ export function SettingsPage() {
   }
 
   const handleResetAll = () => {
-    if (pendingReset) {
+    if (resetConfirm.trigger()) {
       resetToDefaults()
-      setPendingReset(false)
-      if (resetTimerRef.current) clearTimeout(resetTimerRef.current)
-    } else {
-      setPendingReset(true)
-      if (resetTimerRef.current) clearTimeout(resetTimerRef.current)
-      resetTimerRef.current = setTimeout(() => setPendingReset(false), UI_NOTIFICATION_TIMEOUT_MS)
     }
   }
 
@@ -145,7 +139,7 @@ export function SettingsPage() {
           historyErrorTimerRef.current = setTimeout(() => setHistoryError(null), UI_ERROR_TIMEOUT_MS)
         }
       } catch (error) {
-        setHistoryError(t('errors.historyModeChangeError', { error: (error as Error).message }))
+        setHistoryError(t('errors.historyModeChangeError', { error: errorMessage(error) }))
         if (historyErrorTimerRef.current) clearTimeout(historyErrorTimerRef.current)
         historyErrorTimerRef.current = setTimeout(() => setHistoryError(null), UI_ERROR_TIMEOUT_MS)
       } finally {
@@ -193,7 +187,12 @@ export function SettingsPage() {
 
       case 'advanced':
         return (
-          <AdvancedSection draft={draft} setDraft={setDraft} onResetAll={handleResetAll} pendingReset={pendingReset} />
+          <AdvancedSection
+            draft={draft}
+            setDraft={setDraft}
+            onResetAll={handleResetAll}
+            pendingReset={resetConfirm.isArmed()}
+          />
         )
 
       case 'wallet':

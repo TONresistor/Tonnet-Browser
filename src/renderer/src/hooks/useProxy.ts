@@ -1,19 +1,21 @@
 /**
- * Hook for TON proxy connection.
- * Connect, disconnect, and track status.
+ * Hook for starting the TON proxy connection from the landing screen.
  */
 
+import { errorMessage } from '@shared/errors'
 import { useState, useCallback } from 'react'
 import { useBrowserStore } from '../stores/browser'
 
 export function useProxy() {
   const [isConnecting, setIsConnecting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const proxyConnected = useBrowserStore((s) => s.proxyConnected)
   const setProxyStatus = useBrowserStore((s) => s.setProxyStatus)
 
   const connect = useCallback(async () => {
     setIsConnecting(true)
+    // Warm the StartPage chunk during the proxy bootstrap so it is already loaded
+    // by the time proxyConnected flips true, avoiding the Suspense fallback flash.
+    void import('@/components/pages/StartPage')
     setError(null)
 
     try {
@@ -27,37 +29,16 @@ export function useProxy() {
         setProxyStatus(false)
       }
     } catch (err) {
-      setError((err as Error).message)
+      setError(errorMessage(err))
       setProxyStatus(false)
     } finally {
       setIsConnecting(false)
     }
   }, [setProxyStatus])
 
-  const disconnect = useCallback(async () => {
-    try {
-      await window.electron.proxy.disconnect()
-      setProxyStatus(false)
-    } catch (err) {
-      setError((err as Error).message)
-    }
-  }, [setProxyStatus])
-
-  const checkStatus = useCallback(async () => {
-    try {
-      const status = await window.electron.proxy.status()
-      setProxyStatus(status.connected, undefined, status.port)
-    } catch {
-      setProxyStatus(false)
-    }
-  }, [setProxyStatus])
-
   return {
-    connected: proxyConnected,
     isConnecting,
     error,
     connect,
-    disconnect,
-    checkStatus,
   }
 }

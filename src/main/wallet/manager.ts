@@ -4,11 +4,33 @@
  */
 
 import { EventEmitter } from 'events'
-import { internal, beginCell, storeMessage, Address, SendMode, Cell } from '@ton/core'
+import {
+  internal,
+  beginCell,
+  storeMessage,
+  storeStateInit,
+  loadStateInit,
+  Address,
+  SendMode,
+  Cell,
+  type MessageRelaxed,
+} from '@ton/core'
+import { sign, sha256_sync } from '@ton/crypto'
 import { WalletContractV5R1 } from '@ton/ton'
+import type {
+  TonConnectOutMessage,
+  TonProofReplyPayload,
+  SignDataPayloadInput,
+  SignDataResult,
+} from '../tonconnect/types'
 import { WalletKeyStorage, WalletDecryptionError } from './key-storage'
 import type { ISecureStorage } from '../ports/secure-storage'
-import { WsBridgeClient, type BridgeTransaction, type BridgeAccountState } from './ws-bridge-client'
+import {
+  WsBridgeClient,
+  isContractNotDeployedError,
+  type BridgeTransaction,
+  type BridgeAccountState,
+} from './ws-bridge-client'
 import { getSetting } from '../settings'
 import { WALLET_MAX_TIMEOUT_S, WALLET_HISTORY_DEFAULT_LIMIT } from './constants'
 import type {
@@ -19,12 +41,32 @@ import type {
   DnsResolveResult,
 } from '../../shared/types'
 import { createLogger } from '../../shared/logger'
+import { TON_DOMAIN_REGEX } from '../../shared/utils/ton'
 const log = createLogger('wallet')
 
-const TON_DOMAIN_REGEX = /^([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+ton$/
+function crc32(input: string): number {
+  const bytes = Buffer.from(input, 'utf8')
+  let crc = 0xffffffff
+  for (let i = 0; i < bytes.length; i++) {
+    crc ^= bytes[i]
+    for (let j = 0; j < 8; j++) {
+      crc = (crc >>> 1) ^ (0xedb88320 & -(crc & 1))
+    }
+  }
+  return (crc ^ 0xffffffff) >>> 0
+}
 
-function isTonDomain(s: string): boolean {
-  return s.endsWith('.ton') && s.length <= 126
+function decodeComment(body?: string): string | undefined {
+  if (!body) return undefined
+  try {
+    const slice = Cell.fromBase64(body).beginParse()
+    if (slice.remainingBits < 32) return undefined
+    if (slice.loadUint(32) !== 0) return undefined
+    const text = slice.loadStringTail()
+    return text.length > 0 ? text : undefined
+  } catch {
+    return undefined
+  }
 }
 
 export class WalletManager extends EventEmitter {
@@ -62,8 +104,9 @@ export class WalletManager extends EventEmitter {
         this.keypair = await this.keyStorage.load()
         this.publicKey = Buffer.from(this.keypair.publicKey)
         this.walletContract = WalletContractV5R1.create({ publicKey: this.keypair.publicKey, workchain: 0 })
-        await this.warmupLiteserverPool()
-        await this.syncSeqno()
+        // warmup (balance priming) and seqno sync hit independent bridge
+        // methods with no data dependency, so run them concurrently.
+        await Promise.allSettled([this.warmupLiteserverPool(), this.syncSeqno()])
         this.subscribeAccount()
         const walletSettings = getSetting('wallet')
         this.keyStorage.setAutoLockMinutes(walletSettings.autoLockMinutes)
@@ -295,16 +338,19 @@ export class WalletManager extends EventEmitter {
     let type: 'send' | 'receive' = 'receive'
     let amount = '0'
     let counterparty = ''
+    let body: string | undefined
 
     if (outMsgs.length > 0) {
       type = 'send'
       const msg = outMsgs[0]
       amount = msg.value ?? '0'
       counterparty = msg.destination ?? ''
+      body = msg.body
     } else if (inMsg) {
       type = 'receive'
       amount = inMsg.value ?? '0'
       counterparty = inMsg.source ?? ''
+      body = inMsg.body
     }
 
     if (amount === '0') return null
@@ -321,6 +367,9 @@ export class WalletManager extends EventEmitter {
       timestamp: rawTime * 1000,
       status: 'confirmed' as const,
       hash: tx.hash ?? '',
+      lt: tx.lt || undefined,
+      fee: tx.total_fees,
+      comment: decodeComment(body),
     }
   }
 
@@ -330,19 +379,27 @@ export class WalletManager extends EventEmitter {
   async fetchOnChainHistory(limit: number = WALLET_HISTORY_DEFAULT_LIMIT): Promise<WalletTransaction[]> {
     if (!this.wsBridge || !this.walletContract) return []
 
-    try {
-      const rawTxs = await this.wsBridge.getTransactions(this.walletContract.address.toString(), limit)
-      return rawTxs.map((tx) => this.convertRawTx(tx)).filter((tx): tx is WalletTransaction => tx !== null)
-    } catch (error) {
-      log.error('Failed to fetch on-chain history:', error)
-      throw error
+    const address = this.walletContract.address.toString()
+    let lastError: unknown
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const rawTxs = await this.wsBridge.getTransactions(address, limit)
+        return rawTxs.map((tx) => this.convertRawTx(tx)).filter((tx): tx is WalletTransaction => tx !== null)
+      } catch (error) {
+        lastError = error
+        if (attempt < 2) await new Promise((r) => setTimeout(r, 600))
+      }
     }
+    log.error('Failed to fetch on-chain history:', lastError)
+    throw lastError
   }
 
   /**
    * Sign and broadcast a TON transfer.
    */
   async send(to: string, amount: string): Promise<WalletTransaction> {
+    const bridge = this.wsBridge
+    if (!bridge) throw new Error('Bridge not connected')
     await this.syncSeqno()
     const boc = await this.signTransfer(to, amount)
     const bocBuffer = Buffer.from(boc, 'base64')
@@ -350,11 +407,11 @@ export class WalletManager extends EventEmitter {
     let txHash: string | undefined
     let status: 'pending' | 'confirmed' = 'pending'
     try {
-      txHash = await this.wsBridge!.sendAndWatch(bocBuffer)
+      txHash = await bridge.sendAndWatch(bocBuffer)
       status = 'confirmed'
     } catch {
       // Fallback: broadcast without waiting for confirmation
-      await this.wsBridge!.broadcast(bocBuffer)
+      await bridge.broadcast(bocBuffer)
     }
 
     const tx: WalletTransaction = {
@@ -375,7 +432,8 @@ export class WalletManager extends EventEmitter {
    * Sign a transfer and return the BOC as base64.
    */
   async signTransfer(to: string, amount: string): Promise<string> {
-    const { boc } = await this.buildBoc(Address.parse(to), BigInt(amount), WALLET_MAX_TIMEOUT_S)
+    const message = internal({ to: Address.parse(to), value: BigInt(amount), bounce: false })
+    const { boc } = await this.buildBoc([message], WALLET_MAX_TIMEOUT_S)
     return boc
   }
 
@@ -385,11 +443,12 @@ export class WalletManager extends EventEmitter {
   async signX402Payment(paymentReq: PaymentRequirements): Promise<ExactTonPayload> {
     if (!this.publicKey || !this.walletContract) throw new Error('Wallet not initialized')
     await this.syncSeqno()
-    const { boc, seqno, validUntil } = await this.buildBoc(
-      Address.parseRaw(paymentReq.payTo),
-      BigInt(paymentReq.amount),
-      paymentReq.maxTimeoutSeconds
-    )
+    const message = internal({
+      to: Address.parseRaw(paymentReq.payTo),
+      value: BigInt(paymentReq.amount),
+      bounce: false,
+    })
+    const { boc, seqno, validUntil } = await this.buildBoc([message], paymentReq.maxTimeoutSeconds)
     this.emit('payment-signed', paymentReq)
     log.info(`x402 payment signed: ${paymentReq.amount} nanoTON to ${paymentReq.payTo.substring(0, 12)}...`)
     return {
@@ -401,6 +460,153 @@ export class WalletManager extends EventEmitter {
     }
   }
 
+  getTonConnectAccount(): { addressRaw: string; publicKey: string; walletStateInit: string } | null {
+    if (!this.publicKey || !this.walletContract) return null
+    const stateInit = beginCell().store(storeStateInit(this.walletContract.init)).endCell()
+    return {
+      addressRaw: this.walletContract.address.toRawString(),
+      publicKey: this.publicKey.toString('hex'),
+      walletStateInit: stateInit.toBoc().toString('base64'),
+    }
+  }
+
+  async signTonConnectTransaction(messages: TonConnectOutMessage[]): Promise<string> {
+    const bridge = this.wsBridge
+    if (!bridge) throw new Error('Bridge not connected')
+    if (!this.walletContract) throw new Error('Wallet not initialized')
+    await this.syncSeqno()
+
+    const relaxed: MessageRelaxed[] = messages.map((m) => {
+      const { isBounceable, address } = Address.parseFriendly(m.address)
+      return internal({
+        to: address,
+        value: BigInt(m.amount),
+        bounce: isBounceable,
+        body: m.payload ? Cell.fromBase64(m.payload) : undefined,
+        init: m.stateInit ? loadStateInit(Cell.fromBase64(m.stateInit).beginParse()) : undefined,
+      })
+    })
+
+    const { boc } = await this.buildBoc(relaxed, WALLET_MAX_TIMEOUT_S)
+    const bocBuffer = Buffer.from(boc, 'base64')
+    try {
+      await bridge.sendAndWatch(bocBuffer)
+    } catch {
+      await bridge.broadcast(bocBuffer)
+    }
+    this.emit('state-changed', this.getState())
+    return boc
+  }
+
+  async signTonProof(domain: string, payload: string): Promise<TonProofReplyPayload> {
+    if (!this.walletContract) throw new Error('Wallet not initialized')
+    const address = this.walletContract.address
+    const timestamp = Math.floor(Date.now() / 1000)
+
+    const wc = Buffer.alloc(4)
+    wc.writeInt32BE(address.workChain, 0)
+    const domainBuf = Buffer.from(domain, 'utf8')
+    const domainLen = Buffer.alloc(4)
+    domainLen.writeUInt32LE(domainBuf.byteLength, 0)
+    const ts = Buffer.alloc(8)
+    ts.writeBigUInt64LE(BigInt(timestamp), 0)
+
+    const message = Buffer.concat([
+      Buffer.from('ton-proof-item-v2/', 'utf8'),
+      wc,
+      address.hash,
+      domainLen,
+      domainBuf,
+      ts,
+      Buffer.from(payload, 'utf8'),
+    ])
+    const digest = sha256_sync(
+      Buffer.concat([Buffer.from([0xff, 0xff]), Buffer.from('ton-connect', 'utf8'), sha256_sync(message)])
+    )
+    const signature = await this.signWithKey((secretKey) => sign(digest, secretKey))
+
+    return {
+      timestamp, // number (UNIX seconds) — a string fails @tonconnect/sdk validation ("Invalid 'proof.timestamp'")
+      domain: { lengthBytes: domainBuf.byteLength, value: domain },
+      signature: signature.toString('base64'),
+      payload,
+    }
+  }
+
+  async signData(domain: string, payload: SignDataPayloadInput): Promise<SignDataResult> {
+    if (!this.walletContract) throw new Error('Wallet not initialized')
+    const address = this.walletContract.address
+    const timestamp = Math.floor(Date.now() / 1000)
+
+    let digest: Buffer
+    if (payload.type === 'cell') {
+      const cell = Cell.fromBase64(payload.cell)
+      digest = beginCell()
+        .storeUint(0x75569022, 32)
+        .storeUint(crc32(payload.schema), 32)
+        .storeUint(timestamp, 64)
+        .storeAddress(address)
+        .storeStringRefTail(domain)
+        .storeRef(cell)
+        .endCell()
+        .hash()
+    } else {
+      const wc = Buffer.alloc(4)
+      wc.writeInt32BE(address.workChain, 0)
+      const domainBuf = Buffer.from(domain, 'utf8')
+      const domainLen = Buffer.alloc(4)
+      domainLen.writeUInt32BE(domainBuf.byteLength, 0)
+      const ts = Buffer.alloc(8)
+      ts.writeBigUInt64BE(BigInt(timestamp), 0)
+      const prefix = Buffer.from(payload.type === 'text' ? 'txt' : 'bin', 'utf8')
+      const data = payload.type === 'text' ? Buffer.from(payload.text, 'utf8') : Buffer.from(payload.bytes, 'base64')
+      const dataLen = Buffer.alloc(4)
+      dataLen.writeUInt32BE(data.byteLength, 0)
+      digest = sha256_sync(
+        Buffer.concat([
+          Buffer.from([0xff, 0xff]),
+          Buffer.from('ton-connect/sign-data/', 'utf8'),
+          wc,
+          address.hash,
+          domainLen,
+          domainBuf,
+          ts,
+          prefix,
+          dataLen,
+          data,
+        ])
+      )
+    }
+
+    const signature = await this.signWithKey((secretKey) => sign(digest, secretKey))
+    return {
+      signature: signature.toString('base64'),
+      address: address.toRawString(),
+      timestamp,
+      domain,
+      payload,
+    }
+  }
+
+  private signWithKey<T>(fn: (secretKey: Buffer) => T): Promise<T> {
+    const result = this.signLock.then(async () => {
+      if (!this.keypair || this.keyStorage.isLocked()) {
+        this.keypair = await this.keyStorage.load()
+      }
+      try {
+        return fn(this.keypair.secretKey)
+      } finally {
+        this.keyStorage.lock()
+        this.keypair = null
+      }
+    })
+    this.signLock = result.then(
+      () => {},
+      () => {}
+    )
+    return result
+  }
+
   async resolveDomain(domain: string): Promise<DnsResolveResult> {
     if (!this.wsBridge) throw new Error('Bridge not connected')
     return await this.wsBridge.resolveDomain(domain)
@@ -410,7 +616,9 @@ export class WalletManager extends EventEmitter {
     const trimmed = input.trim()
     const normalized = trimmed.toLowerCase()
 
-    if (!isTonDomain(normalized)) {
+    // Loose gate (suffix + length) decides address-vs-domain; strict TON_DOMAIN_REGEX
+    // validation follows below for anything that looks like a .ton domain.
+    if (!(normalized.endsWith('.ton') && normalized.length <= 126)) {
       const parsed = Address.parse(trimmed)
       if (parsed.workChain === -1) {
         throw new Error('Masterchain addresses not supported')
@@ -461,13 +669,12 @@ export class WalletManager extends EventEmitter {
   }
 
   private buildBoc(
-    to: Address,
-    amount: bigint,
+    messages: MessageRelaxed[],
     maxTimeout: number
   ): Promise<{ boc: string; seqno: number; validUntil: number }> {
     // Serialize signing through a promise chain to prevent concurrent
     // calls from reading the same localSeqno before it is incremented.
-    const result = this.signLock.then(() => this._buildBocInner(to, amount, maxTimeout))
+    const result = this.signLock.then(() => this._buildBocInner(messages, maxTimeout))
     this.signLock = result.then(
       () => {},
       () => {}
@@ -476,8 +683,7 @@ export class WalletManager extends EventEmitter {
   }
 
   private async _buildBocInner(
-    to: Address,
-    amount: bigint,
+    messages: MessageRelaxed[],
     maxTimeout: number
   ): Promise<{ boc: string; seqno: number; validUntil: number }> {
     if (!this.walletContract) throw new Error('Wallet not initialized')
@@ -493,11 +699,10 @@ export class WalletManager extends EventEmitter {
     // "too far in the future" expiry check when maxTimeoutSeconds is tight.
     const validUntil = seqno === 0 ? 0xffffffff : Math.floor(Date.now() / 1000) + maxTimeout
 
-    const internalMsg = internal({ to, value: amount, bounce: false })
     const transfer = this.walletContract.createTransfer({
       seqno,
       secretKey: this.keypair.secretKey,
-      messages: [internalMsg],
+      messages,
       sendMode: SendMode.PAY_GAS_SEPARATELY + SendMode.IGNORE_ERRORS,
       timeout: validUntil,
     } as Parameters<typeof this.walletContract.createTransfer>[0]) as Cell
@@ -595,8 +800,7 @@ export class WalletManager extends EventEmitter {
       // locally but the remote never broadcasts (failed verify/settle in x402 fire-and-forget).
       this.localSeqno = onChainSeqno
     } catch (error) {
-      const msg = (error as Error).message ?? ''
-      if (msg.includes('not initialized') || msg.includes('-256')) {
+      if (isContractNotDeployedError(error)) {
         log.debug('Seqno sync: contract not yet deployed, using local seqno')
       } else {
         log.error('Seqno sync failed:', error)

@@ -57,7 +57,7 @@
   },
   "tip": {
     "resolveError": "Domain konnte nicht aufgelöst werden",
-    "title": "{{amount}} TON an {{domain}} spenden"
+    "title": "{{amount}} GRAM an {{domain}} spenden"
   },
   "statusBar": {
     "connected": "Mit TON-Netzwerk verbunden",

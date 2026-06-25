@@ -3,25 +3,7 @@
  * Tests for storage daemon lifecycle, bag operations, and error handling
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { EventEmitter } from 'events'
-
-// Create mock child process
-const createMockProcess = () => {
-  const proc = new EventEmitter() as EventEmitter & {
-    stdout: EventEmitter
-    stderr: EventEmitter
-    pid: number
-    kill: ReturnType<typeof vi.fn>
-  }
-  proc.stdout = new EventEmitter()
-  proc.stderr = new EventEmitter()
-  proc.pid = 12345
-  proc.kill = vi.fn(() => {
-    proc.emit('exit', 0)
-    return true
-  })
-  return proc
-}
+import { createMockProcess } from '../../__tests__/mock-child-process'
 
 // Mock settings
 const mockSettings = {
@@ -216,13 +198,6 @@ describe('StorageManager', () => {
     it('does nothing if not running', () => {
       expect(() => manager.stop()).not.toThrow()
       expect(mockProcess.kill).not.toHaveBeenCalled()
-    })
-  })
-
-  describe('setStoragePath()', () => {
-    it('updates the storage path', () => {
-      manager.setStoragePath('/new/path')
-      expect(manager.getStatus().storagePath).toBe('/new/path')
     })
   })
 

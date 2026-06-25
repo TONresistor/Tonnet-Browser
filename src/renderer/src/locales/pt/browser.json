@@ -57,7 +57,7 @@
   },
   "tip": {
     "resolveError": "Não foi possível resolver o domínio",
-    "title": "Gorjeta de {{amount}} TON para {{domain}}"
+    "title": "Gorjeta de {{amount}} GRAM para {{domain}}"
   },
   "statusBar": {
     "connected": "Conectado à Rede TON",

@@ -4,6 +4,7 @@
  */
 
 import type { AppSettings, StorageBag, BagDetails, WalletState, WalletTransaction } from '../shared/types'
+import type { IpcEventMap } from '../shared/ipc-events'
 import type {
   CocoonState,
   CocoonAvailability,
@@ -118,6 +119,16 @@ declare global {
         getBagDetails: (bagId: string) => Promise<{
           success: boolean
           details?: BagDetails
+          error?: string
+        }>
+        readFile: (
+          bagId: string,
+          relPath: string
+        ) => Promise<{
+          success: boolean
+          content?: string
+          truncated?: boolean
+          size?: number
           error?: string
         }>
         openFolder: (bagId: string) => Promise<{ success: boolean; error?: string }>
@@ -251,7 +262,7 @@ declare global {
       wallet: {
         create: () => Promise<WalletState & { mnemonic: string[] }>
         getState: () => Promise<WalletState>
-        getBalance: () => Promise<string>
+        getBalance: () => Promise<string | IpcError>
         send: (to: string, amount: string) => Promise<WalletTransaction>
         resolveRecipient: (input: string) => Promise<{ address: string; domain?: string }>
         getHistory: (limit?: number) => Promise<WalletTransaction[]>
@@ -276,6 +287,10 @@ declare global {
         getConfig: () => Promise<import('../shared/bridge-config').BridgeConfig | null>
         setConfig: (config: object) => Promise<{ success: boolean; error?: string }>
         restart: () => Promise<{ success: boolean; error?: string }>
+      }
+      tonconnect: {
+        getSessions: () => Promise<import('../shared/types').TonConnectSession[]>
+        disconnectSession: (domain: string) => Promise<{ success: boolean }>
       }
       dns: {
         resolve(domain: string): Promise<import('../shared/types').DnsResolveResult>
@@ -312,9 +327,9 @@ declare global {
         walletMarkSetupComplete: () => Promise<void | IpcError>
         // Setup wizard
         /** Returns the owner wallet balance as a decimal nano-TON string. */
-        getOwnerBalance: () => Promise<string>
+        getOwnerBalance: () => Promise<string | IpcError>
         /** Returns the cocoon node wallet balance as a decimal nano-TON string. */
-        getCocoonWalletBalance: () => Promise<string>
+        getCocoonWalletBalance: () => Promise<string | IpcError>
         /** Fund the cocoon node wallet from the owner wallet. amount is decimal nano-TON or 'max'. */
         fundCocoon: (amount: string | 'max') => Promise<{
           bocHash: string
@@ -390,8 +405,7 @@ declare global {
         /** Recover every immediately actionable Cocoon-controlled balance to the main wallet. */
         recoveryAll: () => Promise<CocoonRecoveryAllResult | IpcError>
       }
-      on: (channel: string, callback: (...args: unknown[]) => void) => () => void
-      off: (channel: string, callback: (...args: unknown[]) => void) => void
+      on: <K extends keyof IpcEventMap>(channel: K, callback: (...args: IpcEventMap[K]) => void) => () => void
     }
   }
 }

@@ -8,14 +8,21 @@
  * accidentally drained before the client SC closed.
  */
 
-import { Address, beginCell } from '@ton/core'
+import { errorMessage } from '../../shared/errors'
+import { Address } from '@ton/core'
 import { createLogger } from '../../shared/logger'
-import { CocoonClient } from './contracts/wrappers/CocoonClient'
-import { openBridgeContract } from './contracts/bridge-provider'
 import { buildCocoonWalletInit, sendFromCocoonWallet, type SendResult } from './contracts'
 import { getStakeCacheStore } from './stake-cache'
 import { getStakeInfo } from './unstake'
 import { loadCocoonWallet } from './wallet'
+import { REFUND_GAS_NANO } from './constants'
+import {
+  sleep,
+  decodeNodeSecret,
+  readClientState,
+  buildClientOpcodeBody,
+  OWNER_CLIENT_REQUEST_REFUND,
+} from './node-signing'
 import type { CocoonManager } from './manager'
 import type { WsBridgeClient } from '../wallet/ws-bridge-client'
 
@@ -24,9 +31,9 @@ const log = createLogger('cocoon:current-withdraw')
 // cocoon_wallet.fc rejects external messages while my_balance() < 2 TON.
 // cocoon_client.fc also requires msg_value >= COMMISSION_ESTIMATE (0.1 TON).
 // 2.25 TON is enough to pass the wallet's external gate and forward one
-// 0.2 TON refund/claim message with fee margin. When topping up from a lower
-// balance, fund to 2.4 TON so phase 2 still has room after phase 1 fees.
-const REFUND_GAS_NANO = 200_000_000n
+// 0.2 TON refund/claim message (REFUND_GAS_NANO) with fee margin. When topping
+// up from a lower balance, fund to 2.4 TON so phase 2 still has room after
+// phase 1 fees.
 const NODE_GAS_READY_NANO = 2_250_000_000n
 const NODE_GAS_TARGET_NANO = 2_400_000_000n
 const TOPUP_CONFIRM_TIMEOUT_MS = 60_000
@@ -45,36 +52,9 @@ export interface CurrentWithdrawResult {
 
 export type TopUpNodeWallet = (nodeAddress: string, amountNano: bigint) => Promise<void>
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms))
-}
-
-function nodeSecret(wallet: CurrentWallet): Buffer {
-  const secret = Buffer.from(wallet.nodeSecretBase64, 'base64')
-  if (secret.length !== 32) {
-    throw new Error(`Cocoon node secret must be 32 bytes, got ${secret.length}`)
-  }
-  return secret
-}
-
-async function readClientState(
-  bridge: WsBridgeClient,
-  clientSCAddress: string
-): Promise<{ state: 0 | 1 | 2; unlockTs: number } | null> {
-  try {
-    const client = CocoonClient.createFromAddress(Address.parse(clientSCAddress))
-    const opened = openBridgeContract(bridge, client)
-    const data = await opened.getData()
-    return { state: data.state as 0 | 1 | 2, unlockTs: data.unlockTs }
-  } catch (err) {
-    log.warn(`client getData failed for ${clientSCAddress.slice(0, 8)}...: ${(err as Error).message}`)
-    return null
-  }
-}
-
 async function resolveClientSCAddress(manager: CocoonManager, bridge: WsBridgeClient): Promise<string> {
   const info = await getStakeInfo(manager, bridge).catch((err) => {
-    log.warn(`stake info unavailable: ${(err as Error).message}`)
+    log.warn(`stake info unavailable: ${errorMessage(err)}`)
     return null
   })
   if (info?.clientSCAddress) return info.clientSCAddress
@@ -122,16 +102,12 @@ async function sendRefundFromCurrentNode(
   clientSCAddress: string,
   sendExcessesTo: string
 ): Promise<SendResult> {
-  const body = beginCell()
-    .storeUint(0xfafa6cc1, 32)
-    .storeUint(0, 64)
-    .storeAddress(Address.parse(sendExcessesTo))
-    .endCell()
+  const body = buildClientOpcodeBody(OWNER_CLIENT_REQUEST_REFUND, sendExcessesTo)
 
   return sendFromCocoonWallet(
     bridge,
     wallet.nodeAddress,
-    nodeSecret(wallet),
+    decodeNodeSecret(wallet.nodeSecretBase64),
     Address.parse(clientSCAddress),
     REFUND_GAS_NANO,
     body,

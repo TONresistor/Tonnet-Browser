@@ -13,9 +13,11 @@
  * read the same IPC state.
  */
 
+import { errorMessage } from '@shared/errors'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { isIpcError } from '@/lib/ipc-utils'
+import { unwrapSettled } from '@/lib/ipc-utils'
 import { createLogger } from '@/logger'
+import { IPC_CHANNELS } from '@shared/ipc-channels'
 import type { CocoonPendingWithdraw, CocoonStakeInfo } from '../../../shared/cocoon-types'
 
 const log = createLogger('cocoon:account-view')
@@ -114,10 +116,7 @@ export function useCocoonAccountView(): UseCocoonAccountViewResult {
       ])
       if (cancelledRef.current) return
 
-      const availability =
-        availabilityRes.status === 'fulfilled' && !isIpcError(availabilityRes.value)
-          ? (availabilityRes.value as { available: boolean })
-          : null
+      const availability = unwrapSettled<{ available: boolean }>(availabilityRes)
       if (availability && availability.available === false) {
         const unavailable: CocoonAccountSnapshot = { ...INITIAL, status: 'unavailable' }
         snapshotRef.current = unavailable
@@ -125,18 +124,10 @@ export function useCocoonAccountView(): UseCocoonAccountViewResult {
         return
       }
 
-      const stakeInfo =
-        stakeRes.status === 'fulfilled' && !isIpcError(stakeRes.value)
-          ? (stakeRes.value as CocoonStakeInfo | null)
-          : null
-      const pending =
-        pendingRes.status === 'fulfilled' && !isIpcError(pendingRes.value)
-          ? (pendingRes.value as CocoonPendingWithdraw | null)
-          : null
-      const ownerNano =
-        ownerRes.status === 'fulfilled' && !isIpcError(ownerRes.value) ? BigInt(ownerRes.value as string) : 0n
-      const cocoonNano =
-        cocoonRes.status === 'fulfilled' && !isIpcError(cocoonRes.value) ? BigInt(cocoonRes.value as string) : 0n
+      const stakeInfo = unwrapSettled<CocoonStakeInfo | null>(stakeRes)
+      const pending = unwrapSettled<CocoonPendingWithdraw | null>(pendingRes)
+      const ownerNano = BigInt(unwrapSettled<string>(ownerRes) ?? '0')
+      const cocoonNano = BigInt(unwrapSettled<string>(cocoonRes) ?? '0')
 
       // Active or mid-withdraw stake counts toward the "Cocoon balance" total
       // so the user sees their funds even while the on-chain unstake cycle
@@ -151,10 +142,7 @@ export function useCocoonAccountView(): UseCocoonAccountViewResult {
       const residualNano = ownerNano + cocoonNano
       const totalNano = stakedNano + residualNano
 
-      const runnerKind =
-        statusRes.status === 'fulfilled' && !isIpcError(statusRes.value)
-          ? (statusRes.value as { kind: string }).kind
-          : 'stopped'
+      const runnerKind = unwrapSettled<{ kind: string }>(statusRes)?.kind ?? 'stopped'
 
       // Sticky-activating bookkeeping: clear the flag once we observe an
       // active stake, or once the safety deadline has passed.
@@ -207,7 +195,7 @@ export function useCocoonAccountView(): UseCocoonAccountViewResult {
       snapshotRef.current = next
       setSnapshot(next)
     } catch (err) {
-      const message = (err as Error).message ?? String(err)
+      const message = errorMessage(err)
       log.warn(`account view refresh failed: ${message}`)
       setSnapshot((prev) => {
         const next = { ...prev, error: message }
@@ -285,9 +273,9 @@ export function useCocoonAccountView(): UseCocoonAccountViewResult {
     }
     void tick()
 
-    const offWithdraw = window.electron.on('cocoon:withdraw:event', (() => {
+    const offWithdraw = window.electron.on(IPC_CHANNELS.COCOON_WITHDRAW_EVENT, () => {
       void fetchOnce()
-    }) as (...args: unknown[]) => void)
+    })
 
     return () => {
       running = false

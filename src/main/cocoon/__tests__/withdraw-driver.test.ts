@@ -42,7 +42,7 @@ import { driveCurrentWithdrawStep } from '../current-withdraw'
 import { getStakeInfo, cashout } from '../unstake'
 import { retireCurrentCocoonWallet } from '../retire-wallet'
 import type { CocoonManager } from '../manager'
-import type { WsBridgeClient } from '../wallet/ws-bridge-client'
+import type { WsBridgeClient } from '../../wallet/ws-bridge-client'
 import type { CocoonStakeInfo, CocoonStakeStatus } from '../../../shared/cocoon-types'
 
 const ADDR = 'EQCns7bYSp0igFvS1wpb5wsZjCKCV19MD5AVzI4EyxsnU73k'
@@ -50,7 +50,9 @@ const ADDR = 'EQCns7bYSp0igFvS1wpb5wsZjCKCV19MD5AVzI4EyxsnU73k'
 function makeManager(state: 'stopped' | 'ready' = 'ready'): CocoonManager {
   const emitter = new EventEmitter()
   const m: Partial<CocoonManager> = {
-    getState: vi.fn(() => (state === 'ready' ? { kind: 'ready', httpPort: 10000 } : { kind: 'stopped' })),
+    getState: vi.fn(() =>
+      state === 'ready' ? ({ kind: 'ready', httpPort: 10000 } as const) : ({ kind: 'stopped' } as const)
+    ),
     getHttpPort: vi.fn(() => 10000),
     on: emitter.on.bind(emitter) as CocoonManager['on'],
     once: emitter.once.bind(emitter) as CocoonManager['once'],

@@ -6,6 +6,7 @@
  * wallet must be removed so the next Activate creates a fresh node identity.
  */
 
+import { errorMessage } from '../../shared/errors'
 import { createLogger } from '../../shared/logger'
 import { getConsumedArchive } from './consumed-archive'
 import { getStakeCacheStore } from './stake-cache'
@@ -33,7 +34,7 @@ export async function retireCurrentCocoonWallet(reason: string): Promise<boolean
   } catch (err) {
     // Terminal withdraw already recovered the funds. Do not keep the user
     // blocked from the next stake cycle just because historical archival failed.
-    log.warn(`Retiring without archive (${reason}): ${(err as Error).message}`)
+    log.warn(`Retiring without archive (${reason}): ${errorMessage(err)}`)
   }
 
   await deleteCocoonWallet()

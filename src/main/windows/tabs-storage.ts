@@ -5,7 +5,11 @@
 
 import { WebContentsView } from 'electron'
 import { EventEmitter } from 'events'
+import { realpathSync } from 'fs'
+import { resolve as resolvePath, sep } from 'path'
 import { generateFileBrowserPage, generateLoadingPage } from './file-browser'
+import { escapeHtml, loadDataHtml } from './page-templates'
+import { renderLottieBoot } from './lottie'
 import type { StorageManager } from '../storage/daemon'
 import { createLogger } from '../../shared/logger'
 import type { BagDetails } from '../../shared/types'
@@ -27,12 +31,12 @@ function getStorageManager(): StorageManager {
   return _storageManager
 }
 
-// Build-time constants: lottie player + loading animation baked by electron-vite
-declare const __LOTTIE_PLAYER_JS__: string
-declare const __LOADING_ANIMATION_JSON__: object
-
 /** Cache of bag IDs detected by the proxy for .ton storage domains */
 export const storageBagCache = new Map<string, string>()
+
+export function getStorageBagForDomain(domain: string): string | undefined {
+  return storageBagCache.get(domain)
+}
 
 /** Prevent concurrent loadStorageBrowser calls per webContents */
 const storageBrowserLoading = new Set<number>()
@@ -60,13 +64,42 @@ export function sanitizeDirName(raw: string): string {
   return trimmed.replace(/\.\./g, '').replace(/[/\\]/g, '')
 }
 
+/**
+ * Resolve a file inside a bag to its real on-disk path, validating that it
+ * stays within the bag directory (no traversal). Used to open a bag file
+ * inline in a browser tab. Throws on invalid path / missing bag.
+ */
+export async function resolveBagFilePath(bagId: string, relPath: string): Promise<string> {
+  if (!relPath || relPath.includes('\0') || relPath.startsWith('/') || relPath.startsWith('\\')) {
+    throw new Error('Invalid file path')
+  }
+  if (relPath.split(/[/\\]/).includes('..')) {
+    throw new Error('Invalid file path')
+  }
+  const details = await getStorageManager().getBagDetails(bagId)
+  if (!details?.path) throw new Error('Bag path not found')
+
+  const dirName = sanitizeDirName(details.dir_name || '')
+  const basePath = dirName ? `${details.path}/${dirName}` : details.path
+  const realBase = realpathSync(resolvePath(basePath))
+  const realFull = realpathSync(resolvePath(`${basePath}/${relPath}`))
+  if (!realFull.startsWith(realBase + sep) && realFull !== realBase) {
+    throw new Error('Path traversal blocked')
+  }
+  return realFull
+}
+
 // --- Error page ---
 
 export function loadErrorPage(view: WebContentsView, errorMessage: string, failedUrl: string): void {
-  const safeError = errorMessage.replace(/</g, '&lt;').replace(/>/g, '&gt;')
-  const safeUrl = failedUrl.replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  const wc = view?.webContents
+  if (!wc || wc.isDestroyed()) {
+    log.debug('loadErrorPage skipped: view missing or destroyed')
+    return
+  }
+  const safeError = escapeHtml(errorMessage)
+  const safeUrl = escapeHtml(failedUrl)
   const encodedUrl = encodeURIComponent(failedUrl)
-  const animJson = JSON.stringify(__LOADING_ANIMATION_JSON__)
 
   const errorHtml = `
 <!DOCTYPE html>
@@ -186,22 +219,11 @@ export function loadErrorPage(view: WebContentsView, errorMessage: string, faile
       <button class="btn-secondary" onclick="history.back()">Go Back</button>
     </div>
   </div>
-  <script>${__LOTTIE_PLAYER_JS__}</script>
-  <script>
-    try {
-      lottie.loadAnimation({
-        container: document.getElementById('lottie'),
-        renderer: 'svg',
-        loop: true,
-        autoplay: true,
-        animationData: ${animJson}
-      });
-    } catch(e) {}
-  </script>
+  ${renderLottieBoot()}
 </body>
 </html>`
 
-  view.webContents.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(errorHtml)}`).catch((err) => {
+  loadDataHtml(wc, errorHtml).catch((err) => {
     log.error('Failed to load error page:', err)
   })
 }
@@ -228,27 +250,12 @@ interface LoadStorageBagOptions {
  * Handles both explicit bag ID loads (ton://storage) and domain-based loads (proxy cache).
  * Shows loading page, downloads bag if needed, then shows file browser or index.html.
  */
-export async function loadStorageBag(view: WebContentsView, opts: LoadStorageBagOptions): Promise<void> {
-  const { label, timeout = 30, useCache = false, checkIndexHtml = false } = opts
-
-  // Check cache first (for back navigation)
-  if (useCache) {
-    const cached = fileBrowserCache.get(view.webContents.id)
-    if (cached) {
-      await view.webContents.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(cached)}`)
-      return
-    }
-  }
-
-  // Resolve bag ID
-  const bagId = opts.bagId ?? storageBagCache.get(opts.domain ?? '')
-  if (!bagId) throw new Error('No storage bag detected for this domain')
-
-  // Show loading page
-  const loadingHtml = generateLoadingPage(label)
-  await view.webContents.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(loadingHtml)}`)
-
-  // Ensure bag is in daemon
+/**
+ * Ensure the bag is registered in the daemon, then poll up to `timeout` seconds
+ * for its files to appear. Returns the details once it has at least one file, or
+ * null if it never does (no files / download timed out).
+ */
+async function resolveBagDetails(bagId: string, timeout: number): Promise<BagDetails | null> {
   let details: BagDetails | null = null
   try {
     details = await getStorageManager().getBagDetails(bagId)
@@ -270,19 +277,25 @@ export async function loadStorageBag(view: WebContentsView, opts: LoadStorageBag
     }
   }
 
-  if (!details || details.files.length === 0) {
-    if (opts.domain) {
-      throw new Error('Bag has no files or failed to load')
-    }
-    loadErrorPage(view, 'Bag has no files or download timed out', `${bagId}.bag`)
-    return
-  }
+  return details && details.files.length > 0 ? details : null
+}
 
+/**
+ * Render resolved bag details into the view: load index.html directly when the
+ * caller wants website mode and one exists, otherwise the file-browser page
+ * (cached for back-navigation).
+ */
+async function renderBag(
+  view: WebContentsView,
+  details: BagDetails,
+  bagId: string,
+  opts: { domain?: string; checkIndexHtml?: boolean }
+): Promise<void> {
   const dirName = sanitizeDirName(details.dir_name || '')
   const basePath = dirName ? `${details.path}/${dirName}` : details.path
 
   // If index.html exists and caller wants website mode, load it
-  if (checkIndexHtml && details.files.some((f) => f.name === 'index.html')) {
+  if (opts.checkIndexHtml && details.files.some((f) => f.name === 'index.html')) {
     log.info('Bag has index.html, loading as website')
     await view.webContents.loadFile(`${basePath}/index.html`)
     return
@@ -292,7 +305,39 @@ export async function loadStorageBag(view: WebContentsView, opts: LoadStorageBag
   const displayName = opts.domain ?? details.description ?? bagId.slice(0, 16)
   const html = generateFileBrowserPage(displayName, bagId, details.files, '/', basePath)
   fileBrowserCache.set(view.webContents.id, html)
-  await view.webContents.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`)
+  await loadDataHtml(view.webContents, html)
+}
+
+export async function loadStorageBag(view: WebContentsView, opts: LoadStorageBagOptions): Promise<void> {
+  const { label, timeout = 30, useCache = false, checkIndexHtml = false } = opts
+
+  // Check cache first (for back navigation)
+  if (useCache) {
+    const cached = fileBrowserCache.get(view.webContents.id)
+    if (cached) {
+      await loadDataHtml(view.webContents, cached)
+      return
+    }
+  }
+
+  // Resolve bag ID
+  const bagId = opts.bagId ?? storageBagCache.get(opts.domain ?? '')
+  if (!bagId) throw new Error('No storage bag detected for this domain')
+
+  // Show loading page
+  const loadingHtml = generateLoadingPage(label)
+  await loadDataHtml(view.webContents, loadingHtml)
+
+  const details = await resolveBagDetails(bagId, timeout)
+  if (!details) {
+    if (opts.domain) {
+      throw new Error('Bag has no files or failed to load')
+    }
+    loadErrorPage(view, 'Bag has no files or download timed out', `${bagId}.bag`)
+    return
+  }
+
+  await renderBag(view, details, bagId, { domain: opts.domain, checkIndexHtml })
 }
 
 /**

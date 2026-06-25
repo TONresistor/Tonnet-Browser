@@ -2,7 +2,7 @@
  * IPC handlers for window management (minimize, maximize, close, sidebar).
  */
 
-import { IPC_CHANNELS } from '../../../shared/types'
+import { IPC_CHANNELS } from '../../../shared/ipc-channels'
 import { secureHandle, secureHandleWithEvent } from './shared'
 import { getMainWindow } from '../../windows/main'
 import { updateSidebarWidth, updateWalletSidebarWidth } from '../../windows/tabs'

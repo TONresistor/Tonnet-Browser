@@ -163,6 +163,120 @@ function renderForm(content) {
   if (firstInput) firstInput.focus()
 }
 
+function renderApproval(content) {
+  currentItems = []
+  selectedIndex = -1
+  root.className = 'modal-mode'
+  root.innerHTML = ''
+
+  const scrim = document.createElement('div')
+  scrim.className = 'tc-scrim'
+  scrim.addEventListener('click', () => window.overlayBridge.sendAction('dismiss', {}))
+
+  const card = document.createElement('div')
+  card.className = 'tc-card'
+  card.addEventListener('click', (e) => e.stopPropagation())
+
+  if (content.icon) {
+    const img = document.createElement('img')
+    img.className = 'tc-icon'
+    img.src = content.icon
+    card.appendChild(img)
+  } else if (content.iconTon) {
+    // No site favicon: show the TON logo instead of a generic globe.
+    const fb = document.createElement('div')
+    fb.className = 'tc-icon-ton'
+    fb.innerHTML =
+      '<svg width="52" height="52" viewBox="0 0 237 237" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M118.204 0.000292436C183.486 0.000292436 236.408 52.9224 236.408 118.205C236.408 183.487 183.486 236.408 118.204 236.408C52.9216 236.408 0.000184007 183.487 0 118.205C0 52.9225 52.9215 0.000452012 118.204 0.000292436ZM74.1011 62.1965C57.6799 62.1965 47.268 79.912 55.5308 94.2347L109.964 188.582C113.619 194.922 122.781 194.922 126.436 188.582L180.88 94.2347C189.132 79.9343 178.72 62.1966 162.31 62.1965H74.1011ZM162.288 78.8412C166.031 78.8412 168.234 82.8121 166.45 85.9075L137.856 137.091L137.851 137.099L126.506 159.046V78.8412H162.288ZM109.872 78.8517V159.024L98.5376 137.088L98.5334 137.08L69.9294 85.9215L69.8468 85.7725C68.2134 82.6997 70.405 78.8517 74.0899 78.8517H109.872Z" fill="#4DB8FF"/></svg>'
+    card.appendChild(fb)
+  } else if (content.iconFallback) {
+    const fb = document.createElement('div')
+    fb.className = 'tc-icon-fallback'
+    fb.textContent = content.iconFallback
+    card.appendChild(fb)
+  }
+
+  if (content.title) {
+    const t = document.createElement('div')
+    t.className = 'tc-title'
+    t.textContent = content.title
+    card.appendChild(t)
+  }
+  if (content.subtitle) {
+    const s = document.createElement('div')
+    s.className = 'tc-subtitle'
+    s.textContent = content.subtitle
+    card.appendChild(s)
+  }
+  // Verified domain chip: the one trust anchor (appName/icon are spoofable).
+  if (content.domain) {
+    const d = document.createElement('div')
+    d.className = 'tc-domain'
+    d.innerHTML =
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>'
+    const span = document.createElement('span')
+    span.textContent = content.domain
+    d.appendChild(span)
+    card.appendChild(d)
+  }
+  if (content.amount) {
+    const a = document.createElement('div')
+    a.className = 'tc-amount'
+    const parts = String(content.amount).split(' ')
+    if (parts.length > 1) {
+      const unit = parts.pop()
+      a.textContent = parts.join(' ')
+      const u = document.createElement('span')
+      u.className = 'unit'
+      u.textContent = unit
+      a.appendChild(u)
+    } else {
+      a.textContent = content.amount
+    }
+    card.appendChild(a)
+  }
+
+  if (content.warning) {
+    const w = document.createElement('div')
+    w.className = 'tc-warning'
+    w.textContent = content.warning
+    card.appendChild(w)
+  }
+
+  if (Array.isArray(content.rows) && content.rows.length) {
+    const rows = document.createElement('div')
+    rows.className = 'tc-rows'
+    for (const r of content.rows) {
+      const row = document.createElement('div')
+      row.className = 'tc-row'
+      const label = document.createElement('span')
+      label.className = 'tc-row-label'
+      label.textContent = r.label || ''
+      const value = document.createElement('span')
+      value.className = 'tc-row-value'
+      value.textContent = r.value || ''
+      row.appendChild(label)
+      row.appendChild(value)
+      rows.appendChild(row)
+    }
+    card.appendChild(rows)
+  }
+
+  const actions = document.createElement('div')
+  actions.className = 'tc-actions'
+  for (const action of (content.actions || [])) {
+    const btn = document.createElement('button')
+    btn.className = 'tc-btn ' + (action.primary ? 'tc-btn-primary' : 'tc-btn-secondary')
+    btn.textContent = action.label || action.id
+    btn.addEventListener('click', () => window.overlayBridge.sendAction(action.id, {}))
+    actions.appendChild(btn)
+  }
+  card.appendChild(actions)
+
+  scrim.appendChild(card)
+  root.appendChild(scrim)
+}
+
 function updateSelection(index) {
   const items = root.querySelectorAll('.suggestion-item, .menu-item:not(.disabled)')
   items.forEach((el) => el.classList.remove('selected'))
@@ -178,11 +292,13 @@ function updateSelection(index) {
 window.overlayBridge.onContent((content) => {
   if (!content) {
     root.innerHTML = ''
+    root.className = ''
     currentItems = []
     selectedIndex = -1
     return
   }
 
+  root.className = ''
   if (content.type === 'suggestions' && content.items) {
     renderSuggestions(content.items)
     if (typeof content.selectedIndex === 'number') {
@@ -192,6 +308,8 @@ window.overlayBridge.onContent((content) => {
     renderMenu(content.items)
   } else if (content.type === 'form') {
     renderForm(content)
+  } else if (content.type === 'approval') {
+    renderApproval(content)
   }
 })
 
@@ -204,6 +322,12 @@ window.overlayBridge.onTheme((theme) => {
 })
 
 document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    e.preventDefault()
+    window.overlayBridge.sendAction('dismiss', {})
+    return
+  }
+
   const selectableItems = root.querySelectorAll('.suggestion-item, .menu-item:not(.disabled)')
   const count = selectableItems.length
   if (count === 0) return
@@ -217,8 +341,5 @@ document.addEventListener('keydown', (e) => {
   } else if (e.key === 'Enter' && selectedIndex >= 0) {
     e.preventDefault()
     selectableItems[selectedIndex].click()
-  } else if (e.key === 'Escape') {
-    e.preventDefault()
-    window.overlayBridge.sendAction('dismiss', {})
   }
 })

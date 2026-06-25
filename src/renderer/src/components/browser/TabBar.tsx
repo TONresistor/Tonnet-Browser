@@ -30,6 +30,8 @@ import { SortableTab } from './SortableTab'
 import { useTranslation } from 'react-i18next'
 import { usePreferencesStore } from '@/stores/preferences'
 import { useOverlay } from '@/hooks/useOverlay'
+import { clampToViewport } from '@/lib/overlay-position'
+import type { OverlayMenuItem } from '@shared/types'
 
 interface TabBarProps {
   sidebarWidth?: number
@@ -165,20 +167,14 @@ export const TabBar = memo(function TabBar({ sidebarWidth }: TabBarProps) {
       e.preventDefault()
       const menuW = 200,
         menuH = 160
-      const menuX = Math.max(4, Math.min(e.clientX, window.innerWidth - menuW - 4))
-      const menuY = Math.max(4, Math.min(e.clientY, window.innerHeight - menuH - 4))
-      menu.show(
-        { x: menuX, y: menuY, width: menuW, height: menuH },
-        {
-          type: 'menu',
-          items: [
-            { id: 'duplicate', label: t('tabs.duplicateTab'), data: { tabId } },
-            { id: '_sep1', label: '', separator: true },
-            { id: 'close-others', label: t('tabs.closeOtherTabs'), data: { tabId }, disabled: tabs.length <= 1 },
-            { id: 'close', label: t('tabs.closeTab'), data: { tabId }, destructive: true },
-          ],
-        }
-      )
+      const { x: menuX, y: menuY } = clampToViewport(e.clientX, e.clientY, menuW, menuH)
+      const items: OverlayMenuItem[] = [
+        { id: 'duplicate', label: t('tabs.duplicateTab'), data: { tabId } },
+        { id: '_sep1', label: '', separator: true },
+        { id: 'close-others', label: t('tabs.closeOtherTabs'), data: { tabId }, disabled: tabs.length <= 1 },
+        { id: 'close', label: t('tabs.closeTab'), data: { tabId }, destructive: true },
+      ]
+      menu.show({ x: menuX, y: menuY, width: menuW, height: menuH }, { type: 'menu', items })
     },
     [menu, t, tabs.length]
   )

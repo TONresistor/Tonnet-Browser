@@ -8,6 +8,7 @@ import { DEFAULT_SETTINGS } from '../../../shared/defaults'
 import type { ThemeType } from '../../../shared/defaults'
 import type { AppSettings } from '../../../shared/types'
 import { createLogger } from '@/logger'
+import { IPC_CHANNELS } from '@shared/ipc-channels'
 
 const log = createLogger('preferences')
 
@@ -203,62 +204,35 @@ const prefToCategory: Record<keyof AppPreferences, { category: string; field: st
   cocoonAutostart: { category: 'cocoon', field: 'autostart' },
 }
 
-// Convert main process settings to flat preferences
+// Convert main process settings to flat preferences. Derived from the single
+// prefToCategory mapping (+ defaultPreferences for fallbacks) so the
+// settings->prefs wiring is declared once rather than re-spelled per field.
 function mainSettingsToPrefs(settings: AppSettings): AppPreferences {
-  return {
-    homepage: settings.general?.homepage ?? defaultPreferences.homepage,
-    resolveEth: settings.general?.resolveEth ?? defaultPreferences.resolveEth,
-    ethRpc: settings.general?.ethRpc ?? defaultPreferences.ethRpc,
-    resolveSol: settings.general?.resolveSol ?? defaultPreferences.resolveSol,
-    solRpc: settings.general?.solRpc ?? defaultPreferences.solRpc,
-    proxyPort: settings.network?.proxyPort ?? defaultPreferences.proxyPort,
-    storagePort: settings.network?.storagePort ?? defaultPreferences.storagePort,
-    autoConnect: settings.network?.autoConnect ?? defaultPreferences.autoConnect,
-    connectionTimeout: settings.network?.connectionTimeout ?? defaultPreferences.connectionTimeout,
-    syncCheckInterval: settings.network?.syncCheckInterval ?? defaultPreferences.syncCheckInterval,
-    anonymousMode: settings.network?.anonymousMode ?? defaultPreferences.anonymousMode,
-    tunnelMode: (settings.network?.tunnelMode ?? defaultPreferences.tunnelMode) as 'standard' | 'maximum',
-    downloadPath: settings.storage?.downloadPath ?? defaultPreferences.downloadPath,
-    storagePollingInterval: settings.storage?.pollingInterval ?? defaultPreferences.storagePollingInterval,
-    seedingEnabled: settings.storage?.seedingEnabled ?? defaultPreferences.seedingEnabled,
-    downloadSpeedLimit: settings.storage?.downloadSpeedLimit ?? defaultPreferences.downloadSpeedLimit,
-    uploadSpeedLimit: settings.storage?.uploadSpeedLimit ?? defaultPreferences.uploadSpeedLimit,
-    theme: (settings.appearance?.theme ?? defaultPreferences.theme) as ThemeType,
-    language: settings.appearance?.language ?? defaultPreferences.language,
-    defaultZoom: settings.appearance?.defaultZoom ?? defaultPreferences.defaultZoom,
-    zoomMin: settings.appearance?.zoomMin ?? defaultPreferences.zoomMin,
-    zoomMax: settings.appearance?.zoomMax ?? defaultPreferences.zoomMax,
-    showBookmarksBar: settings.appearance?.showBookmarksBar ?? defaultPreferences.showBookmarksBar,
-    showStatusBar: settings.appearance?.showStatusBar ?? defaultPreferences.showStatusBar,
-    tabOrientation: settings.appearance?.tabOrientation ?? defaultPreferences.tabOrientation,
-    sidebarWidth: settings.appearance?.sidebarWidth ?? defaultPreferences.sidebarWidth,
-    clearOnExit: settings.privacy?.clearOnExit ?? defaultPreferences.clearOnExit,
-    historyMode: settings.privacy?.historyMode ?? defaultPreferences.historyMode,
-    historyMaxEntries: settings.privacy?.historyMaxEntries ?? defaultPreferences.historyMaxEntries,
-    disableCache: settings.privacy?.disableCache ?? defaultPreferences.disableCache,
-    firstPartyIsolation: settings.privacy?.firstPartyIsolation ?? defaultPreferences.firstPartyIsolation,
-    cookieAutoDelete: settings.privacy?.cookieAutoDelete ?? defaultPreferences.cookieAutoDelete,
-    cookieAutoDeleteMinutes: settings.privacy?.cookieAutoDeleteMinutes ?? defaultPreferences.cookieAutoDeleteMinutes,
-    contentFilteringEnabled: settings.contentFiltering?.enabled ?? defaultPreferences.contentFilteringEnabled,
-    blockAds: settings.contentFiltering?.blockAds ?? defaultPreferences.blockAds,
-    blockTrackers: settings.contentFiltering?.blockTrackers ?? defaultPreferences.blockTrackers,
-    blockMiners: settings.contentFiltering?.blockMiners ?? defaultPreferences.blockMiners,
-    blockMalware: settings.contentFiltering?.blockMalware ?? defaultPreferences.blockMalware,
-    blockAnnoyances: settings.contentFiltering?.blockAnnoyances ?? defaultPreferences.blockAnnoyances,
-    whitelistedDomains: settings.contentFiltering?.whitelistedDomains ?? defaultPreferences.whitelistedDomains,
-    proxyVerbosity: settings.advanced?.proxyVerbosity ?? defaultPreferences.proxyVerbosity,
-    storageVerbosity: settings.advanced?.storageVerbosity ?? defaultPreferences.storageVerbosity,
-    syncTestDomain: settings.advanced?.syncTestDomain ?? defaultPreferences.syncTestDomain,
-    cocoonAutostart: settings.cocoon?.autostart ?? defaultPreferences.cocoonAutostart,
+  const result = {} as Record<keyof AppPreferences, unknown>
+  for (const key of Object.keys(prefToCategory) as (keyof AppPreferences)[]) {
+    const { category, field } = prefToCategory[key]
+    const categoryValues = settings[category as keyof AppSettings] as Record<string, unknown> | undefined
+    result[key] = categoryValues?.[field] ?? defaultPreferences[key]
   }
+  return result as AppPreferences
+}
+
+/**
+ * Value-equality for a single preference. Arrays (e.g. whitelistedDomains) are
+ * compared by content, everything else by identity. Used by BOTH the dirty
+ * check and the save() diff so they can never disagree.
+ */
+function prefValueChanged(a: unknown, b: unknown): boolean {
+  if (Array.isArray(a) && Array.isArray(b)) {
+    return JSON.stringify(a) !== JSON.stringify(b)
+  }
+  return a !== b
 }
 
 // Check if two preferences objects are different
 function hasPreferencesChanged(a: AppPreferences, b: AppPreferences): boolean {
   for (const key of Object.keys(a) as (keyof AppPreferences)[]) {
-    if (Array.isArray(a[key]) && Array.isArray(b[key])) {
-      if (JSON.stringify(a[key]) !== JSON.stringify(b[key])) return true
-    } else if (a[key] !== b[key]) return true
+    if (prefValueChanged(a[key], b[key])) return true
   }
   return false
 }
@@ -305,7 +279,7 @@ export const usePreferencesStore = create<PreferencesState>()((set, get) => ({
     // Find changed values and group by category
     const categoryUpdates: Record<string, Record<string, AppPreferences[keyof AppPreferences]>> = {}
     for (const key of Object.keys(draft) as (keyof AppPreferences)[]) {
-      if (draft[key] !== saved[key]) {
+      if (prefValueChanged(draft[key], saved[key])) {
         const { category, field } = prefToCategory[key]
         if (!categoryUpdates[category]) {
           categoryUpdates[category] = {}
@@ -350,8 +324,7 @@ export const usePreferencesStore = create<PreferencesState>()((set, get) => ({
 
 // Listen for settings changes from main process
 if (typeof window !== 'undefined' && window.electron) {
-  const unsubscribe = window.electron.on('settings:changed', (...args: unknown[]) => {
-    const data = args[0] as { reset?: boolean; category?: string; values?: object }
+  const unsubscribe = window.electron.on(IPC_CHANNELS.SETTINGS_CHANGED, (data) => {
     if (data.reset) {
       usePreferencesStore.setState({
         saved: { ...defaultPreferences },
@@ -362,9 +335,7 @@ if (typeof window !== 'undefined' && window.electron) {
   })
 
   // Cleanup listener on HMR module replacement
-  const hot = (import.meta as unknown as Record<string, unknown>).hot as
-    | { dispose: (cb: () => void) => void }
-    | undefined
+  const hot = import.meta.hot
   if (hot) {
     hot.dispose(() => unsubscribe())
   }

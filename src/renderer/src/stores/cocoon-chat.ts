@@ -5,6 +5,7 @@
  */
 
 import { create } from 'zustand'
+import { newId } from '@/lib/id'
 
 export type CocoonChatMessage = {
   id: string
@@ -48,7 +49,7 @@ function deriveTitle(message: CocoonChatMessage): string {
 
 function makeConversation(): CocoonConversation {
   const now = Date.now()
-  return { id: crypto.randomUUID(), title: 'New chat', createdAt: now, updatedAt: now, messages: [] }
+  return { id: newId(), title: 'New chat', createdAt: now, updatedAt: now, messages: [] }
 }
 
 export const useCocoonChatStore = create<CocoonChatState>((set, get) => ({

@@ -66,15 +66,6 @@ vi.mock('../../storage/daemon', () => ({
 }))
 
 // Mock storage bags
-vi.mock('../../storage/bags', () => ({
-  addBag: vi.fn(() => Promise.resolve({ id: 'test-bag', status: 'downloading' })),
-  removeBag: vi.fn(() => Promise.resolve(true)),
-  listBags: vi.fn(() => Promise.resolve([])),
-  pauseBag: vi.fn(() => Promise.resolve(true)),
-  resumeBag: vi.fn(() => Promise.resolve(true)),
-  getBagDetails: vi.fn(() => Promise.resolve({ id: 'test-bag', files: [] })),
-  setBagsStorageManager: vi.fn(),
-}))
 
 // Mock settings
 vi.mock('../../settings', () => ({
@@ -145,8 +136,6 @@ vi.mock('../error-handler', () => ({
     })
   },
   ipcErrorHandler: {
-    getRecentErrors: vi.fn(() => []),
-    clearLogs: vi.fn(),
     logError: vi.fn(),
   },
 }))
@@ -237,8 +226,7 @@ vi.mock('../../cocoon/platform', () => ({
 
 // Import after mocks
 import { registerIpcHandlers, _resetHandlersForTesting } from '../handlers'
-import { IPC_CHANNELS } from '../../../shared/types'
-import { addBag, removeBag, listBags } from '../../storage/bags'
+import { IPC_CHANNELS } from '../../../shared/ipc-channels'
 import { setSetting, resetSettings } from '../../settings'
 import { createTab, closeTab, switchTab, navigateInTab } from '../../windows/tabs'
 import type { ServiceRegistry } from '../../services'
@@ -283,7 +271,11 @@ const mockStorageManager = (() => {
       port: 5555,
       storagePath: '/mock/downloads',
     })),
-    setStoragePath: vi.fn(),
+    addBag: vi.fn(() => Promise.resolve({ id: 'test-bag', status: 'downloading' })),
+    removeBag: vi.fn(() => Promise.resolve(true)),
+    listBags: vi.fn(() => Promise.resolve([])),
+    pauseBag: vi.fn(() => Promise.resolve(true)),
+    getBagDetails: vi.fn(() => Promise.resolve({ id: 'test-bag', files: [] })),
     on: emitter.on.bind(emitter),
     emit: emitter.emit.bind(emitter),
   })
@@ -291,7 +283,6 @@ const mockStorageManager = (() => {
 
 function createMockRegistry(): ServiceRegistry {
   return {
-    pathProvider: { getUserDataPath: () => '/tmp/test', isPackaged: () => false },
     secureStorage: { isAvailable: () => false, encrypt: vi.fn(), decrypt: vi.fn(), getBackendName: () => 'mock' },
     proxyManager: mockProxyManager as any,
     storageManager: mockStorageManager as any,
@@ -300,8 +291,14 @@ function createMockRegistry(): ServiceRegistry {
       getState: vi.fn(() => ({ isCreated: false })),
       setAutoLockMinutes: vi.fn(),
       getBridgeClient: vi.fn(() => null),
+      fetchOnChainHistory: vi.fn(() => []),
     } as any,
-    walletHistoryManager: { add: vi.fn(), getRecent: vi.fn(), merge: vi.fn(), clear: vi.fn() } as any,
+    walletHistoryManager: {
+      add: vi.fn(),
+      getAll: vi.fn(() => []),
+      reconcile: vi.fn((tx) => tx),
+      clear: vi.fn(),
+    } as any,
     paymentInterceptor: { approvePayment: vi.fn(), rejectPayment: vi.fn(), registerOnSession: vi.fn() } as any,
     paymentPolicyStore: { destroy: vi.fn(), init: vi.fn() } as any,
     overlayManager: {
@@ -318,6 +315,14 @@ function createMockRegistry(): ServiceRegistry {
     } as any,
     bridgeInterceptor: { handleRequest: vi.fn(), init: vi.fn(), destroy: vi.fn() } as any,
     bridgePermissionStore: { getAllPermissions: vi.fn(() => []), revokePermission: vi.fn() } as any,
+    tonConnectService: {
+      init: vi.fn(),
+      handleRequest: vi.fn(),
+      getSessions: vi.fn(() => []),
+      disconnectSession: vi.fn(),
+      clearSessions: vi.fn(),
+    } as any,
+    tonConnectSessionStore: { init: vi.fn(), list: vi.fn(() => []) } as any,
     historyManager: {
       changeMode: vi.fn(() => Promise.resolve({ success: true })),
       search: vi.fn(() => []),
@@ -396,26 +401,9 @@ function resetHandlersTestEnv(): void {
 describe('IPC Handlers', () => {
   beforeEach(resetHandlersTestEnv)
 
-  describe('Handler Registration', () => {
-    it('registers all required handlers', () => {
-      const requiredHandlers = [
-        IPC_CHANNELS.PROXY_CONNECT,
-        IPC_CHANNELS.PROXY_DISCONNECT,
-        IPC_CHANNELS.PROXY_STATUS,
-        IPC_CHANNELS.TAB_CREATE,
-        IPC_CHANNELS.TAB_CLOSE,
-        IPC_CHANNELS.TAB_SWITCH,
-      ]
-
-      for (const channel of requiredHandlers) {
-        expect(mockHandlers.has(channel)).toBe(true)
-      }
-    })
-  })
-
   describe('Proxy Handlers', () => {
     it('PROXY_CONNECT starts proxy and returns success', async () => {
-      const handler = mockHandlers.get(IPC_CHANNELS.PROXY_CONNECT)
+      const handler = mockHandlers.get(IPC_CHANNELS.PROXY_CONNECT)!
       expect(handler).toBeDefined()
 
       const result = await handler!(createMockEvent())
@@ -427,7 +415,7 @@ describe('IPC Handlers', () => {
     it('PROXY_CONNECT handles errors gracefully', async () => {
       vi.mocked(mockRegistry.proxyManager.start).mockRejectedValueOnce(new Error('Proxy failed'))
 
-      const handler = mockHandlers.get(IPC_CHANNELS.PROXY_CONNECT)
+      const handler = mockHandlers.get(IPC_CHANNELS.PROXY_CONNECT)!
       const result = await handler!(createMockEvent())
 
       expect(result.success).toBe(false)
@@ -435,7 +423,7 @@ describe('IPC Handlers', () => {
     })
 
     it('PROXY_DISCONNECT stops both storage and proxy', async () => {
-      const handler = mockHandlers.get(IPC_CHANNELS.PROXY_DISCONNECT)
+      const handler = mockHandlers.get(IPC_CHANNELS.PROXY_DISCONNECT)!
       const result = await handler!(createMockEvent())
 
       expect(mockRegistry.storageManager.stop).toHaveBeenCalled()
@@ -444,7 +432,7 @@ describe('IPC Handlers', () => {
     })
 
     it('PROXY_STATUS returns current status', async () => {
-      const handler = mockHandlers.get(IPC_CHANNELS.PROXY_STATUS)
+      const handler = mockHandlers.get(IPC_CHANNELS.PROXY_STATUS)!
       const result = await handler!(createMockEvent())
 
       expect(result.status).toBe('connected')
@@ -454,7 +442,7 @@ describe('IPC Handlers', () => {
 
   describe('Tab Handlers', () => {
     it('TAB_CREATE creates a new tab', async () => {
-      const handler = mockHandlers.get(IPC_CHANNELS.TAB_CREATE)
+      const handler = mockHandlers.get(IPC_CHANNELS.TAB_CREATE)!
       const result = await handler!(createMockEvent(), 'new-tab-id')
 
       expect(createTab).toHaveBeenCalledWith('new-tab-id')
@@ -462,7 +450,7 @@ describe('IPC Handlers', () => {
     })
 
     it('TAB_CLOSE closes a tab', async () => {
-      const handler = mockHandlers.get(IPC_CHANNELS.TAB_CLOSE)
+      const handler = mockHandlers.get(IPC_CHANNELS.TAB_CLOSE)!
       const result = await handler!(createMockEvent(), 'tab-to-close')
 
       expect(closeTab).toHaveBeenCalledWith('tab-to-close')
@@ -470,7 +458,7 @@ describe('IPC Handlers', () => {
     })
 
     it('TAB_SWITCH switches to a tab', async () => {
-      const handler = mockHandlers.get(IPC_CHANNELS.TAB_SWITCH)
+      const handler = mockHandlers.get(IPC_CHANNELS.TAB_SWITCH)!
       const result = await handler!(createMockEvent(), 'tab-to-activate')
 
       expect(switchTab).toHaveBeenCalledWith('tab-to-activate')
@@ -479,51 +467,42 @@ describe('IPC Handlers', () => {
   })
 
   describe('Storage Handlers', () => {
-    it('STORAGE_ADD_BAG validates bagId format', async () => {
-      const handler = mockHandlers.get(IPC_CHANNELS.STORAGE_ADD_BAG)
+    it('STORAGE_ADD_BAG forwards a valid bagId to addBag', async () => {
+      const handler = mockHandlers.get(IPC_CHANNELS.STORAGE_ADD_BAG)!
       expect(handler).toBeDefined() // Skip if not registered
 
       // Valid 64-char hex
       const validBagId = 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2'
       await handler(createMockEvent(), validBagId, 'Test Bag')
 
-      expect(addBag).toHaveBeenCalledWith(validBagId, 'Test Bag')
+      expect(mockStorageManager.addBag).toHaveBeenCalledWith(validBagId)
     })
 
     it('STORAGE_ADD_BAG rejects invalid bagId', async () => {
-      const handler = mockHandlers.get(IPC_CHANNELS.STORAGE_ADD_BAG)
+      const handler = mockHandlers.get(IPC_CHANNELS.STORAGE_ADD_BAG)!
       expect(handler).toBeDefined()
 
       const invalidBagId = 'invalid-bag-id'
       const result = await handler(createMockEvent(), invalidBagId, 'Test')
 
       expect(result.success).toBe(false)
-      expect(addBag).not.toHaveBeenCalled()
+      expect(mockStorageManager.addBag).not.toHaveBeenCalled()
     })
 
     it('STORAGE_REMOVE_BAG removes bag by id', async () => {
-      const handler = mockHandlers.get(IPC_CHANNELS.STORAGE_REMOVE_BAG)
+      const handler = mockHandlers.get(IPC_CHANNELS.STORAGE_REMOVE_BAG)!
       expect(handler).toBeDefined()
 
       const validBagId = 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2'
       await handler(createMockEvent(), validBagId)
 
-      expect(removeBag).toHaveBeenCalledWith(validBagId)
-    })
-
-    it('STORAGE_LIST_BAGS returns bag list', async () => {
-      const handler = mockHandlers.get(IPC_CHANNELS.STORAGE_LIST_BAGS)
-      expect(handler).toBeDefined()
-
-      await handler(createMockEvent())
-
-      expect(listBags).toHaveBeenCalled()
+      expect(mockStorageManager.removeBag).toHaveBeenCalledWith(validBagId)
     })
   })
 
   describe('Settings Handlers', () => {
     it('SETTINGS_SET updates a setting category', async () => {
-      const handler = mockHandlers.get(IPC_CHANNELS.SETTINGS_SET)
+      const handler = mockHandlers.get(IPC_CHANNELS.SETTINGS_SET)!
       expect(handler).toBeDefined()
 
       await handler(createMockEvent(), 'network', { proxyPort: 9000 })
@@ -532,7 +511,7 @@ describe('IPC Handlers', () => {
     })
 
     it('SETTINGS_RESET restores defaults', async () => {
-      const handler = mockHandlers.get(IPC_CHANNELS.SETTINGS_RESET)
+      const handler = mockHandlers.get(IPC_CHANNELS.SETTINGS_RESET)!
       expect(handler).toBeDefined()
 
       await handler(createMockEvent())
@@ -577,7 +556,7 @@ describe('Security - Input Validation', () => {
   beforeEach(resetHandlersTestEnv)
 
   it('navigation handler rejects javascript: URLs', async () => {
-    const handler = mockHandlers.get(IPC_CHANNELS.NAVIGATE)
+    const handler = mockHandlers.get(IPC_CHANNELS.NAVIGATE)!
     expect(handler).toBeDefined()
 
     const result = await handler(createMockEvent(), 'javascript:alert(1)')
@@ -588,7 +567,7 @@ describe('Security - Input Validation', () => {
   })
 
   it('navigation handler rejects data: URLs', async () => {
-    const handler = mockHandlers.get(IPC_CHANNELS.NAVIGATE)
+    const handler = mockHandlers.get(IPC_CHANNELS.NAVIGATE)!
     expect(handler).toBeDefined()
 
     const result = await handler(createMockEvent(), 'data:text/html,<script>alert(1)</script>')
@@ -598,25 +577,13 @@ describe('Security - Input Validation', () => {
   })
 
   it('navigation handler rejects file: URLs', async () => {
-    const handler = mockHandlers.get(IPC_CHANNELS.NAVIGATE)
+    const handler = mockHandlers.get(IPC_CHANNELS.NAVIGATE)!
     expect(handler).toBeDefined()
 
     const result = await handler(createMockEvent(), 'file:///etc/passwd')
 
     expect(result.success).toBe(false)
     expect(navigateInTab).not.toHaveBeenCalled()
-  })
-
-  it('storage handler rejects invalid bagId format', async () => {
-    const handler = mockHandlers.get(IPC_CHANNELS.STORAGE_ADD_BAG)
-    expect(handler).toBeDefined()
-
-    // Test command injection attempt
-    const maliciousBagId = '$(rm -rf /)'
-    const result = await handler(createMockEvent(), maliciousBagId)
-
-    expect(result.success).toBe(false)
-    expect(addBag).not.toHaveBeenCalled()
   })
 })
 
@@ -730,28 +697,6 @@ describe('Cocoon AI Handlers', () => {
     })
   })
 
-  // ── COCOON_WALLET_EXISTS ────────────────────────────────────────────────────
-
-  describe('COCOON_WALLET_EXISTS', () => {
-    it('returns true when wallet exists on disk', async () => {
-      vi.mocked(hasCocoonWallet).mockResolvedValueOnce(true)
-      const handler = mockHandlers.get(IPC_CHANNELS.COCOON_WALLET_EXISTS)!
-
-      const result = await handler(createMockEvent())
-
-      expect(result).toBe(true)
-    })
-
-    it('returns false when no wallet exists', async () => {
-      // hasCocoonWallet default mock returns false
-      const handler = mockHandlers.get(IPC_CHANNELS.COCOON_WALLET_EXISTS)!
-
-      const result = await handler(createMockEvent())
-
-      expect(result).toBe(false)
-    })
-  })
-
   // ── COCOON_WALLET_CREATE ────────────────────────────────────────────────────
 
   describe('COCOON_WALLET_CREATE', () => {
@@ -788,75 +733,9 @@ describe('Cocoon AI Handlers', () => {
     })
   })
 
-  // ── COCOON_WALLET_INFO ──────────────────────────────────────────────────────
-
-  describe('COCOON_WALLET_INFO', () => {
-    it('returns the public-safe wallet info when a wallet exists', async () => {
-      const info = {
-        ownerAddress: 'EQOwner',
-        nodeAddress: 'EQNode',
-        nodePublicKeyHex: 'aabb',
-        createdAt: 1_700_000_000_000,
-      }
-      vi.mocked(getCocoonWalletInfo).mockResolvedValueOnce(info)
-      const handler = mockHandlers.get(IPC_CHANNELS.COCOON_WALLET_INFO)!
-
-      const result = await handler(createMockEvent())
-
-      expect(result).toEqual(info)
-      // Secrets must not leak
-      expect(result).not.toHaveProperty('ownerMnemonic')
-      expect(result).not.toHaveProperty('nodeSecretBase64')
-    })
-
-    it('returns null when no wallet exists', async () => {
-      // getCocoonWalletInfo default mock returns null
-      const handler = mockHandlers.get(IPC_CHANNELS.COCOON_WALLET_INFO)!
-
-      const result = await handler(createMockEvent())
-
-      expect(result).toBeNull()
-    })
-  })
-
-  // ── COCOON_WALLET_EXPORT_MNEMONIC ───────────────────────────────────────────
-
-  describe('COCOON_WALLET_EXPORT_MNEMONIC', () => {
-    it('returns the 24-word mnemonic list', async () => {
-      const words = Array.from({ length: 24 }, (_, i) => `word${i + 1}`)
-      vi.mocked(exportCocoonMnemonic).mockResolvedValueOnce(words)
-      const handler = mockHandlers.get(IPC_CHANNELS.COCOON_WALLET_EXPORT_MNEMONIC)!
-
-      const result = await handler(createMockEvent())
-
-      expect(result).toEqual(words)
-      expect(result).toHaveLength(24)
-    })
-  })
-
-  // ── COCOON_WALLET_DELETE ────────────────────────────────────────────────────
-
-  describe('COCOON_WALLET_DELETE', () => {
-    it('delegates to deleteCocoonWallet', async () => {
-      const handler = mockHandlers.get(IPC_CHANNELS.COCOON_WALLET_DELETE)!
-
-      await handler(createMockEvent())
-
-      expect(deleteCocoonWallet).toHaveBeenCalledTimes(1)
-    })
-  })
-
   // ── COCOON_WALLET_MARK_SETUP_COMPLETE ───────────────────────────────────────
 
   describe('COCOON_WALLET_MARK_SETUP_COMPLETE', () => {
-    it('delegates to markSetupComplete', async () => {
-      const handler = mockHandlers.get(IPC_CHANNELS.COCOON_WALLET_MARK_SETUP_COMPLETE)!
-
-      await handler(createMockEvent())
-
-      expect(markSetupComplete).toHaveBeenCalledTimes(1)
-    })
-
     it('surfaces underlying errors as IPC envelope', async () => {
       vi.mocked(markSetupComplete).mockRejectedValueOnce(new Error('storage unavailable'))
       const handler = mockHandlers.get(IPC_CHANNELS.COCOON_WALLET_MARK_SETUP_COMPLETE)!

@@ -15,7 +15,7 @@
     "recipientLabel": "Adresse du destinataire",
     "recipientPlaceholder": "EQ... ou 0:...",
     "amountLabel": "Montant",
-    "feeNote": "Frais réseau : {{fee}} TON",
+    "feeNote": "Frais réseau : {{fee}} GRAM",
     "reviewButton": "Vérifier la transaction",
     "confirm": "Confirmer la transaction",
     "to": "Vers",
@@ -30,7 +30,7 @@
     "invalidAmount": "Montant invalide",
     "insufficientBalance": "Solde insuffisant",
     "max": "Max",
-    "estimatedFee": "~0,01 TON"
+    "estimatedFee": "~0,01 GRAM"
   },
   "receive": {
     "addressLabel": "Ton adresse de portefeuille",
@@ -104,7 +104,7 @@
     "orImport": "ou importer un portefeuille existant"
   },
   "statusBar": {
-    "balance": "{{amount}} TON"
+    "balance": "{{amount}} GRAM"
   },
   "settings": {
     "title": "Paramètres du portefeuille",
@@ -132,7 +132,7 @@
       "perDay": "Par jour",
       "perSitePerMonth": "Par site / mois",
       "placeholder": "0 = pas de limite",
-      "unit": "TON",
+      "unit": "GRAM",
       "perRequestDesc": "Montant maximum pour un paiement 402 individuel",
       "perDayDesc": "Dépense totale maximale sur une fenêtre glissante de 24 heures",
       "perSitePerMonthDesc": "Dépense maximale par domaine sur une fenêtre glissante de 30 jours",
@@ -142,7 +142,7 @@
       "title": "Permissions par site",
       "empty": "Aucune permission spécifique configurée",
       "remove": "Supprimer",
-      "spent": "Dépensé : {{amount}} TON",
+      "spent": "Dépensé : {{amount}} GRAM",
       "removePolicy": "Supprimer la politique du site"
     }
   },
@@ -189,7 +189,7 @@
       "withdrawing": "Retrait en cours…"
     },
     "actions": {
-      "activate": "Activer Cocoon (20 TON)",
+      "activate": "Activer Cocoon (20 GRAM)",
       "withdrawAll": "Retirer",
       "withdraw": "Retirer de Cocoon",
       "withdrawing": "Retrait en cours…"

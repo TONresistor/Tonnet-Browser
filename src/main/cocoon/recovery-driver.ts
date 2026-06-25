@@ -40,15 +40,19 @@
  * start picks the entry up exactly where it was.
  */
 
-import { EventEmitter } from 'events'
-import { Address, beginCell } from '@ton/core'
+import { errorMessage } from '../../shared/errors'
+import { PollingDriver } from './polling-driver'
+import { Address } from '@ton/core'
 import { createLogger } from '../../shared/logger'
 import { getRecoveryQueueStore, type RecoveryEntry } from './recovery-queue'
 import { getConsumedArchive, type ArchivedCocoon } from './consumed-archive'
 import { CocoonClient } from './contracts/wrappers/CocoonClient'
 import { openBridgeContract } from './contracts/bridge-provider'
 import { sendFromCocoonWallet, buildCocoonWalletInit } from './contracts'
+import { DRAIN_DUST_FLOOR_NANO, REFUND_GAS_NANO, narrowClientState } from './constants'
+import { decodeNodeSecret, buildClientOpcodeBody, OWNER_CLIENT_REQUEST_REFUND } from './node-signing'
 import type { WsBridgeClient } from '../wallet/ws-bridge-client'
+import type { RecoveryDriverEvent } from '../../shared/cocoon-types'
 
 /**
  * The client SC's owner is the cocoon_node_wallet (Ed25519 SC), not the V4R2.
@@ -63,19 +67,11 @@ async function sendRefundFromNode(
   clientSCAddress: string,
   sendExcessesTo: string
 ): Promise<{ bocHash: string; seqno: number }> {
-  const nodeSecret = Buffer.from(archive.nodeSecretBase64, 'base64')
-  if (nodeSecret.length !== 32) {
-    throw new Error(`Archived node secret must be 32 bytes, got ${nodeSecret.length}`)
-  }
-  const refundBody = beginCell()
-    .storeUint(0xfafa6cc1, 32) // op::owner_client_request_refund
-    .storeUint(0, 64) // query_id
-    .storeAddress(Address.parse(sendExcessesTo))
-    .endCell()
+  const refundBody = buildClientOpcodeBody(OWNER_CLIENT_REQUEST_REFUND, sendExcessesTo)
   return sendFromCocoonWallet(
     bridge,
     archive.nodeAddress,
-    nodeSecret,
+    decodeNodeSecret(archive.nodeSecretBase64),
     Address.parse(clientSCAddress),
     REFUND_GAS_NANO,
     refundBody,
@@ -90,64 +86,17 @@ const log = createLogger('cocoon:recovery-driver')
 /** Idle poll cadence. Matches the WithdrawDriver cadence so observable behavior is consistent. */
 const TICK_INTERVAL_MS = 60_000
 
-/** Below this threshold, draining the cocoon_node would burn more in gas than it would recover. */
-const DRAIN_DUST_NANO = 50_000_000n // 0.05 TON
+export type { RecoveryDriverEvent }
 
-/** Gas reserve attached to refund/claim messages. Must exceed Cocoon's 0.1 TON commission estimate. */
-const REFUND_GAS_NANO = 200_000_000n // 0.2 TON
-
-export type RecoveryDriverEvent =
-  | { type: 'started'; archivedAt: number; clientSCAddress: string }
-  | { type: 'cooldown'; archivedAt: number; clientSCAddress: string; unlockTs: number }
-  | { type: 'claimed'; archivedAt: number; clientSCAddress: string; bocHash: string }
-  | {
-      type: 'drained'
-      archivedAt: number
-      clientSCAddress: string
-      bocHash: string
-      sentAmount: string
-      sentTo: string
-    }
-  | { type: 'done'; archivedAt: number; clientSCAddress: string }
-  | { type: 'failed'; archivedAt: number; clientSCAddress: string; message: string }
-
-export class RecoveryDriver extends EventEmitter {
-  private timer: ReturnType<typeof setInterval> | null = null
-  private inflight = false
-
+export class RecoveryDriver extends PollingDriver {
   constructor(
     private getBridge: () => WsBridgeClient | null,
     private getNativeAddress: () => string | null
   ) {
-    super()
+    super(TICK_INTERVAL_MS, log)
   }
 
-  /** Start the periodic ticker. Idempotent. */
-  start(): void {
-    if (this.timer) return
-    this.timer = setInterval(() => {
-      this.tick().catch((err) => log.warn(`tick error: ${(err as Error).message}`))
-    }, TICK_INTERVAL_MS)
-    setImmediate(() => {
-      this.tick().catch((err) => log.warn(`initial tick error: ${(err as Error).message}`))
-    })
-  }
-
-  stop(): void {
-    if (this.timer) {
-      clearInterval(this.timer)
-      this.timer = null
-    }
-  }
-
-  /** Trigger an immediate tick (used right after enqueue). */
-  triggerTick(): void {
-    setImmediate(() => {
-      this.tick().catch((err) => log.warn(`triggered tick error: ${(err as Error).message}`))
-    })
-  }
-
-  private async tick(): Promise<void> {
+  protected async tick(): Promise<void> {
     if (this.inflight) return
     const queue = await getRecoveryQueueStore().list()
     if (queue.length === 0) return
@@ -163,7 +112,7 @@ export class RecoveryDriver extends EventEmitter {
           await this.advanceEntry(entry, bridge)
         } catch (err) {
           // Transient: log, persist lastError, keep phase. Next tick retries.
-          const message = (err as Error).message ?? String(err)
+          const message = errorMessage(err)
           log.warn(`Recovery tick failed for archivedAt=${entry.archivedAt}: ${message}`)
           await getRecoveryQueueStore().update(entry.archivedAt, { lastError: message })
         }
@@ -213,11 +162,11 @@ export class RecoveryDriver extends EventEmitter {
       // SC not deployed / not initialized — could mean the initial deploy
       // never confirmed or the SC self-destructed already. If we have no
       // unlockTs recorded, retry the initial refund.
-      log.warn(`getData failed for ${entry.clientSCAddress.slice(0, 8)}…: ${(err as Error).message}`)
+      log.warn(`getData failed for ${entry.clientSCAddress.slice(0, 8)}…: ${errorMessage(err)}`)
       throw err
     }
 
-    const state = onchain.state as 0 | 1 | 2
+    const state = narrowClientState(onchain.state)
     const unlockTs = onchain.unlockTs
 
     if (state === 0) {
@@ -303,7 +252,7 @@ export class RecoveryDriver extends EventEmitter {
     if (!native) throw new Error('Native wallet not initialized — cannot determine drain destination')
 
     const balance = BigInt(await bridge.getBalance(archive.nodeAddress))
-    if (balance < DRAIN_DUST_NANO) {
+    if (balance < DRAIN_DUST_FLOOR_NANO) {
       log.info(`Recovery ${entry.archivedAt}: cocoon_node residual ${balance} < dust floor — marking done`)
       await getRecoveryQueueStore().update(entry.archivedAt, {
         phase: 'done',
@@ -319,14 +268,10 @@ export class RecoveryDriver extends EventEmitter {
     }
 
     log.info(`Recovery ${entry.archivedAt}: draining cocoon_node ${balance} nanoTON → ${native.slice(0, 8)}…`)
-    const nodeSecret = Buffer.from(archive.nodeSecretBase64, 'base64')
-    if (nodeSecret.length !== 32) {
-      throw new Error(`Archived node secret must be 32 bytes, got ${nodeSecret.length}`)
-    }
     const result = await sendFromCocoonWallet(
       bridge,
       archive.nodeAddress,
-      nodeSecret,
+      decodeNodeSecret(archive.nodeSecretBase64),
       Address.parse(native),
       0n,
       undefined,

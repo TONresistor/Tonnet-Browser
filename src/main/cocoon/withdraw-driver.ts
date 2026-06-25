@@ -22,7 +22,8 @@
  * the tick and retries on the next interval.
  */
 
-import { EventEmitter } from 'events'
+import { errorMessage } from '../../shared/errors'
+import { PollingDriver } from './polling-driver'
 import { createLogger } from '../../shared/logger'
 import { getStakeCacheStore } from './stake-cache'
 import { getStakeInfo, cashout } from './unstake'
@@ -30,70 +31,31 @@ import { driveCurrentWithdrawStep, type TopUpNodeWallet } from './current-withdr
 import { retireCurrentCocoonWallet } from './retire-wallet'
 import type { CocoonManager } from './manager'
 import type { WsBridgeClient } from '../wallet/ws-bridge-client'
-import type { CocoonStakeInfo } from '../../shared/cocoon-types'
+import type { CocoonStakeInfo, WithdrawDriverEvent } from '../../shared/cocoon-types'
 
 const log = createLogger('cocoon:withdraw-driver')
 
 /** Idle poll cadence. The driver wakes more often during cooldown via state-change ticks. */
 const TICK_INTERVAL_MS = 30_000
 
-export type WithdrawDriverEvent =
-  | { type: 'progress'; status: CocoonStakeInfo['status'] }
-  | { type: 'cashout-done'; sentAmount: string; bocHash: string }
-  | { type: 'completed' }
-  | { type: 'error'; message: string; recoverable: boolean }
+export type { WithdrawDriverEvent }
 
-export class WithdrawDriver extends EventEmitter {
-  private timer: ReturnType<typeof setInterval> | null = null
-  private inflight = false
-
+export class WithdrawDriver extends PollingDriver {
   constructor(
     private manager: CocoonManager,
     private getBridge: () => WsBridgeClient | null,
     private getNativeAddress: () => string | null,
     private topUpNodeWallet?: TopUpNodeWallet
   ) {
-    super()
+    super(TICK_INTERVAL_MS, log)
   }
 
-  /**
-   * Start the periodic ticker. Safe to call multiple times — subsequent calls
-   * are no-ops while the timer is already armed.
-   */
-  start(): void {
-    if (this.timer) return
-    this.timer = setInterval(() => {
-      this.tick().catch((err) => log.warn(`tick error: ${(err as Error).message}`))
-    }, TICK_INTERVAL_MS)
-    // Fire one immediate tick so we don't wait the full interval on startup.
-    setImmediate(() => {
-      this.tick().catch((err) => log.warn(`initial tick error: ${(err as Error).message}`))
-    })
-  }
-
-  stop(): void {
-    if (this.timer) {
-      clearInterval(this.timer)
-      this.timer = null
-    }
-  }
-
-  /**
-   * Trigger an immediate tick. Used right after the user sets the pending
-   * flag, and on manager state-change events so the driver reacts quickly to
-   * 'refundable' transitions without waiting the 30s interval.
-   */
-  triggerTick(): void {
-    setImmediate(() => {
-      this.tick().catch((err) => log.warn(`triggered tick error: ${(err as Error).message}`))
-    })
-  }
-
+  /** Run a single tick that surfaces errors (used by the user-initiated retry path). */
   async runUserInitiatedTick(): Promise<void> {
     await this.tick(true)
   }
 
-  private async tick(surfaceErrors = false): Promise<void> {
+  protected async tick(surfaceErrors = false): Promise<void> {
     if (this.inflight) return
 
     const cache = await getStakeCacheStore().load()
@@ -139,7 +101,7 @@ export class WithdrawDriver extends EventEmitter {
           break
       }
     } catch (err) {
-      const message = (err as Error).message ?? String(err)
+      const message = errorMessage(err)
       log.warn(`tick failed: ${message}`)
       this.emit('event', {
         type: 'error',
@@ -197,7 +159,7 @@ export class WithdrawDriver extends EventEmitter {
         bocHash: result.txs[0]?.bocHash ?? '',
       } satisfies WithdrawDriverEvent)
     } catch (err) {
-      const msg = (err as Error).message ?? String(err)
+      const msg = errorMessage(err)
       // 'Nothing to cashout' is the natural terminal — flag the withdraw done.
       if (!msg.includes('Nothing to cashout')) throw err
       log.info('Cashout: nothing to drain, terminal state reached')

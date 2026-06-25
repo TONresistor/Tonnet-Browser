@@ -2,17 +2,19 @@
  * IPC handlers for page navigation, zoom, and devtools.
  */
 
-import { IPC_CHANNELS } from '../../../shared/types'
+import { errorMessage } from '../../../shared/errors'
+import { IPC_CHANNELS } from '../../../shared/ipc-channels'
 import { isValidNavigationUrl } from '../validation'
 import { secureHandle, secureHandleWithEvent, navLimiter, log } from './shared'
 import { getSetting } from '../../settings'
+import { loadDataHtml } from '../../windows/page-templates'
 import {
   getActiveView,
   hideAllViews,
   navigateInTab,
   getActiveTabId,
-  loadStorageBagInTab,
   fileBrowserCache,
+  loadBagFileInTab,
 } from '../../windows/tabs'
 
 export function registerNavigationHandlers(): void {
@@ -31,15 +33,25 @@ export function registerNavigationHandlers(): void {
       return { success: false, error: validation.error }
     }
 
-    // Intercept ton://storage/browse/<bagId> to download bag and show file browser
-    const browseMatch = url.match(/^ton:\/\/storage\/browse\/([a-fA-F0-9]{64})$/)
-    if (browseMatch) {
-      const bagId = browseMatch[1]
+    // ton://storage/browse/<bagId> is handled in-app by the React master-detail
+    // file browser (StorageBrowsePage); it falls through to the internal ton://
+    // branch below which hides the WebContentsView so React can render.
+
+    // ton://storage/file/<bagId>/<encodedRelPath> opens a single bag file inline
+    // in this tab (audio/pdf/image render in the browser, like the old browser).
+    const fileMatch = url.match(/^ton:\/\/storage\/file\/([a-fA-F0-9]{64})\/(.+)$/)
+    if (fileMatch) {
+      const bagId = fileMatch[1]
+      let relPath: string
+      try {
+        relPath = decodeURIComponent(fileMatch[2])
+      } catch {
+        return { success: false, error: 'Invalid file path' }
+      }
       const targetTab = tabId || getActiveTabId()
-      log.info(`Browse bag: ${bagId}, tab: ${targetTab}`)
       if (targetTab) {
-        loadStorageBagInTab(targetTab, bagId).catch((err) => {
-          log.error('Failed to browse bag:', (err as Error).message)
+        loadBagFileInTab(targetTab, bagId, relPath).catch((err) => {
+          log.error('Failed to open bag file:', errorMessage(err))
         })
       }
       return { success: true }
@@ -72,7 +84,7 @@ export function registerNavigationHandlers(): void {
     if (currentUrl.startsWith('file:///') && currentUrl.includes('/storage/')) {
       const cached = fileBrowserCache.get(view.webContents.id)
       if (cached) {
-        await view.webContents.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(cached)}`)
+        await loadDataHtml(view.webContents, cached)
         return { success: true }
       }
     }

@@ -15,12 +15,12 @@ import bookmarkIconSrc from '@/assets/bookmark.svg'
 import { createElement } from 'react'
 function SvgIcon(src: string) {
   return function Icon({ className }: { className?: string }) {
-    const isInactive = className?.includes('opacity')
+    // Rendered as a white glyph so it sits on the colored iOS-style tile in the settings list.
     return createElement('img', {
       src,
       alt: '',
-      className: className?.replace('opacity-70', '') || '',
-      style: { filter: `brightness(0) invert(${isInactive ? '0.45' : '0.85'})` },
+      className: className ?? '',
+      style: { filter: 'brightness(0) invert(1)' },
     })
   }
 }
@@ -45,17 +45,21 @@ const mod = (key: string): string => {
  * Liste des sections disponibles avec leurs métadonnées
  */
 export const SECTIONS: SectionInfo[] = [
-  { id: 'general', label: 'General', icon: Globe },
-  { id: 'privacy', label: 'Privacy', icon: PrivacyIcon },
-  { id: 'appearance', label: 'Appearance', icon: AppearanceIcon },
-  { id: 'wallet', label: 'Wallet', icon: WalletIcon },
-  { id: 'bridge', label: 'Bridge', icon: Cable },
-  { id: 'cocoon', label: 'Cocoon AI', icon: CocoonIcon },
-  { id: 'storage', label: 'Storage', icon: HardDrive },
-  { id: 'bookmarks', label: 'Bookmarks', icon: BookmarkIcon },
-  { id: 'network', label: 'Network', icon: NetworkIcon },
-  { id: 'advanced', label: 'Advanced', icon: Wrench },
-  { id: 'about', label: 'About', icon: Info },
+  // Group 0 — Preferences
+  { id: 'general', label: 'General', icon: Globe, color: '#8E8E93', group: 0 },
+  { id: 'appearance', label: 'Appearance', icon: AppearanceIcon, color: '#FF2D55', group: 0 },
+  { id: 'privacy', label: 'Privacy', icon: PrivacyIcon, color: '#34C759', group: 0 },
+  { id: 'network', label: 'Network', icon: NetworkIcon, color: '#5AC8FA', group: 0 },
+  { id: 'storage', label: 'Storage', icon: HardDrive, color: '#5856D6', group: 0 },
+  // Group 1 — TON identity
+  { id: 'wallet', label: 'Wallet', icon: WalletIcon, color: '#0098EA', group: 1 },
+  { id: 'cocoon', label: 'Cocoon AI', icon: CocoonIcon, color: '#7B61FF', group: 1 },
+  { id: 'bridge', label: 'Bridge', icon: Cable, color: '#FF9500', group: 1 },
+  // Group 2 — Content
+  { id: 'bookmarks', label: 'Bookmarks', icon: BookmarkIcon, color: '#FFB300', group: 2 },
+  { id: 'advanced', label: 'Advanced', icon: Wrench, color: '#636366', group: 2 },
+  // Group 3 — Info
+  { id: 'about', label: 'About', icon: Info, color: '#0A84FF', group: 3 },
 ]
 
 /**

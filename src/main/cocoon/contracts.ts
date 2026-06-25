@@ -19,7 +19,7 @@ import { Address, beginCell, internal, storeMessage, SendMode, type Cell } from 
 import { mnemonicToPrivateKey, keyPairFromSeed } from '@ton/crypto'
 import { WalletContractV4 } from '@ton/ton'
 import { createLogger } from '../../shared/logger'
-import type { WsBridgeClient } from '../wallet/ws-bridge-client'
+import { isContractNotDeployedError, type WsBridgeClient } from '../wallet/ws-bridge-client'
 import { CocoonWallet, cocoonWalletConfigToCell } from './contracts/wrappers/CocoonWallet'
 import { getCocoonWalletCode } from './wallet'
 
@@ -88,8 +88,7 @@ export async function sendFromOwnerWallet(
   try {
     seqno = await wsBridge.getSeqno(wallet.address.toString())
   } catch (err) {
-    const msg = (err as Error).message ?? ''
-    if (msg.includes('not initialized') || msg.includes('-256')) {
+    if (isContractNotDeployedError(err)) {
       log.info('Owner wallet not deployed yet, using seqno=0 (init will deploy it)')
       seqno = 0
     } else {
@@ -193,8 +192,7 @@ export async function sendFromCocoonWallet(
     }
     seqno = parseSeqnoFromStack(seqnoResult)
   } catch (err) {
-    const msg = (err as Error).message ?? ''
-    if (msg.includes('not initialized') || msg.includes('-256')) {
+    if (isContractNotDeployedError(err)) {
       log.info('Cocoon wallet not deployed yet, using seqno=0 (init will deploy it)')
       seqno = 0
     } else {

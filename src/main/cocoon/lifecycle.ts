@@ -6,6 +6,7 @@
  * helper instead of being duplicated.
  */
 
+import { errorMessage } from '../../shared/errors'
 import { loadCocoonWallet } from './wallet'
 import type { CocoonManager } from './manager'
 import { createLogger } from '../../shared/logger'
@@ -46,7 +47,7 @@ export async function startCocoonManager(manager: CocoonManager): Promise<void> 
   try {
     await manager.start(config)
   } catch (err) {
-    const message = (err as Error).message ?? String(err)
+    const message = errorMessage(err)
     if (!message.includes('Cocoon not ready after')) throw err
 
     log.warn(`Cocoon did not become ready on first attempt (${message}); retrying once`)

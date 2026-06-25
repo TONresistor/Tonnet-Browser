@@ -5,6 +5,7 @@
  */
 
 import { create } from 'zustand'
+import { newId } from '@/lib/id'
 
 export interface BookmarkFolder {
   id: string
@@ -53,8 +54,6 @@ interface BookmarksState {
   resetBookmarks: () => void
 }
 
-const generateId = () => crypto.randomUUID()
-
 // Single-invocation create (no double ()() pattern, no persist middleware)
 export const useBookmarksStore = create<BookmarksState>((set, get) => ({
   bookmarks: [],
@@ -66,7 +65,7 @@ export const useBookmarksStore = create<BookmarksState>((set, get) => ({
     if (depth >= 3) return null
 
     const folder: BookmarkFolder = {
-      id: `folder-${generateId()}`,
+      id: `folder-${newId()}`,
       name,
       parentId,
       createdAt: Date.now(),
@@ -123,7 +122,7 @@ export const useBookmarksStore = create<BookmarksState>((set, get) => ({
     if (get().isBookmarked(url)) return
 
     const bookmark: Bookmark = {
-      id: generateId(),
+      id: newId(),
       url,
       title,
       favicon,

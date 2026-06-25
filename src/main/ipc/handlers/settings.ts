@@ -2,9 +2,10 @@
  * IPC handlers for app settings, browsing data, and download path management.
  */
 
+import { errorMessage } from '../../../shared/errors'
 import { dialog } from 'electron'
 import { getAllSessions } from '../../windows/tabs-session'
-import { IPC_CHANNELS } from '../../../shared/types'
+import { IPC_CHANNELS } from '../../../shared/ipc-channels'
 import { isValidDownloadPath } from '../validation'
 import { SETTINGS_CATEGORIES, validateCategoryValues } from '../../settings/validation'
 import { secureHandle, secureHandleWithEvent, emitToRenderer, log } from './shared'
@@ -54,13 +55,11 @@ export function registerSettingsHandlers(registry: ServiceRegistry): void {
 
     try {
       setDownloadPath(inputPath)
-      // Update the storage manager with new path
-      storageManager.setStoragePath(inputPath)
       log.info(`Download path set to: ${inputPath}`)
       return { success: true }
     } catch (error) {
       log.error(`Failed to set download path: ${String(error)}`)
-      return { success: false, error: (error as Error).message }
+      return { success: false, error: errorMessage(error) }
     }
   })
 
@@ -82,7 +81,6 @@ export function registerSettingsHandlers(registry: ServiceRegistry): void {
 
     const selectedPath = result.filePaths[0]
     setDownloadPath(selectedPath)
-    storageManager.setStoragePath(selectedPath)
     log.info(`Download folder selected: ${selectedPath}`)
     return { success: true, path: selectedPath }
   })
@@ -116,7 +114,7 @@ export function registerSettingsHandlers(registry: ServiceRegistry): void {
     }
     setSetting(category, validation.data as Partial<AppSettings[keyof AppSettings]>)
     // Notify renderer of settings change
-    emitToRenderer('settings:changed', { category, values })
+    emitToRenderer(IPC_CHANNELS.SETTINGS_CHANGED, { category, values })
     // If network settings changed, check if proxy needs restart (non-blocking)
     if (category === 'network' && proxyManager.isRunning()) {
       proxyManager.applySettingsChange().catch((err) => {
@@ -162,7 +160,7 @@ export function registerSettingsHandlers(registry: ServiceRegistry): void {
 
   secureHandle(IPC_CHANNELS.SETTINGS_RESET, () => {
     resetSettings()
-    emitToRenderer('settings:changed', { reset: true })
+    emitToRenderer(IPC_CHANNELS.SETTINGS_CHANGED, { reset: true })
 
     // Re-apply runtime state for every category that SETTINGS_SET also re-applies,
     // otherwise live services keep the pre-reset config until an app restart.

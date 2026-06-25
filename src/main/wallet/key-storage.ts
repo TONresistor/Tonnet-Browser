@@ -4,16 +4,17 @@
  * Supports both legacy raw-seed wallets and mnemonic-based wallets.
  */
 
+import { errorMessage } from '../../shared/errors'
 import { promises as fs, constants as fsConstants } from 'fs'
 import { join } from 'path'
 import { app } from 'electron'
 import { keyPairFromSeed, mnemonicNew, mnemonicToPrivateKey, mnemonicValidate } from '@ton/crypto'
-import { WalletContractV5R1 } from '@ton/ton'
 import { WALLET_FILE_NAME, AUTO_LOCK_DEFAULT_MS } from './constants'
 import type { ISecureStorage } from '../ports/secure-storage'
 import { ElectronSafeStorageAdapter } from '../adapters/electron-secure-storage'
 import { createLogger } from '../../shared/logger'
 import { isEnoent } from '../utils/errors'
+import { writeSecureFileAtomic } from '../utils/secure-fs'
 const log = createLogger('wallet:keys')
 
 const ENCRYPTED_MARKER = Buffer.from('SENC')
@@ -72,15 +73,6 @@ export class WalletKeyStorage {
     if (!this.storage.isAvailable()) {
       throw new Error('Secure storage is not available. Install a keyring (gnome-keyring, kwallet) to use the wallet.')
     }
-  }
-
-  /**
-   * Generate a new wallet from a 24-word mnemonic.
-   * All new wallets use mnemonic for compatibility with Tonkeeper/MyTonWallet.
-   */
-  async generate(): Promise<{ publicKey: Buffer; secretKey: Buffer }> {
-    const { keypair } = await this.generateFromMnemonic()
-    return keypair
   }
 
   /**
@@ -189,18 +181,6 @@ export class WalletKeyStorage {
       return true
     } catch {
       return false
-    }
-  }
-
-  /**
-   * Derive the W5 v5r1 wallet address from the stored keypair.
-   */
-  async getAddress(): Promise<{ address: string; addressRaw: string }> {
-    const keypair = await this.load()
-    const wallet = WalletContractV5R1.create({ publicKey: keypair.publicKey, workchain: 0 })
-    return {
-      address: wallet.address.toString({ bounceable: false }),
-      addressRaw: wallet.address.toRawString(),
     }
   }
 
@@ -394,8 +374,9 @@ export class WalletKeyStorage {
     const json = JSON.stringify(data)
     const encrypted = this.storage.encrypt(json)
     const markedBuffer = Buffer.concat([ENCRYPTED_MARKER, encrypted])
-    await fs.writeFile(this.filePath, markedBuffer, { mode: 0o600 })
-    if (process.platform !== 'win32') await fs.chmod(this.filePath, 0o600)
+    // Atomic + fsync write (tmp -> rename, 0o600): a crash mid-write must never
+    // truncate the wallet key file into an unreadable state.
+    await writeSecureFileAtomic(this.filePath, markedBuffer)
   }
 
   /**
@@ -415,7 +396,7 @@ export class WalletKeyStorage {
           decrypted = this.storage.decrypt(buffer.subarray(4))
         } catch (err) {
           log.error('safeStorage.decryptString failed:', err)
-          throw new WalletDecryptionError((err as Error).message)
+          throw new WalletDecryptionError(errorMessage(err))
         }
 
         // Try parsing as JSON first (new format)

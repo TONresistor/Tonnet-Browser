@@ -21,11 +21,12 @@ import {
   fileBrowserCache as _fileBrowserCache,
   initStorageListener,
   setTabStorageManager,
+  resolveBagFilePath,
 } from './tabs-storage'
 import { updateViewBounds, updateSidebarBounds, invalidateAppearanceCache } from './tabs-bounds'
 import { setupSecurityHandlers, ALLOWED_SCHEMES } from './tabs-security'
 import { setupViewEventListeners, setTabEventDeps } from './tabs-events'
-import { DisposableStore, IDisposable } from '../utils/disposable'
+import { DisposableStore, IDisposable, onWebContents } from '../utils/disposable'
 import type { OverlayManager } from './overlay-manager'
 import type { ProxyManager } from '../proxy/manager'
 import type { StorageManager } from '../storage/daemon'
@@ -39,6 +40,7 @@ import { DEFAULT_SETTINGS } from '../../shared/defaults'
 import { createLogger } from '../../shared/logger'
 import { emitToRenderer } from '../ipc/handlers/shared'
 import { normalizeUrl } from '../../shared/utils/url'
+import { IPC_CHANNELS } from '../../shared/ipc-channels'
 
 const log = createLogger('tabs')
 
@@ -144,7 +146,7 @@ function setupViewEvents(view: WebContentsView, tabId: string): void {
   const store = new DisposableStore()
   store.add(setupViewEventListeners(view, tabId))
   store.add(setupSecurityHandlers(view, tabId))
-  setupNavAwareAttach(view, tabId)
+  store.add(setupNavAwareAttach(view, tabId))
   viewDisposables.get(tabId)?.dispose()
   viewDisposables.set(tabId, store)
 }
@@ -158,8 +160,9 @@ function setupViewEvents(view: WebContentsView, tabId: string): void {
  * webContents and would otherwise expose the view's paint-holding color
  * during the pre-paint gap on Linux (electron/electron#44652).
  */
-function setupNavAwareAttach(view: WebContentsView, tabId: string): void {
-  view.webContents.on(
+function setupNavAwareAttach(view: WebContentsView, tabId: string): IDisposable {
+  return onWebContents(
+    view.webContents,
     'did-start-navigation',
     (_e: Electron.Event, url: string, isInPlace: boolean, isMainFrame: boolean) => {
       if (!isMainFrame || isInPlace) return
@@ -219,6 +222,31 @@ export async function loadStorageBagInTab(tabId: string, bagId: string): Promise
   })
 }
 
+/**
+ * Open a single file from a bag inline in a tab (audio/pdf/image render in the
+ * browser). The path is resolved + traversal-checked in tabs-storage.
+ */
+export async function loadBagFileInTab(tabId: string, bagId: string, relPath: string): Promise<void> {
+  const view = views.get(tabId)
+  if (!view) throw new Error(`View not found for tab ${tabId}`)
+  const fullPath = await resolveBagFilePath(bagId, relPath)
+  await view.webContents.loadFile(fullPath)
+}
+
+/**
+ * Detach a view from the main window's content view, tolerating an
+ * already-detached view (Electron throws if it was never attached).
+ * Passing `context` emits a debug log on failure; omit it to stay silent.
+ */
+function safeDetach(view: WebContentsView, context?: string): void {
+  if (!mainWindow) return
+  try {
+    mainWindow.contentView.removeChildView(view)
+  } catch {
+    if (context) log.debug(`View not attached during ${context}`)
+  }
+}
+
 export function closeTab(tabId: string): boolean {
   const view = views.get(tabId)
   if (!view) return false
@@ -227,13 +255,7 @@ export function closeTab(tabId: string): boolean {
   viewDisposables.get(tabId)?.dispose()
   viewDisposables.delete(tabId)
 
-  if (mainWindow) {
-    try {
-      mainWindow.contentView.removeChildView(view)
-    } catch {
-      log.debug('View not attached during closeTab')
-    }
-  }
+  safeDetach(view, 'closeTab')
 
   cleanupDomainForTab(tabId)
 
@@ -256,11 +278,7 @@ export function switchTab(tabId: string): boolean {
 
   const currentView = activeViewId ? views.get(activeViewId) : null
   if (currentView) {
-    try {
-      mainWindow.contentView.removeChildView(currentView)
-    } catch {
-      log.debug('View not attached during switchTab')
-    }
+    safeDetach(currentView, 'switchTab')
   }
   mainWindow.contentView.addChildView(view)
   updateViewBounds(view, mainWindow, currentWalletSidebarWidth)
@@ -284,11 +302,7 @@ export function hideAllViews(): void {
 
   const activeView = activeViewId ? views.get(activeViewId) : null
   if (activeView) {
-    try {
-      mainWindow.contentView.removeChildView(activeView)
-    } catch {
-      log.debug('View not attached during hideAllViews')
-    }
+    safeDetach(activeView, 'hideAllViews')
   }
 }
 
@@ -310,13 +324,7 @@ export function cleanupTabManager(): void {
 
   for (const [tabId, view] of views) {
     viewDisposables.get(tabId)?.dispose()
-    if (mainWindow) {
-      try {
-        mainWindow.contentView.removeChildView(view)
-      } catch {
-        // View may not be attached
-      }
-    }
+    safeDetach(view)
     view.webContents.close()
   }
   views.clear()
@@ -359,8 +367,11 @@ function attachViewWhenReady(view: WebContentsView, tabId: string): void {
 
   const performAttach = (): void => {
     if (!mainWindow) return
-    if (view.webContents.isDestroyed()) return
+    // A failed cold-start load can replace/tear down this view before the
+    // deferred attach fires; bail before touching a stale/undefined webContents.
     if (views.get(tabId) !== view) return
+    const wc = view.webContents
+    if (!wc || wc.isDestroyed()) return
     if (activeViewId !== tabId) return
     try {
       if (!mainWindow.contentView.children.includes(view)) {
@@ -425,13 +436,7 @@ export async function navigateInTab(tabId: string, url: string): Promise<boolean
 
     viewDisposables.get(tabId)?.dispose()
     viewDisposables.delete(tabId)
-    if (mainWindow) {
-      try {
-        mainWindow.contentView.removeChildView(view)
-      } catch {
-        log.debug('View not attached during domain change')
-      }
-    }
+    safeDetach(view, 'domain change')
     view.webContents.close()
 
     const newSession = await getSessionForDomain(domain, proxyPort)
@@ -441,7 +446,7 @@ export async function navigateInTab(tabId: string, url: string): Promise<boolean
     setTabDomain(tabId, domain)
     updateDomainActivity(domain)
 
-    emitToRenderer('tab:history-reset', tabId)
+    emitToRenderer(IPC_CHANNELS.TAB_HISTORY_RESET, tabId)
 
     if (isActive) {
       attachViewWhenReady(newView, tabId)
@@ -457,11 +462,7 @@ export async function navigateInTab(tabId: string, url: string): Promise<boolean
     updateDomainActivity(domain)
 
     if (isActive && mainWindow) {
-      try {
-        mainWindow.contentView.removeChildView(view)
-      } catch {
-        log.debug('View not attached during same-domain navigate')
-      }
+      safeDetach(view, 'same-domain navigate')
       mainWindow.contentView.addChildView(view)
       updateViewBounds(view, mainWindow, currentWalletSidebarWidth)
     }

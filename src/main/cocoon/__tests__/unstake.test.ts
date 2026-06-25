@@ -47,7 +47,7 @@ import { openBridgeContract } from '../contracts/bridge-provider'
 import { loadCocoonWallet, getNodeSecretBuffer } from '../wallet'
 import { sendFromCocoonWallet, sendFromOwnerWallet } from '../contracts'
 import type { CocoonManager } from '../manager'
-import type { WsBridgeClient } from '../wallet/ws-bridge-client'
+import type { WsBridgeClient } from '../../wallet/ws-bridge-client'
 
 const VALID_ADDR = 'EQCns7bYSp0igFvS1wpb5wsZjCKCV19MD5AVzI4EyxsnU73k'
 const OWNER_ADDR = 'EQCD39VS5jcptHL8vMjEXrzGaRcCVYto7HUn4bpAOg8xqB2N'

@@ -7,8 +7,9 @@ import { Trash2, CircleCheckBig, History as HistoryIcon, Lock } from 'lucide-rea
 import { SectionHeader } from '../shared/SectionHeader'
 import { SettingRow } from '../shared/SettingRow'
 import { Toggle } from '../shared/Toggle'
-import { ToggleGroup } from '../shared/ToggleGroup'
+import { Segmented } from '@/components/ui/ios/Segmented'
 import { StepperInput } from '../shared/StepperInput'
+import { OpenPageButton } from '../shared/OpenPageButton'
 import { useTabsStore } from '@/stores/tabs'
 import type { SectionProps } from '../types'
 import { useTranslation } from 'react-i18next'
@@ -56,7 +57,7 @@ export const PrivacySection = memo(function PrivacySection({
   return (
     <div>
       <SectionHeader title={t('privacy.title')} description={t('privacy.description')} />
-      <div className="glass-card px-4">
+      <div className="settings-group px-4">
         <SettingRow label={t('privacy.clearData')} description={t('privacy.clearDataDesc')}>
           <button
             onClick={onClearData}
@@ -80,21 +81,21 @@ export const PrivacySection = memo(function PrivacySection({
           <Toggle
             checked={draft.disableCache}
             onChange={(v) => setDraft('disableCache', v)}
-            label={t('privacy.disableCacheLabel')}
+            ariaLabel={t('privacy.disableCacheLabel')}
           />
         </SettingRow>
         <SettingRow label={t('privacy.firstPartyIsolation')} description={t('privacy.firstPartyIsolationDesc')}>
           <Toggle
             checked={draft.firstPartyIsolation}
             onChange={(v) => setDraft('firstPartyIsolation', v)}
-            label={t('privacy.firstPartyIsolationLabel')}
+            ariaLabel={t('privacy.firstPartyIsolationLabel')}
           />
         </SettingRow>
         <SettingRow label={t('privacy.cookieAutoDelete')} description={t('privacy.cookieAutoDeleteDesc')}>
           <Toggle
             checked={draft.cookieAutoDelete}
             onChange={(v) => setDraft('cookieAutoDelete', v)}
-            label={t('privacy.cookieAutoDeleteLabel')}
+            ariaLabel={t('privacy.cookieAutoDeleteLabel')}
           />
         </SettingRow>
         {draft.cookieAutoDelete && (
@@ -114,9 +115,9 @@ export const PrivacySection = memo(function PrivacySection({
       </div>
 
       {/* History */}
-      <div className="mt-6 glass-card px-4">
+      <div className="mt-6 settings-group px-4">
         <SettingRow label={t('history.historyMode')} description={getModeDescription(draft.historyMode)}>
-          <ToggleGroup
+          <Segmented
             value={draft.historyMode}
             onChange={(v) => !changingHistoryMode && onHistoryModeChange(v)}
             options={historyModeOptions}
@@ -134,13 +135,11 @@ export const PrivacySection = memo(function PrivacySection({
           />
         </SettingRow>
         <SettingRow label={t('history.viewHistory')} description={t('history.viewHistoryDesc')}>
-          <button
+          <OpenPageButton
+            icon={<HistoryIcon className="h-4 w-4" />}
+            label={t('history.open')}
             onClick={() => addTab('ton://history')}
-            className="flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-200 bg-surface-hover border border-border-medium text-foreground hover:bg-surface-active"
-          >
-            <HistoryIcon className="h-4 w-4" />
-            {t('history.open')}
-          </button>
+          />
         </SettingRow>
       </div>
     </div>

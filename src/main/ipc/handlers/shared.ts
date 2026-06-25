@@ -7,6 +7,7 @@ import { ipcErrorHandler } from '../error-handler'
 import { RateLimiter } from '../validation'
 import { createLogger } from '../../../shared/logger'
 import { getMainWindow } from '../../windows/main'
+import type { IpcEventMap } from '../../../shared/ipc-events'
 
 export const log = createLogger('ipc')
 
@@ -20,7 +21,7 @@ export const payForXhrLimiter = new RateLimiter(5, 1000)
  * Send a message to the renderer process via the main window.
  * Replaces the pattern: const win = getMainWindow(); if (win) win.webContents.send(...)
  */
-export function emitToRenderer(channel: string, ...args: unknown[]): void {
+export function emitToRenderer<K extends keyof IpcEventMap>(channel: K, ...args: IpcEventMap[K]): void {
   const win = getMainWindow()
   if (win) win.webContents.send(channel, ...args)
 }
@@ -54,23 +55,36 @@ export function verifyIpcOrigin(event: IpcMainInvokeEvent): void {
 }
 
 /**
+ * Error envelope a secureHandle wrapper returns when its handler throws.
+ * Renderer callers unwrap it via getIpcError (IPC error-envelope invariant).
+ */
+export interface IpcErrorEnvelope {
+  success: false
+  error: string
+}
+
+/**
  * Secure ipcMain.handle wrapper - verifies origin + catches errors + logs to IpcErrorHandler
- * All IPC handlers should use this to prevent calls from compromised WebContentsViews
+ * All IPC handlers should use this to prevent calls from compromised WebContentsViews.
+ * The registered response is `TResult` on success or an `IpcErrorEnvelope` on throw.
  */
 export function secureHandle<TArgs extends unknown[], TResult>(
   channel: string,
   handler: (...args: TArgs) => TResult | Promise<TResult>
 ): void {
-  ipcMain.handle(channel, async (event: IpcMainInvokeEvent, ...args: unknown[]) => {
-    try {
-      verifyIpcOrigin(event)
-      return await handler(...(args as TArgs))
-    } catch (err) {
-      const error = toError(err)
-      ipcErrorHandler.logError(channel, error)
-      return { success: false, error: error.message }
+  ipcMain.handle(
+    channel,
+    async (event: IpcMainInvokeEvent, ...args: unknown[]): Promise<TResult | IpcErrorEnvelope> => {
+      try {
+        verifyIpcOrigin(event)
+        return await handler(...(args as TArgs))
+      } catch (err) {
+        const error = toError(err)
+        ipcErrorHandler.logError(channel, error)
+        return { success: false, error: error.message }
+      }
     }
-  })
+  )
 }
 
 /**
@@ -81,16 +95,19 @@ export function secureHandleWithEvent<TArgs extends unknown[], TResult>(
   channel: string,
   handler: (event: IpcMainInvokeEvent, ...args: TArgs) => TResult | Promise<TResult>
 ): void {
-  ipcMain.handle(channel, async (event: IpcMainInvokeEvent, ...args: unknown[]) => {
-    try {
-      verifyIpcOrigin(event)
-      return await handler(event, ...(args as TArgs))
-    } catch (err) {
-      const error = toError(err)
-      ipcErrorHandler.logError(channel, error)
-      return { success: false, error: error.message }
+  ipcMain.handle(
+    channel,
+    async (event: IpcMainInvokeEvent, ...args: unknown[]): Promise<TResult | IpcErrorEnvelope> => {
+      try {
+        verifyIpcOrigin(event)
+        return await handler(event, ...(args as TArgs))
+      } catch (err) {
+        const error = toError(err)
+        ipcErrorHandler.logError(channel, error)
+        return { success: false, error: error.message }
+      }
     }
-  })
+  )
 }
 
 /**

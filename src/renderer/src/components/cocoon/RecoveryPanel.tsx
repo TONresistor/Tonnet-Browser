@@ -20,29 +20,16 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { isIpcError, getIpcError } from '@/lib/ipc-utils'
+import { IPC_CHANNELS } from '@shared/ipc-channels'
+import { useTransientMessage } from '@/hooks/useTransientMessage'
 import { createLogger } from '@/logger'
 import { useTranslation } from 'react-i18next'
-import type { CocoonRecoveryAllResult } from '../../../../shared/cocoon-types'
+import type { CocoonRecoveryAllResult, RecoveryEntry, RecoveryPhase } from '../../../../shared/cocoon-types'
 
 const log = createLogger('cocoon:recovery-panel')
 
 const PANEL_CLASS = 'rounded-lg border border-border-strong bg-[hsl(var(--elevation-2))] shadow-sm'
 const PANEL_MUTED_TEXT = 'text-foreground-muted'
-
-type RecoveryPhase = 'refund-pending' | 'cooldown' | 'claim-pending' | 'drain-pending' | 'done' | 'failed'
-
-interface RecoveryEntry {
-  archivedAt: number
-  clientSCAddress: string
-  phase: RecoveryPhase
-  addedAt: number
-  lastError?: string
-  unlockTs?: number
-  refundBocHash?: string
-  claimBocHash?: string
-  drainBocHash?: string
-  sentToMain?: string
-}
 
 const POLL_MS = 15_000
 
@@ -71,7 +58,7 @@ export const RecoveryPanel = memo(function RecoveryPanel() {
   const [now, setNow] = useState(() => Math.floor(Date.now() / 1000))
   const [busy, setBusy] = useState<number | 'recover' | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<string | null>(null)
+  const [success, showSuccess, clearSuccess] = useTransientMessage()
   const [recoverResult, setRecoverResult] = useState<CocoonRecoveryAllResult | null>(null)
 
   const refresh = useCallback(async () => {
@@ -88,7 +75,7 @@ export const RecoveryPanel = memo(function RecoveryPanel() {
       refresh().catch((e) => log.warn('refresh failed', e))
     }, POLL_MS)
     const clockId = setInterval(() => setNow(Math.floor(Date.now() / 1000)), 1000)
-    const off = window.electron.on('cocoon:recovery:event', () => {
+    const off = window.electron.on(IPC_CHANNELS.COCOON_RECOVERY_EVENT, () => {
       refresh().catch((e) => log.warn('event refresh failed', e))
     })
     return () => {
@@ -122,7 +109,7 @@ export const RecoveryPanel = memo(function RecoveryPanel() {
   const handleRecoverAll = useCallback(async () => {
     setBusy('recover')
     setError(null)
-    setSuccess(null)
+    clearSuccess()
     try {
       const res = await window.electron.cocoon.recoveryAll()
       const err = getIpcError(res)
@@ -132,20 +119,19 @@ export const RecoveryPanel = memo(function RecoveryPanel() {
       }
       const recovery = res as CocoonRecoveryAllResult
       setRecoverResult(recovery)
-      setSuccess(
+      showSuccess(
         t('cocoon.recovery.recoverSuccess', {
           txs: recovery.txs.length,
           locked: recovery.locked.length,
         })
       )
-      setTimeout(() => setSuccess(null), 6_000)
       await refresh()
     } catch (e) {
       setError((e as Error).message ?? 'recover failed')
     } finally {
       setBusy(null)
     }
-  }, [refresh, t])
+  }, [refresh, t, showSuccess, clearSuccess])
 
   const toolbar = (
     <div className="flex items-center justify-between gap-3">

@@ -27,12 +27,12 @@ export const StorageSection = memo(function StorageSection({
   return (
     <div>
       <SectionHeader title={t('storage.title')} description={t('storage.description')} />
-      <div className="glass-card px-4">
+      <div className="settings-group px-4">
         <SettingRow label={t('storage.seedingEnabled')} description={t('storage.seedingEnabledDesc')}>
           <Toggle
             checked={draft.seedingEnabled}
             onChange={(v) => setDraft('seedingEnabled', v)}
-            label={t('storage.seedingEnabledLabel')}
+            ariaLabel={t('storage.seedingEnabledLabel')}
           />
         </SettingRow>
         <SettingRow label={t('storage.downloadSpeedLimit')} description={t('storage.downloadSpeedLimitDesc')}>
@@ -57,7 +57,7 @@ export const StorageSection = memo(function StorageSection({
         </SettingRow>
       </div>
 
-      <div className="mt-6 glass-card px-4">
+      <div className="mt-6 settings-group px-4">
         <SettingRow label={t('storage.downloadFolder')} description={t('storage.downloadFolderDesc')}>
           <button
             onClick={onSelectFolder}

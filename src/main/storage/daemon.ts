@@ -12,24 +12,61 @@ import { StorageHTTPClient, BagInfo } from './http-client'
 import type { StorageBag } from '../../shared/types'
 import { getSetting, getDownloadPath } from '../settings'
 import { PING_RETRY_DELAY_MS, PING_MAX_ATTEMPTS } from './constants'
+import { killChildProcess } from '../proxy/process-utils'
+import { trackDaemon } from '../daemon-registry'
 import { createLogger } from '../../shared/logger'
 const log = createLogger('storage')
 import fs from 'fs'
 import path from 'path'
 
+/** Typed event contract for StorageManager. */
+interface StorageManagerEventMap {
+  log: [message: string]
+  error: [message: string]
+  exit: [code: number | null]
+  started: []
+  stopped: []
+  'bags-updated': [bags: StorageBag[]]
+}
+
+/** Thrown by operations that require a running storage daemon when it isn't. */
+export class StorageNotRunningError extends Error {
+  constructor() {
+    super('Storage daemon not running')
+    this.name = 'StorageNotRunningError'
+  }
+}
+
+// Declaration merging gives on/once/off/emit typed overloads of the inherited
+// EventEmitter methods without changing runtime behavior. The merge only refines
+// existing method signatures, so the no-unsafe-declaration-merging footgun (an
+// interface declaring members the class never implements) does not apply.
+/* eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging */
+export interface StorageManager {
+  on<E extends keyof StorageManagerEventMap>(event: E, listener: (...args: StorageManagerEventMap[E]) => void): this
+  once<E extends keyof StorageManagerEventMap>(event: E, listener: (...args: StorageManagerEventMap[E]) => void): this
+  off<E extends keyof StorageManagerEventMap>(event: E, listener: (...args: StorageManagerEventMap[E]) => void): this
+  emit<E extends keyof StorageManagerEventMap>(event: E, ...args: StorageManagerEventMap[E]): boolean
+}
+
+/* eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging */
 export class StorageManager extends EventEmitter {
   private process: ChildProcess | null = null
   private port: number = 0
-  private storagePath: string
   private dbPath: string
   private isRunning = false
   private client: StorageHTTPClient | null = null
   private pollInterval: NodeJS.Timeout | null = null
+  private lastBagsJson = ''
 
   constructor() {
     super()
-    this.storagePath = getDownloadPath()
     this.dbPath = path.join(getStoragePath(), 'db') // DB stays in userData
+  }
+
+  // Download destination, always read live from settings (single source of truth).
+  private get storagePath(): string {
+    return getDownloadPath()
   }
 
   private loadSettings() {
@@ -37,13 +74,7 @@ export class StorageManager extends EventEmitter {
     const storage = getSetting('storage')
     const advanced = getSetting('advanced')
     this.port = network.storagePort
-    this.storagePath = storage.downloadPath
     return { network, storage, advanced }
-  }
-
-  setStoragePath(newPath: string): void {
-    this.storagePath = newPath
-    log.info(`Storage path updated to: ${newPath}`)
   }
 
   async start(): Promise<void> {
@@ -105,6 +136,7 @@ export class StorageManager extends EventEmitter {
 
     // Start tonutils-storage in daemon mode with HTTP API + auth
     this.process = spawn(binPath, args, { windowsHide: true })
+    trackDaemon('tonutils-storage', this.process)
 
     this.process.stdout?.on('data', (data: Buffer) => {
       const message = data.toString().trim()
@@ -191,6 +223,7 @@ export class StorageManager extends EventEmitter {
   private startPolling(): void {
     const { storage } = this.loadSettings()
     const interval = storage.pollingInterval
+    this.lastBagsJson = ''
 
     this.pollInterval = setInterval(async () => {
       if (!this.client || !this.isRunning) return
@@ -208,10 +241,12 @@ export class StorageManager extends EventEmitter {
           }
         }
 
-        this.emit(
-          'bags-updated',
-          bags.map((b) => this.mapBagInfo(b))
-        )
+        const mapped = bags.map((b) => this.mapBagInfo(b, storageSettings.seedingEnabled))
+        const snapshot = JSON.stringify(mapped)
+        if (snapshot !== this.lastBagsJson) {
+          this.lastBagsJson = snapshot
+          this.emit('bags-updated', mapped)
+        }
       } catch (err) {
         log.error(`Poll error: ${String(err)}`)
       }
@@ -225,15 +260,14 @@ export class StorageManager extends EventEmitter {
     }
   }
 
-  private mapBagInfo(info: BagInfo): StorageBag {
-    const { storage } = this.loadSettings()
+  private mapBagInfo(info: BagInfo, seedingEnabled: boolean): StorageBag {
     let status: StorageBag['status'] = 'downloading'
     if (info.completed && info.active) {
       status = 'seeding'
     } else if (info.completed && !info.active) {
       // Completed but paused: show 'seeding' if seeding is globally enabled (temporarily paused),
       // show 'paused' if seeding is disabled (expected state)
-      status = storage.seedingEnabled ? 'paused' : 'seeding'
+      status = seedingEnabled ? 'paused' : 'seeding'
     } else if (!info.active) {
       status = 'paused'
     }
@@ -255,14 +289,14 @@ export class StorageManager extends EventEmitter {
     this.stopPolling()
     if (this.process) {
       log.info('Stopping storage daemon...')
-      // Clean up all listeners before killing to prevent memory leaks
-      this.process.stdout?.removeAllListeners()
-      this.process.stderr?.removeAllListeners()
-      this.process.removeAllListeners()
-      this.process.kill('SIGTERM')
+      const proc = this.process
       this.process = null
       this.client = null
       this.isRunning = false
+      // killChildProcess detaches listeners, sends SIGTERM and escalates to
+      // SIGKILL; state is reset synchronously above so callers (sync stop) and
+      // tests see the daemon as stopped immediately.
+      void killChildProcess(proc)
       this.emit('stopped')
     }
   }
@@ -279,13 +313,17 @@ export class StorageManager extends EventEmitter {
     return this.client
   }
 
+  /** Return the HTTP client or throw StorageNotRunningError. For ops that can't degrade gracefully. */
+  private requireClient(): StorageHTTPClient {
+    if (!this.client) throw new StorageNotRunningError()
+    return this.client
+  }
+
   // Bag operations
   async addBag(bagId: string, downloadPath?: string): Promise<StorageBag> {
-    if (!this.client) {
-      throw new Error('Storage daemon not running')
-    }
+    const client = this.requireClient()
 
-    await this.client.addBag({
+    await client.addBag({
       bag_id: bagId,
       path: downloadPath || this.storagePath,
       download_all: true,
@@ -306,11 +344,9 @@ export class StorageManager extends EventEmitter {
   }
 
   async removeBag(bagId: string, withFiles = false): Promise<boolean> {
-    if (!this.client) {
-      throw new Error('Storage daemon not running')
-    }
+    const client = this.requireClient()
 
-    const result = await this.client.removeBag({
+    const result = await client.removeBag({
       bag_id: bagId,
       with_files: withFiles,
     })
@@ -322,8 +358,9 @@ export class StorageManager extends EventEmitter {
       return []
     }
 
+    const { storage } = this.loadSettings()
     const bags = await this.client.listBags()
-    return bags.map((b) => this.mapBagInfo(b))
+    return bags.map((b) => this.mapBagInfo(b, storage.seedingEnabled))
   }
 
   async resumeSeeding(): Promise<void> {
@@ -348,20 +385,16 @@ export class StorageManager extends EventEmitter {
   }
 
   async pauseBag(bagId: string): Promise<boolean> {
-    if (!this.client) {
-      throw new Error('Storage daemon not running')
-    }
+    const client = this.requireClient()
 
-    const result = await this.client.stopBag(bagId)
+    const result = await client.stopBag(bagId)
     return result.ok
   }
 
   async getBagDetails(bagId: string) {
-    if (!this.client) {
-      throw new Error('Storage daemon not running')
-    }
+    const client = this.requireClient()
 
-    return this.client.getBagDetails(bagId)
+    return client.getBagDetails(bagId)
   }
 }
 

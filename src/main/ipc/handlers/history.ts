@@ -2,7 +2,8 @@
  * IPC handlers for browsing history management.
  */
 
-import { IPC_CHANNELS } from '../../../shared/types'
+import { errorMessage } from '../../../shared/errors'
+import { IPC_CHANNELS } from '../../../shared/ipc-channels'
 import { secureHandleWithEvent, log } from './shared'
 import { HistoryMode } from '../../history/manager'
 import type { ServiceRegistry } from '../../services'
@@ -27,7 +28,7 @@ export function registerHistoryHandlers(registry: ServiceRegistry): void {
       const result = await historyManager.changeMode(mode)
       return result
     } catch (error) {
-      return { success: false, error: (error as Error).message }
+      return { success: false, error: errorMessage(error) }
     }
   })
 
@@ -72,7 +73,7 @@ export function registerHistoryHandlers(registry: ServiceRegistry): void {
       const success = historyManager.deleteEntry(id)
       return { success }
     } catch (error) {
-      return { success: false, error: (error as Error).message }
+      return { success: false, error: errorMessage(error) }
     }
   })
 
@@ -81,7 +82,7 @@ export function registerHistoryHandlers(registry: ServiceRegistry): void {
       const count = historyManager.deleteByPattern(pattern)
       return { success: true, count }
     } catch (error) {
-      return { success: false, error: (error as Error).message, count: 0 }
+      return { success: false, error: errorMessage(error), count: 0 }
     }
   })
 
@@ -90,7 +91,7 @@ export function registerHistoryHandlers(registry: ServiceRegistry): void {
       historyManager.clear()
       return { success: true }
     } catch (error) {
-      return { success: false, error: (error as Error).message }
+      return { success: false, error: errorMessage(error) }
     }
   })
 

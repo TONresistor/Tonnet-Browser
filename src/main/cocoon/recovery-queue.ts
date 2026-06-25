@@ -20,13 +20,18 @@ import type { ISecureStorage } from '../ports/secure-storage'
 import { ElectronSafeStorageAdapter } from '../adapters/electron-secure-storage'
 import { createLogger } from '../../shared/logger'
 import { isEnoent } from '../utils/errors'
+import { decodeSenc, writeSencJsonFile } from '../utils/senc'
+import type { RecoveryPhase, RecoveryEntry } from '../../shared/cocoon-types'
 
 const log = createLogger('cocoon:recovery-queue')
 
-const ENCRYPTED_MARKER = Buffer.from('SENC')
 const FILE_NAME = 'cocoon-recovery-queue.dat'
 
 /**
+ * RecoveryPhase / RecoveryEntry now live in shared/cocoon-types.ts (they cross
+ * to the renderer via IPC for RecoveryPanel). Re-exported here so existing
+ * main-process importers keep their import path.
+ *
  * State machine of a recovery entry. The driver advances entries through these
  * phases per tick.
  *
@@ -41,29 +46,7 @@ const FILE_NAME = 'cocoon-recovery-queue.dat'
  *   drain-pending  → done          : cocoon_node drained back to native wallet.
  *   * (transient)  → failed        : unrecoverable error (recorded in lastError).
  */
-export type RecoveryPhase = 'refund-pending' | 'cooldown' | 'claim-pending' | 'drain-pending' | 'done' | 'failed'
-
-export interface RecoveryEntry {
-  /** Joins this entry to its archive record (1:1 mapping). */
-  archivedAt: number
-  /** Address of the on-chain CocoonClient SC holding the locked stake. */
-  clientSCAddress: string
-  phase: RecoveryPhase
-  /** Unix ms when the entry was enqueued. */
-  addedAt: number
-  /** Last error message, set when phase transitions to 'failed' or on transient errors. */
-  lastError?: string
-  /** On-chain unlock timestamp (seconds since epoch). Populated once the SC reports state=1. */
-  unlockTs?: number
-  /** Hash of the boc broadcast for the initial refund tx (phase=refund-pending). */
-  refundBocHash?: string
-  /** Hash of the boc broadcast for the claim refund tx (phase=claim-pending). */
-  claimBocHash?: string
-  /** Hash of the boc broadcast for the cocoon_node drain tx (phase=drain-pending). */
-  drainBocHash?: string
-  /** Native wallet address the funds were sent to. */
-  sentToMain?: string
-}
+export type { RecoveryPhase, RecoveryEntry }
 
 interface QueueFile {
   entries: RecoveryEntry[]
@@ -144,23 +127,14 @@ export class RecoveryQueueStore {
       if (isEnoent(err)) return null
       throw err
     }
-    if (!buf.subarray(0, 4).equals(ENCRYPTED_MARKER)) {
-      throw new Error(`Unexpected file format at ${this.filePath} (no SENC marker)`)
-    }
-    const json = this.storage.decrypt(buf.subarray(4))
+    const json = decodeSenc(this.storage, buf, this.filePath)
     const parsed = JSON.parse(json) as QueueFile
     this.cached = parsed
     return parsed
   }
 
   private async writeFile(data: QueueFile): Promise<void> {
-    const json = JSON.stringify(data)
-    const encrypted = this.storage.encrypt(json)
-    const marked = Buffer.concat([ENCRYPTED_MARKER, encrypted])
-    const tmp = `${this.filePath}.tmp`
-    await fs.writeFile(tmp, marked, { mode: 0o600 })
-    await fs.rename(tmp, this.filePath)
-    if (process.platform !== 'win32') await fs.chmod(this.filePath, 0o600)
+    await writeSencJsonFile(this.filePath, this.storage, data)
     this.cached = data
   }
 }
@@ -170,9 +144,4 @@ let singleton: RecoveryQueueStore | null = null
 export function getRecoveryQueueStore(): RecoveryQueueStore {
   if (!singleton) singleton = new RecoveryQueueStore()
   return singleton
-}
-
-/** Test-only: replace the singleton (e.g. with an in-memory adapter). */
-export function _setRecoveryQueueForTesting(store: RecoveryQueueStore | null): void {
-  singleton = store
 }

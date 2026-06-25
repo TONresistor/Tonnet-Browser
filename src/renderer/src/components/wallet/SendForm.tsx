@@ -3,6 +3,7 @@
  * NEVER uses parseFloat — all amounts handled via BigInt.
  */
 
+import { errorMessage } from '@shared/errors'
 import { useState, useEffect, memo } from 'react'
 import { UI_NOTIFICATION_TIMEOUT_MS } from '@shared/constants'
 import { Send, ArrowLeft, LoaderCircle, CheckCircle2 } from 'lucide-react'
@@ -10,7 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { tonToNano, formatTonAmount } from '@/stores/wallet'
-import { isValidTonAddress, isValidRecipientInput } from '@/lib/ton-utils'
+import { isValidTonAddress, isValidRecipientInput, TX_FEE_RESERVE_NANO } from '@/lib/ton-utils'
 import { getIpcError } from '@/lib/ipc-utils'
 import { useTranslation } from 'react-i18next'
 
@@ -83,7 +84,7 @@ export const SendForm = memo(function SendForm({ onSend, isSending, error, balan
         setResolve({ status: 'resolved', address: (r as { address: string }).address, domain: v.toLowerCase() })
       })
       .catch((e) => {
-        if (!cancelled) setResolve({ status: 'error', message: (e as Error).message })
+        if (!cancelled) setResolve({ status: 'error', message: errorMessage(e) })
       })
     return () => {
       cancelled = true
@@ -98,8 +99,7 @@ export const SendForm = memo(function SendForm({ onSend, isSending, error, balan
 
   const handleMax = () => {
     const balanceBig = BigInt(balance || '0')
-    const fee = 10000000n // 0.01 TON
-    const maxNano = balanceBig > fee ? balanceBig - fee : 0n
+    const maxNano = balanceBig > TX_FEE_RESERVE_NANO ? balanceBig - TX_FEE_RESERVE_NANO : 0n
     if (maxNano > 0n) {
       // Convert nanoTON to TON display string
       setAmount(formatTonAmount(maxNano.toString()))
@@ -154,7 +154,7 @@ export const SendForm = memo(function SendForm({ onSend, isSending, error, balan
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">{t('send.amount')}</span>
-              <span className="font-medium text-foreground">{amount} TON</span>
+              <span className="font-medium text-foreground">{amount} GRAM</span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">{t('send.fee')}</span>
@@ -242,7 +242,7 @@ export const SendForm = memo(function SendForm({ onSend, isSending, error, balan
             >
               {t('send.max')}
             </button>
-            <span className="text-sm text-foreground pointer-events-none">TON</span>
+            <span className="text-sm text-foreground pointer-events-none">GRAM</span>
           </div>
         </div>
         {amount && !amountValid && <p className="text-xs text-destructive">{t('send.invalidAmount')}</p>}

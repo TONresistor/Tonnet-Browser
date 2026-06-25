@@ -11,9 +11,15 @@ import { TabBar } from '@/components/browser/TabBar'
 import { BookmarksBar } from '@/components/browser/BookmarksBar'
 import { StatusBar } from '@/components/browser/StatusBar'
 import { ResizablePanel } from '@/components/browser/ResizablePanel'
-import { LandingPage } from '@/components/pages/LandingPage'
-import { StartPage } from '@/components/pages/StartPage'
+const LandingPage = lazy(() => import('@/components/pages/LandingPage').then((m) => ({ default: m.LandingPage })))
+const StartPage = lazy(() => import('@/components/pages/StartPage').then((m) => ({ default: m.StartPage })))
 const StoragePage = lazy(() => import('@/components/pages/StoragePage').then((m) => ({ default: m.StoragePage })))
+const StorageBrowsePage = lazy(() =>
+  import('@/components/pages/StorageBrowsePage').then((m) => ({ default: m.StorageBrowsePage }))
+)
+const StorageFileViewerPage = lazy(() =>
+  import('@/components/pages/StorageFileViewerPage').then((m) => ({ default: m.StorageFileViewerPage }))
+)
 const SettingsPage = lazy(() => import('@/components/pages/SettingsPage').then((m) => ({ default: m.SettingsPage })))
 const HistoryPage = lazy(() => import('@/components/pages/HistoryPage').then((m) => ({ default: m.HistoryPage })))
 const BookmarksPage = lazy(() => import('@/components/pages/BookmarksPage').then((m) => ({ default: m.BookmarksPage })))
@@ -25,17 +31,19 @@ import { useTabsStore } from '@/stores/tabs'
 import { usePreferencesStore } from '@/stores/preferences'
 import { useThemeStore } from '@/stores/themes'
 import { useWalletStore } from '@/stores/wallet'
-import { applyCustomTheme, removeCustomTheme } from '@/lib/theme-utils'
-import { WalletSidebar } from '@/components/wallet/WalletSidebar'
-import { CocoonSidebar } from '@/components/cocoon/CocoonSidebar'
+import { applyCustomTheme, removeCustomTheme, parseCustomThemeId } from '@/lib/theme-utils'
+const WalletSidebar = lazy(() =>
+  import('@/components/wallet/WalletSidebar').then((m) => ({ default: m.WalletSidebar }))
+)
+const CocoonSidebar = lazy(() =>
+  import('@/components/cocoon/CocoonSidebar').then((m) => ({ default: m.CocoonSidebar }))
+)
 import { Settings } from 'lucide-react'
 import walletIcon from '@/assets/wallet.svg'
 import storageIcon from '@/assets/storage.svg'
 import cocoonIcon from '@/assets/cocoon.png'
 import { Button } from '@/components/ui/button'
 import Lottie from 'lottie-react'
-import loadingDark from '@/assets/loading.json'
-import loadingLight from '@/assets/loading-yellow.json'
 import i18n, { loadLanguage } from '@/i18n'
 import { useTranslation } from 'react-i18next'
 import { loadBookmarksFromMain } from '@/stores/bookmarks'
@@ -47,10 +55,8 @@ import { usePaymentApprovals } from '@/hooks/usePaymentApprovals'
 const log = createLogger('app')
 
 function isLightTheme(theme: string, customThemes: { id: string; isDark: boolean }[]): boolean {
-  return (
-    theme === 'utya-duck' ||
-    (theme.startsWith('custom:') && customThemes.find((t) => t.id === theme.replace('custom:', ''))?.isDark === false)
-  )
+  const customId = parseCustomThemeId(theme)
+  return theme === 'utya-duck' || (customId !== null && customThemes.find((t) => t.id === customId)?.isDark === false)
 }
 
 // Wallet pill button — simple click opens ton://wallet page
@@ -78,10 +84,8 @@ function App() {
   const [cocoonSidebarOpen, setCocoonSidebarOpen] = useState(false)
   const [cocoonSidebarWidth, setCocoonSidebarWidth] = useState(320)
 
-  // Animation data selected based on theme (loaded synchronously, never null)
-  const [animationData, setAnimationData] = useState<unknown>(() =>
-    isLightTheme(theme, customThemes) ? loadingLight : loadingDark
-  )
+  // Loading animation; dynamically imported so its JSON stays out of the main chunk.
+  const [animationData, setAnimationData] = useState<unknown>(null)
 
   // Debounce timer for settings save
   const settingsSaveTimer = useRef<NodeJS.Timeout | null>(null)
@@ -126,9 +130,9 @@ function App() {
 
   // Apply theme to document
   useEffect(() => {
-    if (theme.startsWith('custom:')) {
+    const customThemeId = parseCustomThemeId(theme)
+    if (customThemeId !== null) {
       // Custom theme
-      const customThemeId = theme.replace('custom:', '')
       const customTheme = customThemes.find((t) => t.id === customThemeId)
       if (customTheme) {
         applyCustomTheme(customTheme)
@@ -144,17 +148,29 @@ function App() {
     }
   }, [theme, customThemes])
 
-  // Switch animation on theme change
+  // Switch animation on theme change (dynamic import keeps the JSON out of the main chunk)
   useEffect(() => {
-    setAnimationData(isLightTheme(theme, customThemes) ? loadingLight : loadingDark)
+    let cancelled = false
+    const mod = isLightTheme(theme, customThemes)
+      ? import('@/assets/loading-yellow.json')
+      : import('@/assets/loading.json')
+    mod.then((m) => {
+      if (!cancelled) setAnimationData(m.default)
+    })
+    return () => {
+      cancelled = true
+    }
   }, [theme, customThemes])
 
   // Create default tab when proxy connects + prefetch lazy pages
   useEffect(() => {
     if (proxyConnected) {
       ensureDefaultTab()
-      // Prefetch lazy chunks while idle so they're instant when clicked
+      // Warm every lazy page + sidebar chunk during idle after connect so they
+      // open instantly. Code-splitting keeps the initial bundle small (faster
+      // cold start in prod); idle-prefetch keeps navigation instant. Complementary.
       requestIdleCallback(() => {
+        import('@/components/pages/StartPage')
         import('@/components/pages/SettingsPage')
         import('@/components/pages/StoragePage')
         import('@/components/pages/HistoryPage')
@@ -162,6 +178,8 @@ function App() {
         import('@/components/pages/WalletPage')
         import('@/components/pages/DnsPage')
         import('@/components/pages/CocoonChatPage')
+        import('@/components/wallet/WalletSidebar')
+        import('@/components/cocoon/CocoonSidebar')
       })
     }
   }, [proxyConnected, ensureDefaultTab])
@@ -189,7 +207,38 @@ function App() {
       // External page - WebContentsView handles this, this is just a background
       return (
         <div className="w-full h-full flex flex-col items-center justify-center bg-background-secondary">
-          <Lottie animationData={animationData} className="w-64 h-64" loop autoplay />
+          {animationData ? <Lottie animationData={animationData} className="w-64 h-64" loop autoplay /> : null}
+        </div>
+      )
+    }
+
+    // ton://storage/browse/<bagId> — in-app master-detail file browser
+    if (internalPage.startsWith('storage/browse/')) {
+      return <StorageBrowsePage bagId={internalPage.slice('storage/browse/'.length)} />
+    }
+
+    // ton://storage/view/<bagId>/<encodedPath> — in-app CSV/JSONL table viewer
+    if (internalPage.startsWith('storage/view/')) {
+      const rest = internalPage.slice('storage/view/'.length)
+      const slash = rest.indexOf('/')
+      if (slash > 0) {
+        const bagId = rest.slice(0, slash)
+        let filePath = rest.slice(slash + 1)
+        try {
+          filePath = decodeURIComponent(filePath)
+        } catch {
+          /* keep raw on malformed encoding */
+        }
+        return <StorageFileViewerPage bagId={bagId} filePath={filePath} />
+      }
+    }
+
+    // ton://storage/file/<bagId>/<path> — main loads the file into the WebContentsView;
+    // show a neutral background while it does (avoids a StartPage flash).
+    if (internalPage.startsWith('storage/file/')) {
+      return (
+        <div className="flex h-full w-full flex-col items-center justify-center bg-background-secondary">
+          {animationData ? <Lottie animationData={animationData} className="w-64 h-64" loop autoplay /> : null}
         </div>
       )
     }
@@ -214,7 +263,7 @@ function App() {
       case 'loading':
         return (
           <div className="w-full h-full flex flex-col items-center justify-center bg-background-secondary">
-            <Lottie animationData={animationData} className="w-64 h-64" loop autoplay />
+            {animationData ? <Lottie animationData={animationData} className="w-64 h-64" loop autoplay /> : null}
           </div>
         )
       default:
@@ -244,49 +293,54 @@ function App() {
         <div className="no-drag flex-1">
           <AddressBar />
         </div>
-        <div className="no-drag flex items-center gap-0.5 rounded-full px-1 py-0.5 glass-surface">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7 rounded-full"
-            onClick={() => openOrSwitchToTab('ton://storage')}
-            title={t('tooltips.storage')}
-          >
-            <img src={storageIcon} alt="" className="h-4 w-4 brightness-0 invert" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7 rounded-full"
-            onClick={() => {
-              setCocoonSidebarOpen((v) => !v)
-              setWalletSidebarOpen(false)
-            }}
-            title={t('tooltips.cocoon')}
-          >
-            <img src={cocoonIcon} alt="" className="h-5 w-5 brightness-0 invert" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7 rounded-full"
-            onClick={() => {
-              setWalletSidebarOpen((v) => !v)
-              setCocoonSidebarOpen(false)
-            }}
-            title={t('tooltips.wallet')}
-          >
-            <img src={walletIcon} alt="" className="h-4 w-4 brightness-0 invert" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7 rounded-full"
-            onClick={() => openOrSwitchToTab('ton://settings')}
-            title={t('tooltips.settings')}
-          >
-            <Settings className="h-4 w-4" />
-          </Button>
+        {/* Quick-access: two pills — [wallet · cocoon] and [storage · settings] */}
+        <div className="flex items-center gap-1">
+          <div className="no-drag flex items-center gap-0.5 rounded-full px-1 py-0.5 glass-surface">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 rounded-full"
+              onClick={() => {
+                setWalletSidebarOpen((v) => !v)
+                setCocoonSidebarOpen(false)
+              }}
+              title={t('tooltips.wallet')}
+            >
+              <img src={walletIcon} alt="" className="h-4 w-4 brightness-0 invert" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 rounded-full"
+              onClick={() => {
+                setCocoonSidebarOpen((v) => !v)
+                setWalletSidebarOpen(false)
+              }}
+              title={t('tooltips.cocoon')}
+            >
+              <img src={cocoonIcon} alt="" className="h-5 w-5 brightness-0 invert" />
+            </Button>
+          </div>
+          <div className="no-drag flex items-center gap-0.5 rounded-full px-1 py-0.5 glass-surface">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 rounded-full"
+              onClick={() => openOrSwitchToTab('ton://storage')}
+              title={t('tooltips.storage')}
+            >
+              <img src={storageIcon} alt="" className="h-4 w-4 brightness-0 invert" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 rounded-full"
+              onClick={() => openOrSwitchToTab('ton://settings')}
+              title={t('tooltips.settings')}
+            >
+              <Settings className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
         {/* Window Controls in nav bar - Only in vertical/sidebar mode */}
         {isVertical && (
@@ -358,7 +412,9 @@ function App() {
             }}
             className="border-l border-border"
           >
-            <WalletSidebar onClose={() => setWalletSidebarOpen(false)} />
+            <Suspense fallback={null}>
+              <WalletSidebar onClose={() => setWalletSidebarOpen(false)} />
+            </Suspense>
           </ResizablePanel>
         )}
 
@@ -375,7 +431,9 @@ function App() {
             }}
             className="border-l border-border"
           >
-            <CocoonSidebar onClose={() => setCocoonSidebarOpen(false)} />
+            <Suspense fallback={null}>
+              <CocoonSidebar onClose={() => setCocoonSidebarOpen(false)} />
+            </Suspense>
           </ResizablePanel>
         )}
       </div>

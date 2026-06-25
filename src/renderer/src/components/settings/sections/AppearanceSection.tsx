@@ -95,7 +95,7 @@ export const AppearanceSection = memo(function AppearanceSection({ draft, setDra
       <SectionHeader title={t('appearance.title')} description={t('appearance.description')} />
 
       {/* Built-in themes */}
-      <div className="glass-card px-4">
+      <div className="settings-group px-4">
         <SettingRow label={t('appearance.theme.label')} description={t('appearance.theme.description')}>
           <div className="flex gap-2">
             {builtInThemes.map((theme) => (
@@ -118,7 +118,7 @@ export const AppearanceSection = memo(function AppearanceSection({ draft, setDra
       </div>
 
       {/* Custom themes section */}
-      <div className="mt-6 glass-card p-4">
+      <div className="mt-6 settings-group p-4">
         <div className="flex items-center justify-between mb-4">
           <div>
             <h4 className="text-sm font-semibold text-foreground">{t('appearance.customThemes.title')}</h4>
@@ -176,7 +176,7 @@ export const AppearanceSection = memo(function AppearanceSection({ draft, setDra
       </div>
 
       {/* Other appearance settings */}
-      <div className="mt-6 glass-card px-4">
+      <div className="mt-6 settings-group px-4">
         <SettingRow label={t('appearance.zoom.default')} description={t('appearance.zoom.defaultDesc')}>
           <SliderInput
             value={draft.defaultZoom}
@@ -212,14 +212,14 @@ export const AppearanceSection = memo(function AppearanceSection({ draft, setDra
           <Toggle
             checked={draft.showBookmarksBar}
             onChange={(v) => setDraft('showBookmarksBar', v)}
-            label={t('appearance.ui.showBookmarksBar')}
+            ariaLabel={t('appearance.ui.showBookmarksBar')}
           />
         </SettingRow>
         <SettingRow label={t('appearance.ui.showStatusBar')} description={t('appearance.ui.showStatusBarDesc')}>
           <Toggle
             checked={draft.showStatusBar}
             onChange={(v) => setDraft('showStatusBar', v)}
-            label={t('appearance.ui.showStatusBar')}
+            ariaLabel={t('appearance.ui.showStatusBar')}
           />
         </SettingRow>
       </div>

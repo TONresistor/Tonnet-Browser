@@ -10,6 +10,7 @@ import { normalizeUrl } from '../../shared/utils/url'
 import { loadErrorPage } from './tabs-storage'
 import { createLogger } from '../../shared/logger'
 import { emitToRenderer } from '../ipc/handlers/shared'
+import { IPC_CHANNELS } from '../../shared/ipc-channels'
 import { DisposableStore, onWebContents } from '../utils/disposable'
 
 const log = createLogger('tabs-security')
@@ -56,7 +57,7 @@ export function setupSecurityHandlers(view: WebContentsView, tabId: string): Dis
             .loadFile(realFullPath)
             .then(() => {
               if (view.webContents.isDestroyed()) return
-              emitToRenderer('page:navigate', {
+              emitToRenderer(IPC_CHANNELS.PAGE_NAVIGATE, {
                 tabId,
                 url: `file://${fullPath}`,
                 canGoBack: true,
@@ -106,7 +107,7 @@ export function setupSecurityHandlers(view: WebContentsView, tabId: string): Dis
         if (targetUrl !== url) {
           log.debug(`Normalizing popup URL: ${url} -> ${targetUrl}`)
         }
-        emitToRenderer('context:open-link', targetUrl)
+        emitToRenderer(IPC_CHANNELS.CONTEXT_OPEN_LINK, targetUrl)
       } else {
         log.warn(`Blocked popup to unsafe URL: ${url}`)
       }
@@ -131,7 +132,7 @@ export function setupSecurityHandlers(view: WebContentsView, tabId: string): Dis
             const parsed = new URL(targetUrl)
 
             if (ALLOWED_SCHEMES.includes(parsed.protocol)) {
-              emitToRenderer('context:open-link', targetUrl)
+              emitToRenderer(IPC_CHANNELS.CONTEXT_OPEN_LINK, targetUrl)
             }
           } catch {
             log.debug(`Invalid URL in child window: ${url}`)

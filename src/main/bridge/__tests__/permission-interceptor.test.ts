@@ -72,7 +72,7 @@ import { RPC_TIMEOUT_MS } from '../constants'
 function createMockPermissionStore() {
   return {
     init: vi.fn(),
-    getPermission: vi.fn(() => 'unknown' as const),
+    getPermission: vi.fn((): 'granted' | 'denied' | 'unknown' => 'unknown'),
     setPermission: vi.fn(),
     clearSessionGrants: vi.fn(),
     revokePermission: vi.fn(),

@@ -68,7 +68,7 @@ function BalanceBlock({ snapshot, compact }: { snapshot: CocoonAccountSnapshot; 
     return (
       <div className="text-center">
         <p className="text-3xl font-bold text-foreground tracking-tight">{total}</p>
-        <p className="text-xs text-muted-foreground mt-0.5">TON</p>
+        <p className="text-xs text-muted-foreground mt-0.5">GRAM</p>
         <StatusPill status={snapshot.status} className="mt-2" />
       </div>
     )
@@ -76,7 +76,7 @@ function BalanceBlock({ snapshot, compact }: { snapshot: CocoonAccountSnapshot; 
   return (
     <div className="text-center">
       <p className="text-4xl font-bold text-foreground tracking-tight">
-        {total} <span className="text-2xl font-semibold text-muted-foreground">TON</span>
+        {total} <span className="text-2xl font-semibold text-muted-foreground">GRAM</span>
       </p>
       <StatusPill status={snapshot.status} className="mt-2" />
     </div>
