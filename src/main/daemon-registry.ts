@@ -57,6 +57,24 @@ export function untrackDaemon(pid: number | undefined): void {
   if (pid != null && live.delete(pid)) persist()
 }
 
+/**
+ * Force-kill a process and, on Windows, its whole child tree. Node maps
+ * SIGKILL to a single-PID TerminateProcess on win32, so a daemon that spawned
+ * children (e.g. the proxy's adnl-tunnel) would orphan them and keep the ports
+ * held; taskkill /T walks the tree. POSIX keeps the plain SIGKILL.
+ */
+export function forceKillTree(pid: number): void {
+  try {
+    if (process.platform === 'win32') {
+      spawnSync('taskkill', ['/PID', String(pid), '/T', '/F'])
+    } else {
+      process.kill(pid, 'SIGKILL')
+    }
+  } catch {
+    /* already gone */
+  }
+}
+
 interface ProcInfo {
   ppid: number
   command: string
@@ -99,13 +117,9 @@ export function reapStaleDaemons(): void {
     const info = inspectProcess(rec.pid)
     if (!info || !info.command.includes(rec.name)) continue // dead, or PID reused by another process
     if (process.platform !== 'win32' && info.ppid !== 1) continue // owned by a live instance
-    try {
-      process.kill(rec.pid, 'SIGKILL')
-      reaped++
-      log.info(`Reaped orphaned ${rec.name} (pid ${rec.pid}) from a previous run`)
-    } catch {
-      /* already gone */
-    }
+    forceKillTree(rec.pid)
+    reaped++
+    log.info(`Reaped orphaned ${rec.name} (pid ${rec.pid}) from a previous run`)
   }
   if (reaped > 0) log.info(`Reaped ${reaped} orphaned daemon(s)`)
 }
@@ -116,11 +130,7 @@ export function reapStaleDaemons(): void {
  */
 function killAllDaemonsSync(): void {
   for (const pid of live.keys()) {
-    try {
-      process.kill(pid, 'SIGKILL')
-    } catch {
-      /* already gone */
-    }
+    forceKillTree(pid)
   }
   live.clear()
   try {

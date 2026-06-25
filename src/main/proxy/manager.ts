@@ -80,7 +80,7 @@ export class ProxyManager extends EventEmitter {
     const advanced = getSetting('advanced')
     const general = getSetting('general')
     this.port = network.proxyPort
-    this.wsPort = network.wsPort
+    this.wsPort = validatePort(network.wsPort, DEFAULT_SETTINGS.wsPort)
     return { network, advanced, general }
   }
 

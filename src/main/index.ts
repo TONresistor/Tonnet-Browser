@@ -263,6 +263,23 @@ function createWindow(): void {
   }
 }
 
+// Single-instance lock: a second launch would spawn duplicate daemons that
+// collide on the fixed ports (proxy 8080, bridge 8081, storage 5555) and
+// deadlock. The loser exits immediately (app.exit skips before-quit, whose
+// cleanup touches services that this instance never built); the winner just
+// focuses its existing window when another launch is attempted.
+if (!app.requestSingleInstanceLock()) {
+  app.exit(0)
+}
+
+app.on('second-instance', () => {
+  const win = BrowserWindow.getAllWindows()[0]
+  if (win) {
+    if (win.isMinimized()) win.restore()
+    win.focus()
+  }
+})
+
 app.whenReady().then(() => {
   // Reap any daemons orphaned by a previous run before we spawn fresh ones.
   reapStaleDaemons()

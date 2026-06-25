@@ -2,7 +2,7 @@
  * Shared child-process teardown for the proxy, bridge and storage managers (OPP-36).
  */
 import { ChildProcess } from 'child_process'
-import { untrackDaemon } from '../daemon-registry'
+import { untrackDaemon, forceKillTree } from '../daemon-registry'
 
 /**
  * Gracefully stop a child process: detach listeners, send SIGTERM, and escalate
@@ -16,6 +16,14 @@ export function killChildProcess(proc: ChildProcess): Promise<void> {
     const finish = () => {
       untrackDaemon(proc.pid)
       resolve()
+    }
+    // Windows: SIGTERM is already an immediate, single-PID TerminateProcess (no
+    // graceful delivery), and the Go daemons may have spawned children. Kill the
+    // whole tree with taskkill so nothing is left holding the ports.
+    if (process.platform === 'win32') {
+      if (proc.pid != null) forceKillTree(proc.pid)
+      finish()
+      return
     }
     const forceKill = setTimeout(() => {
       try {
