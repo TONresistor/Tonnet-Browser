@@ -13,7 +13,6 @@ export const TON_WALLET_PAGE = 'ton://wallet'
 // Default bookmarks shown on first run
 export const DEFAULT_BOOKMARKS = [
   { id: '0', url: 'http://manifesto.ton', title: 'manifesto.ton', createdAt: Date.now() },
-  { id: '1', url: 'http://dnslookup.ton', title: 'dnslookup.ton', createdAt: Date.now() },
 ]
 
 // UI timing
