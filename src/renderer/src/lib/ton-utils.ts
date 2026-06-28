@@ -54,6 +54,11 @@ export function formatTonFixed(nano: string | bigint, decimals = 2): string {
   return `${sign}${whole}.${frac}`
 }
 
+/** UTF-8 byte length of a string — the unit the on-chain comment cap uses. */
+export function utf8ByteLength(s: string): number {
+  return new TextEncoder().encode(s).length
+}
+
 /** Validates a TON address (EQ/UQ prefix or raw 0:hex format) */
 export function isValidTonAddress(addr: string): boolean {
   if (!addr) return false

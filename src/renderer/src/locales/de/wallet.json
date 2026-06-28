@@ -30,7 +30,11 @@
     "invalidAmount": "Ungültiger Betrag",
     "insufficientBalance": "Unzureichendes Guthaben",
     "max": "Max",
-    "estimatedFee": "~0,01 GRAM"
+    "estimatedFee": "~0,01 GRAM",
+    "commentLabel": "Kommentar (optional)",
+    "comment": "Kommentar",
+    "commentPlaceholder": "Memo oder Notiz",
+    "commentNote": "Wird unverschlüsselt on-chain gespeichert"
   },
   "receive": {
     "addressLabel": "Ihre Geldbörsen-Adresse",

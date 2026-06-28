@@ -3,6 +3,7 @@
  */
 
 import { IPC_CHANNELS } from '../../../shared/ipc-channels'
+import { WALLET_MAX_COMMENT_BYTES } from '../../../shared/constants'
 import type { WalletState, WalletTransaction } from '../../../shared/types'
 import { secureHandle, tonsiteHandle, emitToRenderer, payForXhrLimiter, toError, log } from './shared'
 import { getStorageBagForDomain } from '../../windows/tabs-storage'
@@ -49,12 +50,20 @@ export function registerWalletHandlers(registry: ServiceRegistry): void {
     return await walletManager.resolveRecipient(input)
   })
 
-  secureHandle(IPC_CHANNELS.WALLET_SEND, async (to: string, amount: string) => {
+  secureHandle(IPC_CHANNELS.WALLET_SEND, async (to: string, amount: string, comment?: string) => {
     if (!to || typeof to !== 'string') {
       throw new Error('Invalid recipient address')
     }
     if (!amount || typeof amount !== 'string' || !/^\d+$/.test(amount)) {
       throw new Error('Invalid amount: must be a string of digits (nanoTON)')
+    }
+    if (comment !== undefined) {
+      if (typeof comment !== 'string') {
+        throw new Error('Invalid comment')
+      }
+      if (Buffer.byteLength(comment, 'utf8') > WALLET_MAX_COMMENT_BYTES) {
+        throw new Error('Comment too long')
+      }
     }
     const resolved = await walletManager.resolveRecipient(to)
     // Balance check: prevent sending more than available
@@ -62,7 +71,7 @@ export function registerWalletHandlers(registry: ServiceRegistry): void {
     if (BigInt(amount) > BigInt(balance)) {
       throw new Error('Insufficient balance')
     }
-    const tx = await walletManager.send(resolved.address, amount)
+    const tx = await walletManager.send(resolved.address, amount, comment)
     await walletHistoryManager.add(tx)
     return tx
   })

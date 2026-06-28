@@ -150,7 +150,8 @@ const electronAPI = {
     create: () => ipcRenderer.invoke(IPC_CHANNELS.WALLET_CREATE),
     getState: () => ipcRenderer.invoke(IPC_CHANNELS.WALLET_GET_STATE),
     getBalance: () => ipcRenderer.invoke(IPC_CHANNELS.WALLET_GET_BALANCE),
-    send: (to: string, amount: string) => ipcRenderer.invoke(IPC_CHANNELS.WALLET_SEND, to, amount),
+    send: (to: string, amount: string, comment?: string) =>
+      ipcRenderer.invoke(IPC_CHANNELS.WALLET_SEND, to, amount, comment),
     resolveRecipient: (input: string) => ipcRenderer.invoke(IPC_CHANNELS.WALLET_RESOLVE_RECIPIENT, input),
     getHistory: (limit?: number) => ipcRenderer.invoke(IPC_CHANNELS.WALLET_GET_HISTORY, limit),
     clearHistory: () => ipcRenderer.invoke(IPC_CHANNELS.WALLET_CLEAR_HISTORY),

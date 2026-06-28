@@ -30,7 +30,11 @@
     "invalidAmount": "จำนวนไม่ถูกต้อง",
     "insufficientBalance": "ยอดเงินไม่เพียงพอ",
     "max": "สูงสุด",
-    "estimatedFee": "~0.01 GRAM"
+    "estimatedFee": "~0.01 GRAM",
+    "commentLabel": "หมายเหตุ (ไม่บังคับ)",
+    "comment": "หมายเหตุ",
+    "commentPlaceholder": "ข้อความหรือบันทึก",
+    "commentNote": "จัดเก็บบนเชนเป็นข้อความธรรมดา"
   },
   "receive": {
     "addressLabel": "ที่อยู่กระเป๋าเงินของคุณ",

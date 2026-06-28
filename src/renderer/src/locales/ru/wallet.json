@@ -30,7 +30,11 @@
     "invalidAmount": "Неверная сумма",
     "insufficientBalance": "Недостаточный баланс",
     "max": "Максимум",
-    "estimatedFee": "~0,01 GRAM"
+    "estimatedFee": "~0,01 GRAM",
+    "commentLabel": "Комментарий (необязательно)",
+    "comment": "Комментарий",
+    "commentPlaceholder": "Заметка или мемо",
+    "commentNote": "Хранится в открытом виде в блокчейне"
   },
   "receive": {
     "addressLabel": "Адрес вашего кошелька",

@@ -263,7 +263,7 @@ declare global {
         create: () => Promise<WalletState & { mnemonic: string[] }>
         getState: () => Promise<WalletState>
         getBalance: () => Promise<string | IpcError>
-        send: (to: string, amount: string) => Promise<WalletTransaction>
+        send: (to: string, amount: string, comment?: string) => Promise<WalletTransaction>
         resolveRecipient: (input: string) => Promise<{ address: string; domain?: string }>
         getHistory: (limit?: number) => Promise<WalletTransaction[]>
         clearHistory: () => Promise<{ success: boolean }>

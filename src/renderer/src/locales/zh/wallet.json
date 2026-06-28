@@ -30,7 +30,11 @@
     "invalidAmount": "无效的金额",
     "insufficientBalance": "余额不足",
     "max": "最大",
-    "estimatedFee": "~0.01 GRAM"
+    "estimatedFee": "~0.01 GRAM",
+    "commentLabel": "备注（可选）",
+    "comment": "备注",
+    "commentPlaceholder": "备注或留言",
+    "commentNote": "以明文形式存储在链上"
   },
   "receive": {
     "addressLabel": "您的钱包地址",

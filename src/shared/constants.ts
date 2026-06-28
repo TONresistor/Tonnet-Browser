@@ -38,3 +38,13 @@ export const ERROR_TRUNCATE_LENGTH = 200
 
 /** Max transactions kept in the wallet store to bound memory during long sessions */
 export const WALLET_TX_DISPLAY_CAP = 100
+
+/**
+ * Max UTF-8 byte length of an outgoing transfer comment (memo).
+ * On-chain comments are stored in clear text as a snake-encoded string and
+ * inflate the external message and fees, so we bound them. 256 bytes
+ * comfortably covers exchange memos and short notes. Enforced byte-accurately
+ * (not by JS string length) in both the SendForm UI and the WALLET_SEND IPC
+ * handler (the trust boundary).
+ */
+export const WALLET_MAX_COMMENT_BYTES = 256

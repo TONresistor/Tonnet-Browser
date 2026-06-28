@@ -30,7 +30,11 @@
     "invalidAmount": "Montant invalide",
     "insufficientBalance": "Solde insuffisant",
     "max": "Max",
-    "estimatedFee": "~0,01 GRAM"
+    "estimatedFee": "~0,01 GRAM",
+    "commentLabel": "Commentaire (optionnel)",
+    "comment": "Commentaire",
+    "commentPlaceholder": "Mémo ou note",
+    "commentNote": "Stocké en clair sur la blockchain"
   },
   "receive": {
     "addressLabel": "Ton adresse de portefeuille",
