@@ -65,6 +65,9 @@ export function loadWindowBounds(): Partial<WindowBounds> {
 export function saveWindowBounds(win: BrowserWindow): void {
   if (saveBoundsTimer) clearTimeout(saveBoundsTimer)
   saveBoundsTimer = setTimeout(() => {
+    // Clear first so flushWindowBoundsOnQuit's `if (!saveBoundsTimer) return`
+    // guard holds after we fire, avoiding a sync write racing this async one.
+    saveBoundsTimer = null
     try {
       const bounds: WindowBounds = {
         ...win.getBounds(),
