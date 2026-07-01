@@ -19,6 +19,8 @@ const log = createLogger('updater')
 const MANIFEST_URL = 'https://tonnet.resistance.dog/updates.json'
 const DOWNLOAD_PAGE_URL = 'https://tonnet.resistance.dog/download'
 const FETCH_TIMEOUT_MS = 10_000
+/** Hard cap on the manifest body so a hostile/broken server can't grow memory. */
+const MANIFEST_MAX_BYTES = 64 * 1024
 
 interface UpdateManifest {
   version: string
@@ -71,7 +73,15 @@ function fetchManifest(): Promise<UpdateManifest> {
         return
       }
       const chunks: Buffer[] = []
-      res.on('data', (chunk: Buffer) => chunks.push(chunk))
+      let received = 0
+      res.on('data', (chunk: Buffer) => {
+        received += chunk.length
+        if (received > MANIFEST_MAX_BYTES) {
+          req.destroy(new Error('Update manifest exceeds size cap'))
+          return
+        }
+        chunks.push(chunk)
+      })
       res.on('end', () => {
         try {
           const body = Buffer.concat(chunks).toString('utf8')

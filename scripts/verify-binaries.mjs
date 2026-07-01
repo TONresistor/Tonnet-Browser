@@ -55,8 +55,16 @@ function getExpectedElfMachine(targetPlatform, targetArch) {
 }
 
 function readElfMachine(binaryPath) {
-  const header = fs.readFileSync(binaryPath).subarray(0, 20)
-  if (header.length < 20 || header[0] !== 0x7f || header[1] !== 0x45 || header[2] !== 0x4c || header[3] !== 0x46) {
+  // Read only the 20 header bytes we inspect, not the whole (often >50MB) binary.
+  const header = Buffer.alloc(20)
+  const fd = fs.openSync(binaryPath, 'r')
+  let read
+  try {
+    read = fs.readSync(fd, header, 0, 20, 0)
+  } finally {
+    fs.closeSync(fd)
+  }
+  if (read < 20 || header[0] !== 0x7f || header[1] !== 0x45 || header[2] !== 0x4c || header[3] !== 0x46) {
     return null
   }
 
