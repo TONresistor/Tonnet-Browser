@@ -8,6 +8,7 @@ import { promises as fsp } from 'fs'
 import { shell } from 'electron'
 import { IPC_CHANNELS } from '../../../shared/ipc-channels'
 import { isValidBagId } from '../validation'
+import { decodeUtf8Prefix } from '../../utils/decode-utf8'
 import { secureHandle, secureHandleWithEvent, emitToRenderer, storageLimiter, log } from './shared'
 import { getDownloadPath } from '../../settings'
 import { resolveBagFilePath } from '../../windows/tabs-storage'
@@ -138,7 +139,7 @@ export function registerStorageHandlers(registry: ServiceRegistry): void {
       try {
         const buf = Buffer.alloc(len)
         await fh.read(buf, 0, len, 0)
-        return { success: true, content: buf.toString('utf8'), truncated: stat.size > len, size: stat.size }
+        return { success: true, content: decodeUtf8Prefix(buf), truncated: stat.size > len, size: stat.size }
       } finally {
         await fh.close()
       }
