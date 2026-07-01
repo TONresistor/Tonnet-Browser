@@ -1,0 +1,70 @@
+/**
+ * Pure reconciliation of locally-recorded wallet transactions with the
+ * authoritative on-chain list. Kept out of WalletHistoryManager (which owns the
+ * encrypted store) so the merge is unit tested without electron.
+ */
+
+import type { WalletTransaction } from '../../shared/types'
+
+/** Dedup key: on-chain txs key by hash, local optimistic ones by id. */
+export function historyKey(tx: WalletTransaction): string {
+  return tx.hash ? `h:${tx.hash}` : `i:${tx.id}`
+}
+
+const MATCH_WINDOW_MS = 120_000
+
+function contentMatch(a: WalletTransaction, b: WalletTransaction): boolean {
+  return a.address === b.address && a.amount === b.amount && Math.abs(a.timestamp - b.timestamp) < MATCH_WINDOW_MS
+}
+
+/**
+ * Merge on-chain txs onto the cached list.
+ *
+ * A local optimistic tx (key `i:<id>`) and its confirmed on-chain counterpart
+ * (key `h:<hash>`) have DIFFERENT keys, so a key-only merge kept both (a
+ * duplicate) and dropped the x402 label. Here, when an on-chain tx
+ * content-matches a local `i:` tx, we carry the x402 metadata onto the on-chain
+ * tx and drop the superseded local one — for every status, not just pending.
+ */
+export function mergeHistory(
+  cached: WalletTransaction[],
+  onChain: WalletTransaction[],
+  cacheLimit: number
+): WalletTransaction[] {
+  const byKey = new Map<string, WalletTransaction>()
+  for (const tx of cached) byKey.set(historyKey(tx), { ...tx })
+
+  const supersededLocalKeys = new Set<string>()
+
+  for (const on of onChain) {
+    const onCopy: WalletTransaction = { ...on }
+    const onKey = historyKey(onCopy)
+
+    // Same tx re-fetched: carry an existing x402 label forward.
+    const exact = byKey.get(onKey)
+    if (exact?.type === 'x402') {
+      onCopy.type = 'x402'
+      onCopy.x402Domain = exact.x402Domain
+      onCopy.x402Url = exact.x402Url
+    }
+
+    // Content-match a local optimistic (i:) tx of a different key.
+    for (const [k, local] of byKey) {
+      if (!k.startsWith('i:') || supersededLocalKeys.has(k) || k === onKey) continue
+      if (!contentMatch(local, onCopy)) continue
+      if (local.type === 'x402' && onCopy.type !== 'x402') {
+        onCopy.type = 'x402'
+        onCopy.x402Domain = local.x402Domain
+        onCopy.x402Url = local.x402Url
+      }
+      supersededLocalKeys.add(k)
+      break // one local per on-chain tx
+    }
+
+    byKey.set(onKey, onCopy)
+  }
+
+  for (const k of supersededLocalKeys) byKey.delete(k)
+
+  return [...byKey.values()].sort((a, b) => b.timestamp - a.timestamp).slice(0, cacheLimit)
+}
