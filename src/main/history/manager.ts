@@ -260,6 +260,25 @@ export class HistoryManager extends EventEmitter {
   }
 
   /**
+   * Delete every entry visited within [startDate, endDate]. Returns the count.
+   * One ranged op instead of one IPC round-trip + write per entry.
+   */
+  deleteByDateRange(startDate: number, endDate: number): number {
+    let deleted = 0
+    for (const entry of Array.from(this.entries.values())) {
+      if (entry.visitedAt >= startDate && entry.visitedAt <= endDate) {
+        this.entries.delete(entry.id)
+        this.emit('entry-deleted', entry.id)
+        deleted++
+      }
+    }
+    if (deleted > 0 && this.mode === HistoryMode.PERSISTENT) {
+      this.debouncedSave()
+    }
+    return deleted
+  }
+
+  /**
    * Delete single entry
    */
   deleteEntry(id: string): boolean {

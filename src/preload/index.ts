@@ -139,6 +139,8 @@ const electronAPI = {
     getByDate: (startDate: number, endDate: number) =>
       ipcRenderer.invoke(IPC_CHANNELS.HISTORY_GET_BY_DATE, startDate, endDate),
     delete: (id: string) => ipcRenderer.invoke(IPC_CHANNELS.HISTORY_DELETE, id),
+    deleteByDate: (startDate: number, endDate: number) =>
+      ipcRenderer.invoke(IPC_CHANNELS.HISTORY_DELETE_BY_DATE, startDate, endDate),
     deletePattern: (pattern: string) => ipcRenderer.invoke(IPC_CHANNELS.HISTORY_DELETE_PATTERN, pattern),
     clear: () => ipcRenderer.invoke(IPC_CHANNELS.HISTORY_CLEAR),
     getStats: () => ipcRenderer.invoke(IPC_CHANNELS.HISTORY_GET_STATS),

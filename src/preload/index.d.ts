@@ -239,6 +239,10 @@ declare global {
           }>
         >
         delete: (id: string) => Promise<{ success: boolean; error?: string }>
+        deleteByDate: (
+          startDate: number,
+          endDate: number
+        ) => Promise<{ success: boolean; count: number; error?: string }>
         deletePattern: (pattern: string) => Promise<{ success: boolean; count: number; error?: string }>
         clear: () => Promise<{ success: boolean; error?: string }>
         getStats: () => Promise<{

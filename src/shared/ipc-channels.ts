@@ -68,6 +68,7 @@ export const IPC_CHANNELS = {
   HISTORY_GET_TOP: 'history:get-top',
   HISTORY_GET_BY_DATE: 'history:get-by-date',
   HISTORY_DELETE: 'history:delete',
+  HISTORY_DELETE_BY_DATE: 'history:delete-by-date',
   HISTORY_DELETE_PATTERN: 'history:delete-pattern',
   HISTORY_CLEAR: 'history:clear',
   HISTORY_GET_STATS: 'history:get-stats',

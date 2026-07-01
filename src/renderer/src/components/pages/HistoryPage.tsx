@@ -109,8 +109,7 @@ export function HistoryPage() {
         start.setDate(start.getDate() - 1)
       }
 
-      const entriesToDelete = await window.electron.history.getByDate(start.getTime(), now)
-      await Promise.all(entriesToDelete.map((entry) => window.electron.history.delete(entry.id)))
+      await window.electron.history.deleteByDate(start.getTime(), now)
 
       loadHistory()
     }
