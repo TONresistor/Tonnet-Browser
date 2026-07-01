@@ -47,4 +47,10 @@ describe('conversationPreview', () => {
       conversationPreview({ messages: [{ id: '1', role: 'assistant', content: '<think>only thinking</think>' }] })
     ).toBe('No messages yet')
   })
+
+  it('strips an unterminated (truncated) think block', () => {
+    expect(
+      conversationPreview({ messages: [{ id: '1', role: 'assistant', content: '<think>still thinking, cut off' }] })
+    ).toBe('No messages yet')
+  })
 })

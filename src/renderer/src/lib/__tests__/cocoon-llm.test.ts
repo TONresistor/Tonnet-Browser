@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { parseThinking, sendChat, DEFAULT_MODEL, type ChatMessage } from '../cocoon-llm'
+import { parseThinking, buildHistory, sendChat, DEFAULT_MODEL, type ChatMessage } from '../cocoon-llm'
 
 describe('parseThinking', () => {
   it('returns the whole content as reply when there is no <think> block', () => {
@@ -36,6 +36,26 @@ describe('parseThinking', () => {
   it('treats a <think> block that is not at the start as plain content', () => {
     const content = 'prefix <think>x</think> suffix'
     expect(parseThinking(content)).toEqual({ thinking: '', reply: content })
+  })
+
+  it('keeps an unterminated (truncated) <think> block out of the reply', () => {
+    expect(parseThinking('<think>partial reasoning that was cut off')).toEqual({
+      thinking: 'partial reasoning that was cut off',
+      reply: '',
+    })
+  })
+})
+
+describe('buildHistory', () => {
+  it('strips assistant reasoning but keeps user content verbatim', () => {
+    const history = buildHistory([
+      { role: 'user', content: 'question <think>keep</think>' },
+      { role: 'assistant', content: '<think>secret reasoning</think>the answer' },
+    ])
+    expect(history).toEqual([
+      { role: 'user', content: 'question <think>keep</think>' },
+      { role: 'assistant', content: 'the answer' },
+    ])
   })
 })
 
