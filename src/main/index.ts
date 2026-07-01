@@ -5,7 +5,7 @@
 
 import log from '../shared/logger'
 import { app, BrowserWindow, shell, Menu, protocol, net } from 'electron'
-import { join, resolve, dirname } from 'path'
+import { join, resolve, dirname, sep } from 'path'
 import { mkdirSync } from 'fs'
 import { migrateUserData } from './utils/migrate-userdata'
 import { EventEmitter } from 'events'
@@ -382,8 +382,9 @@ app.whenReady().then(() => {
 
     const filePath = resolve(basePath, pathname.slice(1))
 
-    // Path traversal guard
-    if (!filePath.startsWith(basePath)) {
+    // Path traversal guard. Require a separator after basePath so a sibling
+    // directory (rendererEVIL/) cannot pass a bare startsWith(basePath) prefix.
+    if (filePath !== basePath && !filePath.startsWith(basePath + sep)) {
       appLog.warn(`Blocked path traversal: ${pathname}`)
       return new Response('Forbidden', { status: 403 })
     }
