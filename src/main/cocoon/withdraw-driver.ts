@@ -52,12 +52,10 @@ export class WithdrawDriver extends PollingDriver {
 
   /** Run a single tick that surfaces errors (used by the user-initiated retry path). */
   async runUserInitiatedTick(): Promise<void> {
-    await this.tick(true)
+    await this.guardedRun(true)
   }
 
   protected async tick(surfaceErrors = false): Promise<void> {
-    if (this.inflight) return
-
     const cache = await getStakeCacheStore().load()
     const intent = cache?.pendingWithdraw ?? null
     if (!intent) return // no pending exit; driver idle
@@ -68,7 +66,6 @@ export class WithdrawDriver extends PollingDriver {
       return // bridge offline, retry next tick
     }
 
-    this.inflight = true
     try {
       const info = await getStakeInfo(this.manager, bridge)
 
@@ -109,8 +106,6 @@ export class WithdrawDriver extends PollingDriver {
         recoverable: true,
       } satisfies WithdrawDriverEvent)
       if (surfaceErrors) throw err
-    } finally {
-      this.inflight = false
     }
   }
 

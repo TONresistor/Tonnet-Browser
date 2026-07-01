@@ -97,28 +97,22 @@ export class RecoveryDriver extends PollingDriver {
   }
 
   protected async tick(): Promise<void> {
-    if (this.inflight) return
     const queue = await getRecoveryQueueStore().list()
     if (queue.length === 0) return
 
     const bridge = this.getBridge()
     if (!bridge) return // bridge offline, retry next tick
 
-    this.inflight = true
-    try {
-      for (const entry of queue) {
-        if (entry.phase === 'done' || entry.phase === 'failed') continue
-        try {
-          await this.advanceEntry(entry, bridge)
-        } catch (err) {
-          // Transient: log, persist lastError, keep phase. Next tick retries.
-          const message = errorMessage(err)
-          log.warn(`Recovery tick failed for archivedAt=${entry.archivedAt}: ${message}`)
-          await getRecoveryQueueStore().update(entry.archivedAt, { lastError: message })
-        }
+    for (const entry of queue) {
+      if (entry.phase === 'done' || entry.phase === 'failed') continue
+      try {
+        await this.advanceEntry(entry, bridge)
+      } catch (err) {
+        // Transient: log, persist lastError, keep phase. Next tick retries.
+        const message = errorMessage(err)
+        log.warn(`Recovery tick failed for archivedAt=${entry.archivedAt}: ${message}`)
+        await getRecoveryQueueStore().update(entry.archivedAt, { lastError: message })
       }
-    } finally {
-      this.inflight = false
     }
   }
 
