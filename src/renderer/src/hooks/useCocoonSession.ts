@@ -18,10 +18,16 @@ import type {
 } from '../../../shared/cocoon-types'
 import { isIpcError } from '@/lib/ipc-utils'
 import { IPC_CHANNELS } from '@shared/ipc-channels'
+import { stakeBlocksRunner } from '@/lib/cocoon-runner'
 
 /** cocoon_wallet balance (nano-TON) above which the funding step is considered done. */
 const COCOON_WALLET_FUNDED_THRESHOLD_NANO = 1_000_000_000n
 const TERMINAL_EMPTY_WALLET_NANO = 100_000_000n
+
+/** Guards the runner start/stop transition across all hook instances (the
+ *  sidebar and the full page both mount useCocoonSession) so they cannot issue
+ *  interleaved start/stop calls and race the runner. */
+let runnerTransitionInFlight = false
 
 export type WalletInfo = {
   ownerAddress: string
@@ -199,29 +205,29 @@ export function useCocoonSession(): UseCocoonSessionResult {
       const initial = statusResult as CocoonState
       setState(initial)
 
-      // Auto-start only when there is an *active* stake. Every other case
-      // (stake null = never registered or fully closed; closing/cooldown =
-      // proxy refuses queries; refundable/closed = user must explicitly act)
-      // is left to manual start via the StakePanel. This avoids the burn-CPU
-      // loop where the runner retries proxy connections forever.
-      const stakeBlocksRunner = pendingIntent != null || stake?.status !== 'active'
+      const blocksRunner = stakeBlocksRunner(pendingIntent != null, stake?.status)
 
       // If the runner is busy retrying connections (starting/crashed) but the
       // stake is non-active, it will loop forever on proxy rejections — stop
       // it so the UI can show the stake panel cleanly.
-      if (
-        stakeBlocksRunner &&
-        (initial.kind === 'starting' || initial.kind === 'crashed' || initial.kind === 'ready')
-      ) {
+      if (blocksRunner && (initial.kind === 'starting' || initial.kind === 'crashed' || initial.kind === 'ready')) {
+        // Single-flight across hook instances (sidebar + chat page) so they
+        // can't issue interleaved start/stop and race the runner.
+        if (runnerTransitionInFlight) return
+        runnerTransitionInFlight = true
         try {
           await window.electron.cocoon.stop()
         } catch {
           // Stop failures are non-fatal here — the UI fallback already covers it.
+        } finally {
+          runnerTransitionInFlight = false
         }
         return
       }
 
-      if (initial.kind === 'stopped' && !stakeBlocksRunner) {
+      if (initial.kind === 'stopped' && !blocksRunner) {
+        if (runnerTransitionInFlight) return
+        runnerTransitionInFlight = true
         setStartError(null)
         try {
           const startResult = await window.electron.cocoon.start()
@@ -231,6 +237,8 @@ export function useCocoonSession(): UseCocoonSessionResult {
           }
         } catch (err) {
           if (!cancelled) setStartError((err as Error).message ?? 'Failed to start Cocoon')
+        } finally {
+          runnerTransitionInFlight = false
         }
       }
     })
