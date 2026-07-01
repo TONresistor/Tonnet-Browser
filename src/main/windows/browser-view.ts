@@ -155,6 +155,10 @@ export function createBrowserView(ses: Electron.Session): WebContentsView {
       webSecurity: true,
       allowRunningInsecureContent: false,
       webviewTag: false,
+      // Enable Chromium's built-in PDFium viewer so PDFs served by a tonsite
+      // render inline instead of failing silently. Electron ships only the PDF
+      // plugin, so this does not enable NPAPI/Flash.
+      plugins: true,
     },
   })
 
