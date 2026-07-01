@@ -4,22 +4,25 @@ import { StepperButtons } from './StepperButtons'
 export interface TonStepperFieldProps {
   value: string
   onChange: (v: string) => void
-  onBlur: () => void
+  /** Commit the value. Receives the fresh stepped value so a +/- click doesn't
+   *  commit the stale pre-step value from a closure. */
+  onBlur: (committedValue?: string) => void
   ariaLabel: string
   step?: number
 }
 
+/** Pure: the next display string after stepping `value` by `dir * step` (>= 0). */
+export function computeStep(value: string, step: number, dir: 1 | -1): string {
+  const next = Math.max(0, (parseFloat(value) || 0) + dir * step)
+  return Number.isInteger(next) ? String(next) : next.toFixed(1)
+}
+
 export function TonStepperField({ value, onChange, onBlur, ariaLabel, step = 0.5 }: TonStepperFieldProps) {
   const numVal = parseFloat(value) || 0
-  const decrement = () => {
-    const next = Math.max(0, numVal - step)
-    const display = Number.isInteger(next) ? String(next) : next.toFixed(1)
+  const stepBy = (dir: 1 | -1) => {
+    const display = computeStep(value, step, dir)
     onChange(display)
-  }
-  const increment = () => {
-    const next = numVal + step
-    const display = Number.isInteger(next) ? String(next) : next.toFixed(1)
-    onChange(display)
+    return display
   }
 
   return (
@@ -30,7 +33,7 @@ export function TonStepperField({ value, onChange, onBlur, ariaLabel, step = 0.5
           onChange={(e) => {
             if (/^(\d*\.?\d*)$/.test(e.target.value)) onChange(e.target.value)
           }}
-          onBlur={onBlur}
+          onBlur={() => onBlur()}
           inputMode="decimal"
           className="pr-10 text-right"
           aria-label={ariaLabel}
@@ -40,14 +43,8 @@ export function TonStepperField({ value, onChange, onBlur, ariaLabel, step = 0.5
         </span>
       </div>
       <StepperButtons
-        onDecrement={() => {
-          decrement()
-          onBlur()
-        }}
-        onIncrement={() => {
-          increment()
-          onBlur()
-        }}
+        onDecrement={() => onBlur(stepBy(-1))}
+        onIncrement={() => onBlur(stepBy(1))}
         decrementDisabled={numVal <= 0}
       />
     </div>

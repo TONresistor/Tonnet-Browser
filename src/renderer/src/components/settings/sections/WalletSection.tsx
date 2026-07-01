@@ -234,7 +234,7 @@ export const WalletSection = memo(function WalletSection({ onDirtyChange, sectio
               <TonStepperField
                 value={perRequestDisplay}
                 onChange={setPerRequestDisplay}
-                onBlur={() => handleLimitBlur('perRequest', perRequestDisplay)}
+                onBlur={(v) => handleLimitBlur('perRequest', v ?? perRequestDisplay)}
                 ariaLabel={t('wallet.perRequest')}
                 step={0.5}
               />
@@ -244,7 +244,7 @@ export const WalletSection = memo(function WalletSection({ onDirtyChange, sectio
               <TonStepperField
                 value={perDayDisplay}
                 onChange={setPerDayDisplay}
-                onBlur={() => handleLimitBlur('perDay', perDayDisplay)}
+                onBlur={(v) => handleLimitBlur('perDay', v ?? perDayDisplay)}
                 ariaLabel={t('wallet.perDay')}
                 step={1}
               />
@@ -254,7 +254,7 @@ export const WalletSection = memo(function WalletSection({ onDirtyChange, sectio
               <TonStepperField
                 value={perSiteDisplay}
                 onChange={setPerSiteDisplay}
-                onBlur={() => handleLimitBlur('perSitePerMonth', perSiteDisplay)}
+                onBlur={(v) => handleLimitBlur('perSitePerMonth', v ?? perSiteDisplay)}
                 ariaLabel={t('wallet.perSitePerMonth')}
                 step={1}
               />
