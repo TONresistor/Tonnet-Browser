@@ -76,6 +76,9 @@ export class BridgeManager extends EventEmitter {
 
     this.process.on('error', (err) => {
       log.error(`Failed to start bridge:`, err)
+      // ENOENT etc. fire 'error' not 'exit', so null the ref or isRunning()
+      // keeps lying and a retry is blocked as 'already running'.
+      this.process = null
       this.emit('error', err.message)
     })
   }
