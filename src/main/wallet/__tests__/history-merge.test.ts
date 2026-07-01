@@ -5,7 +5,7 @@ import type { WalletTransaction } from '../../../shared/types'
 function tx(p: Partial<WalletTransaction>): WalletTransaction {
   return {
     id: 'id',
-    type: 'transfer',
+    type: 'send',
     amount: '1000',
     address: 'EQabc',
     timestamp: 1_000_000,
@@ -55,7 +55,7 @@ describe('mergeHistory', () => {
 
   it('carries an x402 label forward on an exact-key re-fetch', () => {
     const cached = tx({ id: 'x', hash: 'HASH4', type: 'x402', x402Domain: 'd.ton' })
-    const refetched = tx({ id: 'x', hash: 'HASH4', type: 'transfer' })
+    const refetched = tx({ id: 'x', hash: 'HASH4', type: 'send' })
 
     const merged = mergeHistory([cached], [refetched], LIMIT)
     expect(merged).toHaveLength(1)
