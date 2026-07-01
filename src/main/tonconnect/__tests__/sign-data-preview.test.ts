@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { buildSignDataRows } from '../sign-data-preview'
+import { buildSignDataRows, validateSignDataPayload } from '../sign-data-preview'
+
+const VALID_BOC = 'te6ccgEBAQEAAgAAAA=='
 
 describe('buildSignDataRows', () => {
   it('shows the raw text for text payloads', () => {
@@ -40,5 +42,35 @@ describe('buildSignDataRows', () => {
     const snippet = rows.find((r) => r.label === 'Base64')!.value
     expect(snippet.length).toBeLessThan(long.length)
     expect(snippet).toContain('(200 chars)')
+  })
+})
+
+describe('validateSignDataPayload', () => {
+  it('accepts well-formed text/binary/cell payloads', () => {
+    expect(validateSignDataPayload({ type: 'text', text: 'hi' })).toBe(true)
+    expect(validateSignDataPayload({ type: 'text', text: '' })).toBe(true)
+    expect(validateSignDataPayload({ type: 'binary', bytes: 'SGVsbG8=' })).toBe(true)
+    expect(validateSignDataPayload({ type: 'cell', schema: 'x#00', cell: VALID_BOC })).toBe(true)
+  })
+
+  it('rejects missing or non-string data fields (blind-sign of undefined)', () => {
+    expect(validateSignDataPayload({ type: 'text' })).toBe(false)
+    expect(validateSignDataPayload({ type: 'text', text: 123 })).toBe(false)
+    expect(validateSignDataPayload({ type: 'binary' })).toBe(false)
+    expect(validateSignDataPayload({ type: 'binary', bytes: 42 })).toBe(false)
+    expect(validateSignDataPayload({ type: 'cell', cell: VALID_BOC })).toBe(false) // missing schema
+    expect(validateSignDataPayload({ type: 'cell', schema: 'x', cell: 123 })).toBe(false)
+  })
+
+  it('rejects non-base64 binary and unparseable cell BoC', () => {
+    expect(validateSignDataPayload({ type: 'binary', bytes: 'not base64 !!!' })).toBe(false)
+    expect(validateSignDataPayload({ type: 'cell', schema: 'x', cell: 'not-a-boc' })).toBe(false)
+  })
+
+  it('rejects unknown types and non-objects', () => {
+    expect(validateSignDataPayload({ type: 'other', text: 'x' })).toBe(false)
+    expect(validateSignDataPayload(null)).toBe(false)
+    expect(validateSignDataPayload('text')).toBe(false)
+    expect(validateSignDataPayload(undefined)).toBe(false)
   })
 })

@@ -8,7 +8,7 @@ import { createLogger } from '../../shared/logger'
 import type { WalletManager } from '../wallet/manager'
 import type { OverlayManager } from '../windows/overlay-manager'
 import { TonConnectSessionStore } from './session-store'
-import { buildSignDataRows } from './sign-data-preview'
+import { buildSignDataRows, validateSignDataPayload } from './sign-data-preview'
 import {
   TONCONNECT_PROTOCOL_VERSION,
   TON_MAINNET_CHAIN,
@@ -23,7 +23,6 @@ import {
   type ConnectRequest,
   type DeviceInfo,
   type DisconnectEvent,
-  type SignDataPayloadInput,
   type TonConnectOutMessage,
   type TonProofItem,
   type WalletResponse,
@@ -462,15 +461,16 @@ export class TonConnectService {
   }
 
   private async signData(domain: string, appName: string, message: AppRequest): Promise<WalletResponse> {
-    let payload: SignDataPayloadInput
+    let raw: unknown
     try {
-      payload = JSON.parse(message.params?.[0] ?? '')
+      raw = JSON.parse(message.params?.[0] ?? '')
     } catch {
       return rpcError(message.id, TONCONNECT_ERROR.BAD_REQUEST, 'Invalid sign-data payload')
     }
-    if (!payload || (payload.type !== 'text' && payload.type !== 'binary' && payload.type !== 'cell')) {
-      return rpcError(message.id, TONCONNECT_ERROR.BAD_REQUEST, 'Unsupported sign-data type')
+    if (!validateSignDataPayload(raw)) {
+      return rpcError(message.id, TONCONNECT_ERROR.BAD_REQUEST, 'Invalid or unsupported sign-data payload')
     }
+    const payload = raw
 
     const approved = await this.showApproval({
       type: 'approval',
