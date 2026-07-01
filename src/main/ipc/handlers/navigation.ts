@@ -49,11 +49,10 @@ export function registerNavigationHandlers(): void {
         return { success: false, error: 'Invalid file path' }
       }
       const targetTab = tabId || getActiveTabId()
-      if (targetTab) {
-        loadBagFileInTab(targetTab, bagId, relPath).catch((err) => {
-          log.error('Failed to open bag file:', errorMessage(err))
-        })
-      }
+      if (!targetTab) return { success: false, error: 'No tab to open the file in' }
+      loadBagFileInTab(targetTab, bagId, relPath).catch((err) => {
+        log.error('Failed to open bag file:', errorMessage(err))
+      })
       return { success: true }
     }
 

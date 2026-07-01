@@ -231,6 +231,10 @@ export async function loadBagFileInTab(tabId: string, bagId: string, relPath: st
   if (!view) throw new Error(`View not found for tab ${tabId}`)
   const fullPath = await resolveBagFilePath(bagId, relPath)
   await view.webContents.loadFile(fullPath)
+  // A prior internal ton:// page may have detached all views (hideAllViews),
+  // so re-attach if this is the active tab — otherwise the file loads into a
+  // hidden view and the tab shows blank.
+  if (tabId === getActiveTabId()) showActiveView()
 }
 
 /**
