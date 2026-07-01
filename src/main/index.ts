@@ -417,13 +417,14 @@ app.whenReady().then(() => {
 })
 
 app.on('window-all-closed', async () => {
+  // macOS convention: closing the window does NOT quit the app. Keep services
+  // and daemons alive so a dock reactivation rebuilds a window on LIVE services
+  // instead of a destroyed registry. Full teardown runs on before-quit.
+  if (process.platform === 'darwin') return
+
   if (isCleanupInProgress()) return
-
   await runCleanup(services)
-
-  if (process.platform !== 'darwin') {
-    app.quit()
-  }
+  app.quit()
 })
 
 let isQuitting = false
