@@ -155,6 +155,9 @@ export interface RecoveryEntry {
   drainBocHash?: string
   /** Native wallet address the funds were sent to. */
   sentToMain?: string
+  /** Unix ms of the last on-chain action (refund/claim) sent for this entry.
+   *  Debounces re-broadcasts while a tx is still confirming. */
+  lastActionAt?: number
 }
 
 /** Event pushed by the WithdrawDriver (current identity) as it auto-progresses. Crosses to the renderer via IPC. */
