@@ -22,20 +22,23 @@ function AddressQR({ address }: { address: string }) {
     if (!canvasRef.current || !address) return
     let cancelled = false
     // qrcode is a heavy lib; load it only when a QR actually needs rendering.
-    import('qrcode').then(({ default: QRCode }) => {
-      if (cancelled || !canvasRef.current) return
-      QRCode.toCanvas(canvasRef.current, address, {
-        width: 200,
-        margin: 2,
-        color: {
-          dark: '#000000',
-          light: '#ffffff',
-        },
-        errorCorrectionLevel: 'M',
-      }).catch((err) => {
+    import('qrcode')
+      .then(({ default: QRCode }) => {
+        if (cancelled || !canvasRef.current) return
+        return QRCode.toCanvas(canvasRef.current, address, {
+          width: 200,
+          margin: 2,
+          color: {
+            dark: '#000000',
+            light: '#ffffff',
+          },
+          errorCorrectionLevel: 'M',
+        })
+      })
+      .catch((err) => {
+        // One terminal handler covers both a failed lib load and toCanvas.
         log.warn('QR code generation failed:', err)
       })
-    })
     return () => {
       cancelled = true
     }

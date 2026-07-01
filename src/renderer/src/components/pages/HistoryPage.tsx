@@ -3,7 +3,7 @@
  * Display and manage browsing history with 2 privacy modes.
  */
 
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { createLogger } from '@/logger'
 import { UI_COPY_FEEDBACK_MS } from '@shared/constants'
 import { Search, Trash2, Clock, ExternalLink, History, TriangleAlert, Copy, Check } from 'lucide-react'
@@ -34,7 +34,9 @@ export function HistoryPage() {
   const clearRangeConfirm = useConfirmAction()
   const addTab = useTabsStore((state) => state.addTab)
 
+  const loadSeq = useRef(0)
   const loadHistory = useCallback(async () => {
+    const seq = ++loadSeq.current
     setIsLoading(true)
     try {
       let results: HistoryEntry[] = []
@@ -57,12 +59,13 @@ export function HistoryPage() {
         results = await window.electron.history.getRecent(100)
       }
 
-      setEntries(results)
+      // Ignore a slow response that a newer load has already superseded.
+      if (seq === loadSeq.current) setEntries(results)
     } catch (error) {
       log.error('Failed to load history:', error)
-      setEntries([])
+      if (seq === loadSeq.current) setEntries([])
     }
-    setIsLoading(false)
+    if (seq === loadSeq.current) setIsLoading(false)
   }, [query, timeFilter])
 
   useEffect(() => {
