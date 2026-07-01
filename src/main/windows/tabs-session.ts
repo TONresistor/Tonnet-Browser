@@ -53,6 +53,18 @@ export function updateDomainActivity(domain: string): void {
 
 // --- Cookie auto-delete ---
 
+/**
+ * Wipe every storage bucket AND the HTTP cache for a domain session. The cache
+ * and cachestorage were previously left behind, so a domain's on-disk cache
+ * survived eviction indefinitely (never reached by clearOnExit either).
+ */
+async function purgeSessionData(session: Electron.Session): Promise<void> {
+  await session.clearStorageData({
+    storages: ['cookies', 'localstorage', 'indexdb', 'websql', 'serviceworkers', 'cachestorage'],
+  })
+  await session.clearCache()
+}
+
 async function checkInactiveDomains(): Promise<void> {
   const privacy: PrivacySettings = getSetting('privacy')
   const cookieAutoDelete = privacy.cookieAutoDelete ?? false
@@ -74,9 +86,7 @@ async function checkInactiveDomains(): Promise<void> {
       if (session) {
         log.info(`Auto-deleting cookies for inactive domain: ${domain}`)
         try {
-          await session.clearStorageData({
-            storages: ['cookies', 'localstorage', 'indexdb', 'websql', 'serviceworkers'],
-          })
+          await purgeSessionData(session)
           domainActivity.delete(domain)
           domainSessions.delete(domain)
         } catch (error) {
@@ -159,11 +169,7 @@ export function cleanupDomainForTab(tabId: string): void {
     if (!domainStillInUse) {
       const session = domainSessions.get(domain)
       if (session) {
-        session
-          .clearStorageData({
-            storages: ['cookies', 'localstorage', 'indexdb', 'websql', 'serviceworkers'],
-          })
-          .catch((err) => log.error(`Failed to clear storage for ${domain}:`, err))
+        purgeSessionData(session).catch((err) => log.error(`Failed to clear storage for ${domain}:`, err))
       }
       domainSessions.delete(domain)
       domainActivity.delete(domain)
