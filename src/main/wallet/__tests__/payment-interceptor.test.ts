@@ -388,6 +388,32 @@ describe('PaymentInterceptor', () => {
       )
     })
 
+    it('escalates an above-ceiling auto payment to manual approval', async () => {
+      // 0.6 TON: above the 0.5 TON zero-approval ceiling, below the 1 TON hard cap.
+      const paymentReq = makePaymentReq({ amount: '600000000' })
+      const session = createMockSession()
+      session.fetch.mockResolvedValueOnce({
+        status: 402,
+        ok: false,
+        json: vi.fn().mockResolvedValue(paymentReq),
+        text: vi.fn().mockResolvedValue(JSON.stringify(paymentReq)),
+      })
+      policyStore.getSiteMode.mockReturnValue('auto')
+      mockGetAllWebContents.mockReturnValue([{ id: 1, getURL: () => 'https://example.com/page', loadURL: vi.fn() }])
+
+      interceptor.registerOnSession(session as any)
+      const callback = session.webRequest.onCompleted.mock.calls[0][1]
+      callback({ url: 'https://example.com/resource', statusCode: 402, resourceType: 'mainFrame', webContentsId: 1 })
+      await flushPromises()
+
+      // Escalated: not signed/executed silently, surfaced as a pending approval.
+      expect(walletManager.signX402Payment).not.toHaveBeenCalled()
+      expect(mockEmitToRenderer).toHaveBeenCalledWith(
+        'wallet:payment-req',
+        expect.objectContaining({ status: 'pending', domain: 'example.com' })
+      )
+    })
+
     it('rolls back reservation on payment failure (server error)', async () => {
       const paymentReq = makePaymentReq()
       const session = createMockSession()

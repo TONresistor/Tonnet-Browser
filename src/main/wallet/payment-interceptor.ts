@@ -20,12 +20,13 @@ import {
   TON_NATIVE_ASSET,
   X402_VERSION,
   MAX_SINGLE_PAYMENT,
+  AUTO_PAY_DEFAULT_MAX_PER_REQUEST,
   FETCH_TIMEOUT_MS,
   DEFAULT_APPROVAL_TIMEOUT_S,
 } from './constants'
 import { ERROR_TRUNCATE_LENGTH } from '../../shared/constants'
 import { PaymentRequirementsSchema } from '../../shared/schemas'
-import type { PaymentRequirements, PaymentNotificationData, WalletTransaction } from '../../shared/types'
+import type { PaymentRequirements, PaymentNotificationData, WalletTransaction, PaymentMode } from '../../shared/types'
 import { createLogger } from '../../shared/logger'
 const log = createLogger('payment-interceptor')
 
@@ -312,7 +313,8 @@ export class PaymentInterceptor {
 
     // Cross-domain redirect = force manual
     const isCrossDomain = finalDomain !== originalDomain
-    const mode = isCrossDomain ? 'manual' : this.paymentPolicyStore.getSiteMode(originalDomain)
+    const baseMode = isCrossDomain ? 'manual' : this.paymentPolicyStore.getSiteMode(originalDomain)
+    const mode = this.resolveAutoPayMode(baseMode, paymentReq.amount)
 
     if (mode === 'off') {
       log.info(`Payment mode is off for ${originalDomain}, ignoring 402`)
@@ -378,6 +380,28 @@ export class PaymentInterceptor {
 
       emitPaymentNotification(buildNotification(paymentId, originalDomain, request.url, paymentReq, 'pending'))
     }
+  }
+
+  /**
+   * Escalate an auto-mode payment to manual approval when it exceeds the
+   * zero-approval per-transaction ceiling. A user-configured limits.perRequest
+   * takes precedence; otherwise AUTO_PAY_DEFAULT_MAX_PER_REQUEST applies. This
+   * bounds what a compromised auto-pay tonsite can spend without the user ever
+   * being asked, without silently rejecting the payment.
+   */
+  private resolveAutoPayMode(baseMode: PaymentMode, amountNano: string): PaymentMode {
+    if (baseMode !== 'auto') return baseMode
+    const perRequest = getSetting('wallet').limits.perRequest
+    const ceiling = perRequest !== '0' ? BigInt(perRequest) : AUTO_PAY_DEFAULT_MAX_PER_REQUEST
+    try {
+      if (BigInt(amountNano) > ceiling) {
+        log.info(`Auto-pay amount exceeds ${ceiling} nanoTON ceiling — escalating to manual approval`)
+        return 'manual'
+      }
+    } catch {
+      return 'manual'
+    }
+    return baseMode
   }
 
   private async executePayment(
@@ -680,7 +704,8 @@ export class PaymentInterceptor {
     }
 
     const isCrossDomain = finalDomain !== originalDomain
-    const mode = isCrossDomain ? 'manual' : this.paymentPolicyStore.getSiteMode(originalDomain)
+    const baseMode = isCrossDomain ? 'manual' : this.paymentPolicyStore.getSiteMode(originalDomain)
+    const mode = this.resolveAutoPayMode(baseMode, paymentReq.amount)
 
     if (mode === 'off') {
       return { success: false, error: 'policy-off' }
