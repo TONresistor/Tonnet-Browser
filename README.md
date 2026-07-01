@@ -76,8 +76,10 @@ irm https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON-B
 
 Open the `.dmg` and drag TON Browser to Applications.
 
+The app is ad-hoc signed (no paid Apple Developer ID), so Gatekeeper does not
+trust it yet. Clear the quarantine flag once:
+
 ```bash
-# If blocked by Gatekeeper
 xattr -cr /Applications/TON\ Browser.app
 ```
 
@@ -86,6 +88,13 @@ xattr -cr /Applications/TON\ Browser.app
 ```bash
 curl -LO https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON-Browser-2.2.0-universal.dmg && hdiutil attach TON-Browser-2.2.0-universal.dmg && cp -R "/Volumes/TON Browser/TON Browser.app" /Applications/ && hdiutil detach "/Volumes/TON Browser" && xattr -cr /Applications/TON\ Browser.app && open /Applications/TON\ Browser.app
 ```
+
+> **Still crashes on launch (Apple Silicon)?** Older builds (≤ 2.2.0) shipped
+> unsigned and crash immediately on M1/M2/M3. Re-sign once, then reopen:
+>
+> ```bash
+> codesign --force --deep --sign - /Applications/TON\ Browser.app
+> ```
 
 ### Linux
 
