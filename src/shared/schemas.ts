@@ -148,6 +148,9 @@ export const WalletSettingsSchema = z.object({
   indexerApiKey: z.string().default(''),
 })
 
+// Hand-rolled (limits stays inner-partial, unlike the generic helper). Keep the
+// keys in sync with WalletSettingsSchema — the partial-schema drift test guards
+// this so a future field can't be silently stripped on SETTINGS_SET again.
 export const WalletSettingsPartialSchema = z
   .object({
     paymentMode: z.enum(['off', 'manual', 'auto']),
@@ -156,6 +159,9 @@ export const WalletSettingsPartialSchema = z
     sitePolicies: z.array(SitePolicySchema),
     autoPayDomains: z.array(z.string()),
     autoLockMinutes: z.number().min(0).max(1440),
+    indexerEnabled: z.boolean(),
+    indexerEndpoint: z.string(),
+    indexerApiKey: z.string(),
   })
   .partial()
 
