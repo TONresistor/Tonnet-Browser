@@ -1,29 +1,30 @@
 /**
  * IPC handlers for the decentralized group chat (ton://chat).
  *
- * Join ANY room by name. The room name is turned into an overlay id locally
- * (see ../../chat/room), the room's member nodes are discovered from the DHT,
- * and we connect to one of them via the local bridge, join the overlay, and
- * relay incoming `overlay.message` events to the renderer as `chat:message`.
+ * The browser ships NO default room and no privileged community — it's a neutral
+ * public good. The user always names the room to join. The room name is turned
+ * into an overlay id locally (see ../../chat/room), the room's member nodes are
+ * discovered from the DHT, and we connect to one of them via the local bridge,
+ * join the overlay, and relay incoming `overlay.message` events to the renderer
+ * as `chat:message`.
  *
  * Node resolution, in order:
- *   1. DNS — only for the default room, which has a well-known `.ton` anchor
- *      (fast + reliable; the anchor also seeds the mesh).
- *   2. DHT — dht.findValue on the overlay id → `overlay.nodes` record → node
- *      pubkeys → ADNL ids. Works for every room, incl. mesh rooms with no DNS.
+ *   1. node   — an explicit bootstrap node id supplied by the user (connects by
+ *      ADNL id, skipping discovery; useful for a fresh room not yet propagated).
+ *   2. DHT    — dht.findValue on the overlay id → `overlay.nodes` record → node
+ *      pubkeys → ADNL ids. Works for any room once its record has propagated.
  * Candidates are tried in turn until one connects + joins.
  *
  * Requires the bridge `adnl`/`overlay`/`dht` namespaces (enabled by config-writer).
  */
 
 import { IPC_CHANNELS } from '../../../shared/ipc-channels'
-import { GROUPCHAT_DOMAIN, GROUPCHAT_ROOM } from '../../../shared/groupchat'
 import { normalizeRoom, normalizeNodeId, overlayIdB64ForRoom, parseOverlayNodes } from '../../chat/room'
 import { secureHandle, emitToRenderer, toError, log } from './shared'
 import type { WsBridgeClient } from '../../wallet/ws-bridge-client'
 import type { ServiceRegistry } from '../../services'
 
-type Via = 'node' | 'dns' | 'dht'
+type Via = 'node' | 'dht'
 
 interface ChatSession {
   room: string
@@ -44,8 +45,6 @@ let session: ChatSession | null = null
 // Serialize connects so a React StrictMode double-mount (or a fast room switch)
 // never opens two sessions at once. Each connect chains after the previous one.
 let connectChain: Promise<unknown> = Promise.resolve()
-
-const hexToB64 = (hex: string): string => Buffer.from(hex, 'hex').toString('base64')
 
 async function teardownSession(bridge: WsBridgeClient | null): Promise<void> {
   if (!session) return
@@ -73,23 +72,11 @@ async function resolveCandidates(
     }
   }
 
-  // 0. Explicit bootstrap node — most reliable: connects by ADNL id and skips the
+  // 1. Explicit bootstrap node — most reliable: connects by ADNL id and skips the
   //    overlay-nodes DHT lookup, which can be slow to propagate for a fresh room.
   if (bootstrap) add(bootstrap, 'node')
 
-  // 1. DNS anchor — only the default room has a well-known domain.
-  if (room === GROUPCHAT_ROOM) {
-    try {
-      const dom = await bridge.resolveDomain(GROUPCHAT_DOMAIN)
-      if (dom.site_adnl) add(hexToB64(dom.site_adnl), 'dns')
-    } catch (err) {
-      log.warn(`chat: DNS resolve of ${GROUPCHAT_DOMAIN} failed: ${toError(err).message}`)
-    }
-  }
-
-  // 2. DHT discovery — the general path (any room). Skipped when DNS already gave
-  //    us a node, so the default room connects instantly instead of waiting on a
-  //    slow DHT lookup; other rooms always take this path.
+  // 2. DHT discovery — the general path. Skipped when a bootstrap node was given.
   if (out.length === 0) {
     try {
       const rec = await bridge.dhtFindValue(overlayId, 'nodes', 0)
@@ -178,7 +165,7 @@ export function registerChatHandlers(registry: ServiceRegistry): void {
   const { walletManager } = registry
 
   secureHandle(IPC_CHANNELS.CHAT_CONNECT, async (roomArg?: string, nodeArg?: string) => {
-    const room = normalizeRoom(roomArg || GROUPCHAT_ROOM)
+    const room = normalizeRoom(roomArg) // no default room — the user always names it
     const bootstrap = normalizeNodeId(nodeArg)
 
     // Chain onto any in-flight connect so mounts/switches never race.

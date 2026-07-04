@@ -53,7 +53,7 @@ function tlBytes(data: Buffer): Buffer {
 }
 
 /** Trim + validate a user-entered room name. Throws on empty / too long. */
-export function normalizeRoom(room: string): string {
+export function normalizeRoom(room?: string): string {
   const r = (room ?? '').trim()
   if (!r) throw new Error('room name is empty')
   if (r.length > MAX_ROOM_LEN) throw new Error(`room name too long (max ${MAX_ROOM_LEN})`)

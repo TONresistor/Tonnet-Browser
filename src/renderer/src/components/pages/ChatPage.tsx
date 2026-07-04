@@ -1,12 +1,14 @@
 /**
  * Group chat page (ton://chat).
- * Join ANY room by name: the main process derives the overlay id from the name,
- * discovers the room's nodes on the DHT, connects through the local bridge, and
- * streams messages back. Type a room and press Join to switch rooms.
- * See /groupchat for the anchor + protocol.
+ *
+ * A neutral entry point: NO default room and no built-in community. The user
+ * names the room to join; the main process derives the overlay id, discovers the
+ * room's nodes (or uses an explicit bootstrap node id), connects through the
+ * local bridge, and streams messages back. The last room *you* joined is
+ * remembered for convenience — nothing is joined on your behalf on first run.
+ * See /groupchat for the protocol.
  */
 import { useState, useEffect, useRef, useCallback, memo } from 'react'
-import { GROUPCHAT_ROOM } from '@shared/groupchat'
 
 interface Msg {
   nick: string
@@ -15,7 +17,7 @@ interface Msg {
   self?: boolean
 }
 
-type Status = 'connecting' | 'connected' | 'error'
+type Status = 'idle' | 'connecting' | 'connected' | 'error'
 
 function randomNick(): string {
   return 'anon-' + Math.random().toString(36).slice(2, 6)
@@ -23,15 +25,17 @@ function randomNick(): string {
 
 function ChatPage(): React.JSX.Element {
   const [nick, setNick] = useState<string>(() => localStorage.getItem('groupchat.nick') || randomNick())
-  const [room, setRoom] = useState<string>(() => localStorage.getItem('groupchat.room') || GROUPCHAT_ROOM)
-  const [roomInput, setRoomInput] = useState<string>(room)
-  // Optional bootstrap node id (base64 ADNL): connect straight to a known node,
-  // bypassing DHT discovery (which can be slow for a freshly-created room).
-  const [node, setNode] = useState<string>(() => localStorage.getItem('groupchat.node') || '')
-  const [nodeInput, setNodeInput] = useState<string>(node)
+  // No default room and NO auto-connect: `room`/`node` are the *joined* target and
+  // start empty on every open, so the page always lands on the "Join a room" state
+  // and nothing is connected on the user's behalf. The inputs are pre-filled with
+  // the last room/node the user joined (convenience only) — they must click Join.
+  const [room, setRoom] = useState<string>('')
+  const [roomInput, setRoomInput] = useState<string>(() => localStorage.getItem('groupchat.room') || '')
+  const [node, setNode] = useState<string>('')
+  const [nodeInput, setNodeInput] = useState<string>(() => localStorage.getItem('groupchat.node') || '')
   const [messages, setMessages] = useState<Msg[]>([])
   const [input, setInput] = useState('')
-  const [status, setStatus] = useState<Status>('connecting')
+  const [status, setStatus] = useState<Status>('idle')
   const [error, setError] = useState<string | null>(null)
   const listRef = useRef<HTMLDivElement>(null)
 
@@ -44,14 +48,16 @@ function ChatPage(): React.JSX.Element {
     localStorage.setItem('groupchat.nick', nick)
   }, [nick])
 
-  // Join the room whenever the room or bootstrap node changes (mount + switches).
+  // Connect only to an explicitly-joined room (set by joinRoom); never on mount.
   useEffect(() => {
-    let cancelled = false
-    localStorage.setItem('groupchat.room', room)
-    localStorage.setItem('groupchat.node', node)
-    setStatus('connecting')
-    setError(null)
     setMessages([])
+    setError(null)
+    if (!room) {
+      setStatus('idle')
+      return
+    }
+    let cancelled = false
+    setStatus('connecting')
     window.electron.chat
       .connect(room, node || undefined)
       .then((res) => {
@@ -84,8 +90,12 @@ function ChatPage(): React.JSX.Element {
   const joinRoom = useCallback(() => {
     const nextRoom = roomInput.trim()
     const nextNode = nodeInput.trim()
-    if (!nextRoom || (nextRoom === room && nextNode === node)) return
-    setRoom(nextRoom) // triggers the join effect
+    if (!nextRoom) return
+    // Remember the choice so the inputs pre-fill next time (not auto-joined).
+    localStorage.setItem('groupchat.room', nextRoom)
+    localStorage.setItem('groupchat.node', nextNode)
+    if (nextRoom === room && nextNode === node) return
+    setRoom(nextRoom) // triggers the connect effect
     setNode(nextNode)
   }, [roomInput, nodeInput, room, node])
 
@@ -105,20 +115,25 @@ function ChatPage(): React.JSX.Element {
     <div className="flex h-full w-full flex-col bg-background-secondary text-foreground">
       <header className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
         <div className="flex items-center gap-2">
-          <span className="max-w-[16rem] truncate text-lg font-semibold" title={room}>
-            {room}
-          </span>
           <span
-            className={`rounded-full px-2 py-0.5 text-xs ${
-              status === 'connected'
-                ? 'bg-green-500/15 text-green-500'
-                : status === 'error'
-                  ? 'bg-red-500/15 text-red-500'
-                  : 'bg-yellow-500/15 text-yellow-600'
-            }`}
+            className={`max-w-[16rem] truncate text-lg font-semibold ${room ? '' : 'text-foreground-secondary'}`}
+            title={room}
           >
-            {status === 'connected' ? 'connected' : status === 'error' ? 'error' : 'connecting…'}
+            {room || 'no room'}
           </span>
+          {room && (
+            <span
+              className={`rounded-full px-2 py-0.5 text-xs ${
+                status === 'connected'
+                  ? 'bg-green-500/15 text-green-500'
+                  : status === 'error'
+                    ? 'bg-red-500/15 text-red-500'
+                    : 'bg-yellow-500/15 text-yellow-600'
+              }`}
+            >
+              {status === 'connected' ? 'connected' : status === 'error' ? 'error' : 'connecting…'}
+            </span>
+          )}
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <input
@@ -131,7 +146,7 @@ function ChatPage(): React.JSX.Element {
               }
             }}
             className="w-52 rounded-md border border-border bg-background px-2 py-1 text-sm"
-            placeholder="room name (e.g. tonnet:mesh:v1)"
+            placeholder="room name (e.g. tonnet:groupchat)"
             aria-label="room name"
           />
           <input
@@ -173,7 +188,14 @@ function ChatPage(): React.JSX.Element {
       )}
 
       <div ref={listRef} className="flex-1 space-y-2 overflow-y-auto px-4 py-3">
-        {messages.length === 0 && (
+        {status === 'idle' && (
+          <div className="mx-auto mt-12 max-w-sm text-center text-sm text-foreground-secondary">
+            <div className="mb-1 text-base font-medium text-foreground">Join a room</div>
+            Type a room name above and press <span className="font-medium">Join</span>. There is no default room — you
+            decide which conversation to enter.
+          </div>
+        )}
+        {status !== 'idle' && messages.length === 0 && (
           <div className="mt-8 text-center text-sm text-foreground-secondary">
             No messages yet. Say hi 👋 (you only see messages sent after you joined.)
           </div>
@@ -205,7 +227,7 @@ function ChatPage(): React.JSX.Element {
           }}
           disabled={status !== 'connected'}
           className="flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm disabled:opacity-50"
-          placeholder={status === 'connected' ? 'Message…' : 'Connecting…'}
+          placeholder={status === 'connected' ? 'Message…' : status === 'idle' ? 'Join a room to chat…' : 'Connecting…'}
           aria-label="message"
         />
         <button
