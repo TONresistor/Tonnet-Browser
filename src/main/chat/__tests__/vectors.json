@@ -1,0 +1,45 @@
+{
+  "deviceSeed": "0101010101010101010101010101010101010101010101010101010101010101",
+  "walletSeed": "0909090909090909090909090909090909090909090909090909090909090909",
+  "devicePub": "8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+  "walletPub": "fd1724385aa0c75b64fb78cd602fa1d991fdebf76b13c58ed702eac835e9f618",
+  "walletAddressRaw": "0:8d58b35c8c1ee6aa669c70fbbbe36c3bc2af3b0dcd123029a91643844dc5c2ae",
+  "walletAddressFriendly": "UQCNWLNcjB7mqmaccPu742w7wq87Dc0SMCmpFkOETcXCrlJb",
+  "walletAddressShort": "UQCN…rlJb",
+  "tonproofDomain": "tonnet.chat",
+  "wts": 1719900000,
+  "wexp": 1722492000,
+  "proofPayload": "tonnet-chat-device:v1:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c:1722492000",
+  "proofDigest": "ef80358d71253d07c1f6964d937d1b953ba2e4d404ffa9dfa6f6138935c78457",
+  "wsig": "cb789216ea4f3ee11bd795547df61186a2406a12ec0d6f700d210b160d98e8b7ea66b2f96a94d7103ac22028f6ea3efb6c87eed6c72ccd3dbdb7e53d657ece02",
+  "v1": {
+    "type": "msg",
+    "nick": "alice",
+    "text": "hi",
+    "ts": 1719900000000,
+    "key": "8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+    "sig": "6c7e0649e2e0eafa5d326b76e801a09d09bd7221b7be9d500512e9bd5c6ce21939688a2d73ca560d68ff4f836d5c7871faa425ea3716ebfe7631f0e375e45507"
+  },
+  "v2NoProof": {
+    "type": "msg",
+    "nick": "alice",
+    "text": "hi",
+    "ts": 1719900000000,
+    "room": "tonnet:groupchat",
+    "key": "8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+    "sig": "1810cc504d8b5f560924547e6806fe48673261ed63fee4a69ca79087ffae3b2e1c1db1a13016dd2d9f48201765f1e4677d6ddc1ce33917a1a06e902835079904"
+  },
+  "v2Proof": {
+    "type": "msg",
+    "nick": "UQCN…rlJb",
+    "text": "hi",
+    "ts": 1719900000000,
+    "room": "tonnet:groupchat",
+    "wkey": "fd1724385aa0c75b64fb78cd602fa1d991fdebf76b13c58ed702eac835e9f618",
+    "wsig": "cb789216ea4f3ee11bd795547df61186a2406a12ec0d6f700d210b160d98e8b7ea66b2f96a94d7103ac22028f6ea3efb6c87eed6c72ccd3dbdb7e53d657ece02",
+    "wts": 1719900000,
+    "wexp": 1722492000,
+    "key": "8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+    "sig": "0e6f9ef04ea83e805bbeafe5a7b5597ad25a0beb24f2633626042992dd8669a783e98cef355cb462c977bb1ca7181159f2ec1b094a2683f83099e94fdebe8907"
+  }
+}

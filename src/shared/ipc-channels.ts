@@ -101,11 +101,14 @@ export const IPC_CHANNELS = {
   // DNS
   DNS_RESOLVE: 'dns:resolve',
 
-  // Group chat (experimental — ton://chat)
   CHAT_CONNECT: 'chat:connect',
   CHAT_SEND: 'chat:send',
   CHAT_DISCONNECT: 'chat:disconnect',
   CHAT_MESSAGE: 'chat:message',
+  CHAT_IDENTITY: 'chat:identity',
+  CHAT_IDENTITY_LINK: 'chat:identity:link',
+  CHAT_CLAIM_DOMAIN: 'chat:identity:claim-domain',
+  CHAT_CLEAR_DOMAIN: 'chat:identity:clear-domain',
 
   // Bridge permissions
   BRIDGE_SEND: 'bridge:send',
@@ -172,7 +175,6 @@ export const IPC_CHANNELS = {
   OVERLAY_UPDATE_BOUNDS: 'overlay:update-bounds',
   OVERLAY_ACTION: 'overlay:action',
 
-  // Push events (main -> renderer)
   PAGE_LOADING: 'page:loading',
   PAGE_NAVIGATE: 'page:navigate',
   PAGE_TITLE: 'page:title',

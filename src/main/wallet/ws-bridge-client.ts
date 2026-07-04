@@ -10,11 +10,6 @@ import type { DnsResolveResult } from '../../shared/types'
 
 const log = createLogger('wallet:ws-bridge')
 
-/**
- * True when a bridge get-method error indicates the contract is not yet deployed
- * (uninitialized). The bridge surfaces this as a "not initialized" message or
- * exit code -256; callers treat it as "seqno 0, init will deploy".
- */
 export function isContractNotDeployedError(err: unknown): boolean {
   const msg = err instanceof Error ? err.message : String(err ?? '')
   return msg.includes('not initialized') || msg.includes('-256')
@@ -314,10 +309,6 @@ export class WsBridgeClient {
   async resolveDomain(domain: string): Promise<DnsResolveResult> {
     const raw = await this.request<Record<string, unknown>>('dns.resolve', { domain })
 
-    // Normalize to the full DnsResolveResult shape so we capture all records the bridge/contract provides.
-    // The bridge returns mapped fields from dnsresolve (wallet, site, storage, text, next, + NFT metadata).
-    // We defensively fill new fields (storage_bag_id, next_resolver) if the bridge already sends them
-    // under common keys (e.g. storage_bag_id, dns_storage_bag_id, next_resolver, etc.).
     const normalized: DnsResolveResult = {
       wallet: (raw.wallet as string) ?? null,
       site_adnl: (raw.site_adnl as string) ?? (raw.site as string) ?? null,
@@ -332,7 +323,6 @@ export class WsBridgeClient {
       initialized: raw.initialized !== false,
       expiring_at: (raw.expiring_at as number) ?? null,
       text_records: (raw.text_records as Record<string, string>) ?? undefined,
-      // preserve any extra fields the bridge may return
       ...raw,
     }
 
@@ -345,56 +335,32 @@ export class WsBridgeClient {
     return await this.request('lite.runMethod', { address, method, params: params ?? [] })
   }
 
-  // --- Group chat / overlay (experimental, ton://chat) ---
-
-  /** Connect to the anchor by ADNL id (base64) and join the room overlay. Returns peer_id. */
   async overlayConnectAndJoin(anchorAdnlB64: string, overlayIdB64: string): Promise<string> {
     const conn = await this.request<{ peer_id: string }>('adnl.connectByADNL', { adnl_id: anchorAdnlB64 })
     await this.request('overlay.join', { overlay_id: overlayIdB64, peer_id: conn.peer_id })
     return conn.peer_id
   }
 
-  /** Send a base64 payload to the overlay (relayed by the anchor to all members). */
   async overlaySend(overlayIdB64: string, dataB64: string): Promise<void> {
     await this.request('overlay.sendMessage', { overlay_id: overlayIdB64, data: dataB64 })
   }
 
-  /** Ping a peer — used as a keepalive to hold the NAT mapping open. */
   async adnlPing(peerId: string): Promise<void> {
     await this.request('adnl.ping', { peer_id: peerId })
   }
 
-  /** Leave the overlay and drop the ADNL connection (best-effort). */
   async overlayLeaveAndDisconnect(overlayIdB64: string, peerId: string): Promise<void> {
-    try {
-      await this.request('overlay.leave', { overlay_id: overlayIdB64 })
-    } catch {
-      /* best effort */
-    }
-    try {
-      await this.request('adnl.disconnect', { peer_id: peerId })
-    } catch {
-      /* best effort */
-    }
+    await this.request('overlay.leave', { overlay_id: overlayIdB64 }).catch(() => {})
+    await this.request('adnl.disconnect', { peer_id: peerId }).catch(() => {})
   }
 
-  /** Subscribe to incoming overlay broadcasts/messages. Returns an unsubscribe fn. */
   onOverlayMessage(cb: (data: { overlay_id: string; message: string; trusted?: boolean }) => void): () => void {
     const listener: EventCallback = (data) => cb(data as { overlay_id: string; message: string; trusted?: boolean })
     this.addEventListener('overlay.message', listener)
     return () => this.removeEventListener('overlay.message', listener)
   }
 
-  /**
-   * Low-level DHT value lookup by key id + name. Used to discover a room's
-   * member nodes: key_id = overlay id (base64, 32 bytes), name = "nodes".
-   * Returns null when the record isn't published (the normal empty-room case).
-   */
   async dhtFindValue(keyIdB64: string, name: string, index = 0): Promise<{ data: string; ttl: number } | null> {
-    // A DHT lookup for a freshly-published overlay record is slow and probabilistic
-    // (the bridge caps it at ~15s and its routing table warms up over time). Wait
-    // longer than the bridge's own timeout so we see its real answer, and retry a
-    // few times — the record may exist but not be reached on the first attempt.
     const DHT_TIMEOUT_MS = 22_000
     const ATTEMPTS = 3
     let lastErr: Error | null = null
@@ -408,9 +374,7 @@ export class WsBridgeClient {
         )
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err)
-        // Definitive "absent" — the record isn't published. Don't retry.
         if (/not found|no value/i.test(msg)) return null
-        // Timeout / transient lookup failure — retry.
         lastErr = err instanceof Error ? err : new Error(msg)
       }
     }

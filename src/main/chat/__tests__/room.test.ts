@@ -8,16 +8,11 @@ import {
   parseOverlayNodes,
 } from '../room'
 
-// Golden vectors captured from tonutils-go v1.17.2 (tl.Hash / tl.Serialize):
-//   overlay id  of room "tonnet:groupchat:v1"
-//   adnl id     of node pubkey pFtc9GmL...  (== live mesh node A on the DHT)
-//   overlay.nodes record carrying that one node
 const ROOM = 'tonnet:groupchat:v1'
 const ROOM_OVERLAY_ID_B64 = 'YNsvFzQZ4AKXJmBLLHrm4p2JmoATens+MJCXxCb8gZM='
 const NODE_PUBKEY_B64 = 'pFtc9GmLbBSxByXZJP1nW8aordNLbbk9F0hxgPuXX3I='
 const NODE_ADNL_ID_B64 = 'WFG59cARqwclrUm6ubboSeeDHU4jR6d3HwUcWviY5RI='
 
-// tl.Serialize(overlay.NodesList{[node]}, boxed) for the node above (signature = 0x00..0x3f)
 const NODES_1 =
   '0e2987e401000000c6b41348a45b5cf4698b6c14b10725d924fd675bc6a8add34b6db93d17487180fb975f7260db2f17' +
   '3419e0029726604b2c7ae6e29d899a80137a7b3e309097c426fc819380b41d6740000102030405060708090a0b0c0d0e' +
@@ -42,7 +37,6 @@ describe('overlayIdForRoom', () => {
   })
 
   it('handles a long (>=254 byte) room name without throwing', () => {
-    // exercises the 0xfe long-length branch of the TL bytes encoding
     const long = 'x'.repeat(300)
     expect(() => overlayIdForRoom(long)).not.toThrow()
     expect(overlayIdForRoom(long)).toHaveLength(32)
@@ -75,9 +69,6 @@ describe('parseOverlayNodes', () => {
   })
 
   it('parses a real record captured live from the DHT (default-room anchor)', () => {
-    // Independent vector: the actual `overlay.nodes` value the production anchor
-    // publishes under overlayIdForRoom('tonnet:groupchat:v1'), fetched via dht.findValue.
-    // Confirms byte-compat with what the bridge returns to the browser at runtime.
     const LIVE =
       '0e2987e401000000c6b41348c9c1927934104f914f28f4874e6aa5f5027800d7b8abcbf973ab7a0ee6a352f260db2f17' +
       '3419e0029726604b2c7ae6e29d899a80137a7b3e309097c426fc8193df9e476a4073fdda9f1aebe9669964b44a711d5d' +
@@ -85,7 +76,6 @@ describe('parseOverlayNodes', () => {
     const nodes = parseOverlayNodes(Buffer.from(LIVE, 'hex'))
     expect(nodes).toHaveLength(1)
     expect(nodes[0].pubkey.toString('base64')).toBe('ycGSeTQQT5FPKPSHTmql9QJ4ANe4q8v5c6t6DuajUvI=')
-    // derived ADNL id must equal the known production anchor ADNL id
     expect(nodes[0].adnlId.toString('base64')).toBe('f+R0sAdNw5W1IbBNa7wO1D80n/vvT9fdugL7pPh56ZQ=')
   })
 

@@ -186,12 +186,14 @@ const electronAPI = {
     resolve: (domain: string) => ipcRenderer.invoke(IPC_CHANNELS.DNS_RESOLVE, domain),
   },
 
-  // Group chat (ton://chat) — join any room by name (omit for the default room);
-  // pass an optional node id (base64 ADNL) to bootstrap directly into a room.
   chat: {
     connect: (room?: string, node?: string) => ipcRenderer.invoke(IPC_CHANNELS.CHAT_CONNECT, room, node),
-    send: (nick: string, text: string) => ipcRenderer.invoke(IPC_CHANNELS.CHAT_SEND, nick, text),
+    send: (text: string) => ipcRenderer.invoke(IPC_CHANNELS.CHAT_SEND, text),
     disconnect: () => ipcRenderer.invoke(IPC_CHANNELS.CHAT_DISCONNECT),
+    identity: () => ipcRenderer.invoke(IPC_CHANNELS.CHAT_IDENTITY),
+    linkIdentity: () => ipcRenderer.invoke(IPC_CHANNELS.CHAT_IDENTITY_LINK),
+    claimDomain: (domain: string) => ipcRenderer.invoke(IPC_CHANNELS.CHAT_CLAIM_DOMAIN, domain),
+    clearDomain: () => ipcRenderer.invoke(IPC_CHANNELS.CHAT_CLEAR_DOMAIN),
   },
 
   // Cocoon AI

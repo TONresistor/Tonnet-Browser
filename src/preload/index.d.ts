@@ -301,8 +301,16 @@ declare global {
       }
       chat: {
         connect: (room?: string, node?: string) => Promise<{ connected: boolean; room: string; via: 'node' | 'dht' }>
-        send: (nick: string, text: string) => Promise<{ sent: boolean }>
+        send: (
+          text: string
+        ) => Promise<{ sent: boolean; needsLink?: boolean; identity?: import('../shared/types').OwnChatIdentity }>
         disconnect: () => Promise<{ disconnected: boolean }>
+        identity: () => Promise<import('../shared/types').OwnChatIdentity>
+        linkIdentity: () => Promise<import('../shared/types').OwnChatIdentity>
+        claimDomain: (
+          domain: string
+        ) => Promise<{ ok: boolean; reason?: string; identity: import('../shared/types').OwnChatIdentity }>
+        clearDomain: () => Promise<import('../shared/types').OwnChatIdentity>
       }
       cocoon: {
         availability: () => Promise<CocoonAvailability>
