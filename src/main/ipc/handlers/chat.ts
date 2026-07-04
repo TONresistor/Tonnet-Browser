@@ -18,17 +18,18 @@
 
 import { IPC_CHANNELS } from '../../../shared/ipc-channels'
 import { GROUPCHAT_DOMAIN, GROUPCHAT_ROOM } from '../../../shared/groupchat'
-import { normalizeRoom, overlayIdB64ForRoom, parseOverlayNodes } from '../../chat/room'
+import { normalizeRoom, normalizeNodeId, overlayIdB64ForRoom, parseOverlayNodes } from '../../chat/room'
 import { secureHandle, emitToRenderer, toError, log } from './shared'
 import type { WsBridgeClient } from '../../wallet/ws-bridge-client'
 import type { ServiceRegistry } from '../../services'
 
-type Via = 'dns' | 'dht'
+type Via = 'node' | 'dns' | 'dht'
 
 interface ChatSession {
   room: string
   overlayId: string // base64
   via: Via
+  bootstrap?: string // the explicit node id used, if any
   peerId: string
   unsub: () => void
   keepalive: NodeJS.Timeout
@@ -57,7 +58,12 @@ async function teardownSession(bridge: WsBridgeClient | null): Promise<void> {
 }
 
 /** Resolve the candidate nodes to bootstrap into, de-duplicated by ADNL id. */
-async function resolveCandidates(bridge: WsBridgeClient, room: string, overlayId: string): Promise<Candidate[]> {
+async function resolveCandidates(
+  bridge: WsBridgeClient,
+  room: string,
+  overlayId: string,
+  bootstrap?: string
+): Promise<Candidate[]> {
   const seen = new Set<string>()
   const out: Candidate[] = []
   const add = (adnl: string, via: Via): void => {
@@ -66,6 +72,10 @@ async function resolveCandidates(bridge: WsBridgeClient, room: string, overlayId
       out.push({ adnl, via })
     }
   }
+
+  // 0. Explicit bootstrap node — most reliable: connects by ADNL id and skips the
+  //    overlay-nodes DHT lookup, which can be slow to propagate for a fresh room.
+  if (bootstrap) add(bootstrap, 'node')
 
   // 1. DNS anchor — only the default room has a well-known domain.
   if (room === GROUPCHAT_ROOM) {
@@ -97,11 +107,18 @@ async function resolveCandidates(bridge: WsBridgeClient, room: string, overlayId
 }
 
 /** Open a session for `room`, trying each candidate node until one works. */
-async function connectRoom(bridge: WsBridgeClient, room: string): Promise<{ room: string; via: Via }> {
+async function connectRoom(
+  bridge: WsBridgeClient,
+  room: string,
+  bootstrap?: string
+): Promise<{ room: string; via: Via }> {
   const overlayId = overlayIdB64ForRoom(room)
-  const candidates = await resolveCandidates(bridge, room, overlayId)
+  const candidates = await resolveCandidates(bridge, room, overlayId, bootstrap)
   if (candidates.length === 0) {
-    throw new Error(`No nodes found for room "${room}". The room may be empty, or its nodes are offline.`)
+    throw new Error(
+      `No nodes found for room "${room}". Its nodes may be offline, or the room is new and not yet ` +
+        `discoverable on the network — paste a known node id to connect directly.`
+    )
   }
 
   let lastErr: Error | null = null
@@ -136,7 +153,7 @@ async function connectRoom(bridge: WsBridgeClient, room: string): Promise<{ room
         bridge.adnlPing(peerId).catch(() => {})
       }, 10_000)
 
-      session = { room, overlayId, via: cand.via, peerId, unsub, keepalive }
+      session = { room, overlayId, via: cand.via, bootstrap, peerId, unsub, keepalive }
 
       // Announce ourselves so the node registers us as a member and starts relaying
       // to us right away — a silent client would never enter the relay set.
@@ -160,8 +177,9 @@ async function connectRoom(bridge: WsBridgeClient, room: string): Promise<{ room
 export function registerChatHandlers(registry: ServiceRegistry): void {
   const { walletManager } = registry
 
-  secureHandle(IPC_CHANNELS.CHAT_CONNECT, async (roomArg?: string) => {
+  secureHandle(IPC_CHANNELS.CHAT_CONNECT, async (roomArg?: string, nodeArg?: string) => {
     const room = normalizeRoom(roomArg || GROUPCHAT_ROOM)
+    const bootstrap = normalizeNodeId(nodeArg)
 
     // Chain onto any in-flight connect so mounts/switches never race.
     const run = connectChain
@@ -170,10 +188,13 @@ export function registerChatHandlers(registry: ServiceRegistry): void {
         const bridge = walletManager.getBridgeClient()
         if (!bridge) throw new Error('Bridge not connected — connect the proxy first')
 
-        if (session?.room === room) return { connected: true, room, via: session.via }
-        if (session) await teardownSession(bridge) // switching rooms
+        // Reuse the session only when nothing about the target changed.
+        if (session?.room === room && session.bootstrap === bootstrap) {
+          return { connected: true, room, via: session.via }
+        }
+        if (session) await teardownSession(bridge) // switching rooms / node
 
-        const { via } = await connectRoom(bridge, room)
+        const { via } = await connectRoom(bridge, room, bootstrap)
         return { connected: true, room, via }
       })
     connectChain = run

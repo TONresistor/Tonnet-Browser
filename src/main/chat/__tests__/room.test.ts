@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest'
-import { normalizeRoom, overlayIdForRoom, overlayIdB64ForRoom, adnlIdForPubkey, parseOverlayNodes } from '../room'
+import {
+  normalizeRoom,
+  normalizeNodeId,
+  overlayIdForRoom,
+  overlayIdB64ForRoom,
+  adnlIdForPubkey,
+  parseOverlayNodes,
+} from '../room'
 
 // Golden vectors captured from tonutils-go v1.17.2 (tl.Hash / tl.Serialize):
 //   overlay id  of room "tonnet:groupchat:v1"
@@ -104,5 +111,21 @@ describe('normalizeRoom', () => {
   })
   it('rejects an over-long name', () => {
     expect(() => normalizeRoom('x'.repeat(200))).toThrow(/too long/)
+  })
+})
+
+describe('normalizeNodeId', () => {
+  it('returns undefined for blank / whitespace', () => {
+    expect(normalizeNodeId('')).toBeUndefined()
+    expect(normalizeNodeId('   ')).toBeUndefined()
+    expect(normalizeNodeId(undefined)).toBeUndefined()
+  })
+  it('accepts a valid 32-byte base64 ADNL id', () => {
+    expect(normalizeNodeId('  WFG59cARqwclrUm6ubboSeeDHU4jR6d3HwUcWviY5RI= ')).toBe(
+      'WFG59cARqwclrUm6ubboSeeDHU4jR6d3HwUcWviY5RI='
+    )
+  })
+  it('rejects a value that is not 32 bytes', () => {
+    expect(() => normalizeNodeId('deadbeef')).toThrow(/32-byte/)
   })
 })

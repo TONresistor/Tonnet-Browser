@@ -186,9 +186,10 @@ const electronAPI = {
     resolve: (domain: string) => ipcRenderer.invoke(IPC_CHANNELS.DNS_RESOLVE, domain),
   },
 
-  // Group chat (ton://chat) — join any room by name (omit for the default room)
+  // Group chat (ton://chat) — join any room by name (omit for the default room);
+  // pass an optional node id (base64 ADNL) to bootstrap directly into a room.
   chat: {
-    connect: (room?: string) => ipcRenderer.invoke(IPC_CHANNELS.CHAT_CONNECT, room),
+    connect: (room?: string, node?: string) => ipcRenderer.invoke(IPC_CHANNELS.CHAT_CONNECT, room, node),
     send: (nick: string, text: string) => ipcRenderer.invoke(IPC_CHANNELS.CHAT_SEND, nick, text),
     disconnect: () => ipcRenderer.invoke(IPC_CHANNELS.CHAT_DISCONNECT),
   },

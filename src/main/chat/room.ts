@@ -60,6 +60,20 @@ export function normalizeRoom(room: string): string {
   return r
 }
 
+/**
+ * Validate an optional bootstrap node id — a base64 ADNL id (32 bytes) the user
+ * can supply to join a room directly, bypassing the overlay-nodes DHT lookup
+ * (which can be slow to propagate for a freshly-created room). Returns undefined
+ * when blank; throws on a malformed value so the UI can surface it.
+ */
+export function normalizeNodeId(node?: string): string | undefined {
+  const n = (node ?? '').trim()
+  if (!n) return undefined
+  const raw = Buffer.from(n, 'base64')
+  if (raw.length !== 32) throw new Error('node id must be a 32-byte base64 ADNL id')
+  return n
+}
+
 /** overlay id = tl.Hash(pub.overlay{ name: room }) — the 32-byte id for overlay.join / sendMessage. */
 export function overlayIdForRoom(room: string): Buffer {
   return sha256(PUB_OVERLAY_MAGIC, tlBytes(Buffer.from(room, 'utf-8')))

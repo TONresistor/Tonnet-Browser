@@ -25,6 +25,10 @@ function ChatPage(): React.JSX.Element {
   const [nick, setNick] = useState<string>(() => localStorage.getItem('groupchat.nick') || randomNick())
   const [room, setRoom] = useState<string>(() => localStorage.getItem('groupchat.room') || GROUPCHAT_ROOM)
   const [roomInput, setRoomInput] = useState<string>(room)
+  // Optional bootstrap node id (base64 ADNL): connect straight to a known node,
+  // bypassing DHT discovery (which can be slow for a freshly-created room).
+  const [node, setNode] = useState<string>(() => localStorage.getItem('groupchat.node') || '')
+  const [nodeInput, setNodeInput] = useState<string>(node)
   const [messages, setMessages] = useState<Msg[]>([])
   const [input, setInput] = useState('')
   const [status, setStatus] = useState<Status>('connecting')
@@ -40,15 +44,16 @@ function ChatPage(): React.JSX.Element {
     localStorage.setItem('groupchat.nick', nick)
   }, [nick])
 
-  // Join `room` whenever it changes (initial mount + every switch).
+  // Join the room whenever the room or bootstrap node changes (mount + switches).
   useEffect(() => {
     let cancelled = false
     localStorage.setItem('groupchat.room', room)
+    localStorage.setItem('groupchat.node', node)
     setStatus('connecting')
     setError(null)
     setMessages([])
     window.electron.chat
-      .connect(room)
+      .connect(room, node || undefined)
       .then((res) => {
         if (!cancelled && res.room === roomRef.current) setStatus('connected')
       })
@@ -61,7 +66,7 @@ function ChatPage(): React.JSX.Element {
     return () => {
       cancelled = true
     }
-  }, [room])
+  }, [room, node])
 
   // Incoming messages (listener mounted once; filters by the live room).
   useEffect(() => {
@@ -77,10 +82,12 @@ function ChatPage(): React.JSX.Element {
   }, [messages])
 
   const joinRoom = useCallback(() => {
-    const next = roomInput.trim()
-    if (!next || next === room) return
-    setRoom(next) // triggers the join effect
-  }, [roomInput, room])
+    const nextRoom = roomInput.trim()
+    const nextNode = nodeInput.trim()
+    if (!nextRoom || (nextRoom === room && nextNode === node)) return
+    setRoom(nextRoom) // triggers the join effect
+    setNode(nextNode)
+  }, [roomInput, nodeInput, room, node])
 
   const send = useCallback(async () => {
     const text = input.trim()
@@ -113,7 +120,7 @@ function ChatPage(): React.JSX.Element {
             {status === 'connected' ? 'connected' : status === 'error' ? 'error' : 'connecting…'}
           </span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <input
             value={roomInput}
             onChange={(e) => setRoomInput(e.target.value.slice(0, 128))}
@@ -127,9 +134,23 @@ function ChatPage(): React.JSX.Element {
             placeholder="room name (e.g. tonnet:mesh:v1)"
             aria-label="room name"
           />
+          <input
+            value={nodeInput}
+            onChange={(e) => setNodeInput(e.target.value.trim().slice(0, 64))}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                joinRoom()
+              }
+            }}
+            className="w-48 rounded-md border border-border bg-background px-2 py-1 font-mono text-xs"
+            placeholder="node id (optional)"
+            aria-label="bootstrap node id"
+            title="Optional: base64 ADNL id of a known node to connect directly, bypassing discovery"
+          />
           <button
             onClick={joinRoom}
-            disabled={!roomInput.trim() || roomInput.trim() === room}
+            disabled={!roomInput.trim() || (roomInput.trim() === room && nodeInput.trim() === node)}
             className="rounded-md bg-accent px-3 py-1 text-sm font-medium text-white disabled:opacity-50"
           >
             Join
@@ -137,7 +158,7 @@ function ChatPage(): React.JSX.Element {
           <input
             value={nick}
             onChange={(e) => setNick(e.target.value.slice(0, 32))}
-            className="w-32 rounded-md border border-border bg-background px-2 py-1 text-sm"
+            className="w-28 rounded-md border border-border bg-background px-2 py-1 text-sm"
             placeholder="nickname"
             aria-label="nickname"
           />

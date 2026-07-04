@@ -300,7 +300,10 @@ declare global {
         resolve(domain: string): Promise<import('../shared/types').DnsResolveResult>
       }
       chat: {
-        connect: (room?: string) => Promise<{ connected: boolean; room: string; via: 'dns' | 'dht' }>
+        connect: (
+          room?: string,
+          node?: string
+        ) => Promise<{ connected: boolean; room: string; via: 'node' | 'dns' | 'dht' }>
         send: (nick: string, text: string) => Promise<{ sent: boolean }>
         disconnect: () => Promise<{ disconnected: boolean }>
       }
