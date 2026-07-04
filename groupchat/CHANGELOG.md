@@ -138,3 +138,31 @@ cd groupchat/anchor && go build -o /dev/null .     # sanity build
 scp main.go <server>:/opt/groupchat-anchor/
 ssh <server> 'cd /opt/groupchat-anchor && go build -o groupchat-anchor . && systemctl restart groupchat-anchor'
 ```
+
+---
+
+## Change history
+
+### 2026-07-02 — cleanup: quiet logs + member-scoped relay
+
+Post-MVP cleanup. **ADNL id / overlay id / DNS record all unchanged** (anchor key persisted; only the relay logic + logging changed). Redeployed to <server> (isolated unit — no impact on `.ton` sites).
+
+- **Anchor (`anchor/main.go`)** — the gateway also sees ~20 transient DHT nodes as ADNL peers; the relay used to fan out to *all* of them. Now a peer becomes a **member** only the first time it sends overlay-prefixed traffic (a hello or a chat message); the relay targets members only. DHT nodes never send overlay messages, so they stay out. Verbose per-message relay logs removed; kept concise `member joined/left (members N)` + failure logs + the 5-min DHT-republish heartbeat.
+- **Browser (`src/main/ipc/handlers/chat.ts`)** — on connect the client now sends a `hello` control frame so it registers as a member (and starts receiving) **before** typing; without it a silent client would never enter the relay set. Removed the `overlay.message` diagnostic log. Message envelope gained a `type` field: `'msg'` = chat line, `'hello'`/future = control (receiver ignores non-`'msg'`).
+- **Reference client (`browser/groupchat-client.ts`)** — mirrored the same `hello` + `type` filtering, and added the NAT keepalive (`adnl.ping` every 10s) it was previously missing.
+
+Verified: anchor `go build`/`vet`/`gofmt` clean; browser `type-check` + `eslint` clean; anchor live on <server> (`active`, republishing). Live 2-machine browser test pending a rebuild on both machines.
+
+### 2026-07-03 — browser: join ANY room by name (decentralized discovery)
+
+The `ton://chat` page is no longer pinned to one hardcoded room + one anchor. A user can type any room name and the browser finds and connects to that room's nodes itself. **No bridge rebuild needed** — the bundled `tonutils-bridge v0.3.0` already exposes `dht.findValue`, so discovery works with the shipping binary.
+
+- **New `src/main/chat/room.ts`** — derives everything from the room name locally, byte-for-byte compatible with tonutils-go (pinned by golden vectors + one live DHT capture in `room.test.ts`):
+  - `overlayIdForRoom(name)` = `tl.Hash(pub.overlay{name})` → the id for `overlay.join`/`sendMessage` (was the hardcoded `GROUPCHAT_OVERLAY_ID`).
+  - `adnlIdForPubkey(pubkey)` = `tl.Hash(pub.ed25519{key})` → the ADNL id to dial a discovered node.
+  - `parseOverlayNodes(bytes)` — parses the TL `overlay.nodes` DHT record into node pubkeys.
+- **Discovery (`src/main/ipc/handlers/chat.ts`)** — resolve a room's nodes in order: (1) DNS anchor for the **default** room only (fast, reliable); (2) **DHT** via `dht.findValue(overlayId, "nodes")` → `parseOverlayNodes` → ADNL ids — the general path, works for every room incl. mesh rooms with no DNS. Candidates are de-duplicated and tried until one connects+joins. Sessions are keyed by room; switching rooms tears the old one down; connects are serialized (StrictMode-safe).
+- **`src/main/wallet/ws-bridge-client.ts`** — added `dhtFindValue(keyIdB64, name, index)` (treats "not found" as an empty room → `null`).
+- **UI (`ChatPage.tsx`)** — added a **room** input + **Join** button next to the nickname; the current room is shown in the header and persisted (`localStorage groupchat.room`). Messages clear on switch and are filtered by the live room. `chat.connect(room?)` now takes an optional room (defaults to `GROUPCHAT_ROOM`); `chat:message` carries `room`.
+
+Verified: `type-check` (5 tsconfigs) + `eslint` (0 errors) + full `vitest` (818 tests, incl. 13 new in `room.test.ts`) + `electron-vite build` all green. Discovery data-path proven **live**: `overlayIdForRoom('tonnet:groupchat:v1')` matches the anchor's published overlay id, and the live `overlay.nodes` DHT record parses to the real anchor ADNL `f+R0…`. Live in-app 2-machine test still pending (needs the dev build run on two machines / a room with nodes online).

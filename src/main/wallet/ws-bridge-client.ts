@@ -116,6 +116,7 @@ export class WsBridgeClient {
     resolve: (v: unknown) => void
     reject: (e: Error) => void
     method: string
+    timeoutMs?: number
   }> = []
   private connected = false
   private connecting = false
@@ -384,16 +385,54 @@ export class WsBridgeClient {
     return () => this.removeEventListener('overlay.message', listener)
   }
 
+  /**
+   * Low-level DHT value lookup by key id + name. Used to discover a room's
+   * member nodes: key_id = overlay id (base64, 32 bytes), name = "nodes".
+   * Returns null when the record isn't published (the normal empty-room case).
+   */
+  async dhtFindValue(keyIdB64: string, name: string, index = 0): Promise<{ data: string; ttl: number } | null> {
+    // A DHT lookup for a freshly-published overlay record is slow and probabilistic
+    // (the bridge caps it at ~15s and its routing table warms up over time). Wait
+    // longer than the bridge's own timeout so we see its real answer, and retry a
+    // few times — the record may exist but not be reached on the first attempt.
+    const DHT_TIMEOUT_MS = 22_000
+    const ATTEMPTS = 3
+    let lastErr: Error | null = null
+    for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
+      try {
+        return await this.request<{ data: string; ttl: number }>(
+          'dht.findValue',
+          { key_id: keyIdB64, name, index },
+          undefined,
+          DHT_TIMEOUT_MS
+        )
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err)
+        // Definitive "absent" — the record isn't published. Don't retry.
+        if (/not found|no value/i.test(msg)) return null
+        // Timeout / transient lookup failure — retry.
+        lastErr = err instanceof Error ? err : new Error(msg)
+      }
+    }
+    if (lastErr) log.warn(`dht.findValue gave up after ${ATTEMPTS} attempts: ${lastErr.message}`)
+    return null
+  }
+
   // --- Internal: JSON-RPC transport ---
 
-  private request<T = unknown>(method: string, params: RpcParams, guard?: (value: unknown) => value is T): Promise<T> {
+  private request<T = unknown>(
+    method: string,
+    params: RpcParams,
+    guard?: (value: unknown) => value is T,
+    timeoutMs: number = REQUEST_TIMEOUT_MS
+  ): Promise<T> {
     const id = String(++this.nextId)
     const message = JSON.stringify({ jsonrpc: '2.0', id, method, params })
 
     const raw = this.connected
-      ? this.sendRequest(id, message, method)
+      ? this.sendRequest(id, message, method, timeoutMs)
       : new Promise<unknown>((resolve, reject) => {
-          this.requestQueue.push({ message, resolve, reject, method })
+          this.requestQueue.push({ message, resolve, reject, method, timeoutMs })
         })
 
     return raw.then((value) => {
@@ -404,12 +443,17 @@ export class WsBridgeClient {
     })
   }
 
-  private sendRequest(id: string, message: string, method: string): Promise<unknown> {
+  private sendRequest(
+    id: string,
+    message: string,
+    method: string,
+    timeoutMs: number = REQUEST_TIMEOUT_MS
+  ): Promise<unknown> {
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
         this.pending.delete(id)
         reject(new Error(`Request timeout: ${method}`))
-      }, REQUEST_TIMEOUT_MS)
+      }, timeoutMs)
 
       this.pending.set(id, { resolve, reject, timer })
       this.ws!.send(message, (err) => {
@@ -659,11 +703,11 @@ export class WsBridgeClient {
   private drainQueue(): void {
     const queue = this.requestQueue
     this.requestQueue = []
-    for (const { message, resolve, reject, method } of queue) {
+    for (const { message, resolve, reject, method, timeoutMs } of queue) {
       // Re-parse the id from the queued message
       try {
         const parsed = JSON.parse(message)
-        this.sendRequest(parsed.id, message, method).then(resolve, reject)
+        this.sendRequest(parsed.id, message, method, timeoutMs).then(resolve, reject)
       } catch {
         reject(new Error('Failed to replay queued request'))
       }

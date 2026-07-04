@@ -1,9 +1,12 @@
 /**
- * Experimental group chat page (ton://chat).
- * Connects to groupchat.ton via the local bridge (overlay relay through the anchor)
- * and shows a simple live room. See /groupchat for the anchor + protocol.
+ * Group chat page (ton://chat).
+ * Join ANY room by name: the main process derives the overlay id from the name,
+ * discovers the room's nodes on the DHT, connects through the local bridge, and
+ * streams messages back. Type a room and press Join to switch rooms.
+ * See /groupchat for the anchor + protocol.
  */
 import { useState, useEffect, useRef, useCallback, memo } from 'react'
+import { GROUPCHAT_ROOM } from '@shared/groupchat'
 
 interface Msg {
   nick: string
@@ -20,25 +23,34 @@ function randomNick(): string {
 
 function ChatPage(): React.JSX.Element {
   const [nick, setNick] = useState<string>(() => localStorage.getItem('groupchat.nick') || randomNick())
+  const [room, setRoom] = useState<string>(() => localStorage.getItem('groupchat.room') || GROUPCHAT_ROOM)
+  const [roomInput, setRoomInput] = useState<string>(room)
   const [messages, setMessages] = useState<Msg[]>([])
   const [input, setInput] = useState('')
   const [status, setStatus] = useState<Status>('connecting')
   const [error, setError] = useState<string | null>(null)
   const listRef = useRef<HTMLDivElement>(null)
 
+  // Current room seen by the (mount-once) message listener, so late events from
+  // a room we just left are dropped instead of leaking into the new room.
+  const roomRef = useRef(room)
+  roomRef.current = room
+
   useEffect(() => {
     localStorage.setItem('groupchat.nick', nick)
   }, [nick])
 
+  // Join `room` whenever it changes (initial mount + every switch).
   useEffect(() => {
     let cancelled = false
-    const off = window.electron.on('chat:message', (m) => {
-      setMessages((prev) => [...prev, { ...m, self: false }])
-    })
+    localStorage.setItem('groupchat.room', room)
+    setStatus('connecting')
+    setError(null)
+    setMessages([])
     window.electron.chat
-      .connect()
-      .then(() => {
-        if (!cancelled) setStatus('connected')
+      .connect(room)
+      .then((res) => {
+        if (!cancelled && res.room === roomRef.current) setStatus('connected')
       })
       .catch((e: unknown) => {
         if (!cancelled) {
@@ -48,15 +60,27 @@ function ChatPage(): React.JSX.Element {
       })
     return () => {
       cancelled = true
-      off()
-      // Keep the main-process session alive across remounts (React StrictMode-safe);
-      // reconnect is idempotent. The session is torn down when the app closes.
     }
+  }, [room])
+
+  // Incoming messages (listener mounted once; filters by the live room).
+  useEffect(() => {
+    const off = window.electron.on('chat:message', (m) => {
+      if (m.room && m.room !== roomRef.current) return
+      setMessages((prev) => [...prev, { nick: m.nick, text: m.text, ts: m.ts, self: false }])
+    })
+    return () => off()
   }, [])
 
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight })
   }, [messages])
+
+  const joinRoom = useCallback(() => {
+    const next = roomInput.trim()
+    if (!next || next === room) return
+    setRoom(next) // triggers the join effect
+  }, [roomInput, room])
 
   const send = useCallback(async () => {
     const text = input.trim()
@@ -72,9 +96,11 @@ function ChatPage(): React.JSX.Element {
 
   return (
     <div className="flex h-full w-full flex-col bg-background-secondary text-foreground">
-      <header className="flex items-center justify-between border-b border-border px-4 py-3">
+      <header className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
         <div className="flex items-center gap-2">
-          <span className="text-lg font-semibold">groupchat.ton</span>
+          <span className="max-w-[16rem] truncate text-lg font-semibold" title={room}>
+            {room}
+          </span>
           <span
             className={`rounded-full px-2 py-0.5 text-xs ${
               status === 'connected'
@@ -86,15 +112,36 @@ function ChatPage(): React.JSX.Element {
           >
             {status === 'connected' ? 'connected' : status === 'error' ? 'error' : 'connecting…'}
           </span>
-          <span className="text-xs text-foreground-secondary">experimental</span>
         </div>
-        <input
-          value={nick}
-          onChange={(e) => setNick(e.target.value.slice(0, 32))}
-          className="w-40 rounded-md border border-border bg-background px-2 py-1 text-sm"
-          placeholder="nickname"
-          aria-label="nickname"
-        />
+        <div className="flex items-center gap-2">
+          <input
+            value={roomInput}
+            onChange={(e) => setRoomInput(e.target.value.slice(0, 128))}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                joinRoom()
+              }
+            }}
+            className="w-52 rounded-md border border-border bg-background px-2 py-1 text-sm"
+            placeholder="room name (e.g. tonnet:mesh:v1)"
+            aria-label="room name"
+          />
+          <button
+            onClick={joinRoom}
+            disabled={!roomInput.trim() || roomInput.trim() === room}
+            className="rounded-md bg-accent px-3 py-1 text-sm font-medium text-white disabled:opacity-50"
+          >
+            Join
+          </button>
+          <input
+            value={nick}
+            onChange={(e) => setNick(e.target.value.slice(0, 32))}
+            className="w-32 rounded-md border border-border bg-background px-2 py-1 text-sm"
+            placeholder="nickname"
+            aria-label="nickname"
+          />
+        </div>
       </header>
 
       {error && (
