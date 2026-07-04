@@ -26,6 +26,7 @@ const BookmarksPage = lazy(() => import('@/components/pages/BookmarksPage').then
 const WalletPage = lazy(() => import('@/components/pages/WalletPage'))
 const DnsPage = lazy(() => import('@/components/pages/DnsPage'))
 const CocoonChatPage = lazy(() => import('@/components/pages/CocoonChatPage'))
+const ChatPage = lazy(() => import('@/components/pages/ChatPage'))
 import { useBrowserStore } from '@/stores/browser'
 import { useTabsStore } from '@/stores/tabs'
 import { usePreferencesStore } from '@/stores/preferences'
@@ -258,6 +259,8 @@ function App() {
         return <WalletPage />
       case 'dns':
         return <DnsPage />
+      case 'chat':
+        return <ChatPage />
       case 'cocoon':
         return <CocoonChatPage />
       case 'loading':

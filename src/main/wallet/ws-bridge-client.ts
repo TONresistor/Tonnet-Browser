@@ -344,6 +344,46 @@ export class WsBridgeClient {
     return await this.request('lite.runMethod', { address, method, params: params ?? [] })
   }
 
+  // --- Group chat / overlay (experimental, ton://chat) ---
+
+  /** Connect to the anchor by ADNL id (base64) and join the room overlay. Returns peer_id. */
+  async overlayConnectAndJoin(anchorAdnlB64: string, overlayIdB64: string): Promise<string> {
+    const conn = await this.request<{ peer_id: string }>('adnl.connectByADNL', { adnl_id: anchorAdnlB64 })
+    await this.request('overlay.join', { overlay_id: overlayIdB64, peer_id: conn.peer_id })
+    return conn.peer_id
+  }
+
+  /** Send a base64 payload to the overlay (relayed by the anchor to all members). */
+  async overlaySend(overlayIdB64: string, dataB64: string): Promise<void> {
+    await this.request('overlay.sendMessage', { overlay_id: overlayIdB64, data: dataB64 })
+  }
+
+  /** Ping a peer — used as a keepalive to hold the NAT mapping open. */
+  async adnlPing(peerId: string): Promise<void> {
+    await this.request('adnl.ping', { peer_id: peerId })
+  }
+
+  /** Leave the overlay and drop the ADNL connection (best-effort). */
+  async overlayLeaveAndDisconnect(overlayIdB64: string, peerId: string): Promise<void> {
+    try {
+      await this.request('overlay.leave', { overlay_id: overlayIdB64 })
+    } catch {
+      /* best effort */
+    }
+    try {
+      await this.request('adnl.disconnect', { peer_id: peerId })
+    } catch {
+      /* best effort */
+    }
+  }
+
+  /** Subscribe to incoming overlay broadcasts/messages. Returns an unsubscribe fn. */
+  onOverlayMessage(cb: (data: { overlay_id: string; message: string; trusted?: boolean }) => void): () => void {
+    const listener: EventCallback = (data) => cb(data as { overlay_id: string; message: string; trusted?: boolean })
+    this.addEventListener('overlay.message', listener)
+    return () => this.removeEventListener('overlay.message', listener)
+  }
+
   // --- Internal: JSON-RPC transport ---
 
   private request<T = unknown>(method: string, params: RpcParams, guard?: (value: unknown) => value is T): Promise<T> {

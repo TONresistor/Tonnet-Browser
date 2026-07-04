@@ -21,6 +21,7 @@ import {
   registerBridgeHandlers,
   registerTonConnectHandlers,
   registerCocoonHandlers,
+  registerChatHandlers,
 } from './handlers/index'
 
 // Re-export for use by other modules (e.g. updater.ts, payment-interceptor.ts)
@@ -55,4 +56,5 @@ export function registerIpcHandlers(registry: ServiceRegistry): void {
   registerBridgeHandlers(registry)
   registerTonConnectHandlers(registry)
   registerCocoonHandlers(registry)
+  registerChatHandlers(registry)
 }

@@ -123,10 +123,11 @@ export const DEFAULT_NAMESPACE_STATE: Record<NamespaceKey, boolean> = {
   wallet: true,
   subscribe: true,
   dns: true,
-  // dApp-only: enable on demand via Settings > Bridge
-  adnl: false,
-  overlay: false,
-  dht: false,
+  // Enabled for the experimental group chat (ton://chat) — needs adnl/overlay/dht.
+  // (feature branch: groupchat; see /groupchat/CHANGELOG.md)
+  adnl: true,
+  overlay: true,
+  dht: true,
   // Unused: no method calls in codebase
   subscribe_trace: false,
   jetton: false,

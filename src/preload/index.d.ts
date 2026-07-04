@@ -299,6 +299,11 @@ declare global {
       dns: {
         resolve(domain: string): Promise<import('../shared/types').DnsResolveResult>
       }
+      chat: {
+        connect: () => Promise<{ connected: boolean }>
+        send: (nick: string, text: string) => Promise<{ sent: boolean }>
+        disconnect: () => Promise<{ disconnected: boolean }>
+      }
       cocoon: {
         availability: () => Promise<CocoonAvailability>
         status: () => Promise<CocoonState>

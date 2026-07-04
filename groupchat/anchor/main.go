@@ -1,3 +1,12 @@
+// groupchat-anchor is a standalone, always-on seed/relay node for the experimental
+// Tonnet group chat. It is NOT the tonutils-bridge and does NOT touch it: it opens
+// its own ADNL gateway on a dedicated UDP port, hosts a single public overlay
+// (the "room"), relays messages between connected peers (star/hub topology), and
+// publishes itself to the DHT so browser clients can discover and reach it.
+//
+// groupchat.ton's site record should point at this node's ADNL id (printed on start).
+//
+// MVP scope: live relay only (no persisted history — see CHANGELOG, planned v2).
 package main
 
 import (
@@ -21,6 +30,9 @@ import (
 	"github.com/xssnick/tonutils-go/tl"
 )
 
+// RawMessage mirrors tonutils-bridge's ws.rawMessage so chat payloads relayed by
+// the anchor decode symmetrically on browser clients (which go through the bridge's
+// overlay.sendMessage / overlay.message path).
 type RawMessage struct {
 	Data []byte `tl:"bytes"`
 }
@@ -38,13 +50,17 @@ const (
 type anchor struct {
 	gw        *adnl.Gateway
 	key       ed25519.PrivateKey
-	room      []byte
-	overlayID []byte
+	room      []byte // raw overlay descriptor name (StoreOverlayNodes hashes it itself)
+	overlayID []byte // tl.Hash(pub.overlay{name: room})
 
 	mu    sync.RWMutex
 	peers map[string]*peerState
 }
 
+// peerState tracks a connected ADNL peer. `member` flips to true the first time
+// the peer sends overlay-prefixed traffic (a hello or a chat message). Passing
+// DHT nodes share the same gateway and trigger onConnect too, but never send
+// overlay messages — so they stay non-members and never enter the relay set.
 type peerState struct {
 	w      *overlay.ADNLOverlayWrapper
 	member bool
@@ -101,6 +117,10 @@ func main() {
 	log.Println("shutting down")
 }
 
+// onConnect wraps each incoming peer in the room overlay. A peer only enters the
+// relay set once it actually speaks the overlay (markMember), which keeps the
+// hub fan-out scoped to real room members and off the transient DHT nodes that
+// share this gateway. The sender is always skipped when relaying.
 func (a *anchor) onConnect(peer adnl.Peer) error {
 	w := overlay.CreateExtendedADNL(peer).WithOverlay(a.overlayID)
 	id := hex.EncodeToString(peer.GetID())
@@ -109,6 +129,8 @@ func (a *anchor) onConnect(peer adnl.Peer) error {
 	a.peers[id] = &peerState{w: w}
 	a.mu.Unlock()
 
+	// markMember promotes the peer to a room member the first time it sends
+	// overlay traffic, logging the join once.
 	markMember := func() {
 		a.mu.Lock()
 		ps := a.peers[id]
@@ -164,6 +186,7 @@ func (a *anchor) onConnect(peer adnl.Peer) error {
 	return nil
 }
 
+// countMembersLocked returns the number of real room members. Caller holds a.mu.
 func (a *anchor) countMembersLocked() int {
 	n := 0
 	for _, ps := range a.peers {
@@ -174,6 +197,8 @@ func (a *anchor) countMembersLocked() int {
 	return n
 }
 
+// republishLoop keeps the anchor discoverable: it stores its ADNL address (so the
+// ADNL id resolves to ip:port) and registers itself as a member of the room overlay.
 func (a *anchor) republishLoop(ctx context.Context, d *dht.Client) {
 	publish := func() {
 		cctx, cancel := context.WithTimeout(ctx, 45*time.Second)

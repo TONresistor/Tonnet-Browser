@@ -39,6 +39,13 @@ export function applyBridgeDefaults(workDir: string): void {
             changed = true
           }
         }
+        // Experimental group chat (ton://chat) needs these on existing installs too.
+        for (const chatNs of ['adnl', 'overlay', 'dht']) {
+          if (ns[chatNs] && ns[chatNs].enabled === false) {
+            ns[chatNs].enabled = true
+            changed = true
+          }
+        }
       }
       if (changed) {
         writeSecureJsonAtomic(configPath, config)

@@ -31,6 +31,7 @@ const VALID_EVENT_CHANNELS = [
   IPC_CHANNELS.COCOON_LOG,
   IPC_CHANNELS.COCOON_WITHDRAW_EVENT,
   IPC_CHANNELS.COCOON_RECOVERY_EVENT,
+  IPC_CHANNELS.CHAT_MESSAGE,
 ]
 
 // Custom APIs for renderer - exposed as window.electron
@@ -183,6 +184,13 @@ const electronAPI = {
   // DNS
   dns: {
     resolve: (domain: string) => ipcRenderer.invoke(IPC_CHANNELS.DNS_RESOLVE, domain),
+  },
+
+  // Group chat (experimental — ton://chat)
+  chat: {
+    connect: () => ipcRenderer.invoke(IPC_CHANNELS.CHAT_CONNECT),
+    send: (nick: string, text: string) => ipcRenderer.invoke(IPC_CHANNELS.CHAT_SEND, nick, text),
+    disconnect: () => ipcRenderer.invoke(IPC_CHANNELS.CHAT_DISCONNECT),
   },
 
   // Cocoon AI

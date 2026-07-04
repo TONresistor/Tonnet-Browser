@@ -101,6 +101,12 @@ export const IPC_CHANNELS = {
   // DNS
   DNS_RESOLVE: 'dns:resolve',
 
+  // Group chat (experimental — ton://chat)
+  CHAT_CONNECT: 'chat:connect',
+  CHAT_SEND: 'chat:send',
+  CHAT_DISCONNECT: 'chat:disconnect',
+  CHAT_MESSAGE: 'chat:message',
+
   // Bridge permissions
   BRIDGE_SEND: 'bridge:send',
   BRIDGE_MESSAGE: 'bridge:message',

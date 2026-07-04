@@ -58,6 +58,7 @@ export interface IpcEventMap {
   'wallet:payment-made': [notification: PaymentNotificationData]
   'wallet:payment-failed': [notification: PaymentNotificationData]
   'overlay:action': [overlayId: string, actionType: string, actionData: unknown]
+  'chat:message': [msg: { nick: string; text: string; ts: number }]
   'cocoon:state-changed': [state: CocoonState]
   'cocoon:log': [event: CocoonLogEvent]
   'cocoon:withdraw:event': [event: WithdrawDriverEvent]
