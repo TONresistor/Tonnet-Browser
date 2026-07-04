@@ -1,0 +1,5 @@
+# built binary (built on the server)
+groupchat-anchor
+# node identity — secret, never commit (lives only on the server)
+anchor-key.bin
+*.bin
