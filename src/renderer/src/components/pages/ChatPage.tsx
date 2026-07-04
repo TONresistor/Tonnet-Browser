@@ -1,13 +1,18 @@
-import { useState, useEffect, useRef, useCallback, memo } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react'
 import type { OwnChatIdentity } from '@shared/types'
 import ChatSidebar from './chat/ChatSidebar'
 import ChatRoomView from './chat/ChatRoomView'
+import DmView from './chat/DmView'
 import { AddRoomModal } from './chat/AddRoomModal'
 import { useFollowedRooms, type FollowedRoom } from './chat/useFollowedRooms'
+import { useRoomPreviews } from './chat/useRoomPreviews'
+import { useDmConversations } from './chat/useDmConversations'
 import type { ChatMsg, ChatStatus } from './chat/util'
 
 function ChatPage(): React.JSX.Element {
   const { rooms, add, remove } = useFollowedRooms()
+  const { previews, update: updatePreview } = useRoomPreviews()
+  const { conversations, receive: receiveDm, appendSelf, open: openDm, remove: removeDm } = useDmConversations()
 
   const [room, setRoom] = useState<string>('')
   const [node, setNode] = useState<string>('')
@@ -18,6 +23,10 @@ function ChatPage(): React.JSX.Element {
   const [error, setError] = useState<string | null>(null)
   const [addOpen, setAddOpen] = useState(false)
   const [identity, setIdentity] = useState<OwnChatIdentity | null>(null)
+
+  const [activeDm, setActiveDm] = useState<string>('')
+  const [dmInput, setDmInput] = useState('')
+  const [dmError, setDmError] = useState<string | null>(null)
 
   const seenRef = useRef<Set<string>>(new Set())
   const [participants, setParticipants] = useState(0)
@@ -76,7 +85,9 @@ function ChatPage(): React.JSX.Element {
 
   useEffect(() => {
     const off = window.electron.on('chat:message', (m) => {
-      if (m.room && m.room !== roomRef.current) return
+      const forRoom = m.room || roomRef.current
+      if (forRoom !== roomRef.current) return
+      updatePreview(forRoom, m.text, m.ts)
       const who = m.identity?.address ?? m.nick
       if (who && !seenRef.current.has(who)) {
         seenRef.current.add(who)
@@ -84,18 +95,76 @@ function ChatPage(): React.JSX.Element {
       }
       setMessages((prev) => {
         if (m.self && prev.some((p) => p.self && p.ts === m.ts && p.text === m.text)) return prev
-        return [...prev, { nick: m.nick, text: m.text, ts: m.ts, self: m.self, identity: m.identity }].sort(
-          (a, b) => a.ts - b.ts
-        )
+        return [
+          ...prev,
+          { nick: m.nick, text: m.text, ts: m.ts, self: m.self, deviceKey: m.deviceKey, identity: m.identity },
+        ].sort((a, b) => a.ts - b.ts)
       })
     })
     return () => off()
-  }, [])
+  }, [updatePreview])
+
+  useEffect(() => {
+    const off = window.electron.on('chat:dm', (m) => {
+      receiveDm(m)
+    })
+    return () => off()
+  }, [receiveDm])
 
   const openRoom = useCallback((r: FollowedRoom) => {
     setRoom(r.room)
     setNode(r.node || '')
+    setActiveDm('')
   }, [])
+
+  const handleOpenDm = useCallback(
+    (m: ChatMsg) => {
+      if (!m.identity || !m.deviceKey || m.self) return
+      const address = openDm(m.identity, m.deviceKey)
+      setDmError(null)
+      setActiveDm(address)
+    },
+    [openDm]
+  )
+
+  const handleSelectDm = useCallback((address: string) => {
+    setDmError(null)
+    setActiveDm(address)
+  }, [])
+
+  const handleRemoveDm = useCallback(
+    (address: string) => {
+      removeDm(address)
+      setActiveDm((cur) => (cur === address ? '' : cur))
+    },
+    [removeDm]
+  )
+
+  const sendDm = useCallback(async () => {
+    const text = dmInput.trim()
+    const convo = conversations[activeDm]
+    if (!text || !convo) return
+    setDmInput('')
+    setDmError(null)
+    try {
+      const res = await window.electron.chat.dmSend(convo.peerKey, text)
+      if (res.identity) setIdentity(res.identity)
+      if (!res.sent) {
+        setDmInput(text)
+        if (res.needsLink) setDmError('Link your wallet to send messages.')
+        return
+      }
+      appendSelf(activeDm, { id: res.id ?? '', text, ts: res.ts ?? Date.now(), self: true })
+    } catch (e) {
+      setDmInput(text)
+      setDmError(e instanceof Error ? e.message : String(e))
+    }
+  }, [dmInput, conversations, activeDm, appendSelf])
+
+  const dmList = useMemo(() => {
+    const last = (c: { messages: { ts: number }[] }): number => c.messages[c.messages.length - 1]?.ts ?? 0
+    return Object.values(conversations).sort((a, b) => last(b) - last(a))
+  }, [conversations])
 
   const leaveRoom = useCallback(() => {
     setRoom('')
@@ -142,6 +211,8 @@ function ChatPage(): React.JSX.Element {
       .catch(() => {})
   }, [])
 
+  const handleDetectDomains = useCallback(() => window.electron.chat.detectDomains(), [])
+
   const send = useCallback(async () => {
     const text = input.trim()
     if (!text || status !== 'connected') return
@@ -170,28 +241,46 @@ function ChatPage(): React.JSX.Element {
     >
       <ChatSidebar
         rooms={rooms}
+        previews={previews}
+        dms={dmList}
         activeRoom={room}
-        status={status}
+        activeDm={activeDm}
         identity={identity}
         onLink={handleLink}
         onClaimDomain={handleClaimDomain}
         onClearDomain={handleClearDomain}
+        onDetectDomains={handleDetectDomains}
         onSelect={openRoom}
         onRemove={handleRemove}
+        onSelectDm={handleSelectDm}
+        onRemoveDm={handleRemoveDm}
         onAdd={() => setAddOpen(true)}
       />
 
-      <ChatRoomView
-        room={room}
-        status={status}
-        error={error}
-        participants={participants}
-        messages={messages}
-        input={input}
-        onInput={setInput}
-        onSend={send}
-        onLeave={leaveRoom}
-      />
+      {activeDm && conversations[activeDm] ? (
+        <DmView
+          conversation={conversations[activeDm]}
+          connected={status === 'connected'}
+          error={dmError}
+          input={dmInput}
+          onInput={setDmInput}
+          onSend={sendDm}
+          onBack={() => setActiveDm('')}
+        />
+      ) : (
+        <ChatRoomView
+          room={room}
+          status={status}
+          error={error}
+          participants={participants}
+          messages={messages}
+          input={input}
+          onInput={setInput}
+          onSend={send}
+          onLeave={leaveRoom}
+          onOpenDm={handleOpenDm}
+        />
+      )}
 
       <AddRoomModal isOpen={addOpen} onClose={() => setAddOpen(false)} onAdd={handleAdd} />
     </div>

@@ -304,6 +304,16 @@ declare global {
         send: (
           text: string
         ) => Promise<{ sent: boolean; needsLink?: boolean; identity?: import('../shared/types').OwnChatIdentity }>
+        dmSend: (
+          peerKey: string,
+          text: string
+        ) => Promise<{
+          sent: boolean
+          needsLink?: boolean
+          id?: string
+          ts?: number
+          identity?: import('../shared/types').OwnChatIdentity
+        }>
         disconnect: () => Promise<{ disconnected: boolean }>
         identity: () => Promise<import('../shared/types').OwnChatIdentity>
         linkIdentity: () => Promise<import('../shared/types').OwnChatIdentity>
@@ -311,6 +321,7 @@ declare global {
           domain: string
         ) => Promise<{ ok: boolean; reason?: string; identity: import('../shared/types').OwnChatIdentity }>
         clearDomain: () => Promise<import('../shared/types').OwnChatIdentity>
+        detectDomains: () => Promise<{ domains: string[] }>
       }
       cocoon: {
         availability: () => Promise<CocoonAvailability>

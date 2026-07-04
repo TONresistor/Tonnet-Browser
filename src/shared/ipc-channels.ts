@@ -103,12 +103,15 @@ export const IPC_CHANNELS = {
 
   CHAT_CONNECT: 'chat:connect',
   CHAT_SEND: 'chat:send',
+  CHAT_DM_SEND: 'chat:dm:send',
   CHAT_DISCONNECT: 'chat:disconnect',
   CHAT_MESSAGE: 'chat:message',
+  CHAT_DM_MESSAGE: 'chat:dm',
   CHAT_IDENTITY: 'chat:identity',
   CHAT_IDENTITY_LINK: 'chat:identity:link',
   CHAT_CLAIM_DOMAIN: 'chat:identity:claim-domain',
   CHAT_CLEAR_DOMAIN: 'chat:identity:clear-domain',
+  CHAT_DETECT_DOMAINS: 'chat:identity:detect-domains',
 
   // Bridge permissions
   BRIDGE_SEND: 'bridge:send',

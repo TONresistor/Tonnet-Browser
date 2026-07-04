@@ -47,6 +47,17 @@ export interface IpcEventMap {
       text: string
       ts: number
       self?: boolean
+      deviceKey?: string
+      identity: import('./types').ChatIdentityInfo
+    },
+  ]
+  'chat:dm': [
+    msg: {
+      room?: string
+      id: string
+      peerKey: string
+      text: string
+      ts: number
       identity: import('./types').ChatIdentityInfo
     },
   ]

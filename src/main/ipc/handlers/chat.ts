@@ -3,8 +3,11 @@ import { normalizeRoom, normalizeNodeId, overlayIdB64ForRoom, parseOverlayNodes 
 import { signEnvelope, type WireEnvelope } from '../../chat/envelope'
 import { deriveWalletAddress, shortAddress } from '../../chat/tonproof'
 import { classify } from '../../chat/verify'
+import { sealDM, openDM } from '../../chat/dm'
 import { verifyDomainOwnership, type ResolveFn } from '../../chat/resolve'
 import { ChatIdentityManager, type ChatProof } from '../../chat/identity'
+import { ownedDomains } from '../../chat/detect'
+import { getSetting } from '../../settings'
 import { secureHandle, emitToRenderer, toError, log } from './shared'
 import type { WsBridgeClient } from '../../wallet/ws-bridge-client'
 import type { ServiceRegistry } from '../../services'
@@ -120,8 +123,10 @@ async function connectRoom(
       void (async () => {
         try {
           const env = JSON.parse(Buffer.from(data.message, 'base64').toString('utf-8')) as WireEnvelope
-          if (env.type && env.type !== 'msg') return
-          if ((env.text?.length ?? 0) > 8000 || (env.nick?.length ?? 0) > 256) return
+          const isDm = env.type === 'dm'
+          if (env.type && env.type !== 'msg' && !isDm) return
+          if ((env.text?.length ?? 0) > (isDm ? 24000 : 8000) || (env.nick?.length ?? 0) > 256) return
+          if (isDm && (env.to !== ownKey || !env.key)) return
           const nowSec = Math.floor(Date.now() / 1000)
           const verdict = classify(env, room, nowSec)
           if (verdict.drop) {
@@ -135,12 +140,31 @@ async function connectRoom(
               identity = { ...identity, tier: 'domain', name: claim, domain: claim }
             }
           }
+          if (isDm) {
+            let plain: Buffer
+            try {
+              plain = openDM(seed, Buffer.from(env.key as string, 'hex'), Buffer.from(String(env.text ?? ''), 'base64'))
+            } catch {
+              log.warn(`chat: undecryptable dm from ${identity.addressShort}`)
+              return
+            }
+            emitToRenderer(IPC_CHANNELS.CHAT_DM_MESSAGE, {
+              room,
+              id: String(env.sig ?? '').slice(0, 32),
+              peerKey: env.key as string,
+              text: plain.toString('utf8').slice(0, 4000),
+              ts: Number(env.ts ?? Date.now()),
+              identity,
+            })
+            return
+          }
           emitToRenderer(IPC_CHANNELS.CHAT_MESSAGE, {
             room,
             nick: identity.name,
             text: String(env.text ?? '').slice(0, 4000),
             ts: Number(env.ts ?? Date.now()),
             self: Boolean(env.key && env.key === ownKey),
+            deviceKey: env.key,
             identity,
           })
         } catch (err) {
@@ -180,8 +204,8 @@ async function connectRoom(
 }
 
 export function registerChatHandlers(registry: ServiceRegistry): void {
-  const { walletManager, overlayManager } = registry
-  const identity = new ChatIdentityManager(walletManager, overlayManager)
+  const { walletManager } = registry
+  const identity = new ChatIdentityManager(walletManager)
 
   secureHandle(IPC_CHANNELS.CHAT_CONNECT, async (roomArg?: string, nodeArg?: string) => {
     const room = normalizeRoom(roomArg)
@@ -221,10 +245,42 @@ export function registerChatHandlers(registry: ServiceRegistry): void {
       proof
     )
     await sendEnvelope(bridge, session.overlayId, env)
-    return { sent: true }
+    return { sent: true, identity: await identity.ownIdentity() }
   })
 
-  secureHandle(IPC_CHANNELS.CHAT_IDENTITY, async () => identity.ownIdentity())
+  secureHandle(IPC_CHANNELS.CHAT_DM_SEND, async (peerKeyArg: string, text: string) => {
+    const bridge = walletManager.getBridgeClient()
+    if (!bridge || !session) throw new Error('Chat not connected')
+    const peerKey = String(peerKeyArg ?? '').toLowerCase()
+    if (!/^[0-9a-f]{64}$/.test(peerKey)) throw new Error('Bad recipient key')
+    const proof = await identity.ensureProof()
+    if (!proof) return { sent: false, needsLink: true, identity: await identity.ownIdentity() }
+    const ownKey = await identity.devicePub()
+    if (peerKey === ownKey) throw new Error('Cannot DM yourself')
+    const domain = await identity.claimedDomain()
+    const seed = await identity.deviceSeed()
+    const plain = String(text).slice(0, 4000)
+    const box = sealDM(seed, Buffer.from(peerKey, 'hex'), Buffer.from(plain, 'utf8'))
+    const env = buildSigned(
+      seed,
+      {
+        type: 'dm',
+        nick: wireNick(proof, domain),
+        text: box.toString('base64'),
+        ts: Date.now(),
+        room: session.room,
+        to: peerKey,
+      },
+      proof
+    )
+    await sendEnvelope(bridge, session.overlayId, env)
+    return { sent: true, id: String(env.sig ?? '').slice(0, 32), ts: env.ts, identity: await identity.ownIdentity() }
+  })
+
+  secureHandle(IPC_CHANNELS.CHAT_IDENTITY, async () => {
+    await identity.ensureProof()
+    return identity.ownIdentity()
+  })
 
   secureHandle(IPC_CHANNELS.CHAT_IDENTITY_LINK, async () => {
     await identity.relink()
@@ -239,6 +295,18 @@ export function registerChatHandlers(registry: ServiceRegistry): void {
   secureHandle(IPC_CHANNELS.CHAT_CLEAR_DOMAIN, async () => {
     await identity.clearDomain()
     return identity.ownIdentity()
+  })
+
+  secureHandle(IPC_CHANNELS.CHAT_DETECT_DOMAINS, async () => {
+    const own = await identity.ownIdentity()
+    if (!own.address) return { domains: [] }
+    const wallet = getSetting('wallet')
+    try {
+      return { domains: await ownedDomains(own.address, wallet.indexerEndpoint, wallet.indexerApiKey || undefined) }
+    } catch (err) {
+      log.warn(`chat: domain detection failed: ${toError(err).message}`)
+      return { domains: [] }
+    }
   })
 
   secureHandle(IPC_CHANNELS.CHAT_DISCONNECT, async () => {

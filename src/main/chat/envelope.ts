@@ -3,6 +3,7 @@ import { keyPairFromSeed, sign, signVerify } from '@ton/crypto'
 
 const TAG_V1 = 'tonnet-envelope-v1'
 const TAG_V2 = 'tonnet-envelope-v2'
+const TAG_V3 = 'tonnet-envelope-v3'
 
 export interface WireEnvelope {
   type: string
@@ -10,6 +11,7 @@ export interface WireEnvelope {
   text: string
   ts: number
   room?: string
+  to?: string
   key?: string
   sig?: string
   wkey?: string
@@ -58,6 +60,7 @@ export function envelopeDigest(e: WireEnvelope, pub: Buffer): Buffer {
   const h = createHash('sha256')
   if (!e.room) {
     if (hasProofFields(e)) throw new Error('malformed proof fields')
+    if (e.to) throw new Error('to requires room')
     h.update(field(Buffer.from(TAG_V1, 'utf8')))
     h.update(field(Buffer.from(e.type, 'utf8')))
     h.update(field(Buffer.from(e.nick, 'utf8')))
@@ -67,12 +70,13 @@ export function envelopeDigest(e: WireEnvelope, pub: Buffer): Buffer {
     return h.digest()
   }
   const block = proofBlock(e) ?? Buffer.alloc(0)
-  h.update(field(Buffer.from(TAG_V2, 'utf8')))
+  h.update(field(Buffer.from(e.to ? TAG_V3 : TAG_V2, 'utf8')))
   h.update(field(Buffer.from(e.type, 'utf8')))
   h.update(field(Buffer.from(e.nick, 'utf8')))
   h.update(field(Buffer.from(e.text, 'utf8')))
   h.update(field(Buffer.from(String(e.ts), 'utf8')))
   h.update(field(Buffer.from(e.room, 'utf8')))
+  if (e.to) h.update(field(Buffer.from(e.to, 'utf8')))
   h.update(field(pub))
   h.update(field(block))
   return h.digest()

@@ -32,6 +32,7 @@ const VALID_EVENT_CHANNELS = [
   IPC_CHANNELS.COCOON_WITHDRAW_EVENT,
   IPC_CHANNELS.COCOON_RECOVERY_EVENT,
   IPC_CHANNELS.CHAT_MESSAGE,
+  IPC_CHANNELS.CHAT_DM_MESSAGE,
 ]
 
 // Custom APIs for renderer - exposed as window.electron
@@ -189,11 +190,13 @@ const electronAPI = {
   chat: {
     connect: (room?: string, node?: string) => ipcRenderer.invoke(IPC_CHANNELS.CHAT_CONNECT, room, node),
     send: (text: string) => ipcRenderer.invoke(IPC_CHANNELS.CHAT_SEND, text),
+    dmSend: (peerKey: string, text: string) => ipcRenderer.invoke(IPC_CHANNELS.CHAT_DM_SEND, peerKey, text),
     disconnect: () => ipcRenderer.invoke(IPC_CHANNELS.CHAT_DISCONNECT),
     identity: () => ipcRenderer.invoke(IPC_CHANNELS.CHAT_IDENTITY),
     linkIdentity: () => ipcRenderer.invoke(IPC_CHANNELS.CHAT_IDENTITY_LINK),
     claimDomain: (domain: string) => ipcRenderer.invoke(IPC_CHANNELS.CHAT_CLAIM_DOMAIN, domain),
     clearDomain: () => ipcRenderer.invoke(IPC_CHANNELS.CHAT_CLEAR_DOMAIN),
+    detectDomains: () => ipcRenderer.invoke(IPC_CHANNELS.CHAT_DETECT_DOMAINS),
   },
 
   // Cocoon AI

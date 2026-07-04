@@ -41,5 +41,24 @@
     "wexp": 1722492000,
     "key": "8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
     "sig": "0e6f9ef04ea83e805bbeafe5a7b5597ad25a0beb24f2633626042992dd8669a783e98cef355cb462c977bb1ca7181159f2ec1b094a2683f83099e94fdebe8907"
+  },
+  "dmPeerSeed": "0202020202020202020202020202020202020202020202020202020202020202",
+  "dmPeerPub": "8139770ea87d175f56a35466c34c7ecccb8d8a91b4ee37a25df60f5b8fc9b394",
+  "dmSharedKey": "0fd21ff58274b36911b431fd182cff49a615feac8e4f65042ef76cf1f5fcdccc",
+  "dmPlaintext": "dm interop vector",
+  "dmBox": "CwsLCwsLCwsLCwsLLguuigB4xBcG0/Upzc68dI00/c1DadgpJj3H2otzujow",
+  "v3Dm": {
+    "type": "dm",
+    "nick": "UQCN…rlJb",
+    "text": "CwsLCwsLCwsLCwsLLguuigB4xBcG0/Upzc68dI00/c1DadgpJj3H2otzujow",
+    "ts": 1719900000000,
+    "room": "tonnet:groupchat",
+    "to": "8139770ea87d175f56a35466c34c7ecccb8d8a91b4ee37a25df60f5b8fc9b394",
+    "wkey": "fd1724385aa0c75b64fb78cd602fa1d991fdebf76b13c58ed702eac835e9f618",
+    "wsig": "cb789216ea4f3ee11bd795547df61186a2406a12ec0d6f700d210b160d98e8b7ea66b2f96a94d7103ac22028f6ea3efb6c87eed6c72ccd3dbdb7e53d657ece02",
+    "wts": 1719900000,
+    "wexp": 1722492000,
+    "key": "8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+    "sig": "93237b267526a9197e29a53106beeeaaab773817e0cb0f019c03a008e37099d3ed719369763f65ed760a377a3cf1fb35c73c686f6dc53cdb4ca40dd8828a4909"
   }
 }

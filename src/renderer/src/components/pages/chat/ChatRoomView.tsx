@@ -16,6 +16,7 @@ interface ChatRoomViewProps {
   onInput: (v: string) => void
   onSend: () => void
   onLeave: () => void
+  onOpenDm: (msg: ChatMsg) => void
 }
 
 function subtitle(status: ChatStatus, participants: number): string {
@@ -35,6 +36,7 @@ function ChatRoomView({
   onInput,
   onSend,
   onLeave,
+  onOpenDm,
 }: ChatRoomViewProps): React.JSX.Element {
   const listRef = useRef<HTMLDivElement>(null)
   const [searchOpen, setSearchOpen] = useState(false)
@@ -159,9 +161,16 @@ function ChatRoomView({
             >
               {!m.self && (
                 <div className="mb-0.5 flex items-center gap-1 text-xs font-medium" title={m.identity?.address}>
-                  <span className="truncate" style={{ color: avatarColor(identitySeed(m)) }}>
+                  <button
+                    type="button"
+                    onClick={() => onOpenDm(m)}
+                    disabled={!m.deviceKey || !m.identity}
+                    title={m.deviceKey && m.identity ? 'Send a direct message' : undefined}
+                    className="min-w-0 truncate text-left enabled:cursor-pointer enabled:hover:underline"
+                    style={{ color: avatarColor(identitySeed(m)) }}
+                  >
                     {displayName(m.identity, m.nick)}
-                  </span>
+                  </button>
                   {m.identity && <IdentityBadge identity={m.identity} />}
                 </div>
               )}

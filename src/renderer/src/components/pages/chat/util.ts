@@ -9,6 +9,7 @@ export interface ChatMsg {
   text: string
   ts: number
   self?: boolean
+  deviceKey?: string
   identity?: ChatIdentityInfo
 }
 
@@ -32,4 +33,17 @@ export function initial(name: string): string {
 
 export function roomLabel(name: string): string {
   return name.replace(/^tonnet:/i, '') || name
+}
+
+export function formatChatTime(ts: number): string {
+  if (!ts) return ''
+  const d = new Date(ts)
+  const now = new Date()
+  if (d.toDateString() === now.toDateString()) {
+    return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+  }
+  if (now.getTime() - d.getTime() < 6 * 86400000) {
+    return d.toLocaleDateString(undefined, { weekday: 'short' })
+  }
+  return d.toLocaleDateString(undefined, { day: '2-digit', month: '2-digit' })
 }

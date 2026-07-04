@@ -4,8 +4,6 @@ import { promises as fs } from 'fs'
 import { join } from 'path'
 import { ElectronSafeStorageAdapter } from '../adapters/electron-secure-storage'
 import { writeSecureFileAtomic, writeJsonAtomic } from '../utils/secure-fs'
-import { getMainWindow } from '../windows/main'
-import type { OverlayManager } from '../windows/overlay-manager'
 import type { WalletManager } from '../wallet/manager'
 import { createLogger } from '../../shared/logger'
 import { isEnoent } from '../utils/errors'
@@ -41,17 +39,14 @@ interface IdentityFile {
 
 export class ChatIdentityManager {
   private walletManager: WalletManager
-  private overlayManager: OverlayManager
   private storage = new ElectronSafeStorageAdapter()
   private seed: Buffer | null = null
   private file: IdentityFile | null = null
   private fileLoaded = false
-  private promptInFlight: Promise<ChatProof | null> | null = null
-  private approvalCounter = 0
+  private signInFlight: Promise<ChatProof | null> | null = null
 
-  constructor(walletManager: WalletManager, overlayManager: OverlayManager) {
+  constructor(walletManager: WalletManager) {
     this.walletManager = walletManager
-    this.overlayManager = overlayManager
   }
 
   private devicePath(): string {
@@ -158,65 +153,16 @@ export class ChatIdentityManager {
     const proof = this.validProof(file, walletPub, devicePub, nowSec)
     if (proof) return proof
 
-    if (file?.declinedFor === walletPub) return null
-
-    if (this.promptInFlight) return this.promptInFlight
-    this.promptInFlight = this.promptAndSign(walletPub).finally(() => {
-      this.promptInFlight = null
-    })
-    return this.promptInFlight
-  }
-
-  private async promptAndSign(walletPub: string): Promise<ChatProof | null> {
-    const address = deriveWalletAddress(walletPub)
-    const approved = await this.showApproval({
-      type: 'approval',
-      iconTon: true,
-      title: 'Chat identity',
-      subtitle: 'Sign your chat messages so no one can impersonate you',
-      rows: [
-        { label: 'Wallet', value: address ? shortAddress(address) : walletPub.slice(0, 8) },
-        { label: 'Cost', value: 'Free, off-chain' },
-        { label: 'Validity', value: '7 days, re-confirm when it lapses' },
-      ],
-      actions: [
-        { id: 'deny', label: 'Later' },
-        { id: 'approve', label: 'Link identity', primary: true },
-      ],
-    })
-    if (approved === null) return null
-    if (!approved) {
-      this.persist({ v: 1, declinedFor: walletPub })
-      return null
-    }
-    try {
-      return await this.signProof(walletPub)
-    } catch (err) {
-      log.error('chat proof signing failed:', err)
-      return null
-    }
-  }
-
-  private showApproval(content: { type: string; [key: string]: unknown }): Promise<boolean | null> {
-    return new Promise((resolve) => {
-      const win = getMainWindow()
-      if (!win) {
-        resolve(null)
-        return
-      }
-      const id = `chat-identity-${++this.approvalCounter}`
-      const bounds = win.getContentBounds()
-      this.overlayManager.show(
-        id,
-        { x: 0, y: 0, width: bounds.width, height: bounds.height },
-        content,
-        (actionType) => {
-          this.overlayManager.hide(id)
-          resolve(actionType === 'approve')
-        },
-        { autoDismiss: false }
-      )
-    })
+    if (this.signInFlight) return this.signInFlight
+    this.signInFlight = this.signProof(walletPub)
+      .catch((err) => {
+        log.error('chat auto-link failed:', err)
+        return null
+      })
+      .finally(() => {
+        this.signInFlight = null
+      })
+    return this.signInFlight
   }
 
   async ownIdentity(): Promise<OwnChatIdentity> {

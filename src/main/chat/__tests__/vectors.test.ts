@@ -4,10 +4,14 @@ import { join } from 'node:path'
 import { keyPairFromSeed, sign } from '@ton/crypto'
 import { signEnvelope, verifyEnvelope, devicePublicKeyHex, type WireEnvelope } from '../envelope'
 import { proofPayload, proofDigest, deriveWalletAddress, verifyProof, friendlyAddress, shortAddress } from '../tonproof'
+import { dmSharedKey, sealDM, openDM } from '../dm'
 import fixture from './vectors.json'
 
 const DEVICE_SEED = Buffer.alloc(32, 1)
 const WALLET_SEED = Buffer.alloc(32, 9)
+const PEER_SEED = Buffer.alloc(32, 2)
+const DM_NONCE = Buffer.alloc(12, 0x0b)
+const DM_PLAINTEXT = 'dm interop vector'
 const WTS = 1719900000
 const WEXP = 1722492000
 const ROOM = 'tonnet:groupchat'
@@ -40,6 +44,24 @@ function buildVectors(): Record<string, unknown> {
     DEVICE_SEED
   )
 
+  const peerPub = keyPairFromSeed(PEER_SEED).publicKey
+  const dmBox = sealDM(DEVICE_SEED, peerPub, Buffer.from(DM_PLAINTEXT, 'utf8'), DM_NONCE)
+  const v3Dm = signEnvelope(
+    {
+      type: 'dm',
+      nick: shortAddress(address),
+      text: dmBox.toString('base64'),
+      ts: WTS * 1000,
+      room: ROOM,
+      to: peerPub.toString('hex'),
+      wkey: walletPub,
+      wsig,
+      wts: WTS,
+      wexp: WEXP,
+    },
+    DEVICE_SEED
+  )
+
   return {
     deviceSeed: DEVICE_SEED.toString('hex'),
     walletSeed: WALLET_SEED.toString('hex'),
@@ -57,6 +79,12 @@ function buildVectors(): Record<string, unknown> {
     v1,
     v2NoProof,
     v2Proof,
+    dmPeerSeed: PEER_SEED.toString('hex'),
+    dmPeerPub: peerPub.toString('hex'),
+    dmSharedKey: dmSharedKey(DEVICE_SEED, peerPub).toString('hex'),
+    dmPlaintext: DM_PLAINTEXT,
+    dmBox: dmBox.toString('base64'),
+    v3Dm,
   }
 }
 
@@ -75,6 +103,20 @@ describe('cross-language chat identity vectors', () => {
     expect(verifyEnvelope(fixture.v1 as WireEnvelope)).toBe('valid')
     expect(verifyEnvelope(fixture.v2NoProof as WireEnvelope)).toBe('valid')
     expect(verifyEnvelope(fixture.v2Proof as WireEnvelope)).toBe('valid')
+    expect(verifyEnvelope(fixture.v3Dm as WireEnvelope)).toBe('valid')
+  })
+
+  it('opens the fixture dm box and rejects redirect', () => {
+    const env = fixture.v3Dm as WireEnvelope
+    const opened = openDM(
+      Buffer.from(fixture.dmPeerSeed as string, 'hex'),
+      Buffer.from(fixture.devicePub as string, 'hex'),
+      Buffer.from(env.text, 'base64')
+    )
+    expect(opened.toString('utf8')).toBe(fixture.dmPlaintext)
+
+    const redirected = { ...env, to: devicePublicKeyHex(Buffer.alloc(32, 3)) }
+    expect(verifyEnvelope(redirected)).toBe('invalid')
   })
 
   it('accepts the fixture proof and rejects tampering', () => {
