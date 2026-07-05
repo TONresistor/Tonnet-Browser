@@ -38,6 +38,40 @@ export function normalizeRoom(room?: string): string {
   return r
 }
 
+export interface RoomName {
+  full: string
+  display: string
+  gated: boolean
+  ownerKey?: Buffer
+}
+
+function visibleAscii(s: string): boolean {
+  for (let i = 0; i < s.length; i++) {
+    const c = s.charCodeAt(i)
+    if (c <= 0x20 || c >= 0x7f || s[i] === '#') return false
+  }
+  return true
+}
+
+// parseRoomName mirrors internal/room/name.go ParseName: open (no #) or gated
+// (NAME#o=<64 lowercase hex owner key>). Anything else is rejected.
+export function parseRoomName(s: string): RoomName {
+  const i = s.indexOf('#')
+  if (i < 0) {
+    if (!s || !visibleAscii(s)) throw new Error('invalid room name')
+    return { full: s, display: s, gated: false }
+  }
+  const base = s.slice(0, i)
+  const suffix = s.slice(i + 1)
+  if (!base || !visibleAscii(base)) throw new Error('invalid room name')
+  if (!suffix.startsWith('o=')) throw new Error('invalid room name')
+  const h = suffix.slice(2)
+  if (h.length !== 64 || h.toLowerCase() !== h || !/^[0-9a-f]{64}$/.test(h)) {
+    throw new Error('invalid room name')
+  }
+  return { full: s, display: base, gated: true, ownerKey: Buffer.from(h, 'hex') }
+}
+
 export function normalizeNodeId(node?: string): string | undefined {
   const n = (node ?? '').trim()
   if (!n) return undefined

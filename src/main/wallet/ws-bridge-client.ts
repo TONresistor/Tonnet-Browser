@@ -345,6 +345,10 @@ export class WsBridgeClient {
     await this.request('overlay.sendMessage', { overlay_id: overlayIdB64, data: dataB64 })
   }
 
+  async overlaySendRaw(overlayIdB64: string, dataB64: string): Promise<void> {
+    await this.request('overlay.sendRaw', { overlay_id: overlayIdB64, data: dataB64 })
+  }
+
   async adnlPing(peerId: string): Promise<void> {
     await this.request('adnl.ping', { peer_id: peerId })
   }

@@ -1,7 +1,8 @@
 import { memo, useEffect, useRef } from 'react'
-import { ArrowLeft, Send } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { IdentityBadge } from './IdentityBadge'
+import { SendIcon } from './SendIcon'
 import { avatarColor, initial } from './util'
 import type { DmConversation } from './useDmConversations'
 
@@ -37,7 +38,7 @@ function DmView({ conversation, connected, error, input, onInput, onSend, onBack
           </button>
           <span
             className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-[14px] font-semibold text-white"
-            style={{ backgroundColor: avatarColor(conversation.address) }}
+            style={{ backgroundColor: avatarColor(conversation.address ?? conversation.peerKey) }}
           >
             {initial(conversation.name)}
           </span>
@@ -51,10 +52,15 @@ function DmView({ conversation, connected, error, input, onInput, onSend, onBack
               >
                 {conversation.name}
               </span>
-              <IdentityBadge identity={{ tier: conversation.domain ? 'domain' : 'wallet' }} />
+              <IdentityBadge
+                identity={{ tier: conversation.domain ? 'domain' : conversation.address ? 'wallet' : 'device' }}
+              />
             </div>
-            <div className="truncate text-[12px] leading-tight text-muted-foreground" title={conversation.address}>
-              {conversation.address}
+            <div
+              className="truncate font-mono text-[12px] leading-tight text-muted-foreground"
+              title={conversation.address ?? conversation.peerKey}
+            >
+              {conversation.address ?? `device ${conversation.peerKey.slice(0, 16)}…`}
             </div>
           </div>
         </div>
@@ -109,7 +115,7 @@ function DmView({ conversation, connected, error, input, onInput, onSend, onBack
           aria-label="Send"
           className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground transition-opacity hover:bg-primary/90 disabled:opacity-40"
         >
-          <Send className="h-[18px] w-[18px]" />
+          <SendIcon className="h-[18px] w-[18px]" />
         </button>
       </div>
     </div>

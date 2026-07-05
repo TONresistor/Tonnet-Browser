@@ -130,11 +130,11 @@ function DmRow({
       role="option"
       aria-selected={active}
       tabIndex={0}
-      onClick={() => onSelect(dm.address)}
+      onClick={() => onSelect(dm.peerKey)}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault()
-          onSelect(dm.address)
+          onSelect(dm.peerKey)
         }
       }}
       className={cn(
@@ -144,7 +144,7 @@ function DmRow({
     >
       <span
         className="grid h-12 w-12 shrink-0 place-items-center rounded-full text-[17px] font-semibold text-white"
-        style={{ backgroundColor: avatarColor(dm.address) }}
+        style={{ backgroundColor: avatarColor(dm.address ?? dm.peerKey) }}
       >
         {initial(dm.name)}
       </span>
@@ -158,7 +158,7 @@ function DmRow({
             )}
           >
             <span className="min-w-0 truncate">{dm.name}</span>
-            <IdentityBadge identity={{ tier: dm.domain ? 'domain' : 'wallet' }} />
+            <IdentityBadge identity={{ tier: dm.domain ? 'domain' : dm.address ? 'wallet' : 'device' }} />
           </span>
           {time && (
             <span
@@ -174,7 +174,7 @@ function DmRow({
             type="button"
             onClick={(e) => {
               e.stopPropagation()
-              onRemove(dm.address)
+              onRemove(dm.peerKey)
             }}
             aria-label={`Delete conversation with ${dm.name}`}
             className={cn(

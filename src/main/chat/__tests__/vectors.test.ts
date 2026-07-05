@@ -131,14 +131,32 @@ describe('cross-language chat identity vectors', () => {
     const expired = verifyProof(fixture.v2Proof as WireEnvelope, fixture.wexp + 1)
     expect(expired.ok).toBe(false)
 
-    const grafted = {
+    const withProof = {
       ...(fixture.v2NoProof as WireEnvelope),
-      wkey: fixture.walletPub,
-      wsig: fixture.wsig,
-      wts: fixture.wts,
-      wexp: fixture.wexp,
+      wkey: fixture.walletPub as string,
+      wsig: fixture.wsig as string,
+      wts: fixture.wts as number,
+      wexp: fixture.wexp as number,
     }
-    expect(verifyEnvelope(grafted)).toBe('invalid')
+    expect(verifyEnvelope(withProof)).toBe('valid')
+    expect(verifyProof(withProof, now).ok).toBe(true)
+
+    const transferred = signEnvelope(
+      {
+        type: 'msg',
+        nick: 'x',
+        text: 'hi',
+        ts: 1719900000000,
+        room: ROOM,
+        wkey: fixture.walletPub as string,
+        wsig: fixture.wsig as string,
+        wts: fixture.wts as number,
+        wexp: fixture.wexp as number,
+      },
+      Buffer.alloc(32, 2)
+    )
+    expect(verifyEnvelope(transferred)).toBe('valid')
+    expect(verifyProof(transferred, now).ok).toBe(false)
 
     const crossRoom = { ...(fixture.v2Proof as WireEnvelope), room: 'tonnet:other' }
     expect(verifyEnvelope(crossRoom)).toBe('invalid')

@@ -301,19 +301,24 @@ declare global {
       }
       chat: {
         connect: (room?: string, node?: string) => Promise<{ connected: boolean; room: string; via: 'node' | 'dht' }>
-        send: (
-          text: string
-        ) => Promise<{ sent: boolean; needsLink?: boolean; identity?: import('../shared/types').OwnChatIdentity }>
+        send: (text: string) => Promise<{
+          sent: boolean
+          needsLink?: boolean
+          pendingMembership?: boolean
+          identity?: import('../shared/types').OwnChatIdentity
+        }>
         dmSend: (
           peerKey: string,
           text: string
         ) => Promise<{
           sent: boolean
           needsLink?: boolean
+          pendingMembership?: boolean
           id?: string
           ts?: number
           identity?: import('../shared/types').OwnChatIdentity
         }>
+        createRoom: (display: string) => Promise<{ room: string }>
         disconnect: () => Promise<{ disconnected: boolean }>
         identity: () => Promise<import('../shared/types').OwnChatIdentity>
         linkIdentity: () => Promise<import('../shared/types').OwnChatIdentity>

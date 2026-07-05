@@ -19,7 +19,7 @@ function walletProof(deviceSeed: Buffer, walletSeed: Buffer, wexp: number): Part
   return { wkey, wsig: sign(digest, kp.secretKey).toString('hex'), wts, wexp }
 }
 
-describe('classify (wallet-required, device key is plumbing)', () => {
+describe('classify (device tier is the floor; wallet/.ton are optional bonuses)', () => {
   it('drops a forged signature', () => {
     const e = signEnvelope({ type: 'msg', nick: 'x', text: 'hi', ts: NOW * 1000, room: ROOM }, DEVICE)
     e.sig = e.sig!.slice(0, -2) + (e.sig!.endsWith('0') ? '1' : '0')
@@ -31,10 +31,14 @@ describe('classify (wallet-required, device key is plumbing)', () => {
     expect(res.drop).toBe(true)
   })
 
-  it('drops a device-only message (no wallet proof)', () => {
+  it('shows a device-only message (no wallet proof) as tier device', () => {
     const e = signEnvelope({ type: 'msg', nick: 'x', text: 'hi', ts: NOW * 1000, room: ROOM }, DEVICE)
     const res = classify(e, ROOM, NOW)
-    expect(res.drop).toBe(true)
+    expect(res.drop).toBe(false)
+    if (!res.drop) {
+      expect(res.identity.tier).toBe('device')
+      expect(res.identity.address).toBeUndefined()
+    }
   })
 
   it('drops a cross-room message', () => {
@@ -54,16 +58,20 @@ describe('classify (wallet-required, device key is plumbing)', () => {
     }
   })
 
-  it('drops a proof grafted onto another device key', () => {
+  it('degrades a proof bound to another device key to tier device', () => {
     const proof = walletProof(Buffer.alloc(32, 7), WALLET, NOW + 1000)
     const e = signEnvelope({ type: 'msg', nick: 'x', text: 'hi', ts: NOW * 1000, room: ROOM, ...proof }, DEVICE)
-    expect(classify(e, ROOM, NOW).drop).toBe(true)
+    const res = classify(e, ROOM, NOW)
+    expect(res.drop).toBe(false)
+    if (!res.drop) expect(res.identity.tier).toBe('device')
   })
 
-  it('drops an expired proof', () => {
+  it('degrades an expired proof to tier device', () => {
     const proof = walletProof(DEVICE, WALLET, NOW - 10)
     const e = signEnvelope({ type: 'msg', nick: 'x', text: 'hi', ts: NOW * 1000, room: ROOM, ...proof }, DEVICE)
-    expect(classify(e, ROOM, NOW).drop).toBe(true)
+    const res = classify(e, ROOM, NOW)
+    expect(res.drop).toBe(false)
+    if (!res.drop) expect(res.identity.tier).toBe('device')
   })
 
   it('rejects a room strip (v2 to v1)', () => {

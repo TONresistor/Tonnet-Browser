@@ -104,6 +104,7 @@ export const IPC_CHANNELS = {
   CHAT_CONNECT: 'chat:connect',
   CHAT_SEND: 'chat:send',
   CHAT_DM_SEND: 'chat:dm:send',
+  CHAT_CREATE_ROOM: 'chat:create-room',
   CHAT_DISCONNECT: 'chat:disconnect',
   CHAT_MESSAGE: 'chat:message',
   CHAT_DM_MESSAGE: 'chat:dm',

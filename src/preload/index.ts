@@ -191,6 +191,7 @@ const electronAPI = {
     connect: (room?: string, node?: string) => ipcRenderer.invoke(IPC_CHANNELS.CHAT_CONNECT, room, node),
     send: (text: string) => ipcRenderer.invoke(IPC_CHANNELS.CHAT_SEND, text),
     dmSend: (peerKey: string, text: string) => ipcRenderer.invoke(IPC_CHANNELS.CHAT_DM_SEND, peerKey, text),
+    createRoom: (display: string) => ipcRenderer.invoke(IPC_CHANNELS.CHAT_CREATE_ROOM, display),
     disconnect: () => ipcRenderer.invoke(IPC_CHANNELS.CHAT_DISCONNECT),
     identity: () => ipcRenderer.invoke(IPC_CHANNELS.CHAT_IDENTITY),
     linkIdentity: () => ipcRenderer.invoke(IPC_CHANNELS.CHAT_IDENTITY_LINK),

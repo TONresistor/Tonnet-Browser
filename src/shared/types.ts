@@ -175,10 +175,10 @@ export interface DnsResolveResult {
 }
 
 export interface ChatIdentityInfo {
-  tier: 'domain' | 'wallet'
+  tier: 'domain' | 'wallet' | 'device'
   name: string
-  address: string
-  addressShort: string
+  address?: string
+  addressShort?: string
   domain?: string
   fingerprint?: string
 }

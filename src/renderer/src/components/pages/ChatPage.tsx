@@ -120,22 +120,22 @@ function ChatPage(): React.JSX.Element {
   const handleOpenDm = useCallback(
     (m: ChatMsg) => {
       if (!m.identity || !m.deviceKey || m.self) return
-      const address = openDm(m.identity, m.deviceKey)
+      const peerKey = openDm(m.identity, m.deviceKey)
       setDmError(null)
-      setActiveDm(address)
+      setActiveDm(peerKey)
     },
     [openDm]
   )
 
-  const handleSelectDm = useCallback((address: string) => {
+  const handleSelectDm = useCallback((peerKey: string) => {
     setDmError(null)
-    setActiveDm(address)
+    setActiveDm(peerKey)
   }, [])
 
   const handleRemoveDm = useCallback(
-    (address: string) => {
-      removeDm(address)
-      setActiveDm((cur) => (cur === address ? '' : cur))
+    (peerKey: string) => {
+      removeDm(peerKey)
+      setActiveDm((cur) => (cur === peerKey ? '' : cur))
     },
     [removeDm]
   )
@@ -151,7 +151,9 @@ function ChatPage(): React.JSX.Element {
       if (res.identity) setIdentity(res.identity)
       if (!res.sent) {
         setDmInput(text)
-        if (res.needsLink) setDmError('Link your wallet to send messages.')
+        if (res.pendingMembership)
+          setDmError('Awaiting membership: the room owner must approve you before you can send.')
+        else if (res.needsLink) setDmError('Link your wallet to send messages.')
         return
       }
       appendSelf(activeDm, { id: res.id ?? '', text, ts: res.ts ?? Date.now(), self: true })
@@ -223,11 +225,13 @@ function ChatPage(): React.JSX.Element {
       if (res.identity) setIdentity(res.identity)
       if (!res.sent) {
         setInput(text)
-        if (res.needsLink) setError('Link your wallet to send messages.')
+        if (res.pendingMembership) setError('Awaiting membership: the room owner must approve you before you can post.')
+        else if (res.needsLink) setError('Link your wallet to send messages.')
         return
       }
       const me = identityRef.current
-      setMessages((prev) => [...prev, { nick: me?.domain || me?.addressShort || '', text, ts: Date.now(), self: true }])
+      const meNick = me?.domain || me?.addressShort || (me?.deviceKey ? `#${me.deviceKey.slice(0, 8)}` : '')
+      setMessages((prev) => [...prev, { nick: meNick, text, ts: Date.now(), self: true }])
     } catch (e) {
       setInput(text)
       setError(e instanceof Error ? e.message : String(e))

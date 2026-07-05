@@ -32,19 +32,30 @@ export function classify(e: WireEnvelope, localRoom: string, nowSec: number): Cl
 
   if (e.room && e.room !== localRoom) return { drop: true, reason: `signed for room ${e.room}` }
 
-  if (!e.wkey) return { drop: true, reason: 'no wallet identity' }
+  const fp = fingerprint(e)
 
-  const verdict = proofVerdict(e, nowSec)
-  if (!verdict.address || !verdict.addressShort) return { drop: true, reason: 'wallet proof invalid' }
+  if (e.wkey) {
+    const verdict = proofVerdict(e, nowSec)
+    if (verdict.address && verdict.addressShort) {
+      return {
+        drop: false,
+        identity: {
+          tier: 'wallet',
+          name: verdict.addressShort,
+          address: verdict.address,
+          addressShort: verdict.addressShort,
+          fingerprint: fp,
+        },
+      }
+    }
+  }
 
   return {
     drop: false,
     identity: {
-      tier: 'wallet',
-      name: verdict.addressShort,
-      address: verdict.address,
-      addressShort: verdict.addressShort,
-      fingerprint: fingerprint(e),
+      tier: 'device',
+      name: fp ? `#${fp}` : 'anon',
+      fingerprint: fp,
     },
   }
 }

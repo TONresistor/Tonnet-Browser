@@ -1,8 +1,9 @@
 import { memo, useEffect, useRef, useState } from 'react'
-import { LogOut, Search, Send, Users, X } from 'lucide-react'
+import { LogOut, Search, Users, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { EmptyState } from '@/components/ui/ios/EmptyState'
 import { ChatsIcon } from './ChatsIcon'
+import { SendIcon } from './SendIcon'
 import { IdentityBadge, displayName } from './IdentityBadge'
 import { avatarColor, identitySeed, initial, roomLabel, type ChatMsg, type ChatStatus } from './util'
 
@@ -203,7 +204,7 @@ function ChatRoomView({
           aria-label="Send"
           className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground transition-opacity hover:bg-primary/90 disabled:opacity-40"
         >
-          <Send className="h-[18px] w-[18px]" />
+          <SendIcon className="h-[18px] w-[18px]" />
         </button>
       </div>
     </div>

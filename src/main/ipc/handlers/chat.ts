@@ -1,5 +1,8 @@
 import { IPC_CHANNELS } from '../../../shared/ipc-channels'
-import { normalizeRoom, normalizeNodeId, overlayIdB64ForRoom, parseOverlayNodes } from '../../chat/room'
+import { normalizeRoom, normalizeNodeId, overlayIdB64ForRoom, parseOverlayNodes, parseRoomName } from '../../chat/room'
+import { parseBroadcast, sealBroadcast, verifyBroadcast } from '../../chat/broadcast'
+import { verifyCertificate, CERT_MAX_SIZE } from '../../chat/cert'
+import { ChatMembership } from '../../chat/membership'
 import { signEnvelope, type WireEnvelope } from '../../chat/envelope'
 import { deriveWalletAddress, shortAddress } from '../../chat/tonproof'
 import { classify } from '../../chat/verify'
@@ -20,6 +23,9 @@ interface ChatSession {
   via: Via
   bootstrap?: string
   peerId: string
+  gated: boolean
+  ownerKey?: Buffer
+  cert: Buffer | null
   unsub: () => void
   keepalive: NodeJS.Timeout
 }
@@ -93,17 +99,109 @@ function buildSigned(seed: Buffer, base: Omit<WireEnvelope, 'key' | 'sig'>, proo
   return signEnvelope(env, seed)
 }
 
-async function sendEnvelope(bridge: WsBridgeClient, overlayId: string, env: WireEnvelope): Promise<void> {
-  await bridge.overlaySend(overlayId, Buffer.from(JSON.stringify(env), 'utf-8').toString('base64'))
+async function sendEnvelope(
+  bridge: WsBridgeClient,
+  overlayId: string,
+  env: WireEnvelope,
+  seed: Buffer,
+  cert?: Buffer | null
+): Promise<void> {
+  const data = Buffer.from(JSON.stringify(env), 'utf-8')
+  const wire = sealBroadcast(seed, data, Math.floor(Date.now() / 1000), cert ?? undefined)
+  await bridge.overlaySendRaw(overlayId, wire.toString('base64'))
+}
+
+async function announcePresence(
+  bridge: WsBridgeClient,
+  identity: ChatIdentityManager,
+  membership: ChatMembership,
+  seed: Buffer,
+  room: string
+): Promise<void> {
+  if (!session || session.room !== room) return
+  const [proof, domain] = await Promise.all([identity.currentProof(), identity.claimedDomain()])
+  if (session.gated && session.ownerKey && !session.cert) {
+    const ownHex = await identity.devicePub()
+    const ownBuf = Buffer.from(ownHex, 'hex')
+    const ownerHex = session.ownerKey.toString('hex')
+    session.cert = (await membership.isOwner(ownerHex))
+      ? await membership.issue(room, ownerHex, ownBuf, nowSec())
+      : await membership.validCert(room, ownBuf, session.ownerKey, nowSec())
+  }
+  if (session.gated && !session.cert) {
+    const req = buildSigned(seed, { type: 'cert-req', nick: '', text: '', ts: Date.now(), room }, proof)
+    await sendEnvelope(bridge, session.overlayId, req, seed)
+    log.info(`chat: requested membership for gated room ${room}`)
+    return
+  }
+  const hello = buildSigned(
+    seed,
+    { type: 'hello', nick: wireNick(proof, domain), text: '', ts: Date.now(), room },
+    proof
+  )
+  await sendEnvelope(bridge, session.overlayId, hello, seed, session.cert)
+}
+
+function nowSec(): number {
+  return Math.floor(Date.now() / 1000)
+}
+
+async function handleEnrollment(
+  bridge: WsBridgeClient,
+  identity: ChatIdentityManager,
+  membership: ChatMembership,
+  seed: Buffer,
+  room: string,
+  ownKey: string,
+  env: WireEnvelope
+): Promise<void> {
+  if (!session || session.room !== room || !session.ownerKey) return
+
+  if (env.type === 'cert-req' && env.key) {
+    const ownerHex = session.ownerKey.toString('hex')
+    if (!(await membership.isOwner(ownerHex))) return
+    const cert = await membership.issue(room, ownerHex, Buffer.from(env.key, 'hex'), nowSec())
+    if (!cert) return
+    const [proof, domain] = await Promise.all([identity.currentProof(), identity.claimedDomain()])
+    const grant = buildSigned(
+      seed,
+      {
+        type: 'cert-grant',
+        nick: wireNick(proof, domain),
+        text: cert.toString('base64'),
+        ts: Date.now(),
+        room,
+        to: env.key,
+      },
+      proof
+    )
+    await sendEnvelope(bridge, session.overlayId, grant, seed, session.cert)
+    log.info(`chat: granted membership to ${env.key.slice(0, 12)}… in ${room}`)
+    return
+  }
+
+  if (env.type === 'cert-grant' && env.to === ownKey && env.text) {
+    const cert = Buffer.from(String(env.text), 'base64')
+    const overlayIdBuf = Buffer.from(session.overlayId, 'base64')
+    if (!verifyCertificate(cert, Buffer.from(ownKey, 'hex'), overlayIdBuf, CERT_MAX_SIZE, session.ownerKey, nowSec())) {
+      return
+    }
+    await membership.storeCert(room, cert)
+    session.cert = cert
+    log.info(`chat: received membership certificate for ${room}`)
+    await announcePresence(bridge, identity, membership, seed, room).catch(() => {})
+  }
 }
 
 async function connectRoom(
   bridge: WsBridgeClient,
   identity: ChatIdentityManager,
+  membership: ChatMembership,
   resolveDomain: ResolveFn,
   room: string,
   bootstrap?: string
 ): Promise<{ room: string; via: Via }> {
+  const parsed = parseRoomName(room)
   const overlayId = overlayIdB64ForRoom(room)
   const candidates = await resolveCandidates(bridge, room, overlayId, bootstrap)
   if (candidates.length === 0) {
@@ -122,7 +220,14 @@ async function connectRoom(
       if (data.overlay_id !== overlayId) return
       void (async () => {
         try {
-          const env = JSON.parse(Buffer.from(data.message, 'base64').toString('utf-8')) as WireEnvelope
+          const frame = parseBroadcast(Buffer.from(data.message, 'base64'))
+          if (!frame || !verifyBroadcast(frame)) return
+          const env = JSON.parse(frame.data.toString('utf-8')) as WireEnvelope
+          if (!env.key || env.key.toLowerCase() !== frame.src.toString('hex')) return
+          if (env.type === 'cert-req' || env.type === 'cert-grant') {
+            await handleEnrollment(bridge, identity, membership, seed, room, ownKey, env)
+            return
+          }
           const isDm = env.type === 'dm'
           if (env.type && env.type !== 'msg' && !isDm) return
           if ((env.text?.length ?? 0) > (isDm ? 24000 : 8000) || (env.nick?.length ?? 0) > 256) return
@@ -133,11 +238,11 @@ async function connectRoom(
             log.warn(`chat: dropped message in ${room}: ${verdict.reason}`)
             return
           }
-          let identity = verdict.identity
-          if (identity.tier === 'wallet' && identity.address && env.nick) {
+          let msgIdentity = verdict.identity
+          if (msgIdentity.tier === 'wallet' && msgIdentity.address && env.nick) {
             const claim = env.nick.trim().toLowerCase()
-            if (await verifyDomainOwnership(claim, identity.address, resolveDomain, nowSec)) {
-              identity = { ...identity, tier: 'domain', name: claim, domain: claim }
+            if (await verifyDomainOwnership(claim, msgIdentity.address, resolveDomain, nowSec)) {
+              msgIdentity = { ...msgIdentity, tier: 'domain', name: claim, domain: claim }
             }
           }
           if (isDm) {
@@ -145,7 +250,7 @@ async function connectRoom(
             try {
               plain = openDM(seed, Buffer.from(env.key as string, 'hex'), Buffer.from(String(env.text ?? ''), 'base64'))
             } catch {
-              log.warn(`chat: undecryptable dm from ${identity.addressShort}`)
+              log.warn(`chat: undecryptable dm from ${msgIdentity.addressShort}`)
               return
             }
             emitToRenderer(IPC_CHANNELS.CHAT_DM_MESSAGE, {
@@ -154,18 +259,18 @@ async function connectRoom(
               peerKey: env.key as string,
               text: plain.toString('utf8').slice(0, 4000),
               ts: Number(env.ts ?? Date.now()),
-              identity,
+              identity: msgIdentity,
             })
             return
           }
           emitToRenderer(IPC_CHANNELS.CHAT_MESSAGE, {
             room,
-            nick: identity.name,
+            nick: msgIdentity.name,
             text: String(env.text ?? '').slice(0, 4000),
             ts: Number(env.ts ?? Date.now()),
             self: Boolean(env.key && env.key === ownKey),
             deviceKey: env.key,
-            identity,
+            identity: msgIdentity,
           })
         } catch (err) {
           log.warn(`chat: ignoring bad overlay payload: ${toError(err).message}`)
@@ -179,18 +284,22 @@ async function connectRoom(
         bridge.adnlPing(peerId).catch(() => {})
       }, 10_000)
 
-      session = { room, overlayId, via: cand.via, bootstrap, peerId, unsub, keepalive }
+      session = {
+        room,
+        overlayId,
+        via: cand.via,
+        bootstrap,
+        peerId,
+        gated: parsed.gated,
+        ownerKey: parsed.ownerKey,
+        cert: null,
+        unsub,
+        keepalive,
+      }
 
-      Promise.all([identity.currentProof(), identity.claimedDomain()])
-        .then(([proof, domain]) => {
-          const hello = buildSigned(
-            seed,
-            { type: 'hello', nick: wireNick(proof, domain), text: '', ts: Date.now(), room },
-            proof
-          )
-          return sendEnvelope(bridge, overlayId, hello)
-        })
-        .catch((err) => log.warn(`chat: hello failed (will register on first send): ${toError(err).message}`))
+      announcePresence(bridge, identity, membership, seed, room).catch((err) =>
+        log.warn(`chat: presence announce failed (will register on first send): ${toError(err).message}`)
+      )
 
       log.info(`chat: joined room ${room} via ${cand.via} (${candidates.length} candidate node(s))`)
       return { room, via: cand.via }
@@ -206,6 +315,7 @@ async function connectRoom(
 export function registerChatHandlers(registry: ServiceRegistry): void {
   const { walletManager } = registry
   const identity = new ChatIdentityManager(walletManager)
+  const membership = new ChatMembership()
 
   secureHandle(IPC_CHANNELS.CHAT_CONNECT, async (roomArg?: string, nodeArg?: string) => {
     const room = normalizeRoom(roomArg)
@@ -219,7 +329,14 @@ export function registerChatHandlers(registry: ServiceRegistry): void {
 
         if (session) await teardownSession(bridge)
 
-        const { via } = await connectRoom(bridge, identity, (d) => walletManager.resolveDomain(d), room, bootstrap)
+        const { via } = await connectRoom(
+          bridge,
+          identity,
+          membership,
+          (d) => walletManager.resolveDomain(d),
+          room,
+          bootstrap
+        )
         return { connected: true, room, via }
       })
     connectChain = run
@@ -229,8 +346,10 @@ export function registerChatHandlers(registry: ServiceRegistry): void {
   secureHandle(IPC_CHANNELS.CHAT_SEND, async (text: string) => {
     const bridge = walletManager.getBridgeClient()
     if (!bridge || !session) throw new Error('Chat not connected')
+    if (session.gated && !session.cert) {
+      return { sent: false, pendingMembership: true, identity: await identity.ownIdentity() }
+    }
     const proof = await identity.ensureProof()
-    if (!proof) return { sent: false, needsLink: true, identity: await identity.ownIdentity() }
     const domain = await identity.claimedDomain()
     const seed = await identity.deviceSeed()
     const env = buildSigned(
@@ -244,8 +363,15 @@ export function registerChatHandlers(registry: ServiceRegistry): void {
       },
       proof
     )
-    await sendEnvelope(bridge, session.overlayId, env)
+    await sendEnvelope(bridge, session.overlayId, env, seed, session.cert)
     return { sent: true, identity: await identity.ownIdentity() }
+  })
+
+  secureHandle(IPC_CHANNELS.CHAT_CREATE_ROOM, async (displayArg: string) => {
+    const display = normalizeRoom(displayArg)
+    if (display.includes('#')) throw new Error('room name must not contain "#"')
+    const full = await membership.createGatedRoom(display)
+    return { room: full }
   })
 
   secureHandle(IPC_CHANNELS.CHAT_DM_SEND, async (peerKeyArg: string, text: string) => {
@@ -253,10 +379,12 @@ export function registerChatHandlers(registry: ServiceRegistry): void {
     if (!bridge || !session) throw new Error('Chat not connected')
     const peerKey = String(peerKeyArg ?? '').toLowerCase()
     if (!/^[0-9a-f]{64}$/.test(peerKey)) throw new Error('Bad recipient key')
-    const proof = await identity.ensureProof()
-    if (!proof) return { sent: false, needsLink: true, identity: await identity.ownIdentity() }
     const ownKey = await identity.devicePub()
     if (peerKey === ownKey) throw new Error('Cannot DM yourself')
+    if (session.gated && !session.cert) {
+      return { sent: false, pendingMembership: true, identity: await identity.ownIdentity() }
+    }
+    const proof = await identity.ensureProof()
     const domain = await identity.claimedDomain()
     const seed = await identity.deviceSeed()
     const plain = String(text).slice(0, 4000)
@@ -273,7 +401,7 @@ export function registerChatHandlers(registry: ServiceRegistry): void {
       },
       proof
     )
-    await sendEnvelope(bridge, session.overlayId, env)
+    await sendEnvelope(bridge, session.overlayId, env, seed, session.cert)
     return { sent: true, id: String(env.sig ?? '').slice(0, 32), ts: env.ts, identity: await identity.ownIdentity() }
   })
 
