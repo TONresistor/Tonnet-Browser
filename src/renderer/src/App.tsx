@@ -43,6 +43,7 @@ import { Settings } from 'lucide-react'
 import walletIcon from '@/assets/wallet.svg'
 import storageIcon from '@/assets/storage.svg'
 import cocoonIcon from '@/assets/cocoon.png'
+import messengerIcon from '@/assets/messenger.svg'
 import { Button } from '@/components/ui/button'
 import Lottie from 'lottie-react'
 import i18n, { loadLanguage } from '@/i18n'
@@ -296,7 +297,7 @@ function App() {
         <div className="no-drag flex-1">
           <AddressBar />
         </div>
-        {/* Quick-access: two pills — [wallet · cocoon] and [storage · settings] */}
+        {/* Quick-access: two pills — [wallet · cocoon · chat · storage] and [settings] */}
         <div className="flex items-center gap-1">
           <div className="no-drag flex items-center gap-0.5 rounded-full px-1 py-0.5 glass-surface">
             <Button
@@ -323,8 +324,15 @@ function App() {
             >
               <img src={cocoonIcon} alt="" className="h-5 w-5 brightness-0 invert" />
             </Button>
-          </div>
-          <div className="no-drag flex items-center gap-0.5 rounded-full px-1 py-0.5 glass-surface">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 rounded-full"
+              onClick={() => openOrSwitchToTab('ton://chat')}
+              title={t('tooltips.messenger')}
+            >
+              <img src={messengerIcon} alt="" className="h-5 w-5 brightness-0 invert" />
+            </Button>
             <Button
               variant="ghost"
               size="icon"
@@ -334,6 +342,8 @@ function App() {
             >
               <img src={storageIcon} alt="" className="h-4 w-4 brightness-0 invert" />
             </Button>
+          </div>
+          <div className="no-drag flex items-center gap-0.5 rounded-full px-1 py-0.5 glass-surface">
             <Button
               variant="ghost"
               size="icon"

@@ -39,6 +39,7 @@
   "tooltips": {
     "storage": "Storage",
     "cocoon": "Cocoon AI",
+    "messenger": "Messenger",
     "settings": "Settings"
   },
   "error": {
