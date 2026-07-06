@@ -150,8 +150,11 @@ function ChatRoomView({
             {q ? 'No matching messages.' : connected ? 'No message yet.' : 'Connecting to the room…'}
           </div>
         )}
-        {visible.map((m, i) => (
-          <div key={i} className={cn('flex flex-col', m.self ? 'items-end' : 'items-start')}>
+        {visible.map((m) => (
+          <div
+            key={m.id ?? `${m.ts}:${m.deviceKey ?? 'me'}`}
+            className={cn('flex flex-col', m.self ? 'items-end' : 'items-start')}
+          >
             <div
               className={cn(
                 'max-w-[75%] rounded-2xl px-3 py-2 text-sm',

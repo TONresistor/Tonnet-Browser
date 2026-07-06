@@ -43,6 +43,7 @@ export interface IpcEventMap {
   'chat:message': [
     msg: {
       room?: string
+      id: string
       nick: string
       text: string
       ts: number

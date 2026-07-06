@@ -5,6 +5,7 @@ export type ChatStatus = 'idle' | 'connecting' | 'connected' | 'error'
 export type { ChatIdentityInfo }
 
 export interface ChatMsg {
+  id?: string
   nick: string
   text: string
   ts: number

@@ -150,6 +150,11 @@ function nowSec(): number {
   return Math.floor(Date.now() / 1000)
 }
 
+function numericTs(v: unknown): number {
+  const n = Number(v)
+  return Number.isFinite(n) && n > 0 ? n : Date.now()
+}
+
 async function ownIdentityView(identity: ChatIdentityManager): Promise<OwnChatIdentity> {
   const id = await identity.ownIdentity()
   if (getSetting('messenger').attachWalletIdentity) return id
@@ -170,8 +175,15 @@ async function handleEnrollment(
   if (env.type === 'cert-req' && env.key) {
     const ownerHex = session.ownerKey.toString('hex')
     if (!(await membership.isOwner(ownerHex))) return
+    const reqKey = env.key.toLowerCase()
+    if ((recentGrants.get(reqKey) ?? 0) > nowSec()) return
     const cert = await membership.issue(room, ownerHex, Buffer.from(env.key, 'hex'), nowSec())
     if (!cert) return
+    if (recentGrants.size >= RECV_DEDUP_CAP) {
+      const oldest = recentGrants.keys().next().value
+      if (oldest !== undefined) recentGrants.delete(oldest)
+    }
+    recentGrants.set(reqKey, nowSec() + GRANT_COOLDOWN_S)
     const [proof, domain] = await Promise.all([identity.currentProof(), identity.claimedDomain()])
     const grant = buildSigned(
       seed,
@@ -243,7 +255,8 @@ async function connectRoom(
         try {
           const frame = parseBroadcast(Buffer.from(data.message, 'base64'))
           if (!frame || !verifyBroadcast(frame)) return
-          if (!firstSeen(broadcastId(frame.src, frame.data, frame.flags).toString('hex'))) return
+          const id = broadcastId(frame.src, frame.data, frame.flags).toString('hex')
+          if (!firstSeen(id)) return
           const env = JSON.parse(frame.data.toString('utf-8')) as WireEnvelope
           if (!env.key || env.key.toLowerCase() !== frame.src.toString('hex')) return
           if (env.type === 'cert-req' || env.type === 'cert-grant') {
@@ -280,16 +293,17 @@ async function connectRoom(
               id: String(env.sig ?? '').slice(0, 32),
               peerKey: env.key as string,
               text: plain.toString('utf8').slice(0, 4000),
-              ts: Number(env.ts ?? Date.now()),
+              ts: numericTs(env.ts),
               identity: msgIdentity,
             })
             return
           }
           emitToRenderer(IPC_CHANNELS.CHAT_MESSAGE, {
             room,
+            id,
             nick: msgIdentity.name,
             text: String(env.text ?? '').slice(0, 4000),
-            ts: Number(env.ts ?? Date.now()),
+            ts: numericTs(env.ts),
             self: Boolean(env.key && env.key === ownKey),
             deviceKey: env.key,
             identity: msgIdentity,

@@ -94,10 +94,19 @@ function ChatPage(): React.JSX.Element {
         setParticipants(seenRef.current.size)
       }
       setMessages((prev) => {
+        if (m.id && prev.some((p) => p.id === m.id)) return prev
         if (m.self && prev.some((p) => p.self && p.ts === m.ts && p.text === m.text)) return prev
         return [
           ...prev,
-          { nick: m.nick, text: m.text, ts: m.ts, self: m.self, deviceKey: m.deviceKey, identity: m.identity },
+          {
+            id: m.id,
+            nick: m.nick,
+            text: m.text,
+            ts: m.ts,
+            self: m.self,
+            deviceKey: m.deviceKey,
+            identity: m.identity,
+          },
         ].sort((a, b) => a.ts - b.ts)
       })
     })
