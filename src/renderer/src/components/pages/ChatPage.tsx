@@ -189,32 +189,6 @@ function ChatPage(): React.JSX.Element {
     [remove, leaveRoom]
   )
 
-  const handleLink = useCallback(() => {
-    window.electron.chat
-      .linkIdentity()
-      .then(setIdentity)
-      .catch(() => {})
-  }, [])
-
-  const handleClaimDomain = useCallback(async (domain: string): Promise<{ ok: boolean; reason?: string }> => {
-    try {
-      const res = await window.electron.chat.claimDomain(domain)
-      setIdentity(res.identity)
-      return { ok: res.ok, reason: res.reason }
-    } catch (e) {
-      return { ok: false, reason: e instanceof Error ? e.message : String(e) }
-    }
-  }, [])
-
-  const handleClearDomain = useCallback(() => {
-    window.electron.chat
-      .clearDomain()
-      .then(setIdentity)
-      .catch(() => {})
-  }, [])
-
-  const handleDetectDomains = useCallback(() => window.electron.chat.detectDomains(), [])
-
   const send = useCallback(async () => {
     const text = input.trim()
     if (!text || status !== 'connected') return
@@ -249,11 +223,7 @@ function ChatPage(): React.JSX.Element {
         dms={dmList}
         activeRoom={room}
         activeDm={activeDm}
-        identity={identity}
-        onLink={handleLink}
-        onClaimDomain={handleClaimDomain}
-        onClearDomain={handleClearDomain}
-        onDetectDomains={handleDetectDomains}
+        onIdentityChange={setIdentity}
         onSelect={openRoom}
         onRemove={handleRemove}
         onSelectDm={handleSelectDm}

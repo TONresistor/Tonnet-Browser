@@ -1,13 +1,14 @@
 import { memo, useEffect, useRef, useState } from 'react'
-import { Check, ChevronDown, Search, Settings, SquarePen, X } from 'lucide-react'
+import { Search, SquarePen, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useTabsStore } from '@/stores/tabs'
 import type { OwnChatIdentity } from '@shared/types'
 import type { FollowedRoom } from './useFollowedRooms'
 import { IdentityBadge } from './IdentityBadge'
 import type { RoomPreview } from './useRoomPreviews'
 import type { DmConversation } from './useDmConversations'
 import { avatarColor, formatChatTime, initial, roomLabel } from './util'
+import { GroupsIcon, MessagesIcon, ProfileIcon } from './tabIcons'
+import { MessengerSection } from '@/components/settings/sections/MessengerSection'
 
 interface ChatSidebarProps {
   rooms: FollowedRoom[]
@@ -15,16 +16,29 @@ interface ChatSidebarProps {
   dms: DmConversation[]
   activeRoom: string
   activeDm: string
-  identity: OwnChatIdentity | null
-  onLink: () => void
-  onClaimDomain: (domain: string) => Promise<{ ok: boolean; reason?: string }>
-  onClearDomain: () => void
-  onDetectDomains: () => Promise<{ domains: string[] }>
+  onIdentityChange: (id: OwnChatIdentity | null) => void
   onSelect: (room: FollowedRoom) => void
   onRemove: (room: string) => void
   onSelectDm: (address: string) => void
   onRemoveDm: (address: string) => void
   onAdd: () => void
+}
+
+type SidebarTab = 'groups' | 'messages' | 'profile'
+
+const TABS: { id: SidebarTab; label: string; Icon: (props: { className?: string }) => React.JSX.Element }[] = [
+  { id: 'groups', label: 'Groups', Icon: GroupsIcon },
+  { id: 'messages', label: 'Messages', Icon: MessagesIcon },
+  { id: 'profile', label: 'Profile', Icon: ProfileIcon },
+]
+
+const SIDEBAR_MIN = 240
+const SIDEBAR_MAX = 460
+const SIDEBAR_KEY = 'groupchat.sidebarWidth'
+
+function readSidebarWidth(): number {
+  const v = Number(localStorage.getItem(SIDEBAR_KEY))
+  return Number.isFinite(v) && v >= SIDEBAR_MIN && v <= SIDEBAR_MAX ? v : 280
 }
 
 function RoomRow({
@@ -195,302 +209,190 @@ function DmRow({
   )
 }
 
-function SectionLabel({ children }: { children: React.ReactNode }): React.JSX.Element {
-  return (
-    <div className="px-3 pb-0.5 pt-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-      {children}
-    </div>
-  )
-}
-
-function DomainMenu({
-  addressShort,
-  domains,
-  current,
-  error,
-  onPick,
-}: {
-  addressShort: string
-  domains: string[]
-  current: string | null
-  error: string | null
-  onPick: (name: string | null) => void
-}): React.JSX.Element {
-  const rowCls = (selected: boolean): string =>
-    cn(
-      'flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left transition-colors',
-      selected ? 'bg-primary/10' : 'hover:bg-surface-hover'
-    )
-  return (
-    <div className="absolute inset-x-0 bottom-full z-30 mb-2 overflow-hidden rounded-xl border border-border-subtle bg-elevation-1 p-1 shadow-panel">
-      <div className="px-2.5 py-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-        Chat username
-      </div>
-      <button type="button" onClick={() => onPick(null)} className={rowCls(current === null)}>
-        <span className="min-w-0 flex-1 truncate font-mono text-[13px] text-foreground">{addressShort}</span>
-        <span className="shrink-0 text-[10px] uppercase tracking-wide text-muted-foreground">Wallet</span>
-        {current === null && <Check className="h-3.5 w-3.5 shrink-0 text-primary" />}
-      </button>
-      {domains.map((d) => (
-        <button key={d} type="button" onClick={() => onPick(d)} className={rowCls(current === d)}>
-          <span className="min-w-0 flex-1 truncate text-[13px] lowercase text-foreground">{d}</span>
-          {current === d && <Check className="h-3.5 w-3.5 shrink-0 text-primary" />}
-        </button>
-      ))}
-      {error && <div className="px-2.5 py-1 text-[11px] leading-tight text-destructive">{error}</div>}
-    </div>
-  )
-}
-
-function ProfileRow({
-  identity,
-  onLink,
-  onClaimDomain,
-  onClearDomain,
-  onDetectDomains,
-}: {
-  identity: OwnChatIdentity | null
-  onLink: () => void
-  onClaimDomain: (domain: string) => Promise<{ ok: boolean; reason?: string }>
-  onClearDomain: () => void
-  onDetectDomains: () => Promise<{ domains: string[] }>
-}): React.JSX.Element {
-  const [open, setOpen] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [detected, setDetected] = useState<string[]>([])
-  const rootRef = useRef<HTMLDivElement>(null)
-  const linked = Boolean(identity?.linked && identity.addressShort)
-  const domain = identity?.domain
-  const seed = domain || identity?.address || identity?.addressShort || identity?.deviceKey || '?'
-
-  useEffect(() => {
-    if (!linked) {
-      setDetected([])
-      return
-    }
-    let alive = true
-    onDetectDomains()
-      .then((res) => {
-        if (alive) setDetected(res.domains)
-      })
-      .catch(() => {})
-    return () => {
-      alive = false
-    }
-  }, [linked, onDetectDomains])
-
-  useEffect(() => {
-    if (!open) return
-    const onDown = (e: MouseEvent): void => {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false)
-    }
-    document.addEventListener('mousedown', onDown)
-    return () => document.removeEventListener('mousedown', onDown)
-  }, [open])
-
-  const options = domain && !detected.includes(domain) ? [...detected, domain] : detected
-  const hasChoices = options.length > 0
-
-  const applyPick = (name: string | null): void => {
-    setError(null)
-    if (!name) {
-      onClearDomain()
-      setOpen(false)
-      return
-    }
-    onClaimDomain(name)
-      .then((res) => {
-        if (res.ok) setOpen(false)
-        else setError(res.reason ?? 'Could not verify domain')
-      })
-      .catch(() => setError('Could not verify domain'))
-  }
-
-  return (
-    <div ref={rootRef} className="relative flex items-center gap-3 rounded-xl bg-elevation-2 px-2.5 py-2">
-      {open && hasChoices && (
-        <DomainMenu
-          addressShort={identity!.addressShort ?? ''}
-          domains={options}
-          current={domain ?? null}
-          error={error}
-          onPick={applyPick}
-        />
-      )}
-      <span
-        className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-[14px] font-semibold text-white"
-        style={{ backgroundColor: avatarColor(seed) }}
-      >
-        {initial(domain || identity?.addressShort || '?')}
-      </span>
-      <div className="min-w-0 flex-1">
-        {linked ? (
-          <button
-            type="button"
-            disabled={!hasChoices}
-            onClick={() => {
-              setError(null)
-              setOpen((o) => !o)
-            }}
-            className="block w-full min-w-0 text-left disabled:cursor-default"
-            title={hasChoices ? 'Choose your username' : undefined}
-          >
-            <div className="flex items-center gap-1">
-              <span
-                className={cn(
-                  'min-w-0 truncate text-[14px] font-medium text-foreground',
-                  domain ? 'lowercase' : 'font-mono'
-                )}
-              >
-                {domain || identity!.addressShort}
-              </span>
-              <IdentityBadge identity={{ tier: domain ? 'domain' : 'wallet' }} />
-              {hasChoices && (
-                <ChevronDown
-                  className={cn(
-                    'ml-auto h-4 w-4 shrink-0 text-muted-foreground transition-transform',
-                    open && 'rotate-180'
-                  )}
-                />
-              )}
-            </div>
-            <div className="truncate text-[11px] leading-tight text-muted-foreground">
-              {domain ? identity!.addressShort : hasChoices ? 'Tap to choose your .ton' : 'Wallet'}
-            </div>
-          </button>
-        ) : identity?.walletReady ? (
-          <>
-            <div className="truncate text-[15px] font-medium text-foreground">Not linked</div>
-            <button
-              type="button"
-              onClick={onLink}
-              className="truncate text-[11px] font-medium leading-tight text-primary transition-opacity hover:opacity-80"
-            >
-              Link your wallet to chat
-            </button>
-          </>
-        ) : (
-          <>
-            <div className="truncate text-[15px] font-medium text-foreground">No wallet</div>
-            <button
-              type="button"
-              onClick={() => useTabsStore.getState().navigateActiveTab('ton://wallet')}
-              className="truncate text-[11px] font-medium leading-tight text-primary transition-opacity hover:opacity-80"
-            >
-              Create a wallet to chat
-            </button>
-          </>
-        )}
-      </div>
-      <button
-        type="button"
-        onClick={() => useTabsStore.getState().navigateActiveTab('ton://settings')}
-        aria-label="Settings"
-        title="Settings"
-        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
-      >
-        <Settings className="h-[18px] w-[18px]" />
-      </button>
-    </div>
-  )
-}
-
 function ChatSidebar({
   rooms,
   previews,
   dms,
   activeRoom,
   activeDm,
-  identity,
-  onLink,
-  onClaimDomain,
-  onClearDomain,
-  onDetectDomains,
+  onIdentityChange,
   onSelect,
   onRemove,
   onSelectDm,
   onRemoveDm,
   onAdd,
 }: ChatSidebarProps): React.JSX.Element {
+  const [tab, setTab] = useState<SidebarTab>('groups')
   const [query, setQuery] = useState('')
+  const [width, setWidth] = useState(readSidebarWidth)
+  const [resizing, setResizing] = useState(false)
+  const rootRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!resizing) return
+    let raf: number | null = null
+    let pending: number | null = null
+    const onMove = (e: MouseEvent): void => {
+      const left = rootRef.current?.getBoundingClientRect().left ?? 0
+      const w = Math.min(Math.max(e.clientX - left, SIDEBAR_MIN), SIDEBAR_MAX)
+      pending = w
+      if (raf === null) {
+        raf = requestAnimationFrame(() => {
+          raf = null
+          if (pending !== null) setWidth(pending)
+        })
+      }
+    }
+    const onUp = (): void => {
+      setResizing(false)
+      if (raf !== null) cancelAnimationFrame(raf)
+      if (pending !== null) {
+        setWidth(pending)
+        localStorage.setItem(SIDEBAR_KEY, String(pending))
+      }
+    }
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
+    document.body.style.cursor = 'ew-resize'
+    document.body.style.userSelect = 'none'
+    return () => {
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onUp)
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+      if (raf !== null) cancelAnimationFrame(raf)
+    }
+  }, [resizing])
+
   const q = query.trim().toLowerCase()
-  const filtered = q ? rooms.filter((r) => (roomLabel(r.room) + ' ' + r.room).toLowerCase().includes(q)) : rooms
+  const filteredRooms = q ? rooms.filter((r) => (roomLabel(r.room) + ' ' + r.room).toLowerCase().includes(q)) : rooms
   const filteredDms = q
     ? dms.filter((d) => (d.name + ' ' + d.address + ' ' + (d.domain ?? '')).toLowerCase().includes(q))
     : dms
-  const empty = rooms.length === 0 && dms.length === 0
-  const noMatches = filtered.length === 0 && filteredDms.length === 0
 
   return (
-    <div className="m-3 flex w-[280px] shrink-0 flex-col overflow-hidden rounded-panel border border-border-subtle bg-elevation-1 shadow-panel">
+    <div
+      ref={rootRef}
+      style={{ width }}
+      className="relative m-3 flex shrink-0 flex-col overflow-hidden rounded-panel border border-border-subtle bg-elevation-1 shadow-panel"
+    >
       <div className="relative flex items-center justify-center px-4 pb-2 pt-4">
-        <h2 className="text-lg font-semibold tracking-tight text-foreground">Messenger</h2>
-        <button
-          type="button"
-          onClick={onAdd}
-          aria-label="Add chat"
-          title="Add chat"
-          className="absolute right-3 flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
-        >
-          <SquarePen className="h-[18px] w-[18px]" />
-        </button>
+        <h2 className="text-lg font-semibold tracking-tight text-foreground">
+          {tab === 'profile' ? 'Profile' : 'Messenger'}
+        </h2>
+        {tab !== 'profile' && (
+          <button
+            type="button"
+            onClick={onAdd}
+            aria-label="Add chat"
+            title="Add chat"
+            className="absolute right-3 flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
+          >
+            <SquarePen className="h-[18px] w-[18px]" />
+          </button>
+        )}
       </div>
 
-      <div className="px-2.5 pb-2">
-        <div className="flex items-center gap-2 rounded-full bg-elevation-2 px-3.5 py-2">
-          <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search"
-            aria-label="Search chats"
-            className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground/50"
-          />
+      {tab !== 'profile' && (
+        <div className="px-2.5 pb-2">
+          <div className="flex items-center gap-2 rounded-full bg-elevation-2 px-3.5 py-2">
+            <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search"
+              aria-label="Search chats"
+              className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground/50"
+            />
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="flex-1 overflow-y-auto px-2.5">
-        {empty ? (
-          <div className="px-3 py-8 text-center text-[13px] text-muted-foreground">
-            No chats yet. Tap the <span className="font-medium text-foreground">compose</span> icon to add one.
-          </div>
-        ) : noMatches ? (
-          <div className="px-3 py-8 text-center text-[13px] text-muted-foreground">No matches.</div>
-        ) : (
-          <div role="listbox" aria-label="Chats" className="space-y-0.5 py-1">
-            {filtered.length > 0 && filteredDms.length > 0 && <SectionLabel>Groups</SectionLabel>}
-            {filtered.map((r) => (
-              <RoomRow
-                key={r.room}
-                room={r}
-                active={!activeDm && r.room === activeRoom}
-                preview={previews[r.room]}
-                onSelect={onSelect}
-                onRemove={onRemove}
-              />
-            ))}
-            {filteredDms.length > 0 && filtered.length > 0 && <SectionLabel>Direct messages</SectionLabel>}
-            {filteredDms.map((d) => (
-              <DmRow
-                key={d.address}
-                dm={d}
-                active={d.address === activeDm}
-                onSelect={onSelectDm}
-                onRemove={onRemoveDm}
-              />
-            ))}
+        {tab === 'groups' &&
+          (filteredRooms.length === 0 ? (
+            <div className="px-3 py-8 text-center text-[13px] text-muted-foreground">
+              {rooms.length === 0 ? (
+                <>
+                  No groups yet. Tap the <span className="font-medium text-foreground">compose</span> icon to add one.
+                </>
+              ) : (
+                'No matches.'
+              )}
+            </div>
+          ) : (
+            <div role="listbox" aria-label="Groups" className="space-y-0.5 py-1">
+              {filteredRooms.map((r) => (
+                <RoomRow
+                  key={r.room}
+                  room={r}
+                  active={!activeDm && r.room === activeRoom}
+                  preview={previews[r.room]}
+                  onSelect={onSelect}
+                  onRemove={onRemove}
+                />
+              ))}
+            </div>
+          ))}
+
+        {tab === 'messages' &&
+          (filteredDms.length === 0 ? (
+            <div className="px-3 py-8 text-center text-[13px] text-muted-foreground">
+              {dms.length === 0 ? 'No conversations yet. Open a group and tap a member to start a DM.' : 'No matches.'}
+            </div>
+          ) : (
+            <div role="listbox" aria-label="Direct messages" className="space-y-0.5 py-1">
+              {filteredDms.map((d) => (
+                <DmRow
+                  key={d.peerKey}
+                  dm={d}
+                  active={d.address === activeDm}
+                  onSelect={onSelectDm}
+                  onRemove={onRemoveDm}
+                />
+              ))}
+            </div>
+          ))}
+
+        {tab === 'profile' && (
+          <div className="py-1">
+            <MessengerSection onIdentityChange={onIdentityChange} />
           </div>
         )}
       </div>
 
-      <div className="px-2.5 pb-3 pt-2">
-        <ProfileRow
-          identity={identity}
-          onLink={onLink}
-          onClaimDomain={onClaimDomain}
-          onClearDomain={onClearDomain}
-          onDetectDomains={onDetectDomains}
-        />
+      <nav className="flex border-t border-border-subtle" aria-label="Messenger sections">
+        {TABS.map(({ id, label, Icon }) => {
+          const active = tab === id
+          return (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setTab(id)}
+              aria-current={active}
+              className={cn(
+                'flex flex-1 flex-col items-center gap-1 py-2.5 text-[10px] font-medium transition-colors',
+                active ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              <Icon className="h-[18px] w-[18px]" />
+              {label}
+            </button>
+          )
+        })}
+      </nav>
+
+      <div
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Resize sidebar"
+        onMouseDown={(e) => {
+          e.preventDefault()
+          setResizing(true)
+        }}
+        className="absolute inset-y-0 right-0 z-20 w-1.5 cursor-ew-resize transition-colors hover:bg-primary/40"
+      >
+        <div className="absolute inset-y-0 -left-1.5 right-0" />
       </div>
     </div>
   )
