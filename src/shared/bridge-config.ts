@@ -124,7 +124,6 @@ export const DEFAULT_NAMESPACE_STATE: Record<NamespaceKey, boolean> = {
   subscribe: true,
   dns: true,
   // Enabled for the experimental group chat (ton://chat) — needs adnl/overlay/dht.
-  // (feature branch: groupchat; see /groupchat/CHANGELOG.md)
   adnl: true,
   overlay: true,
   dht: true,
