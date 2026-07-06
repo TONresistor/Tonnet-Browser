@@ -1,6 +1,6 @@
 import { IPC_CHANNELS } from '../../../shared/ipc-channels'
 import { normalizeRoom, normalizeNodeId, overlayIdB64ForRoom, parseOverlayNodes, parseRoomName } from '../../chat/room'
-import { parseBroadcast, sealBroadcast, verifyBroadcast } from '../../chat/broadcast'
+import { broadcastId, parseBroadcast, sealBroadcast, verifyBroadcast } from '../../chat/broadcast'
 import { verifyCertificate, CERT_MAX_SIZE } from '../../chat/cert'
 import { ChatMembership } from '../../chat/membership'
 import { signEnvelope, type WireEnvelope } from '../../chat/envelope'
@@ -34,6 +34,8 @@ interface Candidate {
   adnl: string
   via: Via
 }
+
+const RECV_DEDUP_CAP = 8192
 
 let session: ChatSession | null = null
 let connectChain: Promise<unknown> = Promise.resolve()
@@ -214,6 +216,17 @@ async function connectRoom(
   const seed = await identity.deviceSeed()
   const ownKey = await identity.devicePub()
 
+  const seen = new Set<string>()
+  const firstSeen = (id: string): boolean => {
+    if (seen.has(id)) return false
+    if (seen.size >= RECV_DEDUP_CAP) {
+      const oldest = seen.values().next().value
+      if (oldest !== undefined) seen.delete(oldest)
+    }
+    seen.add(id)
+    return true
+  }
+
   let lastErr: Error | null = null
   for (const cand of candidates) {
     const unsub = bridge.onOverlayMessage((data) => {
@@ -222,6 +235,7 @@ async function connectRoom(
         try {
           const frame = parseBroadcast(Buffer.from(data.message, 'base64'))
           if (!frame || !verifyBroadcast(frame)) return
+          if (!firstSeen(broadcastId(frame.src, frame.data, frame.flags).toString('hex'))) return
           const env = JSON.parse(frame.data.toString('utf-8')) as WireEnvelope
           if (!env.key || env.key.toLowerCase() !== frame.src.toString('hex')) return
           if (env.type === 'cert-req' || env.type === 'cert-grant') {
