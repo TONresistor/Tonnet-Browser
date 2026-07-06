@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { keyPairFromSeed } from '@ton/crypto'
 import {
+  marshalEnvelope,
+  parseEnvelope,
   signEnvelope,
   verifyEnvelope,
   envelopeDigest,
@@ -41,15 +43,38 @@ describe('chat envelope', () => {
 
   it('domain-separates a dm from a room message', () => {
     const pub = keyPairFromSeed(seed).publicKey
-    const v2 = envelopeDigest({ type: 'msg', nick: 'a', text: 'x', ts: 1, room: 'r' }, pub)
-    const v3 = envelopeDigest({ type: 'dm', nick: 'a', text: 'x', ts: 1, room: 'r', to: 'deadbeef' }, pub)
-    expect(v2.equals(v3)).toBe(false)
+    const peer = keyPairFromSeed(Buffer.alloc(32, 8)).publicKey.toString('hex')
+    const msg = envelopeDigest({ type: 'msg', nick: 'a', text: 'x', ts: 1, room: 'r' }, pub)
+    const dm = envelopeDigest({ type: 'dm', nick: 'a', text: 'x', ts: 1, room: 'r', to: peer }, pub)
+    expect(msg.equals(dm)).toBe(false)
   })
 
-  it('throws on proof fields without a room', () => {
+  it('requires a room binding before signing', () => {
+    expect(() => signEnvelope({ type: 'msg', nick: 'a', text: 'x', ts: 1 }, seed)).toThrow()
+  })
+
+  it('rejects non-integer timestamps instead of truncating them', () => {
+    expect(() => signEnvelope({ type: 'msg', nick: 'a', text: 'x', ts: 1.5, room: 'r' }, seed)).toThrow()
+  })
+
+  it('roundtrips the TL envelope wire format', () => {
+    const signed = signEnvelope({ type: 'msg', nick: 'a', text: 'hello', ts: 1000, room: 'tonnet:x' }, seed)
+    const wire = marshalEnvelope(signed)
+    expect(wire.subarray(0, 4).toString('hex')).toBe('c81885c4')
+    const parsed = parseEnvelope(wire)
+    expect(parsed).toEqual(signed)
+    expect(verifyEnvelope(parsed)).toBe('valid')
+  })
+
+  it('rejects JSON envelope bytes', () => {
+    const signed = signEnvelope({ type: 'msg', nick: 'a', text: 'hello', ts: 1000, room: 'tonnet:x' }, seed)
+    expect(() => parseEnvelope(Buffer.from(JSON.stringify(signed), 'utf8'))).toThrow()
+  })
+
+  it('throws on incomplete proof fields', () => {
     const pub = keyPairFromSeed(seed).publicKey
     expect(() =>
-      envelopeDigest({ type: 'msg', nick: 'a', text: 'x', ts: 1, wkey: 'aa' } as WireEnvelope, pub)
+      envelopeDigest({ type: 'msg', nick: 'a', text: 'x', ts: 1, room: 'r', wkey: 'aa' } as WireEnvelope, pub)
     ).toThrow()
   })
 })

@@ -30,7 +30,8 @@ export function classify(e: WireEnvelope, localRoom: string, nowSec: number): Cl
   const status = verifyEnvelope(e)
   if (status !== 'valid') return { drop: true, reason: status === 'invalid' ? 'bad signature' : 'unsigned' }
 
-  if (e.room && e.room !== localRoom) return { drop: true, reason: `signed for room ${e.room}` }
+  if (!e.room || e.room !== localRoom)
+    return { drop: true, reason: e.room ? `signed for room ${e.room}` : 'missing room' }
 
   const fp = fingerprint(e)
 

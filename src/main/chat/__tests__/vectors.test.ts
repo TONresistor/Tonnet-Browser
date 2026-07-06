@@ -2,8 +2,24 @@ import { describe, it, expect } from 'vitest'
 import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { keyPairFromSeed, sign } from '@ton/crypto'
-import { signEnvelope, verifyEnvelope, devicePublicKeyHex, type WireEnvelope } from '../envelope'
-import { proofPayload, proofDigest, deriveWalletAddress, verifyProof, friendlyAddress, shortAddress } from '../tonproof'
+import {
+  ENVELOPE_DOMAIN,
+  marshalEnvelope,
+  parseEnvelope,
+  signEnvelope,
+  verifyEnvelope,
+  devicePublicKeyHex,
+  type WireEnvelope,
+} from '../envelope'
+import {
+  TONPROOF_DOMAIN,
+  proofPayload,
+  proofDigest,
+  deriveWalletAddress,
+  verifyProof,
+  friendlyAddress,
+  shortAddress,
+} from '../tonproof'
 import { dmSharedKey, sealDM, openDM } from '../dm'
 import fixture from './vectors.json'
 
@@ -27,40 +43,8 @@ function buildVectors(): Record<string, unknown> {
   const digest = proofDigest(address, WTS, payload)
   const wsig = sign(digest, walletKp.secretKey).toString('hex')
 
-  const v1 = signEnvelope({ type: 'msg', nick: 'alice', text: 'hi', ts: 1719900000000 }, DEVICE_SEED)
-  const v2NoProof = signEnvelope({ type: 'msg', nick: 'alice', text: 'hi', ts: 1719900000000, room: ROOM }, DEVICE_SEED)
-  const v2Proof = signEnvelope(
-    {
-      type: 'msg',
-      nick: shortAddress(address),
-      text: 'hi',
-      ts: WTS * 1000,
-      room: ROOM,
-      wkey: walletPub,
-      wsig,
-      wts: WTS,
-      wexp: WEXP,
-    },
-    DEVICE_SEED
-  )
-
   const peerPub = keyPairFromSeed(PEER_SEED).publicKey
   const dmBox = sealDM(DEVICE_SEED, peerPub, Buffer.from(DM_PLAINTEXT, 'utf8'), DM_NONCE)
-  const v3Dm = signEnvelope(
-    {
-      type: 'dm',
-      nick: shortAddress(address),
-      text: dmBox.toString('base64'),
-      ts: WTS * 1000,
-      room: ROOM,
-      to: peerPub.toString('hex'),
-      wkey: walletPub,
-      wsig,
-      wts: WTS,
-      wexp: WEXP,
-    },
-    DEVICE_SEED
-  )
 
   return {
     deviceSeed: DEVICE_SEED.toString('hex'),
@@ -70,22 +54,61 @@ function buildVectors(): Record<string, unknown> {
     walletAddressRaw: address.toRawString(),
     walletAddressFriendly: friendlyAddress(address),
     walletAddressShort: shortAddress(address),
-    tonproofDomain: 'tonnet.chat',
+    tonproofDomain: TONPROOF_DOMAIN,
     wts: WTS,
     wexp: WEXP,
     proofPayload: payload,
     proofDigest: digest.toString('hex'),
     wsig,
-    v1,
-    v2NoProof,
-    v2Proof,
+    envelopeDomain: ENVELOPE_DOMAIN,
     dmPeerSeed: PEER_SEED.toString('hex'),
     dmPeerPub: peerPub.toString('hex'),
     dmSharedKey: dmSharedKey(DEVICE_SEED, peerPub).toString('hex'),
     dmPlaintext: DM_PLAINTEXT,
     dmBox: dmBox.toString('base64'),
-    v3Dm,
   }
+}
+
+function proofFields(): Required<Pick<WireEnvelope, 'wkey' | 'wsig' | 'wts' | 'wexp'>> {
+  return {
+    wkey: fixture.walletPub as string,
+    wsig: fixture.wsig as string,
+    wts: fixture.wts as number,
+    wexp: fixture.wexp as number,
+  }
+}
+
+function v4NoProof(): WireEnvelope {
+  return signEnvelope({ type: 'msg', nick: 'alice', text: 'hi', ts: 1719900000000, room: ROOM }, DEVICE_SEED)
+}
+
+function v4Proof(): WireEnvelope {
+  return signEnvelope(
+    {
+      type: 'msg',
+      nick: fixture.walletAddressShort as string,
+      text: 'hi',
+      ts: WTS * 1000,
+      room: ROOM,
+      ...proofFields(),
+    },
+    DEVICE_SEED
+  )
+}
+
+function v4Dm(): WireEnvelope {
+  return signEnvelope(
+    {
+      type: 'dm',
+      nick: fixture.walletAddressShort as string,
+      text: fixture.dmBox as string,
+      ts: WTS * 1000,
+      room: ROOM,
+      to: fixture.dmPeerPub as string,
+      ...proofFields(),
+    },
+    DEVICE_SEED
+  )
 }
 
 describe('cross-language chat identity vectors', () => {
@@ -99,15 +122,23 @@ describe('cross-language chat identity vectors', () => {
     expect(computed).toEqual(fixture)
   })
 
-  it('verifies every fixture envelope', () => {
-    expect(verifyEnvelope(fixture.v1 as WireEnvelope)).toBe('valid')
-    expect(verifyEnvelope(fixture.v2NoProof as WireEnvelope)).toBe('valid')
-    expect(verifyEnvelope(fixture.v2Proof as WireEnvelope)).toBe('valid')
-    expect(verifyEnvelope(fixture.v3Dm as WireEnvelope)).toBe('valid')
+  it('uses the v4 envelope domain from the Go protocol vector', () => {
+    expect(ENVELOPE_DOMAIN).toBe(fixture.envelopeDomain)
+  })
+
+  it('verifies signed v4 envelopes and roundtrips their TL bytes', () => {
+    for (const env of [v4NoProof(), v4Proof(), v4Dm()]) {
+      expect(verifyEnvelope(env)).toBe('valid')
+      const wire = marshalEnvelope(env)
+      const parsed = parseEnvelope(wire)
+      expect(parsed).toEqual(env)
+      expect(marshalEnvelope(parsed).toString('hex')).toBe(wire.toString('hex'))
+      expect(verifyEnvelope(parsed)).toBe('valid')
+    }
   })
 
   it('opens the fixture dm box and rejects redirect', () => {
-    const env = fixture.v3Dm as WireEnvelope
+    const env = v4Dm()
     const opened = openDM(
       Buffer.from(fixture.dmPeerSeed as string, 'hex'),
       Buffer.from(fixture.devicePub as string, 'hex'),
@@ -121,25 +152,19 @@ describe('cross-language chat identity vectors', () => {
 
   it('accepts the fixture proof and rejects tampering', () => {
     const now = WTS + 100
-    const res = verifyProof(fixture.v2Proof as WireEnvelope, now)
+    const proofed = v4Proof()
+    const res = verifyProof(proofed, now)
     expect(res.ok).toBe(true)
     if (res.ok) expect(friendlyAddress(res.address)).toBe(fixture.walletAddressFriendly)
 
-    const stolen = { ...(fixture.v2Proof as WireEnvelope), key: devicePublicKeyHex(Buffer.alloc(32, 2)) }
+    const stolen = { ...proofed, key: devicePublicKeyHex(Buffer.alloc(32, 2)) }
     expect(verifyEnvelope(stolen)).toBe('invalid')
 
-    const expired = verifyProof(fixture.v2Proof as WireEnvelope, fixture.wexp + 1)
+    const expired = verifyProof(proofed, (fixture.wexp as number) + 1)
     expect(expired.ok).toBe(false)
 
-    const withProof = {
-      ...(fixture.v2NoProof as WireEnvelope),
-      wkey: fixture.walletPub as string,
-      wsig: fixture.wsig as string,
-      wts: fixture.wts as number,
-      wexp: fixture.wexp as number,
-    }
-    expect(verifyEnvelope(withProof)).toBe('valid')
-    expect(verifyProof(withProof, now).ok).toBe(true)
+    const grafted = { ...v4NoProof(), ...proofFields() }
+    expect(verifyEnvelope(grafted)).toBe('invalid')
 
     const transferred = signEnvelope(
       {
@@ -148,17 +173,14 @@ describe('cross-language chat identity vectors', () => {
         text: 'hi',
         ts: 1719900000000,
         room: ROOM,
-        wkey: fixture.walletPub as string,
-        wsig: fixture.wsig as string,
-        wts: fixture.wts as number,
-        wexp: fixture.wexp as number,
+        ...proofFields(),
       },
       Buffer.alloc(32, 2)
     )
     expect(verifyEnvelope(transferred)).toBe('valid')
     expect(verifyProof(transferred, now).ok).toBe(false)
 
-    const crossRoom = { ...(fixture.v2Proof as WireEnvelope), room: 'tonnet:other' }
+    const crossRoom = { ...proofed, room: 'tonnet:other' }
     expect(verifyEnvelope(crossRoom)).toBe('invalid')
   })
 })

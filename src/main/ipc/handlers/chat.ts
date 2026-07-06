@@ -1,9 +1,9 @@
 import { IPC_CHANNELS } from '../../../shared/ipc-channels'
 import { normalizeRoom, normalizeNodeId, overlayIdB64ForRoom, parseOverlayNodes, parseRoomName } from '../../chat/room'
-import { broadcastId, parseBroadcast, sealBroadcast, verifyBroadcast } from '../../chat/broadcast'
+import { broadcastId, isFresh, parseBroadcast, sealBroadcast, verifyBroadcast } from '../../chat/broadcast'
 import { verifyCertificate, CERT_MAX_SIZE } from '../../chat/cert'
 import { ChatMembership } from '../../chat/membership'
-import { signEnvelope, type WireEnvelope } from '../../chat/envelope'
+import { marshalEnvelope, parseEnvelope, signEnvelope, MAX_TEXT_BYTES, type WireEnvelope } from '../../chat/envelope'
 import { deriveWalletAddress, shortAddress } from '../../chat/tonproof'
 import { classify } from '../../chat/verify'
 import { sealDM, openDM } from '../../chat/dm'
@@ -37,6 +37,9 @@ interface Candidate {
 }
 
 const RECV_DEDUP_CAP = 8192
+const GRANT_COOLDOWN_S = 60
+
+const recentGrants = new Map<string, number>()
 
 let session: ChatSession | null = null
 let connectChain: Promise<unknown> = Promise.resolve()
@@ -109,7 +112,7 @@ async function sendEnvelope(
   seed: Buffer,
   cert?: Buffer | null
 ): Promise<void> {
-  const data = Buffer.from(JSON.stringify(env), 'utf-8')
+  const data = marshalEnvelope(env)
   const wire = sealBroadcast(seed, data, Math.floor(Date.now() / 1000), cert ?? undefined)
   await bridge.overlaySendRaw(overlayId, wire.toString('base64'))
 }
@@ -155,6 +158,15 @@ function numericTs(v: unknown): number {
   return Number.isFinite(n) && n > 0 ? n : Date.now()
 }
 
+function truncateUtf8(s: string, maxBytes: number): string {
+  const raw = Buffer.from(s, 'utf8')
+  if (raw.length <= maxBytes) return s
+  return raw
+    .subarray(0, maxBytes)
+    .toString('utf8')
+    .replace(/\uFFFD+$/u, '')
+}
+
 async function ownIdentityView(identity: ChatIdentityManager): Promise<OwnChatIdentity> {
   const id = await identity.ownIdentity()
   if (getSetting('messenger').attachWalletIdentity) return id
@@ -175,7 +187,7 @@ async function handleEnrollment(
   if (env.type === 'cert-req' && env.key) {
     const ownerHex = session.ownerKey.toString('hex')
     if (!(await membership.isOwner(ownerHex))) return
-    const reqKey = env.key.toLowerCase()
+    const reqKey = `${room}:${env.key.toLowerCase()}`
     if ((recentGrants.get(reqKey) ?? 0) > nowSec()) return
     const cert = await membership.issue(room, ownerHex, Buffer.from(env.key, 'hex'), nowSec())
     if (!cert) return
@@ -255,20 +267,30 @@ async function connectRoom(
         try {
           const frame = parseBroadcast(Buffer.from(data.message, 'base64'))
           if (!frame || !verifyBroadcast(frame)) return
+          const receivedAt = nowSec()
+          if (!isFresh(frame.date, receivedAt)) return
           const id = broadcastId(frame.src, frame.data, frame.flags).toString('hex')
           if (!firstSeen(id)) return
-          const env = JSON.parse(frame.data.toString('utf-8')) as WireEnvelope
+          const env = parseEnvelope(frame.data)
           if (!env.key || env.key.toLowerCase() !== frame.src.toString('hex')) return
           if (env.type === 'cert-req' || env.type === 'cert-grant') {
+            const verdict = classify(env, room, receivedAt)
+            if (verdict.drop) {
+              log.warn(`chat: dropped enrollment message in ${room}: ${verdict.reason}`)
+              return
+            }
             await handleEnrollment(bridge, identity, membership, seed, room, ownKey, env)
             return
           }
           const isDm = env.type === 'dm'
           if (env.type && env.type !== 'msg' && !isDm) return
-          if ((env.text?.length ?? 0) > (isDm ? 24000 : 8000) || (env.nick?.length ?? 0) > 256) return
+          if (
+            Buffer.byteLength(env.text ?? '', 'utf8') > MAX_TEXT_BYTES ||
+            Buffer.byteLength(env.nick ?? '', 'utf8') > 64
+          )
+            return
           if (isDm && (env.to !== ownKey || !env.key)) return
-          const nowSec = Math.floor(Date.now() / 1000)
-          const verdict = classify(env, room, nowSec)
+          const verdict = classify(env, room, receivedAt)
           if (verdict.drop) {
             log.warn(`chat: dropped message in ${room}: ${verdict.reason}`)
             return
@@ -276,7 +298,7 @@ async function connectRoom(
           let msgIdentity = verdict.identity
           if (msgIdentity.tier === 'wallet' && msgIdentity.address && env.nick) {
             const claim = env.nick.trim().toLowerCase()
-            if (await verifyDomainOwnership(claim, msgIdentity.address, resolveDomain, nowSec)) {
+            if (await verifyDomainOwnership(claim, msgIdentity.address, resolveDomain, receivedAt)) {
               msgIdentity = { ...msgIdentity, tier: 'domain', name: claim, domain: claim }
             }
           }
@@ -394,7 +416,7 @@ export function registerChatHandlers(registry: ServiceRegistry): void {
       {
         type: 'msg',
         nick: wireNick(proof, domain),
-        text: String(text).slice(0, 4000),
+        text: truncateUtf8(String(text), MAX_TEXT_BYTES),
         ts: Date.now(),
         room: session.room,
       },
@@ -425,7 +447,7 @@ export function registerChatHandlers(registry: ServiceRegistry): void {
     const proof = attach ? await identity.ensureProof() : null
     const domain = attach ? await identity.claimedDomain() : null
     const seed = await identity.deviceSeed()
-    const plain = String(text).slice(0, 4000)
+    const plain = truncateUtf8(String(text), 1400)
     const box = sealDM(seed, Buffer.from(peerKey, 'hex'), Buffer.from(plain, 'utf8'))
     const env = buildSigned(
       seed,

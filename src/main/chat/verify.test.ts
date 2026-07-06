@@ -22,8 +22,8 @@ describe('chat classify', () => {
     expect(classify(e, 'r1', now).drop).toBe(true)
   })
 
-  it('accepts a message with no room binding (overlay-scoped)', () => {
-    const e = signEnvelope({ type: 'msg', nick: 'a', text: 'hi', ts: 1 }, seed)
-    expect(classify(e, 'r1', now).drop).toBe(false)
+  it('rejects a message with no room binding', () => {
+    expect(() => signEnvelope({ type: 'msg', nick: 'a', text: 'hi', ts: 1 }, seed)).toThrow()
+    expect(classify({ type: 'msg', nick: 'a', text: 'hi', ts: 1 }, 'r1', now).drop).toBe(true)
   })
 })

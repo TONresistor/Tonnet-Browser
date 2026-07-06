@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { keyPairFromSeed } from '@ton/crypto'
 import { sealBroadcast, parseBroadcast, verifyBroadcast, broadcastId, deviceKeyId, isFresh } from './broadcast'
+import { marshalEnvelope, parseEnvelope, signEnvelope, verifyEnvelope } from './envelope'
 
 const vectorCandidates = [
   resolve(__dirname, '../../../../TONNET/tonnet-messenger/internal/broadcast/testdata/vectors.json'),
@@ -13,7 +14,7 @@ interface Vectors {
   seed: string
   devicePub: string
   deviceKeyId: string
-  data: string
+  dataHex: string
   date: number
   broadcastId: string
   signature: string
@@ -35,6 +36,7 @@ function loadVectors(): Vectors | null {
 describe('tonnet.broadcast cross-language vectors', () => {
   const v = loadVectors()
   const guarded = v ? it : it.skip
+  const vectorData = (): Buffer => Buffer.from(v!.dataHex, 'hex')
 
   guarded('device key id matches the Go golden vector', () => {
     const pub = Buffer.from(v!.devicePub, 'hex')
@@ -43,12 +45,12 @@ describe('tonnet.broadcast cross-language vectors', () => {
 
   guarded('broadcast id matches the Go golden vector', () => {
     const pub = Buffer.from(v!.devicePub, 'hex')
-    expect(broadcastId(pub, Buffer.from(v!.data, 'utf-8'), 0).toString('hex')).toBe(v!.broadcastId)
+    expect(broadcastId(pub, vectorData(), 0).toString('hex')).toBe(v!.broadcastId)
   })
 
   guarded('sealed broadcast is byte-identical to the Go golden vector', () => {
     const seed = Buffer.from(v!.seed, 'hex')
-    const wire = sealBroadcast(seed, Buffer.from(v!.data, 'utf-8'), v!.date)
+    const wire = sealBroadcast(seed, vectorData(), v!.date)
     expect(wire.toString('hex')).toBe(v!.serialized)
   })
 
@@ -62,7 +64,19 @@ describe('tonnet.broadcast cross-language vectors', () => {
     const frame = parseBroadcast(Buffer.from(v!.serializedWithCert, 'hex'))
     expect(frame).not.toBeNull()
     expect(verifyBroadcast(frame!)).toBe(true)
-    expect(frame!.data.toString('utf-8')).toBe(v!.data)
+    expect(frame!.data.toString('hex')).toBe(v!.dataHex)
+    const env = parseEnvelope(frame!.data)
+    expect(env.type).toBe('msg')
+    expect(env.nick).toBe('vec')
+    expect(env.text).toBe('hello v4')
+    expect(env.room).toBe('tonnet:vectors')
+    expect(env.key).toBe(v!.devicePub)
+    expect(verifyEnvelope(env)).toBe('valid')
+    const signed = signEnvelope(
+      { type: env.type, nick: env.nick, text: env.text, ts: env.ts, room: env.room },
+      Buffer.from(v!.seed, 'hex')
+    )
+    expect(marshalEnvelope(signed).toString('hex')).toBe(v!.dataHex)
     expect(frame!.src.toString('hex')).toBe(v!.devicePub)
   })
 })
@@ -71,7 +85,7 @@ describe('tonnet.broadcast roundtrip', () => {
   const seed = keyPairFromSeed(Buffer.alloc(32, 7)) && Buffer.alloc(32, 7)
 
   it('seal -> parse -> verify roundtrips', () => {
-    const wire = sealBroadcast(seed, Buffer.from('{"type":"msg"}', 'utf-8'), 1751700000)
+    const wire = sealBroadcast(seed, Buffer.from('payload'), 1751700000)
     const frame = parseBroadcast(wire)
     expect(frame).not.toBeNull()
     expect(verifyBroadcast(frame!)).toBe(true)

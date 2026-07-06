@@ -74,15 +74,15 @@ describe('classify (device tier is the floor; wallet/.ton are optional bonuses)'
     if (!res.drop) expect(res.identity.tier).toBe('device')
   })
 
-  it('rejects a room strip (v2 to v1)', () => {
+  it('rejects a room strip', () => {
     const proof = walletProof(DEVICE, WALLET, NOW + 1000)
     const e = signEnvelope({ type: 'msg', nick: 'x', text: 'hi', ts: NOW * 1000, room: ROOM, ...proof }, DEVICE)
     expect(classify({ ...e, room: undefined }, ROOM, NOW).drop).toBe(true)
   })
 
-  it('binds the signature to the room (a bare v2 with no proof still needs its room)', () => {
+  it('binds the signature to the room', () => {
     const e = signEnvelope({ type: 'msg', nick: 'x', text: 'hi', ts: NOW * 1000, room: ROOM }, DEVICE)
     const pub = Buffer.from(e.key!, 'hex')
-    expect(envelopeDigest(e, pub).equals(envelopeDigest({ ...e, room: undefined }, pub))).toBe(false)
+    expect(() => envelopeDigest({ ...e, room: undefined }, pub)).toThrow()
   })
 })
