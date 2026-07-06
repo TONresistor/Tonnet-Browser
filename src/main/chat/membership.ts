@@ -103,6 +103,12 @@ export class ChatMembership {
     this.persist()
   }
 
+  async clear(): Promise<void> {
+    this.file = { v: 1, owned: {}, certs: {} }
+    this.loaded = true
+    await fs.rm(this.path(), { force: true })
+  }
+
   // validCert returns a stored, non-expiring-soon certificate for the room.
   async validCert(fullRoom: string, memberDevicePub: Buffer, ownerPub: Buffer, nowSec: number): Promise<Buffer | null> {
     const file = await this.load()

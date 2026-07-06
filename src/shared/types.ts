@@ -215,6 +215,7 @@ export type {
   SpendingLimits,
   SitePolicy,
   WalletSettings,
+  MessengerSettings,
 } from './schemas'
 export {
   GeneralSettingsSchema,
@@ -241,6 +242,8 @@ export {
   BridgeSettingsPartialSchema,
   CocoonSettingsSchema,
   CocoonSettingsPartialSchema,
+  MessengerSettingsSchema,
+  MessengerSettingsPartialSchema,
   type BridgeScope,
   type BridgeDecision,
 } from './schemas'

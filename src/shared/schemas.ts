@@ -191,6 +191,18 @@ export const CocoonSettingsPartialSchema = z
 
 export type CocoonSettings = z.infer<typeof CocoonSettingsSchema>
 
+export const MessengerSettingsSchema = z.object({
+  attachWalletIdentity: z.boolean().default(false),
+})
+
+export const MessengerSettingsPartialSchema = z
+  .object({
+    attachWalletIdentity: z.boolean(),
+  })
+  .partial()
+
+export type MessengerSettings = z.infer<typeof MessengerSettingsSchema>
+
 export const BridgeSettingsPartialSchema = z
   .object({
     permissions: z.array(BridgePermissionSchema),
@@ -226,6 +238,7 @@ export const AppSettingsSchema = z.object({
   wallet: withCategoryDefaults(WalletSettingsSchema),
   bridge: withCategoryDefaults(BridgeSettingsSchema),
   cocoon: withCategoryDefaults(CocoonSettingsSchema),
+  messenger: withCategoryDefaults(MessengerSettingsSchema),
 })
 
 // Partial validation schemas (no defaults) -- used to validate SETTINGS_SET updates.

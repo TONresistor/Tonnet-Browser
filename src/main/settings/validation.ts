@@ -16,6 +16,7 @@ import {
   WalletSettingsPartialSchema,
   BridgeSettingsPartialSchema,
   CocoonSettingsPartialSchema,
+  MessengerSettingsPartialSchema,
 } from '../../shared/types'
 import { createLogger } from '../../shared/logger'
 const log = createLogger('settings')
@@ -32,6 +33,7 @@ export const SETTINGS_CATEGORIES: ReadonlyArray<keyof AppSettings> = [
   'wallet',
   'bridge',
   'cocoon',
+  'messenger',
 ]
 
 /**
@@ -67,6 +69,7 @@ export function validateCategoryValues<K extends keyof AppSettings>(
     wallet: WalletSettingsPartialSchema,
     bridge: BridgeSettingsPartialSchema,
     cocoon: CocoonSettingsPartialSchema,
+    messenger: MessengerSettingsPartialSchema,
   }
   const schema = schemas[category]
   if (!schema) {

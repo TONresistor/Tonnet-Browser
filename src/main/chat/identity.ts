@@ -233,4 +233,14 @@ export class ChatIdentityManager {
     delete next.domain
     this.persist(next)
   }
+
+  async resetIdentity(): Promise<void> {
+    this.seed = null
+    this.file = null
+    this.fileLoaded = false
+    this.signInFlight = null
+    await fs.rm(this.devicePath(), { force: true })
+    await fs.rm(this.identityPath(), { force: true })
+    log.info('chat identity reset: device key and attribution cleared')
+  }
 }

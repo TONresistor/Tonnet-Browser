@@ -327,6 +327,7 @@ declare global {
         ) => Promise<{ ok: boolean; reason?: string; identity: import('../shared/types').OwnChatIdentity }>
         clearDomain: () => Promise<import('../shared/types').OwnChatIdentity>
         detectDomains: () => Promise<{ domains: string[] }>
+        resetIdentity: () => Promise<import('../shared/types').OwnChatIdentity>
       }
       cocoon: {
         availability: () => Promise<CocoonAvailability>

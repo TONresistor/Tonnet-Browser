@@ -9,6 +9,7 @@ import { classify } from '../../chat/verify'
 import { sealDM, openDM } from '../../chat/dm'
 import { verifyDomainOwnership, type ResolveFn } from '../../chat/resolve'
 import { ChatIdentityManager, type ChatProof } from '../../chat/identity'
+import type { OwnChatIdentity } from '../../../shared/types'
 import { ownedDomains } from '../../chat/detect'
 import { getSetting } from '../../settings'
 import { secureHandle, emitToRenderer, toError, log } from './shared'
@@ -121,7 +122,8 @@ async function announcePresence(
   room: string
 ): Promise<void> {
   if (!session || session.room !== room) return
-  const [proof, domain] = await Promise.all([identity.currentProof(), identity.claimedDomain()])
+  const attach = getSetting('messenger').attachWalletIdentity
+  const [proof, domain] = attach ? await Promise.all([identity.currentProof(), identity.claimedDomain()]) : [null, null]
   if (session.gated && session.ownerKey && !session.cert) {
     const ownHex = await identity.devicePub()
     const ownBuf = Buffer.from(ownHex, 'hex')
@@ -146,6 +148,12 @@ async function announcePresence(
 
 function nowSec(): number {
   return Math.floor(Date.now() / 1000)
+}
+
+async function ownIdentityView(identity: ChatIdentityManager): Promise<OwnChatIdentity> {
+  const id = await identity.ownIdentity()
+  if (getSetting('messenger').attachWalletIdentity) return id
+  return { deviceKey: id.deviceKey, linked: false, declined: false, walletReady: id.walletReady }
 }
 
 async function handleEnrollment(
@@ -361,10 +369,11 @@ export function registerChatHandlers(registry: ServiceRegistry): void {
     const bridge = walletManager.getBridgeClient()
     if (!bridge || !session) throw new Error('Chat not connected')
     if (session.gated && !session.cert) {
-      return { sent: false, pendingMembership: true, identity: await identity.ownIdentity() }
+      return { sent: false, pendingMembership: true, identity: await ownIdentityView(identity) }
     }
-    const proof = await identity.ensureProof()
-    const domain = await identity.claimedDomain()
+    const attach = getSetting('messenger').attachWalletIdentity
+    const proof = attach ? await identity.ensureProof() : null
+    const domain = attach ? await identity.claimedDomain() : null
     const seed = await identity.deviceSeed()
     const env = buildSigned(
       seed,
@@ -378,7 +387,7 @@ export function registerChatHandlers(registry: ServiceRegistry): void {
       proof
     )
     await sendEnvelope(bridge, session.overlayId, env, seed, session.cert)
-    return { sent: true, identity: await identity.ownIdentity() }
+    return { sent: true, identity: await ownIdentityView(identity) }
   })
 
   secureHandle(IPC_CHANNELS.CHAT_CREATE_ROOM, async (displayArg: string) => {
@@ -396,10 +405,11 @@ export function registerChatHandlers(registry: ServiceRegistry): void {
     const ownKey = await identity.devicePub()
     if (peerKey === ownKey) throw new Error('Cannot DM yourself')
     if (session.gated && !session.cert) {
-      return { sent: false, pendingMembership: true, identity: await identity.ownIdentity() }
+      return { sent: false, pendingMembership: true, identity: await ownIdentityView(identity) }
     }
-    const proof = await identity.ensureProof()
-    const domain = await identity.claimedDomain()
+    const attach = getSetting('messenger').attachWalletIdentity
+    const proof = attach ? await identity.ensureProof() : null
+    const domain = attach ? await identity.claimedDomain() : null
     const seed = await identity.deviceSeed()
     const plain = String(text).slice(0, 4000)
     const box = sealDM(seed, Buffer.from(peerKey, 'hex'), Buffer.from(plain, 'utf8'))
@@ -416,27 +426,26 @@ export function registerChatHandlers(registry: ServiceRegistry): void {
       proof
     )
     await sendEnvelope(bridge, session.overlayId, env, seed, session.cert)
-    return { sent: true, id: String(env.sig ?? '').slice(0, 32), ts: env.ts, identity: await identity.ownIdentity() }
+    return { sent: true, id: String(env.sig ?? '').slice(0, 32), ts: env.ts, identity: await ownIdentityView(identity) }
   })
 
   secureHandle(IPC_CHANNELS.CHAT_IDENTITY, async () => {
-    await identity.ensureProof()
-    return identity.ownIdentity()
+    return ownIdentityView(identity)
   })
 
   secureHandle(IPC_CHANNELS.CHAT_IDENTITY_LINK, async () => {
     await identity.relink()
-    return identity.ownIdentity()
+    return ownIdentityView(identity)
   })
 
   secureHandle(IPC_CHANNELS.CHAT_CLAIM_DOMAIN, async (domain: string) => {
     const res = await identity.claimDomain(String(domain ?? ''))
-    return { ...res, identity: await identity.ownIdentity() }
+    return { ...res, identity: await ownIdentityView(identity) }
   })
 
   secureHandle(IPC_CHANNELS.CHAT_CLEAR_DOMAIN, async () => {
     await identity.clearDomain()
-    return identity.ownIdentity()
+    return ownIdentityView(identity)
   })
 
   secureHandle(IPC_CHANNELS.CHAT_DETECT_DOMAINS, async () => {
@@ -449,6 +458,13 @@ export function registerChatHandlers(registry: ServiceRegistry): void {
       log.warn(`chat: domain detection failed: ${toError(err).message}`)
       return { domains: [] }
     }
+  })
+
+  secureHandle(IPC_CHANNELS.CHAT_RESET_IDENTITY, async () => {
+    await teardownSession(walletManager.getBridgeClient())
+    await identity.resetIdentity()
+    await membership.clear()
+    return ownIdentityView(identity)
   })
 
   secureHandle(IPC_CHANNELS.CHAT_DISCONNECT, async () => {

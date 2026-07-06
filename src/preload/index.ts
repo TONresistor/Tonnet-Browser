@@ -198,6 +198,7 @@ const electronAPI = {
     claimDomain: (domain: string) => ipcRenderer.invoke(IPC_CHANNELS.CHAT_CLAIM_DOMAIN, domain),
     clearDomain: () => ipcRenderer.invoke(IPC_CHANNELS.CHAT_CLEAR_DOMAIN),
     detectDomains: () => ipcRenderer.invoke(IPC_CHANNELS.CHAT_DETECT_DOMAINS),
+    resetIdentity: () => ipcRenderer.invoke(IPC_CHANNELS.CHAT_RESET_IDENTITY),
   },
 
   // Cocoon AI

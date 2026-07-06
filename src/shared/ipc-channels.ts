@@ -113,6 +113,7 @@ export const IPC_CHANNELS = {
   CHAT_CLAIM_DOMAIN: 'chat:identity:claim-domain',
   CHAT_CLEAR_DOMAIN: 'chat:identity:clear-domain',
   CHAT_DETECT_DOMAINS: 'chat:identity:detect-domains',
+  CHAT_RESET_IDENTITY: 'chat:identity:reset',
 
   // Bridge permissions
   BRIDGE_SEND: 'bridge:send',
