@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useState } from 'react'
-import { Copy, Check, ChevronLeft, ChevronRight, LoaderCircle } from 'lucide-react'
+import { Copy, Check, ChevronLeft, ChevronRight, LoaderCircle, RadioTower } from 'lucide-react'
 import { Toggle } from '../shared/Toggle'
 import { Button } from '@/components/ui/button'
 import { createLogger } from '@/logger'
@@ -26,9 +26,11 @@ interface MessengerSectionProps {
 export const MessengerSection = memo(function MessengerSection({ onIdentityChange }: MessengerSectionProps) {
   const [identity, setIdentity] = useState<OwnChatIdentity | null>(null)
   const [attach, setAttach] = useState(false)
+  const [networkEnabled, setNetworkEnabled] = useState(false)
   const [loading, setLoading] = useState(true)
   const [copied, setCopied] = useState(false)
   const [linking, setLinking] = useState(false)
+  const [networking, setNetworking] = useState(false)
   const [domains, setDomains] = useState<string[]>([])
   const [detected, setDetected] = useState(false)
   const [detecting, setDetecting] = useState(false)
@@ -55,6 +57,7 @@ export const MessengerSection = memo(function MessengerSection({ onIdentityChang
         if (!active) return
         setIdentity(id)
         setAttach(Boolean((prefs as MessengerSettings)?.attachWalletIdentity))
+        setNetworkEnabled(Boolean((prefs as MessengerSettings)?.networkEnabled))
       } catch (err) {
         log.error('Failed to load messenger settings:', err)
       } finally {
@@ -92,6 +95,24 @@ export const MessengerSection = memo(function MessengerSection({ onIdentityChang
       }
     },
     [applyIdentity]
+  )
+
+  const toggleNetwork = useCallback(
+    async (v: boolean) => {
+      const previous = networkEnabled
+      setNetworkEnabled(v)
+      setNetworking(true)
+      try {
+        const res = await window.electron.settings.set('messenger', { networkEnabled: v })
+        if (!res.success) throw new Error(res.error ?? 'Failed to update messenger networking')
+      } catch (err) {
+        setNetworkEnabled(previous)
+        log.error('Failed to update messenger networking:', err)
+      } finally {
+        setNetworking(false)
+      }
+    },
+    [networkEnabled]
   )
 
   const detect = useCallback(async () => {
@@ -301,6 +322,27 @@ export const MessengerSection = memo(function MessengerSection({ onIdentityChang
               <Copy className="h-4 w-4" aria-hidden="true" />
             )}
           </Button>
+        </div>
+
+        <div className="flex items-center gap-3 border-t border-border-subtle px-3 py-2.5">
+          <span
+            className="grid h-[29px] w-[29px] shrink-0 place-items-center rounded-[8px]"
+            style={{ backgroundColor: '#34C759' }}
+          >
+            <RadioTower className="h-[17px] w-[17px] text-white" aria-hidden="true" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="text-[14px] font-medium text-foreground">Messenger network</div>
+            <div className="truncate text-[11px] text-muted-foreground">
+              {networkEnabled ? 'ADNL, Overlay, DHT enabled' : 'Off until enabled'}
+            </div>
+          </div>
+          <Toggle
+            checked={networkEnabled}
+            onChange={toggleNetwork}
+            ariaLabel="Messenger network"
+            disabled={networking}
+          />
         </div>
 
         <div className="flex items-center gap-3 border-t border-border-subtle px-3 py-2.5">

@@ -18,6 +18,7 @@ import { getBinaryPath } from '../utils/paths'
 import { stripAnsi } from '../utils/strip-ansi'
 import { createLogger } from '../../shared/logger'
 import { applyBridgeDefaults } from './config-writer'
+import { getSetting } from '../settings'
 import { killChildProcess } from './process-utils'
 import { trackDaemon } from '../daemon-registry'
 
@@ -41,7 +42,7 @@ export class BridgeManager extends EventEmitter {
   async start(wsPort: number): Promise<void> {
     const bridgeBinPath = getBinaryPath('tonutils-bridge')
     const bridgeWorkDir = this.getWorkDir()
-    applyBridgeDefaults(bridgeWorkDir)
+    applyBridgeDefaults(bridgeWorkDir, { enableChatNamespaces: getSetting('messenger').networkEnabled })
     const bridgeArgs = ['-addr', `127.0.0.1:${wsPort}`, '-data-dir', bridgeWorkDir, '-verbosity', '2']
 
     log.info(`Starting bridge from: ${bridgeBinPath}`)

@@ -23,6 +23,9 @@ const mockSettings = {
     proxyVerbosity: 2,
     syncTestDomain: 'test.ton',
   },
+  messenger: {
+    networkEnabled: false,
+  },
 }
 
 // Mock modules

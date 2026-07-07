@@ -3,7 +3,8 @@
  */
 
 import { errorMessage } from '../../../shared/errors'
-import { dialog } from 'electron'
+import { app, dialog } from 'electron'
+import path from 'path'
 import { getAllSessions } from '../../windows/tabs-session'
 import { IPC_CHANNELS } from '../../../shared/ipc-channels'
 import { isValidDownloadPath } from '../validation'
@@ -20,7 +21,13 @@ import {
 } from '../../settings'
 import { getMainWindow } from '../../windows/main'
 import { onPrivacySettingsChanged, onAppearanceSettingsChanged } from '../../windows/tabs'
+import { syncMessengerBridgeNamespaces } from '../../proxy/config-writer'
+import { disconnectChatSession } from './chat'
 import type { ServiceRegistry } from '../../services'
+
+function getBridgeWorkDir(): string {
+  return path.join(app.getPath('userData'), 'bridge')
+}
 
 export function registerSettingsHandlers(registry: ServiceRegistry): void {
   const { proxyManager, storageManager, contentFilterManager, walletManager } = registry
@@ -112,9 +119,11 @@ export function registerSettingsHandlers(registry: ServiceRegistry): void {
     if (!validation.valid) {
       throw new Error(`Invalid settings values: ${validation.error}`)
     }
+    const previousMessengerNetwork =
+      category === 'messenger' && 'networkEnabled' in validation.data
+        ? getSetting('messenger').networkEnabled
+        : undefined
     setSetting(category, validation.data as Partial<AppSettings[keyof AppSettings]>)
-    // Notify renderer of settings change
-    emitToRenderer(IPC_CHANNELS.SETTINGS_CHANGED, { category, values })
     // If network settings changed, check if proxy needs restart (non-blocking)
     if (category === 'network' && proxyManager.isRunning()) {
       proxyManager.applySettingsChange().catch((err) => {
@@ -155,6 +164,26 @@ export function registerSettingsHandlers(registry: ServiceRegistry): void {
       const walletSettings = getSetting('wallet')
       walletManager.setAutoLockMinutes(walletSettings.autoLockMinutes)
     }
+    if (category === 'messenger' && 'networkEnabled' in validation.data) {
+      const enabled = Boolean((validation.data as { networkEnabled?: boolean }).networkEnabled)
+      if (!enabled) {
+        await disconnectChatSession(walletManager.getBridgeClient())
+      }
+      const changed = syncMessengerBridgeNamespaces(getBridgeWorkDir(), enabled)
+      if (changed && proxyManager.isRunning()) {
+        try {
+          await proxyManager.restartBridge()
+        } catch (err) {
+          if (previousMessengerNetwork !== undefined) {
+            setSetting('messenger', { networkEnabled: previousMessengerNetwork })
+            syncMessengerBridgeNamespaces(getBridgeWorkDir(), previousMessengerNetwork)
+          }
+          log.error('Bridge restart after messenger settings change failed:', err)
+          throw err
+        }
+      }
+    }
+    emitToRenderer(IPC_CHANNELS.SETTINGS_CHANGED, { category, values })
     return { success: true }
   })
 

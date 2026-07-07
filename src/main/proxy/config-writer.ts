@@ -12,9 +12,45 @@ import { randomBytes } from 'crypto'
 import { cpus } from 'os'
 import { writeSecureJsonAtomic } from '../utils/secure-fs'
 import { createLogger } from '../../shared/logger'
-import { DEFAULT_NAMESPACE_STATE, REQUIRED_NAMESPACES } from '../../shared/bridge-config'
+import { CHAT_NAMESPACES, DEFAULT_NAMESPACE_STATE, REQUIRED_NAMESPACES } from '../../shared/bridge-config'
 
 const log = createLogger('proxy')
+const MESSENGER_NAMESPACES_MANAGED_KEY = '_messengerNamespacesManaged'
+
+interface ApplyBridgeDefaultsOptions {
+  enableChatNamespaces?: boolean
+}
+
+type NamespaceRecord = Record<string, Record<string, unknown>>
+type BridgeConfigJson = Record<string, unknown> & { namespaces?: NamespaceRecord }
+
+function namespaceRecord(config: BridgeConfigJson): NamespaceRecord | undefined {
+  return config.namespaces
+}
+
+function setNamespaceEnabled(ns: NamespaceRecord, name: string, enabled: boolean): boolean {
+  if (!ns[name]) ns[name] = {}
+  if (ns[name].enabled === enabled) return false
+  ns[name].enabled = enabled
+  return true
+}
+
+function applyMessengerNamespaceState(config: BridgeConfigJson, enabled: boolean): boolean {
+  const ns = namespaceRecord(config)
+  if (!ns) return false
+
+  let changed = false
+  if (enabled || config[MESSENGER_NAMESPACES_MANAGED_KEY] === true) {
+    for (const name of CHAT_NAMESPACES) {
+      changed = setNamespaceEnabled(ns, name, enabled) || changed
+    }
+  }
+  if (config[MESSENGER_NAMESPACES_MANAGED_KEY] !== enabled) {
+    config[MESSENGER_NAMESPACES_MANAGED_KEY] = enabled
+    changed = true
+  }
+  return changed
+}
 
 /**
  * Apply browser namespace defaults to the bridge config.json.
@@ -22,16 +58,16 @@ const log = createLogger('proxy')
  * preserves user overrides on subsequent launches via _browserDefaults flag.
  * Required namespaces are always re-enforced regardless.
  */
-export function applyBridgeDefaults(workDir: string): void {
+export function applyBridgeDefaults(workDir: string, options: ApplyBridgeDefaultsOptions = {}): void {
   const configPath = path.join(workDir, 'config.json')
   if (!fs.existsSync(configPath)) return
 
   try {
-    const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'))
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as BridgeConfigJson
     if (config._browserDefaults) {
       // Already applied, only enforce required namespaces
       let changed = false
-      const ns = config.namespaces as Record<string, Record<string, unknown>> | undefined
+      const ns = namespaceRecord(config)
       if (ns) {
         for (const required of REQUIRED_NAMESPACES) {
           if (ns[required] && ns[required].enabled === false) {
@@ -39,29 +75,24 @@ export function applyBridgeDefaults(workDir: string): void {
             changed = true
           }
         }
-        // Experimental group chat (ton://chat) needs these on existing installs too.
-        for (const chatNs of ['adnl', 'overlay', 'dht']) {
-          if (ns[chatNs] && ns[chatNs].enabled === false) {
-            ns[chatNs].enabled = true
-            changed = true
-          }
-        }
       }
+      changed = applyMessengerNamespaceState(config, options.enableChatNamespaces === true) || changed
       if (changed) {
         writeSecureJsonAtomic(configPath, config)
-        log.info('Re-enforced required bridge namespaces')
+        log.info('Re-enforced managed bridge namespaces')
       }
       return
     }
 
     // First application: set namespace defaults
-    const ns = config.namespaces as Record<string, Record<string, unknown>> | undefined
+    const ns = namespaceRecord(config)
     if (ns) {
       for (const [name, enabled] of Object.entries(DEFAULT_NAMESPACE_STATE)) {
         if (!ns[name]) ns[name] = {}
         ns[name].enabled = enabled
       }
     }
+    applyMessengerNamespaceState(config, options.enableChatNamespaces === true)
     config._browserDefaults = true
     writeSecureJsonAtomic(configPath, config)
 
@@ -71,6 +102,24 @@ export function applyBridgeDefaults(workDir: string): void {
     log.info(`Bridge namespace defaults applied, disabled: ${disabled.join(', ')}`)
   } catch (err) {
     log.warn('Failed to apply bridge defaults:', err)
+  }
+}
+
+export function syncMessengerBridgeNamespaces(workDir: string, enabled: boolean): boolean {
+  const configPath = path.join(workDir, 'config.json')
+  if (!fs.existsSync(configPath)) return false
+
+  try {
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as BridgeConfigJson
+    const changed = applyMessengerNamespaceState(config, enabled)
+    if (changed) {
+      writeSecureJsonAtomic(configPath, config)
+      log.info(`Messenger bridge namespaces ${enabled ? 'enabled' : 'disabled'}`)
+    }
+    return changed
+  } catch (err) {
+    log.warn('Failed to sync messenger bridge namespaces:', err)
+    return false
   }
 }
 

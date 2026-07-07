@@ -111,4 +111,13 @@ describe('tonnet.broadcast roundtrip', () => {
     expect(isFresh(1000, 940)).toBe(true)
     expect(isFresh(1000, 939)).toBe(false)
   })
+
+  it('keeps stale replayed history cryptographically verifiable when freshness is skipped', () => {
+    const wire = sealBroadcast(seed, Buffer.from('history'), 1000)
+    const frame = parseBroadcast(wire)
+
+    expect(frame).not.toBeNull()
+    expect(isFresh(frame!.date, 1061)).toBe(false)
+    expect(verifyBroadcast(frame!)).toBe(true)
+  })
 })

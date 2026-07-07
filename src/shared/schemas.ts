@@ -193,11 +193,13 @@ export type CocoonSettings = z.infer<typeof CocoonSettingsSchema>
 
 export const MessengerSettingsSchema = z.object({
   attachWalletIdentity: z.boolean().default(false),
+  networkEnabled: z.boolean().default(false),
 })
 
 export const MessengerSettingsPartialSchema = z
   .object({
     attachWalletIdentity: z.boolean(),
+    networkEnabled: z.boolean(),
   })
   .partial()
 

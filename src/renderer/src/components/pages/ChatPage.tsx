@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react'
-import type { OwnChatIdentity } from '@shared/types'
+import type { MessengerSettings, OwnChatIdentity } from '@shared/types'
 import ChatSidebar from './chat/ChatSidebar'
 import ChatRoomView from './chat/ChatRoomView'
 import DmView from './chat/DmView'
@@ -23,6 +23,8 @@ function ChatPage(): React.JSX.Element {
   const [error, setError] = useState<string | null>(null)
   const [addOpen, setAddOpen] = useState(false)
   const [identity, setIdentity] = useState<OwnChatIdentity | null>(null)
+  const [networkEnabled, setNetworkEnabled] = useState(false)
+  const [enablingNetwork, setEnablingNetwork] = useState(false)
 
   const [activeDm, setActiveDm] = useState<string>('')
   const [dmInput, setDmInput] = useState('')
@@ -44,9 +46,30 @@ function ChatPage(): React.JSX.Element {
       .catch(() => {})
   }, [])
 
+  const refreshMessengerSettings = useCallback(() => {
+    window.electron.settings
+      .get('messenger')
+      .then((prefs) => setNetworkEnabled(Boolean((prefs as MessengerSettings)?.networkEnabled)))
+      .catch(() => {})
+  }, [])
+
   useEffect(() => {
     refreshIdentity()
-  }, [refreshIdentity])
+    refreshMessengerSettings()
+  }, [refreshIdentity, refreshMessengerSettings])
+
+  useEffect(() => {
+    const off = window.electron.on('settings:changed', (change) => {
+      if (change.reset) {
+        refreshMessengerSettings()
+        return
+      }
+      if (change.category !== 'messenger') return
+      const next = (change.values as Partial<MessengerSettings> | undefined)?.networkEnabled
+      if (typeof next === 'boolean') setNetworkEnabled(next)
+    })
+    return () => off()
+  }, [refreshMessengerSettings])
 
   useEffect(() => {
     if (status !== 'connected' || !identity?.address) return
@@ -57,8 +80,8 @@ function ChatPage(): React.JSX.Element {
   }, [status, identity])
 
   useEffect(() => {
-    const key = `${room} ${node}`
-    if (connectedKeyRef.current === key) return
+    let cancelled = false
+    const key = `${room} ${node} ${networkEnabled ? 'enabled' : 'disabled'}`
     connectedKeyRef.current = key
     setMessages([])
     setError(null)
@@ -67,21 +90,38 @@ function ChatPage(): React.JSX.Element {
     if (!room) {
       setStatus('idle')
       window.electron.chat.disconnect().catch(() => {})
-      return
+      return () => {
+        cancelled = true
+      }
+    }
+    if (!networkEnabled) {
+      setStatus('idle')
+      setError('Messenger networking is disabled. Enable it to join rooms.')
+      window.electron.chat.disconnect().catch(() => {})
+      return () => {
+        cancelled = true
+      }
     }
     setStatus('connecting')
     window.electron.chat
       .connect(room, node || undefined)
       .then((res) => {
-        if (connectedKeyRef.current === key && res.room === roomRef.current) setStatus('connected')
+        if (!cancelled && connectedKeyRef.current === key && res.room === roomRef.current) setStatus('connected')
       })
       .catch((e: unknown) => {
-        if (connectedKeyRef.current === key) {
+        if (!cancelled && connectedKeyRef.current === key) {
           setStatus('error')
           setError(e instanceof Error ? e.message : String(e))
         }
       })
-  }, [room, node])
+    return () => {
+      cancelled = true
+      if (connectedKeyRef.current === key) {
+        connectedKeyRef.current = null
+        window.electron.chat.disconnect().catch(() => {})
+      }
+    }
+  }, [room, node, networkEnabled])
 
   useEffect(() => {
     const off = window.electron.on('chat:message', (m) => {
@@ -190,6 +230,21 @@ function ChatPage(): React.JSX.Element {
     [add, openRoom]
   )
 
+  const enableMessengerNetworking = useCallback(async () => {
+    if (networkEnabled || enablingNetwork) return
+    setEnablingNetwork(true)
+    setError(null)
+    try {
+      const res = await window.electron.settings.set('messenger', { networkEnabled: true })
+      if (!res.success) throw new Error(res.error ?? 'Failed to enable Messenger networking')
+      setNetworkEnabled(true)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setEnablingNetwork(false)
+    }
+  }, [networkEnabled, enablingNetwork])
+
   const handleRemove = useCallback(
     (r: string) => {
       remove(r)
@@ -255,6 +310,8 @@ function ChatPage(): React.JSX.Element {
           room={room}
           status={status}
           error={error}
+          networkEnabled={networkEnabled}
+          networkEnabling={enablingNetwork}
           participants={participants}
           messages={messages}
           input={input}
@@ -262,6 +319,7 @@ function ChatPage(): React.JSX.Element {
           onSend={send}
           onLeave={leaveRoom}
           onOpenDm={handleOpenDm}
+          onEnableNetworking={enableMessengerNetworking}
         />
       )}
 

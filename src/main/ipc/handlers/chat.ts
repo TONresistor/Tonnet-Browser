@@ -1,6 +1,6 @@
 import { IPC_CHANNELS } from '../../../shared/ipc-channels'
 import { normalizeRoom, normalizeNodeId, overlayIdB64ForRoom, parseOverlayNodes, parseRoomName } from '../../chat/room'
-import { broadcastId, isFresh, parseBroadcast, sealBroadcast, verifyBroadcast } from '../../chat/broadcast'
+import { broadcastId, parseBroadcast, sealBroadcast, verifyBroadcast } from '../../chat/broadcast'
 import { verifyCertificate, CERT_MAX_SIZE } from '../../chat/cert'
 import { ChatMembership } from '../../chat/membership'
 import { marshalEnvelope, parseEnvelope, signEnvelope, MAX_TEXT_BYTES, type WireEnvelope } from '../../chat/envelope'
@@ -52,6 +52,10 @@ async function teardownSession(bridge: WsBridgeClient | null): Promise<void> {
   s.unsub()
   if (bridge) await bridge.overlayLeaveAndDisconnect(s.overlayId, s.peerId).catch(() => {})
   log.info(`chat: left room ${s.room}`)
+}
+
+export async function disconnectChatSession(bridge: WsBridgeClient | null): Promise<void> {
+  await teardownSession(bridge)
 }
 
 async function resolveCandidates(
@@ -268,7 +272,6 @@ async function connectRoom(
           const frame = parseBroadcast(Buffer.from(data.message, 'base64'))
           if (!frame || !verifyBroadcast(frame)) return
           const receivedAt = nowSec()
-          if (!isFresh(frame.date, receivedAt)) return
           const id = broadcastId(frame.src, frame.data, frame.flags).toString('hex')
           if (!firstSeen(id)) return
           const env = parseEnvelope(frame.data)
@@ -382,6 +385,9 @@ export function registerChatHandlers(registry: ServiceRegistry): void {
     const run = connectChain
       .catch(() => {})
       .then(async () => {
+        if (!getSetting('messenger').networkEnabled) {
+          throw new Error('Messenger networking is disabled. Enable Messenger networking to join rooms.')
+        }
         const bridge = walletManager.getBridgeClient()
         if (!bridge) throw new Error('Bridge not connected. Connect the proxy first')
 

@@ -1,5 +1,5 @@
 import { memo, useEffect, useRef, useState } from 'react'
-import { LogOut, Search, Users, X } from 'lucide-react'
+import { LoaderCircle, LogOut, Search, Users, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { EmptyState } from '@/components/ui/ios/EmptyState'
 import { ChatsIcon } from './ChatsIcon'
@@ -11,6 +11,8 @@ interface ChatRoomViewProps {
   room: string
   status: ChatStatus
   error: string | null
+  networkEnabled: boolean
+  networkEnabling: boolean
   participants: number
   messages: ChatMsg[]
   input: string
@@ -18,6 +20,7 @@ interface ChatRoomViewProps {
   onSend: () => void
   onLeave: () => void
   onOpenDm: (msg: ChatMsg) => void
+  onEnableNetworking: () => void
 }
 
 function subtitle(status: ChatStatus, participants: number): string {
@@ -31,6 +34,8 @@ function ChatRoomView({
   room,
   status,
   error,
+  networkEnabled,
+  networkEnabling,
   participants,
   messages,
   input,
@@ -38,6 +43,7 @@ function ChatRoomView({
   onSend,
   onLeave,
   onOpenDm,
+  onEnableNetworking,
 }: ChatRoomViewProps): React.JSX.Element {
   const listRef = useRef<HTMLDivElement>(null)
   const [searchOpen, setSearchOpen] = useState(false)
@@ -138,7 +144,27 @@ function ChatRoomView({
         </div>
       )}
 
-      {error && (
+      {!networkEnabled && (
+        <div className="mx-3 mt-2 flex items-center gap-3 rounded-card border border-primary/25 bg-primary/10 px-4 py-2.5 text-sm text-foreground">
+          <div className="min-w-0 flex-1">
+            <div className="font-medium">Messenger networking is off</div>
+            <div className="mt-0.5 text-xs leading-snug text-muted-foreground">
+              Enable ADNL, Overlay and DHT to join this room.
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onEnableNetworking}
+            disabled={networkEnabling}
+            className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full bg-primary px-3 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-60"
+          >
+            {networkEnabling && <LoaderCircle className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />}
+            Enable
+          </button>
+        </div>
+      )}
+
+      {networkEnabled && error && (
         <div className="mx-3 mt-2 rounded-card border border-destructive/20 bg-destructive/10 px-4 py-2 text-sm text-destructive">
           {error} (is the proxy connected? adnl/overlay/dht namespaces required)
         </div>
@@ -197,7 +223,7 @@ function ChatRoomView({
           }}
           disabled={!connected}
           className="min-w-0 flex-1 bg-transparent px-1.5 py-1 text-sm text-foreground outline-none placeholder:text-muted-foreground/50 disabled:opacity-50"
-          placeholder={connected ? 'Message…' : 'Connecting…'}
+          placeholder={!networkEnabled ? 'Enable networking' : connected ? 'Message…' : 'Connecting…'}
           aria-label="message"
         />
         <button
