@@ -40,6 +40,29 @@ export async function runCleanup(services: ServiceRegistry): Promise<void> {
       log.error(`Failed to clear browsing data: ${String(error)}`)
     }
 
+    // Sweep orphaned per-domain partition directories. clearStorageData wipes a
+    // partition's contents but leaves the directory, and getAllSessions only
+    // sees live sessions — so userData/Partitions/ton-domain-<host>/ dir NAMES
+    // persist on disk as a plaintext list of every visited hostname, even in
+    // memory-only history mode. Best-effort: some may be held open at exit.
+    try {
+      const { app } = await import('electron')
+      const { rm, readdir } = await import('fs/promises')
+      const { join } = await import('path')
+      const partitionsDir = join(app.getPath('userData'), 'Partitions')
+      const entries = await readdir(partitionsDir).catch(() => [] as string[])
+      let swept = 0
+      for (const entry of entries) {
+        if (entry.startsWith('ton-domain-')) {
+          await rm(join(partitionsDir, entry), { recursive: true, force: true }).catch(() => {})
+          swept++
+        }
+      }
+      if (swept > 0) log.info(`Swept ${swept} domain partition director${swept === 1 ? 'y' : 'ies'}`)
+    } catch (error) {
+      log.error(`Failed to sweep domain partitions: ${String(error)}`)
+    }
+
     // Clear bookmarks file (privacy: leave no browsing trace)
     try {
       const { getBookmarksFile } = await import('./bookmarks')

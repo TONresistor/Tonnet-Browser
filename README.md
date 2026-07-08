@@ -33,21 +33,21 @@
 
 Tonnet Browser is a native desktop browser for the TON Network. It resolves `.ton`, `.t.me`, `.adnl`, `.eth` (ENS), and `.sol` (SNS) through decentralized DNS and delivers content over RLDP directly from the network.
 
-All traffic goes through ADNL, either peer-to-peer or via multi-hop tunnels. A WebSocket bridge connects directly to the TON blockchain, removing any dependency on centralized APIs like TonCenter or TonAPI. Anti-fingerprinting, per-domain isolation, and built-in TON Storage are included out of the box. No telemetry, no tracking, fully open source.
+All traffic goes through ADNL, either peer-to-peer or via multi-hop tunnels. A WebSocket bridge connects directly to the TON blockchain, removing any dependency on centralized APIs like TonCenter or TonAPI. Anti-fingerprinting, per-domain isolation, built-in TON Storage, and optional experimental Messenger are included. No telemetry, no tracking, fully open source.
 
 ## Features
 
 <table>
   <tr>
     <td align="center" width="200"><br><b>Browsing</b><br><br><sub>.ton .t.me .adnl<br>TON Storage Bags<br>+ more TLDs</sub><br><br></td>
-    <td align="center" width="200"><br><b>Wallet</b><br><br><sub>W5 v5r1, send/receive<br>HTTP 402 micropayments</sub><br><br></td>
+    <td align="center" width="200"><br><b>Wallet</b><br><br><sub>W5 v5r1, send/receive<br>Experimental HTTP 402</sub><br><br></td>
     <td align="center" width="200"><br><b>Privacy</b><br><br><sub>Garlic routing<br>Anti-fingerprinting<br>Per-domain isolation<br>No telemetry</sub><br><br></td>
     <td align="center" width="200"><br><b>Storage</b><br><br><sub>TON Storage P2P<br>File browser<br>Download & seed</sub><br><br></td>
   </tr>
   <tr>
     <td align="center" width="200"><br><b>Bridge</b><br><br><sub>WebSocket JSON-RPC<br>Direct to TON<br>No centralized API dependency</sub><br><br></td>
     <td align="center" width="200"><br><b>Security</b><br><br><sub>Process sandboxing<br>SSRF protection<br>IPC hardening<br>Encrypted history</sub><br><br></td>
-    <td align="center" width="200"><br><b>Routing</b><br><br><sub>DHT relay discovery<br>Direct or multi-hop<br>Censorship-resistant</sub><br><br></td>
+    <td align="center" width="200"><br><b>Messenger</b><br><br><sub>Experimental groupchat<br>DHT room discovery<br>Opt-in network</sub><br><br></td>
     <td align="center" width="200"><br><b>Fingerprint</b><br><br><sub>Canvas, WebGL, Audio<br>WebRTC leak blocking<br>Generic User-Agent</sub><br><br></td>
   </tr>
 </table>
@@ -56,57 +56,68 @@ All traffic goes through ADNL, either peer-to-peer or via multi-hop tunnels. A W
 
 | ![Windows](https://img.shields.io/badge/Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white) | ![macOS](https://img.shields.io/badge/macOS-000000?style=for-the-badge&logo=apple&logoColor=white) | ![Linux](https://img.shields.io/badge/Linux-FCC624?style=for-the-badge&logo=linux&logoColor=white) |
 |:---:|:---:|:---:|
-| [Installer](https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON-Browser-Setup-2.2.0.exe) | [DMG (Universal)](https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON-Browser-2.2.0-universal.dmg) | [AppImage](https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON-Browser-2.2.0.AppImage) · [.deb](https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON-Browser-2.2.0.deb) |
+| [Installer](https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON-Browser-Setup-2.3.0.exe) | [DMG (Universal)](https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON-Browser-2.3.0-universal.dmg) | [AppImage x64](https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON-Browser-2.3.0-x86_64.AppImage) · [.deb x64](https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON-Browser-2.3.0-amd64.deb) |
 
 ### Windows
 
 Your browser may warn that the file is from an unknown source. Click **"Keep"** to download.
 
-1. Download and run **TON-Browser-Setup-2.2.0.exe**
+1. Download and run **TON-Browser-Setup-2.3.0.exe**
 2. Follow the installation prompts
 3. Launch **TON Browser** from the Start menu
 
 **One-line install:** Open PowerShell and run:
 
 ```powershell
-irm https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON-Browser-Setup-2.2.0.exe -OutFile TonBrowser.exe; Unblock-File TonBrowser.exe; .\TonBrowser.exe
+irm https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON-Browser-Setup-2.3.0.exe -OutFile TonBrowser.exe; Unblock-File TonBrowser.exe; .\TonBrowser.exe
 ```
 
 ### macOS
 
 Open the `.dmg` and drag TON Browser to Applications.
 
+The app is ad-hoc signed (no paid Apple Developer ID), so Gatekeeper does not
+trust it yet. Clear the quarantine flag once:
+
 ```bash
-# If blocked by Gatekeeper
 xattr -cr /Applications/TON\ Browser.app
 ```
 
 **One-line install:** Open Terminal and run:
 
 ```bash
-curl -LO https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON-Browser-2.2.0-universal.dmg && hdiutil attach TON-Browser-2.2.0-universal.dmg && cp -R "/Volumes/TON Browser/TON Browser.app" /Applications/ && hdiutil detach "/Volumes/TON Browser" && xattr -cr /Applications/TON\ Browser.app && open /Applications/TON\ Browser.app
+curl -LO https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON-Browser-2.3.0-universal.dmg && hdiutil attach TON-Browser-2.3.0-universal.dmg && cp -R "/Volumes/TON Browser/TON Browser.app" /Applications/ && hdiutil detach "/Volumes/TON Browser" && xattr -cr /Applications/TON\ Browser.app && open /Applications/TON\ Browser.app
 ```
+
+> **Still crashes on launch (Apple Silicon)?** Older builds (≤ 2.2.0) shipped
+> unsigned and crash immediately on M1/M2/M3. Re-sign once, then reopen:
+>
+> ```bash
+> codesign --force --deep --sign - /Applications/TON\ Browser.app
+> ```
 
 ### Linux
 
 ```bash
 # AppImage
-chmod +x TON-Browser-2.2.0.AppImage
-./TON-Browser-2.2.0.AppImage
+chmod +x TON-Browser-2.3.0-x86_64.AppImage
+./TON-Browser-2.3.0-x86_64.AppImage
 
 # Debian/Ubuntu
-sudo dpkg -i TON-Browser-2.2.0.deb
+sudo dpkg -i TON-Browser-2.3.0-amd64.deb
 ```
 
 **One-line install:** Open Terminal and run:
 
 ```bash
 # AppImage
-curl -LO https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON-Browser-2.2.0.AppImage && chmod +x TON-Browser-2.2.0.AppImage && ./TON-Browser-2.2.0.AppImage
+curl -LO https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON-Browser-2.3.0-x86_64.AppImage && chmod +x TON-Browser-2.3.0-x86_64.AppImage && ./TON-Browser-2.3.0-x86_64.AppImage
 
 # Debian/Ubuntu
-curl -LO https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON-Browser-2.2.0.deb && sudo dpkg -i TON-Browser-2.2.0.deb
+curl -LO https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON-Browser-2.3.0-amd64.deb && sudo dpkg -i TON-Browser-2.3.0-amd64.deb
 ```
+
+ARM64 Linux builds are also published as `TON-Browser-2.3.0-arm64.AppImage` and `TON-Browser-2.3.0-arm64.deb`.
 
 ## Building
 

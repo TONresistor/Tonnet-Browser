@@ -8,6 +8,7 @@ import { z } from 'zod'
 // --- Namespace identifiers ---
 
 export const REQUIRED_NAMESPACES = ['lite', 'wallet', 'subscribe', 'dns'] as const
+export const CHAT_NAMESPACES = ['adnl', 'overlay', 'dht'] as const
 export const OPTIONAL_NAMESPACES = [
   'jetton',
   'nft',
@@ -22,6 +23,7 @@ export const OPTIONAL_NAMESPACES = [
 export const ALL_NAMESPACES = [...REQUIRED_NAMESPACES, ...OPTIONAL_NAMESPACES] as const
 
 export type RequiredNamespace = (typeof REQUIRED_NAMESPACES)[number]
+export type ChatNamespace = (typeof CHAT_NAMESPACES)[number]
 export type OptionalNamespace = (typeof OPTIONAL_NAMESPACES)[number]
 export type NamespaceKey = (typeof ALL_NAMESPACES)[number]
 
@@ -114,7 +116,6 @@ export interface BridgeConfig {
 //   subscribe:       3 internal methods (accountState, transactions, unsubscribe)
 //   wallet:          1 internal method  (getSeqno)
 //   dns:             1 internal method  (resolve)
-//   adnl/overlay/dht: dApp passthrough only (p2p/write scope, permission-gated)
 //   jetton/nft/sbt/payment/network/subscribe_trace: no usage in codebase
 
 export const DEFAULT_NAMESPACE_STATE: Record<NamespaceKey, boolean> = {
@@ -123,11 +124,9 @@ export const DEFAULT_NAMESPACE_STATE: Record<NamespaceKey, boolean> = {
   wallet: true,
   subscribe: true,
   dns: true,
-  // dApp-only: enable on demand via Settings > Bridge
   adnl: false,
   overlay: false,
   dht: false,
-  // Unused: no method calls in codebase
   subscribe_trace: false,
   jetton: false,
   nft: false,

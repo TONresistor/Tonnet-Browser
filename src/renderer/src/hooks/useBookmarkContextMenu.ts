@@ -6,7 +6,7 @@
  * the right-click handlers for bookmarks/folders plus confirm/cancel for the
  * folder-delete prompt, so BookmarksBar stays focused on layout + drag-drop.
  */
-import { useState, useRef, useCallback, type MouseEvent } from 'react'
+import { useState, useRef, useCallback, useEffect, type MouseEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { UI_NOTIFICATION_TIMEOUT_MS } from '@shared/constants'
 import type { OverlayMenuItem } from '@shared/types'
@@ -36,6 +36,14 @@ export function useBookmarkContextMenu(): BookmarkContextMenu {
 
   const [pendingFolderDeleteId, setPendingFolderDeleteId] = useState<string | null>(null)
   const folderDeleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Clear the pending folder-delete timer on unmount (avoids a setState after
+  // unmount / leaked timer).
+  useEffect(
+    () => () => {
+      if (folderDeleteTimerRef.current) clearTimeout(folderDeleteTimerRef.current)
+    },
+    []
+  )
   const editingBookmarkIdRef = useRef<string | null>(null)
   const editingFolderIdRef = useRef<string | null>(null)
   const lastClickPosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 })

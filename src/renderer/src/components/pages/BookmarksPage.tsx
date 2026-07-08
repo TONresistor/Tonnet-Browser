@@ -432,14 +432,19 @@ export const BookmarksPage = memo(function BookmarksPage() {
 
       // Reorder within same list
       if (draggedId !== overId) {
-        const oldIndex = sortedDisplayBookmarks.findIndex((b) => b.id === draggedId)
-        const newIndex = sortedDisplayBookmarks.findIndex((b) => b.id === overId)
-        if (oldIndex !== -1 && newIndex !== -1) {
-          reorderBookmarks(draggedId, selectedFolderId, newIndex)
-        }
+        const dragged = bookmarks.find((b) => b.id === draggedId)
+        if (!dragged) return
+        // In a single-folder view reorder within that folder. In the aggregate
+        // ("All Bookmarks") / search view the list spans folders, so keep the
+        // bookmark in its OWN folder (never move it to Unfiled) and index it
+        // among that folder's members — not the cross-folder list.
+        const targetFolderId = selectedFolderId !== null ? selectedFolderId : (dragged.folderId ?? null)
+        const folderMembers = sortedDisplayBookmarks.filter((b) => (b.folderId ?? null) === targetFolderId)
+        const overIdx = folderMembers.findIndex((b) => b.id === overId)
+        reorderBookmarks(draggedId, targetFolderId, overIdx === -1 ? folderMembers.length : overIdx)
       }
     },
-    [reorderBookmarks, sortedDisplayBookmarks, selectedFolderId]
+    [reorderBookmarks, sortedDisplayBookmarks, selectedFolderId, bookmarks]
   )
 
   const activeBookmark = activeId ? bookmarks.find((b) => b.id === activeId) : null

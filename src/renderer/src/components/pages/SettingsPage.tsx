@@ -24,7 +24,7 @@ import { NetworkSection } from '@/components/settings/sections/NetworkSection'
 import { StorageSection } from '@/components/settings/sections/StorageSection'
 import { AppearanceSection } from '@/components/settings/sections/AppearanceSection'
 import { PrivacySection } from '@/components/settings/sections/PrivacySection'
-import { BookmarksSection } from '@/components/settings/sections/BookmarksSection'
+import { NameServicesSection } from '@/components/settings/sections/NameServicesSection'
 import { AdvancedSection } from '@/components/settings/sections/AdvancedSection'
 import { AboutSection } from '@/components/settings/sections/AboutSection'
 import { WalletSection } from '@/components/settings/sections/WalletSection'
@@ -32,6 +32,7 @@ import { BridgeSection } from '@/components/settings/sections/BridgeSection'
 import { CocoonSection } from '@/components/settings/sections/CocoonSection'
 import type { WalletSectionHandle } from '@/components/settings/sections/WalletSection'
 import type { BridgeSectionHandle } from '@/components/settings/sections/BridgeSection'
+import type { Http402SectionHandle } from '@/components/settings/sections/Http402ExperimentalPanel'
 
 export function SettingsPage() {
   const { t } = useTranslation('settings')
@@ -46,12 +47,14 @@ export function SettingsPage() {
   const [historyError, setHistoryError] = useState<string | null>(null)
   const [walletDirty, setWalletDirty] = useState(false)
   const [bridgeDirty, setBridgeDirty] = useState(false)
+  const [http402Dirty, setHttp402Dirty] = useState(false)
 
   // Refs
   const clearTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const historyErrorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const walletSectionRef = useRef<WalletSectionHandle | null>(null)
   const bridgeSectionRef = useRef<BridgeSectionHandle | null>(null)
+  const http402SectionRef = useRef<Http402SectionHandle | null>(null)
 
   // Stores
   const {
@@ -65,7 +68,7 @@ export function SettingsPage() {
     discard,
     resetToDefaults,
   } = usePreferencesStore()
-  const hasChanges = prefsHasChanges || walletDirty || bridgeDirty
+  const hasChanges = prefsHasChanges || walletDirty || bridgeDirty || http402Dirty
 
   // Load settings on mount
   useEffect(() => {
@@ -118,12 +121,16 @@ export function SettingsPage() {
     if (bridgeSectionRef.current?.hasChanges) {
       await bridgeSectionRef.current.save()
     }
+    if (http402SectionRef.current?.hasChanges) {
+      await http402SectionRef.current.save()
+    }
   }
 
   const handleDiscard = () => {
     discard()
     walletSectionRef.current?.discard()
     bridgeSectionRef.current?.discard()
+    http402SectionRef.current?.discard()
   }
 
   const handleHistoryModeChange = useCallback(
@@ -158,6 +165,9 @@ export function SettingsPage() {
       case 'network':
         return <NetworkSection draft={draft} setDraft={setDraft} />
 
+      case 'nameServices':
+        return <NameServicesSection draft={draft} setDraft={setDraft} />
+
       case 'storage':
         return (
           <StorageSection draft={draft} setDraft={setDraft} isLoaded={isLoaded} onSelectFolder={handleSelectFolder} />
@@ -182,9 +192,6 @@ export function SettingsPage() {
           </div>
         )
 
-      case 'bookmarks':
-        return <BookmarksSection />
-
       case 'advanced':
         return (
           <AdvancedSection
@@ -192,6 +199,8 @@ export function SettingsPage() {
             setDraft={setDraft}
             onResetAll={handleResetAll}
             pendingReset={resetConfirm.isArmed()}
+            onHttp402DirtyChange={setHttp402Dirty}
+            http402SectionRef={http402SectionRef}
           />
         )
 

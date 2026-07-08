@@ -77,6 +77,15 @@ export function registerHistoryHandlers(registry: ServiceRegistry): void {
     }
   })
 
+  secureHandleWithEvent(IPC_CHANNELS.HISTORY_DELETE_BY_DATE, (_event, startDate: number, endDate: number) => {
+    try {
+      const count = historyManager.deleteByDateRange(startDate, endDate)
+      return { success: true, count }
+    } catch (error) {
+      return { success: false, error: errorMessage(error), count: 0 }
+    }
+  })
+
   secureHandleWithEvent(IPC_CHANNELS.HISTORY_DELETE_PATTERN, (_event, pattern: string) => {
     try {
       const count = historyManager.deleteByPattern(pattern)

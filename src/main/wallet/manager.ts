@@ -24,6 +24,7 @@ import type {
   SignDataResult,
 } from '../tonconnect/types'
 import { WalletKeyStorage, WalletDecryptionError } from './key-storage'
+import { encodeCommentBody, decodeCommentBody, isCommentWithinLimit } from './comment'
 import type { ISecureStorage } from '../ports/secure-storage'
 import {
   WsBridgeClient,
@@ -56,17 +57,19 @@ function crc32(input: string): number {
   return (crc ^ 0xffffffff) >>> 0
 }
 
-function decodeComment(body?: string): string | undefined {
-  if (!body) return undefined
-  try {
-    const slice = Cell.fromBase64(body).beginParse()
-    if (slice.remainingBits < 32) return undefined
-    if (slice.loadUint(32) !== 0) return undefined
-    const text = slice.loadStringTail()
-    return text.length > 0 ? text : undefined
-  } catch {
-    return undefined
+/**
+ * Trim a user comment, collapse empty to undefined, and enforce the byte cap.
+ * Defense in depth: the WALLET_SEND IPC handler validates first, but signing
+ * paths may be reached directly, so we never encode an oversized memo.
+ */
+function normalizeComment(comment?: string): string | undefined {
+  if (typeof comment !== 'string') return undefined
+  const trimmed = comment.trim()
+  if (!trimmed) return undefined
+  if (!isCommentWithinLimit(trimmed)) {
+    throw new Error('Comment exceeds maximum length')
   }
+  return trimmed
 }
 
 export class WalletManager extends EventEmitter {
@@ -369,7 +372,7 @@ export class WalletManager extends EventEmitter {
       hash: tx.hash ?? '',
       lt: tx.lt || undefined,
       fee: tx.total_fees,
-      comment: decodeComment(body),
+      comment: decodeCommentBody(body),
     }
   }
 
@@ -396,12 +399,14 @@ export class WalletManager extends EventEmitter {
 
   /**
    * Sign and broadcast a TON transfer.
+   * An optional comment is attached as a standard on-chain text-comment body.
    */
-  async send(to: string, amount: string): Promise<WalletTransaction> {
+  async send(to: string, amount: string, comment?: string): Promise<WalletTransaction> {
     const bridge = this.wsBridge
     if (!bridge) throw new Error('Bridge not connected')
+    const memo = normalizeComment(comment)
     await this.syncSeqno()
-    const boc = await this.signTransfer(to, amount)
+    const boc = await this.signTransfer(to, amount, memo)
     const bocBuffer = Buffer.from(boc, 'base64')
 
     let txHash: string | undefined
@@ -422,6 +427,7 @@ export class WalletManager extends EventEmitter {
       timestamp: Date.now(),
       status,
       hash: txHash,
+      comment: memo,
     }
 
     this.emit('state-changed', this.getState())
@@ -430,9 +436,16 @@ export class WalletManager extends EventEmitter {
 
   /**
    * Sign a transfer and return the BOC as base64.
+   * When a comment is provided it is encoded as the message body (op=0 + text).
    */
-  async signTransfer(to: string, amount: string): Promise<string> {
-    const message = internal({ to: Address.parse(to), value: BigInt(amount), bounce: false })
+  async signTransfer(to: string, amount: string, comment?: string): Promise<string> {
+    const memo = normalizeComment(comment)
+    const message = internal({
+      to: Address.parse(to),
+      value: BigInt(amount),
+      bounce: false,
+      body: memo ? encodeCommentBody(memo) : undefined,
+    })
     const { boc } = await this.buildBoc([message], WALLET_MAX_TIMEOUT_S)
     return boc
   }

@@ -2,7 +2,8 @@ name: CI
 
 on:
   push:
-    branches: [main, dev]
+    branches:
+      - '**'
   pull_request:
     branches: [main, dev]
 
@@ -94,7 +95,7 @@ jobs:
         run: npm audit --audit-level=high
 
   # ─────────────────────────────────────────────
-  # Notify: Telegram (push to main only)
+  # Notify: Telegram (one summary per push, any branch)
   # ─────────────────────────────────────────────
   notify:
     needs: validate
@@ -123,24 +124,8 @@ jobs:
           NULL_SHA="0000000000000000000000000000000000000000"
           REPO_URL="${{ github.server_url }}/${{ github.repository }}"
 
-          send() {
-            local sha=$1 title body short url TEXT
-            title=$(git log -1 --pretty=format:'%s' "$sha")
-            body=$(git log -1 --pretty=format:'%b' "$sha" | head -20)
-            short=$(git rev-parse --short "$sha")
-            url="$REPO_URL/commit/$sha"
-            TEXT="<b>[Desktop] $title</b>"
-            [ -n "$body" ] && printf -v TEXT '%s\n\n%s' "$TEXT" "$body"
-            printf -v TEXT '%s\n\n<a href="%s">View commit %s</a>' "$TEXT" "$url" "$short"
-            curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
-              -d chat_id="${TELEGRAM_CHAT_ID}" \
-              -d parse_mode="HTML" \
-              -d disable_web_page_preview="true" \
-              --data-urlencode text="$TEXT"
-          }
-
-          # dev: one summary notification per push (avoid per-commit spam)
-          if [ "$BRANCH" = "dev" ]; then
+          # One summary notification per push for every branch (avoid per-commit spam)
+          if [ -n "$BRANCH" ]; then
             if [ "$BEFORE_SHA" = "$NULL_SHA" ] || ! git merge-base --is-ancestor "$BEFORE_SHA" "$AFTER_SHA" 2>/dev/null; then
               COUNT=$(git rev-list --count "$AFTER_SHA")
               RANGE="$AFTER_SHA"
@@ -152,14 +137,15 @@ jobs:
             fi
             NOUN=commits; [ "$COUNT" = "1" ] && NOUN=commit
             REPO_NAME=${REPO_URL##*/}
-            TEXT="<b>[DEV] $REPO_NAME</b>"
+            LABEL=$(printf '%s' "$BRANCH" | tr '[:lower:]' '[:upper:]')
+            TEXT="<b>[$LABEL] $REPO_NAME</b>"
             if [ "$VALIDATE_RESULT" = "success" ]; then
-              printf -v TEXT '%s\n%s %s pushed to dev' "$TEXT" "$COUNT" "$NOUN"
+              printf -v TEXT '%s\n%s %s pushed to %s' "$TEXT" "$COUNT" "$NOUN" "$BRANCH"
             else
-              printf -v TEXT '%s\nCI failed on dev (%s %s)' "$TEXT" "$COUNT" "$NOUN"
+              printf -v TEXT '%s\nCI failed on %s (%s %s)' "$TEXT" "$BRANCH" "$COUNT" "$NOUN"
             fi
             # Commit titles (HTML-escaped), oldest first, capped to avoid huge messages.
-            MAX=20
+            MAX=50
             TITLES=$(git log --reverse --max-count="$MAX" --pretty=format:'%s' "$RANGE" \
               | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g')
             if [ "$COUNT" -gt "$MAX" ]; then
@@ -179,24 +165,6 @@ jobs:
               --data-urlencode text="$TEXT"
             exit 0
           fi
-
-          # main (and any other branch): per-commit notifications (unchanged)
-          if [ "$VALIDATE_RESULT" != "success" ]; then
-            send "$AFTER_SHA"
-            exit 0
-          fi
-
-          if [ "$BEFORE_SHA" = "$NULL_SHA" ] || ! git merge-base --is-ancestor "$BEFORE_SHA" "$AFTER_SHA" 2>/dev/null; then
-            COMMITS=$(git log --reverse --pretty=format:'%H' --max-count=20 "$AFTER_SHA")
-          else
-            COMMITS=$(git log --reverse --pretty=format:'%H' "$BEFORE_SHA..$AFTER_SHA")
-          fi
-
-          while IFS= read -r sha; do
-            [ -z "$sha" ] && continue
-            send "$sha"
-            sleep 1
-          done <<< "$COMMITS"
 
   # ─────────────────────────────────────────────
   # Dependency review (PRs only)

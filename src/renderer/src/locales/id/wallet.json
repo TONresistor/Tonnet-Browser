@@ -30,7 +30,11 @@
     "invalidAmount": "Jumlah tidak valid",
     "insufficientBalance": "Saldo tidak cukup",
     "max": "Maks",
-    "estimatedFee": "~0,01 GRAM"
+    "estimatedFee": "~0,01 GRAM",
+    "commentLabel": "Komentar (opsional)",
+    "comment": "Komentar",
+    "commentPlaceholder": "Memo atau catatan",
+    "commentNote": "Disimpan dalam teks biasa di blockchain"
   },
   "receive": {
     "addressLabel": "Alamat Dompet Anda",

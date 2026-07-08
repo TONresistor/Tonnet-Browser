@@ -5,13 +5,13 @@
 
 import { errorMessage } from '@shared/errors'
 import { useState, useEffect, memo } from 'react'
-import { UI_NOTIFICATION_TIMEOUT_MS } from '@shared/constants'
+import { UI_NOTIFICATION_TIMEOUT_MS, WALLET_MAX_COMMENT_BYTES } from '@shared/constants'
 import { Send, ArrowLeft, LoaderCircle, CheckCircle2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { tonToNano, formatTonAmount } from '@/stores/wallet'
-import { isValidTonAddress, isValidRecipientInput, TX_FEE_RESERVE_NANO } from '@/lib/ton-utils'
+import { isValidTonAddress, isValidRecipientInput, TX_FEE_RESERVE_NANO, utf8ByteLength } from '@/lib/ton-utils'
 import { getIpcError } from '@/lib/ipc-utils'
 import { useTranslation } from 'react-i18next'
 
@@ -28,7 +28,7 @@ function truncateAddress(addr: string | undefined): string {
 }
 
 interface SendFormProps {
-  onSend: (to: string, amount: string) => Promise<void>
+  onSend: (to: string, amount: string, comment?: string) => Promise<void>
   isSending: boolean
   error: string | null
   balance: string // nanoTON
@@ -50,6 +50,7 @@ export const SendForm = memo(function SendForm({ onSend, isSending, error, balan
   const { t } = useTranslation('wallet')
   const [to, setTo] = useState('')
   const [amount, setAmount] = useState('')
+  const [comment, setComment] = useState('')
   const [confirming, setConfirming] = useState(false)
   const [success, setSuccess] = useState(false)
   const [resolve, setResolve] = useState<ResolveState>({ status: 'idle' })
@@ -95,7 +96,12 @@ export const SendForm = memo(function SendForm({ onSend, isSending, error, balan
   const toValid = isValidTonAddress(to) || (resolve.status === 'resolved' && resolve.domain === to.trim().toLowerCase())
   const amountValid = isValidAmount(amount)
   const exceedsBalance = amountValid && BigInt(tonToNano(amount)) > BigInt(balance || '0')
-  const canProceed = toValid && amountValid && !exceedsBalance
+  // Count and gate on the trimmed value — that is what actually gets sent and
+  // validated downstream, so leading/trailing whitespace never blocks a valid memo.
+  const trimmedComment = comment.trim()
+  const commentBytes = utf8ByteLength(trimmedComment)
+  const commentTooLong = commentBytes > WALLET_MAX_COMMENT_BYTES
+  const canProceed = toValid && amountValid && !exceedsBalance && !commentTooLong
 
   const handleMax = () => {
     const balanceBig = BigInt(balance || '0')
@@ -121,11 +127,12 @@ export const SendForm = memo(function SendForm({ onSend, isSending, error, balan
   const handleSend = async () => {
     try {
       const nanoAmount = tonToNano(amount)
-      await onSend(to, nanoAmount)
+      await onSend(to, nanoAmount, trimmedComment || undefined)
       setSuccess(true)
       setConfirming(false)
       setTo('')
       setAmount('')
+      setComment('')
       setTimeout(() => setSuccess(false), UI_NOTIFICATION_TIMEOUT_MS)
     } catch {
       setConfirming(false)
@@ -160,6 +167,12 @@ export const SendForm = memo(function SendForm({ onSend, isSending, error, balan
               <span className="text-muted-foreground">{t('send.fee')}</span>
               <span className="text-muted-foreground">{t('send.estimatedFee')}</span>
             </div>
+            {trimmedComment && (
+              <div className="flex justify-between gap-3">
+                <span className="text-muted-foreground shrink-0">{t('send.comment')}</span>
+                <span className="text-foreground text-xs break-words text-right max-w-[200px]">{trimmedComment}</span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -248,6 +261,39 @@ export const SendForm = memo(function SendForm({ onSend, isSending, error, balan
         {amount && !amountValid && <p className="text-xs text-destructive">{t('send.invalidAmount')}</p>}
         {exceedsBalance && <p className="text-xs text-destructive">{t('send.insufficientBalance')}</p>}
         <p className="text-xs text-muted-foreground">{t('send.feeNote', { fee: '~0.01' })}</p>
+      </div>
+
+      <div className="space-y-2">
+        <label className="text-sm font-medium text-foreground" htmlFor="send-comment">
+          {t('send.commentLabel')}
+        </label>
+        <textarea
+          id="send-comment"
+          value={comment}
+          onChange={(e) => setComment(e.target.value)}
+          placeholder={t('send.commentPlaceholder')}
+          rows={2}
+          spellCheck={false}
+          autoComplete="off"
+          className={cn(
+            'w-full resize-none rounded-lg border border-input bg-transparent px-3 py-2 text-sm text-foreground',
+            'shadow-sm transition-colors placeholder:text-muted-foreground',
+            'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+            commentTooLong && 'border-destructive focus-visible:ring-destructive'
+          )}
+          aria-invalid={commentTooLong || undefined}
+        />
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-xs text-muted-foreground">{t('send.commentNote')}</p>
+          <span
+            className={cn(
+              'text-xs tabular-nums shrink-0',
+              commentTooLong ? 'text-destructive' : 'text-muted-foreground'
+            )}
+          >
+            {commentBytes}/{WALLET_MAX_COMMENT_BYTES}
+          </span>
+        </div>
       </div>
 
       {error && <p className="text-sm text-destructive">{error}</p>}

@@ -1,0 +1,21 @@
+{
+  "deviceSeed": "0101010101010101010101010101010101010101010101010101010101010101",
+  "walletSeed": "0909090909090909090909090909090909090909090909090909090909090909",
+  "devicePub": "8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+  "walletPub": "fd1724385aa0c75b64fb78cd602fa1d991fdebf76b13c58ed702eac835e9f618",
+  "walletAddressRaw": "0:8d58b35c8c1ee6aa669c70fbbbe36c3bc2af3b0dcd123029a91643844dc5c2ae",
+  "walletAddressFriendly": "UQCNWLNcjB7mqmaccPu742w7wq87Dc0SMCmpFkOETcXCrlJb",
+  "walletAddressShort": "UQCN…rlJb",
+  "tonproofDomain": "tonnet.chat",
+  "wts": 1719900000,
+  "wexp": 1722492000,
+  "proofPayload": "tonnet-chat-device:v1:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c:1722492000",
+  "proofDigest": "ef80358d71253d07c1f6964d937d1b953ba2e4d404ffa9dfa6f6138935c78457",
+  "wsig": "cb789216ea4f3ee11bd795547df61186a2406a12ec0d6f700d210b160d98e8b7ea66b2f96a94d7103ac22028f6ea3efb6c87eed6c72ccd3dbdb7e53d657ece02",
+  "envelopeDomain": "tonnet.envelopeV4",
+  "dmPeerSeed": "0202020202020202020202020202020202020202020202020202020202020202",
+  "dmPeerPub": "8139770ea87d175f56a35466c34c7ecccb8d8a91b4ee37a25df60f5b8fc9b394",
+  "dmSharedKey": "0fd21ff58274b36911b431fd182cff49a615feac8e4f65042ef76cf1f5fcdccc",
+  "dmPlaintext": "dm interop vector",
+  "dmBox": "CwsLCwsLCwsLCwsLLguuigB4xBcG0/Upzc68dI00/c1DadgpJj3H2otzujow"
+}

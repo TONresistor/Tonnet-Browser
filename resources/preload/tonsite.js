@@ -595,6 +595,31 @@ var TONCONNECT_FEATURES = [
 var TONNET_WALLET_IMAGE =
   'data:image/svg+xml;base64,PHN2ZyBwcmVzZXJ2ZUFzcGVjdFJhdGlvPSJub25lIiB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBvdmVyZmxvdz0idmlzaWJsZSIgc3R5bGU9ImRpc3BsYXk6IGJsb2NrOyIgdmlld0JveD0iMCAwIDIyIDE4IiBmaWxsPSJub25lIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPgo8ZyBpZD0iU2hhcGUiPgo8cGF0aCBkPSJNMCA1LjIzNjM2QzAgMy40MDM0NiAwIDIuNDg3MDEgMC4zMzk1MiAxLjc4Njk0QzAuNjM4MTY5IDEuMTcxMTQgMS4xMTQ3MSAwLjY3MDQ3MyAxLjcwMDg0IDAuMzU2NzA2QzIuMzY3MTkgMCAzLjIzOTQ4IDAgNC45ODQwNyAwSDE2LjA0MjVDMTcuNzg3MSAwIDE4LjY1OTQgMCAxOS4zMjU3IDAuMzU2NzA2QzE5LjkxMTggMC42NzA0NzMgMjAuMzg4NCAxLjE3MTE0IDIwLjY4NyAxLjc4Njk0QzIwLjk0NzEgMi4zMjMxNCAyMS4wMDc5IDIuOTg2MjggMjEuMDIyMiA0LjA5MDkxSDE1LjU3NTJDMTQuMTIzOCA0LjA5MDkxIDEzLjM5ODEgNC4wOTA5MSAxMi44MjU2IDQuMzQwMDNDMTIuMDYyNCA0LjY3MjE5IDExLjQ1NTkgNS4zMDkzMSAxMS4xMzk4IDYuMTExMjJDMTAuOTAyNyA2LjcxMjY1IDEwLjkwMjcgNy40NzUxIDEwLjkwMjcgOUMxMC45MDI3IDEwLjUyNDkgMTAuOTAyNyAxMS4yODczIDExLjEzOTggMTEuODg4OEMxMS40NTU5IDEyLjY5MDcgMTIuMDYyNCAxMy4zMjc4IDEyLjgyNTYgMTMuNjZDMTMuMzk4MSAxMy45MDkxIDE0LjEyMzggMTMuOTA5MSAxNS41NzUyIDEzLjkwOTFIMjEuMDIyMkMyMS4wMDc5IDE1LjAxMzcgMjAuOTQ3MSAxNS42NzY5IDIwLjY4NyAxNi4yMTMxQzIwLjM4ODQgMTYuODI4OSAxOS45MTE4IDE3LjMyOTUgMTkuMzI1NyAxNy42NDMzQzE4LjY1OTQgMTggMTcuNzg3MSAxOCAxNi4wNDI1IDE4SDQuOTg0MDdDMy4yMzk0OCAxOCAyLjM2NzE5IDE4IDEuNzAwODQgMTcuNjQzM0MxLjExNDcxIDE3LjMyOTUgMC42MzgxNjkgMTYuODI4OSAwLjMzOTUyIDE2LjIxMzFDMCAxNS41MTMgMCAxNC41OTY1IDAgMTIuNzYzNlY1LjIzNjM2WiIgZmlsbD0iIzAwOEJGRiIvPgo8cGF0aCBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGNsaXAtcnVsZT0iZXZlbm9kZCIgZD0iTTEyLjI2NTUgOC43OTU0NUMxMi4yNjU1IDcuNjQ5ODkgMTIuMjY1NSA3LjA3NzExIDEyLjQ3NzcgNi42Mzk1NkMxMi42NjQzIDYuMjU0NjkgMTIuOTYyMiA1Ljk0MTc3IDEzLjMyODUgNS43NDU2N0MxMy43NDUgNS41MjI3MyAxNC4yOTAyIDUuNTIyNzMgMTUuMzgwNSA1LjUyMjczSDE4Ljg4NUMxOS45NzUzIDUuNTIyNzMgMjAuNTIwNSA1LjUyMjczIDIwLjkzNyA1Ljc0NTY3QzIxLjMwMzMgNS45NDE3NyAyMS42MDExIDYuMjU0NjkgMjEuNzg3OCA2LjYzOTU2QzIyIDcuMDc3MTEgMjIgNy42NDk4OSAyMiA4Ljc5NTQ1VjkuMjA0NTVDMjIgMTAuMzUwMSAyMiAxMC45MjI5IDIxLjc4NzggMTEuMzYwNEMyMS42MDExIDExLjc0NTMgMjEuMzAzMyAxMi4wNTgyIDIwLjkzNyAxMi4yNTQzQzIwLjUyMDUgMTIuNDc3MyAxOS45NzUzIDEyLjQ3NzMgMTguODg1IDEyLjQ3NzNIMTUuMzgwNUMxNC4yOTAyIDEyLjQ3NzMgMTMuNzQ1IDEyLjQ3NzMgMTMuMzI4NSAxMi4yNTQzQzEyLjk2MjIgMTIuMDU4MiAxMi42NjQzIDExLjc0NTMgMTIuNDc3NyAxMS4zNjA0QzEyLjI2NTUgMTAuOTIyOSAxMi4yNjU1IDEwLjM1MDEgMTIuMjY1NSA5LjIwNDU1VjguNzk1NDVaTTE3LjEzMjcgOUMxNy4xMzI3IDkuOTAzNzQgMTYuNDM1NCAxMC42MzY0IDE1LjU3NTIgMTAuNjM2NEMxNC43MTUgMTAuNjM2NCAxNC4wMTc3IDkuOTAzNzQgMTQuMDE3NyA5QzE0LjAxNzcgOC4wOTYyNiAxNC43MTUgNy4zNjM2NCAxNS41NzUyIDcuMzYzNjRDMTYuNDM1NCA3LjM2MzY0IDE3LjEzMjcgOC4wOTYyNiAxNy4xMzI3IDlaIiBmaWxsPSIjMDA4QkZGIi8+CjwvZz4KPC9zdmc+Cg=='
 
+// Bound what an untrusted page can push across the IPC boundary (mirrors the
+// tonBridge.send / payForXhr caps). Legit dApp payloads are far smaller.
+var MAX_TONCONNECT_PAYLOAD = 65536
+var MAX_MANIFEST_URL = 8192
+// Soft cap on distinct event listeners a page may register.
+var MAX_TONCONNECT_LISTENERS = 64
+
+// A single ipcRenderer listener fans out to all page callbacks, so repeated
+// listen() calls can never accumulate ipcRenderer listeners (leak / MaxListeners).
+var tonconnectCallbacks = []
+var tonconnectListenerRegistered = false
+function ensureTonconnectListener() {
+  if (tonconnectListenerRegistered) return
+  tonconnectListenerRegistered = true
+  ipcRenderer.on('tonconnect:event', function (_event, data) {
+    for (var i = 0; i < tonconnectCallbacks.length; i++) {
+      try {
+        tonconnectCallbacks[i](data)
+      } catch (e) {
+        /* a page callback throwing must not break the fan-out */
+      }
+    }
+  })
+}
+
 contextBridge.exposeInMainWorld('tonnet', {
   tonconnect: {
     deviceInfo: {
@@ -615,6 +640,9 @@ contextBridge.exposeInMainWorld('tonnet', {
     protocolVersion: 2,
     isWalletBrowser: true,
     connect: function (protocolVersion, request) {
+      if (request && typeof request.manifestUrl === 'string' && request.manifestUrl.length > MAX_MANIFEST_URL) {
+        return Promise.reject(new Error('tonconnect: manifestUrl too large'))
+      }
       return ipcRenderer.invoke('tonconnect:request', {
         method: 'connect',
         protocolVersion: protocolVersion,
@@ -625,18 +653,28 @@ contextBridge.exposeInMainWorld('tonnet', {
       return ipcRenderer.invoke('tonconnect:request', { method: 'restore' })
     },
     send: function (message) {
+      if (
+        message &&
+        message.params &&
+        typeof message.params[0] === 'string' &&
+        message.params[0].length > MAX_TONCONNECT_PAYLOAD
+      ) {
+        return Promise.reject(new Error('tonconnect: payload too large'))
+      }
       return ipcRenderer.invoke('tonconnect:request', { method: 'send', message: message })
     },
     disconnect: function () {
       return ipcRenderer.invoke('tonconnect:request', { method: 'disconnect' })
     },
     listen: function (callback) {
-      var listener = function (_event, data) {
-        callback(data)
+      if (typeof callback !== 'function' || tonconnectCallbacks.length >= MAX_TONCONNECT_LISTENERS) {
+        return function () {}
       }
-      ipcRenderer.on('tonconnect:event', listener)
+      ensureTonconnectListener()
+      tonconnectCallbacks.push(callback)
       return function () {
-        ipcRenderer.removeListener('tonconnect:event', listener)
+        var idx = tonconnectCallbacks.indexOf(callback)
+        if (idx !== -1) tonconnectCallbacks.splice(idx, 1)
       }
     },
   },

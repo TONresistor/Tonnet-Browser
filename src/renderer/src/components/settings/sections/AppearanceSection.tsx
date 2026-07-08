@@ -4,12 +4,13 @@
 
 import { memo, useState, useRef, useEffect } from 'react'
 import { UI_NOTIFICATION_TIMEOUT_MS } from '@shared/constants'
-import { Plus, Upload } from 'lucide-react'
+import { Columns3, Plus, Rows3, Upload } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { SectionHeader } from '../shared/SectionHeader'
 import { SettingRow } from '../shared/SettingRow'
 import { Toggle } from '../shared/Toggle'
 import { SliderInput } from '../shared/SliderInput'
+import { Segmented } from '@/components/ui/ios/Segmented'
 import { ThemeEditor, ThemeList, ImportDialog, ExportDialog } from '@/components/theme-editor'
 import { useThemeStore } from '@/stores/themes'
 import type { SectionProps } from '../types'
@@ -208,6 +209,24 @@ export const AppearanceSection = memo(function AppearanceSection({ draft, setDra
           />
         </SettingRow>
         <div className="border-t border-border" />
+        <SettingRow label={t('appearance.ui.tabOrientation')} description={t('appearance.ui.tabOrientationDesc')}>
+          <Segmented
+            value={draft.tabOrientation}
+            onChange={(v) => setDraft('tabOrientation', v as 'horizontal' | 'vertical')}
+            options={[
+              {
+                value: 'horizontal',
+                label: t('appearance.ui.tabOrientationHorizontal'),
+                icon: <Columns3 className="h-3.5 w-3.5" />,
+              },
+              {
+                value: 'vertical',
+                label: t('appearance.ui.tabOrientationVertical'),
+                icon: <Rows3 className="h-3.5 w-3.5" />,
+              },
+            ]}
+          />
+        </SettingRow>
         <SettingRow label={t('appearance.ui.showBookmarksBar')} description={t('appearance.ui.showBookmarksBarDesc')}>
           <Toggle
             checked={draft.showBookmarksBar}

@@ -3,12 +3,12 @@ import { IPC_CHANNELS } from '../../shared/ipc-channels'
 import { APP_VERSION } from '../../shared/constants'
 import { errorMessage } from '../../shared/errors'
 import { getMainWindow } from '../windows/main'
-import { RateLimiter } from '../ipc/validation'
+import { KeyedRateLimiter } from '../ipc/validation'
 import { createLogger } from '../../shared/logger'
 import type { WalletManager } from '../wallet/manager'
 import type { OverlayManager } from '../windows/overlay-manager'
 import { TonConnectSessionStore } from './session-store'
-import { buildSignDataRows } from './sign-data-preview'
+import { buildSignDataRows, validateSignDataPayload } from './sign-data-preview'
 import {
   TONCONNECT_PROTOCOL_VERSION,
   TON_MAINNET_CHAIN,
@@ -23,7 +23,6 @@ import {
   type ConnectRequest,
   type DeviceInfo,
   type DisconnectEvent,
-  type SignDataPayloadInput,
   type TonConnectOutMessage,
   type TonProofItem,
   type WalletResponse,
@@ -170,7 +169,8 @@ export class TonConnectService {
   private overlayManager: OverlayManager
   private sendersByDomain = new Map<string, Set<Electron.WebContents>>()
   private approvalCounter = 0
-  private limiter = new RateLimiter(10, 1000)
+  // Per-domain so one noisy tonsite cannot exhaust another's request budget.
+  private limiter = new KeyedRateLimiter(10, 1000)
 
   constructor(walletManager: WalletManager, sessionStore: TonConnectSessionStore, overlayManager: OverlayManager) {
     this.walletManager = walletManager
@@ -187,7 +187,7 @@ export class TonConnectService {
     event: Electron.IpcMainInvokeEvent,
     payload: TonConnectRequestPayload
   ): Promise<unknown> {
-    if (!this.limiter.check()) {
+    if (!this.limiter.check(domain)) {
       if (payload?.method === 'send') {
         return rpcError(payload.message?.id ?? '0', TONCONNECT_ERROR.UNKNOWN, 'Rate limit exceeded')
       }
@@ -203,6 +203,7 @@ export class TonConnectService {
           return await this.send(domain, event, payload.message)
         case 'disconnect':
           this.sessionStore.delete(domain)
+          this.limiter.forget(domain)
           return { id: '0', result: {} }
         default:
           return connectError(CONNECT_ERROR.BAD_REQUEST, 'Unknown method')
@@ -223,9 +224,11 @@ export class TonConnectService {
   disconnectSession(domain: string): void {
     this.emitDisconnect(domain)
     this.sessionStore.delete(domain)
+    this.limiter.forget(domain)
   }
 
   clearSessions(): void {
+    this.limiter.clear()
     for (const domain of this.sessionStore.list().map((s) => s.domain)) {
       this.emitDisconnect(domain)
     }
@@ -358,6 +361,7 @@ export class TonConnectService {
 
     if (message.method === 'disconnect') {
       this.sessionStore.delete(domain)
+      this.limiter.forget(domain)
       return { id: message.id, result: {} }
     }
 
@@ -462,15 +466,16 @@ export class TonConnectService {
   }
 
   private async signData(domain: string, appName: string, message: AppRequest): Promise<WalletResponse> {
-    let payload: SignDataPayloadInput
+    let raw: unknown
     try {
-      payload = JSON.parse(message.params?.[0] ?? '')
+      raw = JSON.parse(message.params?.[0] ?? '')
     } catch {
       return rpcError(message.id, TONCONNECT_ERROR.BAD_REQUEST, 'Invalid sign-data payload')
     }
-    if (!payload || (payload.type !== 'text' && payload.type !== 'binary' && payload.type !== 'cell')) {
-      return rpcError(message.id, TONCONNECT_ERROR.BAD_REQUEST, 'Unsupported sign-data type')
+    if (!validateSignDataPayload(raw)) {
+      return rpcError(message.id, TONCONNECT_ERROR.BAD_REQUEST, 'Invalid or unsupported sign-data payload')
     }
+    const payload = raw
 
     const approved = await this.showApproval({
       type: 'approval',

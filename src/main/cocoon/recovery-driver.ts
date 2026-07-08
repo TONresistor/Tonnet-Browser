@@ -86,6 +86,22 @@ const log = createLogger('cocoon:recovery-driver')
 /** Idle poll cadence. Matches the WithdrawDriver cadence so observable behavior is consistent. */
 const TICK_INTERVAL_MS = 60_000
 
+/** Don't re-broadcast a refund/claim for an entry until this long after the last
+ *  send, so a still-confirming tx isn't spammed every tick (~each burns gas). */
+const REFUND_RESEND_DEBOUNCE_MS = 5 * 60_000
+
+/**
+ * True if a refund/claim may be (re)broadcast for an entry given the last action
+ * time. Pure so the debounce is unit tested without the bridge round-trip.
+ */
+export function shouldResendRefund(
+  lastActionAt: number | undefined,
+  now: number,
+  windowMs = REFUND_RESEND_DEBOUNCE_MS
+): boolean {
+  return now - (lastActionAt ?? 0) >= windowMs
+}
+
 export type { RecoveryDriverEvent }
 
 export class RecoveryDriver extends PollingDriver {
@@ -97,28 +113,22 @@ export class RecoveryDriver extends PollingDriver {
   }
 
   protected async tick(): Promise<void> {
-    if (this.inflight) return
     const queue = await getRecoveryQueueStore().list()
     if (queue.length === 0) return
 
     const bridge = this.getBridge()
     if (!bridge) return // bridge offline, retry next tick
 
-    this.inflight = true
-    try {
-      for (const entry of queue) {
-        if (entry.phase === 'done' || entry.phase === 'failed') continue
-        try {
-          await this.advanceEntry(entry, bridge)
-        } catch (err) {
-          // Transient: log, persist lastError, keep phase. Next tick retries.
-          const message = errorMessage(err)
-          log.warn(`Recovery tick failed for archivedAt=${entry.archivedAt}: ${message}`)
-          await getRecoveryQueueStore().update(entry.archivedAt, { lastError: message })
-        }
+    for (const entry of queue) {
+      if (entry.phase === 'done' || entry.phase === 'failed') continue
+      try {
+        await this.advanceEntry(entry, bridge)
+      } catch (err) {
+        // Transient: log, persist lastError, keep phase. Next tick retries.
+        const message = errorMessage(err)
+        log.warn(`Recovery tick failed for archivedAt=${entry.archivedAt}: ${message}`)
+        await getRecoveryQueueStore().update(entry.archivedAt, { lastError: message })
       }
-    } finally {
-      this.inflight = false
     }
   }
 
@@ -170,6 +180,11 @@ export class RecoveryDriver extends PollingDriver {
     const unlockTs = onchain.unlockTs
 
     if (state === 0) {
+      // Debounce: a prior refund may still be confirming. Re-broadcasting every
+      // 60s tick burns ~0.2 TON gas each and can't help until it confirms.
+      if (!shouldResendRefund(entry.lastActionAt, Date.now())) {
+        return
+      }
       log.info(`Recovery ${entry.archivedAt}: SC still active, re-sending request_refund (node-signed)`)
       const native = this.getNativeAddress()
       if (!native) throw new Error('Native wallet not initialized — cannot set excess address')
@@ -177,6 +192,7 @@ export class RecoveryDriver extends PollingDriver {
       await getRecoveryQueueStore().update(entry.archivedAt, {
         phase: 'cooldown',
         refundBocHash: result.bocHash,
+        lastActionAt: Date.now(),
         lastError: undefined,
       })
       return
@@ -247,13 +263,27 @@ export class RecoveryDriver extends PollingDriver {
    * Uses drainAll (mode 128+32) so the cocoon_wallet SC self-destructs and
    * forwards every nanoTON.
    */
+  /** Read the on-chain CocoonClient state (throws if getData fails → tick retries). */
+  private async readClientState(clientSCAddress: string, bridge: WsBridgeClient): Promise<0 | 1 | 2> {
+    const client = CocoonClient.createFromAddress(Address.parse(clientSCAddress))
+    const onchain = await openBridgeContract(bridge, client).getData()
+    return narrowClientState(onchain.state)
+  }
+
   private async driveDrain(entry: RecoveryEntry, archive: ArchivedCocoon, bridge: WsBridgeClient): Promise<void> {
     const native = this.getNativeAddress()
     if (!native) throw new Error('Native wallet not initialized — cannot determine drain destination')
 
     const balance = BigInt(await bridge.getBalance(archive.nodeAddress))
     if (balance < DRAIN_DUST_FLOOR_NANO) {
-      log.info(`Recovery ${entry.archivedAt}: cocoon_node residual ${balance} < dust floor — marking done`)
+      // A sub-dust node balance is terminal ONLY once the client SC has actually
+      // closed (state=2). Before the claim tx confirms the node legitimately
+      // holds ~0 — marking done here would strand the stake. Require state=2.
+      const state = await this.readClientState(entry.clientSCAddress, bridge)
+      if (state !== 2) {
+        throw new Error(`drain deferred: client SC not closed yet (state=${state})`)
+      }
+      log.info(`Recovery ${entry.archivedAt}: cocoon_node residual ${balance} < dust floor, SC closed — marking done`)
       await getRecoveryQueueStore().update(entry.archivedAt, {
         phase: 'done',
         sentToMain: native,

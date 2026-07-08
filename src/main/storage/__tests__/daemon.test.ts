@@ -137,6 +137,17 @@ describe('StorageManager', () => {
       await expect(manager.start()).rejects.toThrow('Storage daemon already running')
     })
 
+    it('tears down the spawned child when readiness fails, so a retry is not blocked', async () => {
+      const startP = manager.start()
+      // Daemon crashes before its HTTP API answers → waitForReady rejects.
+      mockProcess.emit('exit', 1)
+      await expect(startP).rejects.toBeDefined()
+
+      // The child was reaped (this.process nulled), so the retry proceeds
+      // instead of throwing 'already running', and now succeeds.
+      await expect(manager.start()).resolves.toBeUndefined()
+    })
+
     it('creates storage directories if missing', async () => {
       vi.mocked(fs.existsSync).mockReturnValue(false)
 

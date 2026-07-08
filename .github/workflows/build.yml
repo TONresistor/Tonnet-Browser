@@ -140,6 +140,10 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Verify macOS code signature
+        if: matrix.platform == 'mac'
+        run: node scripts/verify-macos-signature.mjs
+
       - name: Verify package artifacts
         run: node scripts/verify-release-artifacts.mjs ${{ matrix.platform }} ${{ matrix.goarch }}
 

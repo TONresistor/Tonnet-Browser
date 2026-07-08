@@ -2,11 +2,12 @@
   "title": "Settings",
   "sections": {
     "general": "General",
-    "network": "Network",
-    "storage": "Storage",
+    "network": "Network & Daemons",
+    "nameServices": "Name Services",
+    "storage": "TON Storage",
     "appearance": "Appearance",
-    "privacy": "Privacy",
-    "contentFiltering": "Content Filtering",
+    "privacy": "Privacy & Security",
+    "contentFiltering": "Content Protection",
     "history": "History",
     "shortcuts": "Shortcuts",
     "bookmarks": "Bookmarks",
@@ -218,7 +219,7 @@
   },
   "general": {
     "title": "General",
-    "description": "Basic browser settings",
+    "description": "Core browser preferences",
     "anonymousMode": "Anonymous mode",
     "anonymousModeDesc": "Route ADNL traffic through multi-hop encrypted tunnel via TON relay nodes",
     "enableAnonymousMode": "Enable anonymous mode",
@@ -257,11 +258,26 @@
     "solRpc": "Solana RPC (optional)",
     "solRpcDesc": "Custom HTTPS endpoint. Leave empty for default.",
     "solRpcPlaceholder": "https://api.mainnet-beta.solana.com",
-    "chainDisabledError": "The {{chain}} resolver is disabled. Enable it in Settings > General."
+    "chainDisabledError": "The {{chain}} resolver is disabled. Enable it in Settings > Name Services."
+  },
+  "nameServices": {
+    "title": "Name Services",
+    "description": "External domain resolvers beyond .ton",
+    "resolveEth": "Resolve .eth domains (ENS)",
+    "resolveEthDesc": "Ethereum Name Service via go-ens. Requires an Ethereum RPC; uses a public default if empty.",
+    "ethRpc": "Ethereum RPC (optional)",
+    "ethRpcDesc": "Custom HTTPS endpoint. Leave empty for default.",
+    "ethRpcPlaceholder": "https://eth.llamarpc.com",
+    "resolveSol": "Resolve .sol domains (SNS)",
+    "resolveSolDesc": "Solana Name Service. Requires a Solana RPC; uses a public default if empty.",
+    "solRpc": "Solana RPC (optional)",
+    "solRpcDesc": "Custom HTTPS endpoint. Leave empty for default.",
+    "solRpcPlaceholder": "https://api.mainnet-beta.solana.com",
+    "chainDisabledError": "The {{chain}} resolver is disabled. Enable it in Settings > Name Services."
   },
   "network": {
-    "title": "Network",
-    "description": "Proxy and connection settings",
+    "title": "Network & Daemons",
+    "description": "Network daemon and connection settings",
     "proxyPort": "Proxy port",
     "proxyPortDesc": "Local port for TON proxy",
     "storageApiPort": "Storage API port",
@@ -275,8 +291,8 @@
     "syncCheckIntervalDesc": "How often to check DHT sync status"
   },
   "privacy": {
-    "title": "Privacy",
-    "description": "Privacy and data settings",
+    "title": "Privacy & Security",
+    "description": "Privacy, browser data, history, and content protection",
     "clearData": "Clear browsing data",
     "clearDataDesc": "Delete cache, cookies, and local storage",
     "clearing": "Clearing...",
@@ -298,7 +314,7 @@
     "autoDeleteTimeoutDesc": "Minutes of inactivity before deleting cookies"
   },
   "contentFiltering": {
-    "title": "Content Filtering",
+    "title": "Content Protection",
     "description": "Block ads, trackers, miners, and malicious content on .ton sites",
     "enableFiltering": "Enable content filtering",
     "enableFilteringDesc": "Master toggle for all content filtering categories",
@@ -406,6 +422,9 @@
   "advanced": {
     "title": "Advanced",
     "description": "Settings for developers and power users",
+    "diagnostics": {
+      "title": "Runtime diagnostics"
+    },
     "proxyVerbosity": "Proxy verbosity",
     "proxyVerbosityDesc": "Logging level for proxy daemon",
     "storageVerbosity": "Storage verbosity",
@@ -416,6 +435,19 @@
     "verbose": "Verbose",
     "syncTestDomain": "Sync test domain",
     "syncTestDomainDesc": "Domain used to verify DHT sync",
+    "experimental": {
+      "title": "Experimental features",
+      "messenger": "Messenger",
+      "messengerDesc": "Enable experimental chat. This automatically enables ADNL, Overlay and DHT on the bridge.",
+      "http402": "HTTP 402 payments",
+      "http402Desc": "Enable experimental x402 payments for .ton sites. Starts in manual approval mode.",
+      "http402Behavior": "Payment behavior",
+      "http402BehaviorDesc": "Approval mode, notification style, limits, and per-site overrides."
+    },
+    "danger": {
+      "title": "Danger Zone",
+      "description": "Reset every browser preference back to its default value."
+    },
     "resetAll": "Reset all settings to defaults",
     "resetAllConfirm": "Click again to confirm"
   },
@@ -561,9 +593,9 @@
   },
   "wallet": {
     "title": "Wallet",
-    "description": "Configure your TON wallet and HTTP 402 payment settings",
+    "description": "Configure your TON wallet",
     "paymentMode": "Default Payment Mode",
-    "paymentModeDesc": "How to handle HTTP 402 payment requests from .ton sites",
+    "paymentModeDesc": "How to handle enabled HTTP 402 payment requests from .ton sites",
     "modeOff": "Off",
     "modeManual": "Manual",
     "modeAuto": "Auto",
@@ -581,6 +613,8 @@
     "perSitePerMonthDesc": "Maximum spending per site per month",
     "sitePolicies": "Site Permissions",
     "sitePoliciesDesc": "Per-site payment mode overrides",
+    "http402Disabled": "Experimental feature disabled",
+    "http402DisabledDesc": "Enable HTTP 402 in Advanced to configure payment requests.",
     "spent": "Spent",
     "removeSitePolicy": "Remove policy for {{domain}}"
   },

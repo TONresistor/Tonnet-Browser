@@ -101,9 +101,11 @@ export const useCocoonChatStore = create<CocoonChatState>((set, get) => ({
 
   updateMessage: (id, patch) =>
     set((s) => {
-      if (!s.activeId) return s
+      // Update whichever conversation owns the message, not the active one —
+      // a streamed reply must land in its own conversation even if the user
+      // switched chats mid-request.
       const conversations = s.conversations.map((c) => {
-        if (c.id !== s.activeId) return c
+        if (!c.messages.some((m) => m.id === id)) return c
         return {
           ...c,
           updatedAt: Date.now(),

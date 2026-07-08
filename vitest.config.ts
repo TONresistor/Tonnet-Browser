@@ -34,6 +34,12 @@ export default defineConfig({
         functions: 17,
         branches: 16,
         statements: 24,
+        // Risk-weighted floors for the value-moving / signing code, so it can
+        // never silently regress behind the renderer-heavy global gate. Set
+        // below current coverage as ratchet floors, not aspirational targets.
+        'src/main/wallet/**': { statements: 35, lines: 35, functions: 28, branches: 30 },
+        'src/main/cocoon/**': { statements: 15, lines: 15, functions: 12, branches: 10 },
+        'src/main/tonconnect/**': { statements: 10, lines: 10, functions: 8, branches: 8 },
       },
     },
   },

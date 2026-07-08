@@ -54,15 +54,51 @@ function getExpectedElfMachine(targetPlatform, targetArch) {
   return null
 }
 
+/** Read only the first `n` bytes of a (possibly >50MB) binary, or null if short. */
+function readBytes(binaryPath, n) {
+  const buf = Buffer.alloc(n)
+  const fd = fs.openSync(binaryPath, 'r')
+  let read
+  try {
+    read = fs.readSync(fd, buf, 0, n, 0)
+  } finally {
+    fs.closeSync(fd)
+  }
+  return read >= n ? buf : null
+}
+
 function readElfMachine(binaryPath) {
-  const header = fs.readFileSync(binaryPath).subarray(0, 20)
-  if (header.length < 20 || header[0] !== 0x7f || header[1] !== 0x45 || header[2] !== 0x4c || header[3] !== 0x46) {
+  const header = readBytes(binaryPath, 20)
+  if (!header || header[0] !== 0x7f || header[1] !== 0x45 || header[2] !== 0x4c || header[3] !== 0x46) {
     return null
   }
-
   const dataEncoding = header[5]
   if (dataEncoding === 1) return header.readUInt16LE(18)
   if (dataEncoding === 2) return header.readUInt16BE(18)
+  return null
+}
+
+/** macOS ships a universal (fat) Mach-O. Assert the fat magic + >= 2 slices. */
+function verifyMachoUniversal(binaryPath) {
+  const buf = readBytes(binaryPath, 8)
+  if (!buf) return 'unreadable'
+  const magic = buf.readUInt32BE(0)
+  if (magic !== 0xcafebabe && magic !== 0xcafebabf) return `not a universal Mach-O (magic 0x${magic.toString(16)})`
+  const slices = buf.readUInt32BE(4)
+  if (slices < 2) return `universal Mach-O has ${slices} slice(s), expected >= 2`
+  return null
+}
+
+/** Assert a Windows PE (MZ + PE header) whose COFF machine matches the target arch. */
+function verifyPeMachine(binaryPath, targetArch) {
+  const dos = readBytes(binaryPath, 0x40)
+  if (!dos || dos[0] !== 0x4d || dos[1] !== 0x5a) return 'not a PE (missing MZ)'
+  const peOff = dos.readUInt32LE(0x3c)
+  const pe = readBytes(binaryPath, peOff + 6)
+  if (!pe || pe[peOff] !== 0x50 || pe[peOff + 1] !== 0x45) return 'not a PE (missing PE signature)'
+  const machine = pe.readUInt16LE(peOff + 4)
+  const expected = targetArch === 'arm64' ? 0xaa64 : 0x8664
+  if (machine !== expected) return `PE machine 0x${machine.toString(16)}, expected 0x${expected.toString(16)}`
   return null
 }
 
@@ -89,12 +125,16 @@ for (const binary of config.binaries) {
     }
   }
 
-  if (expectedElfMachine !== null) {
+  let archError = null
+  if (platform === 'linux' && expectedElfMachine !== null) {
     const elfMachine = readElfMachine(binaryPath)
-    if (elfMachine !== expectedElfMachine) {
-      wrongArch.push(`${path.relative(root, binaryPath)} (ELF machine: ${elfMachine ?? 'unknown'})`)
-    }
+    if (elfMachine !== expectedElfMachine) archError = `ELF machine: ${elfMachine ?? 'unknown'}`
+  } else if (platform === 'mac') {
+    archError = verifyMachoUniversal(binaryPath)
+  } else if (platform === 'win') {
+    archError = verifyPeMachine(binaryPath, arch)
   }
+  if (archError) wrongArch.push(`${path.relative(root, binaryPath)} (${archError})`)
 }
 
 if (missing.length > 0 || notExecutable.length > 0 || wrongArch.length > 0) {

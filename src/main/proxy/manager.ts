@@ -204,6 +204,10 @@ export class ProxyManager extends EventEmitter {
 
     this.process.on('error', (err) => {
       log.error(`Failed to start proxy:`, err)
+      // ENOENT etc. fire 'error' not 'exit', so reset state or isRunning() lies
+      // and a retry is blocked as 'already running'.
+      this.process = null
+      this.setStatus('stopped')
       this.emit('error', err.message)
     })
 

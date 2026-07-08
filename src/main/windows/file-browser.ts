@@ -335,7 +335,7 @@ export function generateFileBrowserPage(
 
     function normPath(p) {
       if (p === '/') return '/';
-      return '/' + p.replace(/^\\/+/, '').replace(/\\/+$/, '') + '/';
+      return '/' + p.replace(/^\\/+/, '').replace(/\\/+$/, '').replace(/\\/{2,}/g, '/') + '/';
     }
 
     function getEntries(path) {

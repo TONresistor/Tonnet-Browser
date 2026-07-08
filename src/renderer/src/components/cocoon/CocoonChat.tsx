@@ -13,7 +13,7 @@ import cocoonAnimation from '@/assets/cocoon.json'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useCocoonChatStore, selectActiveMessages, type CocoonChatMessage } from '@/stores/cocoon-chat'
-import { DEFAULT_MODEL, parseThinking, sendChat } from '@/lib/cocoon-llm'
+import { DEFAULT_MODEL, parseThinking, buildHistory, sendChat } from '@/lib/cocoon-llm'
 import { ChatMarkdown } from './ChatMarkdown'
 
 export interface CocoonChatProps {
@@ -68,7 +68,7 @@ export function CocoonChat({ state, compact = false, startError = null, onRetryS
     const userMsg: CocoonChatMessage = { id: crypto.randomUUID(), role: 'user', content: text }
     const assistantId = crypto.randomUUID()
     const placeholder: CocoonChatMessage = { id: assistantId, role: 'assistant', content: '' }
-    const history = [...messages, userMsg].map((m) => ({ role: m.role, content: m.content }))
+    const history = buildHistory([...messages, userMsg].map((m) => ({ role: m.role, content: m.content })))
 
     addMessage(userMsg)
     addMessage(placeholder)

@@ -21,6 +21,7 @@ const ROW_H = 32
 const HEADER_H = 36
 const INDEX_W = 56
 const OVERSCAN = 8
+const VIEWER_MAX_ROWS = 10000
 
 /** Estimate a stable per-column pixel width from the header + a row sample. */
 function columnWidths(table: TableData): number[] {
@@ -41,6 +42,7 @@ export function StorageFileViewerPage({ bagId, filePath }: { bagId: string; file
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [text, setText] = useState<string | null>(null)
+  const [fileTruncated, setFileTruncated] = useState(false)
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const [scrollTop, setScrollTop] = useState(0)
@@ -60,6 +62,7 @@ export function StorageFileViewerPage({ bagId, filePath }: { bagId: string; file
         if (cancelled) return
         if (res.success && typeof res.content === 'string') {
           setText(res.content)
+          setFileTruncated(res.truncated ?? false)
         } else {
           setError(res.error || t('storage.view.readFailed', { defaultValue: 'Could not read file' }))
         }
@@ -77,9 +80,10 @@ export function StorageFileViewerPage({ bagId, filePath }: { bagId: string; file
     }
   }, [bagId, filePath, t])
 
-  // No row cap: parse everything and window the rows on scroll.
+  // Cap rows so a malicious many-row bag can't OOM the renderer; visible rows
+  // are windowed on scroll. Columns are capped inside parseTable.
   const table = useMemo<TableData | null>(
-    () => (text !== null ? parseTable(fileName, text, Number.POSITIVE_INFINITY) : null),
+    () => (text !== null ? parseTable(fileName, text, VIEWER_MAX_ROWS) : null),
     [text, fileName]
   )
   const widths = useMemo(() => (table ? columnWidths(table) : []), [table])
@@ -132,6 +136,13 @@ export function StorageFileViewerPage({ bagId, filePath }: { bagId: string; file
                 rows: table.rows.length,
                 cols: table.columns.length,
                 defaultValue: '{{rows}} rows · {{cols}} cols',
+              })}
+            </p>
+          )}
+          {table && (fileTruncated || table.truncatedRows > 0 || table.truncatedCols > 0) && (
+            <p className="text-[12px] text-warning">
+              {t('storage.view.truncated', {
+                defaultValue: 'Preview truncated — open raw for the full file',
               })}
             </p>
           )}

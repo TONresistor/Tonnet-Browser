@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { RateLimiter } from '../validation'
+import { RateLimiter, KeyedRateLimiter } from '../validation'
 
 describe('RateLimiter', () => {
   beforeEach(() => {
@@ -107,5 +107,50 @@ describe('RateLimiter', () => {
 
     // Un nouvel appel devrait passer car le premier a expire
     expect(limiter.check()).toBe(true)
+  })
+})
+
+describe('KeyedRateLimiter', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+  })
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('isole les budgets par clé (une clé saturée n’affecte pas l’autre)', () => {
+    const limiter = new KeyedRateLimiter(2, 1000)
+
+    expect(limiter.check('a.ton')).toBe(true)
+    expect(limiter.check('a.ton')).toBe(true)
+    // a.ton est saturé
+    expect(limiter.check('a.ton')).toBe(false)
+    // b.ton a son propre budget intact
+    expect(limiter.check('b.ton')).toBe(true)
+    expect(limiter.check('b.ton')).toBe(true)
+    expect(limiter.check('b.ton')).toBe(false)
+  })
+
+  it('forget(key) réinitialise le budget de la clé et la retire de la map', () => {
+    const limiter = new KeyedRateLimiter(1, 1000)
+
+    expect(limiter.check('a.ton')).toBe(true)
+    expect(limiter.check('a.ton')).toBe(false)
+    expect(limiter.size).toBe(1)
+
+    limiter.forget('a.ton')
+    expect(limiter.size).toBe(0)
+    // Nouvelle fenêtre après oubli
+    expect(limiter.check('a.ton')).toBe(true)
+  })
+
+  it('clear() vide toutes les clés', () => {
+    const limiter = new KeyedRateLimiter(1, 1000)
+    limiter.check('a.ton')
+    limiter.check('b.ton')
+    expect(limiter.size).toBe(2)
+
+    limiter.clear()
+    expect(limiter.size).toBe(0)
   })
 })

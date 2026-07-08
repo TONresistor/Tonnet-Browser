@@ -12,7 +12,7 @@ import { Address } from '@ton/core'
 import { createLogger } from '../../shared/logger'
 import { getConsumedArchive, type ArchivedCocoon } from './consumed-archive'
 import { buildCocoonWalletInit, sendFromCocoonWallet, sendFromOwnerWallet, type SendResult } from './contracts'
-import { getRecoveryQueueStore } from './recovery-queue'
+import { getRecoveryQueueStore, type RecoveryEntry } from './recovery-queue'
 import { getStakeCacheStore } from './stake-cache'
 import { getStakeInfo } from './unstake'
 import { loadCocoonWallet } from './wallet'
@@ -251,6 +251,10 @@ export async function recoverAllCocoonFunds(
   const current = currentWallet ? toRecoverableWallet(currentWallet) : null
   const walletsWithClientTargets = new Set<string>()
   const walletsSafeToDrain = new Set<string>()
+  // archivedAt values whose archived wallet was actually drained to destination
+  // this pass. This — not the presence of any tx carrying archivedAt — is the
+  // only signal allowed to close a recovery-queue entry (see F1 fund-lock).
+  const drainedArchives = new Set<number>()
 
   const walletKey = (wallet: RecoverableWallet) =>
     wallet.label === 'current' ? 'current' : `archive:${wallet.archivedAt}`
@@ -326,6 +330,7 @@ export async function recoverAllCocoonFunds(
       if (!walletsWithClientTargets.has(key) || walletsSafeToDrain.has(key)) {
         await drainNode(bridge, archive, destination, result)
         await drainOwner(bridge, archive, destination, result)
+        if (archive.archivedAt !== undefined) drainedArchives.add(archive.archivedAt)
       } else {
         result.skipped.push({
           reason: 'archived-client-not-closed-wallet-drain-deferred',
@@ -342,9 +347,40 @@ export async function recoverAllCocoonFunds(
     }
   }
 
-  for (const done of result.txs.filter((tx) => tx.archivedAt !== undefined).map((tx) => tx.archivedAt!)) {
-    await getRecoveryQueueStore().update(done, { phase: 'done', sentToMain: destination, lastError: undefined })
+  for (const { archivedAt, partial } of planRecoveryQueueClosure(
+    await getRecoveryQueueStore().list(),
+    drainedArchives,
+    destination
+  )) {
+    await getRecoveryQueueStore().update(archivedAt, partial)
   }
 
   return result
+}
+
+/**
+ * Decide which recovery-queue entries may be closed ('done') after a one-shot
+ * recovery pass.
+ *
+ * An entry is closed ONLY when its archived wallet was actually drained to
+ * `destination` this pass (i.e. its client SC reached state=2 and the node/
+ * owner wallets were drained without error). It is NEVER closed on the mere
+ * presence of a tx carrying `archivedAt` — recoverClient pushes a
+ * `client-refund-request` tx BEFORE the SC has closed, so deriving 'done' from
+ * tx presence marked still-locked archives complete, permanently stranding the
+ * user's TON on-chain (the RecoveryDriver skips phase==='done') while the UI
+ * reported success. Entries still in cooldown/pending are intentionally omitted
+ * so the driver keeps working them.
+ */
+export function planRecoveryQueueClosure(
+  queue: readonly Pick<RecoveryEntry, 'archivedAt'>[],
+  drainedArchivedAts: ReadonlySet<number>,
+  destination: string
+): Array<{ archivedAt: number; partial: Partial<RecoveryEntry> }> {
+  return queue
+    .filter((entry) => drainedArchivedAts.has(entry.archivedAt))
+    .map((entry) => ({
+      archivedAt: entry.archivedAt,
+      partial: { phase: 'done', sentToMain: destination, lastError: undefined },
+    }))
 }

@@ -11,6 +11,7 @@ import { Segmented } from '@/components/ui/ios/Segmented'
 import { StepperInput } from '../shared/StepperInput'
 import { OpenPageButton } from '../shared/OpenPageButton'
 import { useTabsStore } from '@/stores/tabs'
+import { ContentProtectionPanel } from './ContentProtectionPanel'
 import type { SectionProps } from '../types'
 import { useTranslation } from 'react-i18next'
 
@@ -77,6 +78,13 @@ export const PrivacySection = memo(function PrivacySection({
             )}
           </button>
         </SettingRow>
+        <SettingRow label={t('privacy.clearOnExit')} description={t('privacy.clearOnExitDesc')}>
+          <Toggle
+            checked={draft.clearOnExit}
+            onChange={(v) => setDraft('clearOnExit', v)}
+            ariaLabel={t('privacy.clearOnExitLabel')}
+          />
+        </SettingRow>
         <SettingRow label={t('privacy.disableCache')} description={t('privacy.disableCacheDesc')}>
           <Toggle
             checked={draft.disableCache}
@@ -112,6 +120,10 @@ export const PrivacySection = memo(function PrivacySection({
             </SettingRow>
           </div>
         )}
+      </div>
+
+      <div className="mt-6">
+        <ContentProtectionPanel draft={draft} setDraft={setDraft} />
       </div>
 
       {/* History */}

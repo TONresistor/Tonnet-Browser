@@ -23,6 +23,7 @@ export function conversationPreview(c: Pick<CocoonConversation, 'messages'>): st
   if (!last) return 'No messages yet'
   const text = last.content
     .replace(/<think>[\s\S]*?<\/think>/gi, '')
+    .replace(/<think>[\s\S]*$/i, '') // unterminated (truncated) reasoning block
     .replace(/\s+/g, ' ')
     .trim()
   if (!text) return 'No messages yet'

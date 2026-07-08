@@ -239,6 +239,10 @@ declare global {
           }>
         >
         delete: (id: string) => Promise<{ success: boolean; error?: string }>
+        deleteByDate: (
+          startDate: number,
+          endDate: number
+        ) => Promise<{ success: boolean; count: number; error?: string }>
         deletePattern: (pattern: string) => Promise<{ success: boolean; count: number; error?: string }>
         clear: () => Promise<{ success: boolean; error?: string }>
         getStats: () => Promise<{
@@ -263,7 +267,7 @@ declare global {
         create: () => Promise<WalletState & { mnemonic: string[] }>
         getState: () => Promise<WalletState>
         getBalance: () => Promise<string | IpcError>
-        send: (to: string, amount: string) => Promise<WalletTransaction>
+        send: (to: string, amount: string, comment?: string) => Promise<WalletTransaction>
         resolveRecipient: (input: string) => Promise<{ address: string; domain?: string }>
         getHistory: (limit?: number) => Promise<WalletTransaction[]>
         clearHistory: () => Promise<{ success: boolean }>
@@ -294,6 +298,36 @@ declare global {
       }
       dns: {
         resolve(domain: string): Promise<import('../shared/types').DnsResolveResult>
+      }
+      chat: {
+        connect: (room?: string, node?: string) => Promise<{ connected: boolean; room: string; via: 'node' | 'dht' }>
+        send: (text: string) => Promise<{
+          sent: boolean
+          needsLink?: boolean
+          pendingMembership?: boolean
+          identity?: import('../shared/types').OwnChatIdentity
+        }>
+        dmSend: (
+          peerKey: string,
+          text: string
+        ) => Promise<{
+          sent: boolean
+          needsLink?: boolean
+          pendingMembership?: boolean
+          id?: string
+          ts?: number
+          identity?: import('../shared/types').OwnChatIdentity
+        }>
+        createRoom: (display: string) => Promise<{ room: string }>
+        disconnect: () => Promise<{ disconnected: boolean }>
+        identity: () => Promise<import('../shared/types').OwnChatIdentity>
+        linkIdentity: () => Promise<import('../shared/types').OwnChatIdentity>
+        claimDomain: (
+          domain: string
+        ) => Promise<{ ok: boolean; reason?: string; identity: import('../shared/types').OwnChatIdentity }>
+        clearDomain: () => Promise<import('../shared/types').OwnChatIdentity>
+        detectDomains: () => Promise<{ domains: string[] }>
+        resetIdentity: () => Promise<import('../shared/types').OwnChatIdentity>
       }
       cocoon: {
         availability: () => Promise<CocoonAvailability>

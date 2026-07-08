@@ -227,7 +227,12 @@ export const AddressBar = memo(function AddressBar() {
       )
       if (disabledTld) {
         const chainName = disabledTld[0] === 'eth' ? 'Ethereum' : 'Solana'
-        setChainDisabledError(ts('general.chainDisabledError', { chain: chainName }))
+        setChainDisabledError(
+          ts('nameServices.chainDisabledError', {
+            chain: chainName,
+            defaultValue: 'The {{chain}} resolver is disabled. Enable it in Settings > Name Services.',
+          })
+        )
         setTimeout(() => setChainDisabledError(null), 5000)
         return
       }

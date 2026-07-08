@@ -98,9 +98,12 @@ function inspectProcess(pid: number): ProcInfo | null {
 
 /**
  * Startup reaper: SIGKILL daemons left running by a previous run that died
- * without cleanup. Only orphans are killed -- a daemon still owned by a live
- * instance (PPID != 1) is left untouched, and the command must match the
- * recorded binary so a reused PID is never killed by mistake.
+ * without cleanup. Runs AFTER the single-instance lock is acquired, so we are
+ * the sole instance and every command-matched registry entry is an orphan from
+ * a dead run. The command must match the recorded binary so a reused PID is
+ * never killed. We do NOT gate on PPID: an orphan reparents to init (1) on some
+ * systems but to the systemd --user manager on Linux, so a PPID!=1 guard missed
+ * real orphans there (the orphan-daemon/port-squat failure).
  */
 export function reapStaleDaemons(): void {
   let records: unknown
@@ -116,7 +119,7 @@ export function reapStaleDaemons(): void {
     if (!rec || typeof rec.pid !== 'number' || typeof rec.name !== 'string') continue
     const info = inspectProcess(rec.pid)
     if (!info || !info.command.includes(rec.name)) continue // dead, or PID reused by another process
-    if (process.platform !== 'win32' && info.ppid !== 1) continue // owned by a live instance
+    if (info.ppid === process.pid) continue // defensive: parented to us, not an orphan
     forceKillTree(rec.pid)
     reaped++
     log.info(`Reaped orphaned ${rec.name} (pid ${rec.pid}) from a previous run`)

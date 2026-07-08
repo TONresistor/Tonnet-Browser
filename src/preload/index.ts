@@ -31,6 +31,8 @@ const VALID_EVENT_CHANNELS = [
   IPC_CHANNELS.COCOON_LOG,
   IPC_CHANNELS.COCOON_WITHDRAW_EVENT,
   IPC_CHANNELS.COCOON_RECOVERY_EVENT,
+  IPC_CHANNELS.CHAT_MESSAGE,
+  IPC_CHANNELS.CHAT_DM_MESSAGE,
 ]
 
 // Custom APIs for renderer - exposed as window.electron
@@ -139,6 +141,8 @@ const electronAPI = {
     getByDate: (startDate: number, endDate: number) =>
       ipcRenderer.invoke(IPC_CHANNELS.HISTORY_GET_BY_DATE, startDate, endDate),
     delete: (id: string) => ipcRenderer.invoke(IPC_CHANNELS.HISTORY_DELETE, id),
+    deleteByDate: (startDate: number, endDate: number) =>
+      ipcRenderer.invoke(IPC_CHANNELS.HISTORY_DELETE_BY_DATE, startDate, endDate),
     deletePattern: (pattern: string) => ipcRenderer.invoke(IPC_CHANNELS.HISTORY_DELETE_PATTERN, pattern),
     clear: () => ipcRenderer.invoke(IPC_CHANNELS.HISTORY_CLEAR),
     getStats: () => ipcRenderer.invoke(IPC_CHANNELS.HISTORY_GET_STATS),
@@ -150,7 +154,8 @@ const electronAPI = {
     create: () => ipcRenderer.invoke(IPC_CHANNELS.WALLET_CREATE),
     getState: () => ipcRenderer.invoke(IPC_CHANNELS.WALLET_GET_STATE),
     getBalance: () => ipcRenderer.invoke(IPC_CHANNELS.WALLET_GET_BALANCE),
-    send: (to: string, amount: string) => ipcRenderer.invoke(IPC_CHANNELS.WALLET_SEND, to, amount),
+    send: (to: string, amount: string, comment?: string) =>
+      ipcRenderer.invoke(IPC_CHANNELS.WALLET_SEND, to, amount, comment),
     resolveRecipient: (input: string) => ipcRenderer.invoke(IPC_CHANNELS.WALLET_RESOLVE_RECIPIENT, input),
     getHistory: (limit?: number) => ipcRenderer.invoke(IPC_CHANNELS.WALLET_GET_HISTORY, limit),
     clearHistory: () => ipcRenderer.invoke(IPC_CHANNELS.WALLET_CLEAR_HISTORY),
@@ -180,6 +185,20 @@ const electronAPI = {
   // DNS
   dns: {
     resolve: (domain: string) => ipcRenderer.invoke(IPC_CHANNELS.DNS_RESOLVE, domain),
+  },
+
+  chat: {
+    connect: (room?: string, node?: string) => ipcRenderer.invoke(IPC_CHANNELS.CHAT_CONNECT, room, node),
+    send: (text: string) => ipcRenderer.invoke(IPC_CHANNELS.CHAT_SEND, text),
+    dmSend: (peerKey: string, text: string) => ipcRenderer.invoke(IPC_CHANNELS.CHAT_DM_SEND, peerKey, text),
+    createRoom: (display: string) => ipcRenderer.invoke(IPC_CHANNELS.CHAT_CREATE_ROOM, display),
+    disconnect: () => ipcRenderer.invoke(IPC_CHANNELS.CHAT_DISCONNECT),
+    identity: () => ipcRenderer.invoke(IPC_CHANNELS.CHAT_IDENTITY),
+    linkIdentity: () => ipcRenderer.invoke(IPC_CHANNELS.CHAT_IDENTITY_LINK),
+    claimDomain: (domain: string) => ipcRenderer.invoke(IPC_CHANNELS.CHAT_CLAIM_DOMAIN, domain),
+    clearDomain: () => ipcRenderer.invoke(IPC_CHANNELS.CHAT_CLEAR_DOMAIN),
+    detectDomains: () => ipcRenderer.invoke(IPC_CHANNELS.CHAT_DETECT_DOMAINS),
+    resetIdentity: () => ipcRenderer.invoke(IPC_CHANNELS.CHAT_RESET_IDENTITY),
   },
 
   // Cocoon AI

@@ -28,11 +28,19 @@ export function useSectionHandle<H extends SectionHandle>(
 
   useEffect(() => {
     onDirtyChange?.(hasChanges)
+    // Clear the dirty flag on unmount so the global Save bar doesn't stay stuck
+    // after the section is removed.
+    return () => onDirtyChange?.(false)
   }, [hasChanges, onDirtyChange])
 
   useEffect(() => {
     if (sectionRef) {
       ;(sectionRef as MutableRefObject<SectionHandle | null>).current = { save, discard, hasChanges }
+    }
+    // Drop the published handle on unmount so a re-mounted section never
+    // inherits a stale save/discard closure.
+    return () => {
+      if (sectionRef) (sectionRef as MutableRefObject<SectionHandle | null>).current = null
     }
   }, [sectionRef, save, discard, hasChanges])
 }

@@ -5,7 +5,7 @@
 
 import log from '../shared/logger'
 import { app, BrowserWindow, shell, Menu, protocol, net } from 'electron'
-import { join, resolve, dirname } from 'path'
+import { join, resolve, dirname, sep } from 'path'
 import { mkdirSync } from 'fs'
 import { migrateUserData } from './utils/migrate-userdata'
 import { EventEmitter } from 'events'
@@ -382,8 +382,9 @@ app.whenReady().then(() => {
 
     const filePath = resolve(basePath, pathname.slice(1))
 
-    // Path traversal guard
-    if (!filePath.startsWith(basePath)) {
+    // Path traversal guard. Require a separator after basePath so a sibling
+    // directory (rendererEVIL/) cannot pass a bare startsWith(basePath) prefix.
+    if (filePath !== basePath && !filePath.startsWith(basePath + sep)) {
       appLog.warn(`Blocked path traversal: ${pathname}`)
       return new Response('Forbidden', { status: 403 })
     }
@@ -416,13 +417,14 @@ app.whenReady().then(() => {
 })
 
 app.on('window-all-closed', async () => {
+  // macOS convention: closing the window does NOT quit the app. Keep services
+  // and daemons alive so a dock reactivation rebuilds a window on LIVE services
+  // instead of a destroyed registry. Full teardown runs on before-quit.
+  if (process.platform === 'darwin') return
+
   if (isCleanupInProgress()) return
-
   await runCleanup(services)
-
-  if (process.platform !== 'darwin') {
-    app.quit()
-  }
+  app.quit()
 })
 
 let isQuitting = false

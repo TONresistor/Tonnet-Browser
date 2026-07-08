@@ -177,3 +177,39 @@ export class RateLimiter {
     this.calls = []
   }
 }
+
+/**
+ * Per-key rate limiter: one independent RateLimiter window per key, created
+ * lazily. Used to isolate noisy callers (e.g. one tonsite cannot exhaust the
+ * budget of another). Callers must forget(key) when a key becomes inactive to
+ * keep the map bounded.
+ */
+export class KeyedRateLimiter {
+  private limiters = new Map<string, RateLimiter>()
+
+  constructor(
+    private maxCalls: number,
+    private windowMs: number
+  ) {}
+
+  check(key: string): boolean {
+    let limiter = this.limiters.get(key)
+    if (!limiter) {
+      limiter = new RateLimiter(this.maxCalls, this.windowMs)
+      this.limiters.set(key, limiter)
+    }
+    return limiter.check()
+  }
+
+  forget(key: string): void {
+    this.limiters.delete(key)
+  }
+
+  clear(): void {
+    this.limiters.clear()
+  }
+
+  get size(): number {
+    return this.limiters.size
+  }
+}

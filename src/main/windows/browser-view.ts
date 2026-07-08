@@ -10,6 +10,7 @@ import { getSetting } from '../settings'
 import type { ContentFilterManager } from '../content-filter/filter-manager'
 import type { PaymentInterceptor } from '../wallet/payment-interceptor'
 import { createLogger } from '../../shared/logger'
+import { isPrivateHost } from '../utils/private-host'
 const log = createLogger('browser-view')
 
 /** Dependencies needed by createTonSession */
@@ -24,47 +25,6 @@ let sessionDeps: SessionDeps | null = null
 /** Set the shared session dependencies. Called once from initTabManager(). */
 export function setSessionDeps(deps: SessionDeps): void {
   sessionDeps = deps
-}
-
-function isLoopbackHost(hostname: string): boolean {
-  const h = hostname.toLowerCase().replace(/^\[|\]$/g, '')
-
-  // localhost and subdomains
-  if (h === 'localhost' || h.endsWith('.localhost')) return true
-
-  // IPv6 loopback
-  if (h === '::1' || h === '::') return true
-
-  // IPv6-mapped IPv4 loopback (::ffff:127.x.x.x or ::ffff:0.x.x.x)
-  // new URL('http://[::ffff:127.0.0.1]/').hostname returns '::ffff:7f00:1' (hex form)
-  if (h.startsWith('::ffff:')) {
-    const suffix = h.slice(7)
-    // Hex form (actual URL parser output): ::ffff:7f00:1, ::ffff:0:0
-    const hexMatch = suffix.match(/^([0-9a-f]{1,4}):([0-9a-f]{1,4})$/)
-    if (hexMatch) {
-      const high = parseInt(hexMatch[1], 16)
-      if (high >> 8 === 0x7f || high === 0) return true
-    }
-    // Dotted form (defense in depth): ::ffff:127.0.0.1
-    const dottedMatch = suffix.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/)
-    if (dottedMatch) {
-      const first = parseInt(dottedMatch[1], 10)
-      if (first === 127 || first === 0) return true
-    }
-  }
-
-  // 0.0.0.0
-  if (h === '0.0.0.0') return true
-
-  // IPv4: check the full 127.0.0.0/8 range and 0.0.0.0/8
-  const ipv4Match = h.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/)
-  if (ipv4Match) {
-    const first = parseInt(ipv4Match[1], 10)
-    if (first === 127) return true
-    if (first === 0) return true
-  }
-
-  return false
 }
 
 /** Route ALL requests through the local proxy (no bypass). Must await before any loadURL. */
@@ -92,8 +52,8 @@ function installRequestFilter(ses: Electron.Session, contentFilterManager: Conte
     // Block ALL requests to loopback addresses (SSRF protection)
     try {
       const parsed = new URL(url)
-      if (isLoopbackHost(parsed.hostname)) {
-        log.info(`Blocked request to loopback: ${url}`)
+      if (isPrivateHost(parsed.hostname)) {
+        log.info(`Blocked request to private host: ${url}`)
         callback({ cancel: true })
         return
       }
@@ -195,6 +155,10 @@ export function createBrowserView(ses: Electron.Session): WebContentsView {
       webSecurity: true,
       allowRunningInsecureContent: false,
       webviewTag: false,
+      // Enable Chromium's built-in PDFium viewer so PDFs served by a tonsite
+      // render inline instead of failing silently. Electron ships only the PDF
+      // plugin, so this does not enable NPAPI/Flash.
+      plugins: true,
     },
   })
 

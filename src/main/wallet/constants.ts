@@ -21,6 +21,14 @@ export const RATE_LIMIT_BURST_PER_10S = 3
 // --- Payment interceptor ---
 /** Hard cap on a single payment: 1 TON in nanoTON */
 export const MAX_SINGLE_PAYMENT = 1_000_000_000n
+/**
+ * Default ceiling for a single ZERO-APPROVAL (auto mode) payment: 0.5 TON.
+ * Auto payments above this escalate to a one-off manual approval instead of
+ * executing silently, so a compromised auto-pay tonsite cannot drain the
+ * wallet 1 TON at a time without the user ever being asked. A user-configured
+ * limits.perRequest (non-'0') overrides this default.
+ */
+export const AUTO_PAY_DEFAULT_MAX_PER_REQUEST = 500_000_000n
 /** Fetch timeout for session re-fetch of 402 URLs */
 export const FETCH_TIMEOUT_MS = 30_000
 /** Default maxTimeoutSeconds when server omits the field */

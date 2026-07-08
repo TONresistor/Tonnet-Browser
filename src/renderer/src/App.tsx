@@ -26,6 +26,7 @@ const BookmarksPage = lazy(() => import('@/components/pages/BookmarksPage').then
 const WalletPage = lazy(() => import('@/components/pages/WalletPage'))
 const DnsPage = lazy(() => import('@/components/pages/DnsPage'))
 const CocoonChatPage = lazy(() => import('@/components/pages/CocoonChatPage'))
+const ChatPage = lazy(() => import('@/components/pages/ChatPage'))
 import { useBrowserStore } from '@/stores/browser'
 import { useTabsStore } from '@/stores/tabs'
 import { usePreferencesStore } from '@/stores/preferences'
@@ -42,6 +43,7 @@ import { Settings } from 'lucide-react'
 import walletIcon from '@/assets/wallet.svg'
 import storageIcon from '@/assets/storage.svg'
 import cocoonIcon from '@/assets/cocoon.png'
+import messengerIcon from '@/assets/messenger.svg'
 import { Button } from '@/components/ui/button'
 import Lottie from 'lottie-react'
 import i18n, { loadLanguage } from '@/i18n'
@@ -74,6 +76,7 @@ function App() {
   const language = usePreferencesStore((s) => s.saved.language)
   const tabOrientation = usePreferencesStore((s) => s.saved.tabOrientation)
   const savedSidebarWidth = usePreferencesStore((s) => s.saved.sidebarWidth)
+  const messengerNetworkEnabled = usePreferencesStore((s) => s.saved.messengerNetworkEnabled)
   const setDraft = usePreferencesStore((s) => s.setDraft)
   const customThemes = useThemeStore((state) => state.customThemes)
 
@@ -83,6 +86,7 @@ function App() {
   const [walletSidebarWidth, setWalletSidebarWidth] = useState(320)
   const [cocoonSidebarOpen, setCocoonSidebarOpen] = useState(false)
   const [cocoonSidebarWidth, setCocoonSidebarWidth] = useState(320)
+  const [messengerShortcutVisible, setMessengerShortcutVisible] = useState(messengerNetworkEnabled)
 
   // Loading animation; dynamically imported so its JSON stays out of the main chunk.
   const [animationData, setAnimationData] = useState<unknown>(null)
@@ -96,6 +100,36 @@ function App() {
     useThemeStore.getState().loadFromSettings()
     useWalletStore.getState().init()
     loadBookmarksFromMain()
+  }, [])
+
+  useEffect(() => {
+    setMessengerShortcutVisible(messengerNetworkEnabled)
+  }, [messengerNetworkEnabled])
+
+  useEffect(() => {
+    let active = true
+    window.electron.settings
+      .get('messenger')
+      .then((prefs) => {
+        if (!active) return
+        setMessengerShortcutVisible(Boolean((prefs as { networkEnabled?: boolean })?.networkEnabled))
+      })
+      .catch((err) => log.error('Failed to load messenger shortcut state:', err))
+
+    const off = window.electron.on('settings:changed', (change) => {
+      if (change.reset) {
+        setMessengerShortcutVisible(false)
+        return
+      }
+      if (change.category !== 'messenger') return
+      const next = (change.values as { networkEnabled?: unknown } | undefined)?.networkEnabled
+      if (typeof next === 'boolean') setMessengerShortcutVisible(next)
+    })
+
+    return () => {
+      active = false
+      off()
+    }
   }, [])
 
   // Sync current sidebar width with saved value when preferences load
@@ -258,6 +292,8 @@ function App() {
         return <WalletPage />
       case 'dns':
         return <DnsPage />
+      case 'chat':
+        return <ChatPage />
       case 'cocoon':
         return <CocoonChatPage />
       case 'loading':
@@ -293,7 +329,6 @@ function App() {
         <div className="no-drag flex-1">
           <AddressBar />
         </div>
-        {/* Quick-access: two pills — [wallet · cocoon] and [storage · settings] */}
         <div className="flex items-center gap-1">
           <div className="no-drag flex items-center gap-0.5 rounded-full px-1 py-0.5 glass-surface">
             <Button
@@ -320,8 +355,17 @@ function App() {
             >
               <img src={cocoonIcon} alt="" className="h-5 w-5 brightness-0 invert" />
             </Button>
-          </div>
-          <div className="no-drag flex items-center gap-0.5 rounded-full px-1 py-0.5 glass-surface">
+            {messengerShortcutVisible && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 rounded-full"
+                onClick={() => openOrSwitchToTab('ton://chat')}
+                title={t('tooltips.messenger')}
+              >
+                <img src={messengerIcon} alt="" className="h-5 w-5 brightness-0 invert" />
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="icon"
@@ -331,6 +375,8 @@ function App() {
             >
               <img src={storageIcon} alt="" className="h-4 w-4 brightness-0 invert" />
             </Button>
+          </div>
+          <div className="no-drag flex items-center gap-0.5 rounded-full px-1 py-0.5 glass-surface">
             <Button
               variant="ghost"
               size="icon"

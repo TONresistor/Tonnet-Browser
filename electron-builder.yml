@@ -71,6 +71,9 @@ mac:
   hardenedRuntime: true
   gatekeeperAssess: false
   x64ArchFiles: "Contents/Resources/bin/*"
+  identity: "-"
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
 
 # Electron fuses are configured per-platform in scripts/afterPack.cjs
 # (cookieEncryption requires code signing on macOS; enabled on Linux/Windows only)

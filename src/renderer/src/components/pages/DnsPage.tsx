@@ -122,7 +122,7 @@ function DnsPage() {
       result.has_storage ||
       result.next_resolver ||
       result.wallet ||
-      (result.text_records && Object.keys(result.text_records).length))
+      (result.text_records && Object.keys(result.text_records).length > 0))
 
   return (
     <div className="h-full overflow-auto bg-background-secondary" style={{ fontFamily: 'Inter, sans-serif' }}>

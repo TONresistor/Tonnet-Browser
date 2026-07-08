@@ -227,9 +227,12 @@ vi.mock('../../cocoon/platform', () => ({
 // Import after mocks
 import { registerIpcHandlers, _resetHandlersForTesting } from '../handlers'
 import { IPC_CHANNELS } from '../../../shared/ipc-channels'
-import { setSetting, resetSettings } from '../../settings'
+import { setSetting, resetSettings, getSetting } from '../../settings'
 import { createTab, closeTab, switchTab, navigateInTab } from '../../windows/tabs'
 import type { ServiceRegistry } from '../../services'
+import { overlayIdB64ForRoom } from '../../chat/room'
+import { sealBroadcast } from '../../chat/broadcast'
+import { marshalEnvelope, signEnvelope } from '../../chat/envelope'
 import {
   hasCocoonWallet,
   generateCocoonWallet,
@@ -517,6 +520,50 @@ describe('IPC Handlers', () => {
       await handler(createMockEvent())
 
       expect(resetSettings).toHaveBeenCalled()
+    })
+  })
+
+  describe('Chat Handlers', () => {
+    it('emits replayed history messages even when the signed broadcast date is stale', async () => {
+      const room = 'tonnet:groupchat'
+      const overlayId = overlayIdB64ForRoom(room)
+      const bootstrap = Buffer.alloc(32, 9).toString('base64')
+      let overlayMessage: ((data: { overlay_id: string; message: string }) => void) | null = null
+      const bridge = {
+        dhtFindValue: vi.fn(),
+        overlayConnectAndJoin: vi.fn(() => Promise.resolve('peer-id')),
+        onOverlayMessage: vi.fn((cb: (data: { overlay_id: string; message: string }) => void) => {
+          overlayMessage = cb
+          return vi.fn()
+        }),
+        overlaySendRaw: vi.fn(() => Promise.resolve()),
+        overlayLeaveAndDisconnect: vi.fn(() => Promise.resolve()),
+        adnlPing: vi.fn(() => Promise.resolve()),
+      }
+      vi.mocked(getSetting).mockImplementation(((category: string) => {
+        if (category === 'messenger') return { networkEnabled: true, attachWalletIdentity: false }
+        return {}
+      }) as typeof getSetting)
+      vi.mocked(mockRegistry.walletManager.getBridgeClient).mockReturnValue(bridge as any)
+
+      const connect = mockHandlers.get(IPC_CHANNELS.CHAT_CONNECT)!
+      const disconnect = mockHandlers.get(IPC_CHANNELS.CHAT_DISCONNECT)!
+      await connect(createMockEvent(), room, bootstrap)
+
+      const peerSeed = Buffer.alloc(32, 19)
+      const env = signEnvelope(
+        { type: 'msg', nick: 'alice', text: 'from history', ts: Date.now() - 120_000, room },
+        peerSeed
+      )
+      const wire = sealBroadcast(peerSeed, marshalEnvelope(env), Math.floor(Date.now() / 1000) - 120)
+      overlayMessage!({ overlay_id: overlayId, message: wire.toString('base64') })
+      await new Promise((resolve) => setImmediate(resolve))
+
+      expect(mockMainWindow.webContents.send).toHaveBeenCalledWith(
+        IPC_CHANNELS.CHAT_MESSAGE,
+        expect.objectContaining({ room, text: 'from history', deviceKey: env.key })
+      )
+      await disconnect(createMockEvent())
     })
   })
 

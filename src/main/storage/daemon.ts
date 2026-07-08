@@ -171,8 +171,14 @@ export class StorageManager extends EventEmitter {
     // Create HTTP client with same auth credentials
     this.client = new StorageHTTPClient('127.0.0.1', this.port, { login: apiLogin, password: apiPassword })
 
-    // Wait for API to be ready
-    await this.waitForReady()
+    // Wait for API to be ready. On failure, tear down the spawned child so it
+    // cannot squat port 5555 and block the next start() with 'already running'.
+    try {
+      await this.waitForReady()
+    } catch (err) {
+      this.stop()
+      throw err
+    }
 
     this.isRunning = true
     this.emit('started')

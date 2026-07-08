@@ -43,11 +43,11 @@ describe('trackDaemon / untrackDaemon', () => {
 })
 
 describe('reapStaleDaemons', () => {
-  it('kills only the orphaned daemon (ppid 1 + command matches)', () => {
+  it('kills every command-matched orphan regardless of ppid (systemd-user reparenting)', () => {
     readFileSync.mockReturnValue(
       JSON.stringify([
-        { pid: 111, name: 'tonutils-proxy' }, // orphan, matches -> KILL
-        { pid: 222, name: 'tonutils-storage' }, // owned by a live instance -> keep
+        { pid: 111, name: 'tonutils-proxy' }, // orphan reparented to init -> KILL
+        { pid: 222, name: 'tonutils-storage' }, // orphan reparented to systemd --user -> KILL
         { pid: 333, name: 'tonutils-bridge' }, // dead -> keep
         { pid: 444, name: 'tonutils-proxy' }, // PID reused by another process -> keep
       ])
@@ -57,7 +57,7 @@ describe('reapStaleDaemons', () => {
         case '111':
           return ps('    1 /opt/app/tonutils-proxy -addr 127.0.0.1:8080')
         case '222':
-          return ps('  98765 /opt/app/tonutils-storage -daemon')
+          return ps('  98765 /opt/app/tonutils-storage -daemon') // ppid != 1 (user manager)
         case '333':
           return ps('') // not running
         case '444':
@@ -70,8 +70,10 @@ describe('reapStaleDaemons', () => {
 
     reapStaleDaemons()
 
-    expect(killSpy).toHaveBeenCalledTimes(1)
     expect(killSpy).toHaveBeenCalledWith(111, 'SIGKILL')
+    expect(killSpy).toHaveBeenCalledWith(222, 'SIGKILL')
+    expect(killSpy).not.toHaveBeenCalledWith(333, 'SIGKILL')
+    expect(killSpy).not.toHaveBeenCalledWith(444, 'SIGKILL')
     killSpy.mockRestore()
   })
 

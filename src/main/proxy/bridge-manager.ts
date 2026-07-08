@@ -18,6 +18,7 @@ import { getBinaryPath } from '../utils/paths'
 import { stripAnsi } from '../utils/strip-ansi'
 import { createLogger } from '../../shared/logger'
 import { applyBridgeDefaults } from './config-writer'
+import { getSetting } from '../settings'
 import { killChildProcess } from './process-utils'
 import { trackDaemon } from '../daemon-registry'
 
@@ -41,7 +42,7 @@ export class BridgeManager extends EventEmitter {
   async start(wsPort: number): Promise<void> {
     const bridgeBinPath = getBinaryPath('tonutils-bridge')
     const bridgeWorkDir = this.getWorkDir()
-    applyBridgeDefaults(bridgeWorkDir)
+    applyBridgeDefaults(bridgeWorkDir, { enableChatNamespaces: getSetting('messenger').networkEnabled })
     const bridgeArgs = ['-addr', `127.0.0.1:${wsPort}`, '-data-dir', bridgeWorkDir, '-verbosity', '2']
 
     log.info(`Starting bridge from: ${bridgeBinPath}`)
@@ -76,6 +77,9 @@ export class BridgeManager extends EventEmitter {
 
     this.process.on('error', (err) => {
       log.error(`Failed to start bridge:`, err)
+      // ENOENT etc. fire 'error' not 'exit', so null the ref or isRunning()
+      // keeps lying and a retry is blocked as 'already running'.
+      this.process = null
       this.emit('error', err.message)
     })
   }

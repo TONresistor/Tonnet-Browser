@@ -5,3 +5,24 @@
   border: 1px solid hsl(var(--border-subtle));
   border-radius: var(--radius-card);
 }
+
+@keyframes msgSlideInRight {
+  from {
+    transform: translateX(16px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.msg-view-enter {
+  animation: msgSlideInRight 0.18s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .msg-view-enter {
+    animation: none;
+  }
+}

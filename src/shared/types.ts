@@ -29,12 +29,6 @@ export interface TonConnectSession {
   grantedAt: number
 }
 
-/**
- * A single item in a native overlay context menu. Built by both main-process
- * (page/internal context menus) and renderer (tab, bookmark, address-bar menus)
- * producers, then sent to the sandboxed overlay bundle for rendering. When an
- * item is clicked, its `id` becomes the action type and `data` the action payload.
- */
 export interface OverlayMenuItem {
   id: string
   label: string
@@ -160,34 +154,43 @@ export interface PaymentNotificationData {
   error?: string
 }
 
-/** DNS resolve result from the bridge.
- * Extended to include all standard TON DNS records available via the contract's dnsresolve method
- * (see TEP-0081 and TON DNS docs: wallet, site, storage, next resolver, text records + NFT metadata).
- */
 export interface DnsResolveResult {
-  // Core records from dnsresolve (category 0 or specific)
   wallet: string | null
   site_adnl: string | null
-  /** True if a storage record exists. The actual bag ID may be in storage_bag_id. */
   has_storage: boolean
   storage_bag_id: string | null
   next_resolver: string | null
 
-  // NFT / Domain ownership (from the .ton domain as TEP-81 NFT item)
   owner: string | null
   nft_address: string | null
   collection: string | null
   editor: string | null
 
-  // Lifecycle
   initialized: boolean
   expiring_at: number | null
 
-  // Arbitrary text records (dns_text category, commonly used for socials, description, etc.)
   text_records?: Record<string, string>
 
-  // Passthrough for any additional fields the bridge may return in the future
   [key: string]: unknown
+}
+
+export interface ChatIdentityInfo {
+  tier: 'domain' | 'wallet' | 'device'
+  name: string
+  address?: string
+  addressShort?: string
+  domain?: string
+  fingerprint?: string
+}
+
+export interface OwnChatIdentity {
+  deviceKey: string
+  linked: boolean
+  declined: boolean
+  walletReady: boolean
+  address?: string
+  addressShort?: string
+  domain?: string
 }
 
 // Re-export ThemeType from defaults for backward compatibility
@@ -212,6 +215,7 @@ export type {
   SpendingLimits,
   SitePolicy,
   WalletSettings,
+  MessengerSettings,
 } from './schemas'
 export {
   GeneralSettingsSchema,
@@ -238,6 +242,8 @@ export {
   BridgeSettingsPartialSchema,
   CocoonSettingsSchema,
   CocoonSettingsPartialSchema,
+  MessengerSettingsSchema,
+  MessengerSettingsPartialSchema,
   type BridgeScope,
   type BridgeDecision,
 } from './schemas'

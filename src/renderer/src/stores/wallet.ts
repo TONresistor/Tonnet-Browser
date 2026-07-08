@@ -36,7 +36,7 @@ interface WalletStore {
   importWallet: (mnemonic: string[]) => Promise<void>
   exportMnemonic: () => Promise<string[]>
   refreshBalance: () => Promise<void>
-  send: (to: string, amount: string) => Promise<void>
+  send: (to: string, amount: string, comment?: string) => Promise<void>
   loadHistory: (limit?: number) => Promise<void>
   clearHistory: () => Promise<void>
   deleteWallet: () => Promise<void>
@@ -227,10 +227,10 @@ export const useWalletStore = create<WalletStore>((set, get) => {
       }
     },
 
-    send: async (to: string, amount: string) => {
+    send: async (to: string, amount: string, comment?: string) => {
       set({ isSending: true, error: null })
       try {
-        const result = await window.electron.wallet.send(to, amount)
+        const result = await window.electron.wallet.send(to, amount, comment)
         const sendErr = getIpcError(result)
         if (sendErr) throw new Error(sendErr)
         await get().refreshBalance()

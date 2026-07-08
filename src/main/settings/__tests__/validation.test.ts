@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { isValidSettingsObject, validateSettings, validateCategoryValues, getDefaultSettingsBase } from '../validation'
+import { WalletSettingsSchema, WalletSettingsPartialSchema } from '../../../shared/schemas'
 
 describe('isValidSettingsObject', () => {
   describe('valid inputs', () => {
@@ -156,6 +157,18 @@ describe('isValidSettingsObject', () => {
         expect(isValidSettingsObject({ appearance: { theme: 'my-theme' } })).toBe(false)
       })
     })
+
+    describe('messenger settings', () => {
+      it('accepts valid networkEnabled boolean', () => {
+        expect(isValidSettingsObject({ messenger: { networkEnabled: true } })).toBe(true)
+        expect(isValidSettingsObject({ messenger: { networkEnabled: false } })).toBe(true)
+      })
+
+      it('rejects if networkEnabled is not a boolean', () => {
+        expect(isValidSettingsObject({ messenger: { networkEnabled: 'true' } })).toBe(false)
+        expect(isValidSettingsObject({ messenger: { networkEnabled: 1 } })).toBe(false)
+      })
+    })
   })
 
   describe('unknown categories', () => {
@@ -174,6 +187,8 @@ describe('validateSettings', () => {
       expect(result.data.general.homepage).toBe('ton://start')
       expect(result.data.network.proxyPort).toBe(8080)
       expect(result.data.privacy.clearOnExit).toBe(true)
+      expect(result.data.wallet.paymentMode).toBe('off')
+      expect(result.data.messenger.networkEnabled).toBe(false)
     }
   })
 
@@ -347,5 +362,29 @@ describe('getDefaultSettingsBase', () => {
 
   it('produces an object that passes Zod validation', () => {
     expect(validateSettings(getDefaultSettingsBase()).valid).toBe(true)
+  })
+})
+
+describe('WalletSettingsPartialSchema drift guard', () => {
+  it('exposes exactly the same keys as the full wallet schema', () => {
+    const full = Object.keys(WalletSettingsSchema.shape).sort()
+    const partial = Object.keys(WalletSettingsPartialSchema.shape).sort()
+    expect(partial).toEqual(full)
+  })
+
+  it('does not strip indexer fields on a partial wallet update', () => {
+    const res = validateCategoryValues('wallet', {
+      indexerEnabled: true,
+      indexerEndpoint: 'https://toncenter.com/api/v3',
+      indexerApiKey: 'secret',
+    })
+    expect(res.valid).toBe(true)
+    if (res.valid) {
+      expect(res.data).toEqual({
+        indexerEnabled: true,
+        indexerEndpoint: 'https://toncenter.com/api/v3',
+        indexerApiKey: 'secret',
+      })
+    }
   })
 })

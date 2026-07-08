@@ -16,8 +16,22 @@ export interface ChatMessage {
  */
 export function parseThinking(content: string): { thinking: string; reply: string } {
   const match = content.match(/^<think>([\s\S]*?)<\/think>\s*/)
-  if (!match) return { thinking: '', reply: content }
-  return { thinking: match[1].trim(), reply: content.slice(match[0].length) }
+  if (match) return { thinking: match[1].trim(), reply: content.slice(match[0].length) }
+  // Unterminated <think> (truncated or still-streaming response): keep the raw
+  // reasoning out of the reply instead of leaking the opening tag + thoughts.
+  if (content.startsWith('<think>')) return { thinking: content.slice('<think>'.length).trim(), reply: '' }
+  return { thinking: '', reply: content }
+}
+
+/**
+ * Build the chat history sent to the model. Assistant reasoning (`<think>`
+ * blocks) is stripped so prior chain-of-thought is never fed back as context.
+ */
+export function buildHistory(messages: ChatMessage[]): ChatMessage[] {
+  return messages.map((m) => ({
+    role: m.role,
+    content: m.role === 'assistant' ? parseThinking(m.content).reply : m.content,
+  }))
 }
 
 /**

@@ -30,7 +30,11 @@
     "invalidAmount": "Invalid amount",
     "insufficientBalance": "Insufficient balance",
     "max": "Max",
-    "estimatedFee": "~0.01 GRAM"
+    "estimatedFee": "~0.01 GRAM",
+    "commentLabel": "Comment (optional)",
+    "comment": "Comment",
+    "commentPlaceholder": "Memo or note",
+    "commentNote": "Stored on-chain in clear text"
   },
   "receive": {
     "addressLabel": "Your Wallet Address",

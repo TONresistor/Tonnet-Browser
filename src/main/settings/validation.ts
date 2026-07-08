@@ -16,6 +16,7 @@ import {
   WalletSettingsPartialSchema,
   BridgeSettingsPartialSchema,
   CocoonSettingsPartialSchema,
+  MessengerSettingsPartialSchema,
 } from '../../shared/types'
 import { createLogger } from '../../shared/logger'
 const log = createLogger('settings')
@@ -32,6 +33,7 @@ export const SETTINGS_CATEGORIES: ReadonlyArray<keyof AppSettings> = [
   'wallet',
   'bridge',
   'cocoon',
+  'messenger',
 ]
 
 /**
@@ -67,6 +69,7 @@ export function validateCategoryValues<K extends keyof AppSettings>(
     wallet: WalletSettingsPartialSchema,
     bridge: BridgeSettingsPartialSchema,
     cocoon: CocoonSettingsPartialSchema,
+    messenger: MessengerSettingsPartialSchema,
   }
   const schema = schemas[category]
   if (!schema) {
@@ -142,6 +145,13 @@ export function isValidSettingsObject(obj: unknown): obj is Partial<AppSettings>
     if (appearance.defaultZoom !== undefined && typeof appearance.defaultZoom !== 'number') return false
     // customThemes must be an array if present
     if (appearance.customThemes !== undefined && !Array.isArray(appearance.customThemes)) return false
+  }
+
+  const messenger = settings.messenger as Record<string, unknown> | undefined
+  if (messenger) {
+    if (messenger.attachWalletIdentity !== undefined && typeof messenger.attachWalletIdentity !== 'boolean')
+      return false
+    if (messenger.networkEnabled !== undefined && typeof messenger.networkEnabled !== 'boolean') return false
   }
 
   return true

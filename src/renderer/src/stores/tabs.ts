@@ -16,6 +16,7 @@ import cocoonIcon from '@/assets/cocoon.png'
 import bookmarkIcon from '@/assets/bookmark.svg'
 import historyIcon from '@/assets/history.svg'
 import dnsIcon from '@/assets/dns.svg'
+import messengerIcon from '@/assets/messenger.svg'
 
 const log = createLogger('tabs')
 
@@ -44,6 +45,8 @@ export function getInternalPageTitle(url: string): string | null {
       return i18n.t('title', { ns: 'settings' })
     case 'cocoon':
       return i18n.t('tooltips.cocoon', { ns: 'common' })
+    case 'chat':
+      return 'Messenger'
     case 'bookmarks':
       return i18n.t('bookmarks.title', { ns: 'settings' })
     case 'history':
@@ -68,6 +71,8 @@ export function getInternalPageFavicon(url: string): string | null {
       return settingsIcon
     case 'cocoon':
       return cocoonIcon
+    case 'chat':
+      return messengerIcon
     case 'bookmarks':
       return bookmarkIcon
     case 'history':

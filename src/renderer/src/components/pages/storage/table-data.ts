@@ -13,7 +13,13 @@ export interface TableData {
   rows: string[][]
   /** Number of data rows dropped because the row cap was hit. */
   truncatedRows: number
+  /** Number of columns dropped because the column cap was hit. */
+  truncatedCols: number
 }
+
+/** Hard cap on columns so a malicious bag with thousands of distinct keys can't
+ *  blow up the DOM / materialize an O(rows×cols) grid in the renderer. */
+export const MAX_TABLE_COLS = 200
 
 const FORMAT_BY_EXT: Record<string, TableFormat> = {
   csv: 'csv',
@@ -73,14 +79,16 @@ function parseDelimited(text: string, delimiter: string): string[][] {
   return rows
 }
 
-function fromDelimited(grid: string[][], format: TableFormat, maxRows: number): TableData {
-  if (grid.length === 0) return { format, columns: [], rows: [], truncatedRows: 0 }
-  const [columns, ...body] = grid
+function fromDelimited(grid: string[][], format: TableFormat, maxRows: number, maxCols: number): TableData {
+  if (grid.length === 0) return { format, columns: [], rows: [], truncatedRows: 0, truncatedCols: 0 }
+  const [header, ...body] = grid
+  const columns = header.slice(0, maxCols)
   return {
     format,
     columns,
-    rows: body.slice(0, maxRows),
+    rows: body.slice(0, maxRows).map((r) => r.slice(0, maxCols)),
     truncatedRows: Math.max(0, body.length - maxRows),
+    truncatedCols: Math.max(0, header.length - maxCols),
   }
 }
 
@@ -95,7 +103,7 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v)
 }
 
-function parseJsonl(text: string, maxRows: number): TableData {
+function parseJsonl(text: string, maxRows: number, maxCols: number): TableData {
   const lines = text
     .split('\n')
     .map((l) => l.trim())
@@ -108,16 +116,17 @@ function parseJsonl(text: string, maxRows: number): TableData {
     }
   })
 
-  // Columns = union of object keys, in first-seen order.
+  // Columns = union of object keys, in first-seen order, capped at maxCols.
   const columns: string[] = []
   const seen = new Set<string>()
+  let truncatedCols = 0
   for (const v of values) {
     if (isPlainObject(v)) {
       for (const k of Object.keys(v)) {
-        if (!seen.has(k)) {
-          seen.add(k)
-          columns.push(k)
-        }
+        if (seen.has(k)) continue
+        seen.add(k)
+        if (columns.length < maxCols) columns.push(k)
+        else truncatedCols++
       }
     }
   }
@@ -125,13 +134,19 @@ function parseJsonl(text: string, maxRows: number): TableData {
   // No object rows: show a single column with each line's value.
   if (columns.length === 0) {
     const rows = values.slice(0, maxRows).map((v) => [cell(v)])
-    return { format: 'jsonl', columns: ['value'], rows, truncatedRows: Math.max(0, values.length - maxRows) }
+    return {
+      format: 'jsonl',
+      columns: ['value'],
+      rows,
+      truncatedRows: Math.max(0, values.length - maxRows),
+      truncatedCols: 0,
+    }
   }
 
   const rows = values
     .slice(0, maxRows)
     .map((v) => (isPlainObject(v) ? columns.map((c) => cell(v[c])) : columns.map((_c, i) => (i === 0 ? cell(v) : ''))))
-  return { format: 'jsonl', columns, rows, truncatedRows: Math.max(0, values.length - maxRows) }
+  return { format: 'jsonl', columns, rows, truncatedRows: Math.max(0, values.length - maxRows), truncatedCols }
 }
 
 /**
@@ -139,9 +154,9 @@ function parseJsonl(text: string, maxRows: number): TableData {
  * tabular format. `maxRows` caps the data rows kept (excess counted in
  * truncatedRows).
  */
-export function parseTable(name: string, text: string, maxRows = 2000): TableData | null {
+export function parseTable(name: string, text: string, maxRows = 2000, maxCols = MAX_TABLE_COLS): TableData | null {
   const format = tableFormat(name)
   if (!format) return null
-  if (format === 'jsonl') return parseJsonl(text, maxRows)
-  return fromDelimited(parseDelimited(text, format === 'tsv' ? '\t' : ','), format, maxRows)
+  if (format === 'jsonl') return parseJsonl(text, maxRows, maxCols)
+  return fromDelimited(parseDelimited(text, format === 'tsv' ? '\t' : ','), format, maxRows, maxCols)
 }

@@ -10,11 +10,6 @@ import type { DnsResolveResult } from '../../shared/types'
 
 const log = createLogger('wallet:ws-bridge')
 
-/**
- * True when a bridge get-method error indicates the contract is not yet deployed
- * (uninitialized). The bridge surfaces this as a "not initialized" message or
- * exit code -256; callers treat it as "seqno 0, init will deploy".
- */
 export function isContractNotDeployedError(err: unknown): boolean {
   const msg = err instanceof Error ? err.message : String(err ?? '')
   return msg.includes('not initialized') || msg.includes('-256')
@@ -116,6 +111,7 @@ export class WsBridgeClient {
     resolve: (v: unknown) => void
     reject: (e: Error) => void
     method: string
+    timeoutMs?: number
   }> = []
   private connected = false
   private connecting = false
@@ -313,10 +309,6 @@ export class WsBridgeClient {
   async resolveDomain(domain: string): Promise<DnsResolveResult> {
     const raw = await this.request<Record<string, unknown>>('dns.resolve', { domain })
 
-    // Normalize to the full DnsResolveResult shape so we capture all records the bridge/contract provides.
-    // The bridge returns mapped fields from dnsresolve (wallet, site, storage, text, next, + NFT metadata).
-    // We defensively fill new fields (storage_bag_id, next_resolver) if the bridge already sends them
-    // under common keys (e.g. storage_bag_id, dns_storage_bag_id, next_resolver, etc.).
     const normalized: DnsResolveResult = {
       wallet: (raw.wallet as string) ?? null,
       site_adnl: (raw.site_adnl as string) ?? (raw.site as string) ?? null,
@@ -331,7 +323,6 @@ export class WsBridgeClient {
       initialized: raw.initialized !== false,
       expiring_at: (raw.expiring_at as number) ?? null,
       text_records: (raw.text_records as Record<string, string>) ?? undefined,
-      // preserve any extra fields the bridge may return
       ...raw,
     }
 
@@ -344,16 +335,72 @@ export class WsBridgeClient {
     return await this.request('lite.runMethod', { address, method, params: params ?? [] })
   }
 
+  async overlayConnectAndJoin(anchorAdnlB64: string, overlayIdB64: string): Promise<string> {
+    const conn = await this.request<{ peer_id: string }>('adnl.connectByADNL', { adnl_id: anchorAdnlB64 })
+    await this.request('overlay.join', { overlay_id: overlayIdB64, peer_id: conn.peer_id })
+    return conn.peer_id
+  }
+
+  async overlaySend(overlayIdB64: string, dataB64: string): Promise<void> {
+    await this.request('overlay.sendMessage', { overlay_id: overlayIdB64, data: dataB64 })
+  }
+
+  async overlaySendRaw(overlayIdB64: string, dataB64: string): Promise<void> {
+    await this.request('overlay.sendRaw', { overlay_id: overlayIdB64, data: dataB64 })
+  }
+
+  async adnlPing(peerId: string): Promise<void> {
+    await this.request('adnl.ping', { peer_id: peerId })
+  }
+
+  async overlayLeaveAndDisconnect(overlayIdB64: string, peerId: string): Promise<void> {
+    await this.request('overlay.leave', { overlay_id: overlayIdB64 }).catch(() => {})
+    await this.request('adnl.disconnect', { peer_id: peerId }).catch(() => {})
+  }
+
+  onOverlayMessage(cb: (data: { overlay_id: string; message: string; trusted?: boolean }) => void): () => void {
+    const listener: EventCallback = (data) => cb(data as { overlay_id: string; message: string; trusted?: boolean })
+    this.addEventListener('overlay.message', listener)
+    return () => this.removeEventListener('overlay.message', listener)
+  }
+
+  async dhtFindValue(keyIdB64: string, name: string, index = 0): Promise<{ data: string; ttl: number } | null> {
+    const DHT_TIMEOUT_MS = 22_000
+    const ATTEMPTS = 3
+    let lastErr: Error | null = null
+    for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
+      try {
+        return await this.request<{ data: string; ttl: number }>(
+          'dht.findValue',
+          { key_id: keyIdB64, name, index },
+          undefined,
+          DHT_TIMEOUT_MS
+        )
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err)
+        if (/not found|no value/i.test(msg)) return null
+        lastErr = err instanceof Error ? err : new Error(msg)
+      }
+    }
+    if (lastErr) log.warn(`dht.findValue gave up after ${ATTEMPTS} attempts: ${lastErr.message}`)
+    return null
+  }
+
   // --- Internal: JSON-RPC transport ---
 
-  private request<T = unknown>(method: string, params: RpcParams, guard?: (value: unknown) => value is T): Promise<T> {
+  private request<T = unknown>(
+    method: string,
+    params: RpcParams,
+    guard?: (value: unknown) => value is T,
+    timeoutMs: number = REQUEST_TIMEOUT_MS
+  ): Promise<T> {
     const id = String(++this.nextId)
     const message = JSON.stringify({ jsonrpc: '2.0', id, method, params })
 
     const raw = this.connected
-      ? this.sendRequest(id, message, method)
+      ? this.sendRequest(id, message, method, timeoutMs)
       : new Promise<unknown>((resolve, reject) => {
-          this.requestQueue.push({ message, resolve, reject, method })
+          this.requestQueue.push({ message, resolve, reject, method, timeoutMs })
         })
 
     return raw.then((value) => {
@@ -364,12 +411,17 @@ export class WsBridgeClient {
     })
   }
 
-  private sendRequest(id: string, message: string, method: string): Promise<unknown> {
+  private sendRequest(
+    id: string,
+    message: string,
+    method: string,
+    timeoutMs: number = REQUEST_TIMEOUT_MS
+  ): Promise<unknown> {
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
         this.pending.delete(id)
         reject(new Error(`Request timeout: ${method}`))
-      }, REQUEST_TIMEOUT_MS)
+      }, timeoutMs)
 
       this.pending.set(id, { resolve, reject, timer })
       this.ws!.send(message, (err) => {
@@ -619,11 +671,11 @@ export class WsBridgeClient {
   private drainQueue(): void {
     const queue = this.requestQueue
     this.requestQueue = []
-    for (const { message, resolve, reject, method } of queue) {
+    for (const { message, resolve, reject, method, timeoutMs } of queue) {
       // Re-parse the id from the queued message
       try {
         const parsed = JSON.parse(message)
-        this.sendRequest(parsed.id, message, method).then(resolve, reject)
+        this.sendRequest(parsed.id, message, method, timeoutMs).then(resolve, reject)
       } catch {
         reject(new Error('Failed to replay queued request'))
       }

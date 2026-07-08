@@ -8,6 +8,7 @@ import { WALLET_HISTORY_FILE_NAME, WALLET_HISTORY_CACHE_LIMIT } from './constant
 import type { WalletTransaction } from '../../shared/types'
 import { createLogger } from '../../shared/logger'
 import { rawToFriendly } from './address-utils'
+import { mergeHistory, sameHistory } from './history-merge'
 const log = createLogger('wallet:history')
 
 function toFriendly(addr: string): string {
@@ -17,20 +18,32 @@ function toFriendly(addr: string): string {
 export class WalletHistoryManager {
   private storage: SafeStorageWrapper
   private cache: WalletTransaction[] | null = null
+  /** Serializes cache-mutating ops so concurrent add/updateStatus/reconcile
+   *  (e.g. a fire-and-forget new-tx reconcile racing get-history) can't lose an
+   *  update via read-modify-write interleaving. */
+  private tail: Promise<unknown> = Promise.resolve()
 
   constructor() {
     this.storage = new SafeStorageWrapper(WALLET_HISTORY_FILE_NAME)
+  }
+
+  private serialize<T>(fn: () => Promise<T>): Promise<T> {
+    const run = this.tail.then(fn, fn)
+    this.tail = run.catch(() => {})
+    return run
   }
 
   /**
    * Add a transaction to the history (prepend, newest first).
    */
   async add(tx: WalletTransaction): Promise<void> {
-    const history = await this.getAll()
-    history.unshift(tx)
-    await this.storage.write(history)
-    this.cache = history
-    log.info(`Transaction added: ${tx.type} ${tx.amount} nanoTON`)
+    return this.serialize(async () => {
+      const history = await this.getAll()
+      history.unshift(tx)
+      await this.storage.write(history)
+      this.cache = history
+      log.info(`Transaction added: ${tx.type} ${tx.amount} nanoTON`)
+    })
   }
 
   /**
@@ -68,49 +81,27 @@ export class WalletHistoryManager {
    * Update the status of a transaction by ID.
    */
   async updateStatus(id: string, status: WalletTransaction['status']): Promise<void> {
-    const history = await this.getAll()
-    const tx = history.find((t) => t.id === id)
-    if (tx) {
-      tx.status = status
-      await this.storage.write(history)
-      this.cache = history
-    }
+    return this.serialize(async () => {
+      const history = await this.getAll()
+      const tx = history.find((t) => t.id === id)
+      if (tx) {
+        if (tx.status === status) return
+        tx.status = status
+        await this.storage.write(history)
+        this.cache = history
+      }
+    })
   }
 
   async reconcile(onChain: WalletTransaction[]): Promise<WalletTransaction[]> {
-    const cached = await this.getAll()
-    const keyOf = (tx: WalletTransaction): string => (tx.hash ? `h:${tx.hash}` : `i:${tx.id}`)
-    const byKey = new Map<string, WalletTransaction>()
-
-    for (const tx of cached) byKey.set(keyOf(tx), tx)
-
-    for (const tx of onChain) {
-      const key = keyOf(tx)
-      const prev = byKey.get(key)
-      if (prev?.type === 'x402') {
-        tx.type = 'x402'
-        tx.x402Domain = prev.x402Domain
-        tx.x402Url = prev.x402Url
-      }
-      byKey.set(key, tx)
-    }
-
-    const result = [...byKey.values()].filter((tx) => {
-      if (tx.status !== 'pending') return true
-      return !onChain.some(
-        (on) =>
-          keyOf(on) !== keyOf(tx) &&
-          on.address === tx.address &&
-          on.amount === tx.amount &&
-          Math.abs(on.timestamp - tx.timestamp) < 120000
-      )
+    return this.serialize(async () => {
+      const cached = await this.getAll()
+      const capped = mergeHistory(cached, onChain, WALLET_HISTORY_CACHE_LIMIT)
+      if (sameHistory(cached, capped)) return cached
+      await this.storage.write(capped)
+      this.cache = capped
+      return capped
     })
-
-    result.sort((a, b) => b.timestamp - a.timestamp)
-    const capped = result.slice(0, WALLET_HISTORY_CACHE_LIMIT)
-    await this.storage.write(capped)
-    this.cache = capped
-    return capped
   }
 
   /**

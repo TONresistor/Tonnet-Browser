@@ -68,6 +68,7 @@ export const IPC_CHANNELS = {
   HISTORY_GET_TOP: 'history:get-top',
   HISTORY_GET_BY_DATE: 'history:get-by-date',
   HISTORY_DELETE: 'history:delete',
+  HISTORY_DELETE_BY_DATE: 'history:delete-by-date',
   HISTORY_DELETE_PATTERN: 'history:delete-pattern',
   HISTORY_CLEAR: 'history:clear',
   HISTORY_GET_STATS: 'history:get-stats',
@@ -99,6 +100,20 @@ export const IPC_CHANNELS = {
 
   // DNS
   DNS_RESOLVE: 'dns:resolve',
+
+  CHAT_CONNECT: 'chat:connect',
+  CHAT_SEND: 'chat:send',
+  CHAT_DM_SEND: 'chat:dm:send',
+  CHAT_CREATE_ROOM: 'chat:create-room',
+  CHAT_DISCONNECT: 'chat:disconnect',
+  CHAT_MESSAGE: 'chat:message',
+  CHAT_DM_MESSAGE: 'chat:dm',
+  CHAT_IDENTITY: 'chat:identity',
+  CHAT_IDENTITY_LINK: 'chat:identity:link',
+  CHAT_CLAIM_DOMAIN: 'chat:identity:claim-domain',
+  CHAT_CLEAR_DOMAIN: 'chat:identity:clear-domain',
+  CHAT_DETECT_DOMAINS: 'chat:identity:detect-domains',
+  CHAT_RESET_IDENTITY: 'chat:identity:reset',
 
   // Bridge permissions
   BRIDGE_SEND: 'bridge:send',
@@ -165,7 +180,6 @@ export const IPC_CHANNELS = {
   OVERLAY_UPDATE_BOUNDS: 'overlay:update-bounds',
   OVERLAY_ACTION: 'overlay:action',
 
-  // Push events (main -> renderer)
   PAGE_LOADING: 'page:loading',
   PAGE_NAVIGATE: 'page:navigate',
   PAGE_TITLE: 'page:title',

@@ -2,11 +2,12 @@
   "title": "Paramètres",
   "sections": {
     "general": "Général",
-    "network": "Réseau",
-    "storage": "Stockage",
+    "network": "Réseau et démons",
+    "nameServices": "Services de noms",
+    "storage": "Stockage TON",
     "appearance": "Apparence",
-    "privacy": "Confidentialité",
-    "contentFiltering": "Filtrage du contenu",
+    "privacy": "Confidentialité et sécurité",
+    "contentFiltering": "Protection du contenu",
     "history": "Historique",
     "shortcuts": "Raccourcis",
     "bookmarks": "Favoris",
@@ -68,7 +69,7 @@
   },
   "general": {
     "title": "Général",
-    "description": "Configuration de base du navigateur",
+    "description": "Préférences principales du navigateur",
     "anonymousMode": "Mode anonyme",
     "anonymousModeDesc": "Acheminer le trafic ADNL via un tunnel chiffré multi-saut à travers les relais TON",
     "enableAnonymousMode": "Activer le mode anonyme",
@@ -107,11 +108,26 @@
     "solRpc": "RPC Solana (optionnel)",
     "solRpcDesc": "Point de terminaison HTTPS personnalisé. Laissez vide pour le défaut.",
     "solRpcPlaceholder": "https://api.mainnet-beta.solana.com",
-    "chainDisabledError": "Le résolveur {{chain}} est désactivé. Activez-le dans Paramètres > Général."
+    "chainDisabledError": "Le résolveur {{chain}} est désactivé. Activez-le dans Paramètres > Services de noms."
+  },
+  "nameServices": {
+    "title": "Services de noms",
+    "description": "Résolveurs de domaines externes au-delà de .ton",
+    "resolveEth": "Résoudre les domaines .eth (ENS)",
+    "resolveEthDesc": "Ethereum Name Service via go-ens. Nécessite un RPC Ethereum ; utilise un nœud public par défaut si vide.",
+    "ethRpc": "RPC Ethereum (optionnel)",
+    "ethRpcDesc": "Point de terminaison HTTPS personnalisé. Laissez vide pour le défaut.",
+    "ethRpcPlaceholder": "https://eth.llamarpc.com",
+    "resolveSol": "Résoudre les domaines .sol (SNS)",
+    "resolveSolDesc": "Solana Name Service. Nécessite un RPC Solana ; utilise un nœud public par défaut si vide.",
+    "solRpc": "RPC Solana (optionnel)",
+    "solRpcDesc": "Point de terminaison HTTPS personnalisé. Laissez vide pour le défaut.",
+    "solRpcPlaceholder": "https://api.mainnet-beta.solana.com",
+    "chainDisabledError": "Le résolveur {{chain}} est désactivé. Activez-le dans Paramètres > Services de noms."
   },
   "network": {
-    "title": "Réseau",
-    "description": "Configuration du proxy et de la connexion",
+    "title": "Réseau et démons",
+    "description": "Configuration des démons réseau et de la connexion",
     "proxyPort": "Port du proxy",
     "proxyPortDesc": "Port local pour le proxy TON",
     "storageApiPort": "Port API de stockage",
@@ -125,8 +141,8 @@
     "syncCheckIntervalDesc": "Fréquence de vérification de l'état de synchronisation DHT"
   },
   "privacy": {
-    "title": "Confidentialité",
-    "description": "Paramètres de confidentialité et de données",
+    "title": "Confidentialité et sécurité",
+    "description": "Confidentialité, données navigateur, historique et protection du contenu",
     "clearData": "Effacer les données de navigation",
     "clearDataDesc": "Supprimer le cache, les cookies et le stockage local",
     "clearing": "Effacement...",
@@ -148,7 +164,7 @@
     "autoDeleteTimeoutDesc": "Minutes d'inactivité avant suppression des cookies"
   },
   "contentFiltering": {
-    "title": "Filtrage du contenu",
+    "title": "Protection du contenu",
     "description": "Bloquer les publicités, traqueurs, mineurs et contenu malveillant sur les sites .ton",
     "enableFiltering": "Activer le filtrage du contenu",
     "enableFilteringDesc": "Interrupteur principal pour toutes les catégories de filtrage",
@@ -256,6 +272,9 @@
   "advanced": {
     "title": "Avancé",
     "description": "Paramètres pour développeurs et utilisateurs avancés",
+    "diagnostics": {
+      "title": "Diagnostics d'exécution"
+    },
     "proxyVerbosity": "Niveau de détail du proxy",
     "proxyVerbosityDesc": "Niveau de journalisation pour le démon proxy",
     "storageVerbosity": "Niveau de détail du stockage",
@@ -266,6 +285,19 @@
     "verbose": "Détaillé",
     "syncTestDomain": "Domaine de test de synchronisation",
     "syncTestDomainDesc": "Domaine utilisé pour vérifier la synchronisation DHT",
+    "experimental": {
+      "title": "Fonctionnalités expérimentales",
+      "messenger": "Messenger",
+      "messengerDesc": "Active le chat expérimental. ADNL, Overlay et DHT sont activés automatiquement sur le bridge.",
+      "http402": "Paiements HTTP 402",
+      "http402Desc": "Active les paiements x402 expérimentaux pour les sites .ton. Démarre en mode manuel.",
+      "http402Behavior": "Comportement des paiements",
+      "http402BehaviorDesc": "Mode d'approbation, style de notification, limites et règles par site."
+    },
+    "danger": {
+      "title": "Zone sensible",
+      "description": "Réinitialise tous les paramètres du navigateur aux valeurs par défaut."
+    },
     "resetAll": "Réinitialiser tous les paramètres aux valeurs par défaut",
     "resetAllConfirm": "Cliquez à nouveau pour confirmer"
   },
@@ -312,9 +344,9 @@
   },
   "wallet": {
     "title": "Portefeuille",
-    "description": "Configure ton portefeuille TON et les parametres de paiement HTTP 402",
+    "description": "Configure ton portefeuille TON",
     "paymentMode": "Mode de paiement par défaut",
-    "paymentModeDesc": "Comment gérer les requêtes de paiement HTTP 402 des sites .ton",
+    "paymentModeDesc": "Comment gérer les requêtes de paiement HTTP 402 activées pour les sites .ton",
     "modeOff": "Désactivé",
     "modeManual": "Manuel",
     "modeAuto": "Automatique",
@@ -332,6 +364,8 @@
     "perSitePerMonthDesc": "Dépense maximale par site par mois",
     "sitePolicies": "Permissions par site",
     "sitePoliciesDesc": "Modes de paiement spécifiques par site",
+    "http402Disabled": "Fonctionnalité expérimentale désactivée",
+    "http402DisabledDesc": "Active HTTP 402 dans Advanced pour configurer les requêtes de paiement.",
     "spent": "Dépensé",
     "removeSitePolicy": "Supprimer la politique pour {{domain}}"
   },

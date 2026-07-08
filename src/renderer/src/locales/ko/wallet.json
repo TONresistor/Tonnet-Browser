@@ -30,7 +30,11 @@
     "invalidAmount": "유효하지 않은 금액",
     "insufficientBalance": "잔액 부족",
     "max": "최대",
-    "estimatedFee": "~0.01 GRAM"
+    "estimatedFee": "~0.01 GRAM",
+    "commentLabel": "메모 (선택)",
+    "comment": "메모",
+    "commentPlaceholder": "메모 또는 노트",
+    "commentNote": "온체인에 평문으로 저장됨"
   },
   "receive": {
     "addressLabel": "내 지갑 주소",

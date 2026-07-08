@@ -6,10 +6,6 @@
 import { useState, useEffect } from 'react'
 import { useProxy } from '@/hooks/useProxy'
 import Lottie from 'lottie-react'
-import welcomeAnimation from '@/assets/welcome.json'
-import welcomeYellowAnimation from '@/assets/welcome-yellow.json'
-import loadingAnimation from '@/assets/loading.json'
-import loadingYellowAnimation from '@/assets/loading-yellow.json'
 import { APP_VERSION } from '@shared/constants'
 import { IPC_CHANNELS } from '@shared/ipc-channels'
 import { usePreferences } from '@/stores/preferences'
@@ -23,6 +19,22 @@ export function LandingPage() {
   const [stepMessage, setStepMessage] = useState('')
   const { theme } = usePreferences()
   const isYellow = theme === 'utya-duck'
+  const [welcomeAnimation, setWelcomeAnimation] = useState<object | null>(null)
+  const [loadingAnimation, setLoadingAnimation] = useState<object | null>(null)
+
+  // Load only the ACTIVE theme's two animations, lazily, on this first screen —
+  // instead of statically bundling all four variants (~1.2MB, half dead weight)
+  // into the cold-start path.
+  useEffect(() => {
+    let cancelled = false
+    const welcome = isYellow ? import('@/assets/welcome-yellow.json') : import('@/assets/welcome.json')
+    const loading = isYellow ? import('@/assets/loading-yellow.json') : import('@/assets/loading.json')
+    welcome.then((m) => !cancelled && setWelcomeAnimation(m.default as object))
+    loading.then((m) => !cancelled && setLoadingAnimation(m.default as object))
+    return () => {
+      cancelled = true
+    }
+  }, [isYellow])
 
   const CONNECTION_STEPS = [
     t('connectionSteps.startingProxy'),
@@ -31,9 +43,6 @@ export function LandingPage() {
     t('connectionSteps.connectingNetwork'),
     t('connectionSteps.ready'),
   ]
-
-  const currentWelcomeAnimation = isYellow ? welcomeYellowAnimation : welcomeAnimation
-  const currentLoadingAnimation = isYellow ? loadingYellowAnimation : loadingAnimation
 
   // Listen for proxy progress events and auto-connect trigger
   useEffect(() => {
@@ -67,13 +76,18 @@ export function LandingPage() {
 
   return (
     <div className="relative flex flex-col items-center justify-center h-full w-full bg-background-secondary">
-      {/* Logo - switches between welcome and loading animation */}
-      <Lottie
-        animationData={showLoading ? currentLoadingAnimation : currentWelcomeAnimation}
-        className="w-[200px] h-[200px] mb-8 transition-opacity duration-300"
-        loop
-        autoplay
-      />
+      {/* Logo - switches between welcome and loading animation.
+          Placeholder keeps the layout stable until the lazy JSON resolves. */}
+      {(showLoading ? loadingAnimation : welcomeAnimation) ? (
+        <Lottie
+          animationData={showLoading ? loadingAnimation! : welcomeAnimation!}
+          className="w-[200px] h-[200px] mb-8 transition-opacity duration-300"
+          loop
+          autoplay
+        />
+      ) : (
+        <div className="w-[200px] h-[200px] mb-8" />
+      )}
 
       <h1 className="text-[42px] font-bold text-foreground mb-3">{t('title')}</h1>
 

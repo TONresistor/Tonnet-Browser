@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { isTabularFile, tableFormat, parseTable } from '../table-data'
+import { isTabularFile, tableFormat, parseTable, MAX_TABLE_COLS } from '../table-data'
 
 describe('tableFormat / isTabularFile', () => {
   it('recognises tabular extensions', () => {
@@ -80,5 +80,29 @@ describe('parseTable jsonl', () => {
   it('skips blank lines', () => {
     const t = parseTable('d.jsonl', '{"a":1}\n\n{"a":2}\n')!
     expect(t.rows).toEqual([['1'], ['2']])
+  })
+
+  it('caps JSONL columns at MAX_TABLE_COLS and reports the overflow', () => {
+    const wide = JSON.stringify(Object.fromEntries(Array.from({ length: MAX_TABLE_COLS + 25 }, (_, i) => [`k${i}`, i])))
+    const t = parseTable('wide.jsonl', wide)!
+    expect(t.columns).toHaveLength(MAX_TABLE_COLS)
+    expect(t.truncatedCols).toBe(25)
+    expect(t.rows[0]).toHaveLength(MAX_TABLE_COLS)
+  })
+
+  it('caps CSV columns and truncates each row to the cap', () => {
+    const header = Array.from({ length: MAX_TABLE_COLS + 5 }, (_, i) => `c${i}`).join(',')
+    const rowValues = Array.from({ length: MAX_TABLE_COLS + 5 }, (_, i) => String(i)).join(',')
+    const t = parseTable('wide.csv', `${header}\n${rowValues}`)!
+    expect(t.columns).toHaveLength(MAX_TABLE_COLS)
+    expect(t.truncatedCols).toBe(5)
+    expect(t.rows[0]).toHaveLength(MAX_TABLE_COLS)
+  })
+
+  it('caps rows and reports truncatedRows', () => {
+    const lines = Array.from({ length: 10 }, (_, i) => `{"a":${i}}`).join('\n')
+    const t = parseTable('r.jsonl', lines, 4)!
+    expect(t.rows).toHaveLength(4)
+    expect(t.truncatedRows).toBe(6)
   })
 })

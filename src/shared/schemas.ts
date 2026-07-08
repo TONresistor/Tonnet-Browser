@@ -133,7 +133,7 @@ export const SitePolicySchema = z.object({
 })
 
 export const WalletSettingsSchema = z.object({
-  paymentMode: z.enum(['off', 'manual', 'auto']).default('manual'),
+  paymentMode: z.enum(['off', 'manual', 'auto']).default('off'),
   notificationStyle: z.enum(['popup', 'addressbar']).default('popup'),
   limits: SpendingLimitsSchema.default({
     perRequest: '0',
@@ -148,6 +148,9 @@ export const WalletSettingsSchema = z.object({
   indexerApiKey: z.string().default(''),
 })
 
+// Hand-rolled (limits stays inner-partial, unlike the generic helper). Keep the
+// keys in sync with WalletSettingsSchema — the partial-schema drift test guards
+// this so a future field can't be silently stripped on SETTINGS_SET again.
 export const WalletSettingsPartialSchema = z
   .object({
     paymentMode: z.enum(['off', 'manual', 'auto']),
@@ -156,6 +159,9 @@ export const WalletSettingsPartialSchema = z
     sitePolicies: z.array(SitePolicySchema),
     autoPayDomains: z.array(z.string()),
     autoLockMinutes: z.number().min(0).max(1440),
+    indexerEnabled: z.boolean(),
+    indexerEndpoint: z.string(),
+    indexerApiKey: z.string(),
   })
   .partial()
 
@@ -184,6 +190,20 @@ export const CocoonSettingsPartialSchema = z
   .partial()
 
 export type CocoonSettings = z.infer<typeof CocoonSettingsSchema>
+
+export const MessengerSettingsSchema = z.object({
+  attachWalletIdentity: z.boolean().default(false),
+  networkEnabled: z.boolean().default(false),
+})
+
+export const MessengerSettingsPartialSchema = z
+  .object({
+    attachWalletIdentity: z.boolean(),
+    networkEnabled: z.boolean(),
+  })
+  .partial()
+
+export type MessengerSettings = z.infer<typeof MessengerSettingsSchema>
 
 export const BridgeSettingsPartialSchema = z
   .object({
@@ -220,6 +240,7 @@ export const AppSettingsSchema = z.object({
   wallet: withCategoryDefaults(WalletSettingsSchema),
   bridge: withCategoryDefaults(BridgeSettingsSchema),
   cocoon: withCategoryDefaults(CocoonSettingsSchema),
+  messenger: withCategoryDefaults(MessengerSettingsSchema),
 })
 
 // Partial validation schemas (no defaults) -- used to validate SETTINGS_SET updates.

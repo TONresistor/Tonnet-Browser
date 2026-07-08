@@ -9,24 +9,18 @@ import { SectionHeader } from '../shared/SectionHeader'
 import { SettingRow } from '../shared/SettingRow'
 import { Toggle } from '../shared/Toggle'
 import { TextInput } from '../shared/TextInput'
-import { Segmented } from '@/components/ui/ios/Segmented'
-import { Collapsible } from '../shared/Collapsible'
-import { GroupHeader } from '../shared/GroupHeader'
 import { createLogger } from '@/logger'
 import { useTranslation } from 'react-i18next'
-import type { WalletSettings, PaymentMode, NotificationStyle, SitePolicy } from '@shared/types'
-import { Trash2, LoaderCircle } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { tonToNano, formatTonAmount } from '@/stores/wallet'
+import type { WalletSettings } from '@shared/types'
+import { LoaderCircle } from 'lucide-react'
 import { WalletManagementPanel } from './WalletManagementPanel'
 import { ConnectedAppsPanel } from './ConnectedAppsPanel'
-import { TonStepperField } from '../shared/TonStepperField'
 import { useSectionHandle } from '@/hooks/useSectionHandle'
 
 const log = createLogger('wallet-settings')
 
 const DEFAULT_WALLET_SETTINGS: WalletSettings = {
-  paymentMode: 'manual',
+  paymentMode: 'off',
   notificationStyle: 'popup',
   limits: { perRequest: '0', perDay: '0', perSitePerMonth: '0' },
   sitePolicies: [],
@@ -35,23 +29,6 @@ const DEFAULT_WALLET_SETTINGS: WalletSettings = {
   indexerEnabled: false,
   indexerEndpoint: 'https://toncenter.com/api/v3',
   indexerApiKey: '',
-}
-
-function nanoToTonDisplay(nano: string): string {
-  try {
-    return formatTonAmount(nano)
-  } catch {
-    return '0'
-  }
-}
-
-function tonDisplayToNano(val: string): string {
-  if (!val || val === '0' || val === '') return '0'
-  try {
-    return tonToNano(val)
-  } catch {
-    return '0'
-  }
 }
 
 export interface WalletSectionHandle {
@@ -71,11 +48,6 @@ export const WalletSection = memo(function WalletSection({ onDirtyChange, sectio
   const [draft, setDraft] = useState<WalletSettings>(DEFAULT_WALLET_SETTINGS)
   const [isLoading, setIsLoading] = useState(true)
 
-  // Local display values for limit inputs (in TON)
-  const [perRequestDisplay, setPerRequestDisplay] = useState('0')
-  const [perDayDisplay, setPerDayDisplay] = useState('0')
-  const [perSiteDisplay, setPerSiteDisplay] = useState('0')
-
   const hasChanges = JSON.stringify(saved) !== JSON.stringify(draft)
 
   // Load settings on mount
@@ -87,9 +59,6 @@ export const WalletSection = memo(function WalletSection({ onDirtyChange, sectio
           const s = walletSettings as WalletSettings
           setSaved(s)
           setDraft(s)
-          setPerRequestDisplay(nanoToTonDisplay(s.limits.perRequest))
-          setPerDayDisplay(nanoToTonDisplay(s.limits.perDay))
-          setPerSiteDisplay(nanoToTonDisplay(s.limits.perSitePerMonth))
         }
       } catch (err) {
         log.error('Failed to load wallet settings:', err)
@@ -102,7 +71,11 @@ export const WalletSection = memo(function WalletSection({ onDirtyChange, sectio
 
   const saveToMain = useCallback(async () => {
     try {
-      await window.electron.settings.set('wallet', draft)
+      await window.electron.settings.set('wallet', {
+        indexerEnabled: draft.indexerEnabled,
+        indexerEndpoint: draft.indexerEndpoint,
+        indexerApiKey: draft.indexerApiKey,
+      })
       setSaved(draft)
     } catch (err) {
       log.error('Failed to save wallet settings:', err)
@@ -111,9 +84,6 @@ export const WalletSection = memo(function WalletSection({ onDirtyChange, sectio
 
   const discardChanges = useCallback(() => {
     setDraft(saved)
-    setPerRequestDisplay(nanoToTonDisplay(saved.limits.perRequest))
-    setPerDayDisplay(nanoToTonDisplay(saved.limits.perDay))
-    setPerSiteDisplay(nanoToTonDisplay(saved.limits.perSitePerMonth))
   }, [saved])
 
   // Notify parent of dirty state + expose save/discard handle via ref
@@ -121,16 +91,6 @@ export const WalletSection = memo(function WalletSection({ onDirtyChange, sectio
 
   const updateDraft = (updates: Partial<WalletSettings>) => {
     setDraft((prev) => ({ ...prev, ...updates }))
-  }
-
-  const handleLimitBlur = (field: 'perRequest' | 'perDay' | 'perSitePerMonth', displayVal: string) => {
-    const nano = tonDisplayToNano(displayVal)
-    updateDraft({ limits: { ...draft.limits, [field]: nano } })
-  }
-
-  const handleRemoveSitePolicy = (domain: string) => {
-    const updated = draft.sitePolicies.filter((p) => p.domain !== domain)
-    updateDraft({ sitePolicies: updated })
   }
 
   if (isLoading) {
@@ -196,102 +156,6 @@ export const WalletSection = memo(function WalletSection({ onDirtyChange, sectio
             </>
           )}
         </div>
-      </div>
-
-      {/* HTTP 402 payment settings — collapsible dropdown under wallet management */}
-      <div className="mt-6">
-        <Collapsible title={t('wallet.http402', { defaultValue: 'HTTP 402' })}>
-          {/* Payment mode */}
-          <div className="settings-group px-4">
-            <SettingRow label={t('wallet.paymentMode')} description={t('wallet.paymentModeDesc')}>
-              <Segmented
-                value={draft.paymentMode}
-                onChange={(v) => updateDraft({ paymentMode: v as PaymentMode })}
-                options={[
-                  { value: 'off', label: t('wallet.modeOff') },
-                  { value: 'manual', label: t('wallet.modeManual') },
-                  { value: 'auto', label: t('wallet.modeAuto') },
-                ]}
-              />
-            </SettingRow>
-            <SettingRow label={t('wallet.notificationStyle')} description={t('wallet.notificationStyleDesc')}>
-              <Segmented
-                value={draft.notificationStyle}
-                onChange={(v) => updateDraft({ notificationStyle: v as NotificationStyle })}
-                options={[
-                  { value: 'popup', label: t('wallet.notifPopup') },
-                  { value: 'addressbar', label: t('wallet.notifAddressbar') },
-                ]}
-              />
-            </SettingRow>
-          </div>
-
-          {/* Spending limits */}
-          <div className="settings-group px-4">
-            <GroupHeader title={t('wallet.spendingLimits')} description={t('wallet.spendingLimitsDesc')} />
-
-            <SettingRow label={t('wallet.perRequest')} description={t('wallet.perRequestDesc')}>
-              <TonStepperField
-                value={perRequestDisplay}
-                onChange={setPerRequestDisplay}
-                onBlur={() => handleLimitBlur('perRequest', perRequestDisplay)}
-                ariaLabel={t('wallet.perRequest')}
-                step={0.5}
-              />
-            </SettingRow>
-
-            <SettingRow label={t('wallet.perDay')} description={t('wallet.perDayDesc')}>
-              <TonStepperField
-                value={perDayDisplay}
-                onChange={setPerDayDisplay}
-                onBlur={() => handleLimitBlur('perDay', perDayDisplay)}
-                ariaLabel={t('wallet.perDay')}
-                step={1}
-              />
-            </SettingRow>
-
-            <SettingRow label={t('wallet.perSitePerMonth')} description={t('wallet.perSitePerMonthDesc')}>
-              <TonStepperField
-                value={perSiteDisplay}
-                onChange={setPerSiteDisplay}
-                onBlur={() => handleLimitBlur('perSitePerMonth', perSiteDisplay)}
-                ariaLabel={t('wallet.perSitePerMonth')}
-                step={1}
-              />
-            </SettingRow>
-          </div>
-
-          {/* Per-site policies */}
-          {draft.sitePolicies.length > 0 && (
-            <div className="settings-group px-4">
-              <GroupHeader title={t('wallet.sitePolicies')} description={t('wallet.sitePoliciesDesc')} />
-              <div className="divide-y divide-border">
-                {draft.sitePolicies.map((policy: SitePolicy) => (
-                  <div key={policy.domain} className="flex items-center gap-3 py-3">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-foreground truncate">{policy.domain}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {t(`wallet.mode${policy.mode.charAt(0).toUpperCase() + policy.mode.slice(1)}`)}
-                        {' · '}
-                        {t('wallet.spent')}: {nanoToTonDisplay(policy.totalSpent)} GRAM
-                      </p>
-                    </div>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                      onClick={() => handleRemoveSitePolicy(policy.domain)}
-                      aria-label={t('wallet.removeSitePolicy', { domain: policy.domain })}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </Collapsible>
       </div>
     </div>
   )

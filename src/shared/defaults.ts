@@ -77,7 +77,7 @@ export const DEFAULT_SETTINGS = {
 
   // Wallet
   wallet: {
-    paymentMode: 'manual' as const,
+    paymentMode: 'off' as const,
     notificationStyle: 'popup' as const,
     limits: {
       perRequest: '0',
@@ -92,5 +92,9 @@ export const DEFAULT_SETTINGS = {
   // Cocoon AI
   cocoon: {
     autostart: false,
+  },
+
+  messenger: {
+    networkEnabled: false,
   },
 } as const
