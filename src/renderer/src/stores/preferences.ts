@@ -58,7 +58,6 @@ export interface AppPreferences {
   historyMode: 'memory' | 'persistent'
   historyMaxEntries: number
 
-  // Content Filtering
   contentFilteringEnabled: boolean
   blockAds: boolean
   blockTrackers: boolean
@@ -74,6 +73,8 @@ export interface AppPreferences {
 
   // Cocoon AI
   cocoonAutostart: boolean
+
+  messengerNetworkEnabled: boolean
 }
 
 interface PreferencesState {
@@ -138,7 +139,6 @@ export const defaultPreferences: AppPreferences = {
   cookieAutoDelete: DEFAULT_SETTINGS.cookieAutoDelete,
   cookieAutoDeleteMinutes: DEFAULT_SETTINGS.cookieAutoDeleteMinutes,
 
-  // Content Filtering
   contentFilteringEnabled: DEFAULT_SETTINGS.contentFiltering.enabled,
   blockAds: DEFAULT_SETTINGS.contentFiltering.blockAds,
   blockTrackers: DEFAULT_SETTINGS.contentFiltering.blockTrackers,
@@ -154,10 +154,19 @@ export const defaultPreferences: AppPreferences = {
 
   // Cocoon AI
   cocoonAutostart: DEFAULT_SETTINGS.cocoon.autostart,
+
+  messengerNetworkEnabled: DEFAULT_SETTINGS.messenger.networkEnabled,
 }
 
 // Map flat preferences to categorized main process structure
-const prefToCategory: Record<keyof AppPreferences, { category: string; field: string }> = {
+type PreferenceMapping = {
+  category: string
+  field: string
+  fromMain?: (value: unknown) => unknown
+  toMain?: (value: unknown) => unknown
+}
+
+const prefToCategory: Record<keyof AppPreferences, PreferenceMapping> = {
   homepage: { category: 'general', field: 'homepage' },
   resolveEth: { category: 'general', field: 'resolveEth' },
   ethRpc: { category: 'general', field: 'ethRpc' },
@@ -202,6 +211,7 @@ const prefToCategory: Record<keyof AppPreferences, { category: string; field: st
   storageVerbosity: { category: 'advanced', field: 'storageVerbosity' },
   syncTestDomain: { category: 'advanced', field: 'syncTestDomain' },
   cocoonAutostart: { category: 'cocoon', field: 'autostart' },
+  messengerNetworkEnabled: { category: 'messenger', field: 'networkEnabled' },
 }
 
 // Convert main process settings to flat preferences. Derived from the single
@@ -212,7 +222,8 @@ function mainSettingsToPrefs(settings: AppSettings): AppPreferences {
   for (const key of Object.keys(prefToCategory) as (keyof AppPreferences)[]) {
     const { category, field } = prefToCategory[key]
     const categoryValues = settings[category as keyof AppSettings] as Record<string, unknown> | undefined
-    result[key] = categoryValues?.[field] ?? defaultPreferences[key]
+    const value = categoryValues?.[field] ?? defaultPreferences[key]
+    result[key] = prefToCategory[key].fromMain?.(value) ?? value
   }
   return result as AppPreferences
 }
@@ -235,6 +246,13 @@ function hasPreferencesChanged(a: AppPreferences, b: AppPreferences): boolean {
     if (prefValueChanged(a[key], b[key])) return true
   }
   return false
+}
+
+function settingsSaveError(result: unknown): string | null {
+  if (!result || typeof result !== 'object') return null
+  const maybe = result as { success?: unknown; error?: unknown }
+  if (maybe.success !== false) return null
+  return typeof maybe.error === 'string' ? maybe.error : 'Failed to save settings'
 }
 
 // Selector to get current applied preferences (from saved)
@@ -277,22 +295,24 @@ export const usePreferencesStore = create<PreferencesState>()((set, get) => ({
     set({ isSaving: true })
 
     // Find changed values and group by category
-    const categoryUpdates: Record<string, Record<string, AppPreferences[keyof AppPreferences]>> = {}
+    const categoryUpdates: Record<string, Record<string, unknown>> = {}
     for (const key of Object.keys(draft) as (keyof AppPreferences)[]) {
       if (prefValueChanged(draft[key], saved[key])) {
-        const { category, field } = prefToCategory[key]
+        const { category, field, toMain } = prefToCategory[key]
         if (!categoryUpdates[category]) {
           categoryUpdates[category] = {}
         }
-        categoryUpdates[category][field] = draft[key]
+        categoryUpdates[category][field] = toMain ? toMain(draft[key]) : draft[key]
       }
     }
 
     // Sync all changed categories to main process in parallel
     try {
-      await Promise.all(
+      const results = await Promise.all(
         Object.entries(categoryUpdates).map(([category, values]) => window.electron.settings.set(category, values))
       )
+      const failure = results.map(settingsSaveError).find((error): error is string => Boolean(error))
+      if (failure) throw new Error(failure)
       set({ saved: { ...draft }, hasChanges: false, isSaving: false })
     } catch (error) {
       log.error('Failed to save:', error)

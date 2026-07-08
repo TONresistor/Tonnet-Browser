@@ -386,7 +386,7 @@ export function registerChatHandlers(registry: ServiceRegistry): void {
       .catch(() => {})
       .then(async () => {
         if (!getSetting('messenger').networkEnabled) {
-          throw new Error('Messenger networking is disabled. Enable Messenger networking to join rooms.')
+          throw new Error('Messenger is experimental and disabled. Enable Messenger to join rooms.')
         }
         const bridge = walletManager.getBridgeClient()
         if (!bridge) throw new Error('Bridge not connected. Connect the proxy first')

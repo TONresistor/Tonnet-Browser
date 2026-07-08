@@ -147,9 +147,9 @@ function ChatRoomView({
       {!networkEnabled && (
         <div className="mx-3 mt-2 flex items-center gap-3 rounded-card border border-primary/25 bg-primary/10 px-4 py-2.5 text-sm text-foreground">
           <div className="min-w-0 flex-1">
-            <div className="font-medium">Messenger networking is off</div>
+            <div className="font-medium">Messenger is experimental and off</div>
             <div className="mt-0.5 text-xs leading-snug text-muted-foreground">
-              Enable ADNL, Overlay and DHT to join this room.
+              Enable Messenger to turn on ADNL, Overlay and DHT automatically.
             </div>
           </div>
           <button
@@ -166,7 +166,7 @@ function ChatRoomView({
 
       {networkEnabled && error && (
         <div className="mx-3 mt-2 rounded-card border border-destructive/20 bg-destructive/10 px-4 py-2 text-sm text-destructive">
-          {error} (is the proxy connected? adnl/overlay/dht namespaces required)
+          {error} (check the proxy connection and bridge namespaces)
         </div>
       )}
 
@@ -223,7 +223,7 @@ function ChatRoomView({
           }}
           disabled={!connected}
           className="min-w-0 flex-1 bg-transparent px-1.5 py-1 text-sm text-foreground outline-none placeholder:text-muted-foreground/50 disabled:opacity-50"
-          placeholder={!networkEnabled ? 'Enable networking' : connected ? 'Message…' : 'Connecting…'}
+          placeholder={!networkEnabled ? 'Enable Messenger' : connected ? 'Message…' : 'Connecting…'}
           aria-label="message"
         />
         <button

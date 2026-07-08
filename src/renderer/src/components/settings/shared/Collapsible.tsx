@@ -17,12 +17,15 @@ interface CollapsibleProps {
 export function Collapsible({ title, description, defaultOpen = false, children }: CollapsibleProps) {
   const [open, setOpen] = useState(defaultOpen)
   return (
-    <div>
+    <div className="settings-group overflow-hidden">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
-        className="settings-group flex w-full items-center justify-between gap-3 px-4 py-3.5 text-left transition-colors hover:bg-surface-hover"
+        className={cn(
+          'flex w-full items-center justify-between gap-3 px-4 py-3.5 text-left transition-colors hover:bg-surface-hover',
+          open && 'border-b border-border-subtle'
+        )}
       >
         <div className="min-w-0">
           <p className="text-[15px] font-medium text-foreground">{title}</p>
@@ -35,7 +38,7 @@ export function Collapsible({ title, description, defaultOpen = false, children 
           )}
         />
       </button>
-      {open && <div className="mt-3 space-y-6">{children}</div>}
+      {open && <div className="px-4">{children}</div>}
     </div>
   )
 }

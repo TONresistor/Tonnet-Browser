@@ -5,6 +5,7 @@
 import { memo } from 'react'
 import { SectionHeader } from '../shared/SectionHeader'
 import { SettingRow } from '../shared/SettingRow'
+import { Toggle } from '../shared/Toggle'
 import { NumberInput } from '../shared/NumberInput'
 import type { SectionProps } from '../types'
 import { useTranslation } from 'react-i18next'
@@ -16,6 +17,13 @@ export const NetworkSection = memo(function NetworkSection({ draft, setDraft }: 
     <div>
       <SectionHeader title={t('network.title')} description={t('network.description')} />
       <div className="settings-group px-4">
+        <SettingRow label={t('network.autoConnect')} description={t('network.autoConnectDesc')}>
+          <Toggle
+            checked={draft.autoConnect}
+            onChange={(v) => setDraft('autoConnect', v)}
+            ariaLabel={t('network.autoConnectLabel')}
+          />
+        </SettingRow>
         <SettingRow label={t('network.proxyPort')} description={t('network.proxyPortDesc')}>
           <NumberInput value={draft.proxyPort} onChange={(v) => setDraft('proxyPort', v)} min={1024} max={65535} />
         </SettingRow>

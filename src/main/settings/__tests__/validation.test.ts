@@ -187,6 +187,7 @@ describe('validateSettings', () => {
       expect(result.data.general.homepage).toBe('ton://start')
       expect(result.data.network.proxyPort).toBe(8080)
       expect(result.data.privacy.clearOnExit).toBe(true)
+      expect(result.data.wallet.paymentMode).toBe('off')
       expect(result.data.messenger.networkEnabled).toBe(false)
     }
   })

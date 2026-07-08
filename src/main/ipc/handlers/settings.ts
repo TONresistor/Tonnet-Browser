@@ -205,6 +205,15 @@ export function registerSettingsHandlers(registry: ServiceRegistry): void {
     if (storageSettings.seedingEnabled) {
       storageManager.resumeSeeding()
     }
+    void disconnectChatSession(walletManager.getBridgeClient()).catch((err) => {
+      log.warn(`Failed to disconnect chat after settings reset: ${errorMessage(err)}`)
+    })
+    const messengerBridgeChanged = syncMessengerBridgeNamespaces(getBridgeWorkDir(), false)
+    if (messengerBridgeChanged && proxyManager.isRunning()) {
+      proxyManager.restartBridge().catch((err) => {
+        log.error('Bridge restart after settings reset failed:', err)
+      })
+    }
     onAppearanceSettingsChanged()
     onPrivacySettingsChanged()
     return { success: true }

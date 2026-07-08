@@ -133,7 +133,7 @@ export const SitePolicySchema = z.object({
 })
 
 export const WalletSettingsSchema = z.object({
-  paymentMode: z.enum(['off', 'manual', 'auto']).default('manual'),
+  paymentMode: z.enum(['off', 'manual', 'auto']).default('off'),
   notificationStyle: z.enum(['popup', 'addressbar']).default('popup'),
   limits: SpendingLimitsSchema.default({
     perRequest: '0',

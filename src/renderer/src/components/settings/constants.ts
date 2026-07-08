@@ -2,14 +2,13 @@
  * Constantes pour les composants Settings
  */
 
-import { Globe, HardDrive, Wrench, Info, Cable } from 'lucide-react'
+import { AtSign, Globe, HardDrive, Wrench, Info, Cable } from 'lucide-react'
 import type { SectionInfo, Shortcut } from './types'
 import walletIconSrc from '@/assets/wallet.svg'
 import cocoonIconSrc from '@/assets/cocoon.png'
 import privacyIconSrc from '@/assets/privacy.svg'
 import networkIconSrc from '@/assets/network.svg'
 import appearanceIconSrc from '@/assets/appearance.svg'
-import bookmarkIconSrc from '@/assets/bookmark.svg'
 
 // SVG icon component using asset (no JSX in .ts, use createElement)
 import { createElement } from 'react'
@@ -29,7 +28,6 @@ const CocoonIcon = SvgIcon(cocoonIconSrc)
 const PrivacyIcon = SvgIcon(privacyIconSrc)
 const NetworkIcon = SvgIcon(networkIconSrc)
 const AppearanceIcon = SvgIcon(appearanceIconSrc)
-const BookmarkIcon = SvgIcon(bookmarkIconSrc)
 
 const isMac =
   ((navigator as Navigator & { userAgentData?: { platform?: string } }).userAgentData?.platform || navigator.platform)
@@ -50,13 +48,11 @@ export const SECTIONS: SectionInfo[] = [
   { id: 'appearance', label: 'Appearance', icon: AppearanceIcon, color: '#FF2D55', group: 0 },
   { id: 'privacy', label: 'Privacy', icon: PrivacyIcon, color: '#34C759', group: 0 },
   { id: 'network', label: 'Network', icon: NetworkIcon, color: '#5AC8FA', group: 0 },
+  { id: 'nameServices', label: 'Name Services', icon: AtSign, color: '#AF52DE', group: 0 },
   { id: 'storage', label: 'Storage', icon: HardDrive, color: '#5856D6', group: 0 },
-  // Group 1 — TON identity
   { id: 'wallet', label: 'Wallet', icon: WalletIcon, color: '#0098EA', group: 1 },
-  { id: 'cocoon', label: 'Cocoon AI', icon: CocoonIcon, color: '#7B61FF', group: 1 },
   { id: 'bridge', label: 'Bridge', icon: Cable, color: '#FF9500', group: 1 },
-  // Group 2 — Content
-  { id: 'bookmarks', label: 'Bookmarks', icon: BookmarkIcon, color: '#FFB300', group: 2 },
+  { id: 'cocoon', label: 'Cocoon AI', icon: CocoonIcon, color: '#7B61FF', group: 1 },
   { id: 'advanced', label: 'Advanced', icon: Wrench, color: '#636366', group: 2 },
   // Group 3 — Info
   { id: 'about', label: 'About', icon: Info, color: '#0A84FF', group: 3 },
