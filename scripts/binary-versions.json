@@ -11,7 +11,7 @@
     {
       "name": "tonutils-bridge",
       "repo": "TONresistor/tonutils-bridge",
-      "version": "v0.3.0",
+      "version": "v0.4.0",
       "entry_point": ".",
       "ldflags": "-s -w"
     },
