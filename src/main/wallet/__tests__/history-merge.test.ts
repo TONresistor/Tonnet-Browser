@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { mergeHistory, historyKey } from '../history-merge'
+import { mergeHistory, historyKey, sameHistory } from '../history-merge'
 import type { WalletTransaction } from '../../../shared/types'
 
 function tx(p: Partial<WalletTransaction>): WalletTransaction {
@@ -68,5 +68,25 @@ describe('mergeHistory', () => {
     const merged = mergeHistory(cached, [], 3)
     expect(merged).toHaveLength(3)
     expect(merged[0].timestamp).toBe(4)
+  })
+
+  it('reports equal histories when object key order differs', () => {
+    const a = tx({ id: 'same', hash: 'HASH5', comment: 'memo' })
+    const b = {
+      comment: 'memo',
+      hash: 'HASH5',
+      status: 'confirmed',
+      timestamp: 1_000_000,
+      address: 'EQabc',
+      amount: '1000',
+      type: 'send',
+      id: 'same',
+    } as WalletTransaction
+
+    expect(sameHistory([a], [b])).toBe(true)
+  })
+
+  it('reports different histories when transaction content changes', () => {
+    expect(sameHistory([tx({ id: 'a', status: 'pending' })], [tx({ id: 'a', status: 'confirmed' })])).toBe(false)
   })
 })

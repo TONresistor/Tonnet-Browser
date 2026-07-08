@@ -11,6 +11,22 @@ export function historyKey(tx: WalletTransaction): string {
   return tx.hash ? `h:${tx.hash}` : `i:${tx.id}`
 }
 
+function txSignature(tx: WalletTransaction): string {
+  return JSON.stringify(
+    Object.entries(tx)
+      .filter(([, value]) => value !== undefined)
+      .sort(([a], [b]) => a.localeCompare(b))
+  )
+}
+
+export function sameHistory(a: WalletTransaction[], b: WalletTransaction[]): boolean {
+  if (a.length !== b.length) return false
+  for (let i = 0; i < a.length; i++) {
+    if (txSignature(a[i]) !== txSignature(b[i])) return false
+  }
+  return true
+}
+
 const MATCH_WINDOW_MS = 120_000
 
 function contentMatch(a: WalletTransaction, b: WalletTransaction): boolean {

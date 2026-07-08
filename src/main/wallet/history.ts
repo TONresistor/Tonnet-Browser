@@ -8,7 +8,7 @@ import { WALLET_HISTORY_FILE_NAME, WALLET_HISTORY_CACHE_LIMIT } from './constant
 import type { WalletTransaction } from '../../shared/types'
 import { createLogger } from '../../shared/logger'
 import { rawToFriendly } from './address-utils'
-import { mergeHistory } from './history-merge'
+import { mergeHistory, sameHistory } from './history-merge'
 const log = createLogger('wallet:history')
 
 function toFriendly(addr: string): string {
@@ -85,6 +85,7 @@ export class WalletHistoryManager {
       const history = await this.getAll()
       const tx = history.find((t) => t.id === id)
       if (tx) {
+        if (tx.status === status) return
         tx.status = status
         await this.storage.write(history)
         this.cache = history
@@ -96,6 +97,7 @@ export class WalletHistoryManager {
     return this.serialize(async () => {
       const cached = await this.getAll()
       const capped = mergeHistory(cached, onChain, WALLET_HISTORY_CACHE_LIMIT)
+      if (sameHistory(cached, capped)) return cached
       await this.storage.write(capped)
       this.cache = capped
       return capped
