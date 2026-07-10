@@ -17,37 +17,39 @@ export default defineConfig({
       __LOADING_ANIMATION_JSON__: loadingAnimationJson,
     },
     build: {
+      minify: 'esbuild',
       rollupOptions: {
         input: {
-          index: resolve(__dirname, 'src/main/index.ts')
-        }
-      }
+          index: resolve(__dirname, 'src/main/index.ts'),
+        },
+      },
     },
     resolve: {
       alias: {
-        '@shared': resolve(__dirname, 'src/shared')
-      }
-    }
+        '@shared': resolve(__dirname, 'src/shared'),
+      },
+    },
   },
   preload: {
     plugins: [],
     define: { __APP_VERSION__: JSON.stringify(pkg.version) },
     build: {
+      minify: 'esbuild',
       rollupOptions: {
         input: {
-          index: resolve(__dirname, 'src/preload/index.ts')
+          index: resolve(__dirname, 'src/preload/index.ts'),
         },
         output: {
           format: 'cjs',
           entryFileNames: '[name].js',
-        }
-      }
+        },
+      },
     },
     resolve: {
       alias: {
-        '@shared': resolve(__dirname, 'src/shared')
-      }
-    }
+        '@shared': resolve(__dirname, 'src/shared'),
+      },
+    },
   },
   renderer: {
     root: resolve(__dirname, 'src/renderer'),
@@ -55,23 +57,21 @@ export default defineConfig({
       chunkSizeWarningLimit: 1500,
       rollupOptions: {
         input: {
-          index: resolve(__dirname, 'src/renderer/index.html')
+          index: resolve(__dirname, 'src/renderer/index.html'),
         },
         output: {
           manualChunks: {
             i18n: ['i18next', 'react-i18next'],
             dnd: ['@dnd-kit/core', '@dnd-kit/sortable', '@dnd-kit/utilities'],
-            lottie: ['lottie-react', 'lottie-web']
-          }
-        }
-      }
+            lottie: ['lottie-react', 'lottie-web'],
+          },
+        },
+      },
     },
     plugins: [
       react({
         babel: {
-          plugins: [
-            ['babel-plugin-react-compiler', {}],
-          ],
+          plugins: [['babel-plugin-react-compiler', {}]],
         },
       }),
       tailwindcss(),
@@ -80,8 +80,8 @@ export default defineConfig({
     resolve: {
       alias: {
         '@': resolve(__dirname, 'src/renderer/src'),
-        '@shared': resolve(__dirname, 'src/shared')
-      }
-    }
-  }
+        '@shared': resolve(__dirname, 'src/shared'),
+      },
+    },
+  },
 })
