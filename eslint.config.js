@@ -69,6 +69,14 @@ export default tseslint.config(
     },
   },
 
+  // Repository-owned CLI scripts report through stdout/stderr by design.
+  {
+    files: ['scripts/**/*.{js,mjs,cjs}'],
+    rules: {
+      'no-console': 'off',
+    },
+  },
+
   // Prettier must be last
   eslintConfigPrettier,
 )

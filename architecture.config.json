@@ -1,0 +1,278 @@
+{
+  "allowedCycles": [],
+  "maxProductionFileLines": 600,
+  "fileSizeExceptions": [
+    {
+      "path": "src/main/cocoon/contracts/wrappers/CocoonRoot.ts",
+      "owner": "Cocoon contract generation",
+      "reason": "Generated ABI wrapper; manual decomposition would diverge from the contract generator output.",
+      "milestone": "Remove only when the upstream wrapper generator emits a smaller equivalent surface."
+    }
+  ],
+  "forbiddenPatterns": [
+    {
+      "id": "cocoon-stores-must-be-injected",
+      "from": ["src/main/cocoon", "src/main/ipc"],
+      "pattern": "get(?:StakeCacheStore|ConsumedArchive|RecoveryQueueStore)\\s*\\("
+    },
+    {
+      "id": "tonconnect-core-must-not-use-electron-globals",
+      "from": ["src/main/tonconnect/service.ts"],
+      "pattern": "\\bElectron\\."
+    },
+    {
+      "id": "bridge-facade-must-delegate-capability-methods",
+      "from": ["src/main/wallet/ws-bridge-client.ts"],
+      "pattern": "['\"](?:dns\\.resolve|dht\\.findValue|overlay\\.(?:join|sendMessage|sendRaw|leave)|adnl\\.(?:connectByADNL|disconnect|ping))['\"]"
+    },
+    {
+      "id": "websocket-transport-must-not-contain-ton-capabilities",
+      "from": ["src/main/wallet/websocket-transport.ts"],
+      "pattern": "['\"](?:lite|wallet|dns|dht|overlay|adnl|subscribe)\\."
+    },
+    {
+      "id": "preload-must-not-bundle-runtime-contract-schemas",
+      "from": ["src/preload/index.ts"],
+      "pattern": "import\\s+(?!type\\b)(?:\\{[^}]*\\}|[A-Za-z_$][\\w$]*)\\s+from\\s+['\"]\\.\\./shared/ipc-contract/(?!channels)"
+    },
+    {
+      "id": "interactive-browser-paths-must-not-use-sync-io",
+      "from": [
+        "src/main/ipc",
+        "src/main/windows/tabs.ts",
+        "src/main/windows/tabs-events.ts",
+        "src/main/windows/tabs-security.ts",
+        "src/main/windows/tabs-storage.ts",
+        "src/main/windows/overlay-manager.ts"
+      ],
+      "pattern": "\\b(?:readFileSync|writeFileSync|writeSecureJsonAtomic|existsSync|realpathSync|mkdirSync|renameSync|unlinkSync|rmSync|statSync)\\s*\\("
+    },
+    {
+      "id": "settings-interactive-writes-must-be-async",
+      "from": ["src/main/settings"],
+      "pattern": "\\b(?:writeFileSync|writeSecureJsonAtomic|renameSync|unlinkSync|rmSync)\\s*\\("
+    },
+    {
+      "id": "native-lifecycle-preparation-must-be-async",
+      "from": [
+        "src/main/proxy/manager.ts",
+        "src/main/proxy/bridge-manager.ts",
+        "src/main/proxy/config-writer.ts",
+        "src/main/storage/daemon.ts",
+        "src/main/cocoon/manager.ts"
+      ],
+      "pattern": "\\b(?:readFileSync|writeFileSync|existsSync|mkdirSync|mkdtempSync|copyFileSync|realpathSync|renameSync|unlinkSync|rmSync|statSync)\\s*\\("
+    },
+    {
+      "id": "history-interactive-paths-must-be-async",
+      "from": ["src/main/history"],
+      "pattern": "\\b(?:accessSync|existsSync|readFileSync|writeFileSync|realpathSync|renameSync|unlinkSync|rmSync|statSync)\\s*\\("
+    },
+    {
+      "id": "renderer-app-must-use-owned-clients",
+      "from": ["src/renderer/src/App.tsx"],
+      "pattern": "window\\.electron"
+    },
+    {
+      "id": "messenger-feature-must-use-owned-client",
+      "from": ["src/renderer/src/features/messenger/components"],
+      "pattern": "window\\.electron"
+    },
+    {
+      "id": "storage-feature-must-use-owned-client",
+      "from": [
+        "src/renderer/src/features/storage/components",
+        "src/renderer/src/features/settings/components/SettingsPage.tsx"
+      ],
+      "pattern": "window\\.electron\\.storage"
+    },
+    {
+      "id": "history-feature-must-use-owned-client",
+      "from": [
+        "src/renderer/src/components/pages/HistoryPage.tsx",
+        "src/renderer/src/components/browser/AddressBar.tsx",
+        "src/renderer/src/features/settings/components/SettingsPage.tsx"
+      ],
+      "pattern": "window\\.electron\\.history"
+    },
+    {
+      "id": "cocoon-feature-must-use-owned-client",
+      "from": ["src/renderer/src/features/cocoon/components", "src/renderer/src/features/cocoon/useCocoonSession.ts"],
+      "pattern": "window\\.electron\\.(?:cocoon|on)"
+    },
+    {
+      "id": "wallet-feature-must-use-owned-client",
+      "from": [
+        "src/renderer/src/features/wallet/components",
+        "src/renderer/src/features/wallet/store.ts",
+        "src/renderer/src/components/browser/TipButton.tsx",
+        "src/renderer/src/features/cocoon/components/StakePanel.tsx"
+      ],
+      "pattern": "window\\.electron\\.wallet"
+    },
+    {
+      "id": "renderer-code-must-use-owned-clients",
+      "from": [
+        "src/renderer/src/App.tsx",
+        "src/renderer/src/components",
+        "src/renderer/src/hooks",
+        "src/renderer/src/stores"
+      ],
+      "pattern": "window\\.electron"
+    },
+    {
+      "id": "ipc-push-listeners-must-be-owned",
+      "from": ["src/main/ipc/handlers"],
+      "pattern": "(?:Manager|Driver)\\.on\\s*\\("
+    },
+    {
+      "id": "ipc-handlers-must-not-return-legacy-errors",
+      "from": ["src/main/ipc/handlers"],
+      "pattern": "success\\s*:\\s*false[^}\\n]*error\\s*:"
+    },
+    {
+      "id": "ipc-contracts-must-not-declare-legacy-errors",
+      "from": ["src/shared/ipc-contract"],
+      "pattern": "success\\s*:\\s*z\\.(?:literal\\(false\\)|boolean\\(\\))[^}\\n]*error\\s*:"
+    },
+    {
+      "id": "tab-lifecycle-state-must-be-instance-owned",
+      "from": [
+        "src/main/windows/tabs-storage.ts",
+        "src/main/windows/tabs-events.ts",
+        "src/main/windows/browser-view.ts"
+      ],
+      "pattern": "(?:setTabStorageManager|setTabEventDeps|setSessionDeps|^let\\s+(?:_storageManager|tabEventDeps|sessionDeps)\\b|^const\\s+(?:storageBagCache|storageBrowserLoading|fileBrowserCache)\\b)"
+    }
+  ],
+  "forbiddenImports": [
+    {
+      "id": "native-managers-must-use-supervisor",
+      "from": [
+        "src/main/proxy/manager.ts",
+        "src/main/proxy/bridge-manager.ts",
+        "src/main/storage/daemon.ts",
+        "src/main/cocoon/manager.ts"
+      ],
+      "imports": ["child_process", "node:child_process"]
+    },
+    {
+      "id": "tonconnect-session-store-must-use-versioned-repository",
+      "from": ["src/main/tonconnect/session-store.ts"],
+      "imports": ["fs", "node:fs", "fs/promises", "node:fs/promises"]
+    },
+    {
+      "id": "chat-membership-must-use-versioned-repository",
+      "from": ["src/main/chat/membership.ts"],
+      "imports": ["fs", "node:fs", "fs/promises", "node:fs/promises"]
+    },
+    {
+      "id": "cocoon-json-stores-must-use-repositories",
+      "from": [
+        "src/main/cocoon/consumed-archive.ts",
+        "src/main/cocoon/recovery-queue.ts",
+        "src/main/cocoon/stake-cache.ts",
+        "src/main/cocoon/wallet-storage.ts"
+      ],
+      "imports": ["fs", "node:fs", "fs/promises", "node:fs/promises"]
+    }
+  ],
+  "forbiddenDependencies": [
+    {
+      "id": "shared-must-not-depend-on-process-layers",
+      "from": ["src/shared"],
+      "to": ["src/main", "src/preload", "src/renderer"]
+    },
+    {
+      "id": "main-must-not-depend-on-renderer-or-preload",
+      "from": ["src/main"],
+      "to": ["src/preload", "src/renderer"]
+    },
+    {
+      "id": "preload-must-not-depend-on-main-or-renderer",
+      "from": ["src/preload"],
+      "to": ["src/main", "src/renderer"]
+    },
+    {
+      "id": "renderer-must-not-depend-on-main-or-preload",
+      "from": ["src/renderer"],
+      "to": ["src/main", "src/preload"]
+    },
+    {
+      "id": "domains-must-not-depend-on-infrastructure",
+      "from": ["src/domains"],
+      "to": ["src/infrastructure", "src/main", "src/preload", "src/renderer"]
+    },
+    {
+      "id": "application-must-not-depend-on-electron-adapters",
+      "from": ["src/application"],
+      "to": ["src/infrastructure/electron", "src/main/ipc", "src/renderer"]
+    },
+    {
+      "id": "cocoon-use-cases-must-not-depend-on-composition-root",
+      "from": ["src/main/cocoon"],
+      "to": ["src/main/services.ts"]
+    },
+    {
+      "id": "cocoon-must-use-ton-bridge-port",
+      "from": ["src/main/cocoon"],
+      "to": ["src/main/wallet/ws-bridge-client.ts"]
+    },
+    {
+      "id": "tonconnect-core-must-not-import-electron-adapters",
+      "from": ["src/main/tonconnect/service.ts"],
+      "to": [
+        "src/main/windows",
+        "src/main/wallet/manager.ts",
+        "src/main/tonconnect/electron-approval.ts",
+        "src/main/tonconnect/electron-event-delivery.ts"
+      ]
+    },
+    {
+      "id": "payment-workflow-must-use-narrow-ports",
+      "from": ["src/main/wallet/payment-interceptor.ts"],
+      "to": ["src/main/wallet/manager.ts", "src/main/wallet/history.ts"]
+    },
+    {
+      "id": "messenger-and-cocoon-adapters-must-use-bridge-ports",
+      "from": ["src/main/ipc/handlers/chat.ts", "src/main/ipc/handlers/cocoon.ts"],
+      "to": ["src/main/wallet/ws-bridge-client.ts"]
+    },
+    {
+      "id": "renderer-features-must-use-browser-navigation-facade",
+      "from": [
+        "src/renderer/src/features/about",
+        "src/renderer/src/features/bookmarks",
+        "src/renderer/src/features/bridge",
+        "src/renderer/src/features/cocoon",
+        "src/renderer/src/features/dns",
+        "src/renderer/src/features/history",
+        "src/renderer/src/features/messenger",
+        "src/renderer/src/features/proxy",
+        "src/renderer/src/features/settings",
+        "src/renderer/src/features/storage",
+        "src/renderer/src/features/tonconnect",
+        "src/renderer/src/features/wallet"
+      ],
+      "to": ["src/renderer/src/stores/tabs.ts"]
+    },
+    {
+      "id": "settings-feature-must-use-domain-public-facades",
+      "from": ["src/renderer/src/features/settings"],
+      "to": [
+        "src/renderer/src/features/bookmarks/store.ts",
+        "src/renderer/src/features/cocoon/store.ts",
+        "src/renderer/src/features/wallet/store.ts"
+      ]
+    },
+    {
+      "id": "storage-feature-must-use-settings-public-facade",
+      "from": ["src/renderer/src/features/storage"],
+      "to": [
+        "src/renderer/src/features/settings/preferences-store.ts",
+        "src/renderer/src/features/settings/theme-store.ts",
+        "src/renderer/src/features/settings/ui-store.ts"
+      ]
+    }
+  ]
+}
