@@ -4,10 +4,9 @@
  * Uses adnl-tunnel for multi-hop garlic routing via TON DHT discovery.
  */
 
-import { spawn, ChildProcess } from 'child_process'
 import { EventEmitter } from 'events'
 import path from 'path'
-import fs from 'fs'
+import { mkdir } from 'fs/promises'
 import { app } from 'electron'
 import { getBinaryPath } from '../utils/paths'
 import { validatePort } from '../utils/validators'
@@ -19,8 +18,7 @@ import { createLogger } from '../../shared/logger'
 import { TUNNEL_SECTIONS } from '../../shared/constants'
 import { writeProxyConfig } from './config-writer'
 import { BridgeManager } from './bridge-manager'
-import { killChildProcess } from './process-utils'
-import { trackDaemon } from '../daemon-registry'
+import { NativeProcessSupervisor } from '../native-process/supervisor'
 const log = createLogger('proxy')
 
 /**
@@ -45,7 +43,7 @@ export function buildProxyArgs(port: number, general: GeneralSettings): string[]
 export type ProxyStatus = 'stopped' | 'starting' | 'syncing' | 'connected'
 
 export class ProxyManager extends EventEmitter {
-  private process: ChildProcess | null = null
+  private readonly supervisor = new NativeProcessSupervisor()
   private readonly bridge = new BridgeManager()
   private port: number = 0
   private wsPort: number = DEFAULT_SETTINGS.wsPort
@@ -75,6 +73,10 @@ export class ProxyManager extends EventEmitter {
     })
   }
 
+  private get process() {
+    return this.supervisor.process
+  }
+
   private loadSettings() {
     const network = getSetting('network')
     const advanced = getSetting('advanced')
@@ -88,22 +90,28 @@ export class ProxyManager extends EventEmitter {
   private static RETRY_DELAY_MS = 2000
 
   async start(): Promise<void> {
-    for (let attempt = 1; attempt <= ProxyManager.MAX_START_RETRIES; attempt++) {
-      try {
-        await this.startOnce()
-        return
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err)
-        if (attempt < ProxyManager.MAX_START_RETRIES && message.includes('exited before ready')) {
-          log.warn(`Proxy start failed (attempt ${attempt}/${ProxyManager.MAX_START_RETRIES}): ${message}`)
+    await this.supervisor.runWithBackoff(
+      async () => {
+        try {
+          await this.startOnce()
+        } catch (err) {
           await this.stopRunningProcesses()
-          log.info(`Retrying in ${ProxyManager.RETRY_DELAY_MS}ms...`)
-          await new Promise((r) => setTimeout(r, ProxyManager.RETRY_DELAY_MS))
-        } else {
           throw err
         }
+      },
+      {
+        maxAttempts: ProxyManager.MAX_START_RETRIES,
+        initialDelayMs: ProxyManager.RETRY_DELAY_MS,
+        multiplier: 1,
+        shouldRetry: (error) =>
+          (error instanceof Error ? error.message : String(error)).includes('exited before ready'),
+        onRetry: (error, attempt, delay) => {
+          const message = error instanceof Error ? error.message : String(error)
+          log.warn(`Proxy start failed (attempt ${attempt}/${ProxyManager.MAX_START_RETRIES}): ${message}`)
+          log.info(`Retrying in ${delay}ms...`)
+        },
       }
-    }
+    )
   }
 
   private async startOnce(): Promise<void> {
@@ -124,11 +132,11 @@ export class ProxyManager extends EventEmitter {
     this.setStatus('starting')
 
     const proxyBinPath = getBinaryPath('tonutils-proxy')
-    const proxyWorkDir = this.getProxyWorkDir()
+    const proxyWorkDir = await this.getProxyWorkDir()
 
     // Write proxy config to control tunnel mode
     const tunnelSections = this.anonymousMode ? TUNNEL_SECTIONS[this.tunnelMode] : 0
-    writeProxyConfig(proxyWorkDir, tunnelSections)
+    await writeProxyConfig(proxyWorkDir, tunnelSections)
 
     // Spawn proxy process (HTTP proxy for .ton sites)
     if (this.anonymousMode) {
@@ -139,12 +147,6 @@ export class ProxyManager extends EventEmitter {
       log.info(`Starting direct proxy from: ${proxyBinPath}`)
       log.info(`Port: ${safePort}, Mode: direct`)
     }
-
-    this.process = spawn(proxyBinPath, buildProxyArgs(safePort, general), {
-      windowsHide: true,
-      cwd: proxyWorkDir,
-    })
-    trackDaemon('tonutils-proxy', this.process)
 
     // Proxy output handler
     const handleProxyOutput = (data: Buffer) => {
@@ -192,23 +194,23 @@ export class ProxyManager extends EventEmitter {
       }
     }
 
-    this.process.stdout?.on('data', handleProxyOutput)
-    this.process.stderr?.on('data', handleProxyOutput)
-
-    this.process.on('exit', (code) => {
-      log.info(`Proxy exited with code: ${code}`)
-      this.setStatus('stopped')
-      this.process = null
-      this.emit('exit', code)
-    })
-
-    this.process.on('error', (err) => {
-      log.error(`Failed to start proxy:`, err)
-      // ENOENT etc. fire 'error' not 'exit', so reset state or isRunning() lies
-      // and a retry is blocked as 'already running'.
-      this.process = null
-      this.setStatus('stopped')
-      this.emit('error', err.message)
+    this.supervisor.start({
+      name: 'tonutils-proxy',
+      command: proxyBinPath,
+      args: buildProxyArgs(safePort, general),
+      options: { windowsHide: true, cwd: proxyWorkDir },
+      onStdout: handleProxyOutput,
+      onStderr: handleProxyOutput,
+      onExit: (code) => {
+        log.info(`Proxy exited with code: ${code}`)
+        this.setStatus('stopped')
+        this.emit('exit', code)
+      },
+      onError: (error) => {
+        log.error(`Failed to start proxy:`, error)
+        this.setStatus('stopped')
+        this.emit('error', error.message)
+      },
     })
 
     await this.waitForReady()
@@ -222,19 +224,13 @@ export class ProxyManager extends EventEmitter {
 
   private async stopRunningProcesses(): Promise<void> {
     const promises: Promise<void>[] = [this.bridge.stop()]
-    if (this.process) {
-      const proxyProc = this.process
-      this.process = null
-      promises.push(killChildProcess(proxyProc))
-    }
+    if (this.supervisor.isRunning) promises.push(this.supervisor.stop())
     await Promise.allSettled(promises)
   }
 
-  private getProxyWorkDir(): string {
+  private async getProxyWorkDir(): Promise<string> {
     const dir = path.join(app.getPath('userData'), 'proxy')
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true })
-    }
+    await mkdir(dir, { recursive: true })
     return dir
   }
 
@@ -252,11 +248,7 @@ export class ProxyManager extends EventEmitter {
 
     const promises: Promise<void>[] = [this.bridge.stop()]
 
-    if (this.process) {
-      const proxyProc = this.process
-      this.process = null
-      promises.push(killChildProcess(proxyProc))
-    }
+    if (this.supervisor.isRunning) promises.push(this.supervisor.stop())
 
     await Promise.allSettled(promises)
     this.setStatus('stopped')
@@ -314,11 +306,7 @@ export class ProxyManager extends EventEmitter {
     if (needsRestart) {
       log.info(`Settings changed, restarting proxy...`)
       this.tunnelRoute = ''
-      if (this.process) {
-        const proxyProc = this.process
-        this.process = null
-        await killChildProcess(proxyProc)
-      }
+      if (this.supervisor.isRunning) await this.supervisor.stop()
       this.setStatus('stopped')
       await this.start()
     }
@@ -329,27 +317,9 @@ export class ProxyManager extends EventEmitter {
     const baseTimeout = network.connectionTimeout
     const maxAttempts = this.anonymousMode ? baseTimeout * 3 : baseTimeout
 
-    return new Promise((resolve, reject) => {
-      const cleanup = () => {
-        clearTimeout(timeout)
-        this.process?.stdout?.off('data', checkOutput)
-        this.process?.stderr?.off('data', checkOutput)
-        this.process?.off('exit', onExit)
-      }
-
-      const timeout = setTimeout(() => {
-        cleanup()
-        reject(new Error('Proxy failed to start within timeout'))
-      }, maxAttempts * 1000)
-
-      // Fail-fast if process exits before being ready (e.g. DHT discovery failure)
-      const onExit = (code: number | null) => {
-        cleanup()
-        reject(new Error(`Proxy exited before ready (code: ${code})`))
-      }
-      this.process?.on('exit', onExit)
-
-      const checkOutput = (data: Buffer) => {
+    await this.supervisor.waitForOutput({
+      timeoutMs: maxAttempts * 1000,
+      matches: (data) => {
         const raw = data.toString()
         const output = stripAnsi(raw).toLowerCase()
         // In direct mode: "starting proxy server" comes immediately
@@ -360,13 +330,11 @@ export class ProxyManager extends EventEmitter {
           output.includes('listening on') ||
           output.includes('proxy listening')
         ) {
-          cleanup()
           log.info('Proxy is ready')
-          resolve()
+          return true
         }
-      }
-      this.process?.stdout?.on('data', checkOutput)
-      this.process?.stderr?.on('data', checkOutput)
+        return false
+      },
     })
   }
 }

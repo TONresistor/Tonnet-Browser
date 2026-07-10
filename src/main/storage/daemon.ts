@@ -3,7 +3,6 @@
  * Spawns and manages the tonutils-storage process.
  */
 
-import { spawn, ChildProcess } from 'child_process'
 import { EventEmitter } from 'events'
 import { randomBytes } from 'crypto'
 import { getBinaryPath, getStoragePath, getConfigPath } from '../utils/paths'
@@ -12,11 +11,10 @@ import { StorageHTTPClient, BagInfo } from './http-client'
 import type { StorageBag } from '../../shared/types'
 import { getSetting, getDownloadPath } from '../settings'
 import { PING_RETRY_DELAY_MS, PING_MAX_ATTEMPTS } from './constants'
-import { killChildProcess } from '../proxy/process-utils'
-import { trackDaemon } from '../daemon-registry'
+import { NativeProcessSupervisor } from '../native-process/supervisor'
 import { createLogger } from '../../shared/logger'
 const log = createLogger('storage')
-import fs from 'fs'
+import { mkdir } from 'fs/promises'
 import path from 'path'
 
 /** Typed event contract for StorageManager. */
@@ -51,7 +49,7 @@ export interface StorageManager {
 
 /* eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging */
 export class StorageManager extends EventEmitter {
-  private process: ChildProcess | null = null
+  private readonly supervisor = new NativeProcessSupervisor()
   private port: number = 0
   private dbPath: string
   private isRunning = false
@@ -78,19 +76,14 @@ export class StorageManager extends EventEmitter {
   }
 
   async start(): Promise<void> {
-    if (this.process) {
+    if (this.supervisor.isRunning) {
       throw new Error('Storage daemon already running')
     }
 
     const { advanced } = this.loadSettings()
 
     // Ensure storage directories exist
-    if (!fs.existsSync(this.storagePath)) {
-      fs.mkdirSync(this.storagePath, { recursive: true })
-    }
-    if (!fs.existsSync(this.dbPath)) {
-      fs.mkdirSync(this.dbPath, { recursive: true })
-    }
+    await Promise.all([mkdir(this.storagePath, { recursive: true }), mkdir(this.dbPath, { recursive: true })])
 
     const binPath = getBinaryPath('tonutils-storage')
     const configPath = getConfigPath()
@@ -134,38 +127,42 @@ export class StorageManager extends EventEmitter {
       args.push('-limit-upload', String(storage.uploadSpeedLimit))
     }
 
-    // Start tonutils-storage in daemon mode with HTTP API + auth
-    this.process = spawn(binPath, args, { windowsHide: true })
-    trackDaemon('tonutils-storage', this.process)
-
-    this.process.stdout?.on('data', (data: Buffer) => {
+    const onStdout = (data: Buffer) => {
       const message = data.toString().trim()
       if (message) {
         log.debug(message)
         this.emit('log', message)
       }
-    })
+    }
 
-    this.process.stderr?.on('data', (data: Buffer) => {
+    const onStderr = (data: Buffer) => {
       const message = data.toString().trim()
       if (message) {
         log.warn(message)
         this.emit('error', message)
       }
-    })
+    }
 
-    this.process.on('exit', (code) => {
-      log.info(`Storage daemon exited with code: ${code}`)
-      this.isRunning = false
-      this.process = null
-      this.client = null
-      this.stopPolling()
-      this.emit('exit', code)
-    })
-
-    this.process.on('error', (err) => {
-      log.error(`Failed to start storage daemon: ${err.message}`)
-      this.emit('error', err.message)
+    this.supervisor.start({
+      name: 'tonutils-storage',
+      command: binPath,
+      args,
+      options: { windowsHide: true },
+      onStdout,
+      onStderr,
+      onExit: (code) => {
+        log.info(`Storage daemon exited with code: ${code}`)
+        this.isRunning = false
+        this.client = null
+        this.stopPolling()
+        this.emit('exit', code)
+      },
+      onError: (error) => {
+        this.isRunning = false
+        this.client = null
+        log.error(`Failed to start storage daemon: ${error.message}`)
+        this.emit('error', error.message)
+      },
     })
 
     // Create HTTP client with same auth credentials
@@ -188,41 +185,22 @@ export class StorageManager extends EventEmitter {
   }
 
   private async waitForReady(maxAttempts = PING_MAX_ATTEMPTS): Promise<void> {
-    return new Promise((resolve, reject) => {
-      let settled = false
-
-      // Fail-fast if the daemon crashes before becoming ready
-      const onExit = (code: number | null) => {
-        if (!settled) {
-          settled = true
-          reject(new Error(`Storage daemon exited before ready (code: ${code})`))
+    let attempts = 0
+    await this.supervisor.waitForReady({
+      intervalMs: PING_RETRY_DELAY_MS,
+      timeoutMs: Math.max(PING_RETRY_DELAY_MS, maxAttempts * PING_RETRY_DELAY_MS),
+      probe: async () => {
+        attempts += 1
+        if (!this.client) return false
+        try {
+          const ready = await this.client.ping()
+          if (ready) log.info(`API ready after ${attempts} attempts`)
+          return ready
+        } catch (error) {
+          log.debug(`Ping attempt ${attempts} failed:`, error)
+          return false
         }
-      }
-      this.process?.once('exit', onExit)
-
-      const poll = async () => {
-        for (let i = 0; i < maxAttempts; i++) {
-          if (settled || !this.client) return
-          try {
-            if (await this.client.ping()) {
-              settled = true
-              this.process?.off('exit', onExit)
-              log.info(`API ready after ${i + 1} attempts`)
-              resolve()
-              return
-            }
-          } catch (error) {
-            log.debug(`Ping attempt ${i + 1} failed:`, error)
-          }
-          await new Promise((r) => setTimeout(r, PING_RETRY_DELAY_MS))
-        }
-        if (!settled) {
-          settled = true
-          this.process?.off('exit', onExit)
-          reject(new Error(`Storage daemon API did not become ready after ${maxAttempts} attempts`))
-        }
-      }
-      poll()
+      },
     })
   }
 
@@ -293,16 +271,14 @@ export class StorageManager extends EventEmitter {
 
   stop(): void {
     this.stopPolling()
-    if (this.process) {
+    if (this.supervisor.isRunning) {
       log.info('Stopping storage daemon...')
-      const proc = this.process
-      this.process = null
       this.client = null
       this.isRunning = false
       // killChildProcess detaches listeners, sends SIGTERM and escalates to
       // SIGKILL; state is reset synchronously above so callers (sync stop) and
       // tests see the daemon as stopped immediately.
-      void killChildProcess(proc)
+      void this.supervisor.stop()
       this.emit('stopped')
     }
   }

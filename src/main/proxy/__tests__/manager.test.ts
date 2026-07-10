@@ -41,6 +41,11 @@ vi.mock('../../utils/paths', () => ({
   getBinaryPath: vi.fn((name: string) => `/mock/bin/${name}`),
 }))
 
+vi.mock('../config-writer', () => ({
+  writeProxyConfig: vi.fn(() => Promise.resolve()),
+  applyBridgeDefaults: vi.fn(() => Promise.resolve()),
+}))
+
 vi.mock('electron', () => ({
   app: {
     getPath: vi.fn(() => '/tmp/mock-userdata'),
@@ -71,6 +76,7 @@ vi.mock('fs', () => ({
   renameSync: vi.fn(),
   chmodSync: vi.fn(),
 }))
+vi.mock('fs/promises', () => ({ mkdir: vi.fn(() => Promise.resolve()) }))
 
 // Import after mocks
 import { ProxyManager, buildProxyArgs } from '../manager'
@@ -285,7 +291,7 @@ describe('ProxyManager', () => {
 
       const newManager = new ProxyManager()
 
-      await expect(newManager.start()).rejects.toThrow('Proxy failed to start within timeout')
+      await expect(newManager.start()).rejects.toThrow('Process readiness timed out after 1000ms')
 
       mockSettings.network.connectionTimeout = 5
     }, 10000)

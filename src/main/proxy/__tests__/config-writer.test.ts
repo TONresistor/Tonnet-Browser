@@ -38,10 +38,10 @@ afterEach(() => {
 })
 
 describe('bridge config writer messenger namespaces', () => {
-  it('defaults chat namespaces off and required namespaces on', () => {
+  it('defaults chat namespaces off and required namespaces on', async () => {
     const dir = makeWorkDir(baseConfig())
 
-    applyBridgeDefaults(dir)
+    await applyBridgeDefaults(dir)
 
     const config = readConfig(dir)
     expect(config._browserDefaults).toBe(true)
@@ -55,18 +55,18 @@ describe('bridge config writer messenger namespaces', () => {
     expect(config.namespaces.dht.enabled).toBe(false)
   })
 
-  it('enables and disables chat namespaces when Messenger manages them', () => {
+  it('enables and disables chat namespaces when Messenger manages them', async () => {
     const dir = makeWorkDir(baseConfig())
-    applyBridgeDefaults(dir)
+    await applyBridgeDefaults(dir)
 
-    expect(syncMessengerBridgeNamespaces(dir, true)).toBe(true)
+    await expect(syncMessengerBridgeNamespaces(dir, true)).resolves.toBe(true)
     let config = readConfig(dir)
     expect(config._messengerNamespacesManaged).toBe(true)
     expect(config.namespaces.adnl.enabled).toBe(true)
     expect(config.namespaces.overlay.enabled).toBe(true)
     expect(config.namespaces.dht.enabled).toBe(true)
 
-    expect(syncMessengerBridgeNamespaces(dir, false)).toBe(true)
+    await expect(syncMessengerBridgeNamespaces(dir, false)).resolves.toBe(true)
     config = readConfig(dir)
     expect(config._messengerNamespacesManaged).toBe(false)
     expect(config.namespaces.adnl.enabled).toBe(false)
@@ -74,14 +74,14 @@ describe('bridge config writer messenger namespaces', () => {
     expect(config.namespaces.dht.enabled).toBe(false)
   })
 
-  it('does not disable manually enabled chat namespaces when Messenger did not manage them', () => {
+  it('does not disable manually enabled chat namespaces when Messenger did not manage them', async () => {
     const dir = makeWorkDir({
       ...baseConfig(),
       _browserDefaults: true,
       _messengerNamespacesManaged: false,
     })
 
-    applyBridgeDefaults(dir)
+    await applyBridgeDefaults(dir)
 
     const config = readConfig(dir)
     expect(config.namespaces.adnl.enabled).toBe(true)
