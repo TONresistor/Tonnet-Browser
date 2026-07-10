@@ -9,14 +9,19 @@ import type { WalletTransaction } from '../../shared/types'
 import { createLogger } from '../../shared/logger'
 import { rawToFriendly } from './address-utils'
 import { mergeHistory, sameHistory } from './history-merge'
+import { WalletTransactionSchema } from '../../shared/ipc-contract/wallet'
+import { z } from 'zod'
 const log = createLogger('wallet:history')
+
+const WalletHistorySchema = z.array(WalletTransactionSchema)
+const WALLET_HISTORY_SCHEMA_VERSION = 1
 
 function toFriendly(addr: string): string {
   return rawToFriendly(addr) ?? addr
 }
 
 export class WalletHistoryManager {
-  private storage: SafeStorageWrapper
+  private storage: SafeStorageWrapper<WalletTransaction[]>
   private cache: WalletTransaction[] | null = null
   /** Serializes cache-mutating ops so concurrent add/updateStatus/reconcile
    *  (e.g. a fire-and-forget new-tx reconcile racing get-history) can't lose an
@@ -24,7 +29,11 @@ export class WalletHistoryManager {
   private tail: Promise<unknown> = Promise.resolve()
 
   constructor() {
-    this.storage = new SafeStorageWrapper(WALLET_HISTORY_FILE_NAME)
+    this.storage = new SafeStorageWrapper(WALLET_HISTORY_FILE_NAME, {
+      version: WALLET_HISTORY_SCHEMA_VERSION,
+      migrate: (raw) => raw,
+      parse: (raw) => WalletHistorySchema.parse(raw),
+    })
   }
 
   private serialize<T>(fn: () => Promise<T>): Promise<T> {
@@ -51,7 +60,7 @@ export class WalletHistoryManager {
    */
   async getAll(): Promise<WalletTransaction[]> {
     if (this.cache !== null) return this.cache
-    const data = await this.storage.read<WalletTransaction[]>()
+    const data = await this.storage.read()
     const txs = data ?? []
     // Migrate raw addresses (0:hex) to friendly format
     let migrated = false

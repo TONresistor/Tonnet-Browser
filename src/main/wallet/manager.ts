@@ -4,18 +4,8 @@
  */
 
 import { EventEmitter } from 'events'
-import {
-  internal,
-  beginCell,
-  storeMessage,
-  storeStateInit,
-  loadStateInit,
-  Address,
-  SendMode,
-  Cell,
-  type MessageRelaxed,
-} from '@ton/core'
-import { sign, sha256_sync } from '@ton/crypto'
+import { internal, beginCell, storeMessage, Address, SendMode, Cell, type MessageRelaxed } from '@ton/core'
+import { sign } from '@ton/crypto'
 import { WalletContractV5R1 } from '@ton/ton'
 import type {
   TonConnectOutMessage,
@@ -24,14 +14,11 @@ import type {
   SignDataResult,
 } from '../tonconnect/types'
 import { WalletKeyStorage, WalletDecryptionError } from './key-storage'
-import { encodeCommentBody, decodeCommentBody, isCommentWithinLimit } from './comment'
+import { encodeCommentBody, isCommentWithinLimit } from './comment'
 import type { ISecureStorage } from '../ports/secure-storage'
-import {
-  WsBridgeClient,
-  isContractNotDeployedError,
-  type BridgeTransaction,
-  type BridgeAccountState,
-} from './ws-bridge-client'
+import type { MessengerBridgePort, TonBridgePort } from '../ports/ton-bridge'
+import { WsBridgeClient } from './ws-bridge-client'
+import { isContractNotDeployedError } from '../ports/ton-bridge'
 import { getSetting } from '../settings'
 import { WALLET_MAX_TIMEOUT_S, WALLET_HISTORY_DEFAULT_LIMIT } from './constants'
 import type {
@@ -42,20 +29,12 @@ import type {
   DnsResolveResult,
 } from '../../shared/types'
 import { createLogger } from '../../shared/logger'
-import { TON_DOMAIN_REGEX } from '../../shared/utils/ton'
+import { WalletQueryService } from './query-service'
+import { WalletSigningService } from './signing-service'
+import { WalletTransferService } from './transfer-service'
+import { WalletAccountService } from './account-service'
+import { WalletSubscriptionService } from './subscription-service'
 const log = createLogger('wallet')
-
-function crc32(input: string): number {
-  const bytes = Buffer.from(input, 'utf8')
-  let crc = 0xffffffff
-  for (let i = 0; i < bytes.length; i++) {
-    crc ^= bytes[i]
-    for (let j = 0; j < 8; j++) {
-      crc = (crc >>> 1) ^ (0xedb88320 & -(crc & 1))
-    }
-  }
-  return (crc ^ 0xffffffff) >>> 0
-}
 
 /**
  * Trim a user comment, collapse empty to undefined, and enforce the byte cap.
@@ -79,17 +58,36 @@ export class WalletManager extends EventEmitter {
   private keypair: { publicKey: Buffer; secretKey: Buffer } | null = null
   private publicKey: Buffer | null = null
   private localSeqno: number = 0
-  private unsubAccountState: (() => void) | null = null
-  private unsubTransactions: (() => void) | null = null
   private currentBalance: string = '0'
   private initialized: boolean = false
   private decryptFailed: boolean = false
   private weakEncryption: boolean = false
   private signLock: Promise<void> = Promise.resolve()
+  private queryService: WalletQueryService
+  private signingService: WalletSigningService
+  private transferService: WalletTransferService
+  private accountService: WalletAccountService
+  private subscriptionService = new WalletSubscriptionService()
 
   constructor(secureStorage?: ISecureStorage) {
     super()
     this.keyStorage = secureStorage ? new WalletKeyStorage(secureStorage) : new WalletKeyStorage()
+    this.queryService = new WalletQueryService(() => this.wsBridge)
+    this.signingService = new WalletSigningService({
+      getAddress: () => this.walletContract?.address ?? null,
+      nowSeconds: () => Math.floor(Date.now() / 1000),
+      signDigest: (digest) => this.signWithKey((secretKey) => Buffer.from(sign(digest, secretKey))),
+    })
+    this.transferService = new WalletTransferService({
+      getBridge: () => this.wsBridge,
+      syncSeqno: () => this.syncSeqno(),
+      buildBoc: (messages, maxTimeout) => this.buildBoc(messages, maxTimeout),
+      notifyStateChanged: () => this.emit('state-changed', this.getState()),
+    })
+    this.accountService = new WalletAccountService({
+      getPublicKey: () => this.publicKey,
+      getContract: () => this.walletContract,
+    })
   }
 
   /**
@@ -137,7 +135,7 @@ export class WalletManager extends EventEmitter {
   /**
    * Create a new wallet using a 24-word mnemonic.
    */
-  async create(): Promise<WalletState> {
+  async create(): Promise<WalletState & { mnemonic: string[] }> {
     if (this.keypair) {
       throw new Error('Wallet already exists')
     }
@@ -277,12 +275,13 @@ export class WalletManager extends EventEmitter {
     }
   }
 
-  /**
-   * Expose the connected bridge client for use by other subsystems (e.g.
-   * Cocoon setup) that need blockchain access without owning their own
-   * WsBridgeClient instance. Returns null before wallet init completes.
-   */
-  getBridgeClient(): WsBridgeClient | null {
+  /** Narrow on-chain capability port for Cocoon; transport mechanics stay private. */
+  getTonBridge(): TonBridgePort | null {
+    return this.wsBridge
+  }
+
+  /** Narrow overlay/DHT capability port for Messenger; transport mechanics stay private. */
+  getMessengerBridge(): MessengerBridgePort | null {
     return this.wsBridge
   }
 
@@ -313,88 +312,24 @@ export class WalletManager extends EventEmitter {
    * Fetch current balance from the network.
    */
   async getBalance(): Promise<string> {
-    if (!this.wsBridge || !this.walletContract) {
-      return '0'
+    const address = this.walletContract?.address.toString() ?? null
+    const fetched = await this.queryService.getBalance(address, this.currentBalance)
+    if (fetched !== this.currentBalance) {
+      this.currentBalance = fetched
+      this.emit('balance-updated', this.currentBalance)
     }
-
-    try {
-      const fetched = await this.wsBridge.getBalance(this.walletContract.address.toString())
-      if (fetched !== this.currentBalance) {
-        this.currentBalance = fetched
-        this.emit('balance-updated', this.currentBalance)
-      }
-      return this.currentBalance
-    } catch (error) {
-      log.error('Failed to fetch balance:', error)
-      return this.currentBalance
-    }
+    return this.currentBalance
   }
 
   /**
    * Convert a raw bridge transaction into the store format.
    * Returns null for zero-value entries (service messages) or malformed payloads.
    */
-  private convertRawTx(tx: BridgeTransaction): WalletTransaction | null {
-    const inMsg = tx.in_msg
-    const outMsgs = tx.out_msgs ?? []
-
-    let type: 'send' | 'receive' = 'receive'
-    let amount = '0'
-    let counterparty = ''
-    let body: string | undefined
-
-    if (outMsgs.length > 0) {
-      type = 'send'
-      const msg = outMsgs[0]
-      amount = msg.value ?? '0'
-      counterparty = msg.destination ?? ''
-      body = msg.body
-    } else if (inMsg) {
-      type = 'receive'
-      amount = inMsg.value ?? '0'
-      counterparty = inMsg.source ?? ''
-      body = inMsg.body
-    }
-
-    if (amount === '0') return null
-
-    // Reject entries missing the block-header timestamp to avoid the 1970 bug.
-    const rawTime = Number(tx.now)
-    if (!rawTime || !Number.isFinite(rawTime)) return null
-
-    return {
-      id: tx.hash || tx.lt || crypto.randomUUID(),
-      type,
-      amount,
-      address: counterparty,
-      timestamp: rawTime * 1000,
-      status: 'confirmed' as const,
-      hash: tx.hash ?? '',
-      lt: tx.lt || undefined,
-      fee: tx.total_fees,
-      comment: decodeCommentBody(body),
-    }
-  }
-
   /**
    * Fetch on-chain transaction history and convert to WalletTransaction format.
    */
   async fetchOnChainHistory(limit: number = WALLET_HISTORY_DEFAULT_LIMIT): Promise<WalletTransaction[]> {
-    if (!this.wsBridge || !this.walletContract) return []
-
-    const address = this.walletContract.address.toString()
-    let lastError: unknown
-    for (let attempt = 0; attempt < 3; attempt++) {
-      try {
-        const rawTxs = await this.wsBridge.getTransactions(address, limit)
-        return rawTxs.map((tx) => this.convertRawTx(tx)).filter((tx): tx is WalletTransaction => tx !== null)
-      } catch (error) {
-        lastError = error
-        if (attempt < 2) await new Promise((r) => setTimeout(r, 600))
-      }
-    }
-    log.error('Failed to fetch on-chain history:', lastError)
-    throw lastError
+    return this.queryService.fetchOnChainHistory(this.walletContract?.address.toString() ?? null, limit)
   }
 
   /**
@@ -474,131 +409,19 @@ export class WalletManager extends EventEmitter {
   }
 
   getTonConnectAccount(): { addressRaw: string; publicKey: string; walletStateInit: string } | null {
-    if (!this.publicKey || !this.walletContract) return null
-    const stateInit = beginCell().store(storeStateInit(this.walletContract.init)).endCell()
-    return {
-      addressRaw: this.walletContract.address.toRawString(),
-      publicKey: this.publicKey.toString('hex'),
-      walletStateInit: stateInit.toBoc().toString('base64'),
-    }
+    return this.accountService.getTonConnectAccount()
   }
 
   async signTonConnectTransaction(messages: TonConnectOutMessage[]): Promise<string> {
-    const bridge = this.wsBridge
-    if (!bridge) throw new Error('Bridge not connected')
-    if (!this.walletContract) throw new Error('Wallet not initialized')
-    await this.syncSeqno()
-
-    const relaxed: MessageRelaxed[] = messages.map((m) => {
-      const { isBounceable, address } = Address.parseFriendly(m.address)
-      return internal({
-        to: address,
-        value: BigInt(m.amount),
-        bounce: isBounceable,
-        body: m.payload ? Cell.fromBase64(m.payload) : undefined,
-        init: m.stateInit ? loadStateInit(Cell.fromBase64(m.stateInit).beginParse()) : undefined,
-      })
-    })
-
-    const { boc } = await this.buildBoc(relaxed, WALLET_MAX_TIMEOUT_S)
-    const bocBuffer = Buffer.from(boc, 'base64')
-    try {
-      await bridge.sendAndWatch(bocBuffer)
-    } catch {
-      await bridge.broadcast(bocBuffer)
-    }
-    this.emit('state-changed', this.getState())
-    return boc
+    return this.transferService.signTonConnectTransaction(messages)
   }
 
   async signTonProof(domain: string, payload: string): Promise<TonProofReplyPayload> {
-    if (!this.walletContract) throw new Error('Wallet not initialized')
-    const address = this.walletContract.address
-    const timestamp = Math.floor(Date.now() / 1000)
-
-    const wc = Buffer.alloc(4)
-    wc.writeInt32BE(address.workChain, 0)
-    const domainBuf = Buffer.from(domain, 'utf8')
-    const domainLen = Buffer.alloc(4)
-    domainLen.writeUInt32LE(domainBuf.byteLength, 0)
-    const ts = Buffer.alloc(8)
-    ts.writeBigUInt64LE(BigInt(timestamp), 0)
-
-    const message = Buffer.concat([
-      Buffer.from('ton-proof-item-v2/', 'utf8'),
-      wc,
-      address.hash,
-      domainLen,
-      domainBuf,
-      ts,
-      Buffer.from(payload, 'utf8'),
-    ])
-    const digest = sha256_sync(
-      Buffer.concat([Buffer.from([0xff, 0xff]), Buffer.from('ton-connect', 'utf8'), sha256_sync(message)])
-    )
-    const signature = await this.signWithKey((secretKey) => sign(digest, secretKey))
-
-    return {
-      timestamp, // number (UNIX seconds) — a string fails @tonconnect/sdk validation ("Invalid 'proof.timestamp'")
-      domain: { lengthBytes: domainBuf.byteLength, value: domain },
-      signature: signature.toString('base64'),
-      payload,
-    }
+    return this.signingService.signTonProof(domain, payload)
   }
 
   async signData(domain: string, payload: SignDataPayloadInput): Promise<SignDataResult> {
-    if (!this.walletContract) throw new Error('Wallet not initialized')
-    const address = this.walletContract.address
-    const timestamp = Math.floor(Date.now() / 1000)
-
-    let digest: Buffer
-    if (payload.type === 'cell') {
-      const cell = Cell.fromBase64(payload.cell)
-      digest = beginCell()
-        .storeUint(0x75569022, 32)
-        .storeUint(crc32(payload.schema), 32)
-        .storeUint(timestamp, 64)
-        .storeAddress(address)
-        .storeStringRefTail(domain)
-        .storeRef(cell)
-        .endCell()
-        .hash()
-    } else {
-      const wc = Buffer.alloc(4)
-      wc.writeInt32BE(address.workChain, 0)
-      const domainBuf = Buffer.from(domain, 'utf8')
-      const domainLen = Buffer.alloc(4)
-      domainLen.writeUInt32BE(domainBuf.byteLength, 0)
-      const ts = Buffer.alloc(8)
-      ts.writeBigUInt64BE(BigInt(timestamp), 0)
-      const prefix = Buffer.from(payload.type === 'text' ? 'txt' : 'bin', 'utf8')
-      const data = payload.type === 'text' ? Buffer.from(payload.text, 'utf8') : Buffer.from(payload.bytes, 'base64')
-      const dataLen = Buffer.alloc(4)
-      dataLen.writeUInt32BE(data.byteLength, 0)
-      digest = sha256_sync(
-        Buffer.concat([
-          Buffer.from([0xff, 0xff]),
-          Buffer.from('ton-connect/sign-data/', 'utf8'),
-          wc,
-          address.hash,
-          domainLen,
-          domainBuf,
-          ts,
-          prefix,
-          dataLen,
-          data,
-        ])
-      )
-    }
-
-    const signature = await this.signWithKey((secretKey) => sign(digest, secretKey))
-    return {
-      signature: signature.toString('base64'),
-      address: address.toRawString(),
-      timestamp,
-      domain,
-      payload,
-    }
+    return this.signingService.signData(domain, payload)
   }
 
   private signWithKey<T>(fn: (secretKey: Buffer) => T): Promise<T> {
@@ -621,64 +444,11 @@ export class WalletManager extends EventEmitter {
   }
 
   async resolveDomain(domain: string): Promise<DnsResolveResult> {
-    if (!this.wsBridge) throw new Error('Bridge not connected')
-    return await this.wsBridge.resolveDomain(domain)
+    return this.queryService.resolveDomain(domain)
   }
 
   async resolveRecipient(input: string): Promise<{ address: string; domain?: string }> {
-    const trimmed = input.trim()
-    const normalized = trimmed.toLowerCase()
-
-    // Loose gate (suffix + length) decides address-vs-domain; strict TON_DOMAIN_REGEX
-    // validation follows below for anything that looks like a .ton domain.
-    if (!(normalized.endsWith('.ton') && normalized.length <= 126)) {
-      const parsed = Address.parse(trimmed)
-      if (parsed.workChain === -1) {
-        throw new Error('Masterchain addresses not supported')
-      }
-      return { address: trimmed }
-    }
-
-    for (let i = 0; i < normalized.length; i++) {
-      if (normalized.charCodeAt(i) > 127) {
-        throw new Error('Non-ASCII domain not allowed')
-      }
-    }
-
-    if (!TON_DOMAIN_REGEX.test(normalized)) {
-      throw new Error('Invalid domain format')
-    }
-
-    if (!this.wsBridge) {
-      throw new Error('Bridge not connected')
-    }
-
-    let result: DnsResolveResult
-    try {
-      result = await this.wsBridge.resolveDomain(normalized)
-    } catch {
-      throw new Error('Domain not registered')
-    }
-
-    if (!result.initialized) {
-      throw new Error('Domain not initialized')
-    }
-
-    if (result.expiring_at && result.expiring_at < Math.floor(Date.now() / 1000)) {
-      throw new Error('Domain expired')
-    }
-
-    const address = result.wallet || result.owner
-    if (!address) {
-      throw new Error('Domain has no wallet or owner')
-    }
-
-    const parsed = Address.parse(address)
-    if (parsed.workChain === -1) {
-      throw new Error('Masterchain addresses not supported')
-    }
-
-    return { address, domain: normalized }
+    return this.queryService.resolveRecipient(input)
   }
 
   private buildBoc(
@@ -751,8 +521,7 @@ export class WalletManager extends EventEmitter {
   destroy(): void {
     // Skip RPC unsubscribe: disconnect() clears subscriptions locally
     // and the server drops them when the WebSocket closes.
-    this.unsubAccountState = null
-    this.unsubTransactions = null
+    this.subscriptionService.stop()
     this.keyStorage.destroy()
     if (this.keypair) {
       this.keypair.secretKey.fill(0)
@@ -776,33 +545,21 @@ export class WalletManager extends EventEmitter {
     if (!this.wsBridge || !this.walletContract) return
     const address = this.walletContract.address.toString()
 
-    this.unsubAccountState = this.wsBridge.subscribeAccountState(address, (state: BridgeAccountState) => {
-      const balance = state.balance ?? this.currentBalance
-      if (balance !== this.currentBalance) {
+    this.subscriptionService.start(this.wsBridge, address, {
+      currentBalance: () => this.currentBalance,
+      balanceChanged: (balance) => {
         this.currentBalance = balance
-        this.emit('balance-updated', this.currentBalance)
-      }
-    })
-
-    // Refresh balance inline with the tx push so both events reach the renderer
-    // in the same tick, avoiding a visible gap between list and solde updates.
-    this.unsubTransactions = this.wsBridge.subscribeTransactions(address, (tx: BridgeTransaction) => {
-      const formatted = this.convertRawTx(tx)
-      if (!formatted) return
-      this.emit('new-transaction', formatted)
-      this.getBalance().catch((err) => log.debug('Balance refresh after tx push failed:', err))
+        this.emit('balance-updated', balance)
+      },
+      convertTransaction: (transaction) => this.queryService.convertRawTransaction(transaction),
+      transactionReceived: (transaction) => this.emit('new-transaction', transaction),
+      refreshBalance: () => this.getBalance(),
+      refreshFailed: (error) => log.debug('Balance refresh after tx push failed:', error),
     })
   }
 
   private unsubscribeAccount(): void {
-    if (this.unsubAccountState) {
-      this.unsubAccountState()
-      this.unsubAccountState = null
-    }
-    if (this.unsubTransactions) {
-      this.unsubTransactions()
-      this.unsubTransactions = null
-    }
+    this.subscriptionService.stop()
   }
 
   private async syncSeqno(): Promise<void> {

@@ -19,6 +19,7 @@ import {
 import type { PaymentMode, SitePolicy } from '../../shared/types'
 import { createLogger } from '../../shared/logger'
 import { SafeStorageWrapper } from '../history/safe-storage-wrapper'
+import { z } from 'zod'
 const log = createLogger('payment-policy')
 
 interface SpendingRecord {
@@ -29,6 +30,13 @@ interface SpendingRecord {
 interface RateLimitEntry {
   timestamps: number[]
 }
+
+const SpendingFileSchema = z.record(
+  z.string(),
+  z.array(z.object({ amount: z.string().regex(/^\d+$/), timestamp: z.number().finite() }))
+)
+type SpendingFile = z.infer<typeof SpendingFileSchema>
+const SPENDING_SCHEMA_VERSION = 1
 
 /**
  * Normalize a hostname to its second-level domain.
@@ -55,7 +63,11 @@ export class PaymentPolicyStore {
   private rateLimits: Map<string, RateLimitEntry> = new Map()
   private reservations: Map<string, { domain: string; record: SpendingRecord }> = new Map()
   private cleanupTimer: ReturnType<typeof setInterval> | null = null
-  private storage = new SafeStorageWrapper('payment-spending')
+  private storage = new SafeStorageWrapper<SpendingFile>('payment-spending', {
+    version: SPENDING_SCHEMA_VERSION,
+    migrate: (raw) => raw,
+    parse: (raw) => SpendingFileSchema.parse(raw),
+  })
   private saveTimer: ReturnType<typeof setTimeout> | null = null
 
   constructor() {
@@ -65,7 +77,7 @@ export class PaymentPolicyStore {
 
   async init(): Promise<void> {
     try {
-      const saved = await this.storage.read<Record<string, SpendingRecord[]>>()
+      const saved = await this.storage.read()
       if (saved) {
         for (const [domain, records] of Object.entries(saved)) {
           this.spending.set(domain, records)

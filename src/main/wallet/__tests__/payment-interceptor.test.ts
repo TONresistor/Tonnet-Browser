@@ -16,10 +16,6 @@ vi.mock('../../settings', () => ({
 }))
 
 const mockEmitToRenderer = vi.fn()
-vi.mock('../../ipc/handlers', () => ({
-  emitToRenderer: (...args: unknown[]) => mockEmitToRenderer(...args),
-}))
-
 const mockGetAllWebContents = vi.fn(() => [] as unknown[])
 const mockFromId = vi.fn()
 vi.mock('electron', () => ({
@@ -153,7 +149,9 @@ describe('PaymentInterceptor', () => {
 
     mockGetSetting.mockReturnValue(defaultWalletSettings())
 
-    interceptor = new PaymentInterceptor(walletManager as any, policyStore as any, historyManager as any)
+    interceptor = new PaymentInterceptor(walletManager as any, policyStore as any, historyManager as any, (...args) =>
+      mockEmitToRenderer(...args)
+    )
   })
 
   afterEach(() => {
@@ -327,11 +325,8 @@ describe('PaymentInterceptor', () => {
       await triggerHandle402(session, 'https://payment-redirect.com/pay')
 
       // Cross-domain forces manual mode, which should still call reservePayment
-      // but emit wallet:payment-req not wallet:payment-made
-      expect(mockEmitToRenderer).toHaveBeenCalledWith(
-        'wallet:payment-req',
-        expect.objectContaining({ status: 'pending' })
-      )
+      // but emit a pending domain notification rather than executing payment
+      expect(mockEmitToRenderer).toHaveBeenCalledWith(expect.objectContaining({ status: 'pending' }))
     })
   })
 
@@ -382,10 +377,7 @@ describe('PaymentInterceptor', () => {
       expect(historyManager.add).toHaveBeenCalledWith(expect.objectContaining({ type: 'x402', status: 'pending' }))
       expect(policyStore.confirmPayment).toHaveBeenCalledWith('reservation-1')
       expect(historyManager.updateStatus).toHaveBeenCalledWith(expect.any(String), 'confirmed')
-      expect(mockEmitToRenderer).toHaveBeenCalledWith(
-        'wallet:payment-made',
-        expect.objectContaining({ status: 'completed' })
-      )
+      expect(mockEmitToRenderer).toHaveBeenCalledWith(expect.objectContaining({ status: 'completed' }))
     })
 
     it('escalates an above-ceiling auto payment to manual approval', async () => {
@@ -409,7 +401,6 @@ describe('PaymentInterceptor', () => {
       // Escalated: not signed/executed silently, surfaced as a pending approval.
       expect(walletManager.signX402Payment).not.toHaveBeenCalled()
       expect(mockEmitToRenderer).toHaveBeenCalledWith(
-        'wallet:payment-req',
         expect.objectContaining({ status: 'pending', domain: 'example.com' })
       )
     })
@@ -445,10 +436,7 @@ describe('PaymentInterceptor', () => {
 
       expect(policyStore.rollbackPayment).toHaveBeenCalledWith('reservation-1')
       expect(historyManager.updateStatus).toHaveBeenCalledWith(expect.any(String), 'failed')
-      expect(mockEmitToRenderer).toHaveBeenCalledWith(
-        'wallet:payment-failed',
-        expect.objectContaining({ status: 'failed' })
-      )
+      expect(mockEmitToRenderer).toHaveBeenCalledWith(expect.objectContaining({ status: 'failed' }))
     })
 
     it('rolls back reservation on signX402Payment exception', async () => {
@@ -476,10 +464,7 @@ describe('PaymentInterceptor', () => {
       await vi.runAllTimersAsync()
 
       expect(policyStore.rollbackPayment).toHaveBeenCalledWith('reservation-1')
-      expect(mockEmitToRenderer).toHaveBeenCalledWith(
-        'wallet:payment-failed',
-        expect.objectContaining({ error: 'signing failed' })
-      )
+      expect(mockEmitToRenderer).toHaveBeenCalledWith(expect.objectContaining({ error: 'signing failed' }))
     })
   })
 
@@ -526,7 +511,6 @@ describe('PaymentInterceptor', () => {
       expect(walletManager.signX402Payment).not.toHaveBeenCalled()
       // Should emit pending notification
       expect(mockEmitToRenderer).toHaveBeenCalledWith(
-        'wallet:payment-req',
         expect.objectContaining({ status: 'pending', domain: 'example.com' })
       )
     })
@@ -545,7 +529,6 @@ describe('PaymentInterceptor', () => {
 
       expect(policyStore.rollbackPayment).toHaveBeenCalledWith('reservation-1')
       expect(mockEmitToRenderer).toHaveBeenCalledWith(
-        'wallet:payment-failed',
         expect.objectContaining({
           status: 'rejected',
           error: 'Approval timed out',
@@ -566,8 +549,8 @@ describe('PaymentInterceptor', () => {
       await trigger402(session)
 
       // Get the payment ID from the pending notification
-      const pendingCall = mockEmitToRenderer.mock.calls.find((c) => c[0] === 'wallet:payment-req')
-      const paymentId = pendingCall![1].id
+      const pendingCall = mockEmitToRenderer.mock.calls.find((c) => c[0].status === 'pending')
+      const paymentId = pendingCall![0].id
 
       mockEmitToRenderer.mockClear()
       await interceptor.approvePayment(paymentId)
@@ -581,8 +564,8 @@ describe('PaymentInterceptor', () => {
       const session = setupManualMode()
       await trigger402(session)
 
-      const pendingCall = mockEmitToRenderer.mock.calls.find((c) => c[0] === 'wallet:payment-req')
-      const paymentId = pendingCall![1].id
+      const pendingCall = mockEmitToRenderer.mock.calls.find((c) => c[0].status === 'pending')
+      const paymentId = pendingCall![0].id
 
       mockEmitToRenderer.mockClear()
       policyStore.rollbackPayment.mockClear()
@@ -590,10 +573,7 @@ describe('PaymentInterceptor', () => {
       interceptor.rejectPayment(paymentId)
 
       expect(policyStore.rollbackPayment).toHaveBeenCalledWith('reservation-1')
-      expect(mockEmitToRenderer).toHaveBeenCalledWith(
-        'wallet:payment-failed',
-        expect.objectContaining({ status: 'rejected' })
-      )
+      expect(mockEmitToRenderer).toHaveBeenCalledWith(expect.objectContaining({ status: 'rejected' }))
     })
   })
 
@@ -703,7 +683,6 @@ describe('PaymentInterceptor', () => {
       await vi.runAllTimersAsync()
 
       expect(mockEmitToRenderer).toHaveBeenCalledWith(
-        'wallet:payment-failed',
         expect.objectContaining({
           status: 'failed',
           error: 'Spending limit reached',
@@ -797,10 +776,7 @@ describe('PaymentInterceptor', () => {
       expect(result).toEqual({ success: true })
       expect(walletManager.signX402Payment).toHaveBeenCalled()
       expect(policyStore.confirmPayment).toHaveBeenCalledWith('reservation-1')
-      expect(mockEmitToRenderer).toHaveBeenCalledWith(
-        'wallet:payment-made',
-        expect.objectContaining({ status: 'completed', url: XHR_URL })
-      )
+      expect(mockEmitToRenderer).toHaveBeenCalledWith(expect.objectContaining({ status: 'completed', url: XHR_URL }))
       expect(historyManager.add).toHaveBeenCalledWith(expect.objectContaining({ type: 'x402', status: 'confirmed' }))
       const token = interceptor.consumeXhrPaymentToken(WC_ID, XHR_URL)
       expect(token).not.toBeNull()
@@ -846,9 +822,9 @@ describe('PaymentInterceptor', () => {
       const resultPromise = interceptor.requestXhrPayment(WC_ID, XHR_URL)
       await flushPromises()
 
-      const pendingCall = mockEmitToRenderer.mock.calls.find((c) => c[0] === 'wallet:payment-req')
+      const pendingCall = mockEmitToRenderer.mock.calls.find((c) => c[0].status === 'pending')
       expect(pendingCall).toBeDefined()
-      const paymentId = pendingCall![1].id
+      const paymentId = pendingCall![0].id
 
       await interceptor.approvePayment(paymentId)
       await flushPromises()
@@ -866,8 +842,8 @@ describe('PaymentInterceptor', () => {
       const resultPromise = interceptor.requestXhrPayment(WC_ID, XHR_URL)
       await flushPromises()
 
-      const pendingCall = mockEmitToRenderer.mock.calls.find((c) => c[0] === 'wallet:payment-req')
-      const paymentId = pendingCall![1].id
+      const pendingCall = mockEmitToRenderer.mock.calls.find((c) => c[0].status === 'pending')
+      const paymentId = pendingCall![0].id
 
       interceptor.rejectPayment(paymentId)
       await flushPromises()

@@ -116,7 +116,9 @@ export class BridgePermissionStore {
       const { domain, scope } = this.parseKey(key)
       permissions.push({ domain, scope, decision: grant.decision, grantedAt: grant.grantedAt })
     }
-    setSetting('bridge', { permissions })
+    void setSetting('bridge', { permissions }).catch((error) =>
+      log.error('Failed to persist bridge permission:', error)
+    )
   }
 }
 
