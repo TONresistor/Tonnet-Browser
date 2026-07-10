@@ -9,9 +9,8 @@
  */
 
 import { errorMessage } from '../../../shared/errors'
-import { z } from 'zod'
-import { IPC_CHANNELS } from '../../../shared/ipc-channels'
-import { secureHandle, emitToRenderer, log } from './shared'
+import { log } from './shared'
+import { emitContractToRenderer } from '../../events/renderer-events'
 import { checkCocoonAvailability } from '../../cocoon/platform'
 import {
   hasCocoonWallet,
@@ -26,56 +25,88 @@ import { getStakeInfo, unstake, cashout } from '../../cocoon/unstake'
 import { startCocoonManager } from '../../cocoon/lifecycle'
 import { startFullWithdraw, type WithdrawDriverEvent } from '../../cocoon/withdraw-driver'
 import { enqueueRecovery, type RecoveryDriverEvent } from '../../cocoon/recovery-driver'
-import { getRecoveryQueueStore } from '../../cocoon/recovery-queue'
-import { getStakeCacheStore } from '../../cocoon/stake-cache'
-import { getConsumedArchive } from '../../cocoon/consumed-archive'
 import { recoverAllCocoonFunds } from '../../cocoon/recover-all'
-import {
-  requireBridge,
-  requireNativeAddress,
-  retireTerminalWalletBeforeCreate,
-  flowStake,
-} from '../../cocoon/activation'
+import { retireTerminalWalletBeforeCreate, flowStake } from '../../cocoon/activation'
 import type { ServiceRegistry } from '../../services'
 import type { CocoonLogEvent } from '../../../shared/cocoon-types'
-
-// Renderer-supplied IPC param schemas. .parse() throws ZodError, which secureHandle
-// wraps into the {success:false,error} envelope.
-const FundCocoonParams = z.object({ amount: z.union([z.literal('max'), z.string().regex(/^\d+$/)]) })
-const ArchivedAtParams = z.object({ archivedAt: z.number() })
-const RecoveryEnqueueParams = z.object({ archivedAt: z.number(), clientSCAddress: z.string().min(1) })
+import type { TonBridgePort } from '../../ports/ton-bridge'
+import { ipcFailure, ownIpcEmitterListener, secureContractHandle } from '../contract-handler'
+import {
+  cocoonArchiveExportMnemonicContract,
+  cocoonArchiveListContract,
+  cocoonAvailabilityContract,
+  cocoonCashoutContract,
+  cocoonFlowPendingContract,
+  cocoonFlowStakeContract,
+  cocoonFlowUnstakeContract,
+  cocoonFundContract,
+  cocoonLogContract,
+  cocoonNodeBalanceContract,
+  cocoonOwnerBalanceContract,
+  cocoonRecoveryAllContract,
+  cocoonRecoveryEnqueueContract,
+  cocoonRecoveryEventContract,
+  cocoonRecoveryListContract,
+  cocoonRecoveryRemoveContract,
+  cocoonStakeInfoContract,
+  cocoonStartContract,
+  cocoonStateChangedContract,
+  cocoonStatusContract,
+  cocoonStopContract,
+  cocoonUnstakeContract,
+  cocoonWalletCreateContract,
+  cocoonWalletDeleteContract,
+  cocoonWalletExistsContract,
+  cocoonWalletExportMnemonicContract,
+  cocoonWalletInfoContract,
+  cocoonWalletMarkSetupCompleteContract,
+  cocoonWithdrawEventContract,
+} from '../../../shared/ipc-contract/cocoon'
 
 export function registerCocoonHandlers(registry: ServiceRegistry): void {
-  const { cocoonManager, withdrawDriver, recoveryDriver } = registry
+  const { stakeCache, consumedArchive, recoveryQueue } = registry.cocoonPersistence
+  const { cocoonManager, withdrawDriver, recoveryDriver, cocoonActivation } = registry
+
+  const requireBridge = (): TonBridgePort => {
+    const bridge = registry.walletManager.getTonBridge()
+    if (!bridge) throw new Error('Bridge not connected — wallet not initialized')
+    return bridge
+  }
+
+  const requireNativeAddress = (action: string): string => {
+    const native = registry.walletManager.getState().address
+    if (!native) throw new Error(`Native wallet not initialized — cannot ${action}`)
+    return native
+  }
 
   // ── Push events ────────────────────────────────────────────────────────────
 
-  cocoonManager.on('state-change', (next, prev) => {
+  ownIpcEmitterListener(cocoonManager, 'state-change', (next, prev) => {
     log.debug(`cocoon state ${describe(prev)} -> ${describe(next)}`)
-    emitToRenderer(IPC_CHANNELS.COCOON_STATE_CHANGED, next)
+    emitContractToRenderer(cocoonStateChangedContract, next)
   })
 
-  cocoonManager.on('log', (event: CocoonLogEvent) => {
-    emitToRenderer(IPC_CHANNELS.COCOON_LOG, event)
+  ownIpcEmitterListener(cocoonManager, 'log', (event: CocoonLogEvent) => {
+    emitContractToRenderer(cocoonLogContract, event)
   })
 
-  withdrawDriver.on('event', (event: WithdrawDriverEvent) => {
+  ownIpcEmitterListener(withdrawDriver, 'event', (event: WithdrawDriverEvent) => {
     log.debug(`withdraw event: ${event.type}`)
-    emitToRenderer(IPC_CHANNELS.COCOON_WITHDRAW_EVENT, event)
+    emitContractToRenderer(cocoonWithdrawEventContract, event)
   })
 
-  recoveryDriver.on('event', (event: RecoveryDriverEvent) => {
+  ownIpcEmitterListener(recoveryDriver, 'event', (event: RecoveryDriverEvent) => {
     log.debug(`recovery event: ${event.type} archivedAt=${event.archivedAt}`)
-    emitToRenderer(IPC_CHANNELS.COCOON_RECOVERY_EVENT, event)
+    emitContractToRenderer(cocoonRecoveryEventContract, event)
   })
 
   // ── Lifecycle ───────────────────────────────────────────────────────────────
 
-  secureHandle(IPC_CHANNELS.COCOON_AVAILABILITY, () => {
+  secureContractHandle(cocoonAvailabilityContract, () => {
     return checkCocoonAvailability()
   })
 
-  secureHandle(IPC_CHANNELS.COCOON_STATUS, () => {
+  secureContractHandle(cocoonStatusContract, () => {
     return cocoonManager.getState()
   })
 
@@ -88,62 +119,61 @@ export function registerCocoonHandlers(registry: ServiceRegistry): void {
    * path when start() succeeded but markSetupComplete failed — the renderer
    * needs to be able to call start() again without hitting "already running".
    */
-  secureHandle(IPC_CHANNELS.COCOON_START, async () => {
+  secureContractHandle(cocoonStartContract, async () => {
     try {
       await startCocoonManager(cocoonManager)
     } catch (err) {
       const message = errorMessage(err)
       if (message.includes('already starting')) {
-        return { success: false, error: 'Already starting' }
+        ipcFailure('ALREADY_STARTING', 'Cocoon is already starting', true, err)
       }
       throw err
     }
-    return { success: true, httpPort: cocoonManager.getHttpPort() }
+    return { success: true as const, httpPort: cocoonManager.getHttpPort() }
   })
 
-  secureHandle(IPC_CHANNELS.COCOON_STOP, async () => {
+  secureContractHandle(cocoonStopContract, async () => {
     await cocoonManager.stop()
-    return { success: true }
+    return { success: true as const }
   })
 
   // ── Wallet management ───────────────────────────────────────────────────────
 
-  secureHandle(IPC_CHANNELS.COCOON_WALLET_EXISTS, () => hasCocoonWallet())
+  secureContractHandle(cocoonWalletExistsContract, () => hasCocoonWallet())
 
-  secureHandle(IPC_CHANNELS.COCOON_WALLET_CREATE, async () => {
+  secureContractHandle(cocoonWalletCreateContract, async () => {
     if (await hasCocoonWallet()) {
-      await retireTerminalWalletBeforeCreate(registry)
+      await retireTerminalWalletBeforeCreate(cocoonActivation)
     }
     const result = await generateCocoonWallet()
     // mnemonic is one-time visible; caller must back it up immediately.
     return { ownerAddress: result.ownerAddress, nodeAddress: result.nodeAddress, mnemonic: result.mnemonic }
   })
 
-  secureHandle(IPC_CHANNELS.COCOON_WALLET_INFO, () => getCocoonWalletInfo())
+  secureContractHandle(cocoonWalletInfoContract, () => getCocoonWalletInfo())
 
-  secureHandle(IPC_CHANNELS.COCOON_WALLET_EXPORT_MNEMONIC, () => exportCocoonMnemonic())
+  secureContractHandle(cocoonWalletExportMnemonicContract, () => exportCocoonMnemonic())
 
-  secureHandle(IPC_CHANNELS.COCOON_WALLET_DELETE, () => deleteCocoonWallet())
+  secureContractHandle(cocoonWalletDeleteContract, () => deleteCocoonWallet())
 
-  secureHandle(IPC_CHANNELS.COCOON_WALLET_MARK_SETUP_COMPLETE, () => markSetupComplete())
+  secureContractHandle(cocoonWalletMarkSetupCompleteContract, () => markSetupComplete())
 
   // ── Setup wizard ────────────────────────────────────────────────────────────
 
-  secureHandle(IPC_CHANNELS.COCOON_SETUP_OWNER_BALANCE, async () => {
-    const bridge = requireBridge(registry)
+  secureContractHandle(cocoonOwnerBalanceContract, async () => {
+    const bridge = requireBridge()
     const balance = await getOwnerBalance(bridge)
     return balance.toString() // bigint -> decimal string (IPC-safe)
   })
 
-  secureHandle(IPC_CHANNELS.COCOON_SETUP_COCOON_BALANCE, async () => {
-    const bridge = requireBridge(registry)
+  secureContractHandle(cocoonNodeBalanceContract, async () => {
+    const bridge = requireBridge()
     const balance = await getCocoonWalletBalance(bridge)
     return balance.toString()
   })
 
-  secureHandle(IPC_CHANNELS.COCOON_SETUP_FUND_COCOON, async (params: unknown) => {
-    const { amount } = FundCocoonParams.parse(params)
-    const bridge = requireBridge(registry)
+  secureContractHandle(cocoonFundContract, async ({ amount }) => {
+    const bridge = requireBridge()
     const amountArg: bigint | 'max' = amount === 'max' ? 'max' : BigInt(amount)
     const result = await fundCocoonFromOwner(bridge, amountArg)
     return {
@@ -155,19 +185,19 @@ export function registerCocoonHandlers(registry: ServiceRegistry): void {
 
   // ── Stake lifecycle (unstake / cashout) ─────────────────────────────────────
 
-  secureHandle(IPC_CHANNELS.COCOON_STAKE_INFO, async () => {
-    const bridge = requireBridge(registry)
-    return getStakeInfo(cocoonManager, bridge)
+  secureContractHandle(cocoonStakeInfoContract, async () => {
+    const bridge = requireBridge()
+    return getStakeInfo(cocoonManager, bridge, stakeCache)
   })
 
-  secureHandle(IPC_CHANNELS.COCOON_STAKE_UNSTAKE, async () => {
+  secureContractHandle(cocoonUnstakeContract, async () => {
     await unstake(cocoonManager)
-    return { success: true }
+    return { success: true as const }
   })
 
-  secureHandle(IPC_CHANNELS.COCOON_STAKE_CASHOUT, async () => {
-    const bridge = requireBridge(registry)
-    const native = requireNativeAddress(registry, 'cashout')
+  secureContractHandle(cocoonCashoutContract, async () => {
+    const bridge = requireBridge()
+    const native = requireNativeAddress('cashout')
     return cashout(cocoonManager, bridge, native)
   })
 
@@ -175,9 +205,9 @@ export function registerCocoonHandlers(registry: ServiceRegistry): void {
 
   // Activate Cocoon (rotation semantics + idempotent fast paths). All on-chain
   // orchestration lives in cocoon/activation.ts:flowStake.
-  secureHandle(IPC_CHANNELS.COCOON_FLOW_STAKE, async () => {
-    const { httpPort } = await flowStake(registry)
-    return { success: true, httpPort }
+  secureContractHandle(cocoonFlowStakeContract, async () => {
+    const { httpPort } = await flowStake(cocoonActivation)
+    return { success: true as const, httpPort }
   })
 
   /**
@@ -185,14 +215,14 @@ export function registerCocoonHandlers(registry: ServiceRegistry): void {
    * on-chain refund request, and lets the WithdrawDriver finish the work
    * (cooldown wait → claim refund → cashout). Returns immediately.
    */
-  secureHandle(IPC_CHANNELS.COCOON_FLOW_UNSTAKE, async () => {
+  secureContractHandle(cocoonFlowUnstakeContract, async () => {
     await startFullWithdraw(withdrawDriver, cocoonManager)
-    return { success: true }
+    return { success: true as const }
   })
 
   /** Surface the persistent intent flag so the renderer can render progress. */
-  secureHandle(IPC_CHANNELS.COCOON_FLOW_PENDING, async () => {
-    return getStakeCacheStore().getPendingWithdraw()
+  secureContractHandle(cocoonFlowPendingContract, async () => {
+    return stakeCache.getPendingWithdraw()
   })
 
   // ── Consumed-wallet archive ────────────────────────────────────────────────
@@ -201,8 +231,8 @@ export function registerCocoonHandlers(registry: ServiceRegistry): void {
    * List archived (consumed) cocoon wallets, oldest first.
    * Returns only public-safe fields — secrets stay on disk encrypted.
    */
-  secureHandle(IPC_CHANNELS.COCOON_ARCHIVE_LIST, async () => {
-    const all = await getConsumedArchive().list()
+  secureContractHandle(cocoonArchiveListContract, async () => {
+    const all = await consumedArchive.list()
     return all.map((e) => ({
       archivedAt: e.archivedAt,
       ownerAddress: e.ownerAddress,
@@ -215,9 +245,8 @@ export function registerCocoonHandlers(registry: ServiceRegistry): void {
    * Reveal the mnemonic of an archived wallet for backup / recovery display.
    * Caller is responsible for gating this behind a re-auth prompt.
    */
-  secureHandle(IPC_CHANNELS.COCOON_ARCHIVE_EXPORT_MNEMONIC, async (params: unknown) => {
-    const { archivedAt } = ArchivedAtParams.parse(params)
-    const entry = await getConsumedArchive().getByArchivedAt(archivedAt)
+  secureContractHandle(cocoonArchiveExportMnemonicContract, async ({ archivedAt }) => {
+    const entry = await consumedArchive.getByArchivedAt(archivedAt)
     if (!entry) throw new Error('Archive entry not found')
     return { mnemonic: entry.ownerMnemonic }
   })
@@ -233,14 +262,13 @@ export function registerCocoonHandlers(registry: ServiceRegistry): void {
    * Persists the entry in the recovery queue and triggers an immediate driver
    * tick. The driver autonomously progresses through cooldown → claim → drain.
    */
-  secureHandle(IPC_CHANNELS.COCOON_RECOVERY_ENQUEUE, async (params: unknown) => {
-    const { archivedAt, clientSCAddress } = RecoveryEnqueueParams.parse(params)
-    const archive = await getConsumedArchive().getByArchivedAt(archivedAt)
+  secureContractHandle(cocoonRecoveryEnqueueContract, async ({ archivedAt, clientSCAddress }) => {
+    const archive = await consumedArchive.getByArchivedAt(archivedAt)
     if (!archive) throw new Error('Archive entry not found')
 
-    const bridge = requireBridge(registry)
+    const bridge = requireBridge()
 
-    const native = requireNativeAddress(registry, 'enqueue recovery')
+    const native = requireNativeAddress('enqueue recovery')
 
     const result = await enqueueRecovery(recoveryDriver, {
       archivedAt,
@@ -249,19 +277,18 @@ export function registerCocoonHandlers(registry: ServiceRegistry): void {
       archive,
       nativeAddress: native,
     })
-    return { success: true, refundBocHash: result.refundBocHash }
+    return { success: true as const, refundBocHash: result.refundBocHash }
   })
 
   /** Read the recovery queue (oldest first). */
-  secureHandle(IPC_CHANNELS.COCOON_RECOVERY_LIST, async () => {
-    return getRecoveryQueueStore().list()
+  secureContractHandle(cocoonRecoveryListContract, async () => {
+    return recoveryQueue.list()
   })
 
   /** Manually remove a stuck queue entry. Use with care: stops the driver from working it. */
-  secureHandle(IPC_CHANNELS.COCOON_RECOVERY_REMOVE, async (params: unknown) => {
-    const { archivedAt } = ArchivedAtParams.parse(params)
-    await getRecoveryQueueStore().remove(archivedAt)
-    return { success: true }
+  secureContractHandle(cocoonRecoveryRemoveContract, async ({ archivedAt }) => {
+    await recoveryQueue.remove(archivedAt)
+    return { success: true as const }
   })
 
   /**
@@ -269,10 +296,10 @@ export function registerCocoonHandlers(registry: ServiceRegistry): void {
    * archived Cocoon wallet/client path, and only reports locked funds when the
    * on-chain client SC itself returns a future unlock timestamp.
    */
-  secureHandle(IPC_CHANNELS.COCOON_RECOVERY_ALL, async () => {
-    const bridge = requireBridge(registry)
-    const native = requireNativeAddress(registry, 'recover Cocoon funds')
-    return recoverAllCocoonFunds(cocoonManager, bridge, native)
+  secureContractHandle(cocoonRecoveryAllContract, async () => {
+    const bridge = requireBridge()
+    const native = requireNativeAddress('recover Cocoon funds')
+    return recoverAllCocoonFunds(cocoonManager, bridge, native, registry.cocoonPersistence)
   })
 }
 

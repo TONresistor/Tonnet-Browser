@@ -4,27 +4,12 @@
 
 import { ipcMain, IpcMainInvokeEvent } from 'electron'
 import { ipcErrorHandler } from '../error-handler'
-import { RateLimiter } from '../validation'
 import { createLogger } from '../../../shared/logger'
 import { getMainWindow } from '../../windows/main'
-import type { IpcEventMap } from '../../../shared/ipc-events'
+import type { IpcFailure } from '../../../shared/ipc-contract/failure'
+import type { IDisposable } from '../../utils/disposable'
 
 export const log = createLogger('ipc')
-
-// Lenient limits: 30 nav/sec, 10 storage ops/sec, 1 bridge restart per 30s, 5 XHR payments/sec
-export const navLimiter = new RateLimiter(30, 1000)
-export const storageLimiter = new RateLimiter(10, 1000)
-export const bridgeRestartLimiter = new RateLimiter(1, 30_000)
-export const payForXhrLimiter = new RateLimiter(5, 1000)
-
-/**
- * Send a message to the renderer process via the main window.
- * Replaces the pattern: const win = getMainWindow(); if (win) win.webContents.send(...)
- */
-export function emitToRenderer<K extends keyof IpcEventMap>(channel: K, ...args: IpcEventMap[K]): void {
-  const win = getMainWindow()
-  if (win) win.webContents.send(channel, ...args)
-}
 
 /**
  * Normalize an unknown value (typically a caught error or a rejected Promise
@@ -58,33 +43,49 @@ export function verifyIpcOrigin(event: IpcMainInvokeEvent): void {
  * Error envelope a secureHandle wrapper returns when its handler throws.
  * Renderer callers unwrap it via getIpcError (IPC error-envelope invariant).
  */
-export interface IpcErrorEnvelope {
-  success: false
-  error: string
+export class IpcBoundaryError extends Error {
+  constructor(
+    readonly code: string,
+    message: string,
+    readonly retryable: boolean,
+    readonly internalCause?: unknown
+  ) {
+    super(message)
+    this.name = 'IpcBoundaryError'
+  }
+}
+
+function toIpcFailure(reason: unknown): IpcFailure {
+  if (reason instanceof IpcBoundaryError) {
+    return { ok: false, error: { code: reason.code, message: reason.message, retryable: reason.retryable } }
+  }
+  return { ok: false, error: { code: 'IPC_INTERNAL_ERROR', message: 'Operation failed', retryable: false } }
+}
+
+function logBoundaryError(channel: string, reason: unknown): void {
+  const internal = reason instanceof IpcBoundaryError && reason.internalCause ? reason.internalCause : reason
+  ipcErrorHandler.logError(channel, toError(internal))
 }
 
 /**
  * Secure ipcMain.handle wrapper - verifies origin + catches errors + logs to IpcErrorHandler
  * All IPC handlers should use this to prevent calls from compromised WebContentsViews.
- * The registered response is `TResult` on success or an `IpcErrorEnvelope` on throw.
+ * The registered response is `TResult` on success or a stable `IpcFailure` on throw.
  */
 export function secureHandle<TArgs extends unknown[], TResult>(
   channel: string,
   handler: (...args: TArgs) => TResult | Promise<TResult>
-): void {
-  ipcMain.handle(
-    channel,
-    async (event: IpcMainInvokeEvent, ...args: unknown[]): Promise<TResult | IpcErrorEnvelope> => {
-      try {
-        verifyIpcOrigin(event)
-        return await handler(...(args as TArgs))
-      } catch (err) {
-        const error = toError(err)
-        ipcErrorHandler.logError(channel, error)
-        return { success: false, error: error.message }
-      }
+): IDisposable {
+  ipcMain.handle(channel, async (event: IpcMainInvokeEvent, ...args: unknown[]): Promise<TResult | IpcFailure> => {
+    try {
+      verifyIpcOrigin(event)
+      return await handler(...(args as TArgs))
+    } catch (err) {
+      logBoundaryError(channel, err)
+      return toIpcFailure(err)
     }
-  )
+  })
+  return { dispose: () => ipcMain.removeHandler(channel) }
 }
 
 /**
@@ -94,20 +95,35 @@ export function secureHandle<TArgs extends unknown[], TResult>(
 export function secureHandleWithEvent<TArgs extends unknown[], TResult>(
   channel: string,
   handler: (event: IpcMainInvokeEvent, ...args: TArgs) => TResult | Promise<TResult>
-): void {
-  ipcMain.handle(
-    channel,
-    async (event: IpcMainInvokeEvent, ...args: unknown[]): Promise<TResult | IpcErrorEnvelope> => {
-      try {
-        verifyIpcOrigin(event)
-        return await handler(event, ...(args as TArgs))
-      } catch (err) {
-        const error = toError(err)
-        ipcErrorHandler.logError(channel, error)
-        return { success: false, error: error.message }
-      }
+): IDisposable {
+  ipcMain.handle(channel, async (event: IpcMainInvokeEvent, ...args: unknown[]): Promise<TResult | IpcFailure> => {
+    try {
+      verifyIpcOrigin(event)
+      return await handler(event, ...(args as TArgs))
+    } catch (err) {
+      logBoundaryError(channel, err)
+      return toIpcFailure(err)
     }
-  )
+  })
+  return { dispose: () => ipcMain.removeHandler(channel) }
+}
+
+/** IPC adapter for a WebContentsView whose ownership is verified by its manager. */
+export function overlayHandle<TArgs extends unknown[], TResult>(
+  channel: string,
+  isAuthorized: (event: IpcMainInvokeEvent) => boolean,
+  handler: (event: IpcMainInvokeEvent, ...args: TArgs) => TResult | Promise<TResult>
+): IDisposable {
+  ipcMain.handle(channel, async (event: IpcMainInvokeEvent, ...args: unknown[]): Promise<TResult | IpcFailure> => {
+    try {
+      if (!isAuthorized(event)) throw new Error('Unauthorized: IPC call must originate from an owned overlay')
+      return await handler(event, ...(args as TArgs))
+    } catch (err) {
+      logBoundaryError(channel, err)
+      return toIpcFailure(err)
+    }
+  })
+  return { dispose: () => ipcMain.removeHandler(channel) }
 }
 
 /**
@@ -117,7 +133,7 @@ export function secureHandleWithEvent<TArgs extends unknown[], TResult>(
 export function tonsiteHandle<TArgs extends unknown[], TResult>(
   channel: string,
   handler: (domain: string, event: IpcMainInvokeEvent, ...args: TArgs) => TResult | Promise<TResult>
-): void {
+): IDisposable {
   ipcMain.handle(channel, async (event: IpcMainInvokeEvent, ...args: unknown[]) => {
     try {
       const mainWindow = getMainWindow()
@@ -134,9 +150,9 @@ export function tonsiteHandle<TArgs extends unknown[], TResult>(
       if (!hostname) hostname = 'local'
       return await handler(hostname, event, ...(args as TArgs))
     } catch (err) {
-      const error = toError(err)
-      ipcErrorHandler.logError(channel, error)
-      return { success: false, error: error.message }
+      logBoundaryError(channel, err)
+      return toIpcFailure(err)
     }
   })
+  return { dispose: () => ipcMain.removeHandler(channel) }
 }

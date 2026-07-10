@@ -1,4 +1,18 @@
-import { IPC_CHANNELS } from '../../../shared/ipc-channels'
+import {
+  chatClaimDomainContract,
+  chatClearDomainContract,
+  chatConnectContract,
+  chatCreateRoomContract,
+  chatDetectDomainsContract,
+  chatDisconnectContract,
+  chatDmMessageContract,
+  chatDmSendContract,
+  chatIdentityContract,
+  chatLinkIdentityContract,
+  chatMessageContract,
+  chatResetIdentityContract,
+  chatSendContract,
+} from '../../../shared/ipc-contract/chat'
 import { normalizeRoom, normalizeNodeId, overlayIdB64ForRoom, parseOverlayNodes, parseRoomName } from '../../chat/room'
 import { broadcastId, parseBroadcast, sealBroadcast, verifyBroadcast } from '../../chat/broadcast'
 import { verifyCertificate, CERT_MAX_SIZE } from '../../chat/cert'
@@ -12,24 +26,14 @@ import { ChatIdentityManager, type ChatProof } from '../../chat/identity'
 import type { OwnChatIdentity } from '../../../shared/types'
 import { ownedDomains } from '../../chat/detect'
 import { getSetting } from '../../settings'
-import { secureHandle, emitToRenderer, toError, log } from './shared'
-import type { WsBridgeClient } from '../../wallet/ws-bridge-client'
+import { toError, log } from './shared'
+import { secureContractHandle } from '../contract-handler'
+import { emitContractToRenderer } from '../../events/renderer-events'
+import type { MessengerBridgePort } from '../../ports/ton-bridge'
 import type { ServiceRegistry } from '../../services'
+import type { ChatRuntimeSession, ChatSessionController } from '../../chat/session-controller'
 
 type Via = 'node' | 'dht'
-
-interface ChatSession {
-  room: string
-  overlayId: string
-  via: Via
-  bootstrap?: string
-  peerId: string
-  gated: boolean
-  ownerKey?: Buffer
-  cert: Buffer | null
-  unsub: () => void
-  keepalive: NodeJS.Timeout
-}
 
 interface Candidate {
   adnl: string
@@ -39,27 +43,8 @@ interface Candidate {
 const RECV_DEDUP_CAP = 8192
 const GRANT_COOLDOWN_S = 60
 
-const recentGrants = new Map<string, number>()
-
-let session: ChatSession | null = null
-let connectChain: Promise<unknown> = Promise.resolve()
-
-async function teardownSession(bridge: WsBridgeClient | null): Promise<void> {
-  if (!session) return
-  const s = session
-  session = null
-  clearInterval(s.keepalive)
-  s.unsub()
-  if (bridge) await bridge.overlayLeaveAndDisconnect(s.overlayId, s.peerId).catch(() => {})
-  log.info(`chat: left room ${s.room}`)
-}
-
-export async function disconnectChatSession(bridge: WsBridgeClient | null): Promise<void> {
-  await teardownSession(bridge)
-}
-
 async function resolveCandidates(
-  bridge: WsBridgeClient,
+  bridge: MessengerBridgePort,
   room: string,
   overlayId: string,
   bootstrap?: string
@@ -110,7 +95,7 @@ function buildSigned(seed: Buffer, base: Omit<WireEnvelope, 'key' | 'sig'>, proo
 }
 
 async function sendEnvelope(
-  bridge: WsBridgeClient,
+  bridge: MessengerBridgePort,
   overlayId: string,
   env: WireEnvelope,
   seed: Buffer,
@@ -122,13 +107,14 @@ async function sendEnvelope(
 }
 
 async function announcePresence(
-  bridge: WsBridgeClient,
+  session: ChatRuntimeSession,
+  bridge: MessengerBridgePort,
   identity: ChatIdentityManager,
   membership: ChatMembership,
   seed: Buffer,
   room: string
 ): Promise<void> {
-  if (!session || session.room !== room) return
+  if (session.room !== room) return
   const attach = getSetting('messenger').attachWalletIdentity
   const [proof, domain] = attach ? await Promise.all([identity.currentProof(), identity.claimedDomain()]) : [null, null]
   if (session.gated && session.ownerKey && !session.cert) {
@@ -178,7 +164,9 @@ async function ownIdentityView(identity: ChatIdentityManager): Promise<OwnChatId
 }
 
 async function handleEnrollment(
-  bridge: WsBridgeClient,
+  session: ChatRuntimeSession,
+  recentGrants: Map<string, number>,
+  bridge: MessengerBridgePort,
   identity: ChatIdentityManager,
   membership: ChatMembership,
   seed: Buffer,
@@ -186,7 +174,7 @@ async function handleEnrollment(
   ownKey: string,
   env: WireEnvelope
 ): Promise<void> {
-  if (!session || session.room !== room || !session.ownerKey) return
+  if (session.room !== room || !session.ownerKey) return
 
   if (env.type === 'cert-req' && env.key) {
     const ownerHex = session.ownerKey.toString('hex')
@@ -227,18 +215,21 @@ async function handleEnrollment(
     await membership.storeCert(room, cert)
     session.cert = cert
     log.info(`chat: received membership certificate for ${room}`)
-    await announcePresence(bridge, identity, membership, seed, room).catch(() => {})
+    await announcePresence(session, bridge, identity, membership, seed, room).catch(() => {})
   }
 }
 
 async function connectRoom(
-  bridge: WsBridgeClient,
+  controller: ChatSessionController<ChatRuntimeSession>,
+  recentGrants: Map<string, number>,
+  bridge: MessengerBridgePort,
   identity: ChatIdentityManager,
   membership: ChatMembership,
   resolveDomain: ResolveFn,
   room: string,
-  bootstrap?: string
-): Promise<{ room: string; via: Via }> {
+  bootstrap: string | undefined,
+  markJoining: () => void
+): Promise<ChatRuntimeSession> {
   const parsed = parseRoomName(room)
   const overlayId = overlayIdB64ForRoom(room)
   const candidates = await resolveCandidates(bridge, room, overlayId, bootstrap)
@@ -248,6 +239,7 @@ async function connectRoom(
         `discoverable on the network. Paste a known node id to connect directly.`
     )
   }
+  markJoining()
 
   const seed = await identity.deviceSeed()
   const ownKey = await identity.devicePub()
@@ -282,7 +274,10 @@ async function connectRoom(
               log.warn(`chat: dropped enrollment message in ${room}: ${verdict.reason}`)
               return
             }
-            await handleEnrollment(bridge, identity, membership, seed, room, ownKey, env)
+            const activeSession = controller.session
+            if (activeSession) {
+              await handleEnrollment(activeSession, recentGrants, bridge, identity, membership, seed, room, ownKey, env)
+            }
             return
           }
           const isDm = env.type === 'dm'
@@ -313,7 +308,7 @@ async function connectRoom(
               log.warn(`chat: undecryptable dm from ${msgIdentity.addressShort}`)
               return
             }
-            emitToRenderer(IPC_CHANNELS.CHAT_DM_MESSAGE, {
+            emitContractToRenderer(chatDmMessageContract, {
               room,
               id: String(env.sig ?? '').slice(0, 32),
               peerKey: env.key as string,
@@ -323,7 +318,7 @@ async function connectRoom(
             })
             return
           }
-          emitToRenderer(IPC_CHANNELS.CHAT_MESSAGE, {
+          emitContractToRenderer(chatMessageContract, {
             room,
             id,
             nick: msgIdentity.name,
@@ -345,7 +340,7 @@ async function connectRoom(
         bridge.adnlPing(peerId).catch(() => {})
       }, 10_000)
 
-      session = {
+      const connectedSession: ChatRuntimeSession = {
         room,
         overlayId,
         via: cand.via,
@@ -354,16 +349,20 @@ async function connectRoom(
         gated: parsed.gated,
         ownerKey: parsed.ownerKey,
         cert: null,
-        unsub,
-        keepalive,
+        async dispose() {
+          clearInterval(keepalive)
+          unsub()
+          await bridge.overlayLeaveAndDisconnect(overlayId, peerId).catch(() => {})
+          log.info(`chat: left room ${room}`)
+        },
       }
 
-      announcePresence(bridge, identity, membership, seed, room).catch((err) =>
+      announcePresence(connectedSession, bridge, identity, membership, seed, room).catch((err) =>
         log.warn(`chat: presence announce failed (will register on first send): ${toError(err).message}`)
       )
 
       log.info(`chat: joined room ${room} via ${cand.via} (${candidates.length} candidate node(s))`)
-      return { room, via: cand.via }
+      return connectedSession
     } catch (err) {
       unsub()
       lastErr = toError(err)
@@ -374,41 +373,40 @@ async function connectRoom(
 }
 
 export function registerChatHandlers(registry: ServiceRegistry): void {
-  const { walletManager } = registry
+  const { walletManager, chatSessionController } = registry
   const identity = new ChatIdentityManager(walletManager)
   const membership = new ChatMembership()
+  const recentGrants = new Map<string, number>()
 
-  secureHandle(IPC_CHANNELS.CHAT_CONNECT, async (roomArg?: string, nodeArg?: string) => {
+  secureContractHandle(chatConnectContract, async (roomArg?: string, nodeArg?: string) => {
     const room = normalizeRoom(roomArg)
     const bootstrap = normalizeNodeId(nodeArg)
 
-    const run = connectChain
-      .catch(() => {})
-      .then(async () => {
-        if (!getSetting('messenger').networkEnabled) {
-          throw new Error('Messenger is experimental and disabled. Enable Messenger to join rooms.')
-        }
-        const bridge = walletManager.getBridgeClient()
-        if (!bridge) throw new Error('Bridge not connected. Connect the proxy first')
+    const connected = await chatSessionController.connect(room, async ({ markJoining }) => {
+      if (!getSetting('messenger').networkEnabled) {
+        throw new Error('Messenger is experimental and disabled. Enable Messenger to join rooms.')
+      }
+      const bridge = walletManager.getMessengerBridge()
+      if (!bridge) throw new Error('Bridge not connected. Connect the proxy first')
 
-        if (session) await teardownSession(bridge)
-
-        const { via } = await connectRoom(
-          bridge,
-          identity,
-          membership,
-          (d) => walletManager.resolveDomain(d),
-          room,
-          bootstrap
-        )
-        return { connected: true, room, via }
-      })
-    connectChain = run
-    return run
+      return connectRoom(
+        chatSessionController,
+        recentGrants,
+        bridge,
+        identity,
+        membership,
+        (d) => walletManager.resolveDomain(d),
+        room,
+        bootstrap,
+        markJoining
+      )
+    })
+    return { connected: true as const, room: connected.room, via: connected.via }
   })
 
-  secureHandle(IPC_CHANNELS.CHAT_SEND, async (text: string) => {
-    const bridge = walletManager.getBridgeClient()
+  secureContractHandle(chatSendContract, async (text) => {
+    const bridge = walletManager.getMessengerBridge()
+    const session = chatSessionController.session
     if (!bridge || !session) throw new Error('Chat not connected')
     if (session.gated && !session.cert) {
       return { sent: false, pendingMembership: true, identity: await ownIdentityView(identity) }
@@ -432,15 +430,16 @@ export function registerChatHandlers(registry: ServiceRegistry): void {
     return { sent: true, identity: await ownIdentityView(identity) }
   })
 
-  secureHandle(IPC_CHANNELS.CHAT_CREATE_ROOM, async (displayArg: string) => {
+  secureContractHandle(chatCreateRoomContract, async (displayArg) => {
     const display = normalizeRoom(displayArg)
     if (display.includes('#')) throw new Error('room name must not contain "#"')
     const full = await membership.createGatedRoom(display)
     return { room: full }
   })
 
-  secureHandle(IPC_CHANNELS.CHAT_DM_SEND, async (peerKeyArg: string, text: string) => {
-    const bridge = walletManager.getBridgeClient()
+  secureContractHandle(chatDmSendContract, async (peerKeyArg, text) => {
+    const bridge = walletManager.getMessengerBridge()
+    const session = chatSessionController.session
     if (!bridge || !session) throw new Error('Chat not connected')
     const peerKey = String(peerKeyArg ?? '').toLowerCase()
     if (!/^[0-9a-f]{64}$/.test(peerKey)) throw new Error('Bad recipient key')
@@ -471,26 +470,26 @@ export function registerChatHandlers(registry: ServiceRegistry): void {
     return { sent: true, id: String(env.sig ?? '').slice(0, 32), ts: env.ts, identity: await ownIdentityView(identity) }
   })
 
-  secureHandle(IPC_CHANNELS.CHAT_IDENTITY, async () => {
+  secureContractHandle(chatIdentityContract, async () => {
     return ownIdentityView(identity)
   })
 
-  secureHandle(IPC_CHANNELS.CHAT_IDENTITY_LINK, async () => {
+  secureContractHandle(chatLinkIdentityContract, async () => {
     await identity.relink()
     return ownIdentityView(identity)
   })
 
-  secureHandle(IPC_CHANNELS.CHAT_CLAIM_DOMAIN, async (domain: string) => {
+  secureContractHandle(chatClaimDomainContract, async (domain) => {
     const res = await identity.claimDomain(String(domain ?? ''))
     return { ...res, identity: await ownIdentityView(identity) }
   })
 
-  secureHandle(IPC_CHANNELS.CHAT_CLEAR_DOMAIN, async () => {
+  secureContractHandle(chatClearDomainContract, async () => {
     await identity.clearDomain()
     return ownIdentityView(identity)
   })
 
-  secureHandle(IPC_CHANNELS.CHAT_DETECT_DOMAINS, async () => {
+  secureContractHandle(chatDetectDomainsContract, async () => {
     const own = await identity.ownIdentity()
     if (!own.address) return { domains: [] }
     const wallet = getSetting('wallet')
@@ -502,15 +501,15 @@ export function registerChatHandlers(registry: ServiceRegistry): void {
     }
   })
 
-  secureHandle(IPC_CHANNELS.CHAT_RESET_IDENTITY, async () => {
-    await teardownSession(walletManager.getBridgeClient())
+  secureContractHandle(chatResetIdentityContract, async () => {
+    await chatSessionController.disconnect()
     await identity.resetIdentity()
     await membership.clear()
     return ownIdentityView(identity)
   })
 
-  secureHandle(IPC_CHANNELS.CHAT_DISCONNECT, async () => {
-    await teardownSession(walletManager.getBridgeClient())
-    return { disconnected: true }
+  secureContractHandle(chatDisconnectContract, async () => {
+    await chatSessionController.disconnect()
+    return { disconnected: true as const }
   })
 }

@@ -1,24 +1,25 @@
-import { IPC_CHANNELS } from '../../../shared/ipc-channels'
-import { secureHandle, tonsiteHandle, log } from './shared'
+import { log } from './shared'
 import type { ServiceRegistry } from '../../services'
+import {
+  tonConnectDisconnectSessionContract,
+  tonConnectGetSessionsContract,
+  tonConnectRequestContract,
+} from '../../../shared/ipc-contract/tonconnect'
+import { secureContractHandle, tonsiteContractHandle } from '../contract-handler'
 
 export function registerTonConnectHandlers(registry: ServiceRegistry): void {
   const { tonConnectService } = registry
 
-  tonsiteHandle(IPC_CHANNELS.TONCONNECT_REQUEST, async (domain, event, payload: unknown) => {
-    return tonConnectService.handleRequest(
-      domain,
-      event,
-      payload as Parameters<typeof tonConnectService.handleRequest>[2]
-    )
+  tonsiteContractHandle(tonConnectRequestContract, async (domain, event, payload) => {
+    return tonConnectService.handleRequest(domain, event, payload)
   })
 
-  secureHandle(IPC_CHANNELS.TONCONNECT_GET_SESSIONS, () => {
+  secureContractHandle(tonConnectGetSessionsContract, () => {
     return tonConnectService.getSessions()
   })
 
-  secureHandle(IPC_CHANNELS.TONCONNECT_DISCONNECT_SESSION, (domain: string) => {
-    tonConnectService.disconnectSession(domain)
+  secureContractHandle(tonConnectDisconnectSessionContract, async (domain) => {
+    await tonConnectService.disconnectSession(domain)
     return { success: true }
   })
 

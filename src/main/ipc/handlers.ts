@@ -23,38 +23,43 @@ import {
   registerCocoonHandlers,
   registerChatHandlers,
 } from './handlers/index'
+import { withIpcRegistrationScope } from './contract-handler'
+import { initUpdater } from '../updater'
 
-// Re-export for use by other modules (e.g. updater.ts, payment-interceptor.ts)
-export { secureHandle, emitToRenderer } from './handlers/shared'
+// Re-export for use by other modules.
+export { secureHandle } from './handlers/shared'
 
 // Guard to prevent multiple listener registrations
-let handlersRegistered = false
+let registeredScopes = new WeakSet<object>()
 
 // Test-only: reset the guard to allow re-registration in tests
 export function _resetHandlersForTesting(): void {
-  handlersRegistered = false
+  registeredScopes = new WeakSet<object>()
 }
 
 export function registerIpcHandlers(registry: ServiceRegistry): void {
   // Prevent duplicate listener registration (causes memory leaks)
-  if (handlersRegistered) {
+  if (registeredScopes.has(registry.ipcRegistrations)) {
     log.warn('Handlers already registered, skipping duplicate registration')
     return
   }
-  handlersRegistered = true
+  registeredScopes.add(registry.ipcRegistrations)
 
-  registerProxyHandlers(registry)
-  registerTabsHandlers()
-  registerViewsHandlers(registry)
-  registerNavigationHandlers()
-  registerStorageHandlers(registry)
-  registerBookmarkHandlers()
-  registerWindowHandlers()
-  registerSettingsHandlers(registry)
-  registerHistoryHandlers(registry)
-  registerWalletHandlers(registry)
-  registerBridgeHandlers(registry)
-  registerTonConnectHandlers(registry)
-  registerCocoonHandlers(registry)
-  registerChatHandlers(registry)
+  withIpcRegistrationScope(registry.ipcRegistrations, () => {
+    registerProxyHandlers(registry)
+    registerTabsHandlers(registry.tabManager)
+    registerViewsHandlers(registry)
+    registerNavigationHandlers(registry.tabManager)
+    registerStorageHandlers(registry)
+    registerBookmarkHandlers()
+    registerWindowHandlers(registry)
+    registerSettingsHandlers(registry)
+    registerHistoryHandlers(registry)
+    registerWalletHandlers(registry)
+    registerBridgeHandlers(registry)
+    registerTonConnectHandlers(registry)
+    registerCocoonHandlers(registry)
+    registerChatHandlers(registry)
+    initUpdater()
+  })
 }

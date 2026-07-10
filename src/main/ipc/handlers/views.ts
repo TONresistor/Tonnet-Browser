@@ -2,70 +2,65 @@
  * IPC handlers for view visibility management.
  */
 
-import { ipcMain, IpcMainInvokeEvent } from 'electron'
-import { IPC_CHANNELS } from '../../../shared/ipc-channels'
-import { secureHandle, emitToRenderer, log } from './shared'
-import { hideAllViews, showActiveView } from '../../windows/tabs'
+import { emitContractToRenderer } from '../../events/renderer-events'
 import type { ServiceRegistry } from '../../services'
+import { viewHideContract, viewShowContract } from '../../../shared/ipc-contract/browsing'
+import { overlayContractHandle, secureContractHandle } from '../contract-handler'
+import {
+  overlayHideAllContract,
+  overlayHideContract,
+  overlayShowContract,
+  overlayUpdateBoundsContract,
+  overlayActionEventContract,
+  overlayActionRequestContract,
+} from '../../../shared/ipc-contract/overlay'
 
 export function registerViewsHandlers(registry: ServiceRegistry): void {
   const { overlayManager } = registry
 
   // Overlay action forwarding (from overlay views to main renderer)
-  // Cannot use secureHandle because sender is an overlay WebContentsView, not main window
-  ipcMain.handle(IPC_CHANNELS.OVERLAY_ACTION, (event: IpcMainInvokeEvent, actionType: string, actionData: unknown) => {
-    if (!overlayManager.isOverlayView(event.sender)) {
-      log.error('Unauthorized overlay:action from non-overlay sender')
-      return
-    }
-    // Try main-process handler first (for context menus that execute webContents methods)
-    if (overlayManager.handleAction(event.sender, actionType, actionData)) {
-      return
-    }
-    // Fall back to forwarding to renderer
-    const overlayId = overlayManager.getOverlayId(event.sender)
-    if (overlayId) {
-      emitToRenderer(IPC_CHANNELS.OVERLAY_ACTION, overlayId, actionType, actionData)
-    }
-  })
-  secureHandle(IPC_CHANNELS.VIEW_HIDE, () => {
-    hideAllViews()
-    return { success: true }
-  })
-
-  secureHandle(IPC_CHANNELS.VIEW_SHOW, () => {
-    showActiveView()
-    return { success: true }
-  })
-
-  secureHandle(
-    IPC_CHANNELS.OVERLAY_SHOW,
-    (
-      id: string,
-      bounds: { x: number; y: number; width: number; height: number },
-      content: { type: string; [key: string]: unknown },
-      options?: { autoDismiss?: boolean }
-    ) => {
-      overlayManager.show(id, bounds, content, undefined, options)
-      return { success: true }
+  overlayContractHandle(
+    overlayActionRequestContract,
+    (event) => overlayManager.isOverlayView(event.sender),
+    (event, actionType, actionData) => {
+      // Try main-process handler first (for context menus that execute webContents methods)
+      if (overlayManager.handleAction(event.sender, actionType, actionData)) {
+        return
+      }
+      // Fall back to forwarding to renderer
+      const overlayId = overlayManager.getOverlayId(event.sender)
+      if (overlayId) {
+        emitContractToRenderer(overlayActionEventContract, overlayId, actionType, actionData)
+      }
     }
   )
+  secureContractHandle(viewHideContract, () => {
+    registry.tabManager.hideAllViews()
+    return { success: true }
+  })
 
-  secureHandle(IPC_CHANNELS.OVERLAY_HIDE, (id: string) => {
+  secureContractHandle(viewShowContract, () => {
+    registry.tabManager.showActiveView()
+    return { success: true }
+  })
+
+  secureContractHandle(overlayShowContract, (id, bounds, content, options?: { autoDismiss?: boolean }) => {
+    overlayManager.show(id, bounds, content, undefined, options)
+    return { success: true as const }
+  })
+
+  secureContractHandle(overlayHideContract, (id) => {
     overlayManager.hide(id)
-    return { success: true }
+    return { success: true as const }
   })
 
-  secureHandle(IPC_CHANNELS.OVERLAY_HIDE_ALL, () => {
+  secureContractHandle(overlayHideAllContract, () => {
     overlayManager.hideAll()
-    return { success: true }
+    return { success: true as const }
   })
 
-  secureHandle(
-    IPC_CHANNELS.OVERLAY_UPDATE_BOUNDS,
-    (id: string, bounds: { x: number; y: number; width: number; height: number }) => {
-      overlayManager.updateBounds(id, bounds)
-      return { success: true }
-    }
-  )
+  secureContractHandle(overlayUpdateBoundsContract, (id, bounds) => {
+    overlayManager.updateBounds(id, bounds)
+    return { success: true as const }
+  })
 }

@@ -2,69 +2,71 @@
  * IPC handlers for wallet operations.
  */
 
-import { IPC_CHANNELS } from '../../../shared/ipc-channels'
-import { WALLET_MAX_COMMENT_BYTES } from '../../../shared/constants'
 import type { WalletState, WalletTransaction } from '../../../shared/types'
-import { secureHandle, tonsiteHandle, emitToRenderer, payForXhrLimiter, toError, log } from './shared'
-import { getStorageBagForDomain } from '../../windows/tabs-storage'
+import { toError, log } from './shared'
+import { emitContractToRenderer } from '../../events/renderer-events'
 import { getMainWindow } from '../../windows/main'
 import { WALLET_HISTORY_DEFAULT_LIMIT } from '../../wallet/constants'
 import { fetchHistoryViaIndexer } from '../../wallet/indexer-client'
 import { getSetting } from '../../settings'
 import type { ServiceRegistry } from '../../services'
+import {
+  walletBalanceUpdatedContract,
+  walletGetStateContract,
+  walletNewTransactionContract,
+  walletStateChangedContract,
+  walletApprovePaymentContract,
+  walletClearHistoryContract,
+  walletCreateContract,
+  walletDeleteContract,
+  walletExportKeyContract,
+  walletExportMnemonicContract,
+  walletGetBalanceContract,
+  walletGetHistoryContract,
+  walletImportContract,
+  walletPayForXhrContract,
+  walletRejectPaymentContract,
+  walletResolveRecipientContract,
+  walletSendContract,
+  dnsResolveContract,
+} from '../../../shared/ipc-contract/wallet'
+import { ipcFailure, ownIpcEmitterListener, secureContractHandle, tonsiteContractHandle } from '../contract-handler'
 
 export function registerWalletHandlers(registry: ServiceRegistry): void {
   const { walletManager, walletHistoryManager, paymentInterceptor, overlayManager, tonConnectService } = registry
 
-  walletManager.on('balance-updated', (balance: string) => {
-    emitToRenderer(IPC_CHANNELS.WALLET_BALANCE_UPDATED, balance)
+  ownIpcEmitterListener(walletManager, 'balance-updated', (balance: string) => {
+    emitContractToRenderer(walletBalanceUpdatedContract, balance)
   })
 
-  walletManager.on('state-changed', (state: WalletState) => {
-    emitToRenderer(IPC_CHANNELS.WALLET_STATE_CHANGED, state)
+  ownIpcEmitterListener(walletManager, 'state-changed', (state: WalletState) => {
+    emitContractToRenderer(walletStateChangedContract, state)
   })
 
-  walletManager.on('new-transaction', (tx: WalletTransaction) => {
-    emitToRenderer(IPC_CHANNELS.WALLET_NEW_TRANSACTION, tx)
+  ownIpcEmitterListener(walletManager, 'new-transaction', (tx: WalletTransaction) => {
+    emitContractToRenderer(walletNewTransactionContract, tx)
     void walletHistoryManager.reconcile([tx]).catch((err) => {
       log.warn(`Failed to cache live transaction: ${toError(err).message}`)
     })
   })
 
-  secureHandle(IPC_CHANNELS.WALLET_CREATE, async () => {
+  secureContractHandle(walletCreateContract, async () => {
     return await walletManager.create()
   })
 
-  secureHandle(IPC_CHANNELS.WALLET_GET_STATE, () => {
+  secureContractHandle(walletGetStateContract, () => {
     return walletManager.getState()
   })
 
-  secureHandle(IPC_CHANNELS.WALLET_GET_BALANCE, async () => {
+  secureContractHandle(walletGetBalanceContract, async () => {
     return await walletManager.getBalance()
   })
 
-  secureHandle(IPC_CHANNELS.WALLET_RESOLVE_RECIPIENT, async (input: string) => {
-    if (!input || typeof input !== 'string') {
-      throw new Error('Invalid input')
-    }
+  secureContractHandle(walletResolveRecipientContract, async (input) => {
     return await walletManager.resolveRecipient(input)
   })
 
-  secureHandle(IPC_CHANNELS.WALLET_SEND, async (to: string, amount: string, comment?: string) => {
-    if (!to || typeof to !== 'string') {
-      throw new Error('Invalid recipient address')
-    }
-    if (!amount || typeof amount !== 'string' || !/^\d+$/.test(amount)) {
-      throw new Error('Invalid amount: must be a string of digits (nanoTON)')
-    }
-    if (comment !== undefined) {
-      if (typeof comment !== 'string') {
-        throw new Error('Invalid comment')
-      }
-      if (Buffer.byteLength(comment, 'utf8') > WALLET_MAX_COMMENT_BYTES) {
-        throw new Error('Comment too long')
-      }
-    }
+  secureContractHandle(walletSendContract, async (to, amount, comment?: string) => {
     const resolved = await walletManager.resolveRecipient(to)
     // Balance check: prevent sending more than available
     const balance = await walletManager.getBalance()
@@ -76,7 +78,7 @@ export function registerWalletHandlers(registry: ServiceRegistry): void {
     return tx
   })
 
-  secureHandle(IPC_CHANNELS.WALLET_GET_HISTORY, async (limit?: number) => {
+  secureContractHandle(walletGetHistoryContract, async (limit?: number) => {
     const safeLimit = typeof limit === 'number' && limit > 0 ? limit : WALLET_HISTORY_DEFAULT_LIMIT
     try {
       const onChain = await walletManager.fetchOnChainHistory(safeLimit)
@@ -108,12 +110,12 @@ export function registerWalletHandlers(registry: ServiceRegistry): void {
     }
   })
 
-  secureHandle(IPC_CHANNELS.WALLET_CLEAR_HISTORY, async () => {
+  secureContractHandle(walletClearHistoryContract, async () => {
     await walletHistoryManager.clear()
-    return { success: true }
+    return { success: true as const }
   })
 
-  secureHandle(IPC_CHANNELS.WALLET_EXPORT_KEY, () => {
+  secureContractHandle(walletExportKeyContract, () => {
     const state = walletManager.getState()
     if (!state.isCreated) {
       throw new Error('No wallet exists')
@@ -122,66 +124,50 @@ export function registerWalletHandlers(registry: ServiceRegistry): void {
     return { publicKey: state.publicKey, address: state.address, addressRaw: state.addressRaw }
   })
 
-  secureHandle(IPC_CHANNELS.WALLET_APPROVE_PAYMENT, async (paymentId: string) => {
-    if (!paymentId || typeof paymentId !== 'string') {
-      throw new Error('Invalid payment ID')
-    }
+  secureContractHandle(walletApprovePaymentContract, async (paymentId) => {
     await paymentInterceptor.approvePayment(paymentId)
-    return { success: true }
+    return { success: true as const }
   })
 
-  secureHandle(IPC_CHANNELS.WALLET_REJECT_PAYMENT, (paymentId: string) => {
-    if (!paymentId || typeof paymentId !== 'string') {
-      throw new Error('Invalid payment ID')
-    }
+  secureContractHandle(walletRejectPaymentContract, (paymentId) => {
     paymentInterceptor.rejectPayment(paymentId)
-    return { success: true }
+    return { success: true as const }
   })
 
-  tonsiteHandle(IPC_CHANNELS.WALLET_PAY_FOR_XHR, async (_domain, event, payload: unknown) => {
-    if (!payForXhrLimiter.check()) {
-      return { success: false, error: 'rate-limit' }
-    }
-    if (!payload || typeof payload !== 'object') {
-      return { success: false, error: 'invalid-url' }
-    }
-    const { url } = payload as { url: unknown }
-    if (!url || typeof url !== 'string') {
-      return { success: false, error: 'invalid-url' }
-    }
+  tonsiteContractHandle(walletPayForXhrContract, async (_domain, event, payload) => {
+    const { url } = payload
     const sender = event.sender
     try {
       const reqOrigin = new URL(url).origin
       const pageOrigin = new URL(sender.getURL()).origin
       if (reqOrigin !== pageOrigin) {
-        return { success: false, error: 'cross-origin' }
+        ipcFailure('CROSS_ORIGIN', 'Payment URL must match the page origin')
       }
       log.debug(`pay-for-xhr origin: ${reqOrigin}`)
     } catch {
-      return { success: false, error: 'invalid-url' }
+      ipcFailure('INVALID_URL', 'Invalid payment URL')
     }
-    return await paymentInterceptor.requestXhrPayment(sender.id, url)
+    const result = await paymentInterceptor.requestXhrPayment(sender.id, url)
+    if (!result.success) ipcFailure('PAYMENT_FAILED', 'Payment could not be completed', false, result.error)
+    return { success: true as const }
   })
 
-  secureHandle(IPC_CHANNELS.WALLET_IMPORT, async (mnemonic: string[]) => {
-    if (!Array.isArray(mnemonic) || mnemonic.length !== 24) {
-      throw new Error('Invalid mnemonic: must be 24 words')
-    }
+  secureContractHandle(walletImportContract, async (mnemonic) => {
     return await walletManager.importWallet(mnemonic)
   })
 
-  secureHandle(IPC_CHANNELS.WALLET_DELETE, async () => {
+  secureContractHandle(walletDeleteContract, async () => {
     const state = walletManager.getState()
     if (!state.isCreated && !state.decryptFailed) {
       throw new Error('No wallet to delete')
     }
     const result = await walletManager.deleteWallet()
     await walletHistoryManager.clear()
-    tonConnectService.clearSessions()
+    await tonConnectService.clearSessions()
     return result
   })
 
-  secureHandle(IPC_CHANNELS.WALLET_EXPORT_MNEMONIC, async () => {
+  secureContractHandle(walletExportMnemonicContract, async () => {
     const confirmed = await new Promise<boolean>((resolve) => {
       const win = getMainWindow()
       if (!win) {
@@ -229,17 +215,14 @@ export function registerWalletHandlers(registry: ServiceRegistry): void {
     return await walletManager.exportMnemonic()
   })
 
-  secureHandle(IPC_CHANNELS.DNS_RESOLVE, async (domain: string) => {
-    if (!domain || typeof domain !== 'string') {
-      throw new Error('Invalid domain')
-    }
+  secureContractHandle(dnsResolveContract, async (domain) => {
     const result = await walletManager.resolveDomain(domain)
 
     // Enrich with storage bag ID if the proxy has already discovered it for this domain
     // (discovered via log parsing when serving .ton sites that use TON Storage).
     // This gives us the real bag ID from the contract/proxy without extra on-chain queries.
     if (result.has_storage && !result.storage_bag_id) {
-      const knownBag = getStorageBagForDomain(domain.toLowerCase())
+      const knownBag = registry.tabManager.storage.storageBagCache.get(domain.toLowerCase())
       if (knownBag) {
         result.storage_bag_id = knownBag
       }

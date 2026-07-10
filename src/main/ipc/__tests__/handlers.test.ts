@@ -5,6 +5,20 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { EventEmitter } from 'events'
 
+const tabsMocks = vi.hoisted(() => ({
+  createTab: vi.fn(() => Promise.resolve(true)),
+  closeTab: vi.fn(() => true),
+  switchTab: vi.fn(() => true),
+  getActiveView: vi.fn(),
+  hideAllViews: vi.fn(),
+  showActiveView: vi.fn(),
+  navigateInTab: vi.fn(() => Promise.resolve(true)),
+  loadBagFile: vi.fn(() => Promise.resolve()),
+  getActiveTabId: vi.fn(() => 'tab-1'),
+}))
+const { createTab, closeTab, switchTab, getActiveView, hideAllViews, showActiveView, navigateInTab, getActiveTabId } =
+  tabsMocks
+
 // Store mock handlers
 const mockHandlers = new Map<string, (...args: any[]) => any>()
 
@@ -18,7 +32,7 @@ vi.mock('electron', () => ({
       mockHandlers.set(channel, handler)
     },
     on: vi.fn(),
-    removeHandler: vi.fn(),
+    removeHandler: vi.fn((channel: string) => mockHandlers.delete(channel)),
   },
   BrowserWindow: vi.fn(),
   session: {
@@ -84,18 +98,8 @@ vi.mock('../../windows/main', () => ({
 
 // Mock tabs
 vi.mock('../../windows/tabs', () => ({
-  initTabManager: vi.fn(),
-  createTab: vi.fn(() => Promise.resolve(true)),
-  closeTab: vi.fn(() => true),
-  switchTab: vi.fn(() => true),
-  getActiveView: vi.fn(),
-  hideAllViews: vi.fn(),
-  showActiveView: vi.fn(),
-  navigateInTab: vi.fn(() => Promise.resolve(true)),
-  getActiveTabId: vi.fn(() => 'tab-1'),
-  onPrivacySettingsChanged: vi.fn(),
-  onAppearanceSettingsChanged: vi.fn(),
-  updateSidebarWidth: vi.fn(),
+  TabManager: vi.fn(),
+  fileBrowserCache: new Map(),
 }))
 
 // Mock content filter manager
@@ -124,17 +128,7 @@ vi.mock('../../history/manager', () => ({
   HistoryMode: { MEMORY: 'memory', PERSISTENT: 'persistent' },
 }))
 
-// Mock IPC error handler - wraps handler with try/catch like the real implementation
 vi.mock('../error-handler', () => ({
-  handleWithErrors: (channel: string, handler: (...args: any[]) => any) => {
-    mockHandlers.set(channel, async (...args: any[]) => {
-      try {
-        return await handler(...args)
-      } catch (err: any) {
-        return { success: false, error: err.message || 'Unknown error' }
-      }
-    })
-  },
   ipcErrorHandler: {
     logError: vi.fn(),
   },
@@ -228,21 +222,14 @@ vi.mock('../../cocoon/platform', () => ({
 import { registerIpcHandlers, _resetHandlersForTesting } from '../handlers'
 import { IPC_CHANNELS } from '../../../shared/ipc-channels'
 import { setSetting, resetSettings, getSetting } from '../../settings'
-import { createTab, closeTab, switchTab, navigateInTab } from '../../windows/tabs'
 import type { ServiceRegistry } from '../../services'
+import { DisposableStore } from '../../utils/disposable'
 import { overlayIdB64ForRoom } from '../../chat/room'
 import { sealBroadcast } from '../../chat/broadcast'
 import { marshalEnvelope, signEnvelope } from '../../chat/envelope'
-import {
-  hasCocoonWallet,
-  generateCocoonWallet,
-  getCocoonWalletInfo,
-  exportCocoonMnemonic,
-  deleteCocoonWallet,
-  loadCocoonWallet,
-  markSetupComplete,
-} from '../../cocoon/wallet'
+import { generateCocoonWallet, loadCocoonWallet, markSetupComplete } from '../../cocoon/wallet'
 import { getOwnerBalance, getCocoonWalletBalance, fundCocoonFromOwner } from '../../cocoon/setup'
+import { ChatSessionController } from '../../chat/session-controller'
 
 // Build mock service registry from the mock emitters
 const mockProxyManager = (() => {
@@ -286,16 +273,21 @@ const mockStorageManager = (() => {
 
 function createMockRegistry(): ServiceRegistry {
   return {
+    ipcRegistrations: new DisposableStore(),
+    lifecycleRegistrations: new DisposableStore(),
     secureStorage: { isAvailable: () => false, encrypt: vi.fn(), decrypt: vi.fn(), getBackendName: () => 'mock' },
     proxyManager: mockProxyManager as any,
     storageManager: mockStorageManager as any,
-    walletManager: {
-      on: vi.fn(),
-      getState: vi.fn(() => ({ isCreated: false })),
-      setAutoLockMinutes: vi.fn(),
-      getBridgeClient: vi.fn(() => null),
-      fetchOnChainHistory: vi.fn(() => []),
-    } as any,
+    walletManager: (() => {
+      const emitter = new EventEmitter()
+      return Object.assign(emitter, {
+        getState: vi.fn(() => ({ isCreated: false })),
+        setAutoLockMinutes: vi.fn(),
+        getTonBridge: vi.fn(() => null),
+        getMessengerBridge: vi.fn(() => null),
+        fetchOnChainHistory: vi.fn(() => []),
+      })
+    })() as any,
     walletHistoryManager: {
       add: vi.fn(),
       getAll: vi.fn(() => []),
@@ -375,6 +367,46 @@ function createMockRegistry(): ServiceRegistry {
         emit: emitter.emit.bind(emitter),
       })
     })() as any,
+    tabManager: {
+      sessions: {
+        getAllSessions: vi.fn(() => []),
+        onPrivacySettingsChanged: vi.fn(),
+      },
+      storage: {
+        storageManager: mockStorageManager,
+        storageBagCache: new Map(),
+        storageBrowserLoading: new Set(),
+        fileBrowserCache: new Map(),
+      },
+      createTab,
+      closeTab,
+      switchTab,
+      navigateInTab,
+      getActiveView,
+      getActiveTabId,
+      hideAllViews,
+      showActiveView,
+      loadBagFile: tabsMocks.loadBagFile,
+      updateSidebarWidth: vi.fn(),
+      updateWalletSidebarWidth: vi.fn(),
+      onAppearanceSettingsChanged: vi.fn(),
+      initialize: vi.fn(),
+      dispose: vi.fn(),
+    } as any,
+    chatSessionController: new ChatSessionController() as any,
+    cocoonPersistence: {
+      stakeCache: { getPendingWithdraw: vi.fn(() => Promise.resolve(null)) },
+      consumedArchive: { list: vi.fn(() => Promise.resolve([])), getByArchivedAt: vi.fn(() => Promise.resolve(null)) },
+      recoveryQueue: { list: vi.fn(() => Promise.resolve([])), remove: vi.fn(() => Promise.resolve()) },
+    } as any,
+    cocoonActivation: {
+      cocoonManager: null as any,
+      getBridge: vi.fn(() => null),
+      getNativeAddress: vi.fn(() => null),
+      getNativeBalance: vi.fn(() => Promise.resolve('0')),
+      sendNative: vi.fn(() => Promise.resolve()),
+      persistence: null as any,
+    },
   }
 }
 
@@ -404,6 +436,26 @@ function resetHandlersTestEnv(): void {
 describe('IPC Handlers', () => {
   beforeEach(resetHandlersTestEnv)
 
+  it('owns every handler and push listener in a disposable registration scope', () => {
+    const handlerCount = mockHandlers.size
+    expect(handlerCount).toBeGreaterThan(0)
+    expect(mockProxyManager.listenerCount('status')).toBe(1)
+    expect(mockStorageManager.listenerCount('bags-updated')).toBe(1)
+
+    mockRegistry.ipcRegistrations.dispose()
+
+    expect(mockHandlers.size).toBe(0)
+    expect(mockProxyManager.listenerCount('status')).toBe(0)
+    expect(mockStorageManager.listenerCount('bags-updated')).toBe(0)
+
+    const replacement = createMockRegistry()
+    registerIpcHandlers(replacement)
+    expect(mockHandlers.size).toBe(handlerCount)
+    expect(mockProxyManager.listenerCount('status')).toBe(1)
+    expect(mockStorageManager.listenerCount('bags-updated')).toBe(1)
+    replacement.ipcRegistrations.dispose()
+  })
+
   describe('Proxy Handlers', () => {
     it('PROXY_CONNECT starts proxy and returns success', async () => {
       const handler = mockHandlers.get(IPC_CHANNELS.PROXY_CONNECT)!
@@ -421,8 +473,10 @@ describe('IPC Handlers', () => {
       const handler = mockHandlers.get(IPC_CHANNELS.PROXY_CONNECT)!
       const result = await handler!(createMockEvent())
 
-      expect(result.success).toBe(false)
-      expect(result.error).toBe('Proxy failed')
+      expect(result).toEqual({
+        ok: false,
+        error: { code: 'PROXY_START_FAILED', message: 'Operation failed', retryable: false },
+      })
     })
 
     it('PROXY_DISCONNECT stops both storage and proxy', async () => {
@@ -488,7 +542,10 @@ describe('IPC Handlers', () => {
       const invalidBagId = 'invalid-bag-id'
       const result = await handler(createMockEvent(), invalidBagId, 'Test')
 
-      expect(result.success).toBe(false)
+      expect(result).toEqual({
+        ok: false,
+        error: { code: 'INVALID_INPUT', message: 'Invalid request payload', retryable: false },
+      })
       expect(mockStorageManager.addBag).not.toHaveBeenCalled()
     })
 
@@ -544,7 +601,7 @@ describe('IPC Handlers', () => {
         if (category === 'messenger') return { networkEnabled: true, attachWalletIdentity: false }
         return {}
       }) as typeof getSetting)
-      vi.mocked(mockRegistry.walletManager.getBridgeClient).mockReturnValue(bridge as any)
+      vi.mocked(mockRegistry.walletManager.getMessengerBridge).mockReturnValue(bridge as any)
 
       const connect = mockHandlers.get(IPC_CHANNELS.CHAT_CONNECT)!
       const disconnect = mockHandlers.get(IPC_CHANNELS.CHAT_DISCONNECT)!
@@ -579,7 +636,19 @@ describe('IPC Handlers', () => {
     })
 
     it('forwards storage bags-updated events to renderer', () => {
-      const bags = [{ id: 'bag1', name: 'Test' }]
+      const bags = [
+        {
+          id: 'bag1',
+          name: 'Test',
+          size: 100,
+          downloaded: 50,
+          uploadSpeed: 0,
+          downloadSpeed: 10,
+          peers: 1,
+          filesCount: 2,
+          status: 'downloading',
+        },
+      ]
       ;(mockRegistry.storageManager as EventEmitter).emit('bags-updated', bags)
 
       expect(mockMainWindow.webContents.send).toHaveBeenCalledWith('storage:bags-updated', bags)
@@ -608,8 +677,10 @@ describe('Security - Input Validation', () => {
 
     const result = await handler(createMockEvent(), 'javascript:alert(1)')
 
-    expect(result.success).toBe(false)
-    expect(result.error).toBeDefined()
+    expect(result).toMatchObject({
+      ok: false,
+      error: { code: 'INVALID_URL', message: 'Invalid navigation URL', retryable: false },
+    })
     expect(navigateInTab).not.toHaveBeenCalled()
   })
 
@@ -619,7 +690,7 @@ describe('Security - Input Validation', () => {
 
     const result = await handler(createMockEvent(), 'data:text/html,<script>alert(1)</script>')
 
-    expect(result.success).toBe(false)
+    expect(result).toMatchObject({ ok: false, error: { code: 'INVALID_URL', retryable: false } })
     expect(navigateInTab).not.toHaveBeenCalled()
   })
 
@@ -629,7 +700,7 @@ describe('Security - Input Validation', () => {
 
     const result = await handler(createMockEvent(), 'file:///etc/passwd')
 
-    expect(result.success).toBe(false)
+    expect(result).toMatchObject({ ok: false, error: { code: 'INVALID_URL', retryable: false } })
     expect(navigateInTab).not.toHaveBeenCalled()
   })
 })
@@ -649,6 +720,7 @@ const MOCK_COCOON_WALLET = {
   nodeAddress: 'EQCns7bYSp0igFvS1wpb5wsZjCKCV19MD5AVzI4EyxsnU73k',
   createdAt: 1_700_000_000_000,
 }
+const MOCK_COCOON_MNEMONIC = Array.from({ length: 24 }, (_, index) => `word${index + 1}`)
 
 const COCOON_ROOT_MAINNET = 'EQCns7bYSp0igFvS1wpb5wsZjCKCV19MD5AVzI4EyxsnU73k'
 
@@ -690,8 +762,10 @@ describe('Cocoon AI Handlers', () => {
 
       const result = await handler(createMockEvent())
 
-      expect(result.success).toBe(false)
-      expect(result.error).toContain('Cocoon wallet not initialized')
+      expect(result).toEqual({
+        ok: false,
+        error: { code: 'START_FAILED', message: 'Operation failed', retryable: false },
+      })
       expect(mockRegistry.cocoonManager.start).not.toHaveBeenCalled()
     })
 
@@ -722,8 +796,10 @@ describe('Cocoon AI Handlers', () => {
 
       const result = await handler(createMockEvent())
 
-      expect(result.success).toBe(false)
-      expect(result.error).toContain('Already starting')
+      expect(result).toMatchObject({
+        ok: false,
+        error: { code: 'ALREADY_STARTING', message: 'Cocoon is already starting', retryable: true },
+      })
       expect(mockRegistry.cocoonManager.start).not.toHaveBeenCalled()
       expect(loadCocoonWallet).not.toHaveBeenCalled()
     })
@@ -751,7 +827,7 @@ describe('Cocoon AI Handlers', () => {
       vi.mocked(generateCocoonWallet).mockResolvedValueOnce({
         ownerAddress: 'EQOwner',
         nodeAddress: 'EQNode',
-        mnemonic: ['word1', 'word2', 'word3'],
+        mnemonic: MOCK_COCOON_MNEMONIC,
       })
       const handler = mockHandlers.get(IPC_CHANNELS.COCOON_WALLET_CREATE)!
 
@@ -760,7 +836,7 @@ describe('Cocoon AI Handlers', () => {
       expect(result).toEqual({
         ownerAddress: 'EQOwner',
         nodeAddress: 'EQNode',
-        mnemonic: ['word1', 'word2', 'word3'],
+        mnemonic: MOCK_COCOON_MNEMONIC,
       })
       expect(generateCocoonWallet).toHaveBeenCalledTimes(1)
     })
@@ -769,7 +845,7 @@ describe('Cocoon AI Handlers', () => {
       vi.mocked(generateCocoonWallet).mockResolvedValueOnce({
         ownerAddress: 'EQOwner',
         nodeAddress: 'EQNode',
-        mnemonic: [],
+        mnemonic: MOCK_COCOON_MNEMONIC,
       })
       const handler = mockHandlers.get(IPC_CHANNELS.COCOON_WALLET_CREATE)!
 
@@ -789,8 +865,10 @@ describe('Cocoon AI Handlers', () => {
 
       const result = await handler(createMockEvent())
 
-      expect(result.success).toBe(false)
-      expect(result.error).toContain('storage unavailable')
+      expect(result).toEqual({
+        ok: false,
+        error: { code: 'WALLET_WRITE_FAILED', message: 'Operation failed', retryable: false },
+      })
     })
   })
 
@@ -799,7 +877,7 @@ describe('Cocoon AI Handlers', () => {
   describe('COCOON_SETUP_OWNER_BALANCE', () => {
     it('returns the balance as a decimal nano-TON string', async () => {
       const mockBridge = { getBalance: vi.fn() }
-      vi.mocked(mockRegistry.walletManager.getBridgeClient).mockReturnValueOnce(mockBridge as any)
+      vi.mocked(mockRegistry.walletManager.getTonBridge).mockReturnValueOnce(mockBridge as any)
       vi.mocked(getOwnerBalance).mockResolvedValueOnce(1_000_000_000n)
       const handler = mockHandlers.get(IPC_CHANNELS.COCOON_SETUP_OWNER_BALANCE)!
 
@@ -810,13 +888,15 @@ describe('Cocoon AI Handlers', () => {
     })
 
     it('returns error when bridge is not connected', async () => {
-      // getBridgeClient returns null by default
+      // getTonBridge returns null by default
       const handler = mockHandlers.get(IPC_CHANNELS.COCOON_SETUP_OWNER_BALANCE)!
 
       const result = await handler(createMockEvent())
 
-      expect(result.success).toBe(false)
-      expect(result.error).toContain('Bridge not connected')
+      expect(result).toEqual({
+        ok: false,
+        error: { code: 'BALANCE_READ_FAILED', message: 'Operation failed', retryable: false },
+      })
     })
   })
 
@@ -825,7 +905,7 @@ describe('Cocoon AI Handlers', () => {
   describe('COCOON_SETUP_COCOON_BALANCE', () => {
     it('returns the cocoon node wallet balance as a decimal nano-TON string', async () => {
       const mockBridge = { getBalance: vi.fn() }
-      vi.mocked(mockRegistry.walletManager.getBridgeClient).mockReturnValueOnce(mockBridge as any)
+      vi.mocked(mockRegistry.walletManager.getTonBridge).mockReturnValueOnce(mockBridge as any)
       vi.mocked(getCocoonWalletBalance).mockResolvedValueOnce(19_500_000_000n)
       const handler = mockHandlers.get(IPC_CHANNELS.COCOON_SETUP_COCOON_BALANCE)!
 
@@ -840,8 +920,10 @@ describe('Cocoon AI Handlers', () => {
 
       const result = await handler(createMockEvent())
 
-      expect(result.success).toBe(false)
-      expect(result.error).toContain('Bridge not connected')
+      expect(result).toEqual({
+        ok: false,
+        error: { code: 'BALANCE_READ_FAILED', message: 'Operation failed', retryable: false },
+      })
     })
   })
 
@@ -850,7 +932,7 @@ describe('Cocoon AI Handlers', () => {
   describe('COCOON_SETUP_FUND_COCOON', () => {
     it("'max' branch: passes 'max' to fundCocoonFromOwner and stringifies sentAmount", async () => {
       const mockBridge = {}
-      vi.mocked(mockRegistry.walletManager.getBridgeClient).mockReturnValueOnce(mockBridge as any)
+      vi.mocked(mockRegistry.walletManager.getTonBridge).mockReturnValueOnce(mockBridge as any)
       vi.mocked(fundCocoonFromOwner).mockResolvedValueOnce({
         bocHash: 'abc123',
         seqno: 5,
@@ -866,7 +948,7 @@ describe('Cocoon AI Handlers', () => {
 
     it('explicit amount: converts decimal string to BigInt before delegating', async () => {
       const mockBridge = {}
-      vi.mocked(mockRegistry.walletManager.getBridgeClient).mockReturnValueOnce(mockBridge as any)
+      vi.mocked(mockRegistry.walletManager.getTonBridge).mockReturnValueOnce(mockBridge as any)
       vi.mocked(fundCocoonFromOwner).mockResolvedValueOnce({
         bocHash: 'def456',
         seqno: 3,
@@ -882,23 +964,27 @@ describe('Cocoon AI Handlers', () => {
 
     it('returns error for a non-numeric amount string', async () => {
       const mockBridge = {}
-      vi.mocked(mockRegistry.walletManager.getBridgeClient).mockReturnValueOnce(mockBridge as any)
+      vi.mocked(mockRegistry.walletManager.getTonBridge).mockReturnValueOnce(mockBridge as any)
       const handler = mockHandlers.get(IPC_CHANNELS.COCOON_SETUP_FUND_COCOON)!
 
       const result = await handler(createMockEvent(), { amount: 'not-a-number' })
 
-      expect(result.success).toBe(false)
-      expect(result.error).toBeDefined()
+      expect(result).toEqual({
+        ok: false,
+        error: { code: 'INVALID_INPUT', message: 'Invalid request payload', retryable: false },
+      })
     })
 
     it('returns error when bridge is not connected', async () => {
-      // getBridgeClient returns null by default
+      // getTonBridge returns null by default
       const handler = mockHandlers.get(IPC_CHANNELS.COCOON_SETUP_FUND_COCOON)!
 
       const result = await handler(createMockEvent(), { amount: 'max' })
 
-      expect(result.success).toBe(false)
-      expect(result.error).toContain('Bridge not connected')
+      expect(result).toEqual({
+        ok: false,
+        error: { code: 'FUND_FAILED', message: 'Operation failed', retryable: false },
+      })
     })
   })
 })
