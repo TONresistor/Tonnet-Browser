@@ -51,11 +51,13 @@ export class WsBridgeClient {
     (operation, error) => log.error(`Bridge subscription error (${operation}):`, error)
   )
   private requestQueue: Array<{
+    id: string
     message: string
     resolve: (v: unknown) => void
     reject: (e: Error) => void
     method: string
-    timeoutMs?: number
+    deadline: number
+    timer: ReturnType<typeof setTimeout>
   }> = []
   private cachedBalance: AddressScoped<string> | null = null
   private cachedSeqno: AddressScoped<number> | null = null
@@ -100,6 +102,7 @@ export class WsBridgeClient {
     this.transactionWatcher.rejectAll(new Error('Client disconnected'))
     // Drain request queue
     for (const queued of this.requestQueue) {
+      clearTimeout(queued.timer)
       queued.reject(new Error('Client disconnected'))
     }
     this.requestQueue = []
@@ -254,7 +257,21 @@ export class WsBridgeClient {
     const raw = this.transport.isConnected()
       ? this.sendRequest(id, message, method, timeoutMs)
       : new Promise<unknown>((resolve, reject) => {
-          this.requestQueue.push({ message, resolve, reject, method, timeoutMs })
+          const queued = {
+            id,
+            message,
+            resolve,
+            reject,
+            method,
+            deadline: Date.now() + timeoutMs,
+            timer: setTimeout(() => {
+              const index = this.requestQueue.indexOf(queued)
+              if (index === -1) return
+              this.requestQueue.splice(index, 1)
+              reject(new Error(`Request timeout: ${method}`))
+            }, timeoutMs),
+          }
+          this.requestQueue.push(queued)
         })
 
     return raw.then((value) => {
@@ -327,14 +344,14 @@ export class WsBridgeClient {
   private drainQueue(): void {
     const queue = this.requestQueue
     this.requestQueue = []
-    for (const { message, resolve, reject, method, timeoutMs } of queue) {
-      // Re-parse the id from the queued message
-      try {
-        const parsed = JSON.parse(message)
-        this.sendRequest(parsed.id, message, method, timeoutMs).then(resolve, reject)
-      } catch {
-        reject(new Error('Failed to replay queued request'))
+    for (const { id, message, resolve, reject, method, deadline, timer } of queue) {
+      clearTimeout(timer)
+      const remainingMs = deadline - Date.now()
+      if (remainingMs <= 0) {
+        reject(new Error(`Request timeout: ${method}`))
+        continue
       }
+      this.sendRequest(id, message, method, remainingMs).then(resolve, reject)
     }
   }
 }

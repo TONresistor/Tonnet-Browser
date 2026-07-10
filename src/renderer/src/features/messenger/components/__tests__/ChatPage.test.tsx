@@ -103,4 +103,19 @@ describe('ChatPage', () => {
 
     expect(mockElectron.chat.disconnect).toHaveBeenCalledTimes(1)
   })
+
+  it('shows a connection error when chat.connect rejects', async () => {
+    mockElectron.chat.connect.mockRejectedValueOnce(new Error('Bridge not connected'))
+
+    await act(async () => {
+      root?.render(<ChatPage />)
+    })
+
+    const row = container.querySelector('[role="option"]') as HTMLElement
+    await act(async () => {
+      row.click()
+    })
+
+    expect(container.textContent).toContain('Bridge not connected')
+  })
 })
