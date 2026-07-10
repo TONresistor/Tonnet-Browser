@@ -98,6 +98,7 @@ for i in $(seq 0 $((BINARY_COUNT - 1))); do
   NAME=$(python3 -c "import json,sys; print(json.load(sys.stdin)['binaries'][$i]['name'])" < "$CONFIG")
   REPO=$(python3 -c "import json,sys; print(json.load(sys.stdin)['binaries'][$i]['repo'])" < "$CONFIG")
   VERSION=$(python3 -c "import json,sys; print(json.load(sys.stdin)['binaries'][$i]['version'])" < "$CONFIG")
+  EXPECTED_COMMIT=$(python3 -c "import json,sys; print(json.load(sys.stdin)['binaries'][$i]['commit'])" < "$CONFIG")
   ENTRY=$(python3 -c "import json,sys; print(json.load(sys.stdin)['binaries'][$i]['entry_point'])" < "$CONFIG")
   LDFLAGS_TMPL=$(python3 -c "import json,sys; print(json.load(sys.stdin)['binaries'][$i]['ldflags'])" < "$CONFIG")
 
@@ -110,7 +111,7 @@ for i in $(seq 0 $((BINARY_COUNT - 1))); do
 
   # Check if already built at this version and architecture.
   VERSION_FILE="$DEST_DIR/.${NAME}.version"
-  VERSION_MARKER="$VERSION/$TARGET_ARCH"
+  VERSION_MARKER="$VERSION@$EXPECTED_COMMIT/$TARGET_ARCH"
   if [ -f "$VERSION_FILE" ] && [ "$(cat "$VERSION_FILE")" = "$VERSION_MARKER" ] && [ -f "$DEST_DIR/${NAME}${EXT}" ]; then
     echo "Already built $NAME $VERSION_MARKER, skipping"
     continue
@@ -124,6 +125,10 @@ for i in $(seq 0 $((BINARY_COUNT - 1))); do
   # Log exact commit for transparency
   COMMIT_SHA=$(git -C "$CLONE_DIR" rev-parse HEAD)
   echo "Commit: $COMMIT_SHA"
+  if [ "$COMMIT_SHA" != "$EXPECTED_COMMIT" ]; then
+    echo "ERROR: $NAME tag $VERSION resolved to $COMMIT_SHA, expected immutable pin $EXPECTED_COMMIT"
+    exit 1
+  fi
 
   # Resolve ldflags template
   LDFLAGS="${LDFLAGS_TMPL//\$\{VERSION\}/$VERSION}"
