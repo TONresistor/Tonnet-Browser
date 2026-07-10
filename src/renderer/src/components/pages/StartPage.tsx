@@ -4,13 +4,14 @@
  */
 
 import { useState, FormEvent } from 'react'
+import { browserClient } from '@/features/browser/client'
 import Lottie from 'lottie-react'
 import explorerAnimation from '@/assets/explorer.json'
 import explorerYellowAnimation from '@/assets/explorer-yellow.json'
 import tonIcon from '@/assets/ton.png'
 import { APP_VERSION } from '@shared/constants'
 import { processNavigationInput } from '@/lib/url-utils'
-import { usePreferences } from '@/stores/preferences'
+import { usePreferences } from '@/features/settings/preferences-store'
 import { useTranslation } from 'react-i18next'
 
 export function StartPage() {
@@ -26,7 +27,7 @@ export function StartPage() {
 
     // Process navigation input (handles TON domain auto-completion)
     const url = processNavigationInput(input)
-    window.electron.navigate(url)
+    void browserClient.navigate(url)
   }
 
   return (

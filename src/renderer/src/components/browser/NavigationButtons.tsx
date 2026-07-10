@@ -4,6 +4,7 @@
  */
 
 import { ArrowLeft, ArrowRight, RotateCw, X } from 'lucide-react'
+import { browserClient } from '@/features/browser/client'
 import { Button } from '@/components/ui/button'
 import homeIconSrc from '@/assets/home.svg'
 import { useBrowserStore } from '@/stores/browser'
@@ -29,9 +30,9 @@ export function NavigationButtons() {
 
   const handleReload = () => {
     if (isLoading) {
-      window.electron.stop()
+      browserClient.stop()
     } else {
-      window.electron.reload()
+      browserClient.reload()
     }
   }
 

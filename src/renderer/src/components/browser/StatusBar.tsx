@@ -5,16 +5,18 @@
 
 import { useEffect, useState, memo } from 'react'
 import { createLogger } from '@/logger'
-import { IPC_CHANNELS } from '@shared/ipc-channels'
 
 const log = createLogger('status')
 import { Wifi, WifiOff, LoaderCircle, ArrowDown, ArrowUp } from 'lucide-react'
 import walletIcon from '@/assets/wallet.svg'
 import { useBrowserStore } from '@/stores/browser'
 import { useShallow } from 'zustand/react/shallow'
-import { usePreferencesStore } from '@/stores/preferences'
-import { useWalletStore, formatTonAmount } from '@/stores/wallet'
+import { usePreferencesStore } from '@/features/settings/preferences-store'
+import { useWalletStore } from '@/features/wallet/store'
+import { formatTonAmount } from '@/lib/ton-utils'
 import { useTabsStore } from '@/stores/tabs'
+import { proxyClient } from '@/features/proxy/client'
+import { storageClient } from '@/features/storage/client'
 import { APP_VERSION, TON_WALLET_PAGE, TUNNEL_SECTIONS } from '@shared/constants'
 import { useTranslation } from 'react-i18next'
 import { formatSpeed } from '@/lib/format'
@@ -59,7 +61,7 @@ export const StatusBar = memo(function StatusBar() {
   const tunnelMode = usePreferencesStore((s) => s.saved.tunnelMode)
   useEffect(() => {
     // Listen for proxy status updates from main process
-    const unsubProxyStatus = window.electron.on(IPC_CHANNELS.PROXY_STATUS, (data) => {
+    const unsubProxyStatus = proxyClient.onStatus((data) => {
       // Runtime validation (the payload crosses an unchecked IPC boundary)
       if (!data || typeof data !== 'object') {
         log.error('Invalid proxy:status data:', data)
@@ -79,7 +81,7 @@ export const StatusBar = memo(function StatusBar() {
     })
 
     // Listen for storage bags updates
-    const unsubBagsUpdated = window.electron.on(IPC_CHANNELS.STORAGE_BAGS_UPDATED, (bags) => {
+    const unsubBagsUpdated = storageClient.onBagsUpdated((bags) => {
       const downloadSpeed = bags.reduce((sum, b) => sum + b.downloadSpeed, 0)
       const uploadSpeed = bags.reduce((sum, b) => sum + b.uploadSpeed, 0)
       setStorageStats({

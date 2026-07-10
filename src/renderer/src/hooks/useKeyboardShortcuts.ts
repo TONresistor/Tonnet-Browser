@@ -5,6 +5,7 @@
 
 import { useEffect } from 'react'
 import { useTabsStore } from '@/stores/tabs'
+import { browserClient } from '@/features/browser/client'
 
 export function useKeyboardShortcuts(openOrSwitchToTab: (url: string) => void): void {
   useEffect(() => {
@@ -61,7 +62,7 @@ export function useKeyboardShortcuts(openOrSwitchToTab: (url: string) => void): 
       // Ctrl/Cmd+R or F5: Reload
       else if ((mod && e.key === 'r') || e.key === 'F5') {
         e.preventDefault()
-        window.electron.reload()
+        browserClient.reload()
       }
       // Alt+Left: Back
       else if (e.altKey && e.key === 'ArrowLeft') {
@@ -75,27 +76,27 @@ export function useKeyboardShortcuts(openOrSwitchToTab: (url: string) => void): 
       }
       // Escape: Stop loading
       else if (e.key === 'Escape') {
-        window.electron.stop()
+        browserClient.stop()
       }
       // Ctrl/Cmd++: Zoom in
       else if (mod && (e.key === '+' || e.key === '=')) {
         e.preventDefault()
-        window.electron.zoomIn()
+        browserClient.zoomIn()
       }
       // Ctrl/Cmd+-: Zoom out
       else if (mod && e.key === '-') {
         e.preventDefault()
-        window.electron.zoomOut()
+        browserClient.zoomOut()
       }
       // Ctrl/Cmd+0: Reset zoom
       else if (mod && e.key === '0') {
         e.preventDefault()
-        window.electron.zoomReset()
+        browserClient.zoomReset()
       }
       // F12: Toggle DevTools (Ctrl+Shift+I is handled in main process)
       else if (e.key === 'F12') {
         e.preventDefault()
-        window.electron.toggleDevTools()
+        browserClient.toggleDevTools()
       }
     }
 

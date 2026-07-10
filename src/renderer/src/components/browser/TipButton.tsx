@@ -5,9 +5,11 @@
 
 import { useState, useCallback, useEffect } from 'react'
 import { LoaderCircle, Check } from 'lucide-react'
-import { useWalletStore, tonToNano } from '@/stores/wallet'
+import { useWalletStore } from '@/features/wallet/store'
+import { tonToNano } from '@/lib/ton-utils'
+import { walletClient } from '@/features/wallet/client'
+import { dnsClient } from '@/features/dns/client'
 import { TX_FEE_RESERVE_NANO } from '@/lib/ton-utils'
-import { getIpcError } from '@/lib/ipc-utils'
 import { cn } from '@/lib/utils'
 
 interface TipButtonProps {
@@ -38,15 +40,11 @@ export function TipButton({ domain }: TipButtonProps) {
       setActiveAmount(amount)
       setState('resolving')
       try {
-        const result = await window.electron.dns.resolve(domain)
-        const err = getIpcError(result)
-        if (err) throw new Error(err)
+        const result = await dnsClient.resolve(domain)
         if (!result?.owner) throw new Error('Could not resolve domain owner')
 
         setState('sending')
-        const sendResult = await window.electron.wallet.send(result.owner, nanoAmount)
-        const sendErr = getIpcError(sendResult)
-        if (sendErr) throw new Error(sendErr)
+        await walletClient.send(result.owner, nanoAmount)
 
         setState('success')
       } catch {

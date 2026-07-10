@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useOverlay } from '@/hooks/useOverlay'
-import { formatTonAmount, useWalletStore } from '@/stores/wallet'
-import { IPC_CHANNELS } from '@shared/ipc-channels'
+import { useWalletStore } from '@/features/wallet/store'
+import { formatTonAmount } from '@/lib/ton-utils'
+import { walletClient } from '@/features/wallet/client'
 import type { PaymentNotificationData } from '@shared/types'
 
 const OVERLAY_ID = 'wallet-payment-approval'
@@ -67,7 +68,7 @@ export function usePaymentApprovals(): void {
   )
 
   useEffect(() => {
-    const unsubReq = window.electron.on(IPC_CHANNELS.WALLET_PAYMENT_REQ, (data) => {
+    const unsubReq = walletClient.onPaymentRequested((data) => {
       if (!data || data.status !== 'pending') return
       useWalletStore.getState().setPending402Notification(data)
       if (useWalletStore.getState().notificationStyle === 'popup') {
@@ -75,8 +76,7 @@ export function usePaymentApprovals(): void {
       }
     })
 
-    const resolveEvent = (args: unknown[]): void => {
-      const data = args[0] as PaymentNotificationData | undefined
+    const resolveEvent = (data: PaymentNotificationData): void => {
       const current = useWalletStore.getState().pending402Notification
       if (data?.id && current?.id === data.id) {
         useWalletStore.getState().setPending402Notification(null)
@@ -84,10 +84,8 @@ export function usePaymentApprovals(): void {
       }
     }
 
-    const unsubMade = window.electron.on(IPC_CHANNELS.WALLET_PAYMENT_MADE, (...args: unknown[]) => resolveEvent(args))
-    const unsubFailed = window.electron.on(IPC_CHANNELS.WALLET_PAYMENT_FAILED, (...args: unknown[]) =>
-      resolveEvent(args)
-    )
+    const unsubMade = walletClient.onPaymentMade(resolveEvent)
+    const unsubFailed = walletClient.onPaymentFailed(resolveEvent)
 
     return () => {
       unsubReq()

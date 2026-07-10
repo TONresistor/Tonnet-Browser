@@ -9,14 +9,11 @@ import i18n from '@/i18n'
 import type { Tab as BaseTab } from '@shared/types'
 import { shortId } from '@/lib/id'
 import { createLogger } from '@/logger'
-import walletIcon from '@/assets/wallet.svg'
-import storageIcon from '@/assets/storage.svg'
-import settingsIcon from '@/assets/settings.svg'
-import cocoonIcon from '@/assets/cocoon.png'
-import bookmarkIcon from '@/assets/bookmark.svg'
-import historyIcon from '@/assets/history.svg'
-import dnsIcon from '@/assets/dns.svg'
-import messengerIcon from '@/assets/messenger.svg'
+import { settingsClient } from '@/features/settings/client'
+import { browserClient } from '@/features/browser/client'
+import { getInternalPageFavicon, getInternalPageTitle, isInternalUrl } from '@/app-shell/internal-routes'
+
+export { getInternalPageFavicon, getInternalPageTitle } from '@/app-shell/internal-routes'
 
 const log = createLogger('tabs')
 
@@ -27,62 +24,6 @@ export interface Tab extends BaseTab {
 
 // Limit history size to prevent memory growth
 const MAX_HISTORY = 10
-
-// Map ton:// URLs to display names
-export function getInternalPageTitle(url: string): string | null {
-  if (!url.startsWith('ton://')) return null
-  const page = url.replace('ton://', '')
-  if (page.startsWith('storage/browse/') || page.startsWith('storage/view/'))
-    return i18n.t('storage.title', { ns: 'settings' })
-  switch (page) {
-    case 'start':
-      return i18n.t('tabs.newTab', { ns: 'browser' })
-    case 'wallet':
-      return i18n.t('page.title', { ns: 'wallet' })
-    case 'storage':
-      return i18n.t('storage.title', { ns: 'settings' })
-    case 'settings':
-      return i18n.t('title', { ns: 'settings' })
-    case 'cocoon':
-      return i18n.t('tooltips.cocoon', { ns: 'common' })
-    case 'chat':
-      return 'Messenger'
-    case 'bookmarks':
-      return i18n.t('bookmarks.title', { ns: 'settings' })
-    case 'history':
-      return i18n.t('history.title', { ns: 'pages' })
-    case 'dns':
-      return i18n.t('title', { ns: 'dns' })
-    default:
-      return i18n.t('appName', { ns: 'common' })
-  }
-}
-
-export function getInternalPageFavicon(url: string): string | null {
-  if (!url.startsWith('ton://')) return null
-  const page = url.replace('ton://', '')
-  if (page.startsWith('storage/browse/') || page.startsWith('storage/view/')) return storageIcon
-  switch (page) {
-    case 'wallet':
-      return walletIcon
-    case 'storage':
-      return storageIcon
-    case 'settings':
-      return settingsIcon
-    case 'cocoon':
-      return cocoonIcon
-    case 'chat':
-      return messengerIcon
-    case 'bookmarks':
-      return bookmarkIcon
-    case 'history':
-      return historyIcon
-    case 'dns':
-      return dnsIcon
-    default:
-      return null
-  }
-}
 
 interface TabsState {
   tabs: Tab[]
@@ -109,7 +50,7 @@ interface TabsState {
 // Get homepage from main process settings
 async function getHomepage(): Promise<string> {
   try {
-    const general = await window.electron.settings.get('general')
+    const general = await settingsClient.get('general')
     return general?.homepage || 'ton://start'
   } catch {
     return 'ton://start'
@@ -135,7 +76,7 @@ async function applyTabNavigation(
     browser.setNavigation(updates.url, updates.canGoBack ?? false, updates.canGoForward ?? false)
     if (updates.title) browser.setTitle(updates.title)
     try {
-      await window.electron.navigate(updates.url, tabId)
+      await browserClient.navigate(updates.url, tabId)
     } catch (error) {
       log.error(errorLabel, error)
     }
@@ -166,7 +107,7 @@ export const useTabsStore = create<TabsState>((set, get) => ({
 
     try {
       // Create tab in main process
-      await window.electron.tabs.create(id)
+      await browserClient.createTab(id)
 
       set((state) => ({
         tabs: [...state.tabs, newTab],
@@ -179,7 +120,7 @@ export const useTabsStore = create<TabsState>((set, get) => ({
 
       // Always call navigate - it handles hiding views for internal pages
       // and loading URLs for external pages
-      await window.electron.navigate(targetUrl, id)
+      await browserClient.navigate(targetUrl, id)
     } catch (error) {
       log.error('Failed to create tab:', error)
     }
@@ -199,14 +140,14 @@ export const useTabsStore = create<TabsState>((set, get) => ({
 
     try {
       // Close tab in main process
-      await window.electron.tabs.close(id)
+      await browserClient.closeTab(id)
 
       let newActiveId = activeTabId
       if (activeTabId === id && newTabs.length > 0) {
         // Select adjacent tab
         newActiveId = newTabs[Math.min(index, newTabs.length - 1)]?.id ?? null
         if (newActiveId) {
-          await window.electron.tabs.switch(newActiveId)
+          await browserClient.switchTab(newActiveId)
           // Sync settings store with new active tab
           const newActiveTab = newTabs.find((t) => t.id === newActiveId)
           if (newActiveTab) {
@@ -214,8 +155,8 @@ export const useTabsStore = create<TabsState>((set, get) => ({
               .getState()
               .setNavigation(newActiveTab.url, newActiveTab.canGoBack, newActiveTab.canGoForward)
             // Hide views for internal pages
-            if (newActiveTab.url.startsWith('ton://')) {
-              window.electron.navigate(newActiveTab.url, newActiveId)
+            if (isInternalUrl(newActiveTab.url)) {
+              void browserClient.navigate(newActiveTab.url, newActiveId)
             }
           }
         }
@@ -241,7 +182,7 @@ export const useTabsStore = create<TabsState>((set, get) => ({
 
     try {
       // Switch tab in main process (shows/hides WebContentsViews)
-      await window.electron.tabs.switch(id)
+      await browserClient.switchTab(id)
       set({ activeTabId: id })
 
       // Sync settings store with this tab's state
@@ -249,8 +190,8 @@ export const useTabsStore = create<TabsState>((set, get) => ({
       useBrowserStore.getState().setTitle(tab.title)
 
       // For internal pages, hide WebContentsViews so React content is visible
-      if (tab.url.startsWith('ton://')) {
-        await window.electron.view.hide()
+      if (isInternalUrl(tab.url)) {
+        await browserClient.hideView()
       }
     } catch (error) {
       log.error('Failed to switch tab:', error)
@@ -304,7 +245,7 @@ export const useTabsStore = create<TabsState>((set, get) => ({
     if (internalTitle) {
       updates.title = internalTitle
     }
-    if (url.startsWith('ton://')) {
+    if (isInternalUrl(url)) {
       updates.favicon = getInternalPageFavicon(url) ?? undefined
     }
 
@@ -360,7 +301,7 @@ export const useTabsStore = create<TabsState>((set, get) => ({
     if (internalTitle) {
       updates.title = internalTitle
     }
-    if (newUrl.startsWith('ton://')) {
+    if (isInternalUrl(newUrl)) {
       updates.favicon = getInternalPageFavicon(newUrl) ?? undefined
     }
 
@@ -387,7 +328,7 @@ export const useTabsStore = create<TabsState>((set, get) => ({
     if (internalTitle) {
       updates.title = internalTitle
     }
-    if (newUrl.startsWith('ton://')) {
+    if (isInternalUrl(newUrl)) {
       updates.favicon = getInternalPageFavicon(newUrl) ?? undefined
     }
 

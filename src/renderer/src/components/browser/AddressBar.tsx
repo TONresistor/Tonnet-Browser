@@ -9,7 +9,7 @@ import { Lock, Star, LoaderCircle } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { useBrowserStore } from '@/stores/browser'
-import { useBookmarksStore } from '@/stores/bookmarks'
+import { useBookmarksStore } from '@/features/bookmarks/store'
 import { useTabsStore } from '@/stores/tabs'
 import { cn } from '@/lib/utils'
 import { processNavigationInput, stripHttpPrefix, getHostname } from '@/lib/url-utils'
@@ -19,8 +19,10 @@ import tonIcon from '@/assets/ton.png'
 import { useTranslation } from 'react-i18next'
 import { useOverlay } from '@/hooks/useOverlay'
 import { TipButton } from './TipButton'
-import { useWalletStore, formatTonAmount } from '@/stores/wallet'
-import { usePreferencesStore } from '@/stores/preferences'
+import { useWalletStore } from '@/features/wallet/store'
+import { formatTonAmount } from '@/lib/ton-utils'
+import { usePreferencesStore } from '@/features/settings/preferences-store'
+import { historyClient } from '@/features/history/client'
 import { SUPPORTED_TLDS, DISABLEABLE_CHAINS } from '@shared/tlds'
 
 interface HistorySuggestion {
@@ -165,7 +167,7 @@ export const AddressBar = memo(function AddressBar() {
       }
 
       try {
-        const results = await window.electron.history.search(input.trim(), 5)
+        const results = await historyClient.search(input.trim(), 5)
         setSuggestions(results)
         setShowSuggestions(results.length > 0)
         setSelectedIndex(-1)

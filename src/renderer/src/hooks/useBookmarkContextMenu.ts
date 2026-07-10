@@ -10,7 +10,7 @@ import { useState, useRef, useCallback, useEffect, type MouseEvent } from 'react
 import { useTranslation } from 'react-i18next'
 import { UI_NOTIFICATION_TIMEOUT_MS } from '@shared/constants'
 import type { OverlayMenuItem } from '@shared/types'
-import { useBookmarksStore, type Bookmark } from '@/stores/bookmarks'
+import { useBookmarksStore, type Bookmark } from '@/features/bookmarks/store'
 import { useTabsStore } from '@/stores/tabs'
 import { clampToViewport } from '@/lib/overlay-position'
 import { useOverlay } from './useOverlay'
