@@ -6,6 +6,54 @@
 
 import log from 'electron-log'
 
+const REDACTED = '[REDACTED]'
+const SENSITIVE_FIELD =
+  /^(?:authorization|mnemonic|password|payload|private(?:key)?|secret(?:key)?|seed|signature|signed(?:payload)?|token|boc)$/i
+const SECRET_LABEL =
+  /(authorization|mnemonic|password|private(?:[_ -]?key)?|secret(?:[_ -]?key)?|seed|signature|signed(?:[_ -]?payload)?|token|boc)(\s*[=:]\s*|["']\s*:\s*["'])[^\s,;"']+/gi
+const BEARER_TOKEN = /\bBearer\s+[A-Za-z0-9._~+/=-]+/gi
+const FULL_HEX_BLOB = /\b(?:0x)?[a-fA-F0-9]{128,}\b/g
+const BOC_BASE64 = /\bte6cc[A-Za-z0-9+/=_-]{32,}\b/g
+
+function redactString(value: string): string {
+  return value
+    .replace(BEARER_TOKEN, `Bearer ${REDACTED}`)
+    .replace(SECRET_LABEL, (_match, label: string, separator: string) => `${label}${separator}${REDACTED}`)
+    .replace(FULL_HEX_BLOB, REDACTED)
+    .replace(BOC_BASE64, REDACTED)
+}
+
+/** Redact log data before it reaches console, file, or any future transport. */
+export function redactLogValue(value: unknown, seen = new WeakSet<object>()): unknown {
+  if (typeof value === 'string') return redactString(value)
+  if (value === null || typeof value !== 'object') return value
+  if (Buffer.isBuffer(value) || value instanceof Uint8Array) return `[Binary ${(value as Uint8Array).byteLength} bytes]`
+  if (seen.has(value)) return '[Circular]'
+  seen.add(value)
+
+  if (value instanceof Error) {
+    return {
+      name: value.name,
+      message: redactString(value.message),
+      stack: value.stack ? redactString(value.stack) : undefined,
+    }
+  }
+  if (Array.isArray(value)) return value.map((item) => redactLogValue(item, seen))
+
+  const sanitized: Record<string, unknown> = {}
+  for (const [key, item] of Object.entries(value)) {
+    sanitized[key] = SENSITIVE_FIELD.test(key) ? REDACTED : redactLogValue(item, seen)
+  }
+  return sanitized
+}
+
+const REDACTION_HOOK = Symbol.for('tonnet.logger.redactionHook')
+const taggedLogger = log as typeof log & Record<symbol, true>
+if (!taggedLogger[REDACTION_HOOK]) {
+  taggedLogger[REDACTION_HOOK] = true
+  log.hooks.push((message) => ({ ...message, data: message.data.map((value) => redactLogValue(value)) }))
+}
+
 // Configure file transport
 log.transports.file.level = 'info'
 log.transports.file.maxSize = 5 * 1024 * 1024 // 5 MB
