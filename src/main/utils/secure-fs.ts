@@ -126,3 +126,12 @@ export async function writeSecureFileAtomic(
   await writeFileAtomic(filePath, data, { mode: SECURE_MODE, encoding })
   if (process.platform !== 'win32') await fsp.chmod(filePath, SECURE_MODE)
 }
+
+/** Async secure JSON counterpart used by interactive and native-start paths. */
+export async function writeSecureJsonAtomicAsync(
+  filePath: string,
+  data: unknown,
+  indent: string | number = '\t'
+): Promise<void> {
+  await writeSecureFileAtomic(filePath, JSON.stringify(data, null, indent), 'utf8')
+}

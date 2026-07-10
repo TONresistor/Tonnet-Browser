@@ -1,118 +1,104 @@
-/**
- * Bookmark persistence management.
- * Load, save, and cache bookmarks to a JSON file on disk.
- */
+/** Bookmark persistence through a versioned, async repository. */
 
 import { app } from 'electron'
-import { join } from 'path'
-import { existsSync, readFileSync } from 'fs'
-import { writeJsonAtomicDurable } from '../utils/secure-fs'
+import { join } from 'node:path'
 import { DEFAULT_BOOKMARKS } from '../../shared/constants'
 import { createLogger } from '../../shared/logger'
+import {
+  BookmarkFolderSchema,
+  BookmarkSchema,
+  BookmarksDataSchema,
+  type Bookmark,
+  type BookmarksData,
+} from '../../shared/ipc-contract/bookmarks'
+import { VersionedJsonRepository } from '../persistence/versioned-json-repository'
 
 const log = createLogger('bookmarks')
+const SCHEMA_VERSION = 1
 
-export interface BookmarkFolder {
-  id: string
-  name: string
-  parentId: string | null
-  createdAt: number
-  order: number
-}
+export type { Bookmark, BookmarkFolder, BookmarksData } from '../../shared/ipc-contract/bookmarks'
 
-export interface Bookmark {
-  id: string
-  url: string
-  title: string
-  favicon?: string
-  folderId: string | null
-  createdAt: number
-  order: number
-}
-
-export interface BookmarksData {
-  bookmarks: Bookmark[]
-  folders: BookmarkFolder[]
-}
-
-// File paths
-const getBookmarksDir = () => join(app.getPath('userData'))
-export const getBookmarksFile = () => join(getBookmarksDir(), 'bookmarks.json')
+export const getBookmarksFile = () => join(app.getPath('userData'), 'bookmarks.json')
 
 function createDefaultBookmarks(): Bookmark[] {
-  return DEFAULT_BOOKMARKS.map((b, idx) => ({
-    ...b,
-    folderId: null,
-    order: idx,
-  }))
+  return DEFAULT_BOOKMARKS.map((bookmark, order) => ({ ...bookmark, folderId: null, order }))
 }
 
-// In-memory cache
+function defaults(): BookmarksData {
+  return { bookmarks: createDefaultBookmarks(), folders: [] }
+}
+
+function migrateBookmarks(raw: unknown): BookmarksData {
+  const root = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {}
+  const legacyState = root.state && typeof root.state === 'object' ? (root.state as Record<string, unknown>) : root
+  const rawBookmarks = Array.isArray(legacyState.bookmarks) ? legacyState.bookmarks : []
+  const rawFolders = Array.isArray(legacyState.folders) ? legacyState.folders : []
+
+  const bookmarks = rawBookmarks.flatMap((value, order) => {
+    if (!value || typeof value !== 'object') return []
+    const bookmark = value as Record<string, unknown>
+    const migrated = {
+      ...bookmark,
+      folderId:
+        bookmark.folderId === 'folder-ton' || bookmark.folderId === 'folder-unsorted'
+          ? null
+          : (bookmark.folderId ?? null),
+      createdAt: bookmark.createdAt ?? 0,
+      order: bookmark.order ?? order,
+    }
+    const parsed = BookmarkSchema.safeParse(migrated)
+    return parsed.success ? [parsed.data] : []
+  })
+
+  const folders = rawFolders.flatMap((value, order) => {
+    if (!value || typeof value !== 'object') return []
+    const folder = value as Record<string, unknown>
+    if (folder.id === 'folder-ton' || folder.id === 'folder-unsorted') return []
+    const parsed = BookmarkFolderSchema.safeParse({
+      ...folder,
+      parentId: folder.parentId ?? null,
+      createdAt: folder.createdAt ?? 0,
+      order: folder.order ?? order,
+    })
+    return parsed.success ? [parsed.data] : []
+  })
+
+  return bookmarks.length > 0 ? { bookmarks, folders } : defaults()
+}
+
+let repository: VersionedJsonRepository<BookmarksData> | null = null
 let bookmarksCache: BookmarksData | null = null
 
-// Load bookmarks from disk
-export function loadBookmarks(): BookmarksData {
-  if (bookmarksCache) {
-    return bookmarksCache
-  }
-
-  const bookmarksFile = getBookmarksFile()
-
-  if (!existsSync(bookmarksFile)) {
-    bookmarksCache = { bookmarks: createDefaultBookmarks(), folders: [] }
-    saveBookmarks(bookmarksCache)
-    return bookmarksCache
-  }
-
-  try {
-    const raw = readFileSync(bookmarksFile, 'utf-8')
-    if (!raw.trim()) {
-      bookmarksCache = { bookmarks: createDefaultBookmarks(), folders: [] }
-      saveBookmarks(bookmarksCache)
-      return bookmarksCache
-    }
-
-    const parsed = JSON.parse(raw)
-
-    // Support old Zustand persist format { state: { bookmarks, folders }, version }
-    const data = parsed && typeof parsed === 'object' ? (parsed.state ?? parsed) : {}
-
-    let bookmarks: Bookmark[] = Array.isArray(data.bookmarks) ? data.bookmarks : []
-    const folders: BookmarkFolder[] = Array.isArray(data.folders) ? data.folders : []
-
-    if (bookmarks.length === 0) {
-      bookmarksCache = { bookmarks: createDefaultBookmarks(), folders: [] }
-      saveBookmarks(bookmarksCache)
-      return bookmarksCache
-    }
-
-    // Migration: fix old folderId values and add missing fields
-    bookmarks = bookmarks.map((b: Bookmark, idx: number) => ({
-      ...b,
-      folderId:
-        b.folderId === ('folder-ton' as string) || b.folderId === ('folder-unsorted' as string)
-          ? null
-          : (b.folderId ?? null),
-      order: b.order ?? idx,
-    }))
-
-    // Migration: remove old default folders
-    const cleanFolders = folders.filter((f: BookmarkFolder) => f.id !== 'folder-ton' && f.id !== 'folder-unsorted')
-
-    bookmarksCache = { bookmarks, folders: cleanFolders }
-    return bookmarksCache
-  } catch (error) {
-    log.error(`Failed to load bookmarks: ${String(error)}`)
-    bookmarksCache = { bookmarks: createDefaultBookmarks(), folders: [] }
-    return bookmarksCache
-  }
+function getRepository(): VersionedJsonRepository<BookmarksData> {
+  repository ??= new VersionedJsonRepository({
+    filePath: getBookmarksFile(),
+    version: SCHEMA_VERSION,
+    schema: BookmarksDataSchema,
+    defaults,
+    migrate: migrateBookmarks,
+    corruption: 'reset-with-backup',
+    onCorrupt: (error, backupPath) => log.error(`Corrupt bookmarks quarantined at ${backupPath}: ${String(error)}`),
+  })
+  return repository
 }
 
-export function saveBookmarks(data: BookmarksData): void {
+export async function loadBookmarks(): Promise<BookmarksData> {
+  if (bookmarksCache) return bookmarksCache
   try {
-    writeJsonAtomicDurable(getBookmarksFile(), data)
+    bookmarksCache = await getRepository().load()
+  } catch (error) {
+    log.error(`Failed to load bookmarks: ${String(error)}`)
+    bookmarksCache = defaults()
+  }
+  return bookmarksCache
+}
+
+export async function saveBookmarks(data: BookmarksData): Promise<void> {
+  try {
+    await getRepository().save(data)
     bookmarksCache = data
   } catch (error) {
     log.error(`Failed to save bookmarks: ${String(error)}`)
+    throw error
   }
 }
