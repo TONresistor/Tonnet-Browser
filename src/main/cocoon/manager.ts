@@ -5,15 +5,14 @@
  * TON config, applies the TDX-skip env vars, and exposes a state EventEmitter.
  */
 
-import { spawn, ChildProcess } from 'child_process'
 import { EventEmitter } from 'events'
-import { mkdtempSync, writeFileSync, copyFileSync, rmSync, existsSync, readFileSync } from 'fs'
+import { chmod, copyFile, mkdtemp, readFile, rm, writeFile } from 'fs/promises'
 import { tmpdir } from 'os'
 import { resolve } from 'path'
 import { createLogger } from '../../shared/logger'
 import { getCocoonBinaryPath, getTonConfigPath, getClientConfigTemplatePath } from './paths'
 import { checkCocoonAvailability } from './platform'
-import { trackDaemon } from '../daemon-registry'
+import { NativeProcessSupervisor } from '../native-process/supervisor'
 
 const log = createLogger('cocoon:manager')
 
@@ -46,11 +45,10 @@ export interface CocoonConfig {
 }
 
 export class CocoonManager extends EventEmitter {
-  private runnerProcess: ChildProcess | null = null
+  private readonly supervisor = new NativeProcessSupervisor()
   private state: CocoonState = { kind: 'stopped' }
   private runDir: string | null = null
   private httpPort: number = 10000
-  private killTimer: ReturnType<typeof setTimeout> | null = null
   private stopping = false
 
   getState(): CocoonState {
@@ -62,10 +60,6 @@ export class CocoonManager extends EventEmitter {
   }
 
   async start(config: CocoonConfig): Promise<void> {
-    if (this.killTimer) {
-      clearTimeout(this.killTimer)
-      this.killTimer = null
-    }
     if (this.state.kind !== 'stopped') {
       throw new Error(`Cocoon already running (state=${this.state.kind})`)
     }
@@ -79,11 +73,10 @@ export class CocoonManager extends EventEmitter {
     this.httpPort = 10000 + instance * 10
     const rpcPort = 10001 + instance * 10
 
-    this.runDir = this.createRunDir()
+    this.runDir = await this.createRunDir()
     log.info(`Cocoon runDir: ${this.runDir}`)
 
-    this.renderClientConfig({ ...config, httpPort: this.httpPort, rpcPort })
-    this.copyTonConfig()
+    await Promise.all([this.renderClientConfig({ ...config, httpPort: this.httpPort, rpcPort }), this.copyTonConfig()])
 
     try {
       this.transition({ kind: 'starting', phase: 'client-runner' })
@@ -102,76 +95,25 @@ export class CocoonManager extends EventEmitter {
 
   async stop(): Promise<void> {
     this.stopping = true
-    if (this.killTimer) {
-      clearTimeout(this.killTimer)
-      this.killTimer = null
-    }
-
-    const runner = this.runnerProcess
-
-    for (const proc of [runner]) {
-      if (proc) {
-        try {
-          proc.kill('SIGTERM')
-        } catch {
-          /* already dead */
-        }
-      }
-    }
-
-    // Force-kill grace period — closure references captured LOCAL refs, not this.X
-    this.killTimer = setTimeout(() => {
-      this.killTimer = null
-      for (const proc of [runner]) {
-        if (proc) {
-          try {
-            proc.kill('SIGKILL')
-          } catch {
-            /* already dead */
-          }
-        }
-      }
-    }, 3000)
-
-    // Wait for both processes to exit before touching the run dir
-    await Promise.all(
-      [runner]
-        .filter((p): p is ChildProcess => p !== null)
-        .map((proc) => Promise.race([new Promise<void>((r) => proc.once('exit', () => r())), this.delay(3000)]))
-    )
-
-    if (this.killTimer) {
-      clearTimeout(this.killTimer)
-      this.killTimer = null
-    }
-
-    for (const proc of [runner]) {
-      if (proc) {
-        proc.stdout?.removeAllListeners()
-        proc.stderr?.removeAllListeners()
-        proc.removeAllListeners()
-      }
-    }
-
-    this.runnerProcess = null
-    this.cleanupRunDir()
-    this.transition({ kind: 'stopped' })
-    this.stopping = false
-  }
-
-  private createRunDir(): string {
-    const oldUmask = process.umask(0o077)
     try {
-      return mkdtempSync(resolve(tmpdir(), 'cocoon-'))
+      await this.supervisor.stop()
+      await this.cleanupRunDir()
+      this.transition({ kind: 'stopped' })
     } finally {
-      process.umask(oldUmask)
+      this.stopping = false
     }
   }
 
-  private cleanupRunDir(): void {
-    if (this.runDir && existsSync(this.runDir)) {
+  private async createRunDir(): Promise<string> {
+    const directory = await mkdtemp(resolve(tmpdir(), 'cocoon-'))
+    await chmod(directory, 0o700)
+    return directory
+  }
+
+  private async cleanupRunDir(): Promise<void> {
+    if (this.runDir) {
       try {
-        rmSync(this.runDir, { recursive: true, force: true })
+        await rm(this.runDir, { recursive: true, force: true })
       } catch (err) {
         log.warn(`Failed to clean runDir ${this.runDir}: ${err}`)
       }
@@ -179,10 +121,10 @@ export class CocoonManager extends EventEmitter {
     this.runDir = null
   }
 
-  private renderClientConfig(vars: CocoonConfig & { httpPort: number; rpcPort: number }): void {
+  private async renderClientConfig(vars: CocoonConfig & { httpPort: number; rpcPort: number }): Promise<void> {
     if (!this.runDir) throw new Error('runDir not initialized')
 
-    const template = readFileSync(getClientConfigTemplatePath(), 'utf-8')
+    const template = await readFile(getClientConfigTemplatePath(), 'utf-8')
 
     const replacements: Record<string, string | number | boolean> = {
       IS_DEBUG: 0,
@@ -205,12 +147,12 @@ export class CocoonManager extends EventEmitter {
     }
 
     const configPath = resolve(this.runDir, 'client-config.json')
-    writeFileSync(configPath, rendered, { mode: 0o600 })
+    await writeFile(configPath, rendered, { mode: 0o600 })
   }
 
-  private copyTonConfig(): void {
+  private async copyTonConfig(): Promise<void> {
     if (!this.runDir) throw new Error('runDir not initialized')
-    copyFileSync(getTonConfigPath(), resolve(this.runDir, 'global.config.json'))
+    await copyFile(getTonConfigPath(), resolve(this.runDir, 'global.config.json'))
   }
 
   private spawnRunner(): void {
@@ -223,74 +165,63 @@ export class CocoonManager extends EventEmitter {
 
     log.info(`Spawning cocoon-runner: ${binPath} ${args.join(' ')}`)
 
-    this.runnerProcess = spawn(binPath, args, {
-      windowsHide: true,
-      env: {
-        ...process.env,
-        COCOON_ROUTER_POLICY: 'any',
-        COCOON_SKIP_TDX_USERCLAIMS: '1',
-        COCOON_SKIP_PROXY_HASH: '1',
-      },
-    })
-    trackDaemon('cocoon-runner', this.runnerProcess)
-
-    this.attachOutputHandlers(this.runnerProcess, 'runner')
-
-    this.runnerProcess.on('exit', (code) => {
-      log.info(`cocoon-runner exited (code=${code})`)
-      this.runnerProcess = null
-      if (this.stopping) return
-      if (this.state.kind !== 'stopped' && this.state.kind !== 'crashed') {
-        this.transition({ kind: 'crashed', error: `runner exited (code=${code})` })
-      }
-    })
-  }
-
-  private attachOutputHandlers(proc: ChildProcess, source: 'runner'): void {
-    const handler = (data: Buffer) => {
+    const output = (data: Buffer) => {
       const raw = data.toString().trim()
       if (!raw) return
-      log.debug(`[${source}] ${raw}`)
-      this.emit('log', { source, line: raw })
+      log.debug(`[runner] ${raw}`)
+      this.emit('log', { source: 'runner', line: raw })
     }
-    proc.stdout?.on('data', handler)
-    proc.stderr?.on('data', handler)
-    proc.on('error', (err) => {
-      log.error(`[${source}] spawn error:`, err)
-      this.emit('log', { source, line: `spawn error: ${err.message}` })
+
+    this.supervisor.start({
+      name: 'cocoon-runner',
+      command: binPath,
+      args,
+      options: {
+        windowsHide: true,
+        env: {
+          ...process.env,
+          COCOON_ROUTER_POLICY: 'any',
+          COCOON_SKIP_TDX_USERCLAIMS: '1',
+          COCOON_SKIP_PROXY_HASH: '1',
+        },
+      },
+      onStdout: output,
+      onStderr: output,
+      onError: (err) => {
+        log.error('[runner] spawn error:', err)
+        this.emit('log', { source: 'runner', line: `spawn error: ${err.message}` })
+      },
+      onExit: (code) => {
+        log.info(`cocoon-runner exited (code=${code})`)
+        if (this.stopping) return
+        if (this.state.kind !== 'stopped' && this.state.kind !== 'crashed') {
+          this.transition({ kind: 'crashed', error: `runner exited (code=${code})` })
+        }
+      },
     })
   }
 
   private async waitForReady(): Promise<void> {
-    const deadline = Date.now() + READINESS_TIMEOUT_MS
     const url = `http://127.0.0.1:${this.httpPort}/jsonstats`
 
     this.transition({ kind: 'starting', phase: 'sync' })
-
-    while (Date.now() < deadline) {
-      if (!this.runnerProcess) {
-        throw new Error('child process exited during startup')
-      }
-
-      try {
-        const res = await fetchWithTimeout(url, READINESS_POLL_MS)
-        if (res?.ok) {
+    await this.supervisor.waitForReady({
+      timeoutMs: READINESS_TIMEOUT_MS,
+      intervalMs: READINESS_POLL_MS,
+      probe: async () => {
+        try {
+          const res = await fetchWithTimeout(url, READINESS_POLL_MS)
+          if (!res?.ok) return false
           const data = await res.json()
           if (this.state.kind === 'starting' && this.state.phase === 'sync') {
             this.transition({ kind: 'starting', phase: 'staking' })
           }
-          if (isFullyReady(data)) {
-            return
-          }
+          return isFullyReady(data)
+        } catch {
+          return false
         }
-      } catch {
-        /* runner not yet listening */
-      }
-
-      await this.delay(READINESS_POLL_MS)
-    }
-
-    throw new Error(`Cocoon not ready after ${READINESS_TIMEOUT_MS / 1000}s`)
+      },
+    })
   }
 
   private transition(next: CocoonState): void {
@@ -299,10 +230,6 @@ export class CocoonManager extends EventEmitter {
     this.state = next
     log.info(`state: ${describeState(prev)} -> ${describeState(next)}`)
     this.emit('state-change', next, prev)
-  }
-
-  private delay(ms: number): Promise<void> {
-    return new Promise((r) => setTimeout(r, ms))
   }
 }
 

@@ -8,21 +8,20 @@
 
 import { errorMessage } from '../../shared/errors'
 import { createLogger } from '../../shared/logger'
-import { getConsumedArchive } from './consumed-archive'
-import { getStakeCacheStore } from './stake-cache'
 import { deleteCocoonWallet, loadCocoonWallet } from './wallet'
+import type { CocoonPersistence } from './persistence'
 
 const log = createLogger('cocoon:retire-wallet')
 
-export async function retireCurrentCocoonWallet(reason: string): Promise<boolean> {
+export async function retireCurrentCocoonWallet(reason: string, persistence: CocoonPersistence): Promise<boolean> {
   const wallet = await loadCocoonWallet()
   if (!wallet) return false
 
-  const cache = await getStakeCacheStore().load()
+  const cache = await persistence.stakeCache.load()
   const archivedAt = Date.now()
 
   try {
-    await getConsumedArchive().archive({
+    await persistence.consumedArchive.archive({
       archivedAt,
       ownerAddress: wallet.ownerAddress,
       nodeAddress: wallet.nodeAddress,
@@ -38,7 +37,7 @@ export async function retireCurrentCocoonWallet(reason: string): Promise<boolean
   }
 
   await deleteCocoonWallet()
-  await getStakeCacheStore().clear()
+  await persistence.stakeCache.clear()
   log.info(`Retired consumed Cocoon wallet (${reason})`)
   return true
 }

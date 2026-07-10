@@ -136,7 +136,7 @@ describe('getStakeInfo', () => {
   it('returns null when runner is stopped and no cache exists', async () => {
     const manager = makeManager('stopped')
     const bridge = makeBridge()
-    const result = await getStakeInfo(manager, bridge)
+    const result = await getStakeInfo(manager, bridge, cacheStore as never)
     expect(result).toBeNull()
     expect(fetchJsonStats).not.toHaveBeenCalled()
   })
@@ -148,7 +148,7 @@ describe('getStakeInfo', () => {
       ...MOCK_STATS_REGISTERED,
       proxies: [],
     })
-    const result = await getStakeInfo(manager, bridge)
+    const result = await getStakeInfo(manager, bridge, cacheStore as never)
     expect(result).toBeNull()
   })
 
@@ -163,7 +163,7 @@ describe('getStakeInfo', () => {
       cachedAt: Date.now(),
     })
     mockOpenedClient({ state: 0, balance: 19_500_000_000n, stake: 20_000_000_000n, unlockTs: 0, tokensUsed: 100n })
-    const result = await getStakeInfo(manager, bridge)
+    const result = await getStakeInfo(manager, bridge, cacheStore as never)
     expect(result).not.toBeNull()
     expect(result!.runnerStatus).toBe('ready')
     expect(result!.balance).toBe('19500000000')
@@ -185,7 +185,7 @@ describe('getStakeInfo', () => {
       unlockTs: Math.floor(Date.now() / 1000) + 3600,
       tokensUsed: 100n,
     })
-    const result = await getStakeInfo(manager, bridge)
+    const result = await getStakeInfo(manager, bridge, cacheStore as never)
     expect(result).not.toBeNull()
     expect(result!.runnerStatus).toBe('stopped')
     expect(result!.status).toBe('cooldown')
@@ -197,7 +197,7 @@ describe('getStakeInfo', () => {
     const bridge = makeBridge({ [VALID_ADDR]: '500000000' })
     vi.mocked(fetchJsonStats).mockResolvedValueOnce({ ...MOCK_STATS_REGISTERED })
     mockOpenedClient({ state: 0, balance: 19_500_000_000n, stake: 20_000_000_000n, unlockTs: 0, tokensUsed: 100n })
-    await getStakeInfo(manager, bridge)
+    await getStakeInfo(manager, bridge, cacheStore as never)
     expect(cacheStore.saveStakeAddresses).toHaveBeenCalledWith(
       expect.objectContaining({
         proxySCAddress: VALID_ADDR,
@@ -213,7 +213,7 @@ describe('getStakeInfo', () => {
     vi.mocked(fetchJsonStats).mockResolvedValueOnce({ ...MOCK_STATS_REGISTERED })
     mockOpenedClient({ state: 0, balance: 19_500_000_000n, stake: 20_000_000_000n, unlockTs: 0, tokensUsed: 100n })
 
-    const result = await getStakeInfo(manager, bridge)
+    const result = await getStakeInfo(manager, bridge, cacheStore as never)
     expect(result).not.toBeNull()
     expect(result!.status).toBe('active')
     expect(result!.runnerStatus).toBe('ready')
@@ -232,7 +232,7 @@ describe('getStakeInfo', () => {
     })
     mockOpenedClient({ state: 1, balance: 20_000_000_000n, stake: 20_000_000_000n, unlockTs: future, tokensUsed: 100n })
 
-    const result = await getStakeInfo(manager, bridge)
+    const result = await getStakeInfo(manager, bridge, cacheStore as never)
     expect(result!.status).toBe('cooldown')
     expect(result!.unlockTs).toBe(future)
   })
@@ -247,7 +247,7 @@ describe('getStakeInfo', () => {
     })
     mockOpenedClient({ state: 1, balance: 20_000_000_000n, stake: 20_000_000_000n, unlockTs: past, tokensUsed: 100n })
 
-    const result = await getStakeInfo(manager, bridge)
+    const result = await getStakeInfo(manager, bridge, cacheStore as never)
     expect(result!.status).toBe('refundable')
   })
 
@@ -260,7 +260,7 @@ describe('getStakeInfo', () => {
     })
     mockOpenedClient({ state: 2, balance: 0n, stake: 20_000_000_000n, unlockTs: 0, tokensUsed: 200n })
 
-    const result = await getStakeInfo(manager, bridge)
+    const result = await getStakeInfo(manager, bridge, cacheStore as never)
     expect(result!.status).toBe('closed')
   })
 
@@ -272,7 +272,7 @@ describe('getStakeInfo', () => {
       getData: vi.fn().mockRejectedValue(new Error('SC not deployed')),
     } as unknown as ReturnType<typeof openBridgeContract>)
 
-    const result = await getStakeInfo(manager, bridge)
+    const result = await getStakeInfo(manager, bridge, cacheStore as never)
     expect(result).not.toBeNull()
     expect(result!.onchainState).toBeNull()
     expect(result!.balance).toBe('0')

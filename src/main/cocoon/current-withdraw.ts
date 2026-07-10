@@ -12,7 +12,7 @@ import { errorMessage } from '../../shared/errors'
 import { Address } from '@ton/core'
 import { createLogger } from '../../shared/logger'
 import { buildCocoonWalletInit, sendFromCocoonWallet, type SendResult } from './contracts'
-import { getStakeCacheStore } from './stake-cache'
+import type { StakeCacheStore } from './stake-cache'
 import { getStakeInfo } from './unstake'
 import { loadCocoonWallet } from './wallet'
 import { REFUND_GAS_NANO } from './constants'
@@ -24,7 +24,7 @@ import {
   OWNER_CLIENT_REQUEST_REFUND,
 } from './node-signing'
 import type { CocoonManager } from './manager'
-import type { WsBridgeClient } from '../wallet/ws-bridge-client'
+import type { TonBridgePort } from '../ports/ton-bridge'
 
 const log = createLogger('cocoon:current-withdraw')
 
@@ -52,21 +52,25 @@ export interface CurrentWithdrawResult {
 
 export type TopUpNodeWallet = (nodeAddress: string, amountNano: bigint) => Promise<void>
 
-async function resolveClientSCAddress(manager: CocoonManager, bridge: WsBridgeClient): Promise<string> {
-  const info = await getStakeInfo(manager, bridge).catch((err) => {
+async function resolveClientSCAddress(
+  manager: CocoonManager,
+  bridge: TonBridgePort,
+  stakeCache: StakeCacheStore
+): Promise<string> {
+  const info = await getStakeInfo(manager, bridge, stakeCache).catch((err) => {
     log.warn(`stake info unavailable: ${errorMessage(err)}`)
     return null
   })
   if (info?.clientSCAddress) return info.clientSCAddress
 
-  const cache = await getStakeCacheStore().load()
+  const cache = await stakeCache.load()
   if (cache?.clientSCAddress) return cache.clientSCAddress
 
   throw new Error('No Cocoon client contract cached — cannot withdraw current stake')
 }
 
 async function ensureNodeGas(
-  bridge: WsBridgeClient,
+  bridge: TonBridgePort,
   wallet: CurrentWallet,
   topUpNodeWallet: TopUpNodeWallet | null
 ): Promise<string | undefined> {
@@ -83,7 +87,7 @@ async function ensureNodeGas(
   return topUpAmount.toString()
 }
 
-async function waitForNodeGas(bridge: WsBridgeClient, nodeAddress: string): Promise<void> {
+async function waitForNodeGas(bridge: TonBridgePort, nodeAddress: string): Promise<void> {
   const deadline = Date.now() + TOPUP_CONFIRM_TIMEOUT_MS
 
   while (true) {
@@ -97,7 +101,7 @@ async function waitForNodeGas(bridge: WsBridgeClient, nodeAddress: string): Prom
 }
 
 async function sendRefundFromCurrentNode(
-  bridge: WsBridgeClient,
+  bridge: TonBridgePort,
   wallet: CurrentWallet,
   clientSCAddress: string,
   sendExcessesTo: string
@@ -112,7 +116,7 @@ async function sendRefundFromCurrentNode(
     REFUND_GAS_NANO,
     body,
     {
-      init: buildCocoonWalletInit(wallet.ownerAddress, wallet.nodePublicKeyHex),
+      init: await buildCocoonWalletInit(wallet.ownerAddress, wallet.nodePublicKeyHex),
     }
   )
 }
@@ -127,11 +131,12 @@ async function sendRefundFromCurrentNode(
  */
 export async function driveCurrentWithdrawStep(params: {
   manager: CocoonManager
-  bridge: WsBridgeClient
+  bridge: TonBridgePort
   nativeAddress: string
+  stakeCache: StakeCacheStore
   topUpNodeWallet?: TopUpNodeWallet
 }): Promise<CurrentWithdrawResult> {
-  const { manager, bridge, nativeAddress, topUpNodeWallet } = params
+  const { manager, bridge, nativeAddress, stakeCache, topUpNodeWallet } = params
   const wallet = await loadCocoonWallet()
   if (!wallet) throw new Error('Cocoon wallet not initialized')
 
@@ -140,7 +145,7 @@ export async function driveCurrentWithdrawStep(params: {
     await manager.stop()
   }
 
-  const clientSCAddress = await resolveClientSCAddress(manager, bridge)
+  const clientSCAddress = await resolveClientSCAddress(manager, bridge, stakeCache)
   const state = await readClientState(bridge, clientSCAddress)
   if (!state) {
     throw new Error(`Unable to read Cocoon client contract ${clientSCAddress}`)
@@ -150,9 +155,9 @@ export async function driveCurrentWithdrawStep(params: {
     return { status: 'closed', clientSCAddress }
   }
 
-  const cache = await getStakeCacheStore().load()
+  const cache = await stakeCache.load()
   const pending = cache?.pendingWithdraw ?? { startedAt: Date.now() }
-  await getStakeCacheStore().setPendingWithdraw(pending)
+  await stakeCache.setPendingWithdraw(pending)
 
   if (state.state === 1) {
     const now = Math.floor(Date.now() / 1000)
@@ -173,7 +178,7 @@ export async function driveCurrentWithdrawStep(params: {
 
   const toppedUp = await ensureNodeGas(bridge, wallet, topUpNodeWallet ?? null)
   const tx = await sendRefundFromCurrentNode(bridge, wallet, clientSCAddress, nativeAddress)
-  await getStakeCacheStore().setPendingWithdraw({
+  await stakeCache.setPendingWithdraw({
     ...pending,
     lastActionAt: nowMs,
     lastBocHash: tx.bocHash,

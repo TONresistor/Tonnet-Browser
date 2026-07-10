@@ -1,5 +1,5 @@
 /**
- * BridgeProvider — ContractProvider adapter for WsBridgeClient.
+ * BridgeProvider — ContractProvider adapter for TonBridgePort.
  *
  * Bridges @ton/core's ContractProvider interface to the tonutils-bridge WebSocket
  * client so that vendored contract wrappers (CocoonWallet, CocoonClient, etc.)
@@ -31,7 +31,7 @@ import {
   beginCell,
   openContract,
 } from '@ton/core'
-import type { WsBridgeClient } from '../../wallet/ws-bridge-client'
+import type { TonBridgePort } from '../../ports/ton-bridge'
 
 // Real bridge stack item: plain string (decimal int or base64 BOC) or null.
 type BridgeStackItem = string | null
@@ -72,7 +72,7 @@ export function bridgeStackToTupleReader(stack: BridgeStackItem[]): TupleReader 
 
 export class BridgeProvider implements ContractProvider {
   constructor(
-    private readonly bridge: WsBridgeClient,
+    private readonly bridge: TonBridgePort,
     private readonly addr: Address,
     private readonly init?: StateInit
   ) {}
@@ -159,7 +159,7 @@ export class BridgeProvider implements ContractProvider {
  *   const wallet = openBridgeContract(bridge, CocoonWallet.createFromAddress(addr))
  *   await wallet.getSeqno()
  */
-export function openBridgeContract<T extends Contract>(bridge: WsBridgeClient, contract: T): OpenedContract<T> {
+export function openBridgeContract<T extends Contract>(bridge: TonBridgePort, contract: T): OpenedContract<T> {
   return openContract(contract, ({ address, init }) => {
     return new BridgeProvider(bridge, address, init ?? undefined)
   })

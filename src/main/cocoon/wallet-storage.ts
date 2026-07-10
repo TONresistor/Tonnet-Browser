@@ -12,14 +12,16 @@
  */
 
 import { errorMessage } from '../../shared/errors'
-import { promises as fs } from 'fs'
 import { join } from 'path'
 import { app } from 'electron'
+import { z } from 'zod'
 import type { ISecureStorage } from '../ports/secure-storage'
 import { ElectronSafeStorageAdapter } from '../adapters/electron-secure-storage'
 import { createLogger } from '../../shared/logger'
-import { isEnoent } from '../utils/errors'
-import { SENC_MARKER, writeSencJsonFile } from '../utils/senc'
+import {
+  EncryptedDocumentError,
+  VersionedEncryptedJsonRepository,
+} from '../persistence/versioned-encrypted-json-repository'
 
 const log = createLogger('cocoon:wallet-storage')
 
@@ -39,6 +41,16 @@ export interface CocoonWalletData {
   setupCompletedAt?: number | null
 }
 
+const CocoonWalletDataSchema = z.object({
+  ownerMnemonic: z.array(z.string()),
+  nodeSecretBase64: z.string(),
+  nodePublicKeyHex: z.string(),
+  ownerAddress: z.string(),
+  nodeAddress: z.string(),
+  createdAt: z.number().finite(),
+  setupCompletedAt: z.number().finite().nullable().optional(),
+})
+
 export class CocoonWalletDecryptionError extends Error {
   constructor(message: string) {
     super(message)
@@ -50,21 +62,24 @@ export class CocoonKeyStorage {
   private storage: ISecureStorage
   private filePath: string
   private cached: CocoonWalletData | null = null
+  private repository: VersionedEncryptedJsonRepository<CocoonWalletData>
 
   constructor(storage: ISecureStorage = new ElectronSafeStorageAdapter(), basePath?: string) {
     this.storage = storage
     const dir = basePath ?? app.getPath('userData')
     this.filePath = join(dir, FILE_NAME)
+    this.repository = new VersionedEncryptedJsonRepository({
+      filePath: this.filePath,
+      version: 1,
+      schema: CocoonWalletDataSchema,
+      storage,
+      migrate: (raw) => raw,
+    })
   }
 
   /** True if the user already has a Cocoon wallet on disk. */
   async exists(): Promise<boolean> {
-    try {
-      await fs.access(this.filePath)
-      return true
-    } catch {
-      return false
-    }
+    return this.repository.exists()
   }
 
   /**
@@ -99,24 +114,19 @@ export class CocoonKeyStorage {
   async load(): Promise<CocoonWalletData | null> {
     if (this.cached) return this.cached
     try {
-      const buf = await fs.readFile(this.filePath)
-      if (!buf.subarray(0, 4).equals(SENC_MARKER)) {
-        log.error(`Unexpected file format at ${this.filePath} (no SENC marker)`)
-        return null
-      }
-      let json: string
-      try {
-        json = this.storage.decrypt(buf.subarray(4))
-      } catch (err) {
-        log.error('safeStorage.decrypt failed:', err)
-        throw new CocoonWalletDecryptionError(errorMessage(err))
-      }
-      const parsed = JSON.parse(json) as CocoonWalletData
+      const parsed = await this.repository.loadOptional()
       this.cached = parsed
       return parsed
-    } catch (err) {
-      if (isEnoent(err)) return null
-      throw err
+    } catch (error) {
+      if (error instanceof EncryptedDocumentError && error.stage === 'format') {
+        log.error(error.message)
+        return null
+      }
+      if (error instanceof EncryptedDocumentError && error.stage === 'decrypt') {
+        log.error('safeStorage.decrypt failed:', error.cause)
+        throw new CocoonWalletDecryptionError(errorMessage(error.cause ?? error))
+      }
+      throw error
     }
   }
 
@@ -128,11 +138,7 @@ export class CocoonKeyStorage {
   /** Delete the wallet file from disk. Caller is responsible for warning the user. */
   async deleteFile(): Promise<void> {
     this.cached = null
-    try {
-      await fs.unlink(this.filePath)
-    } catch (err) {
-      if (!isEnoent(err)) throw err
-    }
+    await this.repository.remove()
   }
 
   /** Test-only / debug: returns the file path. */
@@ -147,6 +153,6 @@ export class CocoonKeyStorage {
   }
 
   private async write(data: CocoonWalletData): Promise<void> {
-    await writeSencJsonFile(this.filePath, this.storage, data)
+    await this.repository.save(data)
   }
 }

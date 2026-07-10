@@ -44,14 +44,14 @@ import { errorMessage } from '../../shared/errors'
 import { PollingDriver } from './polling-driver'
 import { Address } from '@ton/core'
 import { createLogger } from '../../shared/logger'
-import { getRecoveryQueueStore, type RecoveryEntry } from './recovery-queue'
-import { getConsumedArchive, type ArchivedCocoon } from './consumed-archive'
+import { type RecoveryQueueStore, type RecoveryEntry } from './recovery-queue'
+import { type ConsumedArchive, type ArchivedCocoon } from './consumed-archive'
 import { CocoonClient } from './contracts/wrappers/CocoonClient'
 import { openBridgeContract } from './contracts/bridge-provider'
 import { sendFromCocoonWallet, buildCocoonWalletInit } from './contracts'
 import { DRAIN_DUST_FLOOR_NANO, REFUND_GAS_NANO, narrowClientState } from './constants'
 import { decodeNodeSecret, buildClientOpcodeBody, OWNER_CLIENT_REQUEST_REFUND } from './node-signing'
-import type { WsBridgeClient } from '../wallet/ws-bridge-client'
+import type { TonBridgePort } from '../ports/ton-bridge'
 import type { RecoveryDriverEvent } from '../../shared/cocoon-types'
 
 /**
@@ -62,7 +62,7 @@ import type { RecoveryDriverEvent } from '../../shared/cocoon-types'
  * opcode as the inner body. The V4R2 mnemonic alone cannot trigger the SC.
  */
 async function sendRefundFromNode(
-  bridge: WsBridgeClient,
+  bridge: TonBridgePort,
   archive: ArchivedCocoon,
   clientSCAddress: string,
   sendExcessesTo: string
@@ -76,7 +76,7 @@ async function sendRefundFromNode(
     REFUND_GAS_NANO,
     refundBody,
     {
-      init: buildCocoonWalletInit(archive.ownerAddress, archive.nodePublicKeyHex),
+      init: await buildCocoonWalletInit(archive.ownerAddress, archive.nodePublicKeyHex),
     }
   )
 }
@@ -106,14 +106,31 @@ export type { RecoveryDriverEvent }
 
 export class RecoveryDriver extends PollingDriver {
   constructor(
-    private getBridge: () => WsBridgeClient | null,
-    private getNativeAddress: () => string | null
+    private getBridge: () => TonBridgePort | null,
+    private getNativeAddress: () => string | null,
+    private queueStore: RecoveryQueueStore,
+    private consumedArchive: ConsumedArchive
   ) {
     super(TICK_INTERVAL_MS, log)
   }
 
+  async enqueue(params: EnqueueRecoveryParams): Promise<{ refundBocHash: string }> {
+    const { archivedAt, clientSCAddress, bridge, archive, nativeAddress } = params
+    const result = await sendRefundFromNode(bridge, archive, clientSCAddress, nativeAddress)
+    await this.queueStore.add({
+      archivedAt,
+      clientSCAddress,
+      phase: 'refund-pending',
+      addedAt: Date.now(),
+      refundBocHash: result.bocHash,
+    })
+    this.emit('event', { type: 'started', archivedAt, clientSCAddress } satisfies RecoveryDriverEvent)
+    this.triggerTick()
+    return { refundBocHash: result.bocHash }
+  }
+
   protected async tick(): Promise<void> {
-    const queue = await getRecoveryQueueStore().list()
+    const queue = await this.queueStore.list()
     if (queue.length === 0) return
 
     const bridge = this.getBridge()
@@ -127,13 +144,13 @@ export class RecoveryDriver extends PollingDriver {
         // Transient: log, persist lastError, keep phase. Next tick retries.
         const message = errorMessage(err)
         log.warn(`Recovery tick failed for archivedAt=${entry.archivedAt}: ${message}`)
-        await getRecoveryQueueStore().update(entry.archivedAt, { lastError: message })
+        await this.queueStore.update(entry.archivedAt, { lastError: message })
       }
     }
   }
 
-  private async advanceEntry(entry: RecoveryEntry, bridge: WsBridgeClient): Promise<void> {
-    const archive = await getConsumedArchive().getByArchivedAt(entry.archivedAt)
+  private async advanceEntry(entry: RecoveryEntry, bridge: TonBridgePort): Promise<void> {
+    const archive = await this.consumedArchive.getByArchivedAt(entry.archivedAt)
     if (!archive) {
       // The archive entry was deleted out from under us. Mark failed so we
       // stop polling, but don't drop the queue entry (user may want to
@@ -161,7 +178,7 @@ export class RecoveryDriver extends PollingDriver {
    * refund. If state=1 (closing), record unlock_ts; if elapsed → claim-pending.
    * If state=2 (already closed), funds are sitting on cocoon_node → drain.
    */
-  private async driveCooldown(entry: RecoveryEntry, archive: ArchivedCocoon, bridge: WsBridgeClient): Promise<void> {
+  private async driveCooldown(entry: RecoveryEntry, archive: ArchivedCocoon, bridge: TonBridgePort): Promise<void> {
     const client = CocoonClient.createFromAddress(Address.parse(entry.clientSCAddress))
     const opened = openBridgeContract(bridge, client)
 
@@ -189,7 +206,7 @@ export class RecoveryDriver extends PollingDriver {
       const native = this.getNativeAddress()
       if (!native) throw new Error('Native wallet not initialized — cannot set excess address')
       const result = await sendRefundFromNode(bridge, archive, entry.clientSCAddress, native)
-      await getRecoveryQueueStore().update(entry.archivedAt, {
+      await this.queueStore.update(entry.archivedAt, {
         phase: 'cooldown',
         refundBocHash: result.bocHash,
         lastActionAt: Date.now(),
@@ -204,7 +221,7 @@ export class RecoveryDriver extends PollingDriver {
         // Still in cooldown. Pin the unlock_ts on the entry so the renderer
         // can render an ETA without an extra round-trip.
         if (entry.unlockTs !== unlockTs) {
-          await getRecoveryQueueStore().update(entry.archivedAt, {
+          await this.queueStore.update(entry.archivedAt, {
             phase: 'cooldown',
             unlockTs,
             lastError: undefined,
@@ -219,7 +236,7 @@ export class RecoveryDriver extends PollingDriver {
         return
       }
       // Cooldown elapsed — promote to claim.
-      await getRecoveryQueueStore().update(entry.archivedAt, {
+      await this.queueStore.update(entry.archivedAt, {
         phase: 'claim-pending',
         unlockTs,
         lastError: undefined,
@@ -228,7 +245,7 @@ export class RecoveryDriver extends PollingDriver {
     }
 
     // state === 2 → SC self-destructed already. Funds are on cocoon_node.
-    await getRecoveryQueueStore().update(entry.archivedAt, {
+    await this.queueStore.update(entry.archivedAt, {
       phase: 'drain-pending',
       lastError: undefined,
     })
@@ -239,13 +256,13 @@ export class RecoveryDriver extends PollingDriver {
    * handler treats this as the claim: stake forwarded to cocoon_node, SC
    * destroyed. Next tick observes state=2 and transitions to drain.
    */
-  private async driveClaim(entry: RecoveryEntry, archive: ArchivedCocoon, bridge: WsBridgeClient): Promise<void> {
+  private async driveClaim(entry: RecoveryEntry, archive: ArchivedCocoon, bridge: TonBridgePort): Promise<void> {
     const native = this.getNativeAddress()
     if (!native) throw new Error('Native wallet not initialized — cannot set excess address')
 
     log.info(`Recovery ${entry.archivedAt}: claiming refund (second request_refund, node-signed)`)
     const result = await sendRefundFromNode(bridge, archive, entry.clientSCAddress, native)
-    await getRecoveryQueueStore().update(entry.archivedAt, {
+    await this.queueStore.update(entry.archivedAt, {
       phase: 'drain-pending',
       claimBocHash: result.bocHash,
       lastError: undefined,
@@ -264,13 +281,13 @@ export class RecoveryDriver extends PollingDriver {
    * forwards every nanoTON.
    */
   /** Read the on-chain CocoonClient state (throws if getData fails → tick retries). */
-  private async readClientState(clientSCAddress: string, bridge: WsBridgeClient): Promise<0 | 1 | 2> {
+  private async readClientState(clientSCAddress: string, bridge: TonBridgePort): Promise<0 | 1 | 2> {
     const client = CocoonClient.createFromAddress(Address.parse(clientSCAddress))
     const onchain = await openBridgeContract(bridge, client).getData()
     return narrowClientState(onchain.state)
   }
 
-  private async driveDrain(entry: RecoveryEntry, archive: ArchivedCocoon, bridge: WsBridgeClient): Promise<void> {
+  private async driveDrain(entry: RecoveryEntry, archive: ArchivedCocoon, bridge: TonBridgePort): Promise<void> {
     const native = this.getNativeAddress()
     if (!native) throw new Error('Native wallet not initialized — cannot determine drain destination')
 
@@ -284,7 +301,7 @@ export class RecoveryDriver extends PollingDriver {
         throw new Error(`drain deferred: client SC not closed yet (state=${state})`)
       }
       log.info(`Recovery ${entry.archivedAt}: cocoon_node residual ${balance} < dust floor, SC closed — marking done`)
-      await getRecoveryQueueStore().update(entry.archivedAt, {
+      await this.queueStore.update(entry.archivedAt, {
         phase: 'done',
         sentToMain: native,
         lastError: undefined,
@@ -307,10 +324,10 @@ export class RecoveryDriver extends PollingDriver {
       undefined,
       {
         drainAll: true,
-        init: buildCocoonWalletInit(archive.ownerAddress, archive.nodePublicKeyHex),
+        init: await buildCocoonWalletInit(archive.ownerAddress, archive.nodePublicKeyHex),
       }
     )
-    await getRecoveryQueueStore().update(entry.archivedAt, {
+    await this.queueStore.update(entry.archivedAt, {
       phase: 'done',
       drainBocHash: result.bocHash,
       sentToMain: native,
@@ -332,7 +349,7 @@ export class RecoveryDriver extends PollingDriver {
   }
 
   private async markFailed(entry: RecoveryEntry, message: string): Promise<void> {
-    await getRecoveryQueueStore().update(entry.archivedAt, {
+    await this.queueStore.update(entry.archivedAt, {
       phase: 'failed',
       lastError: message,
     })
@@ -355,7 +372,7 @@ export class RecoveryDriver extends PollingDriver {
 export interface EnqueueRecoveryParams {
   archivedAt: number
   clientSCAddress: string
-  bridge: WsBridgeClient
+  bridge: TonBridgePort
   archive: ArchivedCocoon
   /** Native wallet address — used as `sendExcessesTo` for the refund tx. */
   nativeAddress: string
@@ -365,26 +382,5 @@ export async function enqueueRecovery(
   driver: RecoveryDriver,
   params: EnqueueRecoveryParams
 ): Promise<{ refundBocHash: string }> {
-  const { archivedAt, clientSCAddress, bridge, archive, nativeAddress } = params
-  // Send the initial request_refund signed by the cocoon_node_wallet (the SC's
-  // actual on-chain owner). Do not assume the next state; the driver must read
-  // the SC before showing any locked/cooldown state to the user.
-  const result = await sendRefundFromNode(bridge, archive, clientSCAddress, nativeAddress)
-
-  await getRecoveryQueueStore().add({
-    archivedAt,
-    clientSCAddress,
-    phase: 'refund-pending',
-    addedAt: Date.now(),
-    refundBocHash: result.bocHash,
-  })
-
-  driver.emit('event', {
-    type: 'started',
-    archivedAt,
-    clientSCAddress,
-  } satisfies RecoveryDriverEvent)
-  driver.triggerTick()
-
-  return { refundBocHash: result.bocHash }
+  return driver.enqueue(params)
 }

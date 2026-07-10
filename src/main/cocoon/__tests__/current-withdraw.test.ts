@@ -105,6 +105,7 @@ describe('driveCurrentWithdrawStep', () => {
       manager,
       bridge: makeBridge(['0', '2400000000']),
       nativeAddress: NATIVE_ADDR,
+      stakeCache: cacheStore as never,
       topUpNodeWallet: topUp,
     })
 
@@ -145,6 +146,7 @@ describe('driveCurrentWithdrawStep', () => {
       manager: makeManager('stopped'),
       bridge: makeBridge('0'),
       nativeAddress: NATIVE_ADDR,
+      stakeCache: cacheStore as never,
       topUpNodeWallet: vi.fn(),
     })
 
@@ -165,6 +167,7 @@ describe('driveCurrentWithdrawStep', () => {
       manager: makeManager('stopped'),
       bridge: makeBridge('2400000000'),
       nativeAddress: NATIVE_ADDR,
+      stakeCache: cacheStore as never,
       topUpNodeWallet: vi.fn(),
     })
 
@@ -180,6 +183,7 @@ describe('driveCurrentWithdrawStep', () => {
       manager: makeManager('stopped'),
       bridge: makeBridge('2399999999'),
       nativeAddress: NATIVE_ADDR,
+      stakeCache: cacheStore as never,
       topUpNodeWallet: topUp,
     })
 
@@ -204,6 +208,7 @@ describe('driveCurrentWithdrawStep', () => {
       manager: makeManager('stopped'),
       bridge: makeBridge('500000000'),
       nativeAddress: NATIVE_ADDR,
+      stakeCache: cacheStore as never,
       topUpNodeWallet: vi.fn(),
     })
 

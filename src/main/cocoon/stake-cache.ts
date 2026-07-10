@@ -13,15 +13,11 @@
  * re-cached on the next /jsonstats success.
  */
 
-import { errorMessage } from '../../shared/errors'
-import { promises as fs } from 'fs'
-import { dirname, join } from 'path'
+import { join } from 'path'
 import { app } from 'electron'
-import { createLogger } from '../../shared/logger'
+import { z } from 'zod'
 import type { CocoonPendingWithdraw } from '../../shared/cocoon-types'
-import { isEnoent } from '../utils/errors'
-
-const log = createLogger('cocoon:stake-cache')
+import { VersionedJsonRepository } from '../persistence/versioned-json-repository'
 
 const FILE_NAME = 'cocoon-stake.json'
 
@@ -44,36 +40,46 @@ export interface StakeCache {
   cachedAt: number
 }
 
+const PendingWithdrawSchema = z.object({
+  startedAt: z.number().finite(),
+  lastActionAt: z.number().finite().optional(),
+  lastBocHash: z.string().optional(),
+})
+const StakeCacheSchema = z.object({
+  proxySCAddress: z.string().optional(),
+  clientSCAddress: z.string().optional(),
+  ownerAddress: z.string().optional(),
+  pendingWithdraw: PendingWithdrawSchema.nullish(),
+  cachedAt: z.number().finite(),
+})
+
 export class StakeCacheStore {
   private filePath: string
   private cached: StakeCache | null = null
+  private repository: VersionedJsonRepository<StakeCache>
 
   constructor(basePath?: string) {
     const dir = basePath ?? app.getPath('userData')
     this.filePath = join(dir, FILE_NAME)
+    this.repository = new VersionedJsonRepository({
+      filePath: this.filePath,
+      version: 1,
+      schema: StakeCacheSchema,
+      defaults: () => ({ cachedAt: 0 }),
+      migrate: (raw) => raw,
+      mode: 0o600,
+    })
   }
 
   async load(): Promise<StakeCache | null> {
     if (this.cached) return this.cached
-    try {
-      const json = await fs.readFile(this.filePath, 'utf-8')
-      const parsed = JSON.parse(json) as StakeCache
-      this.cached = parsed
-      return parsed
-    } catch (err) {
-      if (isEnoent(err)) return null
-      log.warn(`Failed to read stake cache: ${errorMessage(err)}`)
-      return null
-    }
+    this.cached = await this.repository.loadOptional()
+    return this.cached
   }
 
   async save(data: StakeCache): Promise<void> {
-    await fs.mkdir(dirname(this.filePath), { recursive: true, mode: 0o700 })
-    const tmp = `${this.filePath}.tmp`
-    await fs.writeFile(tmp, JSON.stringify(data, null, 2), { mode: 0o600 })
-    await fs.rename(tmp, this.filePath)
-    if (process.platform !== 'win32') await fs.chmod(this.filePath, 0o600)
-    this.cached = data
+    await this.repository.save(data)
+    this.cached = StakeCacheSchema.parse(data)
   }
 
   /** Update public stake addresses while preserving any pending withdraw intent. */
@@ -89,11 +95,7 @@ export class StakeCacheStore {
 
   async clear(): Promise<void> {
     this.cached = null
-    try {
-      await fs.unlink(this.filePath)
-    } catch (err) {
-      if (!isEnoent(err)) throw err
-    }
+    await this.repository.remove()
   }
 
   /** Read the pending withdraw intent (null if absent or no cache yet). */
@@ -122,11 +124,4 @@ export class StakeCacheStore {
   getFilePath(): string {
     return this.filePath
   }
-}
-
-let singleton: StakeCacheStore | null = null
-
-export function getStakeCacheStore(): StakeCacheStore {
-  if (!singleton) singleton = new StakeCacheStore()
-  return singleton
 }

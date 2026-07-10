@@ -12,7 +12,7 @@ import { openBridgeContract } from './contracts/bridge-provider'
 import { narrowClientState } from './constants'
 import { errorMessage } from '../../shared/errors'
 import { createLogger } from '../../shared/logger'
-import type { WsBridgeClient } from '../wallet/ws-bridge-client'
+import type { TonBridgePort } from '../ports/ton-bridge'
 
 const log = createLogger('cocoon:node-signing')
 
@@ -43,7 +43,7 @@ export function buildClientOpcodeBody(opcode: number, sendExcessesTo: string): C
 
 /** Read the client SC's on-chain state (0|1|2) and unlock timestamp, or null if unreadable. */
 export async function readClientState(
-  bridge: WsBridgeClient,
+  bridge: TonBridgePort,
   clientSCAddress: string
 ): Promise<{ state: 0 | 1 | 2; unlockTs: number } | null> {
   try {

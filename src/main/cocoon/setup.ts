@@ -13,7 +13,7 @@
 import { Address } from '@ton/core'
 import { loadCocoonWallet } from './wallet'
 import { sendFromOwnerWallet } from './contracts'
-import type { WsBridgeClient } from '../wallet/ws-bridge-client'
+import type { TonBridgePort } from '../ports/ton-bridge'
 import { createLogger } from '../../shared/logger'
 
 const log = createLogger('cocoon:setup')
@@ -25,7 +25,7 @@ const OWNER_GAS_RESERVE = 500_000_000n
  * Return the current nano-TON balance of the owner wallet.
  * Throws if no Cocoon wallet has been generated yet.
  */
-export async function getOwnerBalance(bridge: WsBridgeClient): Promise<bigint> {
+export async function getOwnerBalance(bridge: TonBridgePort): Promise<bigint> {
   const data = await loadCocoonWallet()
   if (!data) throw new Error('Cocoon wallet not initialized')
   return BigInt(await bridge.getBalance(data.ownerAddress))
@@ -41,7 +41,7 @@ export async function getOwnerBalance(bridge: WsBridgeClient): Promise<bigint> {
  * message (its address is derived deterministically but the SC isn't
  * deployed until the first transfer).
  */
-export async function getCocoonWalletBalance(bridge: WsBridgeClient): Promise<bigint> {
+export async function getCocoonWalletBalance(bridge: TonBridgePort): Promise<bigint> {
   const data = await loadCocoonWallet()
   if (!data) throw new Error('Cocoon wallet not initialized')
   return BigInt(await bridge.getBalance(data.nodeAddress))
@@ -50,7 +50,7 @@ export async function getCocoonWalletBalance(bridge: WsBridgeClient): Promise<bi
 /**
  * Transfer TON from the owner (V4R2) wallet to the cocoon node wallet.
  *
- * @param bridge  Connected WsBridgeClient instance.
+ * @param bridge  Connected TON bridge port.
  * @param amount  Nano-TON amount to send, or 'max' to send everything minus
  *                the gas reserve (0.5 TON).
  *
@@ -62,7 +62,7 @@ export async function getCocoonWalletBalance(bridge: WsBridgeClient): Promise<bi
  *  - An explicit amount exceeds the available balance minus the gas reserve.
  */
 export async function fundCocoonFromOwner(
-  bridge: WsBridgeClient,
+  bridge: TonBridgePort,
   amount: bigint | 'max'
 ): Promise<{ bocHash: string; seqno: number; sentAmount: bigint }> {
   const data = await loadCocoonWallet()

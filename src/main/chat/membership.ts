@@ -1,12 +1,11 @@
 import { app } from 'electron'
 import { randomBytes } from 'node:crypto'
-import { promises as fs } from 'fs'
 import { join } from 'path'
 import { keyPairFromSeed } from '@ton/crypto'
+import { z } from 'zod'
 import { ElectronSafeStorageAdapter } from '../adapters/electron-secure-storage'
-import { writeJsonAtomic } from '../utils/secure-fs'
 import { createLogger } from '../../shared/logger'
-import { isEnoent } from '../utils/errors'
+import { VersionedJsonRepository } from '../persistence/versioned-json-repository'
 import { issueCertificate, verifyCertificate, CERT_MAX_SIZE } from './cert'
 import { overlayIdForRoom } from './room'
 
@@ -22,31 +21,40 @@ interface MembershipFile {
   certs: Record<string, string> // full room name -> granted cert bytes (base64)
 }
 
+const MembershipFileSchema = z.object({
+  v: z.literal(1),
+  owned: z.record(z.string(), z.string()),
+  certs: z.record(z.string(), z.string()),
+})
+
 export class ChatMembership {
   private storage = new ElectronSafeStorageAdapter()
+  private repository: VersionedJsonRepository<MembershipFile>
   private file: MembershipFile | null = null
   private loaded = false
 
-  private path(): string {
-    return join(app.getPath('userData'), FILE)
+  constructor(filePath = join(app.getPath('userData'), FILE)) {
+    this.repository = new VersionedJsonRepository({
+      filePath,
+      version: 1,
+      schema: MembershipFileSchema,
+      defaults: () => ({ v: 1, owned: {}, certs: {} }),
+      migrate: (raw) => raw,
+      mode: 0o600,
+      corruption: 'reset-with-backup',
+      onCorrupt: (error, backupPath) => log.error(`Quarantined corrupt membership file at ${backupPath}:`, error),
+    })
   }
 
   private async load(): Promise<MembershipFile> {
     if (this.loaded && this.file) return this.file
     this.loaded = true
-    try {
-      const raw = await fs.readFile(this.path(), 'utf-8')
-      const parsed = JSON.parse(raw) as MembershipFile
-      if (parsed && parsed.v === 1) this.file = parsed
-    } catch (err) {
-      if (!isEnoent(err)) log.warn('membership file unreadable:', err)
-    }
-    if (!this.file) this.file = { v: 1, owned: {}, certs: {} }
+    this.file = await this.repository.load()
     return this.file
   }
 
-  private persist(): void {
-    if (this.file) writeJsonAtomic(this.path(), this.file)
+  private async persist(): Promise<void> {
+    if (this.file) await this.repository.save(this.file)
   }
 
   private encodeSeed(seed: Buffer): string {
@@ -68,7 +76,7 @@ export class ChatMembership {
     const ownerPub = keyPairFromSeed(seed).publicKey
     const ownerHex = ownerPub.toString('hex')
     file.owned[ownerHex] = this.encodeSeed(seed)
-    this.persist()
+    await this.persist()
     return `${display}#o=${ownerHex}`
   }
 
@@ -100,13 +108,13 @@ export class ChatMembership {
   async storeCert(fullRoom: string, cert: Buffer): Promise<void> {
     const file = await this.load()
     file.certs[fullRoom] = cert.toString('base64')
-    this.persist()
+    await this.persist()
   }
 
   async clear(): Promise<void> {
     this.file = { v: 1, owned: {}, certs: {} }
     this.loaded = true
-    await fs.rm(this.path(), { force: true })
+    await this.persist()
   }
 
   // validCert returns a stored, non-expiring-soon certificate for the room.

@@ -12,7 +12,7 @@
  * encrypted.
  */
 
-import { readFileSync } from 'fs'
+import { readFile } from 'fs/promises'
 import { execFile } from 'child_process'
 import { promisify } from 'util'
 import { Cell } from '@ton/core'
@@ -27,15 +27,17 @@ interface CocoonWalletCodeJson {
   hex: string
 }
 
-let cachedCode: Cell | null = null
+let cachedCodePromise: Promise<Cell> | null = null
 
-export function getCocoonWalletCode(): Cell {
-  if (!cachedCode) {
+export function getCocoonWalletCode(): Promise<Cell> {
+  if (!cachedCodePromise) {
     const codePath = getCocoonResource('cocoon-wallet.code.json')
-    const codeData = JSON.parse(readFileSync(codePath, 'utf8')) as CocoonWalletCodeJson
-    cachedCode = Cell.fromBoc(Buffer.from(codeData.hex, 'hex'))[0]
+    cachedCodePromise = readFile(codePath, 'utf8').then((raw) => {
+      const codeData = JSON.parse(raw) as CocoonWalletCodeJson
+      return Cell.fromBoc(Buffer.from(codeData.hex, 'hex'))[0]
+    })
   }
-  return cachedCode
+  return cachedCodePromise
 }
 
 let storageSingleton: CocoonKeyStorage | null = null

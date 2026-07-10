@@ -1,14 +1,9 @@
-import { Address, Cell } from '@ton/core'
-import { IPC_CHANNELS } from '../../shared/ipc-channels'
+import { Address } from '@ton/core'
 import { APP_VERSION } from '../../shared/constants'
 import { errorMessage } from '../../shared/errors'
-import { getMainWindow } from '../windows/main'
 import { KeyedRateLimiter } from '../ipc/validation'
 import { createLogger } from '../../shared/logger'
-import type { WalletManager } from '../wallet/manager'
-import type { OverlayManager } from '../windows/overlay-manager'
 import { TonConnectSessionStore } from './session-store'
-import { buildSignDataRows, validateSignDataPayload } from './sign-data-preview'
 import {
   TONCONNECT_PROTOCOL_VERSION,
   TON_MAINNET_CHAIN,
@@ -23,29 +18,24 @@ import {
   type ConnectRequest,
   type DeviceInfo,
   type DisconnectEvent,
-  type TonConnectOutMessage,
   type TonProofItem,
   type WalletResponse,
 } from './types'
 import type { TonConnectSession } from '../../shared/types'
+import { TonConnectManifestLoader } from './manifest-loader'
+import type { TonConnectApprovalPort } from './approval'
+import type { TonConnectWalletPort } from './wallet-port'
+import type { TonConnectRequestContext } from './request-context'
+import type { TonConnectEventDeliveryPort } from './event-delivery'
+import { TonConnectSigningWorkflow } from './signing-workflow'
 
 const log = createLogger('tonconnect')
-
-const MANIFEST_TIMEOUT_MS = 15_000
-const MANIFEST_MAX_BYTES = 16_384
 
 interface TonConnectRequestPayload {
   method: 'connect' | 'restore' | 'send' | 'disconnect'
   protocolVersion?: number
   request?: ConnectRequest
   message?: AppRequest
-}
-
-interface RawSendMessage {
-  address?: unknown
-  amount?: unknown
-  payload?: unknown
-  stateInit?: unknown
 }
 
 function connectError(code: number, message: string): ConnectEventError {
@@ -72,63 +62,6 @@ function sameAddress(a: string, b: string): boolean {
   }
 }
 
-function isFriendlyAddress(value: string): boolean {
-  try {
-    Address.parseFriendly(value)
-    return true
-  } catch {
-    return false
-  }
-}
-
-function isValidBoc(b64: string): boolean {
-  try {
-    Cell.fromBase64(b64)
-    return true
-  } catch {
-    return false
-  }
-}
-
-function isHttpUrl(url: string): boolean {
-  try {
-    const p = new URL(url).protocol
-    return p === 'http:' || p === 'https:'
-  } catch {
-    return false
-  }
-}
-
-async function readBounded(res: Response, maxBytes: number): Promise<Buffer> {
-  const lenHeader = res.headers.get('content-length')
-  if (lenHeader && Number(lenHeader) > maxBytes) {
-    throw new Error('Response too large')
-  }
-  const reader = res.body?.getReader?.()
-  if (!reader) {
-    const buf = Buffer.from(await res.arrayBuffer())
-    if (buf.length > maxBytes) throw new Error('Response too large')
-    return buf
-  }
-  const chunks: Buffer[] = []
-  let total = 0
-  try {
-    for (;;) {
-      const { done, value } = await reader.read()
-      if (done) break
-      total += value.byteLength
-      if (total > maxBytes) {
-        await reader.cancel()
-        throw new Error('Response too large')
-      }
-      chunks.push(Buffer.from(value))
-    }
-  } finally {
-    reader.releaseLock?.()
-  }
-  return Buffer.concat(chunks)
-}
-
 function shortAddress(value: string): string {
   let s = value
   try {
@@ -137,17 +70,6 @@ function shortAddress(value: string): string {
     s = value
   }
   return s.length > 14 ? `${s.slice(0, 6)}…${s.slice(-4)}` : s
-}
-
-function formatGram(nano: string): string {
-  try {
-    const n = BigInt(nano)
-    const whole = n / 1_000_000_000n
-    const frac = (n % 1_000_000_000n).toString().padStart(9, '0').replace(/0+$/, '')
-    return frac ? `${whole}.${frac}` : `${whole}`
-  } catch {
-    return nano
-  }
 }
 
 function platform(): string {
@@ -164,27 +86,37 @@ function platform(): string {
 }
 
 export class TonConnectService {
-  private walletManager: WalletManager
+  private wallet: TonConnectWalletPort
   private sessionStore: TonConnectSessionStore
-  private overlayManager: OverlayManager
-  private sendersByDomain = new Map<string, Set<Electron.WebContents>>()
-  private approvalCounter = 0
+  private approval: TonConnectApprovalPort
+  private manifestLoader: TonConnectManifestLoader
+  private eventDelivery: TonConnectEventDeliveryPort
+  private signingWorkflow: TonConnectSigningWorkflow
   // Per-domain so one noisy tonsite cannot exhaust another's request budget.
   private limiter = new KeyedRateLimiter(10, 1000)
 
-  constructor(walletManager: WalletManager, sessionStore: TonConnectSessionStore, overlayManager: OverlayManager) {
-    this.walletManager = walletManager
+  constructor(
+    wallet: TonConnectWalletPort,
+    sessionStore: TonConnectSessionStore,
+    approval: TonConnectApprovalPort,
+    manifestLoader: TonConnectManifestLoader,
+    eventDelivery: TonConnectEventDeliveryPort
+  ) {
+    this.wallet = wallet
     this.sessionStore = sessionStore
-    this.overlayManager = overlayManager
+    this.approval = approval
+    this.manifestLoader = manifestLoader
+    this.eventDelivery = eventDelivery
+    this.signingWorkflow = new TonConnectSigningWorkflow(wallet, approval)
   }
 
-  init(): void {
-    this.sessionStore.init()
+  init(): Promise<void> {
+    return this.sessionStore.init()
   }
 
   async handleRequest(
     domain: string,
-    event: Electron.IpcMainInvokeEvent,
+    event: TonConnectRequestContext,
     payload: TonConnectRequestPayload
   ): Promise<unknown> {
     if (!this.limiter.check(domain)) {
@@ -202,7 +134,7 @@ export class TonConnectService {
         case 'send':
           return await this.send(domain, event, payload.message)
         case 'disconnect':
-          this.sessionStore.delete(domain)
+          await this.sessionStore.delete(domain)
           this.limiter.forget(domain)
           return { id: '0', result: {} }
         default:
@@ -221,30 +153,30 @@ export class TonConnectService {
     return this.sessionStore.list()
   }
 
-  disconnectSession(domain: string): void {
-    this.emitDisconnect(domain)
-    this.sessionStore.delete(domain)
+  async disconnectSession(domain: string): Promise<void> {
+    await this.emitDisconnect(domain)
+    await this.sessionStore.delete(domain)
     this.limiter.forget(domain)
   }
 
-  clearSessions(): void {
+  async clearSessions(): Promise<void> {
     this.limiter.clear()
     for (const domain of this.sessionStore.list().map((s) => s.domain)) {
-      this.emitDisconnect(domain)
+      await this.emitDisconnect(domain)
     }
-    this.sessionStore.clear()
+    await this.sessionStore.clear()
   }
 
   private async connect(
     domain: string,
-    event: Electron.IpcMainInvokeEvent,
+    event: TonConnectRequestContext,
     request?: ConnectRequest,
     protocolVersion?: number
   ): Promise<ConnectEvent> {
     if (protocolVersion && protocolVersion > TONCONNECT_PROTOCOL_VERSION) {
       return connectError(CONNECT_ERROR.BAD_REQUEST, 'Unsupported protocol version')
     }
-    const account = this.walletManager.getTonConnectAccount()
+    const account = this.wallet.getTonConnectAccount()
     if (!account) {
       return connectError(CONNECT_ERROR.UNKNOWN, 'No wallet available')
     }
@@ -254,7 +186,7 @@ export class TonConnectService {
 
     let manifest: AppManifest | null = null
     try {
-      manifest = await this.fetchManifest(event.sender.session, request.manifestUrl)
+      manifest = await this.manifestLoader.load(event.sender.session, request.manifestUrl)
     } catch (err) {
       log.warn(`Manifest fetch failed for ${domain}: ${errorMessage(err)}`)
     }
@@ -263,8 +195,8 @@ export class TonConnectService {
     const appUrl = manifest?.url || `http://${domain}`
     const appIconUrl = manifest?.iconUrl
 
-    const icon = await this.fetchIconDataUri(event.sender.session, manifest?.iconUrl)
-    const approved = await this.showApproval({
+    const icon = await this.manifestLoader.loadIcon(event.sender.session, manifest?.iconUrl)
+    const approved = await this.approval.request({
       type: 'approval',
       icon: icon ?? undefined,
       iconTon: icon ? undefined : true,
@@ -294,14 +226,14 @@ export class TonConnectService {
     const proofItem = request.items.find((i): i is TonProofItem => i.name === 'ton_proof')
     if (proofItem) {
       try {
-        const proof = await this.walletManager.signTonProof(domain, proofItem.payload)
+        const proof = await this.wallet.signTonProof(domain, proofItem.payload)
         items.push({ name: 'ton_proof', proof })
       } catch (err) {
         items.push({ name: 'ton_proof', error: { code: 0, message: errorMessage(err) } })
       }
     }
 
-    this.sessionStore.set({
+    await this.sessionStore.set({
       domain,
       manifestUrl: request.manifestUrl,
       appName,
@@ -313,19 +245,19 @@ export class TonConnectService {
       lastEventId: 0,
       lastRpcId: null,
     })
-    this.trackSender(domain, event.sender)
+    this.eventDelivery.track(domain, event.sender)
     log.info(`TON Connect: ${domain} connected as ${appName}`)
 
     return { event: 'connect', id: 0, payload: { items, device: this.buildDeviceInfo() } }
   }
 
-  private restore(domain: string, event: Electron.IpcMainInvokeEvent): ConnectEvent {
+  private restore(domain: string, event: TonConnectRequestContext): ConnectEvent {
     const session = this.sessionStore.get(domain)
-    const account = this.walletManager.getTonConnectAccount()
+    const account = this.wallet.getTonConnectAccount()
     if (!session || !account || !sameAddress(session.address, account.addressRaw)) {
       return connectError(CONNECT_ERROR.UNKNOWN_APP, 'Unknown app')
     }
-    this.trackSender(domain, event.sender)
+    this.eventDelivery.track(domain, event.sender)
     return {
       event: 'connect',
       id: 0,
@@ -344,160 +276,34 @@ export class TonConnectService {
     }
   }
 
-  private async send(
-    domain: string,
-    event: Electron.IpcMainInvokeEvent,
-    message?: AppRequest
-  ): Promise<WalletResponse> {
+  private async send(domain: string, event: TonConnectRequestContext, message?: AppRequest): Promise<WalletResponse> {
     if (!message || typeof message.id !== 'string' || typeof message.method !== 'string') {
       return rpcError('0', TONCONNECT_ERROR.BAD_REQUEST, 'Malformed request')
     }
     const session = this.sessionStore.get(domain)
-    const account = this.walletManager.getTonConnectAccount()
+    const account = this.wallet.getTonConnectAccount()
     if (!session || !account || !sameAddress(session.address, account.addressRaw)) {
       return rpcError(message.id, TONCONNECT_ERROR.UNKNOWN_APP, 'Unknown app')
     }
-    this.trackSender(domain, event.sender)
+    this.eventDelivery.track(domain, event.sender)
 
     if (message.method === 'disconnect') {
-      this.sessionStore.delete(domain)
+      await this.sessionStore.delete(domain)
       this.limiter.forget(domain)
       return { id: message.id, result: {} }
     }
 
-    if (!this.sessionStore.acceptRpcId(domain, message.id)) {
+    if (!(await this.sessionStore.acceptRpcId(domain, message.id))) {
       return rpcError(message.id, TONCONNECT_ERROR.BAD_REQUEST, 'Request id must strictly increase')
     }
 
     switch (message.method) {
       case 'sendTransaction':
-        return this.sendTransaction(domain, session.appName, message)
+        return this.signingWorkflow.sendTransaction(domain, session.appName, message)
       case 'signData':
-        return this.signData(domain, session.appName, message)
+        return this.signingWorkflow.signData(domain, session.appName, message)
       default:
         return rpcError(message.id, TONCONNECT_ERROR.METHOD_NOT_SUPPORTED, `Method ${message.method} not supported`)
-    }
-  }
-
-  private async sendTransaction(domain: string, appName: string, message: AppRequest): Promise<WalletResponse> {
-    let parsed: { network?: string; from?: string; valid_until?: number; messages?: RawSendMessage[] }
-    try {
-      parsed = JSON.parse(message.params?.[0] ?? '')
-    } catch {
-      return rpcError(message.id, TONCONNECT_ERROR.BAD_REQUEST, 'Invalid transaction payload')
-    }
-
-    const messages = parsed.messages
-    if (!Array.isArray(messages) || messages.length === 0) {
-      return rpcError(message.id, TONCONNECT_ERROR.BAD_REQUEST, 'No messages')
-    }
-    if (messages.length > TONCONNECT_MAX_MESSAGES) {
-      return rpcError(message.id, TONCONNECT_ERROR.BAD_REQUEST, 'Too many messages')
-    }
-    if (parsed.network && parsed.network !== TON_MAINNET_CHAIN) {
-      return rpcError(message.id, TONCONNECT_ERROR.BAD_REQUEST, 'Network mismatch')
-    }
-    const account = this.walletManager.getTonConnectAccount()
-    if (parsed.from && account && !sameAddress(parsed.from, account.addressRaw)) {
-      return rpcError(message.id, TONCONNECT_ERROR.BAD_REQUEST, 'Invalid sender address')
-    }
-    if (parsed.valid_until && parsed.valid_until < Math.floor(Date.now() / 1000)) {
-      return rpcError(message.id, TONCONNECT_ERROR.BAD_REQUEST, 'Transaction expired')
-    }
-
-    const out: TonConnectOutMessage[] = []
-    for (const m of messages) {
-      if (typeof m.address !== 'string' || !isFriendlyAddress(m.address)) {
-        return rpcError(message.id, TONCONNECT_ERROR.BAD_REQUEST, 'Address must be user-friendly')
-      }
-      if (typeof m.amount !== 'string' || !/^[0-9]+$/.test(m.amount)) {
-        return rpcError(message.id, TONCONNECT_ERROR.BAD_REQUEST, 'Amount must be a string of nanocoins')
-      }
-      if (m.payload !== undefined && (typeof m.payload !== 'string' || !isValidBoc(m.payload))) {
-        return rpcError(message.id, TONCONNECT_ERROR.BAD_REQUEST, 'Invalid payload BoC')
-      }
-      if (m.stateInit !== undefined && (typeof m.stateInit !== 'string' || !isValidBoc(m.stateInit))) {
-        return rpcError(message.id, TONCONNECT_ERROR.BAD_REQUEST, 'Invalid stateInit BoC')
-      }
-      out.push({
-        address: m.address,
-        amount: m.amount,
-        payload: typeof m.payload === 'string' ? m.payload : undefined,
-        stateInit: typeof m.stateInit === 'string' ? m.stateInit : undefined,
-      })
-    }
-
-    let totalNano = 0n
-    for (const m of out) {
-      try {
-        totalNano += BigInt(m.amount)
-      } catch {
-        totalNano += 0n
-      }
-    }
-    const hasPayload = out.some((m) => m.payload || m.stateInit)
-    const approved = await this.showApproval({
-      type: 'approval',
-      iconFallback: '↑',
-      title: 'Confirm transaction',
-      subtitle: appName,
-      domain,
-      amount: `${formatGram(totalNano.toString())} GRAM`,
-      warning: hasPayload ? 'Includes a contract payload — this is not a plain transfer.' : undefined,
-      rows: out.map((m, i) => ({
-        label: out.length > 1 ? `To ${i + 1}` : 'To',
-        value: shortAddress(m.address),
-      })),
-      actions: [
-        { id: 'deny', label: 'Reject' },
-        { id: 'approve', label: 'Confirm', primary: true },
-      ],
-    })
-    if (!approved) {
-      return rpcError(message.id, TONCONNECT_ERROR.USER_DECLINED, 'Transaction rejected by user')
-    }
-
-    try {
-      const boc = await this.walletManager.signTonConnectTransaction(out)
-      return { id: message.id, result: boc }
-    } catch (err) {
-      return rpcError(message.id, TONCONNECT_ERROR.UNKNOWN, errorMessage(err))
-    }
-  }
-
-  private async signData(domain: string, appName: string, message: AppRequest): Promise<WalletResponse> {
-    let raw: unknown
-    try {
-      raw = JSON.parse(message.params?.[0] ?? '')
-    } catch {
-      return rpcError(message.id, TONCONNECT_ERROR.BAD_REQUEST, 'Invalid sign-data payload')
-    }
-    if (!validateSignDataPayload(raw)) {
-      return rpcError(message.id, TONCONNECT_ERROR.BAD_REQUEST, 'Invalid or unsupported sign-data payload')
-    }
-    const payload = raw
-
-    const approved = await this.showApproval({
-      type: 'approval',
-      iconFallback: '✎',
-      title: 'Sign data',
-      subtitle: appName,
-      domain,
-      rows: buildSignDataRows(payload),
-      actions: [
-        { id: 'deny', label: 'Reject' },
-        { id: 'approve', label: 'Sign', primary: true },
-      ],
-    })
-    if (!approved) {
-      return rpcError(message.id, TONCONNECT_ERROR.USER_DECLINED, 'Sign request rejected by user')
-    }
-
-    try {
-      const result = await this.walletManager.signData(domain, payload)
-      return { id: message.id, result }
-    } catch (err) {
-      return rpcError(message.id, TONCONNECT_ERROR.UNKNOWN, errorMessage(err))
     }
   }
 
@@ -514,89 +320,8 @@ export class TonConnectService {
     }
   }
 
-  private async fetchManifest(session: Electron.Session, url: string): Promise<AppManifest> {
-    if (!isHttpUrl(url)) throw new Error('Manifest URL must be http(s)')
-    const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), MANIFEST_TIMEOUT_MS)
-    try {
-      const res = await session.fetch(url, { signal: controller.signal })
-      if (!res.ok) throw new Error(`Manifest HTTP ${res.status}`)
-      const buf = await readBounded(res, MANIFEST_MAX_BYTES)
-      const json = JSON.parse(buf.toString('utf-8'))
-      if (!json || typeof json.url !== 'string' || typeof json.name !== 'string') {
-        throw new Error('Invalid manifest')
-      }
-      return json as AppManifest
-    } finally {
-      clearTimeout(timeout)
-    }
-  }
-
-  private showApproval(content: { type: string; [key: string]: unknown }): Promise<boolean> {
-    return new Promise((resolve) => {
-      const win = getMainWindow()
-      if (!win) {
-        resolve(false)
-        return
-      }
-      const id = `tonconnect-approve-${++this.approvalCounter}`
-      const bounds = win.getContentBounds()
-      this.overlayManager.show(
-        id,
-        { x: 0, y: 0, width: bounds.width, height: bounds.height },
-        content,
-        (actionType) => {
-          this.overlayManager.hide(id)
-          resolve(actionType === 'approve')
-        },
-        { autoDismiss: false }
-      )
-    })
-  }
-
-  private async fetchIconDataUri(session: Electron.Session, url?: string): Promise<string | null> {
-    if (!url || !isHttpUrl(url)) return null
-    const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 8_000)
-    try {
-      const res = await session.fetch(url, { signal: controller.signal })
-      if (!res.ok) return null
-      const type = res.headers.get('content-type') || ''
-      if (!type.startsWith('image/') || type.includes('svg')) return null
-      const buf = await readBounded(res, 200_000)
-      if (buf.length === 0) return null
-      return `data:${type};base64,${buf.toString('base64')}`
-    } catch {
-      return null
-    } finally {
-      clearTimeout(timeout)
-    }
-  }
-
-  private trackSender(domain: string, sender: Electron.WebContents): void {
-    let set = this.sendersByDomain.get(domain)
-    if (!set) {
-      set = new Set()
-      this.sendersByDomain.set(domain, set)
-    }
-    if (!set.has(sender)) {
-      set.add(sender)
-      sender.once('destroyed', () => {
-        const current = this.sendersByDomain.get(domain)
-        if (current) {
-          current.delete(sender)
-          if (current.size === 0) this.sendersByDomain.delete(domain)
-        }
-      })
-    }
-  }
-
-  private emitDisconnect(domain: string): void {
-    const set = this.sendersByDomain.get(domain)
-    if (!set || set.size === 0) return
-    const evt: DisconnectEvent = { event: 'disconnect', id: this.sessionStore.nextEventId(domain), payload: {} }
-    for (const sender of set) {
-      if (!sender.isDestroyed()) sender.send(IPC_CHANNELS.TONCONNECT_EVENT, evt)
-    }
+  private async emitDisconnect(domain: string): Promise<void> {
+    const evt: DisconnectEvent = { event: 'disconnect', id: await this.sessionStore.nextEventId(domain), payload: {} }
+    this.eventDelivery.emitDisconnect(domain, evt)
   }
 }

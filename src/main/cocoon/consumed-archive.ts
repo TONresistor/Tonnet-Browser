@@ -9,14 +9,13 @@
  * is never coupled to historical entries.
  */
 
-import { promises as fs } from 'fs'
 import { join } from 'path'
 import { app } from 'electron'
+import { z } from 'zod'
 import type { ISecureStorage } from '../ports/secure-storage'
 import { ElectronSafeStorageAdapter } from '../adapters/electron-secure-storage'
 import { createLogger } from '../../shared/logger'
-import { isEnoent } from '../utils/errors'
-import { decodeSenc, writeSencJsonFile } from '../utils/senc'
+import { VersionedEncryptedJsonRepository } from '../persistence/versioned-encrypted-json-repository'
 
 const log = createLogger('cocoon:archive')
 const FILE_NAME = 'cocoon-archive.dat'
@@ -36,33 +35,57 @@ interface ArchiveFile {
   entries: ArchivedCocoon[]
 }
 
+const ArchivedCocoonSchema = z.object({
+  archivedAt: z.number().finite(),
+  ownerAddress: z.string(),
+  nodeAddress: z.string(),
+  ownerMnemonic: z.array(z.string()),
+  nodeSecretBase64: z.string(),
+  nodePublicKeyHex: z.string(),
+  lastClientSCAddress: z.string().nullable(),
+})
+const ArchiveFileSchema = z.object({ entries: z.array(ArchivedCocoonSchema) })
+
 export class ConsumedArchive {
   private storage: ISecureStorage
   private filePath: string
+  private repository: VersionedEncryptedJsonRepository<ArchiveFile>
+  private mutationChain: Promise<void> = Promise.resolve()
 
   constructor(basePath?: string, storage: ISecureStorage = new ElectronSafeStorageAdapter()) {
     this.storage = storage
     const dir = basePath ?? app.getPath('userData')
     this.filePath = join(dir, FILE_NAME)
+    this.repository = new VersionedEncryptedJsonRepository({
+      filePath: this.filePath,
+      version: 1,
+      schema: ArchiveFileSchema,
+      storage,
+      migrate: (raw) => raw,
+    })
   }
 
   async archive(entry: ArchivedCocoon): Promise<void> {
     this.ensureEncryptionAvailable()
-    const current = await this.readFile()
-    const entries = current ? [...current.entries, entry] : [entry]
-    await this.writeFile({ entries })
+    await this.enqueueMutation(async () => {
+      const current = await this.readFile()
+      const entries = current ? [...current.entries, entry] : [entry]
+      await this.writeFile({ entries })
+    })
     log.info(
       `Archived consumed cocoon: owner=${entry.ownerAddress.slice(0, 8)}… node=${entry.nodeAddress.slice(0, 8)}…`
     )
   }
 
   async list(): Promise<ArchivedCocoon[]> {
+    await this.mutationChain.catch(() => undefined)
     const data = await this.readFile()
     if (!data) return []
     return [...data.entries].sort((a, b) => a.archivedAt - b.archivedAt)
   }
 
   async getByArchivedAt(archivedAt: number): Promise<ArchivedCocoon | null> {
+    await this.mutationChain.catch(() => undefined)
     const data = await this.readFile()
     if (!data) return null
     return data.entries.find((e) => e.archivedAt === archivedAt) ?? null
@@ -80,25 +103,16 @@ export class ConsumedArchive {
   }
 
   private async readFile(): Promise<ArchiveFile | null> {
-    let buf: Buffer
-    try {
-      buf = await fs.readFile(this.filePath)
-    } catch (err) {
-      if (isEnoent(err)) return null
-      throw err
-    }
-    const json = decodeSenc(this.storage, buf, this.filePath)
-    return JSON.parse(json) as ArchiveFile
+    return this.repository.loadOptional()
   }
 
   private async writeFile(data: ArchiveFile): Promise<void> {
-    await writeSencJsonFile(this.filePath, this.storage, data)
+    await this.repository.save(data)
   }
-}
 
-let singleton: ConsumedArchive | null = null
-
-export function getConsumedArchive(): ConsumedArchive {
-  if (!singleton) singleton = new ConsumedArchive()
-  return singleton
+  private enqueueMutation(operation: () => Promise<void>): Promise<void> {
+    const result = this.mutationChain.catch(() => undefined).then(operation)
+    this.mutationChain = result
+    return result
+  }
 }
