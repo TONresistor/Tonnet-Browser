@@ -12,13 +12,15 @@ vi.mock('fs', () => {
   return { default: m, ...m }
 })
 vi.mock('child_process', () => ({ spawnSync: vi.fn() }))
+vi.mock('../utils/secure-fs', () => ({ writeSecureJsonAtomic: vi.fn() }))
 
 import fs from 'fs'
 import { spawnSync } from 'child_process'
 import { trackDaemon, untrackDaemon, reapStaleDaemons } from '../daemon-registry'
+import { writeSecureJsonAtomic } from '../utils/secure-fs'
 
 const readFileSync = fs.readFileSync as unknown as ReturnType<typeof vi.fn>
-const writeFileSync = fs.writeFileSync as unknown as ReturnType<typeof vi.fn>
+const writeRegistry = writeSecureJsonAtomic as unknown as ReturnType<typeof vi.fn>
 const spawnSyncMock = spawnSync as unknown as ReturnType<typeof vi.fn>
 
 const ps = (stdout: string) => ({ stdout }) as unknown as ReturnType<typeof spawnSync>
@@ -32,13 +34,16 @@ describe('trackDaemon / untrackDaemon', () => {
     const proc = createMockProcess() // pid 12345
 
     trackDaemon('tonutils-proxy', proc as never)
-    expect(writeFileSync).toHaveBeenLastCalledWith(
-      '/mock/userData/daemons.json',
-      JSON.stringify([{ pid: 12345, name: 'tonutils-proxy' }])
-    )
+    expect(writeRegistry).toHaveBeenLastCalledWith('/mock/userData/daemons.json', {
+      schemaVersion: 1,
+      records: [{ pid: 12345, name: 'tonutils-proxy' }],
+    })
 
     untrackDaemon(12345)
-    expect(writeFileSync).toHaveBeenLastCalledWith('/mock/userData/daemons.json', JSON.stringify([]))
+    expect(writeRegistry).toHaveBeenLastCalledWith('/mock/userData/daemons.json', {
+      schemaVersion: 1,
+      records: [],
+    })
   })
 })
 
@@ -85,6 +90,17 @@ describe('reapStaleDaemons', () => {
 
     expect(() => reapStaleDaemons()).not.toThrow()
     expect(killSpy).not.toHaveBeenCalled()
+    killSpy.mockRestore()
+  })
+
+  it('loads the current versioned registry envelope', () => {
+    readFileSync.mockReturnValue(JSON.stringify({ schemaVersion: 1, records: [{ pid: 111, name: 'tonutils-proxy' }] }))
+    spawnSyncMock.mockReturnValue(ps('    1 /opt/app/tonutils-proxy'))
+    const killSpy = vi.spyOn(process, 'kill').mockImplementation(() => true)
+
+    reapStaleDaemons()
+
+    expect(killSpy).toHaveBeenCalledWith(111, 'SIGKILL')
     killSpy.mockRestore()
   })
 })

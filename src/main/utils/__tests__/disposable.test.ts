@@ -2,7 +2,7 @@ import { EventEmitter } from 'events'
 import { DisposableStore, onWebContents, onEmitter, IDisposable } from '../disposable'
 
 vi.mock('../../../shared/logger', () => ({
-  createLogger: () => ({ warn: vi.fn() }),
+  createLogger: () => ({ warn: vi.fn(), error: vi.fn() }),
 }))
 
 describe('DisposableStore', () => {
@@ -17,6 +17,20 @@ describe('DisposableStore', () => {
 
     expect(d1.dispose).toHaveBeenCalledOnce()
     expect(d2.dispose).toHaveBeenCalledOnce()
+  })
+
+  it('continues disposing after one cleanup throws', () => {
+    const store = new DisposableStore()
+    const final = { dispose: vi.fn() }
+    store.add({
+      dispose: () => {
+        throw new Error('cleanup failed')
+      },
+    })
+    store.add(final)
+
+    expect(() => store.dispose()).not.toThrow()
+    expect(final.dispose).toHaveBeenCalledOnce()
   })
 
   it('returns the added item for chaining', () => {

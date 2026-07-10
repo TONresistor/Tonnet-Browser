@@ -19,14 +19,6 @@ export interface SessionDeps {
   paymentInterceptor: PaymentInterceptor
 }
 
-// Module-level deps, set once via setSessionDeps()
-let sessionDeps: SessionDeps | null = null
-
-/** Set the shared session dependencies. Called once from initTabManager(). */
-export function setSessionDeps(deps: SessionDeps): void {
-  sessionDeps = deps
-}
-
 /** Route ALL requests through the local proxy (no bypass). Must await before any loadURL. */
 async function installProxy(ses: Electron.Session, proxyPort: number): Promise<void> {
   // MUST await: loadURL before proxy is ready causes ERR_ABORTED (-3)
@@ -124,9 +116,12 @@ function installResponseSecurity(ses: Electron.Session): void {
   })
 }
 
-export async function createTonSession(proxyPort: number, partitionName: string = SESSION_PARTITION) {
-  if (!sessionDeps) throw new Error('Session dependencies not initialized. Call setSessionDeps() first.')
-  const { contentFilterManager, paymentInterceptor } = sessionDeps
+export async function createTonSession(
+  deps: SessionDeps,
+  proxyPort: number,
+  partitionName: string = SESSION_PARTITION
+) {
+  const { contentFilterManager, paymentInterceptor } = deps
 
   const ses = session.fromPartition(partitionName)
 

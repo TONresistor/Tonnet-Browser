@@ -10,9 +10,13 @@
 
 import https from 'node:https'
 import { app, shell } from 'electron'
-import { IPC_CHANNELS } from '../shared/ipc-channels'
 import { createLogger } from '../shared/logger'
-import { secureHandle } from './ipc/handlers'
+import { secureContractHandle } from './ipc/contract-handler'
+import {
+  updaterCheckContract,
+  updaterOpenDownloadPageContract,
+  type UpdateCheckResult,
+} from '../shared/ipc-contract/updater'
 
 const log = createLogger('updater')
 
@@ -27,20 +31,8 @@ interface UpdateManifest {
   releaseDate?: string
 }
 
-interface CheckResult {
-  updateAvailable: boolean
-  version?: string
-  releaseDate?: string
-  reason?: 'dev-mode'
-}
-
-let initialized = false
-
 export function initUpdater(): void {
-  if (initialized) return
-  initialized = true
-
-  secureHandle(IPC_CHANNELS.UPDATER_CHECK, async (): Promise<CheckResult> => {
+  secureContractHandle(updaterCheckContract, async (): Promise<UpdateCheckResult> => {
     if (!app.isPackaged) {
       return { updateAvailable: false, reason: 'dev-mode' }
     }
@@ -53,9 +45,9 @@ export function initUpdater(): void {
     }
   })
 
-  secureHandle(IPC_CHANNELS.UPDATER_OPEN_DOWNLOAD_PAGE, async () => {
+  secureContractHandle(updaterOpenDownloadPageContract, async () => {
     await shell.openExternal(DOWNLOAD_PAGE_URL)
-    return { success: true }
+    return { success: true as const }
   })
 
   log.info('Update checker initialized')

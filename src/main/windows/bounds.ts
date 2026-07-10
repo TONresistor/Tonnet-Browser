@@ -8,10 +8,10 @@
  */
 import { app, BrowserWindow, screen } from 'electron'
 import { join } from 'path'
-import { existsSync, readFileSync, writeFileSync } from 'fs'
-import { writeFile } from 'fs/promises'
+import { existsSync, readFileSync } from 'fs'
 import log from '../../shared/logger'
 import { BOUNDS_SAVE_DEBOUNCE_MS } from './constants'
+import { writeFileAtomic, writeSecureJsonAtomic } from '../utils/secure-fs'
 
 const appLog = log.scope('app')
 
@@ -24,22 +24,44 @@ export interface WindowBounds {
 }
 
 const boundsFile = join(app.getPath('userData'), 'window-bounds.json')
+const BOUNDS_SCHEMA_VERSION = 1
 let saveBoundsTimer: ReturnType<typeof setTimeout> | null = null
+
+interface BoundsDocument {
+  schemaVersion: number
+  bounds: WindowBounds
+}
+
+function decodeBounds(raw: unknown): WindowBounds | null {
+  const envelope = raw && typeof raw === 'object' && 'schemaVersion' in raw && 'bounds' in raw
+  if (envelope && (raw as Partial<BoundsDocument>).schemaVersion !== BOUNDS_SCHEMA_VERSION) return null
+  const candidate = envelope ? (raw as Partial<BoundsDocument>).bounds : raw
+  if (!candidate || typeof candidate !== 'object') return null
+  const bounds = candidate as Partial<WindowBounds>
+  if (
+    typeof bounds.x !== 'number' ||
+    typeof bounds.y !== 'number' ||
+    typeof bounds.width !== 'number' ||
+    typeof bounds.height !== 'number'
+  ) {
+    return null
+  }
+  return {
+    ...bounds,
+    isMaximized: typeof bounds.isMaximized === 'boolean' ? bounds.isMaximized : false,
+  } as WindowBounds
+}
+
+function encodeBounds(bounds: WindowBounds): BoundsDocument {
+  return { schemaVersion: BOUNDS_SCHEMA_VERSION, bounds }
+}
 
 export function loadWindowBounds(): Partial<WindowBounds> {
   try {
     if (existsSync(boundsFile)) {
       const data = readFileSync(boundsFile, 'utf-8')
-      const bounds = JSON.parse(data) as WindowBounds
-
-      if (
-        typeof bounds.x !== 'number' ||
-        typeof bounds.y !== 'number' ||
-        typeof bounds.width !== 'number' ||
-        typeof bounds.height !== 'number'
-      ) {
-        return {}
-      }
+      const bounds = decodeBounds(JSON.parse(data))
+      if (!bounds) return {}
 
       // Validate bounds are on a visible display (top-left corner must be on some display)
       const displays = screen.getAllDisplays()
@@ -73,7 +95,7 @@ export function saveWindowBounds(win: BrowserWindow): void {
         ...win.getBounds(),
         isMaximized: win.isMaximized(),
       }
-      writeFile(boundsFile, JSON.stringify(bounds)).catch((err) => {
+      writeFileAtomic(boundsFile, JSON.stringify(encodeBounds(bounds)), { encoding: 'utf8' }).catch((err) => {
         appLog.error(`Failed to save bounds: ${String(err)}`)
       })
     } catch (err) {
@@ -94,7 +116,7 @@ export function flushWindowBoundsOnQuit(): void {
   if (wins.length > 0) {
     try {
       const bounds = { ...wins[0].getBounds(), isMaximized: wins[0].isMaximized() }
-      writeFileSync(boundsFile, JSON.stringify(bounds))
+      writeSecureJsonAtomic(boundsFile, encodeBounds(bounds))
     } catch (err) {
       log.error(`Failed to flush bounds on quit: ${String(err)}`)
     }

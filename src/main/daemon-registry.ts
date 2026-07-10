@@ -19,8 +19,10 @@ import fs from 'fs'
 import path from 'path'
 import { app } from 'electron'
 import { createLogger } from '../shared/logger'
+import { writeSecureJsonAtomic } from './utils/secure-fs'
 
 const log = createLogger('daemons')
+const DAEMON_REGISTRY_SCHEMA_VERSION = 1
 
 /** pid -> expected binary basename (the PID-reuse guard used at reap time). */
 const live = new Map<number, string>()
@@ -37,7 +39,7 @@ function registryFile(): string {
 function persist(): void {
   try {
     const records: DaemonRecord[] = [...live].map(([pid, name]) => ({ pid, name }))
-    fs.writeFileSync(registryFile(), JSON.stringify(records))
+    writeSecureJsonAtomic(registryFile(), { schemaVersion: DAEMON_REGISTRY_SCHEMA_VERSION, records })
   } catch (err) {
     log.warn(`Failed to persist daemon registry: ${String(err)}`)
   }
@@ -111,6 +113,11 @@ export function reapStaleDaemons(): void {
     records = JSON.parse(fs.readFileSync(registryFile(), 'utf8'))
   } catch {
     return // no registry / unreadable -> nothing to reap
+  }
+  if (records && typeof records === 'object' && !Array.isArray(records)) {
+    const document = records as { schemaVersion?: unknown; records?: unknown }
+    if (document.schemaVersion !== DAEMON_REGISTRY_SCHEMA_VERSION) return
+    records = document.records
   }
   if (!Array.isArray(records)) return
 

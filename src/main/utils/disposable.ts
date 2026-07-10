@@ -33,7 +33,11 @@ export class DisposableStore implements IDisposable {
     if (this._isDisposed) return
     this._isDisposed = true
     for (const item of this._items) {
-      item.dispose()
+      try {
+        item.dispose()
+      } catch (error) {
+        log.error('Disposable cleanup failed:', error)
+      }
     }
     this._items.clear()
   }

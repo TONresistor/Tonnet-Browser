@@ -6,7 +6,11 @@
 import { WebContentsView, BrowserWindow } from 'electron'
 import { join } from 'path'
 import { OVERLAY_SETUP_DELAY_MS, OVERLAY_DISMISS_DEBOUNCE_MS, OVERLAY_POOL_SIZE } from './constants'
-import { IPC_CHANNELS } from '../../shared/ipc-channels'
+import {
+  overlayActionEventContract,
+  overlayContentEventContract,
+  overlayThemeEventContract,
+} from '../../shared/ipc-contract/overlay'
 import { createLogger } from '../../shared/logger'
 
 const log = createLogger('overlay')
@@ -89,7 +93,8 @@ export class OverlayManager {
     const existing = this.active.get(id)
     if (existing) {
       existing.view.setBounds(bounds)
-      existing.view.webContents.send('overlay:content', content)
+      const payload = overlayContentEventContract.payload.parse([content])
+      existing.view.webContents.send(overlayContentEventContract.channel, ...payload)
       if (onAction) existing.onAction = onAction
       try {
         this.mainWindow.contentView.addChildView(existing.view)
@@ -109,7 +114,8 @@ export class OverlayManager {
 
     view.setBounds(bounds)
     this.mainWindow.contentView.addChildView(view)
-    view.webContents.send('overlay:content', content)
+    const contentPayload = overlayContentEventContract.payload.parse([content])
+    view.webContents.send(overlayContentEventContract.channel, ...contentPayload)
 
     this.active.set(id, { view, id, onAction, autoDismiss })
 
@@ -151,7 +157,8 @@ export class OverlayManager {
 
   private emitDismiss(id: string): void {
     if (!this.mainWindow) return
-    this.mainWindow.webContents.send(IPC_CHANNELS.OVERLAY_ACTION, id, 'dismiss', {})
+    const payload = overlayActionEventContract.payload.parse([id, 'dismiss', {}])
+    this.mainWindow.webContents.send(overlayActionEventContract.channel, ...payload)
     this.hide(id)
   }
 
@@ -173,7 +180,8 @@ export class OverlayManager {
     }
 
     // Clear content and return to pool
-    instance.view.webContents.send('overlay:content', null)
+    const payload = overlayContentEventContract.payload.parse([null])
+    instance.view.webContents.send(overlayContentEventContract.channel, ...payload)
     this.pool.push(instance.view)
     this.active.delete(id)
     log.info(`Overlay hidden: ${id}`)
@@ -194,7 +202,8 @@ export class OverlayManager {
   updateTheme(cssVariables: Record<string, string>): void {
     const allViews = [...this.pool, ...[...this.active.values()].map((i) => i.view)]
     for (const view of allViews) {
-      view.webContents.send('overlay:theme', cssVariables)
+      const payload = overlayThemeEventContract.payload.parse([cssVariables])
+      view.webContents.send(overlayThemeEventContract.channel, ...payload)
     }
   }
 

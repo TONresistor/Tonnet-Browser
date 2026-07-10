@@ -7,14 +7,21 @@ import { WebContentsView } from 'electron'
 import { loadStorageBrowser, loadErrorPage } from './tabs-storage'
 import { extractFavicon } from './browser-view'
 import { createLogger } from '../../shared/logger'
-import { emitToRenderer } from '../ipc/handlers/shared'
-import { IPC_CHANNELS } from '../../shared/ipc-channels'
+import { emitContractToRenderer } from '../events/renderer-events'
+import {
+  contextOpenLinkContract,
+  pageFaviconContract,
+  pageLoadingContract,
+  pageNavigateContract,
+  pageTitleContract,
+} from '../../shared/ipc-contract/browsing'
 import { CONTEXT_MENU_WIDTH } from './constants'
 import { clipboard } from 'electron'
 import { DisposableStore, onWebContents } from '../utils/disposable'
 import type { HistoryManager } from '../history/manager'
 import type { OverlayManager } from './overlay-manager'
 import type { OverlayMenuItem } from '../../shared/types'
+import type { TabStorageState } from './tabs-storage'
 
 const log = createLogger('tabs-events')
 
@@ -22,37 +29,29 @@ const log = createLogger('tabs-events')
 export interface TabEventDeps {
   historyManager: HistoryManager
   overlayManager: OverlayManager
-}
-
-// Module-level deps, set once via setTabEventDeps()
-let tabEventDeps: TabEventDeps | null = null
-
-/** Set the shared event dependencies. Called once from initTabManager(). */
-export function setTabEventDeps(deps: TabEventDeps): void {
-  tabEventDeps = deps
+  storage: TabStorageState
 }
 
 /** Set up non-security event listeners on a view (loading, navigation, favicon, context menu). */
-export function setupViewEventListeners(view: WebContentsView, tabId: string): DisposableStore {
-  if (!tabEventDeps) throw new Error('Tab event dependencies not initialized. Call setTabEventDeps() first.')
-  const { historyManager, overlayManager } = tabEventDeps
+export function setupViewEventListeners(view: WebContentsView, tabId: string, deps: TabEventDeps): DisposableStore {
+  const { historyManager, overlayManager, storage } = deps
 
   const store = new DisposableStore()
 
   store.add(
     onWebContents(view.webContents, 'did-start-loading', () => {
-      emitToRenderer(IPC_CHANNELS.PAGE_LOADING, true, tabId)
+      emitContractToRenderer(pageLoadingContract, true, tabId)
     })
   )
 
   store.add(
     onWebContents(view.webContents, 'did-stop-loading', () => {
-      emitToRenderer(IPC_CHANNELS.PAGE_LOADING, false, tabId)
+      emitContractToRenderer(pageLoadingContract, false, tabId)
     })
   )
 
   const handleNavigate = (_e: unknown, url: string): void => {
-    emitToRenderer(IPC_CHANNELS.PAGE_NAVIGATE, {
+    emitContractToRenderer(pageNavigateContract, {
       tabId,
       url,
       canGoBack: view.webContents.navigationHistory.canGoBack(),
@@ -65,7 +64,7 @@ export function setupViewEventListeners(view: WebContentsView, tabId: string): D
 
   store.add(
     onWebContents(view.webContents, 'page-title-updated', (_e: unknown, title: string) => {
-      emitToRenderer(IPC_CHANNELS.PAGE_TITLE, title, tabId)
+      emitContractToRenderer(pageTitleContract, title, tabId)
 
       const url = view.webContents.getURL()
       historyManager.addEntry(url, title, undefined, false)
@@ -79,7 +78,7 @@ export function setupViewEventListeners(view: WebContentsView, tabId: string): D
         const favicon = await extractFavicon(view)
         if (view.webContents.isDestroyed()) return
         if (favicon) {
-          emitToRenderer(IPC_CHANNELS.PAGE_FAVICON, favicon, tabId)
+          emitContractToRenderer(pageFaviconContract, favicon, tabId)
         }
       } catch (error) {
         log.debug(`Failed to extract favicon for tab ${tabId}:`, error)
@@ -96,7 +95,7 @@ export function setupViewEventListeners(view: WebContentsView, tabId: string): D
           if (view.webContents.isDestroyed()) return
           if (htmlLen < 50 && textLen < 10) {
             log.info(`Empty page detected for ${url.hostname}, trying storage browser`)
-            loadStorageBrowser(view, url.hostname).catch(() => {
+            loadStorageBrowser(storage, view, url.hostname).catch(() => {
               log.debug('Not a storage bag or no files available')
             })
           }
@@ -126,7 +125,7 @@ export function setupViewEventListeners(view: WebContentsView, tabId: string): D
         try {
           const url = new URL(validatedURL)
           if (url.hostname.endsWith('.ton')) {
-            loadStorageBrowser(view, url.hostname).catch(() => {
+            loadStorageBrowser(storage, view, url.hostname).catch(() => {
               loadErrorPage(view, `${errorDescription} (${errorCode})`, validatedURL)
             })
             return
@@ -218,7 +217,7 @@ export function setupViewEventListeners(view: WebContentsView, tabId: string): D
               view.webContents.selectAll()
               break
             case 'open-link-new-tab':
-              emitToRenderer(IPC_CHANNELS.CONTEXT_OPEN_LINK, d.url)
+              emitContractToRenderer(contextOpenLinkContract, d.url)
               break
             case 'copy-link':
               clipboard.writeText(d.url)

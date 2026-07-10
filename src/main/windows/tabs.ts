@@ -4,28 +4,19 @@
  */
 
 import { WebContentsView, BrowserWindow } from 'electron'
-import { createBrowserView, setSessionDeps } from './browser-view'
-import {
-  extractDomain,
-  getSessionForDomain,
-  updateDomainActivity,
-  setTabDomain,
-  getTabDomain,
-  cleanupDomainForTab,
-  onPrivacySettingsChanged as sessionPrivacyChanged,
-  initCookieAutoDelete,
-} from './tabs-session'
+import { createBrowserView } from './browser-view'
+import { extractDomain, TabSessionManager } from './tabs-session'
 import {
   loadStorageBag,
   loadErrorPage,
-  fileBrowserCache as _fileBrowserCache,
+  createTabStorageState,
+  disposeTabStorageState,
   initStorageListener,
-  setTabStorageManager,
   resolveBagFilePath,
 } from './tabs-storage'
 import { updateViewBounds, updateSidebarBounds, invalidateAppearanceCache } from './tabs-bounds'
 import { setupSecurityHandlers, ALLOWED_SCHEMES } from './tabs-security'
-import { setupViewEventListeners, setTabEventDeps } from './tabs-events'
+import { setupViewEventListeners, type TabEventDeps } from './tabs-events'
 import { DisposableStore, IDisposable, onWebContents } from '../utils/disposable'
 import type { OverlayManager } from './overlay-manager'
 import type { ProxyManager } from '../proxy/manager'
@@ -34,61 +25,156 @@ import type { HistoryManager } from '../history/manager'
 import type { ContentFilterManager } from '../content-filter/filter-manager'
 import type { PaymentInterceptor } from '../wallet/payment-interceptor'
 
-// Re-export for backward compatibility (used by navigation.ts dynamic import)
-export const fileBrowserCache = _fileBrowserCache
 import { DEFAULT_SETTINGS } from '../../shared/defaults'
 import { createLogger } from '../../shared/logger'
-import { emitToRenderer } from '../ipc/handlers/shared'
+import { emitContractToRenderer } from '../events/renderer-events'
 import { normalizeUrl } from '../../shared/utils/url'
-import { IPC_CHANNELS } from '../../shared/ipc-channels'
+import { tabHistoryResetContract } from '../../shared/ipc-contract/browsing'
+import { ViewRegistry } from './view-registry'
 
 const log = createLogger('tabs')
 
-// Map of all WebContentsViews by tabId
-const views = new Map<string, WebContentsView>()
-const viewDisposables = new Map<string, DisposableStore>()
-let activeViewId: string | null = null
-let mainWindow: BrowserWindow | null = null
-let proxyPort: number = DEFAULT_SETTINGS.proxyPort
+/** Owns every mutable resource in the main-process browsing lifecycle. */
+export class TabManager {
+  readonly sessions = new TabSessionManager()
+  readonly storage = createTabStorageState()
+  readonly views = new ViewRegistry<WebContentsView>()
+  private mainWindow: BrowserWindow | null = null
+  private proxyPort: number = DEFAULT_SETTINGS.proxyPort
+  private resizeHandler: (() => void) | null = null
+  private storageListenerDisposable: IDisposable | null = null
+  private tabEventDeps: TabEventDeps | null = null
+  private walletSidebarWidth = 0
+  private overlayManager: OverlayManager | null = null
 
-// Store resize handler reference to prevent listener accumulation on reconnect
-let resizeHandler: (() => void) | null = null
-let storageListenerDisposable: IDisposable | null = null
-
-let currentWalletSidebarWidth = 0
-
-// Module-level overlay manager reference, set via initTabManager
-let _overlayManager: OverlayManager | null = null
-
-// Re-export for settings.ts
-export function onPrivacySettingsChanged(): void {
-  sessionPrivacyChanged()
-}
-
-// Update view bounds when appearance settings change (called from IPC handlers)
-export function onAppearanceSettingsChanged(): void {
-  invalidateAppearanceCache()
-  const activeView = getActiveView()
-  if (activeView && mainWindow) {
-    updateViewBounds(activeView, mainWindow, currentWalletSidebarWidth)
+  get window(): BrowserWindow | null {
+    return this.mainWindow
   }
-}
 
-// Immediate sidebar width update (for real-time resize without settings persistence)
-export function updateSidebarWidth(width: number): void {
-  const activeView = getActiveView()
-  if (!activeView || !mainWindow) return
+  get port(): number {
+    return this.proxyPort
+  }
 
-  updateSidebarBounds(activeView, mainWindow, width)
-}
+  get sidebarWidth(): number {
+    return this.walletSidebarWidth
+  }
 
-export function updateWalletSidebarWidth(width: number): void {
-  currentWalletSidebarWidth = width
-  if (!mainWindow) return
-  for (const view of mainWindow.contentView.children) {
-    if (view instanceof WebContentsView) {
-      updateViewBounds(view as WebContentsView, mainWindow!, currentWalletSidebarWidth)
+  get overlay(): OverlayManager | null {
+    return this.overlayManager
+  }
+
+  get eventDependencies(): TabEventDeps {
+    if (!this.tabEventDeps) throw new Error('Tab manager event dependencies are not initialized.')
+    return this.tabEventDeps
+  }
+
+  initialize(win: BrowserWindow, port: number, deps: TabManagerDeps): void {
+    this.detachResizeHandler()
+    this.mainWindow = win
+    this.proxyPort = port
+
+    this.overlayManager = deps.overlayManager
+    this.tabEventDeps = {
+      historyManager: deps.historyManager,
+      overlayManager: deps.overlayManager,
+      storage: this.storage,
     }
+    this.sessions.initialize({
+      contentFilterManager: deps.contentFilterManager,
+      paymentInterceptor: deps.paymentInterceptor,
+    })
+    this.storage.storageManager = deps.storageManager
+
+    this.storageListenerDisposable?.dispose()
+    this.storageListenerDisposable = initStorageListener(this.storage, deps.proxyManager)
+    this.resizeHandler = () => {
+      const activeView = this.views.getActive()
+      if (this.mainWindow && activeView) {
+        updateViewBounds(activeView, this.mainWindow, this.walletSidebarWidth)
+      }
+    }
+    this.mainWindow.on('resize', this.resizeHandler)
+  }
+
+  updateSidebarWidth(width: number): void {
+    const activeView = this.getActiveView()
+    if (!activeView || !this.mainWindow) return
+    updateSidebarBounds(activeView, this.mainWindow, width)
+  }
+
+  updateWalletSidebarWidth(width: number): void {
+    this.walletSidebarWidth = width
+    if (!this.mainWindow) return
+    for (const view of this.mainWindow.contentView.children) {
+      if (view instanceof WebContentsView) updateViewBounds(view, this.mainWindow, this.walletSidebarWidth)
+    }
+  }
+
+  onAppearanceSettingsChanged(): void {
+    invalidateAppearanceCache()
+    const activeView = this.getActiveView()
+    if (activeView && this.mainWindow) updateViewBounds(activeView, this.mainWindow, this.walletSidebarWidth)
+  }
+
+  createTab(tabId: string, initialUrl?: string): Promise<boolean> {
+    return createTabFor(this, tabId, initialUrl)
+  }
+
+  closeTab(tabId: string): boolean {
+    return closeTabFor(this, tabId)
+  }
+
+  switchTab(tabId: string): boolean {
+    return switchTabFor(this, tabId)
+  }
+
+  getActiveView(): WebContentsView | null {
+    return this.views.getActive()
+  }
+
+  getActiveTabId(): string | null {
+    return this.views.activeViewId
+  }
+
+  hideAllViews(): void {
+    hideAllViewsFor(this)
+  }
+
+  showActiveView(): void {
+    showActiveViewFor(this)
+  }
+
+  navigateInTab(tabId: string, url: string): Promise<boolean> {
+    return navigateInTabFor(this, tabId, url)
+  }
+
+  loadStorageBag(tabId: string, bagId: string): Promise<void> {
+    return loadStorageBagFor(this, tabId, bagId)
+  }
+
+  loadBagFile(tabId: string, bagId: string, relativePath: string): Promise<void> {
+    return loadBagFileFor(this, tabId, bagId, relativePath)
+  }
+
+  dispose(): void {
+    cleanupTabManagerFor(this)
+  }
+
+  disposeLifecycle(): void {
+    this.storageListenerDisposable?.dispose()
+    this.storageListenerDisposable = null
+    this.detachResizeHandler()
+    this.walletSidebarWidth = 0
+    this.mainWindow = null
+    this.overlayManager = null
+    this.tabEventDeps = null
+    this.sessions.dispose()
+    disposeTabStorageState(this.storage)
+  }
+
+  private detachResizeHandler(): void {
+    if (this.resizeHandler && this.mainWindow) this.mainWindow.off('resize', this.resizeHandler)
+    this.resizeHandler = null
   }
 }
 
@@ -102,53 +188,13 @@ export interface TabManagerDeps {
   paymentInterceptor: PaymentInterceptor
 }
 
-export function initTabManager(win: BrowserWindow, port: number, deps?: TabManagerDeps): void {
-  if (resizeHandler && mainWindow) {
-    mainWindow.off('resize', resizeHandler)
-  }
-
-  mainWindow = win
-  proxyPort = port
-
-  // Wire up sub-module dependencies if provided
-  if (deps) {
-    _overlayManager = deps.overlayManager
-    setTabEventDeps({
-      historyManager: deps.historyManager,
-      overlayManager: deps.overlayManager,
-    })
-    setSessionDeps({
-      contentFilterManager: deps.contentFilterManager,
-      paymentInterceptor: deps.paymentInterceptor,
-    })
-    setTabStorageManager(deps.storageManager)
-  }
-
-  initCookieAutoDelete()
-
-  // Initialize storage listener (dispose previous if re-initializing)
-  storageListenerDisposable?.dispose()
-  if (deps) {
-    storageListenerDisposable = initStorageListener(deps.proxyManager)
-  }
-
-  resizeHandler = () => {
-    const activeView = getActiveView()
-    if (mainWindow && activeView) {
-      updateViewBounds(activeView, mainWindow, currentWalletSidebarWidth)
-    }
-  }
-
-  mainWindow.on('resize', resizeHandler)
-}
-
-function setupViewEvents(view: WebContentsView, tabId: string): void {
+function setupViewEvents(manager: TabManager, view: WebContentsView, tabId: string): void {
   const store = new DisposableStore()
-  store.add(setupViewEventListeners(view, tabId))
+  store.add(setupViewEventListeners(view, tabId, manager.eventDependencies))
   store.add(setupSecurityHandlers(view, tabId))
-  store.add(setupNavAwareAttach(view, tabId))
-  viewDisposables.get(tabId)?.dispose()
-  viewDisposables.set(tabId, store)
+  store.add(setupNavAwareAttach(manager, view, tabId))
+  if (manager.views.has(tabId)) manager.views.replace(tabId, view, store)
+  else manager.views.add(tabId, view, store)
 }
 
 /**
@@ -160,20 +206,20 @@ function setupViewEvents(view: WebContentsView, tabId: string): void {
  * webContents and would otherwise expose the view's paint-holding color
  * during the pre-paint gap on Linux (electron/electron#44652).
  */
-function setupNavAwareAttach(view: WebContentsView, tabId: string): IDisposable {
+function setupNavAwareAttach(manager: TabManager, view: WebContentsView, tabId: string): IDisposable {
   return onWebContents(
     view.webContents,
     'did-start-navigation',
     (_e: Electron.Event, url: string, isInPlace: boolean, isMainFrame: boolean) => {
       if (!isMainFrame || isInPlace) return
       if (!url || !(url.startsWith('http:') || url.startsWith('https:'))) return
-      if (!mainWindow) return
-      if (views.get(tabId) !== view) return
-      if (activeViewId !== tabId) return
+      if (!manager.window) return
+      if (manager.views.get(tabId) !== view) return
+      if (manager.views.activeViewId !== tabId) return
       try {
-        if (mainWindow.contentView.children.includes(view)) {
-          mainWindow.contentView.removeChildView(view)
-          attachViewWhenReady(view, tabId)
+        if (manager.window.contentView.children.includes(view)) {
+          manager.window.contentView.removeChildView(view)
+          attachViewWhenReady(manager, view, tabId)
         }
       } catch (err) {
         log.debug(`did-start-navigation detach failed for tab ${tabId}:`, err)
@@ -182,25 +228,24 @@ function setupNavAwareAttach(view: WebContentsView, tabId: string): IDisposable 
   )
 }
 
-export async function createTab(tabId: string, initialUrl?: string): Promise<boolean> {
-  if (!mainWindow) return false
-  if (views.has(tabId)) return false
+async function createTabFor(manager: TabManager, tabId: string, initialUrl?: string): Promise<boolean> {
+  if (!manager.window) return false
+  if (manager.views.has(tabId)) return false
 
   try {
     const domain = initialUrl ? extractDomain(initialUrl) : 'default'
-    const session = await getSessionForDomain(domain, proxyPort)
+    const session = await manager.sessions.getSessionForDomain(domain, manager.port)
 
     const view = createBrowserView(session)
-    setupViewEvents(view, tabId)
-    views.set(tabId, view)
-    setTabDomain(tabId, domain)
+    setupViewEvents(manager, view, tabId)
+    manager.sessions.setTabDomain(tabId, domain)
 
-    switchTab(tabId)
+    manager.switchTab(tabId)
 
     return true
   } catch (error) {
     log.error(`Failed to create tab ${tabId}:`, error)
-    views.delete(tabId)
+    manager.views.remove(tabId)
     return false
   }
 }
@@ -209,11 +254,11 @@ export async function createTab(tabId: string, initialUrl?: string): Promise<boo
  * Load a storage bag in an existing tab.
  * Delegates to tabs-storage module.
  */
-export async function loadStorageBagInTab(tabId: string, bagId: string): Promise<void> {
-  const view = views.get(tabId)
+async function loadStorageBagFor(manager: TabManager, tabId: string, bagId: string): Promise<void> {
+  const view = manager.views.get(tabId)
   if (!view) throw new Error(`View not found for tab ${tabId}`)
 
-  await loadStorageBag(view, {
+  await loadStorageBag(manager.storage, view, {
     bagId,
     label: bagId.slice(0, 16) + '.bag',
     timeout: 60,
@@ -226,15 +271,15 @@ export async function loadStorageBagInTab(tabId: string, bagId: string): Promise
  * Open a single file from a bag inline in a tab (audio/pdf/image render in the
  * browser). The path is resolved + traversal-checked in tabs-storage.
  */
-export async function loadBagFileInTab(tabId: string, bagId: string, relPath: string): Promise<void> {
-  const view = views.get(tabId)
+async function loadBagFileFor(manager: TabManager, tabId: string, bagId: string, relPath: string): Promise<void> {
+  const view = manager.views.get(tabId)
   if (!view) throw new Error(`View not found for tab ${tabId}`)
-  const fullPath = await resolveBagFilePath(bagId, relPath)
+  const fullPath = await resolveBagFilePath(manager.storage, bagId, relPath)
   await view.webContents.loadFile(fullPath)
   // A prior internal ton:// page may have detached all views (hideAllViews),
   // so re-attach if this is the active tab — otherwise the file loads into a
   // hidden view and the tab shows blank.
-  if (tabId === getActiveTabId()) showActiveView()
+  if (tabId === manager.getActiveTabId()) manager.showActiveView()
 }
 
 /**
@@ -242,80 +287,65 @@ export async function loadBagFileInTab(tabId: string, bagId: string, relPath: st
  * already-detached view (Electron throws if it was never attached).
  * Passing `context` emits a debug log on failure; omit it to stay silent.
  */
-function safeDetach(view: WebContentsView, context?: string): void {
-  if (!mainWindow) return
+function safeDetach(manager: TabManager, view: WebContentsView, context?: string): void {
+  if (!manager.window) return
   try {
-    mainWindow.contentView.removeChildView(view)
+    manager.window.contentView.removeChildView(view)
   } catch {
     if (context) log.debug(`View not attached during ${context}`)
   }
 }
 
-export function closeTab(tabId: string): boolean {
-  const view = views.get(tabId)
+function closeTabFor(manager: TabManager, tabId: string): boolean {
+  const view = manager.views.get(tabId)
   if (!view) return false
 
-  fileBrowserCache.delete(view.webContents.id)
-  viewDisposables.get(tabId)?.dispose()
-  viewDisposables.delete(tabId)
+  manager.storage.fileBrowserCache.delete(view.webContents.id)
 
-  safeDetach(view, 'closeTab')
+  safeDetach(manager, view, 'closeTab')
 
-  cleanupDomainForTab(tabId)
+  manager.sessions.cleanupDomainForTab(tabId)
 
   view.webContents.close()
-  views.delete(tabId)
-
-  if (activeViewId === tabId) {
-    activeViewId = null
-  }
+  manager.views.remove(tabId)
 
   return true
 }
 
-export function switchTab(tabId: string): boolean {
-  if (!mainWindow) return false
-  _overlayManager?.hideAll()
+function switchTabFor(manager: TabManager, tabId: string): boolean {
+  if (!manager.window) return false
+  manager.overlay?.hideAll()
 
-  const view = views.get(tabId)
+  const view = manager.views.get(tabId)
   if (!view) return false
 
-  const currentView = activeViewId ? views.get(activeViewId) : null
+  const currentView = manager.views.getActive()
   if (currentView) {
-    safeDetach(currentView, 'switchTab')
+    safeDetach(manager, currentView, 'switchTab')
   }
-  mainWindow.contentView.addChildView(view)
-  updateViewBounds(view, mainWindow, currentWalletSidebarWidth)
-  activeViewId = tabId
+  manager.window.contentView.addChildView(view)
+  updateViewBounds(view, manager.window, manager.sidebarWidth)
+  manager.views.activate(tabId)
 
   return true
 }
 
-export function getActiveView(): WebContentsView | null {
-  if (!activeViewId) return null
-  return views.get(activeViewId) || null
-}
+function hideAllViewsFor(manager: TabManager): void {
+  if (!manager.window) return
+  manager.overlay?.hideAll()
 
-export function getActiveTabId(): string | null {
-  return activeViewId
-}
-
-export function hideAllViews(): void {
-  if (!mainWindow) return
-  _overlayManager?.hideAll()
-
-  const activeView = activeViewId ? views.get(activeViewId) : null
+  const activeView = manager.views.getActive()
   if (activeView) {
-    safeDetach(activeView, 'hideAllViews')
+    safeDetach(manager, activeView, 'hideAllViews')
   }
 }
 
-export function showActiveView(): void {
-  if (!mainWindow) return
-  const view = getActiveView()
+function showActiveViewFor(manager: TabManager): void {
+  if (!manager.window) return
+  const view = manager.getActiveView()
   if (view) {
-    mainWindow.contentView.addChildView(view)
-    updateViewBounds(view, mainWindow, currentWalletSidebarWidth)
+    manager.window.contentView.addChildView(view)
+    updateViewBounds(view, manager.window, manager.sidebarWidth)
   }
 }
 
@@ -323,28 +353,15 @@ export function showActiveView(): void {
  * Clean up all tab state on app exit.
  * Closes all WebContentsViews, disposes listeners, removes resize handler.
  */
-export function cleanupTabManager(): void {
-  hideAllViews()
+function cleanupTabManagerFor(manager: TabManager): void {
+  manager.hideAllViews()
 
-  for (const [tabId, view] of views) {
-    viewDisposables.get(tabId)?.dispose()
-    safeDetach(view)
+  for (const [, { view }] of manager.views.entries()) {
+    safeDetach(manager, view)
     view.webContents.close()
   }
-  views.clear()
-  viewDisposables.clear()
-
-  storageListenerDisposable?.dispose()
-  storageListenerDisposable = null
-
-  if (resizeHandler && mainWindow) {
-    mainWindow.off('resize', resizeHandler)
-  }
-  resizeHandler = null
-  activeViewId = null
-  currentWalletSidebarWidth = 0
-  mainWindow = null
-  _overlayManager = null
+  manager.views.clear()
+  manager.disposeLifecycle()
 }
 
 // Deferred-attach window sizing.
@@ -364,23 +381,23 @@ const DEFERRED_ATTACH_MAX_WAIT_MS = 5000
  * Without this, on Linux the empty attached view exposes its paint-holding
  * color during the pre-paint gap (electron/electron#44652) — user sees black.
  */
-function attachViewWhenReady(view: WebContentsView, tabId: string): void {
-  if (!mainWindow) return
+function attachViewWhenReady(manager: TabManager, view: WebContentsView, tabId: string): void {
+  if (!manager.window) return
   const startedAt = Date.now()
   let decided = false
 
   const performAttach = (): void => {
-    if (!mainWindow) return
+    if (!manager.window) return
     // A failed cold-start load can replace/tear down this view before the
     // deferred attach fires; bail before touching a stale/undefined webContents.
-    if (views.get(tabId) !== view) return
+    if (manager.views.get(tabId) !== view) return
     const wc = view.webContents
     if (!wc || wc.isDestroyed()) return
-    if (activeViewId !== tabId) return
+    if (manager.views.activeViewId !== tabId) return
     try {
-      if (!mainWindow.contentView.children.includes(view)) {
-        mainWindow.contentView.addChildView(view)
-        updateViewBounds(view, mainWindow, currentWalletSidebarWidth)
+      if (!manager.window.contentView.children.includes(view)) {
+        manager.window.contentView.addChildView(view)
+        updateViewBounds(view, manager.window, manager.sidebarWidth)
       }
     } catch (err) {
       log.debug(`Deferred attach failed for tab ${tabId}:`, err)
@@ -404,8 +421,8 @@ function attachViewWhenReady(view: WebContentsView, tabId: string): void {
   setTimeout(decide, DEFERRED_ATTACH_MAX_WAIT_MS)
 }
 
-export async function navigateInTab(tabId: string, url: string): Promise<boolean> {
-  const view = views.get(tabId)
+async function navigateInTabFor(manager: TabManager, tabId: string, url: string): Promise<boolean> {
+  const view = manager.views.get(tabId)
   if (!view) return false
 
   let navigateUrl = url
@@ -432,28 +449,25 @@ export async function navigateInTab(tabId: string, url: string): Promise<boolean
   }
 
   const domain = extractDomain(navigateUrl)
-  const currentDomain = getTabDomain(tabId)
-  const isActive = activeViewId === tabId
+  const currentDomain = manager.sessions.getTabDomain(tabId)
+  const isActive = manager.views.activeViewId === tabId
 
   if (currentDomain && currentDomain !== domain) {
     log.info(`Domain changed: ${currentDomain} -> ${domain}, recreating view`)
 
-    viewDisposables.get(tabId)?.dispose()
-    viewDisposables.delete(tabId)
-    safeDetach(view, 'domain change')
+    safeDetach(manager, view, 'domain change')
     view.webContents.close()
 
-    const newSession = await getSessionForDomain(domain, proxyPort)
+    const newSession = await manager.sessions.getSessionForDomain(domain, manager.port)
     const newView = createBrowserView(newSession)
-    setupViewEvents(newView, tabId)
-    views.set(tabId, newView)
-    setTabDomain(tabId, domain)
-    updateDomainActivity(domain)
+    setupViewEvents(manager, newView, tabId)
+    manager.sessions.setTabDomain(tabId, domain)
+    manager.sessions.updateDomainActivity(domain)
 
-    emitToRenderer(IPC_CHANNELS.TAB_HISTORY_RESET, tabId)
+    emitContractToRenderer(tabHistoryResetContract, tabId)
 
     if (isActive) {
-      attachViewWhenReady(newView, tabId)
+      attachViewWhenReady(manager, newView, tabId)
     }
 
     newView.webContents.loadURL(navigateUrl).catch((err) => {
@@ -462,13 +476,13 @@ export async function navigateInTab(tabId: string, url: string): Promise<boolean
       loadErrorPage(newView, err.message, navigateUrl)
     })
   } else {
-    setTabDomain(tabId, domain)
-    updateDomainActivity(domain)
+    manager.sessions.setTabDomain(tabId, domain)
+    manager.sessions.updateDomainActivity(domain)
 
-    if (isActive && mainWindow) {
-      safeDetach(view, 'same-domain navigate')
-      mainWindow.contentView.addChildView(view)
-      updateViewBounds(view, mainWindow, currentWalletSidebarWidth)
+    if (isActive && manager.window) {
+      safeDetach(manager, view, 'same-domain navigate')
+      manager.window.contentView.addChildView(view)
+      updateViewBounds(view, manager.window, manager.sidebarWidth)
     }
 
     view.webContents.loadURL(navigateUrl).catch((err) => {
@@ -479,6 +493,3 @@ export async function navigateInTab(tabId: string, url: string): Promise<boolean
 
   return true
 }
-
-// Re-export getAllSessions from session module
-export { getAllSessions } from './tabs-session'
