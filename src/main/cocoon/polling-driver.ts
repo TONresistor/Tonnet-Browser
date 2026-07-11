@@ -14,7 +14,7 @@
  */
 import { EventEmitter } from 'events'
 import { errorMessage } from '../../shared/errors'
-import type { createLogger } from '../../shared/logger'
+import { RepetitionAggregator, type createLogger } from '../../shared/logger'
 
 type ScopedLogger = ReturnType<typeof createLogger>
 
@@ -32,12 +32,14 @@ export abstract class PollingDriver extends EventEmitter {
    * persisted mid-tick is picked up promptly instead of waiting a full interval.
    */
   private rerunQueued = false
+  private readonly failures: RepetitionAggregator
 
   constructor(
     private readonly tickIntervalMs: number,
     private readonly log: ScopedLogger
   ) {
     super()
+    this.failures = new RepetitionAggregator(log)
   }
 
   /**
@@ -70,7 +72,14 @@ export abstract class PollingDriver extends EventEmitter {
   }
 
   private runGuarded(label: string): void {
-    this.guardedRun().catch((err) => this.log.warn(`${label}: ${errorMessage(err)}`))
+    this.guardedRun().then(
+      () => this.failures.recovered('poll', 'background.poll.restored', 'background polling restored'),
+      (err) =>
+        this.failures.record('poll', 'background.poll.failed', 'background polling failed', {
+          trigger: label,
+          error: errorMessage(err),
+        })
+    )
   }
 
   /** Start the periodic ticker. Idempotent — a second call while armed is a no-op. */

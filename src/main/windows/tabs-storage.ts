@@ -5,7 +5,7 @@
 
 import { WebContentsView } from 'electron'
 import { EventEmitter } from 'events'
-import { realpathSync } from 'fs'
+import { realpath } from 'fs/promises'
 import { resolve as resolvePath, sep } from 'path'
 import { generateFileBrowserPage, generateLoadingPage } from './file-browser'
 import { escapeHtml, loadDataHtml } from './page-templates'
@@ -17,37 +17,39 @@ import type { IDisposable } from '../utils/disposable'
 
 const log = createLogger('tabs-storage')
 
-// Module-level storage manager reference, set via setStorageManager()
-let _storageManager: StorageManager | null = null
-
-/** Set the StorageManager instance. Called once during tab manager initialization. */
-export function setTabStorageManager(sm: StorageManager): void {
-  _storageManager = sm
+/** Mutable TON Storage presentation state owned by one TabManager instance. */
+export interface TabStorageState {
+  storageManager: StorageManager | null
+  readonly storageBagCache: Map<string, string>
+  readonly storageBrowserLoading: Set<number>
+  readonly fileBrowserCache: Map<number, string>
 }
 
-function getStorageManager(): StorageManager {
-  if (!_storageManager)
-    throw new Error('StorageManager not initialized in tabs-storage. Call setTabStorageManager() first.')
-  return _storageManager
+export function createTabStorageState(): TabStorageState {
+  return {
+    storageManager: null,
+    storageBagCache: new Map(),
+    storageBrowserLoading: new Set(),
+    fileBrowserCache: new Map(),
+  }
 }
 
-/** Cache of bag IDs detected by the proxy for .ton storage domains */
-export const storageBagCache = new Map<string, string>()
-
-export function getStorageBagForDomain(domain: string): string | undefined {
-  return storageBagCache.get(domain)
+export function disposeTabStorageState(state: TabStorageState): void {
+  state.storageManager = null
+  state.storageBagCache.clear()
+  state.storageBrowserLoading.clear()
+  state.fileBrowserCache.clear()
 }
 
-/** Prevent concurrent loadStorageBrowser calls per webContents */
-const storageBrowserLoading = new Set<number>()
-
-/** Cache file browser HTML per webContentsId for back navigation */
-export const fileBrowserCache = new Map<number, string>()
+function getStorageManager(state: TabStorageState): StorageManager {
+  if (!state.storageManager) throw new Error('StorageManager not initialized for this tab manager.')
+  return state.storageManager
+}
 
 /** Initialize the storage-bag-detected listener on the proxy manager. Returns a disposable to remove it. */
-export function initStorageListener(proxyMgr: EventEmitter): IDisposable {
+export function initStorageListener(state: TabStorageState, proxyMgr: EventEmitter): IDisposable {
   const handler = ({ bagId, domain }: { bagId: string; domain: string }): void => {
-    storageBagCache.set(domain, bagId)
+    state.storageBagCache.set(domain, bagId)
   }
   proxyMgr.on('storage-bag-detected', handler)
   return {
@@ -69,20 +71,22 @@ export function sanitizeDirName(raw: string): string {
  * stays within the bag directory (no traversal). Used to open a bag file
  * inline in a browser tab. Throws on invalid path / missing bag.
  */
-export async function resolveBagFilePath(bagId: string, relPath: string): Promise<string> {
+export async function resolveBagFilePath(state: TabStorageState, bagId: string, relPath: string): Promise<string> {
   if (!relPath || relPath.includes('\0') || relPath.startsWith('/') || relPath.startsWith('\\')) {
     throw new Error('Invalid file path')
   }
   if (relPath.split(/[/\\]/).includes('..')) {
     throw new Error('Invalid file path')
   }
-  const details = await getStorageManager().getBagDetails(bagId)
+  const details = await getStorageManager(state).getBagDetails(bagId)
   if (!details?.path) throw new Error('Bag path not found')
 
   const dirName = sanitizeDirName(details.dir_name || '')
   const basePath = dirName ? `${details.path}/${dirName}` : details.path
-  const realBase = realpathSync(resolvePath(basePath))
-  const realFull = realpathSync(resolvePath(`${basePath}/${relPath}`))
+  const [realBase, realFull] = await Promise.all([
+    realpath(resolvePath(basePath)),
+    realpath(resolvePath(`${basePath}/${relPath}`)),
+  ])
   if (!realFull.startsWith(realBase + sep) && realFull !== realBase) {
     throw new Error('Path traversal blocked')
   }
@@ -255,13 +259,13 @@ interface LoadStorageBagOptions {
  * for its files to appear. Returns the details once it has at least one file, or
  * null if it never does (no files / download timed out).
  */
-async function resolveBagDetails(bagId: string, timeout: number): Promise<BagDetails | null> {
+async function resolveBagDetails(state: TabStorageState, bagId: string, timeout: number): Promise<BagDetails | null> {
   let details: BagDetails | null = null
   try {
-    details = await getStorageManager().getBagDetails(bagId)
+    details = await getStorageManager(state).getBagDetails(bagId)
   } catch {
     log.debug(`Bag ${bagId} not in daemon, adding`)
-    await getStorageManager().addBag(bagId)
+    await getStorageManager(state).addBag(bagId)
   }
 
   // Wait for files
@@ -269,7 +273,7 @@ async function resolveBagDetails(bagId: string, timeout: number): Promise<BagDet
     for (let i = 0; i < timeout; i++) {
       await new Promise((r) => setTimeout(r, 1000))
       try {
-        details = await getStorageManager().getBagDetails(bagId)
+        details = await getStorageManager(state).getBagDetails(bagId)
         if (details.files.length > 0) break
       } catch {
         log.debug(`Waiting for bag ${bagId} files (${i + 1}/${timeout})`)
@@ -286,6 +290,7 @@ async function resolveBagDetails(bagId: string, timeout: number): Promise<BagDet
  * (cached for back-navigation).
  */
 async function renderBag(
+  state: TabStorageState,
   view: WebContentsView,
   details: BagDetails,
   bagId: string,
@@ -304,16 +309,20 @@ async function renderBag(
   // Show file browser
   const displayName = opts.domain ?? details.description ?? bagId.slice(0, 16)
   const html = generateFileBrowserPage(displayName, bagId, details.files, '/', basePath)
-  fileBrowserCache.set(view.webContents.id, html)
+  state.fileBrowserCache.set(view.webContents.id, html)
   await loadDataHtml(view.webContents, html)
 }
 
-export async function loadStorageBag(view: WebContentsView, opts: LoadStorageBagOptions): Promise<void> {
+export async function loadStorageBag(
+  state: TabStorageState,
+  view: WebContentsView,
+  opts: LoadStorageBagOptions
+): Promise<void> {
   const { label, timeout = 30, useCache = false, checkIndexHtml = false } = opts
 
   // Check cache first (for back navigation)
   if (useCache) {
-    const cached = fileBrowserCache.get(view.webContents.id)
+    const cached = state.fileBrowserCache.get(view.webContents.id)
     if (cached) {
       await loadDataHtml(view.webContents, cached)
       return
@@ -321,14 +330,14 @@ export async function loadStorageBag(view: WebContentsView, opts: LoadStorageBag
   }
 
   // Resolve bag ID
-  const bagId = opts.bagId ?? storageBagCache.get(opts.domain ?? '')
+  const bagId = opts.bagId ?? state.storageBagCache.get(opts.domain ?? '')
   if (!bagId) throw new Error('No storage bag detected for this domain')
 
   // Show loading page
   const loadingHtml = generateLoadingPage(label)
   await loadDataHtml(view.webContents, loadingHtml)
 
-  const details = await resolveBagDetails(bagId, timeout)
+  const details = await resolveBagDetails(state, bagId, timeout)
   if (!details) {
     if (opts.domain) {
       throw new Error('Bag has no files or failed to load')
@@ -337,21 +346,21 @@ export async function loadStorageBag(view: WebContentsView, opts: LoadStorageBag
     return
   }
 
-  await renderBag(view, details, bagId, { domain: opts.domain, checkIndexHtml })
+  await renderBag(state, view, details, bagId, { domain: opts.domain, checkIndexHtml })
 }
 
 /**
  * Attempt to load a TON Storage file browser for a .ton domain.
  * Guards against concurrent calls for the same webContents.
  */
-export async function loadStorageBrowser(view: WebContentsView, domain: string): Promise<void> {
+export async function loadStorageBrowser(state: TabStorageState, view: WebContentsView, domain: string): Promise<void> {
   const wcId = view.webContents.id
-  if (storageBrowserLoading.has(wcId)) return
-  storageBrowserLoading.add(wcId)
+  if (state.storageBrowserLoading.has(wcId)) return
+  state.storageBrowserLoading.add(wcId)
 
   try {
-    await loadStorageBag(view, { domain, label: domain, timeout: 30 })
+    await loadStorageBag(state, view, { domain, label: domain, timeout: 30 })
   } finally {
-    storageBrowserLoading.delete(wcId)
+    state.storageBrowserLoading.delete(wcId)
   }
 }

@@ -2,8 +2,9 @@ import { app } from 'electron'
 import { randomBytes } from 'node:crypto'
 import { promises as fs } from 'fs'
 import { join } from 'path'
+import { z } from 'zod'
 import { ElectronSafeStorageAdapter } from '../adapters/electron-secure-storage'
-import { writeSecureFileAtomic, writeJsonAtomic } from '../utils/secure-fs'
+import { writeSecureFileAtomic } from '../utils/secure-fs'
 import type { WalletManager } from '../wallet/manager'
 import { createLogger } from '../../shared/logger'
 import { isEnoent } from '../utils/errors'
@@ -11,6 +12,7 @@ import type { OwnChatIdentity } from '../../shared/types'
 import { devicePublicKeyHex } from './envelope'
 import { proofPayload, deriveWalletAddress, shortAddress, PROOF_TTL_S, TONPROOF_DOMAIN } from './tonproof'
 import { checkOwnDomain } from './resolve'
+import { VersionedJsonRepository } from '../persistence/versioned-json-repository'
 
 const log = createLogger('chat:identity')
 
@@ -37,6 +39,17 @@ interface IdentityFile {
   declinedFor?: string
 }
 
+const IdentityFileSchema = z.object({
+  v: z.literal(1),
+  wkey: z.string().optional(),
+  wsig: z.string().optional(),
+  wts: z.number().finite().optional(),
+  wexp: z.number().finite().optional(),
+  dpub: z.string().optional(),
+  domain: z.string().optional(),
+  declinedFor: z.string().optional(),
+})
+
 export class ChatIdentityManager {
   private walletManager: WalletManager
   private storage = new ElectronSafeStorageAdapter()
@@ -44,23 +57,30 @@ export class ChatIdentityManager {
   private file: IdentityFile | null = null
   private fileLoaded = false
   private signInFlight: Promise<ChatProof | null> | null = null
+  private readonly deviceFilePath: string
+  private readonly identityFilePath: string
+  private readonly repository: VersionedJsonRepository<IdentityFile>
 
-  constructor(walletManager: WalletManager) {
+  constructor(walletManager: WalletManager, paths: { device?: string; identity?: string } = {}) {
     this.walletManager = walletManager
-  }
-
-  private devicePath(): string {
-    return join(app.getPath('userData'), DEVICE_KEY_FILE)
-  }
-
-  private identityPath(): string {
-    return join(app.getPath('userData'), IDENTITY_FILE)
+    this.deviceFilePath = paths.device ?? join(app.getPath('userData'), DEVICE_KEY_FILE)
+    this.identityFilePath = paths.identity ?? join(app.getPath('userData'), IDENTITY_FILE)
+    this.repository = new VersionedJsonRepository({
+      filePath: this.identityFilePath,
+      version: 1,
+      schema: IdentityFileSchema,
+      defaults: () => ({ v: 1 }),
+      migrate: (raw) => raw,
+      mode: 0o600,
+      corruption: 'reset-with-backup',
+      onCorrupt: (error, backupPath) => log.error(`Quarantined corrupt chat identity at ${backupPath}:`, error),
+    })
   }
 
   async deviceSeed(): Promise<Buffer> {
     if (this.seed) return this.seed
     try {
-      const buf = await fs.readFile(this.devicePath())
+      const buf = await fs.readFile(this.deviceFilePath)
       const marker = buf.subarray(0, 4)
       if (marker.equals(ENCRYPTED_MARKER)) {
         this.seed = Buffer.from(this.storage.decrypt(buf.subarray(4)), 'hex')
@@ -79,7 +99,7 @@ export class ChatIdentityManager {
     } else {
       payload = Buffer.concat([PLAIN_MARKER, seed])
     }
-    await writeSecureFileAtomic(this.devicePath(), payload)
+    await writeSecureFileAtomic(this.deviceFilePath, payload)
     this.seed = seed
     return seed
   }
@@ -91,20 +111,14 @@ export class ChatIdentityManager {
   private async readFileState(): Promise<IdentityFile | null> {
     if (this.fileLoaded) return this.file
     this.fileLoaded = true
-    try {
-      const raw = await fs.readFile(this.identityPath(), 'utf-8')
-      const parsed = JSON.parse(raw) as IdentityFile
-      if (parsed && parsed.v === 1) this.file = parsed
-    } catch (err) {
-      if (!isEnoent(err)) log.warn('chat identity file unreadable:', err)
-    }
+    this.file = await this.repository.load()
     return this.file
   }
 
-  private persist(file: IdentityFile): void {
+  private async persist(file: IdentityFile): Promise<void> {
+    await this.repository.save(file)
     this.file = file
     this.fileLoaded = true
-    writeJsonAtomic(this.identityPath(), file)
   }
 
   private validProof(
@@ -131,7 +145,7 @@ export class ChatIdentityManager {
       wexp,
     }
     const domain = this.file?.wkey === walletPub ? this.file?.domain : undefined
-    this.persist({ v: 1, ...proof, dpub: devicePub, domain })
+    await this.persist({ v: 1, ...proof, dpub: devicePub, domain })
     return proof
   }
 
@@ -194,7 +208,7 @@ export class ChatIdentityManager {
     if (!state.isCreated || !state.publicKey) return null
     const file = await this.readFileState()
     if (file?.declinedFor) {
-      this.persist({ v: 1 })
+      await this.persist({ v: 1 })
     }
     return this.ensureProof()
   }
@@ -222,7 +236,7 @@ export class ChatIdentityManager {
     )
     if (!result.ok) return result
     const file = (await this.readFileState()) ?? { v: 1 }
-    this.persist({ ...file, v: 1, domain: domain.trim().toLowerCase() })
+    await this.persist({ ...file, v: 1, domain: domain.trim().toLowerCase() })
     return { ok: true }
   }
 
@@ -231,7 +245,7 @@ export class ChatIdentityManager {
     if (!file) return
     const next = { ...file }
     delete next.domain
-    this.persist(next)
+    await this.persist(next)
   }
 
   async resetIdentity(): Promise<void> {
@@ -239,8 +253,8 @@ export class ChatIdentityManager {
     this.file = null
     this.fileLoaded = false
     this.signInFlight = null
-    await fs.rm(this.devicePath(), { force: true })
-    await fs.rm(this.identityPath(), { force: true })
+    await fs.rm(this.deviceFilePath, { force: true })
+    await fs.rm(this.identityFilePath, { force: true })
     log.info('chat identity reset: device key and attribution cleared')
   }
 }

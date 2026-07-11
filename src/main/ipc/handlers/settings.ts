@@ -3,13 +3,12 @@
  */
 
 import { errorMessage } from '../../../shared/errors'
-import { app, dialog } from 'electron'
+import { app, clipboard, dialog } from 'electron'
 import path from 'path'
-import { getAllSessions } from '../../windows/tabs-session'
-import { IPC_CHANNELS } from '../../../shared/ipc-channels'
 import { isValidDownloadPath } from '../validation'
 import { SETTINGS_CATEGORIES, validateCategoryValues } from '../../settings/validation'
-import { secureHandle, secureHandleWithEvent, emitToRenderer, log } from './shared'
+import { log } from './shared'
+import { emitContractToRenderer } from '../../events/renderer-events'
 import {
   loadSettings,
   getSetting,
@@ -20,10 +19,34 @@ import {
   AppSettings,
 } from '../../settings'
 import { getMainWindow } from '../../windows/main'
-import { onPrivacySettingsChanged, onAppearanceSettingsChanged } from '../../windows/tabs'
 import { syncMessengerBridgeNamespaces } from '../../proxy/config-writer'
-import { disconnectChatSession } from './chat'
 import type { ServiceRegistry } from '../../services'
+import {
+  settingsChangedContract,
+  settingsGetAllContract,
+  settingsGetContract,
+  settingsDiagnosticsGetContract,
+  settingsDiagnosticsEnableContract,
+  settingsDiagnosticsDisableContract,
+  settingsDiagnosticsCopyContract,
+  settingsResetContract,
+  settingsSetContract,
+  clearBrowsingDataContract,
+} from '../../../shared/ipc-contract/settings'
+import {
+  diagnosticLoggingStatus,
+  disableDiagnosticLogging,
+  enableDiagnosticLogging,
+  createLogger,
+} from '../../../shared/logger'
+import {
+  storageGetDownloadPathContract,
+  storageSelectDownloadFolderContract,
+  storageSetDownloadPathContract,
+} from '../../../shared/ipc-contract/storage'
+import { ipcFailure, secureContractHandle } from '../contract-handler'
+import { buildDiagnosticReport } from '../../logging/diagnostic-report'
+import { flushNativeLogs } from '../../logging/native-log-router'
 
 function getBridgeWorkDir(): string {
   return path.join(app.getPath('userData'), 'bridge')
@@ -33,8 +56,8 @@ export function registerSettingsHandlers(registry: ServiceRegistry): void {
   const { proxyManager, storageManager, contentFilterManager, walletManager } = registry
 
   // ===== Clear Browsing Data =====
-  secureHandle(IPC_CHANNELS.CLEAR_BROWSING_DATA, async () => {
-    const sessions = getAllSessions()
+  secureContractHandle(clearBrowsingDataContract, async () => {
+    const sessions = registry.tabManager.sessions.getAllSessions()
     await Promise.all(
       sessions.map(async (ses) => {
         await ses.clearCache()
@@ -44,36 +67,37 @@ export function registerSettingsHandlers(registry: ServiceRegistry): void {
       })
     )
     log.info(`Browsing data cleared across ${sessions.length} session(s)`)
-    return { success: true }
+    return { success: true as const }
   })
 
   // ===== Storage Settings Handlers =====
-  secureHandle(IPC_CHANNELS.STORAGE_GET_DOWNLOAD_PATH, () => {
-    return { success: true, path: getDownloadPath() }
+  secureContractHandle(storageGetDownloadPathContract, () => {
+    return { success: true as const, path: getDownloadPath() }
   })
 
-  secureHandleWithEvent(IPC_CHANNELS.STORAGE_SET_DOWNLOAD_PATH, (_event, inputPath: string) => {
+  secureContractHandle(storageSetDownloadPathContract, async (inputPath) => {
     // Security: Validate path before setting
     const validation = isValidDownloadPath(inputPath)
     if (!validation.valid) {
-      log.warn(`Invalid download path: ${inputPath} - ${validation.error}`)
-      return { success: false, error: validation.error }
+      log.event('warn', 'settings.download_path.invalid', 'invalid download path rejected', {
+        reason: validation.error,
+      })
+      ipcFailure('INVALID_DOWNLOAD_PATH', 'Invalid download path')
     }
 
     try {
-      setDownloadPath(inputPath)
-      log.info(`Download path set to: ${inputPath}`)
-      return { success: true }
+      await setDownloadPath(inputPath)
+      log.event('info', 'settings.download_path.updated', 'download folder updated')
+      return { success: true as const }
     } catch (error) {
-      log.error(`Failed to set download path: ${String(error)}`)
-      return { success: false, error: errorMessage(error) }
+      ipcFailure('DOWNLOAD_PATH_WRITE_FAILED', 'Unable to save download path', false, error)
     }
   })
 
-  secureHandle(IPC_CHANNELS.STORAGE_SELECT_DOWNLOAD_FOLDER, async () => {
+  secureContractHandle(storageSelectDownloadFolderContract, async () => {
     const win = getMainWindow()
     if (!win) {
-      return { success: false, error: 'No window available' }
+      ipcFailure('WINDOW_UNAVAILABLE', 'No window available')
     }
 
     const result = await dialog.showOpenDialog(win, {
@@ -83,21 +107,21 @@ export function registerSettingsHandlers(registry: ServiceRegistry): void {
     })
 
     if (result.canceled || result.filePaths.length === 0) {
-      return { success: false, canceled: true }
+      return { success: false as const, canceled: true as const }
     }
 
     const selectedPath = result.filePaths[0]
-    setDownloadPath(selectedPath)
-    log.info(`Download folder selected: ${selectedPath}`)
-    return { success: true, path: selectedPath }
+    await setDownloadPath(selectedPath)
+    log.event('info', 'settings.download_path.selected', 'download folder selected')
+    return { success: true as const, path: selectedPath }
   })
 
   // ===== App Settings Handlers =====
-  secureHandle(IPC_CHANNELS.SETTINGS_GET_ALL, () => {
+  secureContractHandle(settingsGetAllContract, () => {
     return loadSettings()
   })
 
-  secureHandleWithEvent(IPC_CHANNELS.SETTINGS_GET, (_event, category: keyof AppSettings) => {
+  secureContractHandle(settingsGetContract, (category) => {
     // Validate category parameter
     if (typeof category !== 'string' || !(SETTINGS_CATEGORIES as readonly string[]).includes(category)) {
       throw new Error('Invalid settings category')
@@ -105,7 +129,29 @@ export function registerSettingsHandlers(registry: ServiceRegistry): void {
     return getSetting(category)
   })
 
-  secureHandleWithEvent(IPC_CHANNELS.SETTINGS_SET, async (_event, category: keyof AppSettings, values: object) => {
+  secureContractHandle(settingsDiagnosticsGetContract, () => diagnosticLoggingStatus())
+  secureContractHandle(settingsDiagnosticsEnableContract, () => {
+    const until = enableDiagnosticLogging()
+    createLogger('logging').status('logging.diagnostics.enabled', 'diagnostic logging enabled · 15 min', { until })
+    return diagnosticLoggingStatus()
+  })
+  secureContractHandle(settingsDiagnosticsDisableContract, () => {
+    disableDiagnosticLogging()
+    createLogger('logging').status('logging.diagnostics.disabled', 'diagnostic logging disabled')
+    return diagnosticLoggingStatus()
+  })
+  secureContractHandle(settingsDiagnosticsCopyContract, async () => {
+    await flushNativeLogs()
+    const report = await buildDiagnosticReport(app.getPath('logs'), {
+      appVersion: app.getVersion(),
+      diagnosticLogging: diagnosticLoggingStatus(),
+    })
+    clipboard.writeText(report)
+    createLogger('logging').event('info', 'logging.diagnostics.copied', 'diagnostic report copied')
+    return { success: true as const }
+  })
+
+  secureContractHandle(settingsSetContract, async (category, values) => {
     // Validate category parameter
     if (typeof category !== 'string' || !(SETTINGS_CATEGORIES as readonly string[]).includes(category)) {
       throw new Error('Invalid settings category')
@@ -123,7 +169,7 @@ export function registerSettingsHandlers(registry: ServiceRegistry): void {
       category === 'messenger' && 'networkEnabled' in validation.data
         ? getSetting('messenger').networkEnabled
         : undefined
-    setSetting(category, validation.data as Partial<AppSettings[keyof AppSettings]>)
+    await setSetting(category, validation.data as Partial<AppSettings[keyof AppSettings]>)
     // If network settings changed, check if proxy needs restart (non-blocking)
     if (category === 'network' && proxyManager.isRunning()) {
       proxyManager.applySettingsChange().catch((err) => {
@@ -142,11 +188,11 @@ export function registerSettingsHandlers(registry: ServiceRegistry): void {
     }
     // If privacy settings changed, restart cookie auto-delete timer
     if (category === 'privacy') {
-      onPrivacySettingsChanged()
+      registry.tabManager.sessions.onPrivacySettingsChanged()
     }
     // If appearance settings changed, update WebContentsView bounds (for tab orientation)
     if (category === 'appearance') {
-      onAppearanceSettingsChanged()
+      registry.tabManager.onAppearanceSettingsChanged()
     }
     // If content filtering settings changed, apply immediately to filter manager
     if (category === 'contentFiltering') {
@@ -167,29 +213,29 @@ export function registerSettingsHandlers(registry: ServiceRegistry): void {
     if (category === 'messenger' && 'networkEnabled' in validation.data) {
       const enabled = Boolean((validation.data as { networkEnabled?: boolean }).networkEnabled)
       if (!enabled) {
-        await disconnectChatSession(walletManager.getBridgeClient())
+        await registry.chatSessionController.disconnect()
       }
-      const changed = syncMessengerBridgeNamespaces(getBridgeWorkDir(), enabled)
+      const changed = await syncMessengerBridgeNamespaces(getBridgeWorkDir(), enabled)
       if (changed && proxyManager.isRunning()) {
         try {
           await proxyManager.restartBridge()
         } catch (err) {
           if (previousMessengerNetwork !== undefined) {
-            setSetting('messenger', { networkEnabled: previousMessengerNetwork })
-            syncMessengerBridgeNamespaces(getBridgeWorkDir(), previousMessengerNetwork)
+            await setSetting('messenger', { networkEnabled: previousMessengerNetwork })
+            await syncMessengerBridgeNamespaces(getBridgeWorkDir(), previousMessengerNetwork)
           }
           log.error('Bridge restart after messenger settings change failed:', err)
           throw err
         }
       }
     }
-    emitToRenderer(IPC_CHANNELS.SETTINGS_CHANGED, { category, values })
+    emitContractToRenderer(settingsChangedContract, { category, values })
     return { success: true }
   })
 
-  secureHandle(IPC_CHANNELS.SETTINGS_RESET, () => {
-    resetSettings()
-    emitToRenderer(IPC_CHANNELS.SETTINGS_CHANGED, { reset: true })
+  secureContractHandle(settingsResetContract, async () => {
+    await resetSettings()
+    emitContractToRenderer(settingsChangedContract, { reset: true })
 
     // Re-apply runtime state for every category that SETTINGS_SET also re-applies,
     // otherwise live services keep the pre-reset config until an app restart.
@@ -205,17 +251,17 @@ export function registerSettingsHandlers(registry: ServiceRegistry): void {
     if (storageSettings.seedingEnabled) {
       storageManager.resumeSeeding()
     }
-    void disconnectChatSession(walletManager.getBridgeClient()).catch((err) => {
+    void registry.chatSessionController.disconnect().catch((err) => {
       log.warn(`Failed to disconnect chat after settings reset: ${errorMessage(err)}`)
     })
-    const messengerBridgeChanged = syncMessengerBridgeNamespaces(getBridgeWorkDir(), false)
+    const messengerBridgeChanged = await syncMessengerBridgeNamespaces(getBridgeWorkDir(), false)
     if (messengerBridgeChanged && proxyManager.isRunning()) {
       proxyManager.restartBridge().catch((err) => {
         log.error('Bridge restart after settings reset failed:', err)
       })
     }
-    onAppearanceSettingsChanged()
-    onPrivacySettingsChanged()
+    registry.tabManager.onAppearanceSettingsChanged()
+    registry.tabManager.sessions.onPrivacySettingsChanged()
     return { success: true }
   })
 }

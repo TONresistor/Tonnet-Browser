@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import type { Active, Over } from '@dnd-kit/core'
 import { classifyDrop } from '../bookmark-dnd'
-import type { Bookmark, BookmarkFolder } from '@/stores/bookmarks'
+import type { Bookmark, BookmarkFolder } from '@/features/bookmarks/store'
 
 const folder = (id: string, order: number): BookmarkFolder =>
   ({ id, name: id, parentId: null, order }) as BookmarkFolder

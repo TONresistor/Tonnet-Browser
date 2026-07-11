@@ -9,85 +9,75 @@
  *
  * Events: 'ready'(wsPort) | 'log'(line) | 'exit'(code) | 'error'(message).
  */
-import { spawn, ChildProcess } from 'child_process'
 import { EventEmitter } from 'events'
 import path from 'path'
-import fs from 'fs'
+import { mkdir } from 'fs/promises'
 import { app } from 'electron'
 import { getBinaryPath } from '../utils/paths'
 import { stripAnsi } from '../utils/strip-ansi'
 import { createLogger } from '../../shared/logger'
 import { applyBridgeDefaults } from './config-writer'
 import { getSetting } from '../settings'
-import { killChildProcess } from './process-utils'
-import { trackDaemon } from '../daemon-registry'
+import { NativeProcessSupervisor } from '../native-process/supervisor'
 
-const log = createLogger('proxy')
+const log = createLogger('bridge')
 
 export class BridgeManager extends EventEmitter {
-  private process: ChildProcess | null = null
+  private readonly supervisor = new NativeProcessSupervisor()
 
   isRunning(): boolean {
-    return this.process !== null
+    return this.supervisor.isRunning
   }
 
-  private getWorkDir(): string {
+  private async getWorkDir(): Promise<string> {
     const dir = path.join(app.getPath('userData'), 'bridge')
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true })
-    }
+    await mkdir(dir, { recursive: true })
     return dir
   }
 
   async start(wsPort: number): Promise<void> {
+    const startedAt = Date.now()
     const bridgeBinPath = getBinaryPath('tonutils-bridge')
-    const bridgeWorkDir = this.getWorkDir()
-    applyBridgeDefaults(bridgeWorkDir, { enableChatNamespaces: getSetting('messenger').networkEnabled })
-    const bridgeArgs = ['-addr', `127.0.0.1:${wsPort}`, '-data-dir', bridgeWorkDir, '-verbosity', '2']
+    const bridgeWorkDir = await this.getWorkDir()
+    await applyBridgeDefaults(bridgeWorkDir, { enableChatNamespaces: getSetting('messenger').networkEnabled })
+    const verbosity = Math.max(0, Math.min(3, getSetting('advanced').proxyVerbosity))
+    const bridgeArgs = ['-addr', `127.0.0.1:${wsPort}`, '-data-dir', bridgeWorkDir, '-verbosity', String(verbosity)]
 
-    log.info(`Starting bridge from: ${bridgeBinPath}`)
-    log.info(`Bridge WS port: ${wsPort}`)
+    log.debug(`Starting bridge from: ${bridgeBinPath}`)
+    log.debug(`Bridge WS port: ${wsPort}`)
 
-    this.process = spawn(bridgeBinPath, bridgeArgs, {
-      windowsHide: true,
-    })
-    trackDaemon('tonutils-bridge', this.process)
-
-    const handleBridgeOutput = (data: Buffer) => {
-      const raw = data.toString().trim()
+    const handleBridgeOutput = (raw: string) => {
       if (!raw) return
       const message = stripAnsi(raw)
-      log.debug(`[bridge] ${raw}`)
-      this.emit('log', `[bridge] ${raw}`)
+      this.emit('log', raw)
 
       if (message.toLowerCase().includes('websocket-adnl bridge started')) {
-        log.info(`WS bridge ready on port ${wsPort}`)
+        log.status('bridge.ready', `bridge ready · ${Date.now() - startedAt}ms`, {
+          durationMs: Date.now() - startedAt,
+          port: wsPort,
+        })
         this.emit('ready', wsPort)
       }
     }
 
-    this.process.stdout?.on('data', handleBridgeOutput)
-    this.process.stderr?.on('data', handleBridgeOutput)
-
-    this.process.on('exit', (code) => {
-      log.info(`Bridge exited with code: ${code}`)
-      this.process = null
-      this.emit('exit', code)
-    })
-
-    this.process.on('error', (err) => {
-      log.error(`Failed to start bridge:`, err)
-      // ENOENT etc. fire 'error' not 'exit', so null the ref or isRunning()
-      // keeps lying and a retry is blocked as 'already running'.
-      this.process = null
-      this.emit('error', err.message)
+    this.supervisor.start({
+      name: 'tonutils-bridge',
+      command: bridgeBinPath,
+      args: bridgeArgs,
+      options: { windowsHide: true },
+      onLine: ({ line }) => handleBridgeOutput(line),
+      onExit: (code) => {
+        log.info(`Bridge exited with code: ${code}`)
+        this.emit('exit', code)
+      },
+      onError: (error) => {
+        log.error(`Failed to start bridge:`, error)
+        this.emit('error', error.message)
+      },
     })
   }
 
   async stop(): Promise<void> {
-    if (!this.process) return
-    const proc = this.process
-    this.process = null
-    await killChildProcess(proc)
+    await this.supervisor.stop()
   }
 }

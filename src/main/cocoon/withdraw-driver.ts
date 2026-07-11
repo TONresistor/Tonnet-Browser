@@ -25,13 +25,13 @@
 import { errorMessage } from '../../shared/errors'
 import { PollingDriver } from './polling-driver'
 import { createLogger } from '../../shared/logger'
-import { getStakeCacheStore } from './stake-cache'
 import { getStakeInfo, cashout } from './unstake'
 import { driveCurrentWithdrawStep, type TopUpNodeWallet } from './current-withdraw'
 import { retireCurrentCocoonWallet } from './retire-wallet'
 import type { CocoonManager } from './manager'
-import type { WsBridgeClient } from '../wallet/ws-bridge-client'
+import type { TonBridgePort } from '../ports/ton-bridge'
 import type { CocoonStakeInfo, WithdrawDriverEvent } from '../../shared/cocoon-types'
+import type { CocoonPersistence } from './persistence'
 
 const log = createLogger('cocoon:withdraw-driver')
 
@@ -43,8 +43,9 @@ export type { WithdrawDriverEvent }
 export class WithdrawDriver extends PollingDriver {
   constructor(
     private manager: CocoonManager,
-    private getBridge: () => WsBridgeClient | null,
+    private getBridge: () => TonBridgePort | null,
     private getNativeAddress: () => string | null,
+    private persistence: CocoonPersistence,
     private topUpNodeWallet?: TopUpNodeWallet
   ) {
     super(TICK_INTERVAL_MS, log)
@@ -55,8 +56,13 @@ export class WithdrawDriver extends PollingDriver {
     await this.guardedRun(true)
   }
 
+  async startFullWithdraw(): Promise<void> {
+    await this.persistence.stakeCache.setPendingWithdraw({ startedAt: Date.now() })
+    await this.runUserInitiatedTick()
+  }
+
   protected async tick(surfaceErrors = false): Promise<void> {
-    const cache = await getStakeCacheStore().load()
+    const cache = await this.persistence.stakeCache.load()
     const intent = cache?.pendingWithdraw ?? null
     if (!intent) return // no pending exit; driver idle
 
@@ -67,12 +73,12 @@ export class WithdrawDriver extends PollingDriver {
     }
 
     try {
-      const info = await getStakeInfo(this.manager, bridge)
+      const info = await getStakeInfo(this.manager, bridge, this.persistence.stakeCache)
 
       // Stake snapshot vanished entirely (no SC, no cache). Treat as completed.
       if (!info) {
         log.info('Pending withdraw with no stake snapshot — clearing flag')
-        await getStakeCacheStore().clearPendingWithdraw()
+        await this.persistence.stakeCache.clearPendingWithdraw()
         this.emit('event', { type: 'completed' } satisfies WithdrawDriverEvent)
         return
       }
@@ -125,6 +131,7 @@ export class WithdrawDriver extends PollingDriver {
       manager: this.manager,
       bridge,
       nativeAddress: native,
+      stakeCache: this.persistence.stakeCache,
       topUpNodeWallet: this.topUpNodeWallet,
     })
     log.info(`Direct current withdraw step: ${result.status} client=${result.clientSCAddress.slice(0, 8)}…`)
@@ -160,7 +167,7 @@ export class WithdrawDriver extends PollingDriver {
       log.info('Cashout: nothing to drain, terminal state reached')
     }
 
-    await retireCurrentCocoonWallet('withdraw-completed')
+    await retireCurrentCocoonWallet('withdraw-completed', this.persistence)
     this.emit('event', { type: 'completed' } satisfies WithdrawDriverEvent)
   }
 }
@@ -174,6 +181,5 @@ export class WithdrawDriver extends PollingDriver {
  * reaches the terminal cashout phase.
  */
 export async function startFullWithdraw(driver: WithdrawDriver, _manager: CocoonManager): Promise<void> {
-  await getStakeCacheStore().setPendingWithdraw({ startedAt: Date.now() })
-  await driver.runUserInitiatedTick()
+  await driver.startFullWithdraw()
 }

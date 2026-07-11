@@ -6,7 +6,7 @@
 import { memo } from 'react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Bookmark } from '@/stores/bookmarks'
+import { Bookmark } from '@/features/bookmarks/store'
 import { Favicon } from '@/components/ui/Favicon'
 import { useTranslation } from 'react-i18next'
 

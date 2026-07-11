@@ -4,19 +4,53 @@
  */
 
 import { resolve, sep } from 'path'
-import { realpathSync } from 'fs'
+import { realpath } from 'fs/promises'
 import { WebContentsView } from 'electron'
 import { normalizeUrl } from '../../shared/utils/url'
 import { loadErrorPage } from './tabs-storage'
 import { createLogger } from '../../shared/logger'
-import { emitToRenderer } from '../ipc/handlers/shared'
-import { IPC_CHANNELS } from '../../shared/ipc-channels'
+import { emitContractToRenderer } from '../events/renderer-events'
+import { contextOpenLinkContract, pageNavigateContract } from '../../shared/ipc-contract/browsing'
 import { DisposableStore, onWebContents } from '../utils/disposable'
 
 const log = createLogger('tabs-security')
 
 /** Allowed URL schemes for navigation. */
 export const ALLOWED_SCHEMES = ['http:']
+
+async function openValidatedBagFile(
+  view: WebContentsView,
+  tabId: string,
+  basePath: string,
+  filePath: string
+): Promise<void> {
+  const fullPath = resolve(`${basePath}/${filePath}`)
+  const safeBasePath = resolve(basePath)
+  let realFullPath: string
+  let realSafeBasePath: string
+  try {
+    ;[realFullPath, realSafeBasePath] = await Promise.all([realpath(fullPath), realpath(safeBasePath)])
+  } catch (error) {
+    log.event('warn', 'security.bagfile.unresolvable', 'blocked unresolvable bag file path', { error })
+    return
+  }
+  if (!realFullPath.startsWith(realSafeBasePath + sep) && realFullPath !== realSafeBasePath) {
+    log.event('warn', 'security.bagfile.path_traversal', 'blocked bag file path traversal')
+    return
+  }
+  try {
+    await view.webContents.loadFile(realFullPath)
+    if (view.webContents.isDestroyed()) return
+    emitContractToRenderer(pageNavigateContract, {
+      tabId,
+      url: `file://${fullPath}`,
+      canGoBack: true,
+      canGoForward: false,
+    })
+  } catch (error) {
+    log.event('error', 'storage.bagfile.load_failed', 'failed to load bag file', { error })
+  }
+}
 
 /** Set up security event handlers on a view (will-navigate, setWindowOpenHandler, did-create-window). */
 export function setupSecurityHandlers(view: WebContentsView, tabId: string): DisposableStore {
@@ -38,35 +72,7 @@ export function setupSecurityHandlers(view: WebContentsView, tabId: string): Dis
         if (slashIdx !== -1) {
           const bp = decodeURIComponent(withoutScheme.slice(0, slashIdx))
           const fp = decodeURIComponent(withoutScheme.slice(slashIdx + 1))
-          const fullPath = resolve(`${bp}/${fp}`)
-          const safeBp = resolve(bp)
-          let realFullPath: string
-          let realSafeBp: string
-          try {
-            realFullPath = realpathSync(fullPath)
-            realSafeBp = realpathSync(safeBp)
-          } catch (err) {
-            log.warn(`Blocked bagfile:// with unresolvable path: ${fullPath}`, err)
-            return
-          }
-          if (!realFullPath.startsWith(realSafeBp + sep) && realFullPath !== realSafeBp) {
-            log.warn(`Blocked bagfile:// path traversal: ${fullPath} -> ${realFullPath}`)
-            return
-          }
-          view.webContents
-            .loadFile(realFullPath)
-            .then(() => {
-              if (view.webContents.isDestroyed()) return
-              emitToRenderer(IPC_CHANNELS.PAGE_NAVIGATE, {
-                tabId,
-                url: `file://${fullPath}`,
-                canGoBack: true,
-                canGoForward: false,
-              })
-            })
-            .catch((err) => {
-              log.error(`Failed to load bag file: ${fullPath}`, err)
-            })
+          void openValidatedBagFile(view, tabId, bp, fp)
         }
         return
       }
@@ -86,12 +92,14 @@ export function setupSecurityHandlers(view: WebContentsView, tabId: string): Dis
         }
 
         if (!ALLOWED_SCHEMES.includes(parsed.protocol)) {
-          log.warn(`Blocked navigation to unsafe URL: ${url}`)
+          log.event('warn', 'security.navigation.blocked', 'blocked navigation to unsafe scheme', {
+            scheme: parsed.protocol,
+          })
           event.preventDefault()
         }
       } catch (err) {
         log.debug('URL validation failed in will-navigate:', err)
-        log.warn(`Blocked navigation to invalid URL: ${url}`)
+        log.event('warn', 'security.navigation.invalid', 'blocked invalid navigation URL')
         event.preventDefault()
       }
     })
@@ -107,13 +115,13 @@ export function setupSecurityHandlers(view: WebContentsView, tabId: string): Dis
         if (targetUrl !== url) {
           log.debug(`Normalizing popup URL: ${url} -> ${targetUrl}`)
         }
-        emitToRenderer(IPC_CHANNELS.CONTEXT_OPEN_LINK, targetUrl)
+        emitContractToRenderer(contextOpenLinkContract, targetUrl)
       } else {
-        log.warn(`Blocked popup to unsafe URL: ${url}`)
+        log.event('warn', 'security.popup.blocked', 'blocked popup to unsafe scheme', { scheme: parsed.protocol })
       }
     } catch (err) {
       log.debug('URL validation failed in popup handler:', err)
-      log.warn(`Blocked popup to invalid URL: ${url}`)
+      log.event('warn', 'security.popup.invalid', 'blocked popup with invalid URL')
     }
     return { action: 'deny' }
   })
@@ -124,7 +132,7 @@ export function setupSecurityHandlers(view: WebContentsView, tabId: string): Dis
       view.webContents,
       'did-create-window',
       (childWindow: Electron.BrowserWindow, { url }: { url: string }) => {
-        log.warn(`Unexpected child window created, closing and redirecting: ${url}`)
+        log.event('warn', 'security.child_window.unexpected', 'unexpected child window closed')
         childWindow.close()
         if (url && url !== 'about:blank') {
           try {
@@ -132,7 +140,7 @@ export function setupSecurityHandlers(view: WebContentsView, tabId: string): Dis
             const parsed = new URL(targetUrl)
 
             if (ALLOWED_SCHEMES.includes(parsed.protocol)) {
-              emitToRenderer(IPC_CHANNELS.CONTEXT_OPEN_LINK, targetUrl)
+              emitContractToRenderer(contextOpenLinkContract, targetUrl)
             }
           } catch {
             log.debug(`Invalid URL in child window: ${url}`)

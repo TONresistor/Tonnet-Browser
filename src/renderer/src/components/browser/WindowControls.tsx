@@ -4,21 +4,22 @@
  */
 
 import { Minus, Square, X } from 'lucide-react'
+import { browserClient } from '@/features/browser/client'
 import { useTranslation } from 'react-i18next'
 
 export function WindowControls() {
   const { t } = useTranslation('browser')
 
   const handleMinimize = () => {
-    window.electron.window.minimize()
+    browserClient.minimizeWindow()
   }
 
   const handleMaximize = () => {
-    window.electron.window.maximize()
+    browserClient.maximizeWindow()
   }
 
   const handleClose = () => {
-    window.electron.window.close()
+    browserClient.closeWindow()
   }
 
   return (

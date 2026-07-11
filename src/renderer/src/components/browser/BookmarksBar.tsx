@@ -17,7 +17,7 @@ import {
   useSensors,
 } from '@dnd-kit/core'
 import { SortableContext, horizontalListSortingStrategy, sortableKeyboardCoordinates } from '@dnd-kit/sortable'
-import { useBookmarksStore, Bookmark, BookmarkFolder } from '@/stores/bookmarks'
+import { useBookmarksStore, Bookmark, BookmarkFolder } from '@/features/bookmarks/store'
 import { useTabsStore } from '@/stores/tabs'
 import { ErrorBoundary } from '../ErrorBoundary'
 import { SortableBookmarkItem } from './SortableBookmarkItem'

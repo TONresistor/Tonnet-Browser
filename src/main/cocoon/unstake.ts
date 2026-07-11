@@ -21,9 +21,9 @@ import { CocoonClient } from './contracts/wrappers/CocoonClient'
 import { openBridgeContract } from './contracts/bridge-provider'
 import { sendFromCocoonWallet, sendFromOwnerWallet, buildCocoonWalletInit } from './contracts'
 import { loadCocoonWallet, getNodeSecretBuffer } from './wallet'
-import { getStakeCacheStore } from './stake-cache'
+import type { StakeCacheStore } from './stake-cache'
 import { DRAIN_DUST_FLOOR_NANO, narrowClientState } from './constants'
-import type { WsBridgeClient } from '../wallet/ws-bridge-client'
+import type { TonBridgePort } from '../ports/ton-bridge'
 import type { CocoonManager } from './manager'
 import type { CocoonStakeInfo, CocoonStakeStatus } from '../../shared/cocoon-types'
 
@@ -47,7 +47,11 @@ const log = createLogger('cocoon:unstake')
  *   - When live: from /jsonstats `proxies[0].state` (matches the runner's view).
  *   - When cached/offline: defaults to the on-chain state (no live runner view).
  */
-export async function getStakeInfo(manager: CocoonManager, bridge: WsBridgeClient): Promise<CocoonStakeInfo | null> {
+export async function getStakeInfo(
+  manager: CocoonManager,
+  bridge: TonBridgePort,
+  stakeCache: StakeCacheStore
+): Promise<CocoonStakeInfo | null> {
   const wallet = await loadCocoonWallet()
   const managerState = manager.getState()
   const runnerStatus = managerState.kind
@@ -61,7 +65,7 @@ export async function getStakeInfo(manager: CocoonManager, bridge: WsBridgeClien
         // Refresh the cache for offline reads later. Don't await — fire and
         // forget; persistence shouldn't block the UI poll.
         if (wallet) {
-          getStakeCacheStore()
+          stakeCache
             .saveStakeAddresses({
               proxySCAddress: proxy.proxy_sc_address,
               clientSCAddress: proxy.sc_address,
@@ -90,7 +94,7 @@ export async function getStakeInfo(manager: CocoonManager, bridge: WsBridgeClien
   // Offline path: read from cache + on-chain. Need both SC addresses, otherwise
   // we have nothing to query. A cache holding only `pendingWithdraw` is valid
   // pre-stake state and reports as null here.
-  const cache = await getStakeCacheStore().load()
+  const cache = await stakeCache.load()
   if (!cache?.proxySCAddress || !cache.clientSCAddress) return null
 
   return buildSnapshot({
@@ -106,7 +110,7 @@ export async function getStakeInfo(manager: CocoonManager, bridge: WsBridgeClien
 }
 
 interface SnapshotArgs {
-  bridge: WsBridgeClient
+  bridge: TonBridgePort
   wallet: { nodeAddress: string } | null
   proxySCAddress: string
   clientSCAddress: string
@@ -243,7 +247,7 @@ export async function unstake(manager: CocoonManager): Promise<void> {
  */
 export async function cashout(
   manager: CocoonManager,
-  bridge: WsBridgeClient,
+  bridge: TonBridgePort,
   destination: string
 ): Promise<{
   totalSent: string
@@ -271,7 +275,7 @@ export async function cashout(
     const nodeSecret = await getNodeSecretBuffer()
     const result = await sendFromCocoonWallet(bridge, wallet.nodeAddress, nodeSecret, dest, 0n, undefined, {
       drainAll: true,
-      init: buildCocoonWalletInit(wallet.ownerAddress, wallet.nodePublicKeyHex),
+      init: await buildCocoonWalletInit(wallet.ownerAddress, wallet.nodePublicKeyHex),
     })
     txs.push({ source: 'node', bocHash: result.bocHash, sentAmount: nodeBalance.toString() })
     total += nodeBalance

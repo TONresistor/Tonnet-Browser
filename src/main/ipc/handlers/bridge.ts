@@ -1,12 +1,20 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import { app } from 'electron'
-import { IPC_CHANNELS } from '../../../shared/ipc-channels'
-import { secureHandle, tonsiteHandle, bridgeRestartLimiter, log } from './shared'
-import { REQUIRED_NAMESPACES, BridgeConfigPartialSchema } from '../../../shared/bridge-config'
-import { writeSecureJsonAtomic } from '../../utils/secure-fs'
-import type { BridgeScope } from '../../../shared/types'
+import { log } from './shared'
+import { REQUIRED_NAMESPACES } from '../../../shared/bridge-config'
+import { writeSecureJsonAtomicAsync } from '../../utils/secure-fs'
 import type { ServiceRegistry } from '../../services'
+import {
+  bridgeGetConfigContract,
+  bridgeGetPermissionsContract,
+  bridgeMessageEventContract,
+  bridgeRestartContract,
+  bridgeRevokePermissionContract,
+  bridgeSendContract,
+  bridgeSetConfigContract,
+} from '../../../shared/ipc-contract/bridge'
+import { ipcFailure, secureContractHandle, tonsiteContractHandle } from '../contract-handler'
 
 function getBridgeConfigPath(): string {
   return path.join(app.getPath('userData'), 'bridge', 'config.json')
@@ -15,13 +23,14 @@ function getBridgeConfigPath(): string {
 export function registerBridgeHandlers(registry: ServiceRegistry): void {
   const { bridgeInterceptor, bridgePermissionStore, proxyManager } = registry
 
-  tonsiteHandle(IPC_CHANNELS.BRIDGE_SEND, async (domain, event, data: string) => {
+  tonsiteContractHandle(bridgeSendContract, async (domain, event, data) => {
     return new Promise<void>((resolve) => {
       bridgeInterceptor.handleRequest(
         domain,
         data,
         (response: string) => {
-          event.sender.send(IPC_CHANNELS.BRIDGE_MESSAGE, response)
+          const [validated] = bridgeMessageEventContract.payload.parse([response])
+          event.sender.send(bridgeMessageEventContract.channel, validated)
           resolve()
         },
         event.sender
@@ -29,37 +38,31 @@ export function registerBridgeHandlers(registry: ServiceRegistry): void {
     })
   })
 
-  secureHandle(IPC_CHANNELS.BRIDGE_GET_PERMISSIONS, () => {
+  secureContractHandle(bridgeGetPermissionsContract, () => {
     return bridgePermissionStore.getAllPermissions()
   })
 
-  secureHandle(IPC_CHANNELS.BRIDGE_REVOKE_PERMISSION, (domain: string, scope: BridgeScope) => {
+  secureContractHandle(bridgeRevokePermissionContract, (domain, scope) => {
     bridgePermissionStore.revokePermission(domain, scope)
     return { success: true }
   })
 
   // Bridge config: read
-  secureHandle(IPC_CHANNELS.BRIDGE_GET_CONFIG, async () => {
+  secureContractHandle(bridgeGetConfigContract, async () => {
     const configPath = getBridgeConfigPath()
     try {
       const data = await fs.promises.readFile(configPath, 'utf-8')
       return JSON.parse(data)
     } catch (err) {
       if ((err as NodeJS.ErrnoException).code === 'ENOENT') return null
-      log.error('Failed to read bridge config:', err)
-      return null
+      ipcFailure('BRIDGE_CONFIG_READ_FAILED', 'Unable to read bridge configuration', false, err)
     }
   })
 
   // Bridge config: write (deep-merge, enforce required namespaces)
-  secureHandle(IPC_CHANNELS.BRIDGE_SET_CONFIG, async (rawPartial: unknown) => {
+  secureContractHandle(bridgeSetConfigContract, async (partial) => {
     const configPath = getBridgeConfigPath()
     try {
-      const parsed = BridgeConfigPartialSchema.safeParse(rawPartial)
-      if (!parsed.success) {
-        return { success: false, error: parsed.error.message }
-      }
-      const partial = parsed.data
       let existing: Record<string, unknown> = {}
       try {
         existing = JSON.parse(await fs.promises.readFile(configPath, 'utf-8'))
@@ -98,28 +101,23 @@ export function registerBridgeHandlers(registry: ServiceRegistry): void {
       }
       existing.namespaces = ns
 
-      writeSecureJsonAtomic(configPath, existing)
+      await writeSecureJsonAtomicAsync(configPath, existing)
 
       return { success: true }
     } catch (err) {
-      log.error('Failed to write bridge config:', err)
-      return { success: false, error: String(err) }
+      ipcFailure('BRIDGE_CONFIG_WRITE_FAILED', 'Unable to save bridge configuration', false, err)
     }
   })
 
   // Bridge restart (bridge process only; proxy stays up)
-  secureHandle(IPC_CHANNELS.BRIDGE_RESTART, async () => {
-    if (!bridgeRestartLimiter.check()) {
-      return { success: false, error: 'Bridge restart rate limit exceeded' }
-    }
+  secureContractHandle(bridgeRestartContract, async () => {
     try {
       await proxyManager.restartBridge()
       return { success: true }
     } catch (err) {
-      log.error('Failed to restart bridge:', err)
-      return { success: false, error: String(err) }
+      ipcFailure('BRIDGE_RESTART_FAILED', 'Unable to restart bridge', true, err)
     }
   })
 
-  log.info('Bridge handlers registered')
+  log.debug('Bridge handlers registered')
 }

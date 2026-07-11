@@ -7,7 +7,7 @@ import { getMainWindow } from '../windows/main'
 import { OverlayManager } from '../windows/overlay-manager'
 import type { BridgeScope } from '../../shared/types'
 import { DEFAULT_SETTINGS } from '../../shared/defaults'
-import { createLogger } from '../../shared/logger'
+import { createLogger, RepetitionAggregator } from '../../shared/logger'
 const log = createLogger('bridge-interceptor')
 
 // JSON-RPC 2.0 error codes used when rejecting bridge requests.
@@ -43,6 +43,8 @@ export class BridgePermissionInterceptor {
   private wsPort: number = DEFAULT_SETTINGS.wsPort
   private bridgePermissionStore: BridgePermissionStore
   private overlayManager: OverlayManager
+  private readonly reconnectLogs = new RepetitionAggregator(log)
+  private hasConnected = false
 
   constructor(bridgePermissionStore: BridgePermissionStore, overlayManager: OverlayManager) {
     this.bridgePermissionStore = bridgePermissionStore
@@ -224,7 +226,8 @@ export class BridgePermissionInterceptor {
     const ws = new WebSocket(url)
 
     ws.on('open', () => {
-      log.info('Connected to bridge')
+      this.reconnectLogs.recovered('connection', 'bridge.connection.restored', 'bridge connection restored')
+      this.hasConnected = true
       this.ws = ws
       this.wsConnecting = false
     })
@@ -264,12 +267,17 @@ export class BridgePermissionInterceptor {
       this.ws = null
       this.wsConnecting = false
       if (this.destroyed) return
-      log.info('Bridge connection closed, reconnecting in 2s...')
       this.reconnectTimer = setTimeout(() => this.connectToBridge(), RECONNECT_DELAY_MS)
     })
 
     ws.on('error', (err) => {
-      log.error('Bridge connection error:', err.message)
+      if (this.hasConnected) {
+        this.reconnectLogs.record('connection', 'bridge.connection.failed', 'bridge unavailable · reconnecting', {
+          error: err,
+        })
+      } else {
+        log.debug('Bridge not ready yet:', err.message)
+      }
       this.wsConnecting = false
     })
   }

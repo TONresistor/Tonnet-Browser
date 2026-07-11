@@ -5,6 +5,7 @@
 import { errorMessage } from '@shared/errors'
 import { useState, useCallback } from 'react'
 import { useBrowserStore } from '../stores/browser'
+import { proxyClient } from '@/features/proxy/client'
 
 export function useProxy() {
   const [isConnecting, setIsConnecting] = useState(false)
@@ -19,7 +20,7 @@ export function useProxy() {
     setError(null)
 
     try {
-      const result = await window.electron.proxy.connect()
+      const result = await proxyClient.connect()
       if (result.success) {
         // Proxy started successfully - consider it "connected" for UI purposes
         // StatusBar will show "Syncing..." until DHT sync completes

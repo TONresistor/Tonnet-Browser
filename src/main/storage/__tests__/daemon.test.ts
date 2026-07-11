@@ -24,21 +24,33 @@ vi.mock('child_process', () => ({
   spawn: vi.fn(),
 }))
 
+vi.mock('electron', () => ({
+  app: { getPath: vi.fn(() => '/tmp/mock-userdata') },
+}))
+
 vi.mock('fs', () => ({
   default: {
     existsSync: vi.fn(() => true),
     mkdirSync: vi.fn(),
+    writeFileSync: vi.fn(),
+    renameSync: vi.fn(),
+    chmodSync: vi.fn(),
   },
   existsSync: vi.fn(() => true),
   mkdirSync: vi.fn(),
+  writeFileSync: vi.fn(),
+  renameSync: vi.fn(),
+  chmodSync: vi.fn(),
 }))
+vi.mock('fs/promises', () => ({ mkdir: vi.fn(() => Promise.resolve()) }))
 
 // Mock StorageHTTPClient with a real class
 const mockClientInstances: any[] = []
+let mockPingResponse = true
 vi.mock('../http-client', () => {
   return {
     StorageHTTPClient: class MockStorageHTTPClient {
-      ping = vi.fn(() => Promise.resolve(true))
+      ping = vi.fn(() => Promise.resolve(mockPingResponse))
       listBags = vi.fn(() => Promise.resolve([]))
       addBag = vi.fn(() => Promise.resolve({ ok: true }))
       removeBag = vi.fn(() => Promise.resolve({ ok: true }))
@@ -83,7 +95,7 @@ vi.mock('../../utils/paths', () => ({
 // Import after mocks
 import { StorageManager } from '../daemon'
 import { spawn } from 'child_process'
-import fs from 'fs'
+import { mkdir } from 'fs/promises'
 
 describe('StorageManager', () => {
   let manager: StorageManager
@@ -92,6 +104,7 @@ describe('StorageManager', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockClientInstances.length = 0
+    mockPingResponse = true
     mockProcess = createMockProcess()
     vi.mocked(spawn).mockReturnValue(mockProcess as any)
     manager = new StorageManager()
@@ -138,22 +151,23 @@ describe('StorageManager', () => {
     })
 
     it('tears down the spawned child when readiness fails, so a retry is not blocked', async () => {
+      mockPingResponse = false
       const startP = manager.start()
+      await vi.waitFor(() => expect(spawn).toHaveBeenCalled())
       // Daemon crashes before its HTTP API answers → waitForReady rejects.
       mockProcess.emit('exit', 1)
       await expect(startP).rejects.toBeDefined()
 
       // The child was reaped (this.process nulled), so the retry proceeds
       // instead of throwing 'already running', and now succeeds.
+      mockPingResponse = true
       await expect(manager.start()).resolves.toBeUndefined()
     })
 
     it('creates storage directories if missing', async () => {
-      vi.mocked(fs.existsSync).mockReturnValue(false)
-
       await manager.start()
 
-      expect(fs.mkdirSync).toHaveBeenCalled()
+      expect(mkdir).toHaveBeenCalledTimes(2)
     })
 
     it('emits "started" event on success', async () => {
@@ -417,19 +431,21 @@ describe('StorageManager', () => {
       manager.on('log', logSpy)
 
       await manager.start()
-      mockProcess.stdout.emit('data', Buffer.from('Storage log message'))
+      mockProcess.stdout.emit('data', Buffer.from('Storage log message\n'))
 
       expect(logSpy).toHaveBeenCalledWith('Storage log message')
     })
 
-    it('emits "error" on stderr data', async () => {
+    it('does not promote plain stderr but emits explicit native errors', async () => {
       const errorSpy = vi.fn()
       manager.on('error', errorSpy)
 
       await manager.start()
-      mockProcess.stderr.emit('data', Buffer.from('Storage error'))
+      mockProcess.stderr.emit('data', Buffer.from('plain stderr\n'))
+      expect(errorSpy).not.toHaveBeenCalled()
+      mockProcess.stderr.emit('data', Buffer.from('ERROR Storage failed\n'))
 
-      expect(errorSpy).toHaveBeenCalledWith('Storage error')
+      expect(errorSpy).toHaveBeenCalledWith('ERROR Storage failed')
     })
 
     it('handles process exit', async () => {

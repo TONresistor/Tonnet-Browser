@@ -7,8 +7,8 @@ import { useState, useEffect } from 'react'
 import { useProxy } from '@/hooks/useProxy'
 import Lottie from 'lottie-react'
 import { APP_VERSION } from '@shared/constants'
-import { IPC_CHANNELS } from '@shared/ipc-channels'
-import { usePreferences } from '@/stores/preferences'
+import { proxyClient } from '@/features/proxy/client'
+import { usePreferences } from '@/features/settings/preferences-store'
 import { useTranslation } from 'react-i18next'
 
 export function LandingPage() {
@@ -46,13 +46,13 @@ export function LandingPage() {
 
   // Listen for proxy progress events and auto-connect trigger
   useEffect(() => {
-    const unsubProgress = window.electron.on(IPC_CHANNELS.PROXY_PROGRESS, (data) => {
+    const unsubProgress = proxyClient.onProgress((data) => {
       setCurrentStep(data.step)
       setStepMessage(data.message)
     })
 
     // Auto-connect triggers the same loading state as manual connect
-    const unsubAutoConnect = window.electron.on(IPC_CHANNELS.PROXY_AUTO_CONNECT, () => {
+    const unsubAutoConnect = proxyClient.onAutoConnect(() => {
       setAutoConnecting(true)
     })
 

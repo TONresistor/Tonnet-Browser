@@ -26,7 +26,6 @@ export default defineConfig({
         'src/**/__tests__/**',
         'src/**/*.d.ts',
         'src/main/index.ts',
-        'src/preload/**',
         'src/renderer/src/main.tsx',
       ],
       thresholds: {
@@ -37,9 +36,10 @@ export default defineConfig({
         // Risk-weighted floors for the value-moving / signing code, so it can
         // never silently regress behind the renderer-heavy global gate. Set
         // below current coverage as ratchet floors, not aspirational targets.
-        'src/main/wallet/**': { statements: 35, lines: 35, functions: 28, branches: 30 },
-        'src/main/cocoon/**': { statements: 15, lines: 15, functions: 12, branches: 10 },
-        'src/main/tonconnect/**': { statements: 10, lines: 10, functions: 8, branches: 8 },
+        'src/main/wallet/**': { statements: 50, lines: 50, functions: 45, branches: 45 },
+        'src/main/wallet/payment-*.ts': { statements: 70, lines: 70, functions: 70, branches: 65 },
+        'src/main/cocoon/**': { statements: 35, lines: 35, functions: 35, branches: 28 },
+        'src/main/tonconnect/**': { statements: 50, lines: 50, functions: 50, branches: 45 },
       },
     },
   },

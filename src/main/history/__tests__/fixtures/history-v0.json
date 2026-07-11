@@ -1,0 +1,9 @@
+[
+  {
+    "id": "legacy-entry",
+    "url": "https://legacy.example/",
+    "title": "Legacy history entry",
+    "visitedAt": 1700000000000,
+    "visitCount": 2
+  }
+]

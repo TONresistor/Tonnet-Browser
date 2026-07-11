@@ -6,7 +6,7 @@
 import { BrowserWindow } from 'electron'
 import { ProxyManager } from './manager'
 import { StorageManager } from '../storage/daemon'
-import { initTabManager, type TabManagerDeps } from '../windows/tabs'
+import { type TabManager, type TabManagerDeps } from '../windows/tabs'
 import { stripAnsi } from '../utils/strip-ansi'
 import { createLogger } from '../../shared/logger'
 const log = createLogger('proxy')
@@ -19,7 +19,8 @@ export async function startProxySequence(
   proxyManager: ProxyManager,
   storageManager: StorageManager,
   mainWindow: BrowserWindow | null,
-  tabDeps?: TabManagerDeps
+  tabManager: TabManager,
+  tabDeps: TabManagerDeps
 ): Promise<void> {
   // Step 0: Starting proxy binary
   sendProgress(0, 'Starting proxy...')
@@ -45,12 +46,15 @@ export async function startProxySequence(
     .then(() => log.info('Storage daemon started'))
     .catch((err) => log.error(`Failed to start storage: ${String(err)}`))
 
-  await proxyManager.start()
-  proxyManager.off('log', logListener)
+  try {
+    await proxyManager.start()
+  } finally {
+    proxyManager.off('log', logListener)
+  }
 
   // Initialize TabManager with proxy port
   if (mainWindow) {
-    initTabManager(mainWindow, proxyManager.getStatus().port, tabDeps)
+    tabManager.initialize(mainWindow, proxyManager.getStatus().port, tabDeps)
   }
 
   // Wait for storage to finish (likely already done)

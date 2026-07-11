@@ -6,226 +6,54 @@
 
 import { errorMessage } from '../../shared/errors'
 import { webContents } from 'electron'
-import { normalizeToSecondLevel, PaymentPolicyStore } from './payment-policy'
-import { rawToFriendly } from './address-utils'
-import { WalletManager } from './manager'
-import { WalletHistoryManager } from './history'
-import { emitToRenderer } from '../ipc/handlers'
-import { IPC_CHANNELS } from '../../shared/ipc-channels'
+import { normalizeToSecondLevel } from './payment-policy'
 import { getSetting } from '../settings'
-import {
-  WALLET_MAX_TIMEOUT_S,
-  WALLET_MIN_APPROVAL_TIMEOUT_S,
-  TON_MAINNET_CAIP2,
-  TON_NATIVE_ASSET,
-  X402_VERSION,
-  MAX_SINGLE_PAYMENT,
-  AUTO_PAY_DEFAULT_MAX_PER_REQUEST,
-  FETCH_TIMEOUT_MS,
-  DEFAULT_APPROVAL_TIMEOUT_S,
-} from './constants'
+import { X402_VERSION, DEFAULT_APPROVAL_TIMEOUT_S } from './constants'
 import { ERROR_TRUNCATE_LENGTH } from '../../shared/constants'
-import { PaymentRequirementsSchema } from '../../shared/schemas'
-import type { PaymentRequirements, PaymentNotificationData, WalletTransaction, PaymentMode } from '../../shared/types'
+import type { PaymentRequirements, PaymentNotificationData, WalletTransaction } from '../../shared/types'
 import { createLogger } from '../../shared/logger'
+import {
+  buildPaymentNotification as buildNotification,
+  fetchPaymentResource as sessionFetch,
+  MAX_PAYMENT_RESPONSE_BYTES as MAX_RESPONSE_BODY,
+  parsePaymentRequirements,
+  readBoundedBody,
+  resolveAutoPayMode,
+  validatePaymentRequirements,
+} from './payment-requirements'
+import type { PaymentHistoryPort, PaymentPolicyPort, PaymentWalletPort } from './payment-ports'
+import { XhrPaymentTokenStore } from './xhr-payment-tokens'
+import type { InterceptedRequest, PaymentNotificationSink, PendingPaymentApproval } from './payment-interceptor-types'
 const log = createLogger('payment-interceptor')
-
-/** Maximum response body size for 402 payment responses (64 KB) */
-const MAX_RESPONSE_BODY = 65_536
-
-/** Stored context for a 402 interception */
-interface InterceptedRequest {
-  url: string
-  webContentsId: number
-  session: Electron.Session
-}
-
-/** TON raw address regex: 0:<64 hex chars> */
-const TON_RAW_ADDRESS_RE = /^0:[0-9a-fA-F]{64}$/
-
-function validatePaymentRequirements(
-  req: PaymentRequirements,
-  originalDomain: string,
-  finalDomain: string,
-  isAutoMode: boolean,
-  walletManager: WalletManager
-): { valid: boolean; reason?: string } {
-  if (req.scheme !== 'exact') {
-    return { valid: false, reason: `Invalid scheme: ${req.scheme}` }
-  }
-
-  if (req.network !== TON_MAINNET_CAIP2) {
-    return { valid: false, reason: `Invalid network: ${req.network}` }
-  }
-
-  if (req.asset !== TON_NATIVE_ASSET) {
-    return { valid: false, reason: `Invalid asset: ${req.asset}` }
-  }
-
-  try {
-    const amt = BigInt(req.amount)
-    if (amt <= 0n) {
-      return { valid: false, reason: 'Amount must be > 0' }
-    }
-  } catch {
-    return { valid: false, reason: `Invalid amount: ${req.amount}` }
-  }
-
-  // FIX 3: Hard cap on payment amount
-  const walletSettings = getSetting('wallet')
-  const perRequestLimit = walletSettings.limits.perRequest
-  const effectiveLimit = perRequestLimit !== '0' ? BigInt(perRequestLimit) : MAX_SINGLE_PAYMENT
-  if (BigInt(req.amount) > effectiveLimit) {
-    log.warn('Payment amount exceeds limit')
-    return { valid: false, reason: 'amount_exceeds_limit' }
-  }
-
-  const walletState = walletManager.getState()
-  if (!walletState.isCreated) {
-    return { valid: false, reason: 'Wallet not created' }
-  }
-
-  if (!TON_RAW_ADDRESS_RE.test(req.payTo)) {
-    return { valid: false, reason: `Invalid payTo address: ${req.payTo}` }
-  }
-
-  if (req.maxTimeoutSeconds < WALLET_MIN_APPROVAL_TIMEOUT_S || req.maxTimeoutSeconds > WALLET_MAX_TIMEOUT_S) {
-    return { valid: false, reason: `Invalid maxTimeoutSeconds: ${req.maxTimeoutSeconds}` }
-  }
-
-  if (req.payTo === walletState.addressRaw) {
-    return { valid: false, reason: 'Self-payment not allowed' }
-  }
-
-  if (isAutoMode && originalDomain !== finalDomain) {
-    return { valid: false, reason: 'Cross-domain redirect in auto mode' }
-  }
-
-  return { valid: true }
-}
-
-/**
- * FIX 4: Fetch with timeout via AbortController.
- * Uses session.fetch to route through the originating session's proxy.
- */
-async function sessionFetch(session: Electron.Session, url: string, options?: RequestInit): Promise<Response> {
-  const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
-  try {
-    const response = await session.fetch(url, { ...options, signal: controller.signal })
-    clearTimeout(timeout)
-    return response
-  } catch (e) {
-    clearTimeout(timeout)
-    throw e
-  }
-}
-
-/**
- * Stream response body into a string, bounded by maxBytes. Throws if the body
- * exceeds the limit. Content-Length is unreliable (attacker may omit it or use
- * Transfer-Encoding: chunked) so we track bytes from the actual stream.
- */
-async function readBoundedBody(response: Response, maxBytes: number): Promise<string> {
-  const reader = response.body?.getReader?.()
-  if (!reader) {
-    const text = await response.text()
-    if (text.length > maxBytes) {
-      throw new Error(`Response body exceeds ${maxBytes} bytes`)
-    }
-    return text
-  }
-  const chunks: Uint8Array[] = []
-  let total = 0
-  try {
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-      total += value.byteLength
-      if (total > maxBytes) {
-        await reader.cancel()
-        throw new Error(`Response body exceeds ${maxBytes} bytes`)
-      }
-      chunks.push(value)
-    }
-  } finally {
-    reader.releaseLock?.()
-  }
-  const merged = new Uint8Array(total)
-  let offset = 0
-  for (const chunk of chunks) {
-    merged.set(chunk, offset)
-    offset += chunk.byteLength
-  }
-  return new TextDecoder('utf-8').decode(merged)
-}
-
-/**
- * Build a PaymentNotificationData from the common 402 context. Single source so
- * the payTo->friendly derivation and field set never diverge across the ~12
- * emit sites (which previously hand-rolled the same object).
- */
-function buildNotification(
-  id: string,
-  domain: string,
-  url: string,
-  paymentReq: Pick<PaymentRequirements, 'amount' | 'payTo'>,
-  status: PaymentNotificationData['status'],
-  error?: string
-): PaymentNotificationData {
-  return {
-    id,
-    domain,
-    url,
-    amount: paymentReq.amount,
-    payTo: paymentReq.payTo,
-    payToFriendly: rawToFriendly(paymentReq.payTo),
-    status,
-    ...(error !== undefined ? { error } : {}),
-  }
-}
-
-/** Emit a payment notification on the channel implied by its status. */
-function emitPaymentNotification(notification: PaymentNotificationData): void {
-  const channel =
-    notification.status === 'pending'
-      ? IPC_CHANNELS.WALLET_PAYMENT_REQ
-      : notification.status === 'completed'
-        ? IPC_CHANNELS.WALLET_PAYMENT_MADE
-        : IPC_CHANNELS.WALLET_PAYMENT_FAILED
-  emitToRenderer(channel, notification)
-}
+export type { PaymentNotificationSink } from './payment-interceptor-types'
 
 export class PaymentInterceptor {
-  private walletManager: WalletManager
-  private paymentPolicyStore: PaymentPolicyStore
-  private walletHistoryManager: WalletHistoryManager
-  private xhrTokens = new Map<string, { token: string; expiresAt: number; remainingUses: number }>()
+  private walletManager: PaymentWalletPort
+  private paymentPolicyStore: PaymentPolicyPort
+  private walletHistoryManager: PaymentHistoryPort
+  private notificationSink: PaymentNotificationSink
+  private xhrTokens = new XhrPaymentTokenStore()
   private inflightXhrPayments = new Map<
     string,
     { promise: Promise<{ success: boolean; error?: string }>; count: number }
   >()
   /** Pending manual approval requests, keyed by payment ID */
-  private pendingApprovals = new Map<
-    string,
-    {
-      request: InterceptedRequest
-      paymentReq: PaymentRequirements
-      domain: string
-      ttl: ReturnType<typeof setTimeout>
-      reservationId?: string
-      xhrResolver?: (result: { success: boolean; error?: string }) => void
-    }
-  >()
+  private pendingApprovals = new Map<string, PendingPaymentApproval>()
 
   constructor(
-    walletManager: WalletManager,
-    paymentPolicyStore: PaymentPolicyStore,
-    walletHistoryManager: WalletHistoryManager
+    walletManager: PaymentWalletPort,
+    paymentPolicyStore: PaymentPolicyPort,
+    walletHistoryManager: PaymentHistoryPort,
+    notificationSink: PaymentNotificationSink
   ) {
     this.walletManager = walletManager
     this.paymentPolicyStore = paymentPolicyStore
     this.walletHistoryManager = walletHistoryManager
+    this.notificationSink = notificationSink
+  }
+
+  private emitPaymentNotification(notification: PaymentNotificationData): void {
+    this.notificationSink(notification)
   }
 
   registerOnSession(session: Electron.Session): void {
@@ -279,13 +107,7 @@ export class PaymentInterceptor {
 
     let paymentReq: PaymentRequirements
     try {
-      const body = await readBoundedBody(response, MAX_RESPONSE_BODY)
-      const parsed = PaymentRequirementsSchema.safeParse(JSON.parse(body))
-      if (!parsed.success) {
-        log.error('402 PaymentRequirements failed schema validation:', parsed.error.issues)
-        return
-      }
-      paymentReq = parsed.data
+      paymentReq = await parsePaymentRequirements(response)
     } catch (err) {
       log.error('Failed to read or parse PaymentRequirements JSON:', err)
       return
@@ -314,20 +136,21 @@ export class PaymentInterceptor {
     // Cross-domain redirect = force manual
     const isCrossDomain = finalDomain !== originalDomain
     const baseMode = isCrossDomain ? 'manual' : this.paymentPolicyStore.getSiteMode(originalDomain)
-    const mode = this.resolveAutoPayMode(baseMode, paymentReq.amount)
+    const walletSettings = getSetting('wallet')
+    const mode = resolveAutoPayMode(baseMode, paymentReq.amount, walletSettings.limits.perRequest)
 
     if (mode === 'off') {
-      log.info(`Payment mode is off for ${originalDomain}, ignoring 402`)
+      log.debug('Payment mode is off, ignoring 402')
       return
     }
 
-    const validation = validatePaymentRequirements(
-      paymentReq,
+    const validation = validatePaymentRequirements(paymentReq, {
       originalDomain,
       finalDomain,
-      mode === 'auto',
-      this.walletManager
-    )
+      isAutoMode: mode === 'auto',
+      walletState: this.walletManager.getState(),
+      perRequestLimit: walletSettings.limits.perRequest,
+    })
 
     if (!validation.valid) {
       log.warn(`PaymentRequirements validation failed: ${validation.reason}`)
@@ -336,7 +159,7 @@ export class PaymentInterceptor {
 
     const reservationId = this.paymentPolicyStore.reservePayment(originalDomain, paymentReq.amount)
     if (!reservationId) {
-      emitPaymentNotification(
+      this.emitPaymentNotification(
         buildNotification(
           crypto.randomUUID(),
           originalDomain,
@@ -361,10 +184,10 @@ export class PaymentInterceptor {
           if (pending) {
             this.pendingApprovals.delete(paymentId)
             if (pending.reservationId) this.paymentPolicyStore.rollbackPayment(pending.reservationId)
-            emitPaymentNotification(
+            this.emitPaymentNotification(
               buildNotification(paymentId, originalDomain, request.url, paymentReq, 'rejected', 'Approval timed out')
             )
-            log.info(`Payment approval timed out for ${originalDomain}`)
+            log.event('info', 'payment.approval.timeout', 'payment approval timed out')
           }
         },
         (paymentReq.maxTimeoutSeconds || DEFAULT_APPROVAL_TIMEOUT_S) * 1_000
@@ -378,30 +201,8 @@ export class PaymentInterceptor {
         reservationId,
       })
 
-      emitPaymentNotification(buildNotification(paymentId, originalDomain, request.url, paymentReq, 'pending'))
+      this.emitPaymentNotification(buildNotification(paymentId, originalDomain, request.url, paymentReq, 'pending'))
     }
-  }
-
-  /**
-   * Escalate an auto-mode payment to manual approval when it exceeds the
-   * zero-approval per-transaction ceiling. A user-configured limits.perRequest
-   * takes precedence; otherwise AUTO_PAY_DEFAULT_MAX_PER_REQUEST applies. This
-   * bounds what a compromised auto-pay tonsite can spend without the user ever
-   * being asked, without silently rejecting the payment.
-   */
-  private resolveAutoPayMode(baseMode: PaymentMode, amountNano: string): PaymentMode {
-    if (baseMode !== 'auto') return baseMode
-    const perRequest = getSetting('wallet').limits.perRequest
-    const ceiling = perRequest !== '0' ? BigInt(perRequest) : AUTO_PAY_DEFAULT_MAX_PER_REQUEST
-    try {
-      if (BigInt(amountNano) > ceiling) {
-        log.info(`Auto-pay amount exceeds ${ceiling} nanoTON ceiling — escalating to manual approval`)
-        return 'manual'
-      }
-    } catch {
-      return 'manual'
-    }
-    return baseMode
   }
 
   private async executePayment(
@@ -450,7 +251,7 @@ export class PaymentInterceptor {
 
         await this.walletHistoryManager.updateStatus(paymentId, 'confirmed')
 
-        emitPaymentNotification(buildNotification(paymentId, domain, request.url, paymentReq, 'completed'))
+        this.emitPaymentNotification(buildNotification(paymentId, domain, request.url, paymentReq, 'completed'))
 
         // Navigate the original webContents to reload with payment header
         const allWebContents = webContents.getAllWebContents()
@@ -463,13 +264,13 @@ export class PaymentInterceptor {
           }
         }
 
-        log.info(`402 payment completed for ${domain}`)
+        log.event('info', 'payment.completed', 'HTTP 402 payment completed')
       } else {
         if (reservationId) this.paymentPolicyStore.rollbackPayment(reservationId)
         const errorText = await readBoundedBody(retryResponse, MAX_RESPONSE_BODY).catch(() => 'read error')
         await this.walletHistoryManager.updateStatus(paymentId, 'failed')
 
-        emitPaymentNotification(
+        this.emitPaymentNotification(
           buildNotification(
             paymentId,
             domain,
@@ -480,7 +281,7 @@ export class PaymentInterceptor {
           )
         )
 
-        log.warn(`402 payment retry failed for ${domain}: ${retryResponse.status}`)
+        log.event('warn', 'payment.retry.failed', 'payment retry failed', { status: retryResponse.status })
       }
     } catch (err) {
       if (reservationId) this.paymentPolicyStore.rollbackPayment(reservationId)
@@ -488,11 +289,11 @@ export class PaymentInterceptor {
         .updateStatus(paymentId, 'failed')
         .catch((err) => log.debug('Failed to update payment history status:', err))
 
-      emitPaymentNotification(
+      this.emitPaymentNotification(
         buildNotification(paymentId, domain, request.url, paymentReq, 'failed', errorMessage(err))
       )
 
-      log.error(`402 payment error for ${domain}:`, err)
+      log.event('error', 'payment.execution.failed', 'payment execution failed', { error: err })
     }
   }
 
@@ -503,7 +304,7 @@ export class PaymentInterceptor {
   async approvePayment(paymentId: string): Promise<void> {
     const pending = this.pendingApprovals.get(paymentId)
     if (!pending) {
-      log.warn(`No pending approval found for ${paymentId}`)
+      log.event('warn', 'payment.approval.missing', 'pending payment approval not found')
       return
     }
 
@@ -535,15 +336,15 @@ export class PaymentInterceptor {
         }
         await this.walletHistoryManager.add(tx)
 
-        emitPaymentNotification(
+        this.emitPaymentNotification(
           buildNotification(paymentId, pending.domain, pending.request.url, pending.paymentReq, 'completed')
         )
         log.debug(`XHR payment approved for ${pending.domain}`)
         pending.xhrResolver({ success: true })
       } catch (err) {
-        this.xhrTokens.delete(`${pending.request.webContentsId}|${pending.request.url}`)
+        this.xhrTokens.revoke(pending.request.webContentsId, pending.request.url)
         if (pending.reservationId) this.paymentPolicyStore.rollbackPayment(pending.reservationId)
-        emitPaymentNotification(
+        this.emitPaymentNotification(
           buildNotification(
             paymentId,
             pending.domain,
@@ -553,7 +354,7 @@ export class PaymentInterceptor {
             errorMessage(err)
           )
         )
-        log.error(`XHR manual payment error for ${pending.domain}:`, err)
+        log.event('error', 'payment.xhr_manual.failed', 'manual XHR payment failed', { error: err })
         pending.xhrResolver({ success: false, error: errorMessage(err) })
       }
     } else {
@@ -572,10 +373,10 @@ export class PaymentInterceptor {
     this.pendingApprovals.delete(paymentId)
     if (pending.reservationId) this.paymentPolicyStore.rollbackPayment(pending.reservationId)
 
-    emitPaymentNotification(
+    this.emitPaymentNotification(
       buildNotification(paymentId, pending.domain, pending.request.url, pending.paymentReq, 'rejected')
     )
-    log.info(`Payment rejected for ${pending.domain}`)
+    log.event('info', 'payment.rejected', 'HTTP 402 payment rejected')
     if (pending.xhrResolver) {
       pending.xhrResolver({ success: false, error: 'user-rejected' })
     }
@@ -592,12 +393,7 @@ export class PaymentInterceptor {
     ttlMs: number,
     uses: number = 1
   ): void {
-    const key = `${webContentsId}|${url}`
-    this.xhrTokens.set(key, {
-      token: xPaymentHeader,
-      expiresAt: Date.now() + ttlMs,
-      remainingUses: Math.max(1, uses),
-    })
+    this.xhrTokens.register(webContentsId, url, xPaymentHeader, ttlMs, uses)
   }
 
   /**
@@ -605,18 +401,7 @@ export class PaymentInterceptor {
    * Returns null if the key is missing or the token has expired.
    */
   consumeXhrPaymentToken(webContentsId: number, url: string): string | null {
-    const key = `${webContentsId}|${url}`
-    const entry = this.xhrTokens.get(key)
-    if (!entry) return null
-    if (Date.now() > entry.expiresAt) {
-      this.xhrTokens.delete(key)
-      return null
-    }
-    entry.remainingUses--
-    if (entry.remainingUses <= 0) {
-      this.xhrTokens.delete(key)
-    }
-    return entry.token
+    return this.xhrTokens.consume(webContentsId, url)
   }
 
   /**
@@ -674,13 +459,7 @@ export class PaymentInterceptor {
 
     let paymentReq: PaymentRequirements
     try {
-      const body = await readBoundedBody(response, MAX_RESPONSE_BODY)
-      const parsed = PaymentRequirementsSchema.safeParse(JSON.parse(body))
-      if (!parsed.success) {
-        log.error('XHR payment: PaymentRequirements failed schema validation:', parsed.error.issues)
-        return { success: false, error: 'parse-error' }
-      }
-      paymentReq = parsed.data
+      paymentReq = await parsePaymentRequirements(response)
     } catch (err) {
       log.error('XHR payment: failed to parse PaymentRequirements:', err)
       return { success: false, error: 'parse-error' }
@@ -705,19 +484,20 @@ export class PaymentInterceptor {
 
     const isCrossDomain = finalDomain !== originalDomain
     const baseMode = isCrossDomain ? 'manual' : this.paymentPolicyStore.getSiteMode(originalDomain)
-    const mode = this.resolveAutoPayMode(baseMode, paymentReq.amount)
+    const walletSettings = getSetting('wallet')
+    const mode = resolveAutoPayMode(baseMode, paymentReq.amount, walletSettings.limits.perRequest)
 
     if (mode === 'off') {
       return { success: false, error: 'policy-off' }
     }
 
-    const validation = validatePaymentRequirements(
-      paymentReq,
+    const validation = validatePaymentRequirements(paymentReq, {
       originalDomain,
       finalDomain,
-      mode === 'auto',
-      this.walletManager
-    )
+      isAutoMode: mode === 'auto',
+      walletState: this.walletManager.getState(),
+      perRequestLimit: walletSettings.limits.perRequest,
+    })
     if (!validation.valid) {
       log.warn(`XHR payment: validation failed: ${validation.reason}`)
       return { success: false, error: 'invalid-requirements' }
@@ -755,13 +535,13 @@ export class PaymentInterceptor {
         }
         await this.walletHistoryManager.add(tx)
 
-        emitPaymentNotification(buildNotification(paymentId, originalDomain, url, paymentReq, 'completed'))
+        this.emitPaymentNotification(buildNotification(paymentId, originalDomain, url, paymentReq, 'completed'))
         log.debug(`XHR payment signed for ${originalDomain}`)
         return { success: true }
       } catch (err) {
-        this.xhrTokens.delete(`${webContentsId}|${url}`)
+        this.xhrTokens.revoke(webContentsId, url)
         this.paymentPolicyStore.rollbackPayment(reservationId)
-        log.error(`XHR auto payment error for ${originalDomain}:`, err)
+        log.event('error', 'payment.xhr_auto.failed', 'automatic XHR payment failed', { error: err })
         return { success: false, error: errorMessage(err) }
       }
     }
@@ -774,7 +554,7 @@ export class PaymentInterceptor {
           if (pending) {
             this.pendingApprovals.delete(paymentId)
             if (pending.reservationId) this.paymentPolicyStore.rollbackPayment(pending.reservationId)
-            emitPaymentNotification(
+            this.emitPaymentNotification(
               buildNotification(paymentId, originalDomain, url, paymentReq, 'rejected', 'Approval timed out')
             )
             log.debug(`XHR payment approval timed out for ${originalDomain}`)
@@ -793,7 +573,7 @@ export class PaymentInterceptor {
         xhrResolver: resolve,
       })
 
-      emitPaymentNotification(buildNotification(paymentId, originalDomain, url, paymentReq, 'pending'))
+      this.emitPaymentNotification(buildNotification(paymentId, originalDomain, url, paymentReq, 'pending'))
     })
   }
 

@@ -2,125 +2,120 @@
  * IPC handlers for browsing history management.
  */
 
-import { errorMessage } from '../../../shared/errors'
-import { IPC_CHANNELS } from '../../../shared/ipc-channels'
-import { secureHandleWithEvent, log } from './shared'
 import { HistoryMode } from '../../history/manager'
 import type { ServiceRegistry } from '../../services'
+import {
+  historyChangeModeContract,
+  historyClearContract,
+  historyDeleteByDateContract,
+  historyDeleteContract,
+  historyDeletePatternContract,
+  historyGetByDateContract,
+  historyGetRecentContract,
+  historyGetStatsContract,
+  historyGetTopContract,
+  historyHasPersistentFileContract,
+  historySearchContract,
+} from '../../../shared/ipc-contract/history'
+import { ipcFailure, secureContractHandle } from '../contract-handler'
 
 /**
- * IPC return format convention:
- * - Query handlers (search, get_recent, get_top, get_by_date, get_stats, has_persistent_file):
- *   return the data directly on success, or an empty default on error ([], false, etc.)
- *   The renderer expects a result value, not a {success, error} wrapper.
- * - Mutation handlers (change_mode, delete, delete_pattern, clear):
- *   return { success: boolean, error?: string } to signal outcome.
+ * Queries return data and mutations return explicit outcomes. Exceptions never
+ * masquerade as empty data; they cross the boundary as stable IPC failures.
  */
 export function registerHistoryHandlers(registry: ServiceRegistry): void {
   const { historyManager } = registry
 
-  secureHandleWithEvent(IPC_CHANNELS.HISTORY_CHANGE_MODE, async (_event, mode: HistoryMode) => {
-    const validModes = ['memory', 'persistent']
-    if (!validModes.includes(mode)) {
-      return { success: false, error: `Invalid history mode: ${mode}` }
-    }
+  secureContractHandle(historyChangeModeContract, async (mode) => {
     try {
-      const result = await historyManager.changeMode(mode)
+      const result = await historyManager.changeMode(mode as HistoryMode)
       return result
     } catch (error) {
-      return { success: false, error: errorMessage(error) }
+      ipcFailure('HISTORY_MODE_CHANGE_FAILED', 'Unable to change history mode', false, error)
     }
   })
 
-  secureHandleWithEvent(IPC_CHANNELS.HISTORY_SEARCH, (_event, query: string, limit?: number) => {
+  secureContractHandle(historySearchContract, (query, limit?: number) => {
     try {
       return historyManager.search(query, limit)
     } catch (error) {
-      log.error('Search failed:', error)
-      return []
+      ipcFailure('HISTORY_SEARCH_FAILED', 'Unable to search history', false, error)
     }
   })
 
-  secureHandleWithEvent(IPC_CHANNELS.HISTORY_GET_RECENT, (_event, limit?: number) => {
+  secureContractHandle(historyGetRecentContract, (limit?: number) => {
     try {
       return historyManager.getRecent(limit)
     } catch (error) {
-      log.error('Get recent failed:', error)
-      return []
+      ipcFailure('HISTORY_READ_FAILED', 'Unable to read recent history', false, error)
     }
   })
 
-  secureHandleWithEvent(IPC_CHANNELS.HISTORY_GET_TOP, (_event, limit?: number) => {
+  secureContractHandle(historyGetTopContract, (limit?: number) => {
     try {
       return historyManager.getTopVisited(limit)
     } catch (error) {
-      log.error('Get top visited failed:', error)
-      return []
+      ipcFailure('HISTORY_READ_FAILED', 'Unable to read top history', false, error)
     }
   })
 
-  secureHandleWithEvent(IPC_CHANNELS.HISTORY_GET_BY_DATE, (_event, startDate: number, endDate: number) => {
+  secureContractHandle(historyGetByDateContract, (startDate, endDate) => {
     try {
       return historyManager.getByDateRange(startDate, endDate)
     } catch (error) {
-      log.error('Get by date range failed:', error)
-      return []
+      ipcFailure('HISTORY_READ_FAILED', 'Unable to read history range', false, error)
     }
   })
 
-  secureHandleWithEvent(IPC_CHANNELS.HISTORY_DELETE, (_event, id: string) => {
+  secureContractHandle(historyDeleteContract, (id) => {
     try {
       const success = historyManager.deleteEntry(id)
       return { success }
     } catch (error) {
-      return { success: false, error: errorMessage(error) }
+      ipcFailure('HISTORY_DELETE_FAILED', 'Unable to delete history entry', false, error)
     }
   })
 
-  secureHandleWithEvent(IPC_CHANNELS.HISTORY_DELETE_BY_DATE, (_event, startDate: number, endDate: number) => {
+  secureContractHandle(historyDeleteByDateContract, (startDate, endDate) => {
     try {
       const count = historyManager.deleteByDateRange(startDate, endDate)
       return { success: true, count }
     } catch (error) {
-      return { success: false, error: errorMessage(error), count: 0 }
+      ipcFailure('HISTORY_DELETE_FAILED', 'Unable to delete history range', false, error)
     }
   })
 
-  secureHandleWithEvent(IPC_CHANNELS.HISTORY_DELETE_PATTERN, (_event, pattern: string) => {
+  secureContractHandle(historyDeletePatternContract, (pattern) => {
     try {
       const count = historyManager.deleteByPattern(pattern)
       return { success: true, count }
     } catch (error) {
-      return { success: false, error: errorMessage(error), count: 0 }
+      ipcFailure('HISTORY_DELETE_FAILED', 'Unable to delete matching history', false, error)
     }
   })
 
-  secureHandleWithEvent(IPC_CHANNELS.HISTORY_CLEAR, () => {
+  secureContractHandle(historyClearContract, () => {
     try {
       historyManager.clear()
       return { success: true }
     } catch (error) {
-      return { success: false, error: errorMessage(error) }
+      ipcFailure('HISTORY_CLEAR_FAILED', 'Unable to clear history', false, error)
     }
   })
 
-  secureHandleWithEvent(IPC_CHANNELS.HISTORY_GET_STATS, () => {
+  secureContractHandle(historyGetStatsContract, () => {
     try {
       return historyManager.getStats()
-    } catch {
-      return {
-        total: 0,
-        mode: 'memory' as HistoryMode,
-        isLocked: false,
-      }
+    } catch (error) {
+      ipcFailure('HISTORY_STATS_FAILED', 'Unable to read history statistics', false, error)
     }
   })
 
-  secureHandleWithEvent(IPC_CHANNELS.HISTORY_HAS_PERSISTENT_FILE, () => {
+  secureContractHandle(historyHasPersistentFileContract, () => {
     try {
       return historyManager.hasPersistentFile()
-    } catch {
-      return false
+    } catch (error) {
+      ipcFailure('HISTORY_STORAGE_CHECK_FAILED', 'Unable to inspect history storage', false, error)
     }
   })
 }

@@ -129,6 +129,11 @@ describe('WalletKeyStorage', () => {
       const buf = written as Buffer
       // Starts with SENC marker
       expect(buf.subarray(0, 4).toString()).toBe('SENC')
+      const document = JSON.parse(storage.decrypt(buf.subarray(4)))
+      expect(document).toMatchObject({
+        schemaVersion: 1,
+        data: { type: 'mnemonic', mnemonic: Array(24).fill('test') },
+      })
     })
 
     it('returns mnemonic array of length 24', async () => {

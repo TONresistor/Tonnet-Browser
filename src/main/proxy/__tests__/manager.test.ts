@@ -41,6 +41,11 @@ vi.mock('../../utils/paths', () => ({
   getBinaryPath: vi.fn((name: string) => `/mock/bin/${name}`),
 }))
 
+vi.mock('../config-writer', () => ({
+  writeProxyConfig: vi.fn(() => Promise.resolve()),
+  applyBridgeDefaults: vi.fn(() => Promise.resolve()),
+}))
+
 vi.mock('electron', () => ({
   app: {
     getPath: vi.fn(() => '/tmp/mock-userdata'),
@@ -71,6 +76,7 @@ vi.mock('fs', () => ({
   renameSync: vi.fn(),
   chmodSync: vi.fn(),
 }))
+vi.mock('fs/promises', () => ({ mkdir: vi.fn(() => Promise.resolve()) }))
 
 // Import after mocks
 import { ProxyManager, buildProxyArgs } from '../manager'
@@ -100,7 +106,7 @@ describe('ProxyManager', () => {
   /** Emit proxy ready signal so start() resolves */
   const emitProxyReady = (proc = mockProxyProcess) => {
     setImmediate(() => {
-      proc.stderr.emit('data', Buffer.from('Starting proxy server'))
+      proc.stderr.emit('data', Buffer.from('Starting proxy server\n'))
     })
   }
 
@@ -126,7 +132,7 @@ describe('ProxyManager', () => {
 
       expect(spawn).toHaveBeenCalledWith(
         '/mock/bin/tonutils-proxy',
-        ['-addr', '127.0.0.1:8080'],
+        ['-addr', '127.0.0.1:8080', '-verbosity', '2'],
         expect.objectContaining({ windowsHide: true, cwd: expect.stringContaining('proxy') })
       )
 
@@ -168,7 +174,7 @@ describe('ProxyManager', () => {
         .mockReturnValueOnce(bridgeProc as any)
 
       setImmediate(() => {
-        proxyProc.stderr.emit('data', Buffer.from('Starting proxy server'))
+        proxyProc.stderr.emit('data', Buffer.from('Starting proxy server\n'))
       })
 
       const newManager = new ProxyManager()
@@ -224,7 +230,7 @@ describe('ProxyManager', () => {
 
       expect(spawn).toHaveBeenCalledWith(
         '/mock/bin/tonutils-proxy',
-        ['-addr', '127.0.0.1:8080'],
+        ['-addr', '127.0.0.1:8080', '-verbosity', '2'],
         expect.objectContaining({ windowsHide: true })
       )
 
@@ -285,7 +291,7 @@ describe('ProxyManager', () => {
 
       const newManager = new ProxyManager()
 
-      await expect(newManager.start()).rejects.toThrow('Proxy failed to start within timeout')
+      await expect(newManager.start()).rejects.toThrow('Process readiness timed out after 1000ms')
 
       mockSettings.network.connectionTimeout = 5
     }, 10000)
@@ -307,7 +313,7 @@ describe('ProxyManager', () => {
       manager.on('log', logSpy)
 
       await manager.start()
-      mockProxyProcess.stdout.emit('data', Buffer.from('Test log message'))
+      mockProxyProcess.stdout.emit('data', Buffer.from('Test log message\n'))
 
       expect(logSpy).toHaveBeenCalledWith('Test log message')
 
@@ -321,23 +327,39 @@ describe('ProxyManager', () => {
       manager.on('log', logSpy)
 
       await manager.start()
-      mockProxyProcess.stderr.emit('data', Buffer.from('Error message'))
+      mockProxyProcess.stderr.emit('data', Buffer.from('Error message\n'))
 
       expect(logSpy).toHaveBeenCalledWith('Error message')
 
       manager.stop()
     })
 
-    it('emits "log" on bridge stdout data with [bridge] prefix', async () => {
+    it('detects a storage bag from the raw proxy line without exposing the raw line', async () => {
+      emitProxyReady()
+      const detected = vi.fn()
+      const exposedLog = vi.fn()
+      manager.on('storage-bag-detected', detected)
+      manager.on('log', exposedLog)
+      await manager.start()
+
+      const bagId = 'a'.repeat(64)
+      mockProxyProcess.stdout.emit('data', Buffer.from(`searching for bag id bag_id=${bagId} host=private.ton\n`))
+
+      expect(detected).toHaveBeenCalledWith({ bagId, domain: 'private.ton' })
+      expect(exposedLog).toHaveBeenCalledWith(expect.stringContaining('host=[REDACTED]'))
+      expect(exposedLog).not.toHaveBeenCalledWith(expect.stringContaining('private.ton'))
+    })
+
+    it('emits "log" on bridge stdout data', async () => {
       emitProxyReady()
 
       const logSpy = vi.fn()
       manager.on('log', logSpy)
 
       await manager.start()
-      mockBridgeProcess.stdout.emit('data', Buffer.from('Bridge log'))
+      mockBridgeProcess.stdout.emit('data', Buffer.from('Bridge log\n'))
 
-      expect(logSpy).toHaveBeenCalledWith('[bridge] Bridge log')
+      expect(logSpy).toHaveBeenCalledWith('Bridge log')
 
       manager.stop()
     })
@@ -381,7 +403,7 @@ describe('ProxyManager', () => {
       manager.on('ws-bridge-ready', bridgeReadySpy)
 
       await manager.start()
-      mockBridgeProcess.stdout.emit('data', Buffer.from('WebSocket-ADNL bridge started'))
+      mockBridgeProcess.stdout.emit('data', Buffer.from('WebSocket-ADNL bridge started\n'))
 
       expect(bridgeReadySpy).toHaveBeenCalledWith(8081)
 
@@ -434,6 +456,11 @@ describe('buildProxyArgs', () => {
     const args = buildProxyArgs(8080, base as any)
     expect(args).toContain('-addr')
     expect(args).toContain('127.0.0.1:8080')
+  })
+
+  it('passes a bounded native verbosity', () => {
+    expect(buildProxyArgs(8080, base as any, 3)).toEqual(expect.arrayContaining(['-verbosity', '3']))
+    expect(buildProxyArgs(8080, base as any, 9)).toEqual(expect.arrayContaining(['-verbosity', '3']))
   })
 
   it('adds -no-eth when resolveEth is false', () => {

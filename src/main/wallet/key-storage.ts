@@ -15,9 +15,11 @@ import { ElectronSafeStorageAdapter } from '../adapters/electron-secure-storage'
 import { createLogger } from '../../shared/logger'
 import { isEnoent } from '../utils/errors'
 import { writeSecureFileAtomic } from '../utils/secure-fs'
+import { z } from 'zod'
 const log = createLogger('wallet:keys')
 
 const ENCRYPTED_MARKER = Buffer.from('SENC')
+const WALLET_KEY_SCHEMA_VERSION = 1
 
 export class WalletDecryptionError extends Error {
   constructor(message: string) {
@@ -37,6 +39,27 @@ interface SeedStorageData {
 }
 
 type StorageData = MnemonicStorageData | SeedStorageData
+
+const StorageDataSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('mnemonic'), mnemonic: z.array(z.string().min(1)).length(24) }),
+  z.object({ type: z.literal('seed'), seed: z.string().regex(/^[a-fA-F0-9]{64}$/) }),
+])
+
+const StorageDocumentSchema = z.object({
+  schemaVersion: z.literal(WALLET_KEY_SCHEMA_VERSION),
+  data: StorageDataSchema,
+})
+
+function parseStorageData(raw: unknown): StorageData {
+  const current = StorageDocumentSchema.safeParse(raw)
+  if (current.success) return current.data.data
+  return StorageDataSchema.parse(raw)
+}
+
+function encodeStorageData(data: StorageData): string {
+  const validated = StorageDataSchema.parse(data)
+  return JSON.stringify({ schemaVersion: WALLET_KEY_SCHEMA_VERSION, data: validated })
+}
 
 export class WalletKeyStorage {
   private storage: ISecureStorage
@@ -323,7 +346,7 @@ export class WalletKeyStorage {
 
       // --- 2. Write new encrypted file atomically (tmp → rename) ---
       const data: SeedStorageData = { type: 'seed', seed: seedHex }
-      const json = JSON.stringify(data)
+      const json = encodeStorageData(data)
       const encrypted = this.storage.encrypt(json)
       const markedBuffer = Buffer.concat([ENCRYPTED_MARKER, encrypted])
       await fs.writeFile(tmp, markedBuffer, { mode: 0o600 })
@@ -359,7 +382,7 @@ export class WalletKeyStorage {
       if (!buf.subarray(0, 4).equals(ENCRYPTED_MARKER)) return false
       const decrypted = this.storage.decrypt(buf.subarray(4))
       if (decrypted.startsWith('{')) {
-        const parsed = JSON.parse(decrypted) as StorageData
+        const parsed = parseStorageData(JSON.parse(decrypted))
         return parsed.type === 'seed' && parsed.seed === expectedSeedHex
       }
       // Legacy encrypted hex path — shouldn't occur here but handle defensively
@@ -371,7 +394,7 @@ export class WalletKeyStorage {
 
   private async storeData(data: StorageData): Promise<void> {
     this.ensureEncryptionAvailable()
-    const json = JSON.stringify(data)
+    const json = encodeStorageData(data)
     const encrypted = this.storage.encrypt(json)
     const markedBuffer = Buffer.concat([ENCRYPTED_MARKER, encrypted])
     // Atomic + fsync write (tmp -> rename, 0o600): a crash mid-write must never
@@ -402,15 +425,16 @@ export class WalletKeyStorage {
         // Try parsing as JSON first (new format)
         if (decrypted.startsWith('{')) {
           try {
-            const parsed = JSON.parse(decrypted) as StorageData
-            return parsed
-          } catch {
-            // Not valid JSON, fall through to legacy hex
+            return parseStorageData(JSON.parse(decrypted))
+          } catch (error) {
+            log.error('Invalid wallet key document:', error)
+            return null
           }
         }
 
         // Legacy format: plain hex seed string
-        return { type: 'seed', seed: decrypted }
+        const legacy = StorageDataSchema.safeParse({ type: 'seed', seed: decrypted })
+        return legacy.success ? legacy.data : null
       }
 
       // Unencrypted fallback (32 raw bytes) — migrate to encrypted format

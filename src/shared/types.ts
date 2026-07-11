@@ -44,80 +44,16 @@ export interface ProxyStatus {
   error?: string
 }
 
-export interface StorageBag {
-  id: string
-  name: string
-  size: number
-  downloaded: number
-  uploadSpeed: number
-  downloadSpeed: number
-  peers: number
-  filesCount: number
-  status: 'downloading' | 'seeding' | 'paused' | 'error'
-}
+export type { StorageBag, BagDetails } from './ipc-contract/storage'
 
-export interface BagDetails {
-  bag_id: string
-  description: string
-  files: Array<{ name: string; size: number }>
-  peers: Array<{ addr: string; download_speed: number; upload_speed: number }>
-  merkle_hash: string
-  piece_size: number
-  path: string
-  downloaded: number
-  size: number
-  active: boolean
-  seeding: boolean
-  dir_name?: string // Directory name from storage daemon response
-}
-
-export interface HistoryEntry {
-  id: string
-  url: string
-  title: string
-  visitedAt: number
-  visitCount: number
-  favicon?: string
-}
-
-export interface HistoryStats {
-  total: number
-  mode: 'memory' | 'persistent'
-  oldestEntry?: number
-  newestEntry?: number
-  isLocked: boolean
-}
+export type { HistoryEntry, HistoryStats } from './ipc-contract/history'
 
 // --- Wallet types ---
 
 export type PaymentMode = 'off' | 'manual' | 'auto'
 export type NotificationStyle = 'popup' | 'addressbar'
 
-export interface WalletState {
-  isCreated: boolean
-  address: string
-  addressRaw: string
-  publicKey: string
-  balance: string
-  decryptFailed?: boolean
-  weakEncryption?: boolean
-  isLocked?: boolean
-}
-
-export interface WalletTransaction {
-  id: string
-  type: 'send' | 'receive' | 'x402'
-  amount: string
-  address: string
-  timestamp: number
-  status: 'pending' | 'confirmed' | 'failed'
-  hash?: string
-  lt?: string
-  fee?: string
-  comment?: string
-  x402Domain?: string
-  x402Url?: string
-}
+export type { WalletState, WalletTransaction } from './ipc-contract/wallet'
 
 export interface PaymentRequirements {
   scheme: string
@@ -142,37 +78,8 @@ export interface ExactTonPayload {
   validUntil: number
 }
 
-export interface PaymentNotificationData {
-  id: string
-  domain: string
-  url: string
-  amount: string
-  payTo: string
-  /** User-friendly non-bounceable representation of payTo, when derivable. */
-  payToFriendly?: string
-  status: 'pending' | 'approved' | 'rejected' | 'completed' | 'failed'
-  error?: string
-}
-
-export interface DnsResolveResult {
-  wallet: string | null
-  site_adnl: string | null
-  has_storage: boolean
-  storage_bag_id: string | null
-  next_resolver: string | null
-
-  owner: string | null
-  nft_address: string | null
-  collection: string | null
-  editor: string | null
-
-  initialized: boolean
-  expiring_at: number | null
-
-  text_records?: Record<string, string>
-
-  [key: string]: unknown
-}
+export type PaymentNotificationData = import('./ipc-contract/wallet').PaymentNotification
+export type DnsResolveResult = import('./ipc-contract/wallet').DnsResolveResult
 
 export interface ChatIdentityInfo {
   tier: 'domain' | 'wallet' | 'device'
@@ -192,9 +99,6 @@ export interface OwnChatIdentity {
   addressShort?: string
   domain?: string
 }
-
-// Re-export ThemeType from defaults for backward compatibility
-export type { ThemeType, BuiltInTheme } from './defaults'
 
 // Re-export schemas and IPC channels for backward compatibility
 // Use `export type` for schema inferred types to prevent Zod runtime from leaking into renderer bundle

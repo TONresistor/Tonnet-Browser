@@ -5,6 +5,7 @@
       "name": "tonutils-proxy",
       "repo": "TONresistor/Tonutils-Proxy",
       "version": "v1.10.0",
+      "commit": "66f291699a5c252c55e7b5c79ada56b1ad3645a0",
       "entry_point": "./cmd/proxy-cli/",
       "ldflags": "-s -w -X main.GitCommit=${VERSION}"
     },
@@ -12,6 +13,7 @@
       "name": "tonutils-bridge",
       "repo": "TONresistor/tonutils-bridge",
       "version": "v0.4.0",
+      "commit": "07ca23b00bc1b0821d3d73c5833c7424ecfb08d3",
       "entry_point": ".",
       "ldflags": "-s -w"
     },
@@ -19,6 +21,7 @@
       "name": "tonutils-storage",
       "repo": "xssnick/tonutils-storage",
       "version": "v1.5.1",
+      "commit": "ba05e006b7d8f63ce2b0c980e526f72fad5497c2",
       "entry_point": "./cli/",
       "ldflags": "-s -w"
     },
@@ -26,6 +29,7 @@
       "name": "gocoon",
       "repo": "TONresistor/gocoon",
       "version": "v0.2.1",
+      "commit": "851766d2c2acad2624d1b6d3e9c192e3548be304",
       "entry_point": "./cmd/gocoon",
       "ldflags": "-s -w -X 'github.com/TONresistor/gocoon/pkg/cocoon.Version=${VERSION}'"
     },
@@ -33,6 +37,7 @@
       "name": "cocoon-runner",
       "repo": "TONresistor/gocoon",
       "version": "v0.2.1",
+      "commit": "851766d2c2acad2624d1b6d3e9c192e3548be304",
       "entry_point": "./cmd/gocoon-runner",
       "ldflags": "-s -w -X 'github.com/TONresistor/gocoon/pkg/cocoon.Version=${VERSION}'"
     }

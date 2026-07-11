@@ -6,7 +6,8 @@
 import { app } from 'electron'
 import { join } from 'path'
 import { existsSync, readFileSync } from 'fs'
-import { writeSecureJsonAtomic } from '../utils/secure-fs'
+import { VersionedJsonRepository } from '../persistence/versioned-json-repository'
+import { UnsupportedSchemaVersionError } from '../persistence/schema-version'
 import type { ThemeType } from '../../shared/defaults'
 import type {
   GeneralSettings,
@@ -21,6 +22,7 @@ import type {
 import { AppSettingsSchema } from '../../shared/types'
 import { createLogger } from '../../shared/logger'
 const log = createLogger('settings')
+const SETTINGS_SCHEMA_VERSION = 1
 
 // Re-export settings types for consumers that import from this module
 export type {
@@ -51,6 +53,24 @@ export function getDefaultSettings(): AppSettings {
 
 // In-memory cache
 let settingsCache: AppSettings | null = null
+let settingsRepository: VersionedJsonRepository<AppSettings> | null = null
+let settingsMutationChain: Promise<void> = Promise.resolve()
+
+function getRepository(): VersionedJsonRepository<AppSettings> {
+  if (!settingsRepository) {
+    settingsRepository = new VersionedJsonRepository({
+      filePath: getSettingsFile(),
+      version: SETTINGS_SCHEMA_VERSION,
+      schema: AppSettingsSchema,
+      defaults: getDefaultSettings,
+      migrate: (raw) => migrateAll(raw).data,
+      mode: 0o600,
+      corruption: 'reset-with-backup',
+      onCorrupt: (error, backupPath) => log.error(`Corrupt settings quarantined at ${backupPath}: ${String(error)}`),
+    })
+  }
+  return settingsRepository
+}
 
 /**
  * Migrate legacy notificationStyle values (banner/modal/toast/panel) to the
@@ -157,6 +177,14 @@ export function migrateTheme(raw: unknown): { migrated: boolean; data: unknown }
   return { migrated: false, data: raw }
 }
 
+function assertSettingsVersion(raw: unknown): void {
+  if (!raw || typeof raw !== 'object') return
+  const version = (raw as { schemaVersion?: unknown }).schemaVersion
+  if (typeof version === 'number' && Number.isInteger(version) && version > SETTINGS_SCHEMA_VERSION) {
+    throw new UnsupportedSchemaVersionError(version, SETTINGS_SCHEMA_VERSION, getSettingsFile())
+  }
+}
+
 /** Run all pre-validation migrations in sequence, reporting if any changed the data. */
 function migrateAll(raw: unknown): { migrated: boolean; data: unknown } {
   const r1 = migrateSettings(raw)
@@ -167,11 +195,9 @@ function migrateAll(raw: unknown): { migrated: boolean; data: unknown } {
 
 /** Persist during load without letting a transient write failure abort startup. */
 function persistBestEffort(settings: AppSettings): void {
-  try {
-    saveSettings(settings)
-  } catch {
+  void saveSettings(settings).catch(() => {
     /* saveSettings already logged; in-memory settings are still usable */
-  }
+  })
 }
 
 // Load settings from disk
@@ -191,6 +217,7 @@ export function loadSettings(): AppSettings {
 
   try {
     const raw: unknown = JSON.parse(readFileSync(settingsFile, 'utf-8'))
+    assertSettingsVersion(raw)
 
     const { migrated, data: parsed } = migrateAll(raw)
     if (migrated) {
@@ -226,9 +253,9 @@ export function loadSettings(): AppSettings {
   }
 }
 
-export function saveSettings(settings: AppSettings): void {
+export async function saveSettings(settings: AppSettings): Promise<void> {
   try {
-    writeSecureJsonAtomic(getSettingsFile(), settings, 2)
+    await getRepository().save(settings)
     settingsCache = settings
   } catch (error) {
     log.error(`Failed to save settings: ${String(error)}`)
@@ -243,16 +270,26 @@ export function getSetting<K extends keyof AppSettings>(category: K): AppSetting
 }
 
 // Update a specific category
-export function setSetting<K extends keyof AppSettings>(category: K, values: Partial<AppSettings[K]>): void {
-  const settings = loadSettings()
-  settings[category] = { ...settings[category], ...values }
-  saveSettings(settings)
+export async function setSetting<K extends keyof AppSettings>(
+  category: K,
+  values: Partial<AppSettings[K]>
+): Promise<void> {
+  const mutation = settingsMutationChain
+    .catch(() => undefined)
+    .then(async () => {
+      const settings = loadSettings()
+      const updated = { ...settings, [category]: { ...settings[category], ...values } }
+      await saveSettings(updated)
+    })
+  settingsMutationChain = mutation
+  await mutation
 }
 
 // Reset to defaults
-export function resetSettings(): void {
-  const defaults = getDefaultSettings()
-  saveSettings(defaults)
+export async function resetSettings(): Promise<void> {
+  const mutation = settingsMutationChain.catch(() => undefined).then(() => saveSettings(getDefaultSettings()))
+  settingsMutationChain = mutation
+  await mutation
 }
 
 // Convenience getters for commonly used settings
@@ -260,6 +297,6 @@ export function getDownloadPath(): string {
   return getSetting('storage').downloadPath
 }
 
-export function setDownloadPath(path: string): void {
-  setSetting('storage', { downloadPath: path })
+export async function setDownloadPath(path: string): Promise<void> {
+  await setSetting('storage', { downloadPath: path })
 }

@@ -6,7 +6,7 @@
  * decision is unit-testable in isolation from the store and dnd-kit runtime.
  */
 import type { Active, Over } from '@dnd-kit/core'
-import type { Bookmark, BookmarkFolder } from '@/stores/bookmarks'
+import type { Bookmark, BookmarkFolder } from '@/features/bookmarks/store'
 
 export type DropAction =
   | { kind: 'reorder-folder'; folderId: string; newIndex: number }

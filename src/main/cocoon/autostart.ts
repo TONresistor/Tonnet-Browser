@@ -5,14 +5,14 @@ import log from '../../shared/logger'
 import { getSetting } from '../settings'
 import { loadCocoonWallet } from './wallet'
 import { COCOON_ROOT_MAINNET } from './lifecycle'
-import type { ServiceRegistry } from '../services'
+import type { CocoonManager } from './manager'
 
 /**
  * Start the Cocoon runner at boot if the user has opted in via settings AND
  * the wallet has finished setup. Fired after the WS bridge becomes ready,
  * so the runner sees a connected proxy/bridge/storage stack.
  */
-export async function autostartCocoonIfEnabled(services: ServiceRegistry): Promise<void> {
+export async function autostartCocoonIfEnabled(manager: CocoonManager): Promise<void> {
   const { autostart } = getSetting('cocoon')
   if (!autostart) return
   const data = await loadCocoonWallet()
@@ -23,7 +23,7 @@ export async function autostartCocoonIfEnabled(services: ServiceRegistry): Promi
   }
   log.info('Cocoon autostart: launching runner...')
   try {
-    await services.cocoonManager.start({
+    await manager.start({
       ownerAddress: data.ownerAddress,
       nodeWalletKeyBase64: data.nodeSecretBase64,
       rootContractAddress: COCOON_ROOT_MAINNET,

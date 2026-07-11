@@ -2,19 +2,27 @@
  * IPC handlers for proxy connection management.
  */
 
-import { IPC_CHANNELS } from '../../../shared/ipc-channels'
-import { secureHandle, emitToRenderer, log } from './shared'
+import { log } from './shared'
+import { emitContractToRenderer } from '../../events/renderer-events'
 import { startProxySequence } from '../../proxy/startup'
 import { getMainWindow } from '../../windows/main'
 import type { ServiceRegistry } from '../../services'
+import {
+  proxyConnectContract,
+  proxyDisconnectContract,
+  proxyProgressEventContract,
+  proxyStatusContract,
+  proxyStatusEventContract,
+} from '../../../shared/ipc-contract/proxy'
+import { ownIpcEmitterListener, secureContractHandle } from '../contract-handler'
 
 export function registerProxyHandlers(registry: ServiceRegistry): void {
   const { proxyManager, storageManager, overlayManager, historyManager, contentFilterManager, paymentInterceptor } =
     registry
 
   // ===== Proxy Status Events =====
-  proxyManager.on('status', (status) => {
-    emitToRenderer(IPC_CHANNELS.PROXY_STATUS, proxyManager.getStatus())
+  ownIpcEmitterListener(proxyManager, 'status', (status) => {
+    emitContractToRenderer(proxyStatusEventContract, proxyManager.getStatus())
     // Update window title to show connection status
     const win = getMainWindow()
     if (win) {
@@ -23,17 +31,17 @@ export function registerProxyHandlers(registry: ServiceRegistry): void {
     }
   })
 
-  proxyManager.on('error', (message) => {
+  ownIpcEmitterListener(proxyManager, 'error', (message) => {
     log.error(`Error: ${message}`)
   })
 
   // ===== Proxy Handlers =====
-  secureHandle(IPC_CHANNELS.PROXY_CONNECT, async () => {
+  secureContractHandle(proxyConnectContract, async () => {
     const win = getMainWindow()
 
     // Helper to send progress updates
     const sendProgress = (step: number, message: string) => {
-      emitToRenderer(IPC_CHANNELS.PROXY_PROGRESS, { step, message })
+      emitContractToRenderer(proxyProgressEventContract, { step, message })
     }
 
     const tabDeps = {
@@ -44,18 +52,18 @@ export function registerProxyHandlers(registry: ServiceRegistry): void {
       contentFilterManager,
       paymentInterceptor,
     }
-    await startProxySequence(sendProgress, proxyManager, storageManager, win, tabDeps)
+    await startProxySequence(sendProgress, proxyManager, storageManager, win, registry.tabManager, tabDeps)
 
-    return { success: true, ...proxyManager.getStatus() }
+    return { ...proxyManager.getStatus(), success: true as const }
   })
 
-  secureHandle(IPC_CHANNELS.PROXY_DISCONNECT, async () => {
+  secureContractHandle(proxyDisconnectContract, async () => {
     storageManager.stop()
     await proxyManager.stop()
     return { success: true }
   })
 
-  secureHandle(IPC_CHANNELS.PROXY_STATUS, () => {
+  secureContractHandle(proxyStatusContract, () => {
     return proxyManager.getStatus()
   })
 }

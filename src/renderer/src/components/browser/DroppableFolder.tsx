@@ -6,7 +6,7 @@
 import { useDroppable } from '@dnd-kit/core'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { BookmarkFolder } from '@/stores/bookmarks'
+import { BookmarkFolder } from '@/features/bookmarks/store'
 import { ChevronDown } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 

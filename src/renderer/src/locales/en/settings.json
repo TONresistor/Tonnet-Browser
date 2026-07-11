@@ -435,6 +435,12 @@
     "verbose": "Verbose",
     "syncTestDomain": "Sync test domain",
     "syncTestDomainDesc": "Domain used to verify DHT sync",
+    "diagnosticLogging": "Diagnostic logging",
+    "diagnosticLoggingDesc": "Temporarily enable detailed redacted logs for 15 minutes",
+    "enableDiagnostics": "Enable for 15 minutes",
+    "disableDiagnostics": "Disable diagnostics",
+    "copyDiagnostics": "Copy report",
+    "diagnosticsCopied": "Copied",
     "experimental": {
       "title": "Experimental features",
       "messenger": "Messenger",

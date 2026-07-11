@@ -30,6 +30,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Verify release metadata
+        run: npm run verify:release-metadata
+
       - name: Validate version matches tag
         if: startsWith(github.ref, 'refs/tags/v')
         run: |
@@ -44,6 +47,9 @@ jobs:
       - name: Type check
         run: npm run type-check
 
+      - name: Architecture boundaries
+        run: npm run architecture
+
       - name: Lint
         run: npm run lint
 
@@ -53,8 +59,25 @@ jobs:
       - name: Test coverage
         run: npm run test:coverage
 
+      - name: Verify build and bundle budgets
+        run: npm run build && npm run verify:bundle-budgets
+
       - name: Security audit
         run: npm audit --audit-level=high
+
+      - name: Generate release supply-chain metadata
+        run: |
+          npm --silent run generate:sbom > sbom.cdx.json
+          npm run generate:provenance -- build-provenance.json
+
+      - name: Upload release supply-chain metadata
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-metadata
+          path: |
+            sbom.cdx.json
+            build-provenance.json
+          if-no-files-found: error
 
   # ─────────────────────────────────────────────
   # Job 2: Build (parallel matrix, platform/architecture targets)
@@ -224,7 +247,7 @@ jobs:
       - name: Generate SHA256 checksums
         run: |
           cd artifacts
-          find . -type f \( -name "*.AppImage" -o -name "*.deb" -o -name "*.exe" -o -name "*.dmg" \) | sort | while read f; do
+          find . -type f \( -name "*.AppImage" -o -name "*.deb" -o -name "*.exe" -o -name "*.dmg" -o -name "*.json" \) | sort | while read f; do
             sha256sum "$f" >> SHA256SUMS.txt
           done
           echo "=== SHA256SUMS.txt ==="
@@ -238,6 +261,7 @@ jobs:
             artifacts/linux-arm64-build/*
             artifacts/windows-build/*
             artifacts/macos-build/*
+            artifacts/release-metadata/*
             artifacts/SHA256SUMS.txt
           draft: false
           prerelease: false

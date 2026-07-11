@@ -3,21 +3,21 @@
  * Creates the browser window and initializes all services.
  */
 
-import log from '../shared/logger'
+import log, { configureApplicationLogging, createLogger } from '../shared/logger'
 import { app, BrowserWindow, shell, Menu, protocol, net } from 'electron'
 import { join, resolve, dirname, sep } from 'path'
-import { mkdirSync } from 'fs'
+import { chmodSync, existsSync, mkdirSync, renameSync, rmSync } from 'fs'
 import { migrateUserData } from './utils/migrate-userdata'
 import { EventEmitter } from 'events'
 import { pathToFileURL } from 'url'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
-import { registerIpcHandlers, emitToRenderer } from './ipc/handlers'
-import { getActiveView } from './windows/tabs'
+import { registerIpcHandlers } from './ipc/handlers'
+import { emitContractToRenderer } from './events/renderer-events'
 import { setMainWindow } from './windows/main'
 import { getSetting } from './settings'
 import { startProxySequence } from './proxy/startup'
-import { initUpdater } from './updater'
 import { createServices, type ServiceRegistry } from './services'
+import { loadSettings } from './settings'
 import {
   DEFAULT_WINDOW_WIDTH,
   DEFAULT_WINDOW_HEIGHT,
@@ -25,12 +25,17 @@ import {
   MIN_WINDOW_HEIGHT,
   WINDOW_BACKGROUND_COLOR,
 } from './windows/constants'
-import { IPC_CHANNELS } from '../shared/ipc-channels'
 import { loadWindowBounds, saveWindowBounds, flushWindowBoundsOnQuit } from './windows/bounds'
 import { autostartCocoonIfEnabled } from './cocoon/autostart'
 import { runCleanup, isCleanupInProgress } from './app-cleanup'
 import { reapStaleDaemons, installDaemonSignalHandlers } from './daemon-registry'
+import { configureNativeLogging } from './logging/native-log-router'
 import { setupMainContextMenu } from './windows/main-context-menu'
+import {
+  proxyAutoConnectEventContract,
+  proxyProgressEventContract,
+  proxyStatusEventContract,
+} from '../shared/ipc-contract/proxy'
 
 // Initialize electron-log IPC bridge so renderer can also log via electron-log
 log.initialize()
@@ -53,6 +58,8 @@ protocol.registerSchemesAsPrivileged([
 
 // Log MaxListenersExceededWarning to help detect memory leaks during development
 const appLog = log.scope('app')
+const browserLog = createLogger('browser')
+const applicationStartedAt = Date.now()
 
 /**
  * Run a deferred startup step (sync or async), logging on failure instead of
@@ -123,9 +130,22 @@ app.setName('TON Browser')
   // Without this, electron-log resolves app.getPath('logs') via app.name and
   // writes to ~/.config/TON Browser/logs, which does not exist on fresh installs.
   const canonicalLogs = join(canonicalUserData, 'logs')
-  mkdirSync(canonicalLogs, { recursive: true })
+  mkdirSync(canonicalLogs, { recursive: true, mode: 0o700 })
+  chmodSync(canonicalLogs, 0o700)
   app.setPath('logs', canonicalLogs)
-  log.transports.file.resolvePathFn = () => join(canonicalLogs, 'main.log')
+  const applicationLogPath = join(canonicalLogs, 'app.log')
+  const legacyLogPath = join(canonicalLogs, 'main.log')
+  const archivedApplicationLogPath = join(canonicalLogs, 'app.old.log')
+  if (existsSync(legacyLogPath)) {
+    if (!existsSync(archivedApplicationLogPath)) renameSync(legacyLogPath, archivedApplicationLogPath)
+    else rmSync(legacyLogPath, { force: true })
+  }
+  rmSync(join(canonicalLogs, 'main.old.log'), { force: true })
+  if (existsSync(applicationLogPath)) chmodSync(applicationLogPath, 0o600)
+  if (existsSync(archivedApplicationLogPath)) chmodSync(archivedApplicationLogPath, 0o600)
+  log.transports.file.resolvePathFn = () => applicationLogPath
+  configureApplicationLogging(app.getVersion())
+  configureNativeLogging(canonicalLogs)
   migrateUserData(canonicalUserData)
   app.setPath('userData', canonicalUserData)
 }
@@ -175,9 +195,6 @@ function createWindow(): void {
   setMainWindow(mainWindow)
   services.overlayManager.init(mainWindow)
 
-  // Initialize manual update checker
-  initUpdater()
-
   // Security: Add Content-Security-Policy for main window (React UI)
   // Dev mode uses Report-Only to avoid breaking HMR/hot reload
   const cspPolicy =
@@ -199,6 +216,9 @@ function createWindow(): void {
       mainWindow.maximize()
     }
     mainWindow.show()
+    browserLog.status('browser.ready', `browser ready · ${Date.now() - applicationStartedAt}ms`, {
+      durationMs: Date.now() - applicationStartedAt,
+    })
 
     // Auto-connect if enabled -- reuse same progress events as manual connect
     const { autoConnect } = getSetting('network')
@@ -206,10 +226,10 @@ function createWindow(): void {
       autoConnectStarted = true
       appLog.info('Auto-connect enabled, starting proxy...')
       const sendProgress = (step: number, message: string) => {
-        emitToRenderer(IPC_CHANNELS.PROXY_PROGRESS, { step, message })
+        emitContractToRenderer(proxyProgressEventContract, { step, message })
       }
       // Tell renderer to show loading state
-      emitToRenderer(IPC_CHANNELS.PROXY_AUTO_CONNECT)
+      emitContractToRenderer(proxyAutoConnectEventContract)
       try {
         const tabDeps = {
           overlayManager: services.overlayManager,
@@ -219,14 +239,24 @@ function createWindow(): void {
           contentFilterManager: services.contentFilterManager,
           paymentInterceptor: services.paymentInterceptor,
         }
-        await startProxySequence(sendProgress, services.proxyManager, services.storageManager, mainWindow, tabDeps)
+        await startProxySequence(
+          sendProgress,
+          services.proxyManager,
+          services.storageManager,
+          mainWindow,
+          services.tabManager,
+          tabDeps
+        )
         appLog.info('Auto-connect complete')
         // Notify renderer of connection status
-        emitToRenderer(IPC_CHANNELS.PROXY_STATUS, { ...services.proxyManager.getStatus(), status: 'connected' })
+        emitContractToRenderer(proxyStatusEventContract, {
+          ...services.proxyManager.getStatus(),
+          status: 'connected',
+        })
       } catch (error) {
         appLog.error(`Auto-connect failed: ${String(error)}`)
         // Notify renderer of connection failure (field name matches ProxyStatus.error)
-        emitToRenderer(IPC_CHANNELS.PROXY_STATUS, {
+        emitContractToRenderer(proxyStatusEventContract, {
           status: 'error',
           error: error instanceof Error ? error.message : String(error),
         })
@@ -239,7 +269,7 @@ function createWindow(): void {
   mainWindow.on('moved', () => saveWindowBounds(mainWindow))
 
   // Context menu for internal pages (overlay instead of native menu)
-  setupMainContextMenu(mainWindow, services.overlayManager)
+  services.lifecycleRegistrations.add(setupMainContextMenu(mainWindow, services.overlayManager))
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
     try {
@@ -280,7 +310,7 @@ app.on('second-instance', () => {
   }
 })
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   // Reap any daemons orphaned by a previous run before we spawn fresh ones.
   reapStaleDaemons()
 
@@ -345,7 +375,7 @@ app.whenReady().then(() => {
         (process.platform === 'darwin' && input.meta && input.alt && input.key.toLowerCase() === 'i')
       if (isDevToolsShortcut) {
         event.preventDefault()
-        const view = getActiveView()
+        const view = services?.tabManager.getActiveView()
         if (view) {
           // Toggle DevTools for the website's WebContentsView
           if (view.webContents.isDevToolsOpened()) {
@@ -392,9 +422,11 @@ app.whenReady().then(() => {
     return net.fetch(pathToFileURL(filePath).toString())
   })
 
+  // Explicit synchronous bootstrap read; all interactive settings writes are asynchronous.
+  loadSettings()
   services = createServices()
   registerIpcHandlers(services)
-  services.tonConnectService.init()
+  await services.tonConnectService.init()
 
   // Defer wallet + bridge interceptor init until WS bridge is ready (proxy must be running first)
   services.proxyManager.once('ws-bridge-ready', () => {
@@ -405,7 +437,7 @@ app.whenReady().then(() => {
     // at construction (avoids an immediate disk-reading tick before bridge ready).
     safeStartup('Withdraw driver start', () => services.withdrawDriver.start())
     safeStartup('Recovery driver start', () => services.recoveryDriver.start())
-    safeStartup('Cocoon autostart', () => autostartCocoonIfEnabled(services))
+    safeStartup('Cocoon autostart', () => autostartCocoonIfEnabled(services.cocoonManager))
   })
   createWindow()
 

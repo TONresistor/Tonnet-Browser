@@ -2,26 +2,27 @@
  * IPC handlers for tab management.
  */
 
-import { IPC_CHANNELS } from '../../../shared/ipc-channels'
-import { secureHandleWithEvent, log } from './shared'
-import { createTab, closeTab, switchTab } from '../../windows/tabs'
+import { log } from './shared'
+import type { TabManager } from '../../windows/tabs'
+import { tabCloseContract, tabCreateContract, tabSwitchContract } from '../../../shared/ipc-contract/browsing'
+import { secureContractHandle } from '../contract-handler'
 
-export function registerTabsHandlers(): void {
-  secureHandleWithEvent(IPC_CHANNELS.TAB_CREATE, async (_event, tabId: string) => {
+export function registerTabsHandlers(tabManager: TabManager): void {
+  secureContractHandle(tabCreateContract, async (tabId) => {
     log.debug(`Tab create: ${tabId}`)
-    const success = await createTab(tabId)
+    const success = await tabManager.createTab(tabId)
     return { success }
   })
 
-  secureHandleWithEvent(IPC_CHANNELS.TAB_CLOSE, (_event, tabId: string) => {
+  secureContractHandle(tabCloseContract, (tabId) => {
     log.debug(`Tab close: ${tabId}`)
-    const success = closeTab(tabId)
+    const success = tabManager.closeTab(tabId)
     return { success }
   })
 
-  secureHandleWithEvent(IPC_CHANNELS.TAB_SWITCH, (_event, tabId: string) => {
+  secureContractHandle(tabSwitchContract, (tabId) => {
     log.debug(`Tab switch: ${tabId}`)
-    const success = switchTab(tabId)
+    const success = tabManager.switchTab(tabId)
     return { success }
   })
 }

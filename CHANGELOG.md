@@ -7,9 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.4.0] - 2026-07-11
+
+### Added
+
+- Canonical runtime-validated IPC contracts with typed preload and handler boundaries.
+- Shared supervision for proxy, bridge, storage and Cocoon native processes.
+- Versioned repositories and compatibility fixtures for persisted browser data.
+- Automated architecture, bundle-budget, native-binary and release-metadata gates.
+- Structured, bounded diagnostics with a temporary verbose mode and copyable reports.
+
+### Changed
+
+- Reconstructed internal ownership boundaries across wallet, TON bridge, payments, TonConnect, tabs, Messenger, Cocoon and the renderer.
+- Split renderer code into feature-owned routes, clients, stores and components.
+- Pinned bundled native helpers to immutable upstream commits and added build provenance, SBOM and artifact verification.
+- Reduced main and preload bundle sizes while keeping the initial renderer bundle within its regression budget.
+- Short, redacted application logs with isolated native-process output and bounded rotation.
+
+### Fixed
+
+- Settings category IPC responses now preserve the requested category instead of being coerced to another settings shape.
+- Tabs, views, sessions, listeners and timers are disposed by their owning lifecycle.
+- Native helper restarts use bounded backoff and settle concurrent start attempts consistently.
+- Bridge and chat requests now fail cleanly instead of remaining pending during reconnects.
+
+### Security
+
+- Centralized redaction of secrets, authorization values, binary payloads and sensitive IPC failures.
+- Runtime validation now rejects malformed IPC inputs, outputs and unsupported persisted schema versions.
+
 ## [2.2.0] - 2026-06-25
 
 ### Added
+
 - TON Connect support for tonsites.
 - In-app file browser for storage bags with a bag sidebar.
 - Table viewer for CSV and JSONL files in storage bags.
@@ -17,6 +48,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Tab title and favicon for internal pages.
 
 ### Changed
+
 - Redesigned settings, wallet, storage, cocoon, bookmarks, history and DNS pages.
 - Redesigned the TON Connect approval popup.
 - Cocoon chat renders markdown; setup wizard redesigned with a reset option.
@@ -24,20 +56,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - More reliable wallet transaction history.
 
 ### Fixed
+
 - Orphaned native daemons no longer block startup.
 - Single-instance lock prevents a second launch from deadlocking on daemon ports.
 - Native daemons are terminated with their child tree on Windows.
 - Wallet key storage writes are atomic and durable.
 
 ### Security
+
 - File browser escapes bag file names and adds a nonce CSP; update check drops the identifying User-Agent; sign-data prompt shows payload details.
 
 ## [2.1.0] - 2026-06-20
 
 ### Added
+
 - Storage page: peers column with per-row hover actions.
 
 ### Changed
+
 - Bundled proxy updated to v1.10.0: ENSIP-7 contenthash resolution for `.eth` (ADNL multicodec `0xb69910`) with legacy `adnl` text-record fallback; tonutils-go v1.17.2 (fixes 32-bit Android build).
 - Bundled bridge updated to v0.3.0: tonutils-go v1.17.2 (fixes 32-bit Android build).
 - Bundled storage updated to v1.5.1: faster downloads and speed calc, parallel filesystem reads, and optimized DHT bag-overlay store/refresh; tonutils-go v1.17.1.
@@ -48,18 +84,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - CI runs on `dev` branch pushes and PRs; Dependabot capped at 5 npm PRs.
 
 ### Security
+
 - Resolved all high/moderate `npm audit` advisories: axios 1.15.0 → 1.18.0 (via @ton/ton 16.3.0), plus ws 8.21.0, tmp 0.2.7, form-data 4.0.6, vite 7.3.5 and other transitive build-tooling bumps.
 
 ## [2.0.0] - 2026-04-25
 
 ### Added
+
 - `.eth` and `.sol` resolver toggles with optional custom RPC URLs.
 
 ### Changed
+
 - History writes use atomic secure-fs helpers.
 - CI workflow actions pinned to commit SHAs.
 
 ### Fixed
+
 - Clear browsing data covers all isolated domain sessions.
 - Settings reset reapplies runtime state for every service.
 - Address bar focus outline covers the full bubble.
@@ -67,6 +107,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Tabs defer view attach until first paint to show loading on Linux.
 
 ### Security
+
 - `shell.openExternal` allowlisted to `github.com` and `resistance.dog`.
 - Encrypted wallet key file written with `0o600`.
 - `app-settings.json` written with `0o600` to protect user-supplied RPC URLs.
@@ -76,29 +117,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [1.6.2] - 2026-04-21
 
 ### Added
+
 - HTTP 402 payments on `fetch` and `XHR` requests.
 - Payment approval popup and address bar pill notification styles.
 
 ### Changed
+
 - Bundled proxy updated to v1.9.5 (multi-chain resolver).
 - Zustand store selectors refactored, dead IPC channels and build scripts removed.
 
 ### Fixed
+
 - x402 payments on fresh (undeployed) W5 wallets.
 - Wallet seqno synchronizes to on-chain value after a failed broadcast.
 - Address bar menu strings localized across all 8 locales.
 
 ### Security
+
 - Hardened 402 flow: XHR request deduplication, token reference counting, request body cloning, popup rate limiting.
 
 ## [1.6.1] - 2026-04-15
 
 ### Changed
+
 - Bundled proxy updated to v1.9.4 with multi-chain resolver support.
 
 ## [1.6.0] - 2026-04-13
 
 ### Added
+
 - Embedded wallet: auto-lock with configurable timeout, import, delete, and mnemonic backup.
 - Bridge permission system for `tonsite://` dApps, with per-domain and per-scope decisions.
 - Native ADNL tunnel for multi-hop anonymous routing.
@@ -114,6 +161,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Wallet resolves `.ton` domains and subdomains for transfers.
 
 ### Changed
+
 - Dependency injection architecture via `ServiceRegistry`.
 - Bundled proxy v1.9.3, bridge v0.2.0, storage v1.4.1, compiled from source in CI.
 - `userData` path migrated to a canonical directory.
@@ -126,6 +174,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - React upgraded to 19.2.5, `lucide-react` upgraded to 1.7.0.
 
 ### Fixed
+
 - Payment flow TOCTOU via reserve/confirm/rollback pattern.
 - Startup sequence, bridge deferred start, parallel storage init, process cleanup.
 - Screen dimensions letterboxed dynamically to prevent fingerprinting drift.
@@ -135,6 +184,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Invalid `BridgeTransaction.now` fallback removed.
 
 ### Security
+
 - Hardened anti-fingerprinting, WebSocket blocking, bridge isolation.
 - SSRF bypass closed, storage authentication enforced, CSP scoped to web responses, session cleanup.
 - Config file permissions tightened, payment flush on exit.
@@ -145,46 +195,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [1.5.3] - 2026-03-25
 
 ### Fixed
+
 - NSIS `.exe_` renaming on Windows installer.
 
 ## [1.5.2] - 2026-03-25
 
 ### Fixed
+
 - Proxy startup parsing updated for v0.6.0 output format.
 
 ## [1.5.1] - 2026-03-25
 
 ### Fixed
+
 - Updater double-registration on macOS.
 - Binary download failure on Windows.
 
 ## [1.5.0] - 2026-03-24
 
 ### Added
+
 - Embedded TON wallet.
 - DNS resolution for `.ton` domains.
 - UI improvements across browser chrome.
 
 ### Changed
+
 - Release artifact filenames stabilized (version-less) for predictable download URLs.
 
 ### Security
+
 - `flatted` bumped to resolve a prototype pollution vulnerability.
 
 ## [1.4.2] - 2026-03-16
 
 ### Added
+
 - CI pipeline hardened with coverage thresholds and dependency review.
 - React Compiler enabled, dynamic Lottie imports, prefetch of lazy pages on proxy connect.
 - Renderer test suite.
 
 ### Changed
+
 - Upgraded to Electron 41, Node 22, ESLint 9, Tailwind 4.
 - `BrowserView` migrated to `WebContentsView`.
 - Anti-fingerprinting script extracted, IPC handlers split.
 - User-Agent aligned with Chrome/146.
 
 ### Fixed
+
 - Static imports restored for `StartPage` and `LandingPage` to eliminate `ton://start` delay and black screen on first load.
 - `history-reset` bug.
 - Hardcoded UI strings translated across 6 components.
@@ -192,6 +251,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - `BookmarksBar` modal localized.
 
 ### Security
+
 - WebRTC STUN IP leak closed.
 - DNS leak, device permissions, `navigator.connection` exposure hardened.
 - 8 findings from deep security scan resolved.
@@ -200,44 +260,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [1.4.1] - 2026-03-01
 
 ### Fixed
+
 - Custom `app://` protocol replaces `file://` in packaged builds.
 
 ## [1.4.0] - 2026-03-01
 
 ### Added
+
 - Manual update checker.
 - CI pipeline for push/PR validation and cross-platform builds.
 
 ### Changed
+
 - Audit findings applied: DRY, type safety, renderer performance.
 - Download links redirected to `tonnet.resistance.dog/download`.
 
 ### Fixed
+
 - Auto-connect loading animation and proxy status restored.
 
 ## [1.3.0] - 2026-02-09
 
 ### Added
+
 - Vertical tab mode with resizable sidebar and configurable orientation.
 - Adaptive sidebar tabs with optimized resize handling.
 
 ### Changed
+
 - Type safety strengthened across the preload boundary.
 - Context menu, content filter, IPC channels, and bookmarks deduplicated.
 - React re-renders, window bounds debouncing, `TabBar` optimized.
 
 ### Fixed
+
 - `HistoryPage` and `StoragePage` localized, `StatusBar` locale restored, modal focus trap repaired.
 - Invalid JSON repaired in 9 locale files.
 - Window controls positioned at top-right in vertical tab mode.
 
 ### Security
+
 - Input validation hardened for proxy, history, and bookmarks.
 - `shell.openExternal` validated, error page XSS closed, `permissionCheckHandler` added.
 
 ## [1.1.0] - 2026-01-23
 
 ### Added
+
 - Multilingual support (English, Russian) with modular locale files.
 - Content filtering with settings UI (ads, trackers, miners, malware).
 - Drag and drop for tabs and bookmarks.
@@ -248,10 +317,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Anti-fingerprinting, font fingerprinting protection, cache control, window security hardening.
 
 ### Changed
+
 - Settings modularized, main-process logging centralized.
 - Renderer performance and error handling optimized.
 
 ### Fixed
+
 - `BrowserView` memory leak (listener accumulation via `setBrowserView`).
 - `EventEmitter` max listeners raised to 50.
 - Letterboxing visual artifacts and viewport resizing.
@@ -260,16 +331,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [1.0.1] - 2026-01-09
 
 ### Fixed
+
 - DevTools, cache headers, and URL scheme handling.
 - Download links aligned with v1.0.0 filenames.
 - macOS volume name in installer one-liner.
 
 ### Security
+
 - Proxy binds `127.0.0.1` instead of `0.0.0.0`.
 
 ## [1.0.0] - 2025-12-31
 
 ### Added
+
 - Initial public release.
 - Anonymous mode with ADNL circuit rotation and garlic routing.
 - Theming system (Resistance Dog, Utya Duck).
@@ -279,11 +353,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Platform binaries for Linux, macOS, Windows.
 
 ### Fixed
+
 - macOS crashes and copy/paste support.
 - Preload script path for ES module builds.
 - Utya Duck theme persistence and colors.
 
-[Unreleased]: https://github.com/TONresistor/Tonnet-Browser/compare/v2.2.0...HEAD
+[Unreleased]: https://github.com/TONresistor/Tonnet-Browser/compare/v2.4.0...HEAD
+[2.4.0]: https://github.com/TONresistor/Tonnet-Browser/compare/v2.3.1...v2.4.0
 [2.2.0]: https://github.com/TONresistor/Tonnet-Browser/compare/v2.1.0...v2.2.0
 [2.1.0]: https://github.com/TONresistor/Tonnet-Browser/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/TONresistor/Tonnet-Browser/compare/v1.6.2...v2.0.0

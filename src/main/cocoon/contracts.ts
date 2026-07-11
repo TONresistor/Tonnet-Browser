@@ -11,7 +11,7 @@
  *    `cocoon_wallet.fc` smart contract using its 32-byte Ed25519 secret. Used
  *    when the runner is offline (final unstake step, partial withdrawals).
  *
- * Both publish via the existing WsBridgeClient (the same bridge the main TON
+ * Both publish via the TON bridge port (backed by the same bridge the main TON
  * wallet uses), so no extra TonClient or Toncenter API key is needed.
  */
 
@@ -19,7 +19,7 @@ import { Address, beginCell, internal, storeMessage, SendMode, type Cell } from 
 import { mnemonicToPrivateKey, keyPairFromSeed } from '@ton/crypto'
 import { WalletContractV4 } from '@ton/ton'
 import { createLogger } from '../../shared/logger'
-import { isContractNotDeployedError, type WsBridgeClient } from '../wallet/ws-bridge-client'
+import { isContractNotDeployedError, type TonBridgePort } from '../ports/ton-bridge'
 import { CocoonWallet, cocoonWalletConfigToCell } from './contracts/wrappers/CocoonWallet'
 import { getCocoonWalletCode } from './wallet'
 
@@ -37,8 +37,11 @@ export interface SendResult {
  * that need to deploy the SC on its first send (passing it to
  * `sendFromCocoonWallet({init: ...})`).
  */
-export function buildCocoonWalletInit(ownerAddress: string, nodePublicKeyHex: string): { code: Cell; data: Cell } {
-  const code = getCocoonWalletCode()
+export async function buildCocoonWalletInit(
+  ownerAddress: string,
+  nodePublicKeyHex: string
+): Promise<{ code: Cell; data: Cell }> {
+  const code = await getCocoonWalletCode()
   const data = cocoonWalletConfigToCell({
     publicKey: Buffer.from(nodePublicKeyHex, 'hex'),
     ownerAddress: Address.parse(ownerAddress),
@@ -61,7 +64,7 @@ export interface SendFromOwnerOptions {
 /**
  * Sign and broadcast a transfer from the user's owner V4R2 wallet.
  *
- * @param wsBridge   connected WsBridgeClient instance
+ * @param wsBridge   connected TON bridge port
  * @param mnemonic   24-word mnemonic of the owner wallet
  * @param destination target address (Address or base64/raw string)
  * @param amount     amount to send in nanoTON (ignored when options.drainAll=true)
@@ -69,7 +72,7 @@ export interface SendFromOwnerOptions {
  * @param options    optional send tweaks (drain-all + self-destruct)
  */
 export async function sendFromOwnerWallet(
-  wsBridge: WsBridgeClient,
+  wsBridge: TonBridgePort,
   mnemonic: string[],
   destination: Address | string,
   amount: bigint,
@@ -166,7 +169,7 @@ export interface SendFromCocoonOptions {
 }
 
 export async function sendFromCocoonWallet(
-  wsBridge: WsBridgeClient,
+  wsBridge: TonBridgePort,
   cocoonAddress: Address | string,
   nodeSecretKey32: Buffer,
   destination: Address | string,

@@ -20,7 +20,14 @@ vi.mock('../../history/safe-storage-wrapper', () => ({
 }))
 
 vi.mock('../../../shared/logger', () => ({
-  createLogger: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }),
+  createLogger: () => ({
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+    event: vi.fn(),
+    status: vi.fn(),
+  }),
 }))
 
 import { WalletHistoryManager } from '../history'

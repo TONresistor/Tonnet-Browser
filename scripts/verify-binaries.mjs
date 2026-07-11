@@ -108,14 +108,22 @@ const extension = platform === 'win' ? '.exe' : ''
 const missing = []
 const notExecutable = []
 const wrongArch = []
+const wrongSource = []
 const expectedElfMachine = getExpectedElfMachine(platform, arch)
 
 for (const binary of config.binaries) {
   const binaryPath = path.join(binDir, `${binary.name}${extension}`)
+  const versionPath = path.join(binDir, `.${binary.name}.version`)
+  const expectedMarker = `${binary.version}@${binary.commit}/${arch === 'universal' ? 'universal' : arch === 'x64' ? 'amd64' : arch}`
 
   if (!fs.existsSync(binaryPath)) {
     missing.push(path.relative(root, binaryPath))
     continue
+  }
+
+  const actualMarker = fs.existsSync(versionPath) ? fs.readFileSync(versionPath, 'utf8').trim() : '<missing>'
+  if (actualMarker !== expectedMarker) {
+    wrongSource.push(`${path.relative(root, binaryPath)} marker ${actualMarker}, expected ${expectedMarker}`)
   }
 
   if (platform !== 'win') {
@@ -137,7 +145,7 @@ for (const binary of config.binaries) {
   if (archError) wrongArch.push(`${path.relative(root, binaryPath)} (${archError})`)
 }
 
-if (missing.length > 0 || notExecutable.length > 0 || wrongArch.length > 0) {
+if (missing.length > 0 || notExecutable.length > 0 || wrongArch.length > 0 || wrongSource.length > 0) {
   if (missing.length > 0) {
     console.error('Missing required binaries:')
     for (const file of missing) console.error(`  - ${file}`)
@@ -151,6 +159,11 @@ if (missing.length > 0 || notExecutable.length > 0 || wrongArch.length > 0) {
   if (wrongArch.length > 0) {
     console.error(`Required binaries do not match ${platform}/${arch}:`)
     for (const file of wrongArch) console.error(`  - ${file}`)
+  }
+
+  if (wrongSource.length > 0) {
+    console.error('Required binaries do not match their immutable source pins:')
+    for (const file of wrongSource) console.error(`  - ${file}`)
   }
 
   process.exit(1)

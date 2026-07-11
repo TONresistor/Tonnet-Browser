@@ -19,6 +19,7 @@ import {
 import type { PaymentMode, SitePolicy } from '../../shared/types'
 import { createLogger } from '../../shared/logger'
 import { SafeStorageWrapper } from '../history/safe-storage-wrapper'
+import { z } from 'zod'
 const log = createLogger('payment-policy')
 
 interface SpendingRecord {
@@ -29,6 +30,13 @@ interface SpendingRecord {
 interface RateLimitEntry {
   timestamps: number[]
 }
+
+const SpendingFileSchema = z.record(
+  z.string(),
+  z.array(z.object({ amount: z.string().regex(/^\d+$/), timestamp: z.number().finite() }))
+)
+type SpendingFile = z.infer<typeof SpendingFileSchema>
+const SPENDING_SCHEMA_VERSION = 1
 
 /**
  * Normalize a hostname to its second-level domain.
@@ -55,7 +63,11 @@ export class PaymentPolicyStore {
   private rateLimits: Map<string, RateLimitEntry> = new Map()
   private reservations: Map<string, { domain: string; record: SpendingRecord }> = new Map()
   private cleanupTimer: ReturnType<typeof setInterval> | null = null
-  private storage = new SafeStorageWrapper('payment-spending')
+  private storage = new SafeStorageWrapper<SpendingFile>('payment-spending', {
+    version: SPENDING_SCHEMA_VERSION,
+    migrate: (raw) => raw,
+    parse: (raw) => SpendingFileSchema.parse(raw),
+  })
   private saveTimer: ReturnType<typeof setTimeout> | null = null
 
   constructor() {
@@ -65,7 +77,7 @@ export class PaymentPolicyStore {
 
   async init(): Promise<void> {
     try {
-      const saved = await this.storage.read<Record<string, SpendingRecord[]>>()
+      const saved = await this.storage.read()
       if (saved) {
         for (const [domain, records] of Object.entries(saved)) {
           this.spending.set(domain, records)
@@ -163,7 +175,7 @@ export class PaymentPolicyStore {
   setSiteMode(domain: string, mode: PaymentMode): void {
     const normalized = normalizeToSecondLevel(domain)
     this.siteModes.set(normalized, mode)
-    log.info(`Site mode set: ${normalized} -> ${mode}`)
+    log.event('info', 'payment.policy.updated', 'payment policy updated', { mode })
   }
 
   canPay(domain: string, amount: string): boolean {
@@ -173,13 +185,13 @@ export class PaymentPolicyStore {
 
     // Rate limit check
     if (!this.checkRateLimit(normalized)) {
-      log.warn(`Rate limit exceeded for ${normalized}`)
+      log.event('warn', 'payment.rate_limit.exceeded', 'payment rate limit exceeded')
       return false
     }
 
     // Per-request limit (0 = unlimited)
     if (limits.perRequest !== '0' && BigInt(amount) > BigInt(limits.perRequest)) {
-      log.warn(`Per-request limit exceeded for ${normalized}: ${amount} > ${limits.perRequest}`)
+      log.event('warn', 'payment.per_request_limit.exceeded', 'payment per-request limit exceeded')
       return false
     }
 
@@ -191,7 +203,7 @@ export class PaymentPolicyStore {
       const dayAgo = now - ONE_DAY_MS
       const dayTotal = records.filter((r) => r.timestamp >= dayAgo).reduce((sum, r) => sum + BigInt(r.amount), 0n)
       if (dayTotal + BigInt(amount) > BigInt(limits.perDay)) {
-        log.warn(`Per-day limit exceeded for ${normalized}`)
+        log.event('warn', 'payment.daily_limit.exceeded', 'payment daily limit exceeded')
         return false
       }
     }
@@ -201,7 +213,7 @@ export class PaymentPolicyStore {
       const monthAgo = now - SPENDING_RETENTION_MS
       const monthTotal = records.filter((r) => r.timestamp >= monthAgo).reduce((sum, r) => sum + BigInt(r.amount), 0n)
       if (monthTotal + BigInt(amount) > BigInt(limits.perSitePerMonth)) {
-        log.warn(`Per-site-per-month limit exceeded for ${normalized}`)
+        log.event('warn', 'payment.monthly_limit.exceeded', 'payment monthly limit exceeded')
         return false
       }
     }
@@ -232,7 +244,7 @@ export class PaymentPolicyStore {
     this.rateLimits.set(normalized, entry)
 
     this.reservations.set(reservationId, { domain: normalized, record })
-    log.info(`Payment reserved: ${normalized}, ${amount} nanoTON (${reservationId})`)
+    log.debug(`Payment reserved (${reservationId})`)
     this.scheduleSave()
     return reservationId
   }
@@ -244,7 +256,7 @@ export class PaymentPolicyStore {
     const reservation = this.reservations.get(reservationId)
     if (!reservation) return
     this.reservations.delete(reservationId)
-    log.info(`Payment confirmed: ${reservation.domain}, ${reservation.record.amount} nanoTON`)
+    log.event('info', 'payment.reservation.confirmed', 'payment reservation confirmed')
   }
 
   /**
@@ -269,7 +281,7 @@ export class PaymentPolicyStore {
       if (tsIdx !== -1) entry.timestamps.splice(tsIdx, 1)
     }
 
-    log.info(`Payment rolled back: ${reservation.domain}, ${reservation.record.amount} nanoTON`)
+    log.event('info', 'payment.reservation.rolled_back', 'payment reservation rolled back')
     this.scheduleSave()
   }
 

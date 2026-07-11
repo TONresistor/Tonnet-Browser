@@ -5,6 +5,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import path from 'path'
 
+const atomicFile = vi.hoisted(() => ({
+  writeFile: vi.fn(),
+  sync: vi.fn(),
+  close: vi.fn(),
+}))
+
 // Mock Electron app
 vi.mock('electron', () => ({
   app: {
@@ -23,16 +29,32 @@ vi.mock('fs', () => ({
   mkdirSync: vi.fn(),
   renameSync: vi.fn(),
   chmodSync: vi.fn(),
+  promises: {
+    mkdir: vi.fn(),
+    open: vi.fn(),
+    rename: vi.fn(),
+    unlink: vi.fn(),
+  },
 }))
 
-import { existsSync, readFileSync, writeFileSync, mkdirSync, renameSync } from 'fs'
+import { existsSync, readFileSync, promises as fsp } from 'fs'
 
 describe('Settings Persistence', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     // clearAllMocks does not undo mockImplementation, so explicitly reset the
     // write mock to a no-op (a prior test sets it to throw to test error paths).
-    vi.mocked(writeFileSync).mockReset()
+    vi.mocked(fsp.mkdir).mockReset()
+    vi.mocked(fsp.open).mockReset()
+    vi.mocked(fsp.rename).mockReset()
+    vi.mocked(fsp.unlink).mockReset()
+    vi.mocked(fsp.mkdir).mockResolvedValue(undefined)
+    atomicFile.writeFile.mockReset().mockResolvedValue(undefined)
+    atomicFile.sync.mockReset().mockResolvedValue(undefined)
+    atomicFile.close.mockReset().mockResolvedValue(undefined)
+    vi.mocked(fsp.open).mockResolvedValue(atomicFile as never)
+    vi.mocked(fsp.rename).mockResolvedValue(undefined)
+    vi.mocked(fsp.unlink).mockResolvedValue(undefined)
     // Reset the internal cache by importing fresh
     vi.resetModules()
   })
@@ -68,7 +90,7 @@ describe('Settings Persistence', () => {
       const defaults = getDefaults()
 
       expect(settings.general.homepage).toBe(defaults.general.homepage)
-      expect(writeFileSync).toHaveBeenCalled() // Saves defaults
+      await vi.waitFor(() => expect(atomicFile.writeFile).toHaveBeenCalled()) // Saves defaults asynchronously
     })
 
     it('merges partial settings with defaults', async () => {
@@ -127,6 +149,20 @@ describe('Settings Persistence', () => {
       expect(settings.network.proxyPort).toBe(defaults.network.proxyPort)
     })
 
+    it('does not overwrite settings written by a future application version', async () => {
+      vi.resetModules()
+      const { loadSettings: freshLoad, getDefaultSettings: getDefaults } = await import('../index')
+      const future = JSON.stringify({ schemaVersion: 2, general: { homepage: 'ton://future' } })
+      vi.mocked(existsSync).mockReturnValue(true)
+      vi.mocked(readFileSync).mockReturnValue(future)
+
+      const settings = freshLoad()
+
+      expect(settings.general.homepage).toBe(getDefaults().general.homepage)
+      expect(atomicFile.writeFile).not.toHaveBeenCalled()
+      expect(readFileSync).toHaveReturnedWith(future)
+    })
+
     it('falls back to defaults when file is an array', async () => {
       vi.resetModules()
       const { loadSettings: freshLoad, getDefaultSettings: getDefaults } = await import('../index')
@@ -161,9 +197,9 @@ describe('Settings Persistence', () => {
 
       vi.mocked(existsSync).mockReturnValue(false)
 
-      freshSave(getDefaults())
+      await freshSave(getDefaults())
 
-      expect(mkdirSync).toHaveBeenCalledWith('/mock/userData', { recursive: true })
+      expect(fsp.mkdir).toHaveBeenCalledWith('/mock/userData', { recursive: true })
     })
 
     it('writes formatted JSON to file', async () => {
@@ -173,20 +209,17 @@ describe('Settings Persistence', () => {
       vi.mocked(existsSync).mockReturnValue(true)
       const defaults = getDefaults()
 
-      freshSave(defaults)
+      await freshSave(defaults)
 
       // Atomic write: writes to .tmp with 0o600, then renames
-      expect(writeFileSync).toHaveBeenCalledWith(
-        path.join('/mock/userData', 'app-settings.json.tmp'),
-        expect.stringContaining('"homepage"'),
-        expect.objectContaining({ mode: 0o600 })
-      )
-      expect(renameSync).toHaveBeenCalledWith(
+      expect(fsp.open).toHaveBeenCalledWith(path.join('/mock/userData', 'app-settings.json.tmp'), 'w', 0o600)
+      expect(atomicFile.writeFile).toHaveBeenCalledWith(expect.stringContaining('"homepage"'), 'utf8')
+      expect(fsp.rename).toHaveBeenCalledWith(
         path.join('/mock/userData', 'app-settings.json.tmp'),
         path.join('/mock/userData', 'app-settings.json')
       )
       // Check it's formatted (indented)
-      const writtenContent = vi.mocked(writeFileSync).mock.calls[0][1] as string
+      const writtenContent = atomicFile.writeFile.mock.calls[0][0] as string
       expect(writtenContent).toContain('\n')
     })
 
@@ -195,12 +228,10 @@ describe('Settings Persistence', () => {
       const { saveSettings: freshSave, getDefaultSettings: getDefaults } = await import('../index')
 
       vi.mocked(existsSync).mockReturnValue(true)
-      vi.mocked(writeFileSync).mockImplementation(() => {
-        throw new Error('Disk full')
-      })
+      atomicFile.writeFile.mockRejectedValueOnce(new Error('Disk full'))
 
       // saveSettings now rethrows so SETTINGS_SET reports failure honestly.
-      expect(() => freshSave(getDefaults())).toThrow('Disk full')
+      await expect(freshSave(getDefaults())).rejects.toThrow('Disk full')
     })
   })
 
@@ -238,15 +269,30 @@ describe('Settings Persistence', () => {
       freshLoad()
 
       // Update only proxyPort
-      freshSet('network', { proxyPort: 9000 })
+      await freshSet('network', { proxyPort: 9000 })
 
       // Check write was called with merged values (atomic write to .tmp)
-      const lastCallIndex = vi.mocked(writeFileSync).mock.calls.length - 1
-      const writtenContent = vi.mocked(writeFileSync).mock.calls[lastCallIndex][1] as string
+      const lastCallIndex = atomicFile.writeFile.mock.calls.length - 1
+      const writtenContent = atomicFile.writeFile.mock.calls[lastCallIndex][0] as string
       const parsed = JSON.parse(writtenContent)
 
       expect(parsed.network.proxyPort).toBe(9000)
       expect(parsed.network.autoConnect).toBe(false) // Preserved
+    })
+
+    it('serializes concurrent category updates without losing either mutation', async () => {
+      const { setSetting: freshSet, loadSettings: freshLoad } = await import('../index')
+      vi.mocked(existsSync).mockReturnValue(false)
+      freshLoad()
+
+      await Promise.all([freshSet('network', { proxyPort: 9001 }), freshSet('privacy', { clearOnExit: false })])
+
+      const latest = freshLoad()
+      expect(latest.network.proxyPort).toBe(9001)
+      expect(latest.privacy.clearOnExit).toBe(false)
+      const finalDocument = JSON.parse(atomicFile.writeFile.mock.calls.at(-1)?.[0] as string)
+      expect(finalDocument.network.proxyPort).toBe(9001)
+      expect(finalDocument.privacy.clearOnExit).toBe(false)
     })
   })
 
@@ -257,11 +303,11 @@ describe('Settings Persistence', () => {
 
       vi.mocked(existsSync).mockReturnValue(true)
 
-      freshReset()
+      await freshReset()
 
       const defaults = getDefaults()
-      const lastCallIndex = vi.mocked(writeFileSync).mock.calls.length - 1
-      const writtenContent = vi.mocked(writeFileSync).mock.calls[lastCallIndex][1] as string
+      const lastCallIndex = atomicFile.writeFile.mock.calls.length - 1
+      const writtenContent = atomicFile.writeFile.mock.calls[lastCallIndex][0] as string
       const parsed = JSON.parse(writtenContent)
 
       expect(parsed.general.homepage).toBe(defaults.general.homepage)
@@ -292,10 +338,10 @@ describe('Settings Persistence', () => {
       vi.mocked(readFileSync).mockReturnValue(JSON.stringify({}))
 
       freshLoad()
-      freshSet('/new/path')
+      await freshSet('/new/path')
 
-      const lastCallIndex = vi.mocked(writeFileSync).mock.calls.length - 1
-      const writtenContent = vi.mocked(writeFileSync).mock.calls[lastCallIndex][1] as string
+      const lastCallIndex = atomicFile.writeFile.mock.calls.length - 1
+      const writtenContent = atomicFile.writeFile.mock.calls[lastCallIndex][0] as string
       const parsed = JSON.parse(writtenContent)
 
       expect(parsed.storage.downloadPath).toBe('/new/path')
@@ -415,8 +461,8 @@ describe('Settings Persistence', () => {
       expect(settings.network).not.toHaveProperty('circuitRotation')
       expect(settings.network).not.toHaveProperty('rotateInterval')
       // Settings should have been saved back to disk (atomic write to .tmp)
-      expect(writeFileSync).toHaveBeenCalled()
-      const writtenContent = vi.mocked(writeFileSync).mock.calls[0][1] as string
+      await vi.waitFor(() => expect(atomicFile.writeFile).toHaveBeenCalled())
+      const writtenContent = atomicFile.writeFile.mock.calls[0][0] as string
       const parsed = JSON.parse(writtenContent)
       expect(parsed.network.tunnelMode).toBe('standard')
       expect(parsed.network).not.toHaveProperty('circuitRotation')

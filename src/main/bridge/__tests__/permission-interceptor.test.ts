@@ -51,11 +51,17 @@ vi.mock('../../windows/main', () => ({
 }))
 
 vi.mock('../../../shared/logger', () => ({
+  RepetitionAggregator: class {
+    record = vi.fn()
+    recovered = vi.fn()
+  },
   createLogger: () => ({
     info: vi.fn(),
     warn: vi.fn(),
     error: vi.fn(),
     debug: vi.fn(),
+    event: vi.fn(),
+    status: vi.fn(),
   }),
 }))
 

@@ -14,11 +14,28 @@ import { writeFileAtomic, writeSecureFileAtomic } from '../utils/secure-fs'
 import { SENC_MARKER, encodeSenc } from '../utils/senc'
 const log = createLogger('history')
 
-export class SafeStorageWrapper {
+export interface VersionedSafeStorageOptions<T> {
+  version: number
+  migrate(raw: unknown, storedVersion: number): unknown
+  parse(raw: unknown): T
+}
+
+interface StoredEnvelope {
+  schemaVersion: number
+  payload: unknown
+}
+
+export class SafeStorageWrapper<T> {
   private storage: ISecureStorage
   private filePath: string
+  private writeChain: Promise<void> = Promise.resolve()
 
-  constructor(name: string, storage: ISecureStorage = new ElectronSafeStorageAdapter(), basePath?: string) {
+  constructor(
+    name: string,
+    private readonly options: VersionedSafeStorageOptions<T>,
+    storage: ISecureStorage = new ElectronSafeStorageAdapter(),
+    basePath?: string
+  ) {
     this.storage = storage
     const dir = basePath ?? app.getPath('userData')
     this.filePath = join(dir, `${name}.dat`)
@@ -37,24 +54,28 @@ export class SafeStorageWrapper {
    * Encrypted files are prefixed with the SENC marker.
    * Plaintext files are written as UTF-8 JSON with no marker.
    */
-  async write<T>(data: T): Promise<void> {
-    try {
-      const json = JSON.stringify(data)
-
-      if (!this.isAvailable()) {
-        log.warn('Encryption not available, storing unencrypted')
-        await writeSecureFileAtomic(this.filePath, json, 'utf-8')
-        return
-      }
-
-      // Prepend the SENC marker so the read path can detect the format
-      const markedBuffer = encodeSenc(this.storage, json)
-      await writeFileAtomic(this.filePath, markedBuffer)
-      log.debug(`Wrote ${markedBuffer.length} encrypted bytes (with SENC marker)`)
-    } catch (error) {
-      log.error('Failed to write:', error)
-      throw error
-    }
+  async write(data: T): Promise<void> {
+    const value = this.options.parse(data)
+    const write = this.writeChain
+      .catch(() => undefined)
+      .then(async () => {
+        try {
+          const json = JSON.stringify({ schemaVersion: this.options.version, payload: value })
+          if (!this.isAvailable()) {
+            log.warn('Encryption not available, storing unencrypted')
+            await writeSecureFileAtomic(this.filePath, json, 'utf-8')
+            return
+          }
+          const markedBuffer = encodeSenc(this.storage, json)
+          await writeFileAtomic(this.filePath, markedBuffer)
+          log.debug(`Wrote ${markedBuffer.length} encrypted bytes (with SENC marker)`)
+        } catch (error) {
+          log.error('Failed to write:', error)
+          throw error
+        }
+      })
+    this.writeChain = write
+    await write
   }
 
   /**
@@ -64,7 +85,7 @@ export class SafeStorageWrapper {
    *   - Starts with '{' or '[' → plaintext JSON
    *   - Otherwise → legacy encrypted format (no marker); try to decrypt, fall back to empty array
    */
-  async read<T>(): Promise<T | null> {
+  async read(): Promise<T | null> {
     try {
       const buffer = await fs.readFile(this.filePath)
 
@@ -72,7 +93,7 @@ export class SafeStorageWrapper {
       if (buffer.subarray(0, 4).equals(SENC_MARKER)) {
         try {
           const decrypted = this.storage.decrypt(buffer.subarray(4))
-          return JSON.parse(decrypted)
+          return this.decode(JSON.parse(decrypted))
         } catch (decryptError) {
           log.error('SENC-marked file failed to decrypt, treating as corrupt:', decryptError)
           return null
@@ -83,14 +104,14 @@ export class SafeStorageWrapper {
       const firstByte = buffer[0]
       if (firstByte === 0x7b /* '{' */ || firstByte === 0x5b /* '[' */) {
         const json = buffer.toString('utf-8')
-        return JSON.parse(json)
+        return this.decode(JSON.parse(json))
       }
 
       // Legacy encrypted format (written before SENC marker was introduced)
       log.info('Detected legacy encrypted file (no SENC marker), attempting decrypt')
       try {
         const decrypted = this.storage.decrypt(buffer)
-        return JSON.parse(decrypted)
+        return this.decode(JSON.parse(decrypted))
       } catch (legacyError) {
         log.error('Legacy encrypted file could not be decrypted:', legacyError)
         return null
@@ -102,11 +123,21 @@ export class SafeStorageWrapper {
     }
   }
 
+  private decode(raw: unknown): T {
+    const envelope = asEnvelope(raw)
+    if (envelope && envelope.schemaVersion > this.options.version) {
+      throw new Error(`Unsupported schema version ${envelope.schemaVersion} for ${this.filePath}`)
+    }
+    const migrated = this.options.migrate(envelope?.payload ?? raw, envelope?.schemaVersion ?? 0)
+    return this.options.parse(migrated)
+  }
+
   /**
    * Delete the encrypted file
    */
   async delete(): Promise<void> {
     try {
+      await this.writeChain.catch(() => undefined)
       await fs.unlink(this.filePath)
       log.info('Deleted storage file')
     } catch (error) {
@@ -114,19 +145,6 @@ export class SafeStorageWrapper {
         log.error('Failed to delete:', error)
         throw error
       }
-    }
-  }
-
-  /**
-   * Check if file exists (synchronous)
-   */
-  existsSync(): boolean {
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      require('fs').accessSync(this.filePath)
-      return true
-    } catch {
-      return false
     }
   }
 
@@ -141,4 +159,13 @@ export class SafeStorageWrapper {
       return false
     }
   }
+}
+
+function asEnvelope(raw: unknown): StoredEnvelope | null {
+  if (!raw || typeof raw !== 'object') return null
+  const candidate = raw as Partial<StoredEnvelope>
+  if (!Number.isInteger(candidate.schemaVersion) || (candidate.schemaVersion ?? -1) < 0 || !('payload' in candidate)) {
+    return null
+  }
+  return { schemaVersion: candidate.schemaVersion as number, payload: candidate.payload }
 }

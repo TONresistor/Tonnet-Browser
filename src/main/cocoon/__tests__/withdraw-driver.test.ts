@@ -33,6 +33,11 @@ const cacheStore = {
   clearPendingWithdraw: vi.fn().mockResolvedValue(undefined),
   getPendingWithdraw: vi.fn(),
 }
+const persistence = {
+  stakeCache: cacheStore,
+  consumedArchive: {},
+  recoveryQueue: {},
+} as any
 vi.mock('../stake-cache', () => ({
   getStakeCacheStore: () => cacheStore,
 }))
@@ -97,7 +102,8 @@ describe('WithdrawDriver.tick (no pending intent)', () => {
     const driver = new WithdrawDriver(
       manager,
       () => makeBridge(),
-      () => ADDR
+      () => ADDR,
+      persistence
     )
     driver.triggerTick()
     await new Promise((r) => setImmediate(r))
@@ -110,7 +116,8 @@ describe('WithdrawDriver.tick (no pending intent)', () => {
     const driver = new WithdrawDriver(
       manager,
       () => null,
-      () => ADDR
+      () => ADDR,
+      persistence
     )
     driver.triggerTick()
     await new Promise((r) => setImmediate(r))
@@ -129,7 +136,8 @@ describe('WithdrawDriver.tick (cooldown sub-states)', () => {
     const driver = new WithdrawDriver(
       manager,
       () => makeBridge(),
-      () => ADDR
+      () => ADDR,
+      persistence
     )
     const events: unknown[] = []
     driver.on('event', (e) => events.push(e))
@@ -149,7 +157,8 @@ describe('WithdrawDriver.tick (cooldown sub-states)', () => {
     const driver = new WithdrawDriver(
       manager,
       () => makeBridge(),
-      () => ADDR
+      () => ADDR,
+      persistence
     )
     driver.triggerTick()
     await new Promise((r) => setImmediate(r))
@@ -171,7 +180,8 @@ describe('WithdrawDriver.tick (refundable)', () => {
     const driver = new WithdrawDriver(
       manager,
       () => makeBridge(),
-      () => ADDR
+      () => ADDR,
+      persistence
     )
     driver.triggerTick()
     await new Promise((r) => setImmediate(r))
@@ -185,7 +195,8 @@ describe('WithdrawDriver.tick (refundable)', () => {
     const driver = new WithdrawDriver(
       manager,
       () => makeBridge(),
-      () => ADDR
+      () => ADDR,
+      persistence
     )
     driver.triggerTick()
     await new Promise((r) => setImmediate(r))
@@ -211,7 +222,8 @@ describe('WithdrawDriver.tick (closed → cashout)', () => {
     const driver = new WithdrawDriver(
       manager,
       () => makeBridge(),
-      () => ADDR
+      () => ADDR,
+      persistence
     )
     const events: unknown[] = []
     driver.on('event', (e) => events.push(e))
@@ -220,7 +232,7 @@ describe('WithdrawDriver.tick (closed → cashout)', () => {
     await new Promise((r) => setImmediate(r))
 
     expect(cashout).toHaveBeenCalledTimes(1)
-    expect(retireCurrentCocoonWallet).toHaveBeenCalledWith('withdraw-completed')
+    expect(retireCurrentCocoonWallet).toHaveBeenCalledWith('withdraw-completed', persistence)
     expect(events).toContainEqual({ type: 'cashout-done', sentAmount: '19900000000', bocHash: 'h' })
     expect(events).toContainEqual({ type: 'completed' })
   })
@@ -234,14 +246,15 @@ describe('WithdrawDriver.tick (closed → cashout)', () => {
     const driver = new WithdrawDriver(
       manager,
       () => makeBridge(),
-      () => ADDR
+      () => ADDR,
+      persistence
     )
     driver.triggerTick()
     await new Promise((r) => setImmediate(r))
     await new Promise((r) => setImmediate(r))
 
     expect(cashout).toHaveBeenCalledTimes(1)
-    expect(retireCurrentCocoonWallet).toHaveBeenCalledWith('withdraw-completed')
+    expect(retireCurrentCocoonWallet).toHaveBeenCalledWith('withdraw-completed', persistence)
   })
 })
 
@@ -256,7 +269,8 @@ describe('WithdrawDriver.tick (defensive states)', () => {
     const driver = new WithdrawDriver(
       manager,
       () => makeBridge(),
-      () => ADDR
+      () => ADDR,
+      persistence
     )
     driver.triggerTick()
     await new Promise((r) => setImmediate(r))
@@ -272,7 +286,8 @@ describe('WithdrawDriver.tick (defensive states)', () => {
     const driver = new WithdrawDriver(
       manager,
       () => makeBridge(),
-      () => ADDR
+      () => ADDR,
+      persistence
     )
     driver.triggerTick()
     await new Promise((r) => setImmediate(r))
@@ -287,7 +302,8 @@ describe('WithdrawDriver.tick (defensive states)', () => {
     const driver = new WithdrawDriver(
       manager,
       () => makeBridge(),
-      () => ADDR
+      () => ADDR,
+      persistence
     )
     const events: unknown[] = []
     driver.on('event', (e) => events.push(e))
@@ -312,7 +328,8 @@ describe('startFullWithdraw', () => {
     const driver = new WithdrawDriver(
       manager,
       () => makeBridge(),
-      () => ADDR
+      () => ADDR,
+      persistence
     )
 
     await startFullWithdraw(driver, manager)
@@ -329,7 +346,8 @@ describe('startFullWithdraw', () => {
     const driver = new WithdrawDriver(
       manager,
       () => null,
-      () => ADDR
+      () => ADDR,
+      persistence
     )
 
     await expect(startFullWithdraw(driver, manager)).rejects.toThrow(/Bridge not connected/)

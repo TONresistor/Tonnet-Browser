@@ -4,6 +4,7 @@
  */
 
 import { useState, useRef, useEffect, ReactNode } from 'react'
+import { browserClient } from '@/features/browser/client'
 
 interface ResizablePanelProps {
   children: ReactNode
@@ -71,7 +72,7 @@ export function ResizablePanel({
           rafId = null
           if (pendingWidth !== null) {
             // Send batched IPC update synchronized with browser repaint
-            window.electron.updateSidebarWidth(pendingWidth)
+            browserClient.setSidebarWidth(pendingWidth)
             // Call onResize for settings persistence (will be debounced separately)
             onResize(pendingWidth)
             pendingWidth = null
@@ -93,7 +94,7 @@ export function ResizablePanel({
 
       // Send final update if there's a pending width
       if (pendingWidth !== null) {
-        window.electron.updateSidebarWidth(pendingWidth)
+        browserClient.setSidebarWidth(pendingWidth)
         onResize(pendingWidth)
         pendingWidth = null
       }

@@ -4,13 +4,22 @@
  * - PERSISTENT: Automatically encrypted disk storage via OS keychain
  */
 
-import { errorMessage } from '../../shared/errors'
 import { EventEmitter } from 'events'
 import { getSetting, setSetting } from '../settings'
 import { SafeStorageWrapper } from './safe-storage-wrapper'
 import { createLogger } from '../../shared/logger'
 import { HistoryEntry, HistoryStats } from '../../shared/types'
+import { HistoryEntrySchema } from '../../shared/ipc-contract/history'
+import { z } from 'zod'
 const log = createLogger('history')
+
+const HistoryFileSchema = z.array(HistoryEntrySchema)
+const HISTORY_SCHEMA_VERSION = 1
+const historyStorageOptions = {
+  version: HISTORY_SCHEMA_VERSION,
+  migrate: (raw: unknown) => raw,
+  parse: (raw: unknown) => HistoryFileSchema.parse(raw),
+}
 
 export enum HistoryMode {
   MEMORY = 'memory',
@@ -23,7 +32,7 @@ export class HistoryManager extends EventEmitter {
   private entries: Map<string, HistoryEntry> = new Map()
   private maxEntries: number = 1000
   private mode: HistoryMode = HistoryMode.MEMORY
-  private storage: SafeStorageWrapper | null = null
+  private storage: SafeStorageWrapper<HistoryEntry[]> | null = null
   private readyPromise: Promise<void>
   private isReady: boolean = false
   private pendingEntries: Array<{ url: string; title: string; favicon?: string }> = []
@@ -58,8 +67,8 @@ export class HistoryManager extends EventEmitter {
    * (best-effort at startup), changeMode() lets them propagate so it can roll back.
    */
   private async loadPersistedEntries(): Promise<void> {
-    this.storage = new SafeStorageWrapper('history')
-    const data = await this.storage.read<HistoryEntry[]>()
+    this.storage = new SafeStorageWrapper('history', historyStorageOptions)
+    const data = await this.storage.read()
     if (data && Array.isArray(data)) {
       this.entries.clear()
       data.forEach((entry) => {
@@ -74,7 +83,7 @@ export class HistoryManager extends EventEmitter {
     this.mode = (settings.historyMode as HistoryMode) || HistoryMode.MEMORY
     this.maxEntries = settings.historyMaxEntries || 1000
 
-    log.info(`Mode: ${this.mode}, Max entries: ${this.maxEntries}`)
+    log.debug(`Mode: ${this.mode}, Max entries: ${this.maxEntries}`)
 
     // Initialize persistent storage if needed
     if (this.mode === HistoryMode.PERSISTENT) {
@@ -89,7 +98,7 @@ export class HistoryManager extends EventEmitter {
   /**
    * Change history mode (no password needed)
    */
-  async changeMode(newMode: HistoryMode): Promise<{ success: boolean; error?: string }> {
+  async changeMode(newMode: HistoryMode): Promise<{ success: true }> {
     const oldMode = this.mode
 
     try {
@@ -100,7 +109,7 @@ export class HistoryManager extends EventEmitter {
 
       // Update mode
       this.mode = newMode
-      setSetting('privacy', { historyMode: newMode })
+      await setSetting('privacy', { historyMode: newMode })
 
       // Reinitialize storage
       if (newMode === HistoryMode.PERSISTENT) {
@@ -117,8 +126,8 @@ export class HistoryManager extends EventEmitter {
       log.error('Failed to change mode:', error)
       // Rollback
       this.mode = oldMode
-      setSetting('privacy', { historyMode: oldMode })
-      return { success: false, error: errorMessage(error) }
+      await setSetting('privacy', { historyMode: oldMode })
+      throw error
     }
   }
 
@@ -391,12 +400,12 @@ export class HistoryManager extends EventEmitter {
   /**
    * Check if persistent file exists
    */
-  hasPersistentFile(): boolean {
+  async hasPersistentFile(): Promise<boolean> {
     if (!this.storage) {
-      const tempStorage = new SafeStorageWrapper('history')
-      return tempStorage.existsSync()
+      const tempStorage = new SafeStorageWrapper('history', historyStorageOptions)
+      return tempStorage.exists()
     }
-    return this.storage.existsSync()
+    return this.storage.exists()
   }
 
   /**

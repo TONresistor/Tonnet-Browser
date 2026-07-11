@@ -5,6 +5,7 @@
 
 import { useEffect, useCallback, useRef } from 'react'
 import { IPC_CHANNELS } from '@shared/ipc-channels'
+import { browserClient } from '@/features/browser/client'
 
 interface OverlayBounds {
   x: number
@@ -20,7 +21,7 @@ export function useOverlay(id: string, onAction?: OverlayActionCallback) {
 
   useEffect(() => {
     if (!onAction) return
-    const unsub = window.electron.on(IPC_CHANNELS.OVERLAY_ACTION, (...args: unknown[]) => {
+    const unsub = browserClient.on(IPC_CHANNELS.OVERLAY_ACTION, (...args: unknown[]) => {
       const [actionId, actionType, actionData] = args as [string, string, unknown]
       if (actionId === id) {
         onAction(actionType, actionData)
@@ -32,21 +33,21 @@ export function useOverlay(id: string, onAction?: OverlayActionCallback) {
   useEffect(() => {
     return () => {
       if (activeRef.current) {
-        window.electron.overlay.hide(id)
+        browserClient.hideOverlay(id)
       }
     }
   }, [id])
 
   const show = useCallback(
     (bounds: OverlayBounds, content: { type: string; [key: string]: unknown }, options?: { autoDismiss?: boolean }) => {
-      window.electron.overlay.show(id, bounds, content, options)
+      browserClient.showOverlay(id, bounds, content, options)
       activeRef.current = true
     },
     [id]
   )
 
   const hide = useCallback(() => {
-    window.electron.overlay.hide(id)
+    browserClient.hideOverlay(id)
     activeRef.current = false
   }, [id])
 

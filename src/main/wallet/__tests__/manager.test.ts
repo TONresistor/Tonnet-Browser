@@ -76,6 +76,8 @@ vi.mock('../../../shared/logger', () => ({
     warn: vi.fn(),
     error: vi.fn(),
     debug: vi.fn(),
+    event: vi.fn(),
+    status: vi.fn(),
   }),
 }))
 

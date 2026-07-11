@@ -10,10 +10,9 @@
 import { errorMessage } from '../../shared/errors'
 import { Address } from '@ton/core'
 import { createLogger } from '../../shared/logger'
-import { getConsumedArchive, type ArchivedCocoon } from './consumed-archive'
+import type { ArchivedCocoon } from './consumed-archive'
 import { buildCocoonWalletInit, sendFromCocoonWallet, sendFromOwnerWallet, type SendResult } from './contracts'
-import { getRecoveryQueueStore, type RecoveryEntry } from './recovery-queue'
-import { getStakeCacheStore } from './stake-cache'
+import type { RecoveryEntry } from './recovery-queue'
 import { getStakeInfo } from './unstake'
 import { loadCocoonWallet } from './wallet'
 import { DRAIN_DUST_FLOOR_NANO, REFUND_GAS_NANO } from './constants'
@@ -25,8 +24,9 @@ import {
   OWNER_CLIENT_REQUEST_REFUND,
 } from './node-signing'
 import type { CocoonManager } from './manager'
-import type { WsBridgeClient } from '../wallet/ws-bridge-client'
+import type { TonBridgePort } from '../ports/ton-bridge'
 import type { CocoonRecoveryAllResult } from '../../shared/cocoon-types'
+import type { CocoonPersistence } from './persistence'
 
 const log = createLogger('cocoon:recover-all')
 
@@ -71,7 +71,7 @@ function toRecoverableArchive(archive: ArchivedCocoon): RecoverableWallet {
 }
 
 async function sendClientOpcodeFromNode(
-  bridge: WsBridgeClient,
+  bridge: TonBridgePort,
   wallet: RecoverableWallet,
   clientSCAddress: string,
   opcode: number,
@@ -87,13 +87,13 @@ async function sendClientOpcodeFromNode(
     REFUND_GAS_NANO,
     body,
     {
-      init: buildCocoonWalletInit(wallet.ownerAddress, wallet.nodePublicKeyHex),
+      init: await buildCocoonWalletInit(wallet.ownerAddress, wallet.nodePublicKeyHex),
     }
   )
 }
 
 async function drainNode(
-  bridge: WsBridgeClient,
+  bridge: TonBridgePort,
   wallet: RecoverableWallet,
   destination: string,
   result: CocoonRecoveryAllResult
@@ -110,7 +110,7 @@ async function drainNode(
     undefined,
     {
       drainAll: true,
-      init: buildCocoonWalletInit(wallet.ownerAddress, wallet.nodePublicKeyHex),
+      init: await buildCocoonWalletInit(wallet.ownerAddress, wallet.nodePublicKeyHex),
     }
   )
   result.txs.push({
@@ -124,7 +124,7 @@ async function drainNode(
 }
 
 async function drainOwner(
-  bridge: WsBridgeClient,
+  bridge: TonBridgePort,
   wallet: RecoverableWallet,
   destination: string,
   result: CocoonRecoveryAllResult
@@ -146,7 +146,7 @@ async function drainOwner(
 }
 
 async function recoverClient(
-  bridge: WsBridgeClient,
+  bridge: TonBridgePort,
   wallet: RecoverableWallet,
   clientSCAddress: string,
   destination: string,
@@ -235,8 +235,9 @@ function addClient(
 
 export async function recoverAllCocoonFunds(
   manager: CocoonManager,
-  bridge: WsBridgeClient,
-  destination: string
+  bridge: TonBridgePort,
+  destination: string,
+  persistence: CocoonPersistence
 ): Promise<CocoonRecoveryAllResult> {
   const result: CocoonRecoveryAllResult = {
     success: true,
@@ -260,23 +261,23 @@ export async function recoverAllCocoonFunds(
     wallet.label === 'current' ? 'current' : `archive:${wallet.archivedAt}`
 
   if (current) {
-    const stakeInfo = await getStakeInfo(manager, bridge).catch((err) => {
+    const stakeInfo = await getStakeInfo(manager, bridge, persistence.stakeCache).catch((err) => {
       log.warn(`current stake info unavailable: ${errorMessage(err)}`)
       return null
     })
     addClient(clientTargets, current, stakeInfo?.clientSCAddress)
 
-    const cache = await getStakeCacheStore().load()
+    const cache = await persistence.stakeCache.load()
     addClient(clientTargets, current, cache?.clientSCAddress)
   }
 
-  const archives = await getConsumedArchive().list()
+  const archives = await persistence.consumedArchive.list()
   const archivesByTime = new Map(archives.map((entry) => [entry.archivedAt, toRecoverableArchive(entry)]))
   for (const archive of archives) {
     addClient(clientTargets, toRecoverableArchive(archive), archive.lastClientSCAddress)
   }
 
-  for (const queued of await getRecoveryQueueStore().list()) {
+  for (const queued of await persistence.recoveryQueue.list()) {
     const archive = archivesByTime.get(queued.archivedAt)
     if (archive) addClient(clientTargets, archive, queued.clientSCAddress)
   }
@@ -293,7 +294,7 @@ export async function recoverAllCocoonFunds(
       if (disposition.safeToDrain) {
         walletsSafeToDrain.add(key)
       } else if (target.wallet.label === 'current' && disposition.pending) {
-        await getStakeCacheStore().setPendingWithdraw({ startedAt: Date.now() })
+        await persistence.stakeCache.setPendingWithdraw({ startedAt: Date.now() })
       }
     } catch (err) {
       result.skipped.push({
@@ -348,11 +349,11 @@ export async function recoverAllCocoonFunds(
   }
 
   for (const { archivedAt, partial } of planRecoveryQueueClosure(
-    await getRecoveryQueueStore().list(),
+    await persistence.recoveryQueue.list(),
     drainedArchives,
     destination
   )) {
-    await getRecoveryQueueStore().update(archivedAt, partial)
+    await persistence.recoveryQueue.update(archivedAt, partial)
   }
 
   return result

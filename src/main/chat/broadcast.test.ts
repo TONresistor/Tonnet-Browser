@@ -1,14 +1,9 @@
 import { describe, it, expect } from 'vitest'
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
 import { keyPairFromSeed } from '@ton/crypto'
 import { sealBroadcast, parseBroadcast, verifyBroadcast, broadcastId, deviceKeyId, isFresh } from './broadcast'
 import { marshalEnvelope, parseEnvelope, signEnvelope, verifyEnvelope } from './envelope'
 
-const vectorCandidates = [
-  resolve(__dirname, '../../../../TONNET/tonnet-messenger/internal/broadcast/testdata/vectors.json'),
-  resolve(__dirname, '../../../../tonnet-messenger/internal/broadcast/testdata/vectors.json'),
-]
+import vectors from './__tests__/fixtures/messenger-go-vectors.json'
 
 interface Vectors {
   seed: string
@@ -22,62 +17,50 @@ interface Vectors {
   serializedWithCert: string
 }
 
-function loadVectors(): Vectors | null {
-  for (const p of vectorCandidates) {
-    try {
-      return JSON.parse(readFileSync(p, 'utf-8')) as Vectors
-    } catch {
-      // try next candidate
-    }
-  }
-  return null
-}
-
 describe('tonnet.broadcast cross-language vectors', () => {
-  const v = loadVectors()
-  const guarded = v ? it : it.skip
-  const vectorData = (): Buffer => Buffer.from(v!.dataHex, 'hex')
+  const v = vectors as Vectors
+  const vectorData = (): Buffer => Buffer.from(v.dataHex, 'hex')
 
-  guarded('device key id matches the Go golden vector', () => {
-    const pub = Buffer.from(v!.devicePub, 'hex')
-    expect(deviceKeyId(pub).toString('hex')).toBe(v!.deviceKeyId)
+  it('device key id matches the Go golden vector', () => {
+    const pub = Buffer.from(v.devicePub, 'hex')
+    expect(deviceKeyId(pub).toString('hex')).toBe(v.deviceKeyId)
   })
 
-  guarded('broadcast id matches the Go golden vector', () => {
-    const pub = Buffer.from(v!.devicePub, 'hex')
-    expect(broadcastId(pub, vectorData(), 0).toString('hex')).toBe(v!.broadcastId)
+  it('broadcast id matches the Go golden vector', () => {
+    const pub = Buffer.from(v.devicePub, 'hex')
+    expect(broadcastId(pub, vectorData(), 0).toString('hex')).toBe(v.broadcastId)
   })
 
-  guarded('sealed broadcast is byte-identical to the Go golden vector', () => {
-    const seed = Buffer.from(v!.seed, 'hex')
-    const wire = sealBroadcast(seed, vectorData(), v!.date)
-    expect(wire.toString('hex')).toBe(v!.serialized)
+  it('sealed broadcast is byte-identical to the Go golden vector', () => {
+    const seed = Buffer.from(v.seed, 'hex')
+    const wire = sealBroadcast(seed, vectorData(), v.date)
+    expect(wire.toString('hex')).toBe(v.serialized)
   })
 
-  guarded('signature matches the Go golden vector (deterministic ed25519)', () => {
-    const frame = parseBroadcast(Buffer.from(v!.serialized, 'hex'))
+  it('signature matches the Go golden vector (deterministic ed25519)', () => {
+    const frame = parseBroadcast(Buffer.from(v.serialized, 'hex'))
     expect(frame).not.toBeNull()
-    expect(frame!.signature.toString('hex')).toBe(v!.signature)
+    expect(frame!.signature.toString('hex')).toBe(v.signature)
   })
 
-  guarded('parses and verifies the certified Go golden vector', () => {
-    const frame = parseBroadcast(Buffer.from(v!.serializedWithCert, 'hex'))
+  it('parses and verifies the certified Go golden vector', () => {
+    const frame = parseBroadcast(Buffer.from(v.serializedWithCert, 'hex'))
     expect(frame).not.toBeNull()
     expect(verifyBroadcast(frame!)).toBe(true)
-    expect(frame!.data.toString('hex')).toBe(v!.dataHex)
+    expect(frame!.data.toString('hex')).toBe(v.dataHex)
     const env = parseEnvelope(frame!.data)
     expect(env.type).toBe('msg')
     expect(env.nick).toBe('vec')
     expect(env.text).toBe('hello v4')
     expect(env.room).toBe('tonnet:vectors')
-    expect(env.key).toBe(v!.devicePub)
+    expect(env.key).toBe(v.devicePub)
     expect(verifyEnvelope(env)).toBe('valid')
     const signed = signEnvelope(
       { type: env.type, nick: env.nick, text: env.text, ts: env.ts, room: env.room },
-      Buffer.from(v!.seed, 'hex')
+      Buffer.from(v.seed, 'hex')
     )
-    expect(marshalEnvelope(signed).toString('hex')).toBe(v!.dataHex)
-    expect(frame!.src.toString('hex')).toBe(v!.devicePub)
+    expect(marshalEnvelope(signed).toString('hex')).toBe(v.dataHex)
+    expect(frame!.src.toString('hex')).toBe(v.devicePub)
   })
 })
 

@@ -8,9 +8,10 @@ import { BrowserWindow, clipboard } from 'electron'
 import type { OverlayMenuItem } from '../../shared/types'
 import type { OverlayManager } from './overlay-manager'
 import { CONTEXT_MENU_WIDTH } from './constants'
+import { onWebContents, type IDisposable } from '../utils/disposable'
 
-export function setupMainContextMenu(mainWindow: BrowserWindow, overlayManager: OverlayManager): void {
-  mainWindow.webContents.on('context-menu', (_e, params) => {
+export function setupMainContextMenu(mainWindow: BrowserWindow, overlayManager: OverlayManager): IDisposable {
+  return onWebContents(mainWindow.webContents, 'context-menu', (_e: unknown, params: Electron.ContextMenuParams) => {
     const items: OverlayMenuItem[] = []
 
     if (params.isEditable) {

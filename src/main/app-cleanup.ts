@@ -7,8 +7,8 @@
  */
 import log from '../shared/logger'
 import { getSetting, loadSettings, saveSettings } from './settings'
-import { getAllSessions, cleanupTabManager } from './windows/tabs'
 import { destroyServices, type ServiceRegistry } from './services'
+import { flushNativeLogs } from './logging/native-log-router'
 
 let isCleaningUp = false
 
@@ -26,7 +26,7 @@ export async function runCleanup(services: ServiceRegistry): Promise<void> {
   if (clearOnExit) {
     log.info('Clearing browsing data on exit...')
     try {
-      const sessions = getAllSessions()
+      const sessions = services.tabManager.sessions.getAllSessions()
 
       for (const ses of sessions) {
         await ses.clearCache()
@@ -88,7 +88,7 @@ export async function runCleanup(services: ServiceRegistry): Promise<void> {
         settings.bridge.permissions = []
         settings.wallet.sitePolicies = []
         settings.wallet.autoPayDomains = []
-        saveSettings(settings)
+        await saveSettings(settings)
         log.info('Cleared browsing traces from settings file')
       }
     } catch (error) {
@@ -96,6 +96,6 @@ export async function runCleanup(services: ServiceRegistry): Promise<void> {
     }
   }
 
-  cleanupTabManager()
   await destroyServices(services)
+  await flushNativeLogs(1_000)
 }

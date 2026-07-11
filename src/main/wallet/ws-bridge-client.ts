@@ -4,45 +4,33 @@
  * over a local JSON-RPC 2.0 WebSocket connection.
  */
 
-import WebSocket from 'ws'
-import { createLogger } from '../../shared/logger'
-import type { DnsResolveResult } from '../../shared/types'
+import { createLogger, RepetitionAggregator } from '../../shared/logger'
+import { JsonRpcRequestTracker, type JsonRpcResponse } from './json-rpc-peer'
+import {
+  AccountBalanceResultSchema,
+  BridgeAccountStateSchema,
+  type BridgeAccountState,
+  BridgeTransactionsResultSchema,
+  BridgeTransactionSchema,
+  type BridgeTransaction,
+  JsonRpcInboundSchema,
+  SeqnoResultSchema,
+} from './bridge-codecs'
+import type { BridgeEventCallback } from './bridge-event-bus'
+import { BridgeSubscriptions } from './bridge-subscriptions'
+import { BridgeDhtClient, BridgeDnsClient, BridgeOverlayClient } from './bridge-capabilities'
+import { BridgeTransactionWatcher } from './bridge-transaction-watcher'
+import { WebSocketTransport } from './websocket-transport'
 
 const log = createLogger('wallet:ws-bridge')
 
-export function isContractNotDeployedError(err: unknown): boolean {
-  const msg = err instanceof Error ? err.message : String(err ?? '')
-  return msg.includes('not initialized') || msg.includes('-256')
-}
+export { isContractNotDeployedError } from '../ports/ton-bridge'
 
 const REQUEST_TIMEOUT_MS = 10_000
-const HEARTBEAT_INTERVAL_MS = 54_000
-const PONG_TIMEOUT_MS = 60_000
-const RECONNECT_BASE_MS = 1_000
-const RECONNECT_MAX_MS = 30_000
 const READINESS_PROBE_MAX_ATTEMPTS = 15
 const READINESS_PROBE_BASE_MS = 300
 
 // --- Bridge-specific types ---
-
-/** Account state from lite.getAccountState */
-export interface BridgeAccountState {
-  balance: string
-  last_transaction_lt: string
-  last_transaction_hash: string
-  seqno: number
-}
-
-/** Transaction from lite.getTransactions. Fields mirror the Go bridge serializeTransaction output. */
-export interface BridgeTransaction {
-  hash: string
-  lt: string
-  /** Unix timestamp in seconds from the block's header (tx.Now in the Go serializer). */
-  now: number
-  total_fees?: string
-  in_msg?: { source: string; destination: string; value: string; body?: string }
-  out_msgs?: Array<{ source: string; destination: string; value: string; body?: string }>
-}
 
 /** Value paired with the address it was fetched for, so switching wallets invalidates the cache. */
 interface AddressScoped<T> {
@@ -50,130 +38,98 @@ interface AddressScoped<T> {
   value: T
 }
 
-/** Result from lite.sendAndWatch */
-interface SendAndWatchResult {
-  subscription_id: string
-  msg_hash: string
-}
-
-/** Result from a subscription request */
-interface SubscriptionResult {
-  subscription_id: string
-}
-
-/** Event data for tx_confirmed push events */
-interface TxConfirmedEvent {
-  msg_hash: string
-  transaction?: { hash: string }
-}
-
-/** Event data for tx_timeout push events */
-interface TxTimeoutEvent {
-  msg_hash: string
-  reason?: string
-}
-
-/** JSON-RPC 2.0 message from the bridge (response or push event) */
-interface JsonRpcMessage {
-  jsonrpc?: string
-  id?: string | number
-  result?: unknown
-  error?: { code: number; message: string }
-  event?: string
-  data?: unknown
-}
-
 type RpcParams = Record<string, unknown>
-type EventCallback = (data: unknown) => void
-
-interface PendingRequest {
-  resolve: (value: unknown) => void
-  reject: (reason: Error) => void
-  timer: ReturnType<typeof setTimeout>
-}
-
-interface SubscriptionEntry {
-  method: string
-  params: RpcParams
-  event: string
-  callback: EventCallback
-}
+type EventCallback = BridgeEventCallback
 
 export class WsBridgeClient {
   private wsPort: number
-  private ws: WebSocket | null = null
+  private transport: WebSocketTransport
   private nextId = 0
-  private pending = new Map<string, PendingRequest>()
-  private subscriptions = new Map<string, SubscriptionEntry>()
-  private eventListeners = new Map<string, Set<EventCallback>>()
+  private requestTracker = new JsonRpcRequestTracker()
+  private readonly reconnectLogs = new RepetitionAggregator(log)
+  private subscriptions = new BridgeSubscriptions(
+    (method, params) => this.request(method, params),
+    (operation, error) => log.error(`Bridge subscription error (${operation}):`, error)
+  )
   private requestQueue: Array<{
+    id: string
     message: string
     resolve: (v: unknown) => void
     reject: (e: Error) => void
     method: string
-    timeoutMs?: number
+    deadline: number
+    timer: ReturnType<typeof setTimeout>
   }> = []
-  private connected = false
-  private connecting = false
-  private destroyed = false
-  private reconnectAttempt = 0
-  private reconnectTimer: ReturnType<typeof setTimeout> | null = null
-  private heartbeatTimer: ReturnType<typeof setTimeout> | null = null
-  private pongTimer: ReturnType<typeof setTimeout> | null = null
   private cachedBalance: AddressScoped<string> | null = null
   private cachedSeqno: AddressScoped<number> | null = null
   private balanceDegraded = false
   private seqnoDegraded = false
+  private dns: BridgeDnsClient
+  private overlay: BridgeOverlayClient
+  private dht: BridgeDhtClient
+  private transactionWatcher: BridgeTransactionWatcher
 
   constructor(wsPort: number) {
     this.wsPort = wsPort
+    const request = (method: string, params: RpcParams, timeoutMs?: number) =>
+      this.request(method, params, undefined, timeoutMs)
+    this.dns = new BridgeDnsClient(request)
+    this.overlay = new BridgeOverlayClient(request, this.subscriptions)
+    this.dht = new BridgeDhtClient(request, (message) => log.warn(message))
+    this.transactionWatcher = new BridgeTransactionWatcher(request, this.subscriptions)
+    this.transport = new WebSocketTransport(`ws://127.0.0.1:${wsPort}`, {
+      onMessage: (message) => this.handleMessage(message),
+      onSocketOpen: () => this.waitForPoolReady(),
+      onReady: (reconnected) => {
+        this.drainQueue()
+        if (reconnected) void this.subscriptions.resubscribeAll()
+        this.reconnectLogs.recovered('connection', 'wallet.bridge.restored', 'wallet bridge restored')
+        log.debug(`Connected to bridge on port ${this.wsPort}`)
+      },
+      onDisconnect: (error) => {
+        this.requestTracker.rejectAll(error)
+        this.transactionWatcher.rejectAll(error)
+      },
+      onError: (error) =>
+        this.reconnectLogs.record(
+          'connection',
+          'wallet.bridge.unavailable',
+          'wallet bridge unavailable · reconnecting',
+          {
+            error,
+          }
+        ),
+      onReconnectScheduled: (delay, attempt) => log.debug(`Reconnecting in ${delay}ms (attempt ${attempt})`),
+    })
   }
 
   async connect(): Promise<void> {
-    if (this.connected || this.connecting) return
-    this.destroyed = false
-    await this.doConnect()
+    await this.transport.connect()
   }
 
   disconnect(): void {
-    this.destroyed = true
-    this.clearTimers()
-    if (this.reconnectTimer) {
-      clearTimeout(this.reconnectTimer)
-      this.reconnectTimer = null
-    }
-    // Reject all pending requests
-    for (const entry of this.pending.values()) {
-      clearTimeout(entry.timer)
-      entry.reject(new Error('Client disconnected'))
-    }
-    this.pending.clear()
+    this.requestTracker.rejectAll(new Error('Client disconnected'))
+    this.transactionWatcher.rejectAll(new Error('Client disconnected'))
     // Drain request queue
     for (const queued of this.requestQueue) {
+      clearTimeout(queued.timer)
       queued.reject(new Error('Client disconnected'))
     }
     this.requestQueue = []
     this.subscriptions.clear()
-    this.eventListeners.clear()
-    if (this.ws) {
-      this.ws.removeAllListeners()
-      this.ws.close()
-      this.ws = null
-    }
-    this.connected = false
-    this.connecting = false
+    this.transport.stop()
   }
 
   isConnected(): boolean {
-    return this.connected
+    return this.transport.isConnected()
   }
 
   // --- Wallet operations ---
 
   async getBalance(address: string): Promise<string> {
     try {
-      const result = await this.request<BridgeAccountState>('lite.getAccountState', { address })
-      const balance = result.balance ?? '0'
+      const raw = await this.request('lite.getAccountState', { address })
+      const { balance } = AccountBalanceResultSchema.parse(raw)
       this.cachedBalance = { address, value: balance }
       this.balanceDegraded = false
       return balance
@@ -193,8 +149,8 @@ export class WsBridgeClient {
 
   async getSeqno(address: string): Promise<number> {
     try {
-      const result = await this.request<{ seqno: number | string }>('wallet.getSeqno', { address })
-      const seqno = typeof result.seqno === 'number' ? result.seqno : Number(result.seqno)
+      const raw = await this.request('wallet.getSeqno', { address })
+      const { seqno } = SeqnoResultSchema.parse(raw)
       this.cachedSeqno = { address, value: seqno }
       this.seqnoDegraded = false
       return seqno
@@ -229,104 +185,38 @@ export class WsBridgeClient {
       params.last_lt = lastLt
       params.last_hash = lastHash
     }
-    const result = await this.request<{ transactions?: BridgeTransaction[] }>('lite.getTransactions', params)
+    const result = BridgeTransactionsResultSchema.parse(await this.request('lite.getTransactions', params))
     return result.transactions ?? []
   }
 
   // --- Subscriptions ---
 
   subscribeAccountState(address: string, callback: (state: BridgeAccountState) => void): () => void {
-    return this.subscribe('subscribe.accountState', { address }, 'account_state', callback as EventCallback)
+    return this.subscribe('subscribe.accountState', { address }, 'account_state', (data) => {
+      callback(BridgeAccountStateSchema.parse(data))
+    })
   }
 
   subscribeTransactions(address: string, callback: (tx: BridgeTransaction) => void): () => void {
-    return this.subscribe('subscribe.transactions', { address, last_lt: '0' }, 'transaction', callback as EventCallback)
+    return this.subscribe('subscribe.transactions', { address, last_lt: '0' }, 'transaction', (data) => {
+      callback(BridgeTransactionSchema.parse(data))
+    })
   }
 
   async unsubscribe(subscriptionId: string): Promise<void> {
-    this.subscriptions.delete(subscriptionId)
-    try {
-      await this.request('subscribe.unsubscribe', { subscription_id: subscriptionId })
-    } catch (err) {
-      log.warn('Unsubscribe failed:', err)
-    }
+    await this.subscriptions.unsubscribe(subscriptionId)
   }
 
   // --- Payment flow ---
 
   async sendAndWatch(boc: Buffer): Promise<string> {
-    const b64 = boc.toString('base64')
-    return new Promise<string>((resolve, reject) => {
-      this.request('lite.sendAndWatch', { boc: b64 })
-        .then((raw) => {
-          const result = raw as SendAndWatchResult
-          const subId = result.subscription_id
-          const msgHash = result.msg_hash
-
-          const onConfirmed = (data: unknown) => {
-            const event = data as TxConfirmedEvent
-            if (event.msg_hash === msgHash) {
-              cleanup()
-              resolve(event.transaction?.hash ?? msgHash)
-            }
-          }
-          const onTimeout = (data: unknown) => {
-            const event = data as TxTimeoutEvent
-            if (event.msg_hash === msgHash) {
-              cleanup()
-              reject(new Error(`Transaction timed out: ${event.reason ?? 'unknown'}`))
-            }
-          }
-
-          const confirmTimer = setTimeout(() => {
-            cleanup()
-            reject(new Error('Transaction confirmation timeout (120s)'))
-          }, 120_000)
-
-          const cleanup = () => {
-            clearTimeout(confirmTimer)
-            this.removeEventListener('tx_confirmed', onConfirmed)
-            this.removeEventListener('tx_timeout', onTimeout)
-            this.subscriptions.delete(subId)
-          }
-
-          this.addEventListener('tx_confirmed', onConfirmed)
-          this.addEventListener('tx_timeout', onTimeout)
-          // Track subscription for cleanup on disconnect
-          this.subscriptions.set(subId, {
-            method: 'lite.sendAndWatch',
-            params: { boc: b64 },
-            event: 'tx_confirmed',
-            callback: onConfirmed,
-          })
-        })
-        .catch(reject)
-    })
+    return this.transactionWatcher.sendAndWatch(boc)
   }
 
   // --- DNS ---
 
-  async resolveDomain(domain: string): Promise<DnsResolveResult> {
-    const raw = await this.request<Record<string, unknown>>('dns.resolve', { domain })
-
-    const normalized: DnsResolveResult = {
-      wallet: (raw.wallet as string) ?? null,
-      site_adnl: (raw.site_adnl as string) ?? (raw.site as string) ?? null,
-      has_storage: Boolean(raw.has_storage ?? raw.storage ?? false),
-      storage_bag_id:
-        (raw.storage_bag_id as string) ?? (raw.dns_storage_bag_id as string) ?? (raw.bag_id as string) ?? null,
-      next_resolver: (raw.next_resolver as string) ?? (raw.dns_next_resolver as string) ?? (raw.next as string) ?? null,
-      owner: (raw.owner as string) ?? null,
-      nft_address: (raw.nft_address as string) ?? null,
-      collection: (raw.collection as string) ?? null,
-      editor: (raw.editor as string) ?? null,
-      initialized: raw.initialized !== false,
-      expiring_at: (raw.expiring_at as number) ?? null,
-      text_records: (raw.text_records as Record<string, string>) ?? undefined,
-      ...raw,
-    }
-
-    return normalized
+  resolveDomain(domain: string) {
+    return this.dns.resolve(domain)
   }
 
   // --- Generic ---
@@ -336,54 +226,31 @@ export class WsBridgeClient {
   }
 
   async overlayConnectAndJoin(anchorAdnlB64: string, overlayIdB64: string): Promise<string> {
-    const conn = await this.request<{ peer_id: string }>('adnl.connectByADNL', { adnl_id: anchorAdnlB64 })
-    await this.request('overlay.join', { overlay_id: overlayIdB64, peer_id: conn.peer_id })
-    return conn.peer_id
+    return this.overlay.connectAndJoin(anchorAdnlB64, overlayIdB64)
   }
 
   async overlaySend(overlayIdB64: string, dataB64: string): Promise<void> {
-    await this.request('overlay.sendMessage', { overlay_id: overlayIdB64, data: dataB64 })
+    await this.overlay.send(overlayIdB64, dataB64)
   }
 
   async overlaySendRaw(overlayIdB64: string, dataB64: string): Promise<void> {
-    await this.request('overlay.sendRaw', { overlay_id: overlayIdB64, data: dataB64 })
+    await this.overlay.sendRaw(overlayIdB64, dataB64)
   }
 
   async adnlPing(peerId: string): Promise<void> {
-    await this.request('adnl.ping', { peer_id: peerId })
+    await this.overlay.ping(peerId)
   }
 
   async overlayLeaveAndDisconnect(overlayIdB64: string, peerId: string): Promise<void> {
-    await this.request('overlay.leave', { overlay_id: overlayIdB64 }).catch(() => {})
-    await this.request('adnl.disconnect', { peer_id: peerId }).catch(() => {})
+    await this.overlay.leaveAndDisconnect(overlayIdB64, peerId)
   }
 
   onOverlayMessage(cb: (data: { overlay_id: string; message: string; trusted?: boolean }) => void): () => void {
-    const listener: EventCallback = (data) => cb(data as { overlay_id: string; message: string; trusted?: boolean })
-    this.addEventListener('overlay.message', listener)
-    return () => this.removeEventListener('overlay.message', listener)
+    return this.overlay.onMessage(cb)
   }
 
   async dhtFindValue(keyIdB64: string, name: string, index = 0): Promise<{ data: string; ttl: number } | null> {
-    const DHT_TIMEOUT_MS = 22_000
-    const ATTEMPTS = 3
-    let lastErr: Error | null = null
-    for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
-      try {
-        return await this.request<{ data: string; ttl: number }>(
-          'dht.findValue',
-          { key_id: keyIdB64, name, index },
-          undefined,
-          DHT_TIMEOUT_MS
-        )
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err)
-        if (/not found|no value/i.test(msg)) return null
-        lastErr = err instanceof Error ? err : new Error(msg)
-      }
-    }
-    if (lastErr) log.warn(`dht.findValue gave up after ${ATTEMPTS} attempts: ${lastErr.message}`)
-    return null
+    return this.dht.findValue(keyIdB64, name, index)
   }
 
   // --- Internal: JSON-RPC transport ---
@@ -397,10 +264,24 @@ export class WsBridgeClient {
     const id = String(++this.nextId)
     const message = JSON.stringify({ jsonrpc: '2.0', id, method, params })
 
-    const raw = this.connected
+    const raw = this.transport.isConnected()
       ? this.sendRequest(id, message, method, timeoutMs)
       : new Promise<unknown>((resolve, reject) => {
-          this.requestQueue.push({ message, resolve, reject, method, timeoutMs })
+          const queued = {
+            id,
+            message,
+            resolve,
+            reject,
+            method,
+            deadline: Date.now() + timeoutMs,
+            timer: setTimeout(() => {
+              const index = this.requestQueue.indexOf(queued)
+              if (index === -1) return
+              this.requestQueue.splice(index, 1)
+              reject(new Error(`Request timeout: ${method}`))
+            }, timeoutMs),
+          }
+          this.requestQueue.push(queued)
         })
 
     return raw.then((value) => {
@@ -417,167 +298,36 @@ export class WsBridgeClient {
     method: string,
     timeoutMs: number = REQUEST_TIMEOUT_MS
   ): Promise<unknown> {
-    return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => {
-        this.pending.delete(id)
-        reject(new Error(`Request timeout: ${method}`))
-      }, timeoutMs)
-
-      this.pending.set(id, { resolve, reject, timer })
-      this.ws!.send(message, (err) => {
-        if (err) {
-          clearTimeout(timer)
-          this.pending.delete(id)
-          reject(new Error(`WebSocket send failed: ${err.message}`))
-        }
-      })
-    })
+    const pending = this.requestTracker.wait(id, method, timeoutMs)
+    void this.transport.send(message).catch((error) => this.requestTracker.reject(id, error))
+    return pending
   }
 
-  private handleMessage(raw: WebSocket.Data): void {
-    let msg: JsonRpcMessage
+  private handleMessage(raw: string): void {
+    let msg
     try {
-      msg = JSON.parse(raw.toString()) as JsonRpcMessage
+      msg = JsonRpcInboundSchema.parse(JSON.parse(raw))
     } catch {
-      log.warn('Received non-JSON message from bridge')
+      log.warn('Received invalid JSON-RPC message from bridge')
       return
     }
 
     // Push event (no id, has event field)
     if (msg.event) {
-      this.dispatchEvent(msg.event, msg.data)
+      this.subscriptions.emit(msg.event, msg.data)
       return
     }
 
     // RPC response (has id)
     if (msg.id !== undefined) {
-      const entry = this.pending.get(String(msg.id))
-      if (!entry) return
-      this.pending.delete(String(msg.id))
-      clearTimeout(entry.timer)
-
-      if (msg.error) {
-        entry.reject(new Error(msg.error.message ?? `RPC error ${msg.error.code}`))
-      } else {
-        entry.resolve(msg.result)
-      }
+      this.requestTracker.settle(msg as JsonRpcResponse)
     }
   }
 
   // --- Internal: subscriptions ---
 
   private subscribe(method: string, params: RpcParams, eventName: string, callback: EventCallback): () => void {
-    let subId: string | null = null
-    let unsubscribed = false
-
-    this.request(method, params)
-      .then((raw) => {
-        const result = raw as SubscriptionResult
-        if (unsubscribed) {
-          // User already called unsubscribe before server responded
-          if (result.subscription_id) {
-            this.request('subscribe.unsubscribe', { subscription_id: result.subscription_id }).catch(() => {})
-          }
-          return
-        }
-        subId = result.subscription_id
-        this.subscriptions.set(subId!, { method, params, event: eventName, callback })
-        this.addEventListener(eventName, callback)
-      })
-      .catch((err) => {
-        log.error(`Subscription ${method} failed:`, err)
-      })
-
-    return () => {
-      unsubscribed = true
-      if (subId) {
-        this.removeEventListener(eventName, callback)
-        this.unsubscribe(subId).catch(() => {})
-      }
-    }
-  }
-
-  private addEventListener(event: string, callback: EventCallback): void {
-    let set = this.eventListeners.get(event)
-    if (!set) {
-      set = new Set()
-      this.eventListeners.set(event, set)
-    }
-    set.add(callback)
-  }
-
-  private removeEventListener(event: string, callback: EventCallback): void {
-    const set = this.eventListeners.get(event)
-    if (set) {
-      set.delete(callback)
-      if (set.size === 0) this.eventListeners.delete(event)
-    }
-  }
-
-  private dispatchEvent(event: string, data: unknown): void {
-    const set = this.eventListeners.get(event)
-    if (!set) return
-    for (const cb of set) {
-      try {
-        cb(data)
-      } catch (err) {
-        log.error(`Event handler error (${event}):`, err)
-      }
-    }
-  }
-
-  // --- Internal: connection management ---
-
-  private doConnect(): Promise<void> {
-    this.connecting = true
-    return new Promise((resolve, reject) => {
-      const url = `ws://127.0.0.1:${this.wsPort}`
-      const ws = new WebSocket(url)
-
-      const onOpenOnce = async () => {
-        cleanup()
-        this.ws = ws
-        this.connecting = false
-        this.reconnectAttempt = 0
-        this.setupListeners(ws)
-        this.startHeartbeat()
-
-        // Probe the liteserver pool before marking the connection as ready.
-        // The bridge WS may accept connections before its liteserver pool
-        // has completed ADNL handshakes, causing "context deadline exceeded"
-        // on the first real requests. Polling getMasterchainInfo verifies
-        // end-to-end readiness.
-        await this.waitForPoolReady()
-
-        this.connected = true
-        this.drainQueue()
-        log.info(`Connected to bridge on port ${this.wsPort}`)
-        resolve()
-      }
-
-      const onErrorOnce = (err: Error) => {
-        cleanup()
-        this.connecting = false
-        log.error('Bridge connection failed:', err.message)
-        reject(err)
-      }
-
-      const onCloseOnce = () => {
-        cleanup()
-        this.connecting = false
-        reject(new Error('Connection closed before open'))
-      }
-
-      const cleanup = () => {
-        ws.removeListener('open', onOpenOnce)
-        ws.removeListener('error', onErrorOnce)
-        ws.removeListener('close', onCloseOnce)
-      }
-
-      ws.once('open', onOpenOnce)
-      ws.once('error', onErrorOnce)
-      ws.once('close', onCloseOnce)
-    })
+    return this.subscriptions.subscribe(method, params, eventName, callback)
   }
 
   /**
@@ -591,7 +341,7 @@ export class WsBridgeClient {
         const id = String(++this.nextId)
         const msg = JSON.stringify({ jsonrpc: '2.0', id, method: 'lite.getMasterchainInfo', params: {} })
         await this.sendRequest(id, msg, 'lite.getMasterchainInfo')
-        log.info(`Bridge liteserver pool ready (probe ${i + 1})`)
+        log.debug(`Bridge liteserver pool ready (probe ${i + 1})`)
         return
       } catch {
         const delay = Math.min(READINESS_PROBE_BASE_MS * Math.pow(2, i), 5_000)
@@ -601,117 +351,17 @@ export class WsBridgeClient {
     log.warn('Bridge liteserver pool did not respond to readiness probes, proceeding anyway')
   }
 
-  private setupListeners(ws: WebSocket): void {
-    ws.on('message', (data) => this.handleMessage(data))
-    ws.on('pong', () => this.onPong())
-
-    ws.on('close', (code, reason) => {
-      log.warn(`Bridge connection closed: ${code} ${reason}`)
-      this.onDisconnect()
-    })
-
-    ws.on('error', (err) => {
-      log.error('Bridge WebSocket error:', err.message)
-    })
-  }
-
-  private onDisconnect(): void {
-    this.connected = false
-    this.clearTimers()
-    if (this.ws) {
-      this.ws.removeAllListeners()
-      this.ws = null
-    }
-    // Reject pending requests
-    for (const entry of this.pending.values()) {
-      clearTimeout(entry.timer)
-      entry.reject(new Error('Connection lost'))
-    }
-    this.pending.clear()
-
-    if (!this.destroyed) {
-      this.scheduleReconnect()
-    }
-  }
-
-  private scheduleReconnect(): void {
-    if (this.reconnectTimer) return
-    const delay = Math.min(RECONNECT_BASE_MS * Math.pow(2, this.reconnectAttempt), RECONNECT_MAX_MS)
-    this.reconnectAttempt++
-    log.info(`Reconnecting in ${delay}ms (attempt ${this.reconnectAttempt})`)
-
-    this.reconnectTimer = setTimeout(async () => {
-      this.reconnectTimer = null
-      try {
-        await this.doConnect()
-        // Re-subscribe active subscriptions after reconnect
-        this.resubscribeAll()
-      } catch {
-        if (!this.destroyed) {
-          this.scheduleReconnect()
-        }
-      }
-    }, delay)
-  }
-
-  private resubscribeAll(): void {
-    const entries = Array.from(this.subscriptions.values())
-    this.subscriptions.clear()
-    this.eventListeners.clear()
-    if (entries.length === 0) return
-
-    log.info(`Re-subscribing ${entries.length} subscriptions after reconnect`)
-    for (const entry of entries) {
-      // sendAndWatch subscriptions cannot be re-established (the BOC was already sent)
-      if (entry.method === 'lite.sendAndWatch') continue
-      this.subscribe(entry.method, entry.params, entry.event, entry.callback)
-    }
-  }
-
   private drainQueue(): void {
     const queue = this.requestQueue
     this.requestQueue = []
-    for (const { message, resolve, reject, method, timeoutMs } of queue) {
-      // Re-parse the id from the queued message
-      try {
-        const parsed = JSON.parse(message)
-        this.sendRequest(parsed.id, message, method, timeoutMs).then(resolve, reject)
-      } catch {
-        reject(new Error('Failed to replay queued request'))
+    for (const { id, message, resolve, reject, method, deadline, timer } of queue) {
+      clearTimeout(timer)
+      const remainingMs = deadline - Date.now()
+      if (remainingMs <= 0) {
+        reject(new Error(`Request timeout: ${method}`))
+        continue
       }
-    }
-  }
-
-  // --- Internal: heartbeat ---
-
-  private startHeartbeat(): void {
-    this.heartbeatTimer = setInterval(() => {
-      if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return
-      this.ws.ping()
-      this.pongTimer = setTimeout(() => {
-        log.warn('Pong timeout, reconnecting')
-        if (this.ws) {
-          this.ws.terminate()
-        }
-      }, PONG_TIMEOUT_MS - HEARTBEAT_INTERVAL_MS)
-    }, HEARTBEAT_INTERVAL_MS)
-  }
-
-  private onPong(): void {
-    if (this.pongTimer) {
-      clearTimeout(this.pongTimer)
-      this.pongTimer = null
-    }
-  }
-
-  private clearTimers(): void {
-    if (this.heartbeatTimer) {
-      clearInterval(this.heartbeatTimer)
-      this.heartbeatTimer = null
-    }
-    if (this.pongTimer) {
-      clearTimeout(this.pongTimer)
-      this.pongTimer = null
+      this.sendRequest(id, message, method, remainingMs).then(resolve, reject)
     }
   }
 }

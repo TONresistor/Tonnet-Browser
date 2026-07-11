@@ -7,10 +7,10 @@
  *  - durable, secret-safe writes via writeSecureJsonAtomic (0o600)
  */
 import path from 'path'
-import fs from 'fs'
+import { readFile } from 'fs/promises'
 import { randomBytes } from 'crypto'
 import { cpus } from 'os'
-import { writeSecureJsonAtomic } from '../utils/secure-fs'
+import { writeSecureJsonAtomicAsync } from '../utils/secure-fs'
 import { createLogger } from '../../shared/logger'
 import { CHAT_NAMESPACES, DEFAULT_NAMESPACE_STATE, REQUIRED_NAMESPACES } from '../../shared/bridge-config'
 
@@ -58,12 +58,11 @@ function applyMessengerNamespaceState(config: BridgeConfigJson, enabled: boolean
  * preserves user overrides on subsequent launches via _browserDefaults flag.
  * Required namespaces are always re-enforced regardless.
  */
-export function applyBridgeDefaults(workDir: string, options: ApplyBridgeDefaultsOptions = {}): void {
+export async function applyBridgeDefaults(workDir: string, options: ApplyBridgeDefaultsOptions = {}): Promise<void> {
   const configPath = path.join(workDir, 'config.json')
-  if (!fs.existsSync(configPath)) return
 
   try {
-    const config = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as BridgeConfigJson
+    const config = JSON.parse(await readFile(configPath, 'utf-8')) as BridgeConfigJson
     if (config._browserDefaults) {
       // Already applied, only enforce required namespaces
       let changed = false
@@ -78,8 +77,8 @@ export function applyBridgeDefaults(workDir: string, options: ApplyBridgeDefault
       }
       changed = applyMessengerNamespaceState(config, options.enableChatNamespaces === true) || changed
       if (changed) {
-        writeSecureJsonAtomic(configPath, config)
-        log.info('Re-enforced managed bridge namespaces')
+        await writeSecureJsonAtomicAsync(configPath, config)
+        log.debug('Re-enforced managed bridge namespaces')
       }
       return
     }
@@ -94,53 +93,52 @@ export function applyBridgeDefaults(workDir: string, options: ApplyBridgeDefault
     }
     applyMessengerNamespaceState(config, options.enableChatNamespaces === true)
     config._browserDefaults = true
-    writeSecureJsonAtomic(configPath, config)
+    await writeSecureJsonAtomicAsync(configPath, config)
 
     const disabled = Object.entries(DEFAULT_NAMESPACE_STATE)
       .filter(([, v]) => !v)
       .map(([k]) => k)
-    log.info(`Bridge namespace defaults applied, disabled: ${disabled.join(', ')}`)
+    log.debug(`Bridge namespace defaults applied, disabled: ${disabled.join(', ')}`)
   } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return
     log.warn('Failed to apply bridge defaults:', err)
   }
 }
 
-export function syncMessengerBridgeNamespaces(workDir: string, enabled: boolean): boolean {
+export async function syncMessengerBridgeNamespaces(workDir: string, enabled: boolean): Promise<boolean> {
   const configPath = path.join(workDir, 'config.json')
-  if (!fs.existsSync(configPath)) return false
 
   try {
-    const config = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as BridgeConfigJson
+    const config = JSON.parse(await readFile(configPath, 'utf-8')) as BridgeConfigJson
     const changed = applyMessengerNamespaceState(config, enabled)
     if (changed) {
-      writeSecureJsonAtomic(configPath, config)
-      log.info(`Messenger bridge namespaces ${enabled ? 'enabled' : 'disabled'}`)
+      await writeSecureJsonAtomicAsync(configPath, config)
+      log.debug(`Messenger bridge namespaces ${enabled ? 'enabled' : 'disabled'}`)
     }
     return changed
   } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return false
     log.warn('Failed to sync messenger bridge namespaces:', err)
     return false
   }
 }
 
-export function writeProxyConfig(workDir: string, tunnelSections: number): void {
+export async function writeProxyConfig(workDir: string, tunnelSections: number): Promise<void> {
   const configPath = path.join(workDir, 'config.json')
 
-  if (fs.existsSync(configPath)) {
-    // Patch existing config
-    try {
-      const existing = JSON.parse(fs.readFileSync(configPath, 'utf-8'))
-      if (existing.TunnelConfig) {
-        existing.TunnelConfig.NodesPoolConfigPath = ''
-        existing.TunnelConfig.TunnelSectionsNum = tunnelSections
-      }
-      existing.BlockHTTP = true // always block cleartext HTTP
-      writeSecureJsonAtomic(configPath, existing, 2)
-      log.info(`Proxy config updated: tunnelSections=${tunnelSections}`)
-      return
-    } catch {
-      // Corrupted config -- regenerate below
+  // Patch existing config when readable; corrupted or missing files regenerate.
+  try {
+    const existing = JSON.parse(await readFile(configPath, 'utf-8'))
+    if (existing.TunnelConfig) {
+      existing.TunnelConfig.NodesPoolConfigPath = ''
+      existing.TunnelConfig.TunnelSectionsNum = tunnelSections
     }
+    existing.BlockHTTP = true // always block cleartext HTTP
+    await writeSecureJsonAtomicAsync(configPath, existing, 2)
+    log.debug(`Proxy config updated: tunnelSections=${tunnelSections}`)
+    return
+  } catch {
+    // Corrupted or missing config -- regenerate below.
   }
 
   // First run: generate config with correct tunnel settings immediately
@@ -173,6 +171,6 @@ export function writeProxyConfig(workDir: string, tunnelSections: number): void 
       },
     },
   }
-  writeSecureJsonAtomic(configPath, config, 2)
-  log.info(`Proxy config generated: tunnelSections=${tunnelSections}`)
+  await writeSecureJsonAtomicAsync(configPath, config, 2)
+  log.debug(`Proxy config generated: tunnelSections=${tunnelSections}`)
 }
