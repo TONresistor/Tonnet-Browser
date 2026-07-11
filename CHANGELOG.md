@@ -7,12 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.4.0] - 2026-07-11
+
 ### Added
 
 - Canonical runtime-validated IPC contracts with typed preload and handler boundaries.
 - Shared supervision for proxy, bridge, storage and Cocoon native processes.
 - Versioned repositories and compatibility fixtures for persisted browser data.
 - Automated architecture, bundle-budget, native-binary and release-metadata gates.
+- Structured, bounded diagnostics with a temporary verbose mode and copyable reports.
 
 ### Changed
 
@@ -20,12 +23,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Split renderer code into feature-owned routes, clients, stores and components.
 - Pinned bundled native helpers to immutable upstream commits and added build provenance, SBOM and artifact verification.
 - Reduced main and preload bundle sizes while keeping the initial renderer bundle within its regression budget.
+- Short, redacted application logs with isolated native-process output and bounded rotation.
 
 ### Fixed
 
 - Settings category IPC responses now preserve the requested category instead of being coerced to another settings shape.
 - Tabs, views, sessions, listeners and timers are disposed by their owning lifecycle.
 - Native helper restarts use bounded backoff and settle concurrent start attempts consistently.
+- Bridge and chat requests now fail cleanly instead of remaining pending during reconnects.
 
 ### Security
 
@@ -353,7 +358,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Preload script path for ES module builds.
 - Utya Duck theme persistence and colors.
 
-[Unreleased]: https://github.com/TONresistor/Tonnet-Browser/compare/v2.2.0...HEAD
+[Unreleased]: https://github.com/TONresistor/Tonnet-Browser/compare/v2.4.0...HEAD
+[2.4.0]: https://github.com/TONresistor/Tonnet-Browser/compare/v2.3.1...v2.4.0
 [2.2.0]: https://github.com/TONresistor/Tonnet-Browser/compare/v2.1.0...v2.2.0
 [2.1.0]: https://github.com/TONresistor/Tonnet-Browser/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/TONresistor/Tonnet-Browser/compare/v1.6.2...v2.0.0
