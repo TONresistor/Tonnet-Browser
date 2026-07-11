@@ -44,6 +44,19 @@ describe('main renderer preload boundary', () => {
     expect(electron.invoke).toHaveBeenCalledWith('settings:get', 'general')
   })
 
+  it('exposes temporary diagnostic logging through canonical settings channels', async () => {
+    electron.invoke.mockResolvedValue({ enabled: true, until: Date.now() + 1_000 })
+    const api = await loadPreload()
+
+    await api.settings.diagnostics.enable()
+    await api.settings.diagnostics.disable()
+    await api.settings.diagnostics.copy()
+
+    expect(electron.invoke).toHaveBeenCalledWith('settings:diagnostics:enable')
+    expect(electron.invoke).toHaveBeenCalledWith('settings:diagnostics:disable')
+    expect(electron.invoke).toHaveBeenCalledWith('settings:diagnostics:copy')
+  })
+
   it('turns a sanitized IPC failure envelope into a typed rejected client call', async () => {
     electron.invoke.mockResolvedValue({
       ok: false,

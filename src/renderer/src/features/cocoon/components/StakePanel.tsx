@@ -110,7 +110,7 @@ export const StakePanel = memo(function StakePanel() {
       try {
         await refresh()
       } catch (e) {
-        log.warn('refresh failed', e)
+        log.debug('refresh failed', e)
       }
       if (cancelled) return
       const isFast = view?.kind === 'withdrawing' || actionPending !== null

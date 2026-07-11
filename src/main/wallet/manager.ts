@@ -95,6 +95,7 @@ export class WalletManager extends EventEmitter {
    */
   async init(): Promise<void> {
     if (this.initialized) return
+    const startedAt = Date.now()
 
     const network = getSetting('network')
     this.wsBridge = new WsBridgeClient(network.wsPort)
@@ -114,7 +115,9 @@ export class WalletManager extends EventEmitter {
         if (this.keyStorage.isBasicTextBackend()) {
           this.weakEncryption = true
         }
-        log.info('Wallet loaded successfully')
+        log.status('wallet.ready', `wallet ready · ${Date.now() - startedAt}ms`, {
+          durationMs: Date.now() - startedAt,
+        })
       } catch (error) {
         if (error instanceof WalletDecryptionError) {
           log.error('Wallet decryption failed (keyring backend may have changed):', error)
@@ -398,7 +401,7 @@ export class WalletManager extends EventEmitter {
     })
     const { boc, seqno, validUntil } = await this.buildBoc([message], paymentReq.maxTimeoutSeconds)
     this.emit('payment-signed', paymentReq)
-    log.info(`x402 payment signed: ${paymentReq.amount} nanoTON to ${paymentReq.payTo.substring(0, 12)}...`)
+    log.event('info', 'payment.signed', 'HTTP 402 payment signed')
     return {
       signedBoc: boc,
       walletPublicKey: this.publicKey.toString('hex'),

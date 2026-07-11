@@ -16,6 +16,10 @@ const tabsMocks = vi.hoisted(() => ({
   loadBagFile: vi.fn(() => Promise.resolve()),
   getActiveTabId: vi.fn(() => 'tab-1'),
 }))
+const loggingMocks = vi.hoisted(() => ({
+  flushNativeLogs: vi.fn(() => Promise.resolve()),
+  clipboardWriteText: vi.fn(),
+}))
 const { createTab, closeTab, switchTab, getActiveView, hideAllViews, showActiveView, navigateInTab, getActiveTabId } =
   tabsMocks
 
@@ -56,7 +60,9 @@ vi.mock('electron', () => ({
   },
   app: {
     getPath: vi.fn(() => '/tmp/tonnet-test'),
+    getVersion: vi.fn(() => '2.3.1'),
   },
+  clipboard: { writeText: loggingMocks.clipboardWriteText },
   safeStorage: {
     isEncryptionAvailable: vi.fn(() => false),
     encryptString: vi.fn((s: string) => Buffer.from(s)),
@@ -68,6 +74,8 @@ vi.mock('electron', () => ({
   },
   IpcMainInvokeEvent: {},
 }))
+
+vi.mock('../../logging/native-log-router', () => ({ flushNativeLogs: loggingMocks.flushNativeLogs }))
 
 // Mock proxy manager (class export only, singleton removed)
 vi.mock('../../proxy/manager', () => ({
@@ -577,6 +585,17 @@ describe('IPC Handlers', () => {
       await handler(createMockEvent())
 
       expect(resetSettings).toHaveBeenCalled()
+    })
+
+    it('flushes native logs before copying the diagnostic report', async () => {
+      const handler = mockHandlers.get(IPC_CHANNELS.SETTINGS_DIAGNOSTICS_COPY)!
+      await handler(createMockEvent())
+
+      expect(loggingMocks.flushNativeLogs).toHaveBeenCalledOnce()
+      expect(loggingMocks.clipboardWriteText).toHaveBeenCalledOnce()
+      expect(loggingMocks.flushNativeLogs.mock.invocationCallOrder[0]).toBeLessThan(
+        loggingMocks.clipboardWriteText.mock.invocationCallOrder[0]
+      )
     })
   })
 

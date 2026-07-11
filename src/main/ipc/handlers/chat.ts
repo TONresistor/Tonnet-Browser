@@ -69,7 +69,7 @@ async function resolveCandidates(
         }
       }
     } catch (err) {
-      log.warn(`chat: DHT node discovery for ${room} failed: ${toError(err).message}`)
+      log.event('warn', 'chat.discovery.failed', 'chat node discovery failed', { error: toError(err) })
     }
   }
 
@@ -128,7 +128,7 @@ async function announcePresence(
   if (session.gated && !session.cert) {
     const req = buildSigned(seed, { type: 'cert-req', nick: '', text: '', ts: Date.now(), room }, proof)
     await sendEnvelope(bridge, session.overlayId, req, seed)
-    log.info(`chat: requested membership for gated room ${room}`)
+    log.event('info', 'chat.membership.requested', 'chat membership requested')
     return
   }
   const hello = buildSigned(
@@ -202,7 +202,7 @@ async function handleEnrollment(
       proof
     )
     await sendEnvelope(bridge, session.overlayId, grant, seed, session.cert)
-    log.info(`chat: granted membership to ${env.key.slice(0, 12)}… in ${room}`)
+    log.event('info', 'chat.membership.granted', 'chat membership granted')
     return
   }
 
@@ -214,7 +214,7 @@ async function handleEnrollment(
     }
     await membership.storeCert(room, cert)
     session.cert = cert
-    log.info(`chat: received membership certificate for ${room}`)
+    log.event('info', 'chat.membership.received', 'chat membership certificate received')
     await announcePresence(session, bridge, identity, membership, seed, room).catch(() => {})
   }
 }
@@ -271,7 +271,9 @@ async function connectRoom(
           if (env.type === 'cert-req' || env.type === 'cert-grant') {
             const verdict = classify(env, room, receivedAt)
             if (verdict.drop) {
-              log.warn(`chat: dropped enrollment message in ${room}: ${verdict.reason}`)
+              log.event('warn', 'chat.enrollment.dropped', 'chat enrollment message dropped', {
+                reason: verdict.reason,
+              })
               return
             }
             const activeSession = controller.session
@@ -290,7 +292,7 @@ async function connectRoom(
           if (isDm && (env.to !== ownKey || !env.key)) return
           const verdict = classify(env, room, receivedAt)
           if (verdict.drop) {
-            log.warn(`chat: dropped message in ${room}: ${verdict.reason}`)
+            log.event('warn', 'chat.message.dropped', 'chat message dropped', { reason: verdict.reason })
             return
           }
           let msgIdentity = verdict.identity
@@ -305,7 +307,7 @@ async function connectRoom(
             try {
               plain = openDM(seed, Buffer.from(env.key as string, 'hex'), Buffer.from(String(env.text ?? ''), 'base64'))
             } catch {
-              log.warn(`chat: undecryptable dm from ${msgIdentity.addressShort}`)
+              log.event('warn', 'chat.dm.decrypt_failed', 'chat direct message could not be decrypted')
               return
             }
             emitContractToRenderer(chatDmMessageContract, {
@@ -353,7 +355,7 @@ async function connectRoom(
           clearInterval(keepalive)
           unsub()
           await bridge.overlayLeaveAndDisconnect(overlayId, peerId).catch(() => {})
-          log.info(`chat: left room ${room}`)
+          log.debug('chat: left room')
         },
       }
 
@@ -361,12 +363,15 @@ async function connectRoom(
         log.warn(`chat: presence announce failed (will register on first send): ${toError(err).message}`)
       )
 
-      log.info(`chat: joined room ${room} via ${cand.via} (${candidates.length} candidate node(s))`)
+      log.event('info', 'chat.room.joined', 'chat room joined', { via: cand.via, candidates: candidates.length })
       return connectedSession
     } catch (err) {
       unsub()
       lastErr = toError(err)
-      log.warn(`chat: candidate ${cand.adnl.slice(0, 12)}… (${cand.via}) failed: ${lastErr.message}`)
+      log.event('warn', 'chat.candidate.failed', 'chat connection candidate failed', {
+        via: cand.via,
+        error: lastErr,
+      })
     }
   }
   throw lastErr ?? new Error(`Could not connect to any node for room "${room}"`)

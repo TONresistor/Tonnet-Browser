@@ -36,7 +36,7 @@ function validatePathInDownloadDir(targetPath: string): void {
   const resolved = path.resolve(targetPath)
   // Ensure resolved path is inside the download directory (prevent path traversal)
   if (!resolved.startsWith(downloadDir + path.sep) && resolved !== downloadDir) {
-    log.warn(`Blocked shell.openPath outside allowed directory: ${resolved}`)
+    log.event('warn', 'security.storage.open_path_blocked', 'blocked path outside allowed storage directory')
     ipcFailure('PATH_OUTSIDE_DOWNLOAD_DIRECTORY', 'Path outside allowed directory')
   }
 }

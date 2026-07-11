@@ -3,7 +3,7 @@
  */
 
 import { errorMessage } from '../../../shared/errors'
-import { app, dialog } from 'electron'
+import { app, clipboard, dialog } from 'electron'
 import path from 'path'
 import { isValidDownloadPath } from '../validation'
 import { SETTINGS_CATEGORIES, validateCategoryValues } from '../../settings/validation'
@@ -25,16 +25,28 @@ import {
   settingsChangedContract,
   settingsGetAllContract,
   settingsGetContract,
+  settingsDiagnosticsGetContract,
+  settingsDiagnosticsEnableContract,
+  settingsDiagnosticsDisableContract,
+  settingsDiagnosticsCopyContract,
   settingsResetContract,
   settingsSetContract,
   clearBrowsingDataContract,
 } from '../../../shared/ipc-contract/settings'
+import {
+  diagnosticLoggingStatus,
+  disableDiagnosticLogging,
+  enableDiagnosticLogging,
+  createLogger,
+} from '../../../shared/logger'
 import {
   storageGetDownloadPathContract,
   storageSelectDownloadFolderContract,
   storageSetDownloadPathContract,
 } from '../../../shared/ipc-contract/storage'
 import { ipcFailure, secureContractHandle } from '../contract-handler'
+import { buildDiagnosticReport } from '../../logging/diagnostic-report'
+import { flushNativeLogs } from '../../logging/native-log-router'
 
 function getBridgeWorkDir(): string {
   return path.join(app.getPath('userData'), 'bridge')
@@ -67,13 +79,15 @@ export function registerSettingsHandlers(registry: ServiceRegistry): void {
     // Security: Validate path before setting
     const validation = isValidDownloadPath(inputPath)
     if (!validation.valid) {
-      log.warn(`Invalid download path: ${inputPath} - ${validation.error}`)
+      log.event('warn', 'settings.download_path.invalid', 'invalid download path rejected', {
+        reason: validation.error,
+      })
       ipcFailure('INVALID_DOWNLOAD_PATH', 'Invalid download path')
     }
 
     try {
       await setDownloadPath(inputPath)
-      log.info(`Download path set to: ${inputPath}`)
+      log.event('info', 'settings.download_path.updated', 'download folder updated')
       return { success: true as const }
     } catch (error) {
       ipcFailure('DOWNLOAD_PATH_WRITE_FAILED', 'Unable to save download path', false, error)
@@ -98,7 +112,7 @@ export function registerSettingsHandlers(registry: ServiceRegistry): void {
 
     const selectedPath = result.filePaths[0]
     await setDownloadPath(selectedPath)
-    log.info(`Download folder selected: ${selectedPath}`)
+    log.event('info', 'settings.download_path.selected', 'download folder selected')
     return { success: true as const, path: selectedPath }
   })
 
@@ -113,6 +127,28 @@ export function registerSettingsHandlers(registry: ServiceRegistry): void {
       throw new Error('Invalid settings category')
     }
     return getSetting(category)
+  })
+
+  secureContractHandle(settingsDiagnosticsGetContract, () => diagnosticLoggingStatus())
+  secureContractHandle(settingsDiagnosticsEnableContract, () => {
+    const until = enableDiagnosticLogging()
+    createLogger('logging').status('logging.diagnostics.enabled', 'diagnostic logging enabled · 15 min', { until })
+    return diagnosticLoggingStatus()
+  })
+  secureContractHandle(settingsDiagnosticsDisableContract, () => {
+    disableDiagnosticLogging()
+    createLogger('logging').status('logging.diagnostics.disabled', 'diagnostic logging disabled')
+    return diagnosticLoggingStatus()
+  })
+  secureContractHandle(settingsDiagnosticsCopyContract, async () => {
+    await flushNativeLogs()
+    const report = await buildDiagnosticReport(app.getPath('logs'), {
+      appVersion: app.getVersion(),
+      diagnosticLogging: diagnosticLoggingStatus(),
+    })
+    clipboard.writeText(report)
+    createLogger('logging').event('info', 'logging.diagnostics.copied', 'diagnostic report copied')
+    return { success: true as const }
   })
 
   secureContractHandle(settingsSetContract, async (category, values) => {

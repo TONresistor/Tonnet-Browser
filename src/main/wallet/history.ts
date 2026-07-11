@@ -51,7 +51,7 @@ export class WalletHistoryManager {
       history.unshift(tx)
       await this.storage.write(history)
       this.cache = history
-      log.info(`Transaction added: ${tx.type} ${tx.amount} nanoTON`)
+      log.event('debug', 'wallet.history.added', 'wallet history entry added', { type: tx.type, status: tx.status })
     })
   }
 

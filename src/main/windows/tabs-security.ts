@@ -31,11 +31,11 @@ async function openValidatedBagFile(
   try {
     ;[realFullPath, realSafeBasePath] = await Promise.all([realpath(fullPath), realpath(safeBasePath)])
   } catch (error) {
-    log.warn(`Blocked bagfile:// with unresolvable path: ${fullPath}`, error)
+    log.event('warn', 'security.bagfile.unresolvable', 'blocked unresolvable bag file path', { error })
     return
   }
   if (!realFullPath.startsWith(realSafeBasePath + sep) && realFullPath !== realSafeBasePath) {
-    log.warn(`Blocked bagfile:// path traversal: ${fullPath} -> ${realFullPath}`)
+    log.event('warn', 'security.bagfile.path_traversal', 'blocked bag file path traversal')
     return
   }
   try {
@@ -48,7 +48,7 @@ async function openValidatedBagFile(
       canGoForward: false,
     })
   } catch (error) {
-    log.error(`Failed to load bag file: ${fullPath}`, error)
+    log.event('error', 'storage.bagfile.load_failed', 'failed to load bag file', { error })
   }
 }
 
@@ -92,12 +92,14 @@ export function setupSecurityHandlers(view: WebContentsView, tabId: string): Dis
         }
 
         if (!ALLOWED_SCHEMES.includes(parsed.protocol)) {
-          log.warn(`Blocked navigation to unsafe URL: ${url}`)
+          log.event('warn', 'security.navigation.blocked', 'blocked navigation to unsafe scheme', {
+            scheme: parsed.protocol,
+          })
           event.preventDefault()
         }
       } catch (err) {
         log.debug('URL validation failed in will-navigate:', err)
-        log.warn(`Blocked navigation to invalid URL: ${url}`)
+        log.event('warn', 'security.navigation.invalid', 'blocked invalid navigation URL')
         event.preventDefault()
       }
     })
@@ -115,11 +117,11 @@ export function setupSecurityHandlers(view: WebContentsView, tabId: string): Dis
         }
         emitContractToRenderer(contextOpenLinkContract, targetUrl)
       } else {
-        log.warn(`Blocked popup to unsafe URL: ${url}`)
+        log.event('warn', 'security.popup.blocked', 'blocked popup to unsafe scheme', { scheme: parsed.protocol })
       }
     } catch (err) {
       log.debug('URL validation failed in popup handler:', err)
-      log.warn(`Blocked popup to invalid URL: ${url}`)
+      log.event('warn', 'security.popup.invalid', 'blocked popup with invalid URL')
     }
     return { action: 'deny' }
   })
@@ -130,7 +132,7 @@ export function setupSecurityHandlers(view: WebContentsView, tabId: string): Dis
       view.webContents,
       'did-create-window',
       (childWindow: Electron.BrowserWindow, { url }: { url: string }) => {
-        log.warn(`Unexpected child window created, closing and redirecting: ${url}`)
+        log.event('warn', 'security.child_window.unexpected', 'unexpected child window closed')
         childWindow.close()
         if (url && url !== 'about:blank') {
           try {

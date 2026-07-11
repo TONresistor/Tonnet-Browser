@@ -119,5 +119,5 @@ export function registerBridgeHandlers(registry: ServiceRegistry): void {
     }
   })
 
-  log.info('Bridge handlers registered')
+  log.debug('Bridge handlers registered')
 }

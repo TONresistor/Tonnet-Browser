@@ -120,7 +120,7 @@ export function setupViewEventListeners(view: WebContentsView, tabId: string, de
           return
         }
 
-        log.warn(`Page load failed: ${errorDescription} (code: ${errorCode}) for ${validatedURL}`)
+        log.event('warn', 'page.load.failed', 'page load failed', { errorCode, errorDescription })
 
         try {
           const url = new URL(validatedURL)

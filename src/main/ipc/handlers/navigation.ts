@@ -28,7 +28,7 @@ export function registerNavigationHandlers(tabManager: TabManager): void {
     // Security: Validate URL before navigation
     const validation = isValidNavigationUrl(url)
     if (!validation.valid) {
-      log.warn(`Blocked invalid URL: ${url} (${validation.error})`)
+      log.event('warn', 'navigation.invalid_url', 'invalid navigation rejected', { reason: validation.error })
       ipcFailure('INVALID_URL', 'Invalid navigation URL')
     }
 

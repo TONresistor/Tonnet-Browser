@@ -78,7 +78,7 @@ export async function applyBridgeDefaults(workDir: string, options: ApplyBridgeD
       changed = applyMessengerNamespaceState(config, options.enableChatNamespaces === true) || changed
       if (changed) {
         await writeSecureJsonAtomicAsync(configPath, config)
-        log.info('Re-enforced managed bridge namespaces')
+        log.debug('Re-enforced managed bridge namespaces')
       }
       return
     }
@@ -98,7 +98,7 @@ export async function applyBridgeDefaults(workDir: string, options: ApplyBridgeD
     const disabled = Object.entries(DEFAULT_NAMESPACE_STATE)
       .filter(([, v]) => !v)
       .map(([k]) => k)
-    log.info(`Bridge namespace defaults applied, disabled: ${disabled.join(', ')}`)
+    log.debug(`Bridge namespace defaults applied, disabled: ${disabled.join(', ')}`)
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === 'ENOENT') return
     log.warn('Failed to apply bridge defaults:', err)
@@ -113,7 +113,7 @@ export async function syncMessengerBridgeNamespaces(workDir: string, enabled: bo
     const changed = applyMessengerNamespaceState(config, enabled)
     if (changed) {
       await writeSecureJsonAtomicAsync(configPath, config)
-      log.info(`Messenger bridge namespaces ${enabled ? 'enabled' : 'disabled'}`)
+      log.debug(`Messenger bridge namespaces ${enabled ? 'enabled' : 'disabled'}`)
     }
     return changed
   } catch (err) {
@@ -135,7 +135,7 @@ export async function writeProxyConfig(workDir: string, tunnelSections: number):
     }
     existing.BlockHTTP = true // always block cleartext HTTP
     await writeSecureJsonAtomicAsync(configPath, existing, 2)
-    log.info(`Proxy config updated: tunnelSections=${tunnelSections}`)
+    log.debug(`Proxy config updated: tunnelSections=${tunnelSections}`)
     return
   } catch {
     // Corrupted or missing config -- regenerate below.
@@ -172,5 +172,5 @@ export async function writeProxyConfig(workDir: string, tunnelSections: number):
     },
   }
   await writeSecureJsonAtomicAsync(configPath, config, 2)
-  log.info(`Proxy config generated: tunnelSections=${tunnelSections}`)
+  log.debug(`Proxy config generated: tunnelSections=${tunnelSections}`)
 }

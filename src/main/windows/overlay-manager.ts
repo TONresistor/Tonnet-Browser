@@ -124,7 +124,7 @@ export class OverlayManager {
       this.setupClickOutside(id)
     }
 
-    log.info(`Overlay shown: ${id}`)
+    log.debug(`Overlay shown: ${id}`)
   }
 
   private setupClickOutside(id: string): void {
@@ -184,7 +184,7 @@ export class OverlayManager {
     instance.view.webContents.send(overlayContentEventContract.channel, ...payload)
     this.pool.push(instance.view)
     this.active.delete(id)
-    log.info(`Overlay hidden: ${id}`)
+    log.debug(`Overlay hidden: ${id}`)
   }
 
   hideAll(): void {

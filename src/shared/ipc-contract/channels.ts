@@ -34,6 +34,10 @@ export const SETTINGS_CHANNELS = {
   get: 'settings:get',
   set: 'settings:set',
   reset: 'settings:reset',
+  diagnosticsGet: 'settings:diagnostics:get',
+  diagnosticsEnable: 'settings:diagnostics:enable',
+  diagnosticsDisable: 'settings:diagnostics:disable',
+  diagnosticsCopy: 'settings:diagnostics:copy',
   changed: 'settings:changed',
   clearBrowsingData: 'settings:clear-data',
 } as const

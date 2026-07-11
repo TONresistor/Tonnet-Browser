@@ -2,7 +2,7 @@
  * Section Advanced
  */
 
-import { memo } from 'react'
+import { memo, useEffect, useState } from 'react'
 import { RotateCcw } from 'lucide-react'
 import { SectionHeader } from '../shared/SectionHeader'
 import { SettingRow } from '../shared/SettingRow'
@@ -13,6 +13,7 @@ import type { SectionProps } from '../types'
 import { useTranslation } from 'react-i18next'
 import { Http402ExperimentalPanel } from './Http402ExperimentalPanel'
 import type { Http402SectionHandle } from './Http402ExperimentalPanel'
+import { settingsClient } from '@/features/settings/client'
 
 interface AdvancedSectionProps extends SectionProps {
   onResetAll: () => void
@@ -30,6 +31,59 @@ export const AdvancedSection = memo(function AdvancedSection({
   http402SectionRef,
 }: AdvancedSectionProps) {
   const { t } = useTranslation('settings')
+  const [diagnostics, setDiagnostics] = useState<{ enabled: boolean; until: number | null }>({
+    enabled: false,
+    until: null,
+  })
+  const [reportCopied, setReportCopied] = useState(false)
+
+  useEffect(() => {
+    let active = true
+    settingsClient.diagnostics
+      .get()
+      .then((status) => {
+        if (active) setDiagnostics(status)
+      })
+      .catch(() => undefined)
+    return () => {
+      active = false
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!diagnostics.until) return
+    const timeout = window.setTimeout(
+      () => setDiagnostics({ enabled: false, until: null }),
+      Math.max(0, diagnostics.until - Date.now())
+    )
+    return () => window.clearTimeout(timeout)
+  }, [diagnostics.until])
+
+  useEffect(() => {
+    if (!reportCopied) return
+    const timeout = window.setTimeout(() => setReportCopied(false), 2_000)
+    return () => window.clearTimeout(timeout)
+  }, [reportCopied])
+
+  const toggleDiagnostics = async () => {
+    try {
+      const status = diagnostics.enabled
+        ? await settingsClient.diagnostics.disable()
+        : await settingsClient.diagnostics.enable()
+      setDiagnostics(status)
+    } catch {
+      // The setting is diagnostic-only; failure must not destabilize Settings.
+    }
+  }
+
+  const copyDiagnosticReport = async () => {
+    try {
+      await settingsClient.diagnostics.copy()
+      setReportCopied(true)
+    } catch {
+      setReportCopied(false)
+    }
+  }
 
   return (
     <div>
@@ -71,6 +125,24 @@ export const AdvancedSection = memo(function AdvancedSection({
             placeholder="tonnet-sync-check.ton"
             ariaLabel={t('advanced.syncTestDomain')}
           />
+        </SettingRow>
+        <SettingRow label={t('advanced.diagnosticLogging')} description={t('advanced.diagnosticLoggingDesc')}>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => void copyDiagnosticReport()}
+              className="rounded-full border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-muted"
+            >
+              {reportCopied ? t('advanced.diagnosticsCopied') : t('advanced.copyDiagnostics')}
+            </button>
+            <button
+              type="button"
+              onClick={() => void toggleDiagnostics()}
+              className="rounded-full border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-muted"
+            >
+              {diagnostics.enabled ? t('advanced.disableDiagnostics') : t('advanced.enableDiagnostics')}
+            </button>
+          </div>
         </SettingRow>
       </div>
 

@@ -141,7 +141,10 @@ export class TonConnectService {
           return connectError(CONNECT_ERROR.BAD_REQUEST, 'Unknown method')
       }
     } catch (err) {
-      log.error(`TON Connect ${payload?.method} failed for ${domain}:`, err)
+      log.event('error', 'tonconnect.request.failed', 'TON Connect request failed', {
+        method: payload?.method,
+        error: err,
+      })
       if (payload?.method === 'send') {
         return rpcError(payload.message?.id ?? '0', TONCONNECT_ERROR.UNKNOWN, errorMessage(err))
       }
@@ -188,7 +191,7 @@ export class TonConnectService {
     try {
       manifest = await this.manifestLoader.load(event.sender.session, request.manifestUrl)
     } catch (err) {
-      log.warn(`Manifest fetch failed for ${domain}: ${errorMessage(err)}`)
+      log.event('warn', 'tonconnect.manifest.failed', 'TON Connect manifest fetch failed', { error: err })
     }
 
     const appName = manifest?.name || domain
@@ -246,7 +249,7 @@ export class TonConnectService {
       lastRpcId: null,
     })
     this.eventDelivery.track(domain, event.sender)
-    log.info(`TON Connect: ${domain} connected as ${appName}`)
+    log.event('info', 'tonconnect.session.connected', 'TON Connect session established')
 
     return { event: 'connect', id: 0, payload: { items, device: this.buildDeviceInfo() } }
   }

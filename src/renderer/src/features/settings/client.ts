@@ -11,6 +11,12 @@ export const settingsClient = {
   setCategory: (category: keyof AppSettings, values: Record<string, unknown>) =>
     window.electron.settings.set(category, values),
   reset: () => window.electron.settings.reset(),
+  diagnostics: {
+    get: () => window.electron.settings.diagnostics.get(),
+    enable: () => window.electron.settings.diagnostics.enable(),
+    disable: () => window.electron.settings.diagnostics.disable(),
+    copy: () => window.electron.settings.diagnostics.copy(),
+  },
   clearBrowsingData: () => window.electron.clearBrowsingData(),
   onChanged: (listener: (change: SettingsChangedEvent) => void) => window.electron.on('settings:changed', listener),
 }

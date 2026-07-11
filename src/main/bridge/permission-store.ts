@@ -62,7 +62,7 @@ export class BridgePermissionStore {
     for (const p of permissions) {
       this.cache.set(this.key(p.domain, p.scope), { decision: p.decision, grantedAt: p.grantedAt })
     }
-    log.info(`Loaded ${permissions.length} bridge permissions`)
+    log.debug(`Loaded ${permissions.length} bridge permissions`)
   }
 
   getPermission(domain: string, scope: BridgeScope): BridgeDecision | 'unknown' {
@@ -72,13 +72,13 @@ export class BridgePermissionStore {
   setPermission(domain: string, scope: BridgeScope, decision: BridgeDecision): void {
     this.cache.set(this.key(domain, scope), { decision, grantedAt: Date.now() })
     this.persist()
-    log.info(`Permission set: ${domain} / ${scope} = ${decision}`)
+    log.event('info', 'bridge.permission.set', 'bridge permission updated', { scope, decision })
   }
 
   revokePermission(domain: string, scope: BridgeScope): void {
     this.cache.delete(this.key(domain, scope))
     this.persist()
-    log.info(`Permission revoked: ${domain} / ${scope}`)
+    log.event('info', 'bridge.permission.revoked', 'bridge permission revoked', { scope })
   }
 
   getAllPermissions(): BridgePermission[] {

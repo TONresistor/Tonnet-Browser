@@ -25,8 +25,8 @@ const log = createLogger('proxy')
  * Build CLI args for the tonutils-proxy binary.
  * Exported for unit testing.
  */
-export function buildProxyArgs(port: number, general: GeneralSettings): string[] {
-  const args: string[] = ['-addr', `127.0.0.1:${port}`]
+export function buildProxyArgs(port: number, general: GeneralSettings, verbosity = 2): string[] {
+  const args: string[] = ['-addr', `127.0.0.1:${port}`, '-verbosity', String(Math.max(0, Math.min(3, verbosity)))]
   if (general.resolveEth === false) {
     args.push('-no-eth')
   } else if (general.resolveEth === true && general.ethRpc.trim() !== '') {
@@ -108,18 +108,19 @@ export class ProxyManager extends EventEmitter {
         onRetry: (error, attempt, delay) => {
           const message = error instanceof Error ? error.message : String(error)
           log.warn(`Proxy start failed (attempt ${attempt}/${ProxyManager.MAX_START_RETRIES}): ${message}`)
-          log.info(`Retrying in ${delay}ms...`)
+          log.debug(`Retrying in ${delay}ms...`)
         },
       }
     )
   }
 
   private async startOnce(): Promise<void> {
+    const startedAt = Date.now()
     if (this.process) {
       throw new Error('Proxy already running')
     }
 
-    const { network, general } = this.loadSettings()
+    const { network, advanced, general } = this.loadSettings()
 
     const safePort = validatePort(this.port)
     this.port = safePort
@@ -140,22 +141,19 @@ export class ProxyManager extends EventEmitter {
 
     // Spawn proxy process (HTTP proxy for .ton sites)
     if (this.anonymousMode) {
-      log.info(`Starting anonymous proxy from: ${proxyBinPath}`)
-      log.info(`Port: ${safePort}, Mode: tunnel (DHT discovery)`)
-      log.info('Tunnel auto-reroute: managed by adnl-tunnel (on stall)')
+      log.debug(`Starting anonymous proxy from: ${proxyBinPath}`)
+      log.debug(`Port: ${safePort}, Mode: tunnel (DHT discovery)`)
+      log.debug('Tunnel auto-reroute: managed by adnl-tunnel (on stall)')
     } else {
-      log.info(`Starting direct proxy from: ${proxyBinPath}`)
-      log.info(`Port: ${safePort}, Mode: direct`)
+      log.debug(`Starting direct proxy from: ${proxyBinPath}`)
+      log.debug(`Port: ${safePort}, Mode: direct`)
     }
 
     // Proxy output handler
-    const handleProxyOutput = (data: Buffer) => {
-      const raw = data.toString().trim()
+    const handleProxyOutput = (raw: string) => {
       if (!raw) return
       // Strip ANSI escape codes for parsing
       const message = stripAnsi(raw)
-      log.debug(raw)
-      this.emit('log', raw)
 
       // Transition to syncing once DHT/tunnel work begins
       if (this.status === 'starting') {
@@ -197,10 +195,10 @@ export class ProxyManager extends EventEmitter {
     this.supervisor.start({
       name: 'tonutils-proxy',
       command: proxyBinPath,
-      args: buildProxyArgs(safePort, general),
+      args: buildProxyArgs(safePort, general, advanced.proxyVerbosity),
       options: { windowsHide: true, cwd: proxyWorkDir },
-      onStdout: handleProxyOutput,
-      onStderr: handleProxyOutput,
+      onRawLine: ({ line }) => handleProxyOutput(line),
+      onLine: ({ line }) => this.emit('log', line),
       onExit: (code) => {
         log.info(`Proxy exited with code: ${code}`)
         this.setStatus('stopped')
@@ -215,6 +213,10 @@ export class ProxyManager extends EventEmitter {
 
     await this.waitForReady()
     this.setStatus('connected')
+    log.status('proxy.ready', `proxy ready · ${Date.now() - startedAt}ms`, {
+      durationMs: Date.now() - startedAt,
+      port: safePort,
+    })
 
     // Start bridge AFTER proxy is ready to avoid DHT contention
     if (!this.bridge.isRunning()) {
@@ -237,7 +239,7 @@ export class ProxyManager extends EventEmitter {
   private setStatus(status: ProxyStatus): void {
     this.status = status
     this.emit('status', status)
-    log.info(`Status: ${status}`)
+    log.event('debug', 'proxy.status.changed', `status ${status}`, { status })
   }
 
   async stop(): Promise<void> {
@@ -330,7 +332,7 @@ export class ProxyManager extends EventEmitter {
           output.includes('listening on') ||
           output.includes('proxy listening')
         ) {
-          log.info('Proxy is ready')
+          log.debug('Proxy is ready')
           return true
         }
         return false

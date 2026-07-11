@@ -3,6 +3,7 @@ import type { IpcMainInvokeEvent } from 'electron'
 import { IpcBoundaryError, overlayHandle, secureHandleWithEvent, tonsiteHandle } from './handlers/shared'
 import { DisposableStore, onEmitter, type IDisposable } from '../utils/disposable'
 import type { EventEmitter } from 'node:events'
+import { createOperationId, runWithLogContext } from '../../shared/logger'
 
 /** Abort an IPC operation with a stable public error and a local-only cause. */
 export function ipcFailure(code: string, message: string, retryable = false, cause?: unknown): never {
@@ -97,7 +98,7 @@ export function secureContractHandle<TArgs extends readonly unknown[], TResult>(
     secureHandleWithEvent(contract.channel, async (event, ...rawArgs: unknown[]) => {
       enforceRateLimit(`sender:${event.sender.id}`)
       const args = parseInput(contract, rawArgs)
-      return runHandler(contract, () => handler(...args))
+      return runWithLogContext(createOperationId('ipc'), () => runHandler(contract, () => handler(...args)))
     })
   )
 }
@@ -118,7 +119,9 @@ export function tonsiteContractHandle<TArgs extends readonly unknown[], TResult>
           : `sender:${event.sender.id}`
       )
       const args = parseInput(contract, rawArgs)
-      return runHandler(contract, () => handler(domain, event, ...args))
+      return runWithLogContext(createOperationId('tonsite'), () =>
+        runHandler(contract, () => handler(domain, event, ...args))
+      )
     })
   )
 }
@@ -136,7 +139,7 @@ export function overlayContractHandle<TArgs extends readonly unknown[], TResult>
     overlayHandle(contract.channel, isAuthorized, async (event, ...rawArgs: unknown[]) => {
       enforceRateLimit(`sender:${event.sender.id}`)
       const args = parseInput(contract, rawArgs)
-      return runHandler(contract, () => handler(event, ...args))
+      return runWithLogContext(createOperationId('overlay'), () => runHandler(contract, () => handler(event, ...args)))
     })
   )
 }

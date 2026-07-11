@@ -79,6 +79,36 @@ describe('NativeProcessSupervisor', () => {
     expect(supervisor.state).toBe('crashed')
   })
 
+  it('flushes an unterminated native line when stopped', async () => {
+    const child = processMock()
+    spawn.mockReturnValue(child)
+    const onLine = vi.fn()
+    const supervisor = new NativeProcessSupervisor()
+    supervisor.start({ name: 'daemon', command: '/bin/daemon', args: [], onLine })
+
+    child.stdout.emit('data', Buffer.from('partial line'))
+    expect(onLine).not.toHaveBeenCalled()
+    await supervisor.stop()
+
+    expect(onLine).toHaveBeenCalledWith(expect.objectContaining({ line: 'partial line', stream: 'stdout' }))
+  })
+
+  it('keeps draining child pipes between exit and close', () => {
+    const child = processMock()
+    spawn.mockReturnValue(child)
+    const onLine = vi.fn()
+    const supervisor = new NativeProcessSupervisor()
+    supervisor.start({ name: 'daemon', command: '/bin/daemon', args: [], onLine })
+
+    child.emit('exit', 17)
+    child.stderr.emit('data', Buffer.from('ERROR final crash detail\n'))
+    child.emit('close', 17)
+
+    expect(onLine).toHaveBeenCalledWith(
+      expect.objectContaining({ line: 'ERROR final crash detail', stream: 'stderr', level: 'error' })
+    )
+  })
+
   it('resolves a bounded injected readiness probe', async () => {
     const child = processMock()
     spawn.mockReturnValue(child)
@@ -110,14 +140,16 @@ describe('NativeProcessSupervisor', () => {
     spawn.mockReturnValue(child)
     const supervisor = new NativeProcessSupervisor()
     supervisor.start({ name: 'daemon', command: '/bin/daemon', args: [] })
+    const stdoutBaseline = child.stdout.listenerCount('data')
+    const stderrBaseline = child.stderr.listenerCount('data')
     const waiting = supervisor.waitForOutput({
       matches: (data) => data.toString().includes('LISTENING'),
       timeoutMs: 1_000,
     })
     child.stderr.emit('data', Buffer.from('LISTENING 127.0.0.1'))
     await waiting
-    expect(child.stdout.listenerCount('data')).toBe(0)
-    expect(child.stderr.listenerCount('data')).toBe(0)
+    expect(child.stdout.listenerCount('data')).toBe(stdoutBaseline)
+    expect(child.stderr.listenerCount('data')).toBe(stderrBaseline)
   })
 
   it('classifies a port-conflict exit as a readiness failure and crash', async () => {

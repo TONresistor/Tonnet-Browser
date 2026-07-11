@@ -3,10 +3,10 @@
  * Creates the browser window and initializes all services.
  */
 
-import log from '../shared/logger'
+import log, { configureApplicationLogging, createLogger } from '../shared/logger'
 import { app, BrowserWindow, shell, Menu, protocol, net } from 'electron'
 import { join, resolve, dirname, sep } from 'path'
-import { mkdirSync } from 'fs'
+import { chmodSync, existsSync, mkdirSync, renameSync, rmSync } from 'fs'
 import { migrateUserData } from './utils/migrate-userdata'
 import { EventEmitter } from 'events'
 import { pathToFileURL } from 'url'
@@ -29,6 +29,7 @@ import { loadWindowBounds, saveWindowBounds, flushWindowBoundsOnQuit } from './w
 import { autostartCocoonIfEnabled } from './cocoon/autostart'
 import { runCleanup, isCleanupInProgress } from './app-cleanup'
 import { reapStaleDaemons, installDaemonSignalHandlers } from './daemon-registry'
+import { configureNativeLogging } from './logging/native-log-router'
 import { setupMainContextMenu } from './windows/main-context-menu'
 import {
   proxyAutoConnectEventContract,
@@ -57,6 +58,8 @@ protocol.registerSchemesAsPrivileged([
 
 // Log MaxListenersExceededWarning to help detect memory leaks during development
 const appLog = log.scope('app')
+const browserLog = createLogger('browser')
+const applicationStartedAt = Date.now()
 
 /**
  * Run a deferred startup step (sync or async), logging on failure instead of
@@ -127,9 +130,22 @@ app.setName('TON Browser')
   // Without this, electron-log resolves app.getPath('logs') via app.name and
   // writes to ~/.config/TON Browser/logs, which does not exist on fresh installs.
   const canonicalLogs = join(canonicalUserData, 'logs')
-  mkdirSync(canonicalLogs, { recursive: true })
+  mkdirSync(canonicalLogs, { recursive: true, mode: 0o700 })
+  chmodSync(canonicalLogs, 0o700)
   app.setPath('logs', canonicalLogs)
-  log.transports.file.resolvePathFn = () => join(canonicalLogs, 'main.log')
+  const applicationLogPath = join(canonicalLogs, 'app.log')
+  const legacyLogPath = join(canonicalLogs, 'main.log')
+  const archivedApplicationLogPath = join(canonicalLogs, 'app.old.log')
+  if (existsSync(legacyLogPath)) {
+    if (!existsSync(archivedApplicationLogPath)) renameSync(legacyLogPath, archivedApplicationLogPath)
+    else rmSync(legacyLogPath, { force: true })
+  }
+  rmSync(join(canonicalLogs, 'main.old.log'), { force: true })
+  if (existsSync(applicationLogPath)) chmodSync(applicationLogPath, 0o600)
+  if (existsSync(archivedApplicationLogPath)) chmodSync(archivedApplicationLogPath, 0o600)
+  log.transports.file.resolvePathFn = () => applicationLogPath
+  configureApplicationLogging(app.getVersion())
+  configureNativeLogging(canonicalLogs)
   migrateUserData(canonicalUserData)
   app.setPath('userData', canonicalUserData)
 }
@@ -200,6 +216,9 @@ function createWindow(): void {
       mainWindow.maximize()
     }
     mainWindow.show()
+    browserLog.status('browser.ready', `browser ready · ${Date.now() - applicationStartedAt}ms`, {
+      durationMs: Date.now() - applicationStartedAt,
+    })
 
     // Auto-connect if enabled -- reuse same progress events as manual connect
     const { autoConnect } = getSetting('network')

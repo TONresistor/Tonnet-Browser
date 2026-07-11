@@ -83,7 +83,7 @@ export class HistoryManager extends EventEmitter {
     this.mode = (settings.historyMode as HistoryMode) || HistoryMode.MEMORY
     this.maxEntries = settings.historyMaxEntries || 1000
 
-    log.info(`Mode: ${this.mode}, Max entries: ${this.maxEntries}`)
+    log.debug(`Mode: ${this.mode}, Max entries: ${this.maxEntries}`)
 
     // Initialize persistent storage if needed
     if (this.mode === HistoryMode.PERSISTENT) {

@@ -453,7 +453,7 @@ async function navigateInTabFor(manager: TabManager, tabId: string, url: string)
   const isActive = manager.views.activeViewId === tabId
 
   if (currentDomain && currentDomain !== domain) {
-    log.info(`Domain changed: ${currentDomain} -> ${domain}, recreating view`)
+    log.debug('Domain changed, recreating view')
 
     safeDetach(manager, view, 'domain change')
     view.webContents.close()

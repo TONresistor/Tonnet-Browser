@@ -67,13 +67,13 @@ export const RecoveryPanel = memo(function RecoveryPanel() {
   }, [])
 
   useEffect(() => {
-    refresh().catch((e) => log.warn('initial refresh failed', e))
+    refresh().catch((e) => log.debug('initial refresh failed', e))
     const id = setInterval(() => {
-      refresh().catch((e) => log.warn('refresh failed', e))
+      refresh().catch((e) => log.debug('refresh failed', e))
     }, POLL_MS)
     const clockId = setInterval(() => setNow(Math.floor(Date.now() / 1000)), 1000)
     const off = cocoonClient.onRecovery(() => {
-      refresh().catch((e) => log.warn('event refresh failed', e))
+      refresh().catch((e) => log.debug('event refresh failed', e))
     })
     return () => {
       clearInterval(id)

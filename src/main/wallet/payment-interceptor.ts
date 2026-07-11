@@ -140,7 +140,7 @@ export class PaymentInterceptor {
     const mode = resolveAutoPayMode(baseMode, paymentReq.amount, walletSettings.limits.perRequest)
 
     if (mode === 'off') {
-      log.info(`Payment mode is off for ${originalDomain}, ignoring 402`)
+      log.debug('Payment mode is off, ignoring 402')
       return
     }
 
@@ -187,7 +187,7 @@ export class PaymentInterceptor {
             this.emitPaymentNotification(
               buildNotification(paymentId, originalDomain, request.url, paymentReq, 'rejected', 'Approval timed out')
             )
-            log.info(`Payment approval timed out for ${originalDomain}`)
+            log.event('info', 'payment.approval.timeout', 'payment approval timed out')
           }
         },
         (paymentReq.maxTimeoutSeconds || DEFAULT_APPROVAL_TIMEOUT_S) * 1_000
@@ -264,7 +264,7 @@ export class PaymentInterceptor {
           }
         }
 
-        log.info(`402 payment completed for ${domain}`)
+        log.event('info', 'payment.completed', 'HTTP 402 payment completed')
       } else {
         if (reservationId) this.paymentPolicyStore.rollbackPayment(reservationId)
         const errorText = await readBoundedBody(retryResponse, MAX_RESPONSE_BODY).catch(() => 'read error')
@@ -281,7 +281,7 @@ export class PaymentInterceptor {
           )
         )
 
-        log.warn(`402 payment retry failed for ${domain}: ${retryResponse.status}`)
+        log.event('warn', 'payment.retry.failed', 'payment retry failed', { status: retryResponse.status })
       }
     } catch (err) {
       if (reservationId) this.paymentPolicyStore.rollbackPayment(reservationId)
@@ -293,7 +293,7 @@ export class PaymentInterceptor {
         buildNotification(paymentId, domain, request.url, paymentReq, 'failed', errorMessage(err))
       )
 
-      log.error(`402 payment error for ${domain}:`, err)
+      log.event('error', 'payment.execution.failed', 'payment execution failed', { error: err })
     }
   }
 
@@ -304,7 +304,7 @@ export class PaymentInterceptor {
   async approvePayment(paymentId: string): Promise<void> {
     const pending = this.pendingApprovals.get(paymentId)
     if (!pending) {
-      log.warn(`No pending approval found for ${paymentId}`)
+      log.event('warn', 'payment.approval.missing', 'pending payment approval not found')
       return
     }
 
@@ -354,7 +354,7 @@ export class PaymentInterceptor {
             errorMessage(err)
           )
         )
-        log.error(`XHR manual payment error for ${pending.domain}:`, err)
+        log.event('error', 'payment.xhr_manual.failed', 'manual XHR payment failed', { error: err })
         pending.xhrResolver({ success: false, error: errorMessage(err) })
       }
     } else {
@@ -376,7 +376,7 @@ export class PaymentInterceptor {
     this.emitPaymentNotification(
       buildNotification(paymentId, pending.domain, pending.request.url, pending.paymentReq, 'rejected')
     )
-    log.info(`Payment rejected for ${pending.domain}`)
+    log.event('info', 'payment.rejected', 'HTTP 402 payment rejected')
     if (pending.xhrResolver) {
       pending.xhrResolver({ success: false, error: 'user-rejected' })
     }
@@ -541,7 +541,7 @@ export class PaymentInterceptor {
       } catch (err) {
         this.xhrTokens.revoke(webContentsId, url)
         this.paymentPolicyStore.rollbackPayment(reservationId)
-        log.error(`XHR auto payment error for ${originalDomain}:`, err)
+        log.event('error', 'payment.xhr_auto.failed', 'automatic XHR payment failed', { error: err })
         return { success: false, error: errorMessage(err) }
       }
     }

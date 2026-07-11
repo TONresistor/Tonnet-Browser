@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { settingsChangedContract, settingsGetContract, settingsSetContract, SettingsCategorySchema } from '../settings'
+import {
+  settingsChangedContract,
+  settingsDiagnosticsEnableContract,
+  settingsDiagnosticsGetContract,
+  settingsDiagnosticsCopyContract,
+  settingsGetContract,
+  settingsSetContract,
+  SettingsCategorySchema,
+} from '../settings'
 
 describe('settings IPC contracts', () => {
   it('uses the canonical category allowlist at the boundary', () => {
@@ -28,5 +36,17 @@ describe('settings IPC contracts', () => {
     }
 
     expect(settingsGetContract.output.parse(wallet)).toEqual(wallet)
+  })
+
+  it('keeps diagnostics temporary and exposes only status metadata', () => {
+    expect(settingsDiagnosticsGetContract.output.parse({ enabled: false, until: null })).toEqual({
+      enabled: false,
+      until: null,
+    })
+    expect(settingsDiagnosticsEnableContract.output.parse({ enabled: true, until: Date.now() + 1_000 }).enabled).toBe(
+      true
+    )
+    expect(() => settingsDiagnosticsEnableContract.input.parse([60_000])).toThrow()
+    expect(settingsDiagnosticsCopyContract.output.parse({ success: true })).toEqual({ success: true })
   })
 })

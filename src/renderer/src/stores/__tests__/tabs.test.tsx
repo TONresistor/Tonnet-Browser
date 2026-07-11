@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { useTabsStore, getInternalPageTitle } from '../tabs'
 
 // Mock electron-log before any imports that use it
-vi.mock('electron-log', () => ({
+vi.mock('electron-log/renderer', () => ({
   default: {
     scope: () => ({
       info: vi.fn(),

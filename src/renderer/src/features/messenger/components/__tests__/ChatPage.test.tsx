@@ -4,7 +4,7 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import ChatPage from '../ChatPage'
 
-vi.mock('electron-log', () => ({
+vi.mock('electron-log/renderer', () => ({
   default: {
     scope: () => ({
       info: vi.fn(),

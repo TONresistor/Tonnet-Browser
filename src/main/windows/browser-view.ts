@@ -45,7 +45,7 @@ function installRequestFilter(ses: Electron.Session, contentFilterManager: Conte
     try {
       const parsed = new URL(url)
       if (isPrivateHost(parsed.hostname)) {
-        log.info(`Blocked request to private host: ${url}`)
+        log.event('warn', 'security.request.private_host', 'blocked request to private host')
         callback({ cancel: true })
         return
       }

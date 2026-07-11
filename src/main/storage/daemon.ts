@@ -12,7 +12,7 @@ import type { StorageBag } from '../../shared/types'
 import { getSetting, getDownloadPath } from '../settings'
 import { PING_RETRY_DELAY_MS, PING_MAX_ATTEMPTS } from './constants'
 import { NativeProcessSupervisor } from '../native-process/supervisor'
-import { createLogger } from '../../shared/logger'
+import { createLogger, RepetitionAggregator } from '../../shared/logger'
 const log = createLogger('storage')
 import { mkdir } from 'fs/promises'
 import path from 'path'
@@ -56,6 +56,7 @@ export class StorageManager extends EventEmitter {
   private client: StorageHTTPClient | null = null
   private pollInterval: NodeJS.Timeout | null = null
   private lastBagsJson = ''
+  private readonly pollFailures = new RepetitionAggregator(log)
 
   constructor() {
     super()
@@ -76,6 +77,7 @@ export class StorageManager extends EventEmitter {
   }
 
   async start(): Promise<void> {
+    const startedAt = Date.now()
     if (this.supervisor.isRunning) {
       throw new Error('Storage daemon already running')
     }
@@ -97,7 +99,7 @@ export class StorageManager extends EventEmitter {
     const apiLogin = randomBytes(16).toString('hex')
     const apiPassword = randomBytes(32).toString('hex')
 
-    log.info(`Starting tonutils-storage from: ${binPath}`)
+    log.debug(`Starting tonutils-storage from: ${binPath}`)
     log.debug(`Config: ${configPath}`)
     log.debug(`DB: ${this.dbPath}`)
     log.debug(`API port: ${safePort}`)
@@ -127,29 +129,15 @@ export class StorageManager extends EventEmitter {
       args.push('-limit-upload', String(storage.uploadSpeedLimit))
     }
 
-    const onStdout = (data: Buffer) => {
-      const message = data.toString().trim()
-      if (message) {
-        log.debug(message)
-        this.emit('log', message)
-      }
-    }
-
-    const onStderr = (data: Buffer) => {
-      const message = data.toString().trim()
-      if (message) {
-        log.warn(message)
-        this.emit('error', message)
-      }
-    }
-
     this.supervisor.start({
       name: 'tonutils-storage',
       command: binPath,
       args,
       options: { windowsHide: true },
-      onStdout,
-      onStderr,
+      onLine: ({ line, level }) => {
+        this.emit('log', line)
+        if (level === 'error') this.emit('error', line)
+      },
       onExit: (code) => {
         log.info(`Storage daemon exited with code: ${code}`)
         this.isRunning = false
@@ -178,6 +166,10 @@ export class StorageManager extends EventEmitter {
     }
 
     this.isRunning = true
+    log.status('storage.ready', `storage ready · ${Date.now() - startedAt}ms`, {
+      durationMs: Date.now() - startedAt,
+      port: safePort,
+    })
     this.emit('started')
 
     // Start polling for updates
@@ -194,7 +186,7 @@ export class StorageManager extends EventEmitter {
         if (!this.client) return false
         try {
           const ready = await this.client.ping()
-          if (ready) log.info(`API ready after ${attempts} attempts`)
+          if (ready) log.event('debug', 'storage.api.ready', `API ready after ${attempts} attempts`, { attempts })
           return ready
         } catch (error) {
           log.debug(`Ping attempt ${attempts} failed:`, error)
@@ -213,13 +205,14 @@ export class StorageManager extends EventEmitter {
       if (!this.client || !this.isRunning) return
       try {
         const bags = await this.client.listBags()
+        this.pollFailures.recovered('bags', 'storage.poll.restored', 'storage polling restored')
 
         // Auto-stop seeding bags when seeding is disabled
         const { storage: storageSettings } = this.loadSettings()
         if (!storageSettings.seedingEnabled) {
           for (const bag of bags) {
             if (bag.completed && bag.active) {
-              log.info(`Seeding disabled: stopping bag ${bag.bag_id.slice(0, 8)}...`)
+              log.debug(`Seeding disabled: stopping bag ${bag.bag_id.slice(0, 8)}...`)
               await this.client.stopBag(bag.bag_id).catch(() => {})
             }
           }
@@ -232,7 +225,7 @@ export class StorageManager extends EventEmitter {
           this.emit('bags-updated', mapped)
         }
       } catch (err) {
-        log.error(`Poll error: ${String(err)}`)
+        this.pollFailures.record('bags', 'storage.poll.failed', 'storage polling failed', { error: err })
       }
     }, interval)
   }
@@ -351,7 +344,7 @@ export class StorageManager extends EventEmitter {
       const bags = await this.client.listBags()
       for (const bag of bags) {
         if (bag.completed && !bag.active) {
-          log.info(`Seeding enabled: resuming bag ${bag.bag_id.slice(0, 8)}...`)
+          log.debug(`Seeding enabled: resuming bag ${bag.bag_id.slice(0, 8)}...`)
           await this.client
             .addBag({
               bag_id: bag.bag_id,

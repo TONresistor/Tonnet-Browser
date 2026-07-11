@@ -8,6 +8,7 @@
 import log from '../shared/logger'
 import { getSetting, loadSettings, saveSettings } from './settings'
 import { destroyServices, type ServiceRegistry } from './services'
+import { flushNativeLogs } from './logging/native-log-router'
 
 let isCleaningUp = false
 
@@ -96,4 +97,5 @@ export async function runCleanup(services: ServiceRegistry): Promise<void> {
   }
 
   await destroyServices(services)
+  await flushNativeLogs(1_000)
 }

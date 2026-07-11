@@ -28,7 +28,7 @@ export class ContentFilterManager {
 
   constructor() {
     this.loadDefaultRules()
-    log.info(`Loaded ${this.rules.length} filter rules`)
+    log.debug(`Loaded ${this.rules.length} filter rules`)
   }
 
   /**
@@ -201,7 +201,7 @@ export class ContentFilterManager {
       .filter(([, v]) => v)
       .map(([k]) => k)
       .join(', ')
-    log.info(
+    log.debug(
       `Filter: ${this.enabled ? 'on' : 'off'}, whitelist: ${settings.whitelistedDomains.length}, categories: ${cats}`
     )
   }

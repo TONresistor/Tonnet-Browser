@@ -24,13 +24,23 @@ vi.mock('child_process', () => ({
   spawn: vi.fn(),
 }))
 
+vi.mock('electron', () => ({
+  app: { getPath: vi.fn(() => '/tmp/mock-userdata') },
+}))
+
 vi.mock('fs', () => ({
   default: {
     existsSync: vi.fn(() => true),
     mkdirSync: vi.fn(),
+    writeFileSync: vi.fn(),
+    renameSync: vi.fn(),
+    chmodSync: vi.fn(),
   },
   existsSync: vi.fn(() => true),
   mkdirSync: vi.fn(),
+  writeFileSync: vi.fn(),
+  renameSync: vi.fn(),
+  chmodSync: vi.fn(),
 }))
 vi.mock('fs/promises', () => ({ mkdir: vi.fn(() => Promise.resolve()) }))
 
@@ -421,19 +431,21 @@ describe('StorageManager', () => {
       manager.on('log', logSpy)
 
       await manager.start()
-      mockProcess.stdout.emit('data', Buffer.from('Storage log message'))
+      mockProcess.stdout.emit('data', Buffer.from('Storage log message\n'))
 
       expect(logSpy).toHaveBeenCalledWith('Storage log message')
     })
 
-    it('emits "error" on stderr data', async () => {
+    it('does not promote plain stderr but emits explicit native errors', async () => {
       const errorSpy = vi.fn()
       manager.on('error', errorSpy)
 
       await manager.start()
-      mockProcess.stderr.emit('data', Buffer.from('Storage error'))
+      mockProcess.stderr.emit('data', Buffer.from('plain stderr\n'))
+      expect(errorSpy).not.toHaveBeenCalled()
+      mockProcess.stderr.emit('data', Buffer.from('ERROR Storage failed\n'))
 
-      expect(errorSpy).toHaveBeenCalledWith('Storage error')
+      expect(errorSpy).toHaveBeenCalledWith('ERROR Storage failed')
     })
 
     it('handles process exit', async () => {

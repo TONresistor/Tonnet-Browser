@@ -2,7 +2,7 @@
 import { SESSION_PARTITION } from './constants'
 import { createTonSession, type SessionDeps } from './browser-view'
 import { getSetting, type PrivacySettings } from '../settings'
-import { createLogger } from '../../shared/logger'
+import { createLogger, RepetitionAggregator } from '../../shared/logger'
 
 const log = createLogger('tabs-session')
 
@@ -28,6 +28,7 @@ export class TabSessionManager {
   private tonSession: Electron.Session | null = null
   private cookieAutoDeleteTimer: NodeJS.Timeout | null = null
   private deps: SessionDeps | null = null
+  private readonly purgeFailures = new RepetitionAggregator(log)
 
   getTabDomain(tabId: string): string | undefined {
     return this.tabDomains.get(tabId)
@@ -78,7 +79,11 @@ export class TabSessionManager {
     this.tabDomains.delete(tabId)
     if (!domain || [...this.tabDomains.values()].includes(domain)) return
     const session = this.domainSessions.get(domain)
-    if (session) purgeSessionData(session).catch((error) => log.error(`Failed to clear storage for ${domain}:`, error))
+    if (session) {
+      purgeSessionData(session).catch((error) =>
+        this.purgeFailures.record(domain, 'privacy.session_purge.failed', 'session purge failed', { error })
+      )
+    }
     this.domainSessions.delete(domain)
     this.domainActivity.delete(domain)
   }
@@ -103,7 +108,9 @@ export class TabSessionManager {
     const privacy: PrivacySettings = getSetting('privacy')
     if (!(privacy.cookieAutoDelete ?? false) || this.domainActivity.size === 0) return
     this.cookieAutoDeleteTimer = setInterval(() => {
-      void this.checkInactiveDomains().catch((error) => log.error('Cookie auto-delete check failed:', error))
+      void this.checkInactiveDomains().catch((error) =>
+        this.purgeFailures.record('timer', 'privacy.cookie_cleanup.failed', 'cookie cleanup failed', { error })
+      )
     }, 60_000)
   }
 
@@ -120,12 +127,15 @@ export class TabSessionManager {
       if (!session) continue
       try {
         await purgeSessionData(session)
+        this.purgeFailures.recovered(domain, 'privacy.session_purge.restored', 'session purge restored')
         this.domainActivity.delete(domain)
         this.domainSessions.delete(domain)
       } catch (error) {
-        log.error(`Failed to clear storage for ${domain}:`, error)
+        this.purgeFailures.record(domain, 'privacy.session_purge.failed', 'session purge failed', { error })
       }
     }
+
+    this.purgeFailures.recovered('timer', 'privacy.cookie_cleanup.restored', 'cookie cleanup restored')
 
     if (this.domainActivity.size === 0 && this.cookieAutoDeleteTimer) {
       clearInterval(this.cookieAutoDeleteTimer)

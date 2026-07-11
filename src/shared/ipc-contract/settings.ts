@@ -80,6 +80,35 @@ export const settingsResetContract = defineRequest({
   output: SuccessSchema,
   errors: ['SETTINGS_RESET_FAILED', 'RUNTIME_APPLY_FAILED'],
 })
+const DiagnosticStatusSchema = z.object({ enabled: z.boolean(), until: z.number().int().positive().nullable() })
+export const settingsDiagnosticsGetContract = defineRequest({
+  ...base,
+  channel: SETTINGS_CHANNELS.diagnosticsGet,
+  input: z.tuple([]),
+  output: DiagnosticStatusSchema,
+  errors: ['DIAGNOSTICS_STATUS_FAILED'],
+})
+export const settingsDiagnosticsEnableContract = defineRequest({
+  ...base,
+  channel: SETTINGS_CHANNELS.diagnosticsEnable,
+  input: z.tuple([]),
+  output: DiagnosticStatusSchema,
+  errors: ['DIAGNOSTICS_ENABLE_FAILED'],
+})
+export const settingsDiagnosticsDisableContract = defineRequest({
+  ...base,
+  channel: SETTINGS_CHANNELS.diagnosticsDisable,
+  input: z.tuple([]),
+  output: DiagnosticStatusSchema,
+  errors: ['DIAGNOSTICS_DISABLE_FAILED'],
+})
+export const settingsDiagnosticsCopyContract = defineRequest({
+  ...base,
+  channel: SETTINGS_CHANNELS.diagnosticsCopy,
+  input: z.tuple([]),
+  output: SuccessSchema,
+  errors: ['DIAGNOSTICS_COPY_FAILED'],
+})
 export const clearBrowsingDataContract = defineRequest({
   ...base,
   channel: SETTINGS_CHANNELS.clearBrowsingData,
@@ -104,6 +133,10 @@ export const SETTINGS_REQUEST_CONTRACTS = [
   settingsGetContract,
   settingsSetContract,
   settingsResetContract,
+  settingsDiagnosticsGetContract,
+  settingsDiagnosticsEnableContract,
+  settingsDiagnosticsDisableContract,
+  settingsDiagnosticsCopyContract,
   clearBrowsingDataContract,
 ] as const
 export type SettingsCategory = z.infer<typeof SettingsCategorySchema>

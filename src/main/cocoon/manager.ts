@@ -9,7 +9,7 @@ import { EventEmitter } from 'events'
 import { chmod, copyFile, mkdtemp, readFile, rm, writeFile } from 'fs/promises'
 import { tmpdir } from 'os'
 import { resolve } from 'path'
-import { createLogger } from '../../shared/logger'
+import { createLogger, diagnosticLoggingStatus } from '../../shared/logger'
 import { getCocoonBinaryPath, getTonConfigPath, getClientConfigTemplatePath } from './paths'
 import { checkCocoonAvailability } from './platform'
 import { NativeProcessSupervisor } from '../native-process/supervisor'
@@ -74,7 +74,7 @@ export class CocoonManager extends EventEmitter {
     const rpcPort = 10001 + instance * 10
 
     this.runDir = await this.createRunDir()
-    log.info(`Cocoon runDir: ${this.runDir}`)
+    log.debug(`Cocoon runDir: ${this.runDir}`)
 
     await Promise.all([this.renderClientConfig({ ...config, httpPort: this.httpPort, rpcPort }), this.copyTonConfig()])
 
@@ -159,18 +159,9 @@ export class CocoonManager extends EventEmitter {
     if (!this.runDir) throw new Error('runDir not initialized')
     const binPath = getCocoonBinaryPath('runner')
     const configPath = resolve(this.runDir, 'client-config.json')
-    // -v3: debug verbosity. Surfaces ADNL handshake details, liteserver picks,
-    // and tonlib sync progress — required to diagnose sync failures upstream.
-    const args = ['--config', configPath, '-v3']
+    const args = ['--config', configPath, `-v${diagnosticLoggingStatus().enabled ? 3 : 1}`]
 
-    log.info(`Spawning cocoon-runner: ${binPath} ${args.join(' ')}`)
-
-    const output = (data: Buffer) => {
-      const raw = data.toString().trim()
-      if (!raw) return
-      log.debug(`[runner] ${raw}`)
-      this.emit('log', { source: 'runner', line: raw })
-    }
+    log.debug(`Spawning cocoon-runner: ${binPath} ${args.join(' ')}`)
 
     this.supervisor.start({
       name: 'cocoon-runner',
@@ -185,8 +176,7 @@ export class CocoonManager extends EventEmitter {
           COCOON_SKIP_PROXY_HASH: '1',
         },
       },
-      onStdout: output,
-      onStderr: output,
+      onLine: ({ line }) => this.emit('log', { source: 'runner', line }),
       onError: (err) => {
         log.error('[runner] spawn error:', err)
         this.emit('log', { source: 'runner', line: `spawn error: ${err.message}` })
@@ -228,7 +218,13 @@ export class CocoonManager extends EventEmitter {
     const prev = this.state
     if (statesEqual(prev, next)) return
     this.state = next
-    log.info(`state: ${describeState(prev)} -> ${describeState(next)}`)
+    log.event('debug', 'cocoon.state.changed', `state ${describeState(prev)} → ${describeState(next)}`, {
+      previous: describeState(prev),
+      next: describeState(next),
+    })
+    if (next.kind === 'ready') {
+      log.status('cocoon.ready', 'cocoon ready', { port: next.httpPort })
+    }
     this.emit('state-change', next, prev)
   }
 }

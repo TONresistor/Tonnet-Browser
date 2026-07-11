@@ -4,7 +4,7 @@
  * over a local JSON-RPC 2.0 WebSocket connection.
  */
 
-import { createLogger } from '../../shared/logger'
+import { createLogger, RepetitionAggregator } from '../../shared/logger'
 import { JsonRpcRequestTracker, type JsonRpcResponse } from './json-rpc-peer'
 import {
   AccountBalanceResultSchema,
@@ -46,6 +46,7 @@ export class WsBridgeClient {
   private transport: WebSocketTransport
   private nextId = 0
   private requestTracker = new JsonRpcRequestTracker()
+  private readonly reconnectLogs = new RepetitionAggregator(log)
   private subscriptions = new BridgeSubscriptions(
     (method, params) => this.request(method, params),
     (operation, error) => log.error(`Bridge subscription error (${operation}):`, error)
@@ -82,14 +83,23 @@ export class WsBridgeClient {
       onReady: (reconnected) => {
         this.drainQueue()
         if (reconnected) void this.subscriptions.resubscribeAll()
-        log.info(`Connected to bridge on port ${this.wsPort}`)
+        this.reconnectLogs.recovered('connection', 'wallet.bridge.restored', 'wallet bridge restored')
+        log.debug(`Connected to bridge on port ${this.wsPort}`)
       },
       onDisconnect: (error) => {
         this.requestTracker.rejectAll(error)
         this.transactionWatcher.rejectAll(error)
       },
-      onError: (error) => log.error('Bridge WebSocket error:', error.message),
-      onReconnectScheduled: (delay, attempt) => log.info(`Reconnecting in ${delay}ms (attempt ${attempt})`),
+      onError: (error) =>
+        this.reconnectLogs.record(
+          'connection',
+          'wallet.bridge.unavailable',
+          'wallet bridge unavailable · reconnecting',
+          {
+            error,
+          }
+        ),
+      onReconnectScheduled: (delay, attempt) => log.debug(`Reconnecting in ${delay}ms (attempt ${attempt})`),
     })
   }
 
@@ -331,7 +341,7 @@ export class WsBridgeClient {
         const id = String(++this.nextId)
         const msg = JSON.stringify({ jsonrpc: '2.0', id, method: 'lite.getMasterchainInfo', params: {} })
         await this.sendRequest(id, msg, 'lite.getMasterchainInfo')
-        log.info(`Bridge liteserver pool ready (probe ${i + 1})`)
+        log.debug(`Bridge liteserver pool ready (probe ${i + 1})`)
         return
       } catch {
         const delay = Math.min(READINESS_PROBE_BASE_MS * Math.pow(2, i), 5_000)

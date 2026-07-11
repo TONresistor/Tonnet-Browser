@@ -1,6 +1,7 @@
 import { spawn, type ChildProcess, type SpawnOptions } from 'child_process'
 import { trackDaemon } from '../daemon-registry'
 import { killChildProcess } from '../proxy/process-utils'
+import { nativeLogRouter, type NativeLogLine, type NativeRawLogLine } from '../logging/native-log-router'
 
 export interface NativeProcessSpec {
   name: string
@@ -9,6 +10,8 @@ export interface NativeProcessSpec {
   options?: SpawnOptions
   onStdout?(data: Buffer): void
   onStderr?(data: Buffer): void
+  onLine?(entry: NativeLogLine): void
+  onRawLine?(entry: NativeRawLogLine): void
   onExit?(code: number | null): void
   onError?(error: Error): void
 }
@@ -46,6 +49,7 @@ export class NativeProcessSupervisor {
   private backoffFlight: Promise<unknown> | null = null
   private currentSpec: NativeProcessSpec | null = null
   private lifecycleState: NativeProcessState = 'stopped'
+  private cleanupChildOutput: (() => void) | null = null
 
   get process(): ChildProcess | null {
     return this.child
@@ -67,22 +71,38 @@ export class NativeProcessSupervisor {
     this.child = child
     trackDaemon(spec.name, child)
 
-    const cleanupOutput = (): void => {
-      if (spec.onStdout) child.stdout?.off('data', spec.onStdout)
-      if (spec.onStderr) child.stderr?.off('data', spec.onStderr)
+    const nativeLogs = nativeLogRouter.createSession(spec.name, child.pid, spec.onLine, spec.onRawLine)
+    const onStdout = (data: Buffer): void => {
+      nativeLogs.stdout(data)
+      spec.onStdout?.(data)
     }
-    if (spec.onStdout) child.stdout?.on('data', spec.onStdout)
-    if (spec.onStderr) child.stderr?.on('data', spec.onStderr)
+    const onStderr = (data: Buffer): void => {
+      nativeLogs.stderr(data)
+      spec.onStderr?.(data)
+    }
+
+    let outputCleaned = false
+    const cleanupOutput = (): void => {
+      if (outputCleaned) return
+      outputCleaned = true
+      child.stdout?.off('data', onStdout)
+      child.stderr?.off('data', onStderr)
+      child.off('close', cleanupOutput)
+      nativeLogs.close()
+      if (this.cleanupChildOutput === cleanupOutput) this.cleanupChildOutput = null
+    }
+    this.cleanupChildOutput = cleanupOutput
+    child.stdout?.on('data', onStdout)
+    child.stderr?.on('data', onStderr)
+    child.once('close', cleanupOutput)
     this.lifecycleState = 'running'
     child.on('exit', (code) => {
       if (this.child === child) this.child = null
-      cleanupOutput()
       this.lifecycleState = code === 0 || this.lifecycleState === 'stopping' ? 'stopped' : 'crashed'
       spec.onExit?.(code)
     })
     child.on('error', (error) => {
       if (this.child === child) this.child = null
-      cleanupOutput()
       this.lifecycleState = 'crashed'
       spec.onError?.(error)
     })
@@ -98,7 +118,9 @@ export class NativeProcessSupervisor {
     }
     this.lifecycleState = 'stopping'
     this.child = null
+    const cleanupOutput = this.cleanupChildOutput
     const stop = killChildProcess(child).finally(() => {
+      cleanupOutput?.()
       if (this.stopFlight === stop) this.stopFlight = null
       this.lifecycleState = 'stopped'
     })

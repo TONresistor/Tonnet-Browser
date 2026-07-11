@@ -54,7 +54,7 @@ export class TonConnectSessionStore {
     const { sessions } = await this.repository.load()
     this.cache.clear()
     for (const session of sessions) this.cache.set(session.domain, session)
-    log.info(`Loaded ${this.cache.size} TON Connect sessions`)
+    log.debug(`Loaded ${this.cache.size} TON Connect sessions`)
   }
 
   get(domain: string): StoredTonConnectSession | undefined {

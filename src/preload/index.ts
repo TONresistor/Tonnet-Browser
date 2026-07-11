@@ -35,6 +35,10 @@ import type {
   clearBrowsingDataContract,
   settingsGetAllContract,
   settingsGetContract,
+  settingsDiagnosticsGetContract,
+  settingsDiagnosticsEnableContract,
+  settingsDiagnosticsDisableContract,
+  settingsDiagnosticsCopyContract,
   settingsResetContract,
   settingsSetContract,
   SettingsCategory,
@@ -281,6 +285,13 @@ const electronAPI = {
     set: (category: SettingsCategory, values: Record<string, unknown>) =>
       invokeChannel<typeof settingsSetContract>(IPC_CHANNELS.SETTINGS_SET, category, values),
     reset: () => invokeChannel<typeof settingsResetContract>(IPC_CHANNELS.SETTINGS_RESET),
+    diagnostics: {
+      get: () => invokeChannel<typeof settingsDiagnosticsGetContract>(IPC_CHANNELS.SETTINGS_DIAGNOSTICS_GET),
+      enable: () => invokeChannel<typeof settingsDiagnosticsEnableContract>(IPC_CHANNELS.SETTINGS_DIAGNOSTICS_ENABLE),
+      disable: () =>
+        invokeChannel<typeof settingsDiagnosticsDisableContract>(IPC_CHANNELS.SETTINGS_DIAGNOSTICS_DISABLE),
+      copy: () => invokeChannel<typeof settingsDiagnosticsCopyContract>(IPC_CHANNELS.SETTINGS_DIAGNOSTICS_COPY),
+    },
   },
 
   // Bookmarks persistence

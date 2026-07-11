@@ -20,7 +20,7 @@ import { applyBridgeDefaults } from './config-writer'
 import { getSetting } from '../settings'
 import { NativeProcessSupervisor } from '../native-process/supervisor'
 
-const log = createLogger('proxy')
+const log = createLogger('bridge')
 
 export class BridgeManager extends EventEmitter {
   private readonly supervisor = new NativeProcessSupervisor()
@@ -36,23 +36,26 @@ export class BridgeManager extends EventEmitter {
   }
 
   async start(wsPort: number): Promise<void> {
+    const startedAt = Date.now()
     const bridgeBinPath = getBinaryPath('tonutils-bridge')
     const bridgeWorkDir = await this.getWorkDir()
     await applyBridgeDefaults(bridgeWorkDir, { enableChatNamespaces: getSetting('messenger').networkEnabled })
-    const bridgeArgs = ['-addr', `127.0.0.1:${wsPort}`, '-data-dir', bridgeWorkDir, '-verbosity', '2']
+    const verbosity = Math.max(0, Math.min(3, getSetting('advanced').proxyVerbosity))
+    const bridgeArgs = ['-addr', `127.0.0.1:${wsPort}`, '-data-dir', bridgeWorkDir, '-verbosity', String(verbosity)]
 
-    log.info(`Starting bridge from: ${bridgeBinPath}`)
-    log.info(`Bridge WS port: ${wsPort}`)
+    log.debug(`Starting bridge from: ${bridgeBinPath}`)
+    log.debug(`Bridge WS port: ${wsPort}`)
 
-    const handleBridgeOutput = (data: Buffer) => {
-      const raw = data.toString().trim()
+    const handleBridgeOutput = (raw: string) => {
       if (!raw) return
       const message = stripAnsi(raw)
-      log.debug(`[bridge] ${raw}`)
-      this.emit('log', `[bridge] ${raw}`)
+      this.emit('log', raw)
 
       if (message.toLowerCase().includes('websocket-adnl bridge started')) {
-        log.info(`WS bridge ready on port ${wsPort}`)
+        log.status('bridge.ready', `bridge ready · ${Date.now() - startedAt}ms`, {
+          durationMs: Date.now() - startedAt,
+          port: wsPort,
+        })
         this.emit('ready', wsPort)
       }
     }
@@ -62,8 +65,7 @@ export class BridgeManager extends EventEmitter {
       command: bridgeBinPath,
       args: bridgeArgs,
       options: { windowsHide: true },
-      onStdout: handleBridgeOutput,
-      onStderr: handleBridgeOutput,
+      onLine: ({ line }) => handleBridgeOutput(line),
       onExit: (code) => {
         log.info(`Bridge exited with code: ${code}`)
         this.emit('exit', code)

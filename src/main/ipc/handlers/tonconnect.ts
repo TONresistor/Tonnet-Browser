@@ -23,5 +23,5 @@ export function registerTonConnectHandlers(registry: ServiceRegistry): void {
     return { success: true }
   })
 
-  log.info('TON Connect handlers registered')
+  log.debug('TON Connect handlers registered')
 }

@@ -231,5 +231,5 @@ export function registerWalletHandlers(registry: ServiceRegistry): void {
     return result
   })
 
-  log.info('Wallet handlers registered')
+  log.debug('Wallet handlers registered')
 }
