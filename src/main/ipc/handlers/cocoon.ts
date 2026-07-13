@@ -69,7 +69,7 @@ export function registerCocoonHandlers(registry: ServiceRegistry): void {
 
   const requireBridge = (): TonBridgePort => {
     const bridge = registry.walletManager.getTonBridge()
-    if (!bridge) throw new Error('Bridge not connected — wallet not initialized')
+    if (!bridge) ipcFailure('BRIDGE_DISCONNECTED', 'Bridge not connected')
     return bridge
   }
 
@@ -127,7 +127,7 @@ export function registerCocoonHandlers(registry: ServiceRegistry): void {
       if (message.includes('already starting')) {
         ipcFailure('ALREADY_STARTING', 'Cocoon is already starting', true, err)
       }
-      throw err
+      ipcFailure('START_FAILED', 'Operation failed', false, err)
     }
     return { success: true as const, httpPort: cocoonManager.getHttpPort() }
   })
@@ -156,30 +156,48 @@ export function registerCocoonHandlers(registry: ServiceRegistry): void {
 
   secureContractHandle(cocoonWalletDeleteContract, () => deleteCocoonWallet())
 
-  secureContractHandle(cocoonWalletMarkSetupCompleteContract, () => markSetupComplete())
+  secureContractHandle(cocoonWalletMarkSetupCompleteContract, async () => {
+    try {
+      await markSetupComplete()
+    } catch (error) {
+      ipcFailure('WALLET_WRITE_FAILED', 'Operation failed', false, error)
+    }
+  })
 
   // ── Setup wizard ────────────────────────────────────────────────────────────
 
   secureContractHandle(cocoonOwnerBalanceContract, async () => {
     const bridge = requireBridge()
-    const balance = await getOwnerBalance(bridge)
-    return balance.toString() // bigint -> decimal string (IPC-safe)
+    try {
+      const balance = await getOwnerBalance(bridge)
+      return balance.toString() // bigint -> decimal string (IPC-safe)
+    } catch (error) {
+      ipcFailure('BALANCE_READ_FAILED', 'Operation failed', false, error)
+    }
   })
 
   secureContractHandle(cocoonNodeBalanceContract, async () => {
     const bridge = requireBridge()
-    const balance = await getCocoonWalletBalance(bridge)
-    return balance.toString()
+    try {
+      const balance = await getCocoonWalletBalance(bridge)
+      return balance.toString()
+    } catch (error) {
+      ipcFailure('BALANCE_READ_FAILED', 'Operation failed', false, error)
+    }
   })
 
   secureContractHandle(cocoonFundContract, async ({ amount }) => {
     const bridge = requireBridge()
-    const amountArg: bigint | 'max' = amount === 'max' ? 'max' : BigInt(amount)
-    const result = await fundCocoonFromOwner(bridge, amountArg)
-    return {
-      bocHash: result.bocHash,
-      seqno: result.seqno,
-      sentAmount: result.sentAmount.toString(), // bigint -> decimal string
+    try {
+      const amountArg: bigint | 'max' = amount === 'max' ? 'max' : BigInt(amount)
+      const result = await fundCocoonFromOwner(bridge, amountArg)
+      return {
+        bocHash: result.bocHash,
+        seqno: result.seqno,
+        sentAmount: result.sentAmount.toString(), // bigint -> decimal string
+      }
+    } catch (error) {
+      ipcFailure('FUND_FAILED', 'Operation failed', false, error)
     }
   })
 

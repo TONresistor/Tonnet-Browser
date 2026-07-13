@@ -632,9 +632,9 @@ describe('IPC Handlers', () => {
   describe('Tab Handlers', () => {
     it('TAB_CREATE creates a new tab', async () => {
       const handler = mockHandlers.get(IPC_CHANNELS.TAB_CREATE)!
-      const result = await handler!(createMockEvent(), 'new-tab-id')
+      const result = await handler!(createMockEvent(), 'new-tab-id', 'ton://start')
 
-      expect(createTab).toHaveBeenCalledWith('new-tab-id')
+      expect(createTab).toHaveBeenCalledWith('new-tab-id', 'ton://start')
       expect(result.success).toBe(true)
     })
 
@@ -1072,7 +1072,7 @@ describe('Cocoon AI Handlers', () => {
 
       expect(result).toEqual({
         ok: false,
-        error: { code: 'BALANCE_READ_FAILED', message: 'Operation failed', retryable: false },
+        error: { code: 'BRIDGE_DISCONNECTED', message: 'Bridge not connected', retryable: false },
       })
     })
   })
@@ -1099,7 +1099,7 @@ describe('Cocoon AI Handlers', () => {
 
       expect(result).toEqual({
         ok: false,
-        error: { code: 'BALANCE_READ_FAILED', message: 'Operation failed', retryable: false },
+        error: { code: 'BRIDGE_DISCONNECTED', message: 'Bridge not connected', retryable: false },
       })
     })
   })
@@ -1160,7 +1160,7 @@ describe('Cocoon AI Handlers', () => {
 
       expect(result).toEqual({
         ok: false,
-        error: { code: 'FUND_FAILED', message: 'Operation failed', retryable: false },
+        error: { code: 'BRIDGE_DISCONNECTED', message: 'Bridge not connected', retryable: false },
       })
     })
   })

@@ -13,7 +13,7 @@ import {
   proxyStatusContract,
   proxyStatusEventContract,
 } from '../../../shared/ipc-contract/proxy'
-import { ownIpcEmitterListener, secureContractHandle } from '../contract-handler'
+import { ipcFailure, ownIpcEmitterListener, secureContractHandle } from '../contract-handler'
 
 export function registerProxyHandlers(registry: ServiceRegistry): void {
   const { proxyManager, storageManager } = registry
@@ -71,7 +71,11 @@ export function registerProxyHandlers(registry: ServiceRegistry): void {
       emitContractToRenderer(proxyProgressEventContract, { step, message })
     }
 
-    await startProxySequence(sendProgress, proxyManager, storageManager)
+    try {
+      await startProxySequence(sendProgress, proxyManager, storageManager)
+    } catch (error) {
+      ipcFailure('PROXY_START_FAILED', 'Operation failed', false, error)
+    }
     return { ...(await getSynchronizedStatus()), success: true as const }
   })
 

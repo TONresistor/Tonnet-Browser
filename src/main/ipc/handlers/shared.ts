@@ -6,7 +6,7 @@ import { ipcMain, IpcMainInvokeEvent } from 'electron'
 import { ipcErrorHandler } from '../error-handler'
 import { createLogger } from '../../../shared/logger'
 import { getMainWindow } from '../../windows/main'
-import type { IpcFailure } from '../../../shared/ipc-contract/failure'
+import type { IpcFailure } from '../../../shared/ipc-failure'
 import type { IDisposable } from '../../utils/disposable'
 
 export const log = createLogger('ipc')

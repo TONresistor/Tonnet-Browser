@@ -149,38 +149,16 @@ import type {
   cocoonWalletMarkSetupCompleteContract,
 } from '../shared/ipc-contract/cocoon'
 import type { updaterCheckContract, updaterOpenDownloadPageContract } from '../shared/ipc-contract/updater'
+import { IpcClientError, isIpcFailure } from '../shared/ipc-failure'
 
-export class IpcClientError extends Error {
-  constructor(
-    readonly code: string,
-    message: string,
-    readonly retryable: boolean
-  ) {
-    super(message)
-    this.name = 'IpcClientError'
-  }
-}
-
-function isFailureEnvelope(value: unknown): value is {
-  ok: false
-  error: { code: string; message: string; retryable: boolean }
-} {
-  if (!value || typeof value !== 'object') return false
-  const candidate = value as { ok?: unknown; error?: Record<string, unknown> }
-  return (
-    candidate.ok === false &&
-    typeof candidate.error?.code === 'string' &&
-    typeof candidate.error.message === 'string' &&
-    typeof candidate.error.retryable === 'boolean'
-  )
-}
+export { IpcClientError } from '../shared/ipc-failure'
 
 async function invokeChannel<TContract extends IpcRequestContract<readonly unknown[], unknown>>(
   channel: string,
   ...args: RequestArgs<TContract>
 ): Promise<RequestResult<TContract>> {
   const result: unknown = await ipcRenderer.invoke(channel, ...args)
-  if (isFailureEnvelope(result)) {
+  if (isIpcFailure(result)) {
     throw new IpcClientError(result.error.code, result.error.message, result.error.retryable)
   }
   return result as RequestResult<TContract>

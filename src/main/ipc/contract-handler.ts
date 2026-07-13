@@ -74,9 +74,7 @@ async function runHandler<TArgs extends readonly unknown[], TResult>(
       if (contract.errors.includes(error.code)) throw error
       throw new IpcBoundaryError('IPC_INTERNAL_ERROR', 'Operation failed', false, error)
     }
-    const code =
-      [...contract.errors].reverse().find((candidate) => candidate.endsWith('_FAILED')) ?? 'IPC_OPERATION_FAILED'
-    throw new IpcBoundaryError(code, 'Operation failed', false, error)
+    throw new IpcBoundaryError('IPC_INTERNAL_ERROR', 'Operation failed', false, error)
   }
   try {
     return contract.output.parse(result)

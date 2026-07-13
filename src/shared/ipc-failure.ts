@@ -8,6 +8,17 @@ export interface IpcFailure {
   }
 }
 
+export class IpcClientError extends Error {
+  constructor(
+    readonly code: string,
+    message: string,
+    readonly retryable: boolean
+  ) {
+    super(message)
+    this.name = 'IpcClientError'
+  }
+}
+
 export function isIpcFailure(value: unknown): value is IpcFailure {
   if (!value || typeof value !== 'object') return false
   const candidate = value as Partial<IpcFailure>
