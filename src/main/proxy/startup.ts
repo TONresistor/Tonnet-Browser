@@ -3,10 +3,8 @@
  * Extracted to avoid duplication between auto-connect (index.ts) and manual connect (handlers.ts).
  */
 
-import { BrowserWindow } from 'electron'
 import { ProxyManager } from './manager'
 import { StorageManager } from '../storage/daemon'
-import { type TabManager, type TabManagerDeps } from '../windows/tabs'
 import { stripAnsi } from '../utils/strip-ansi'
 import { createLogger } from '../../shared/logger'
 const log = createLogger('proxy')
@@ -17,10 +15,7 @@ const log = createLogger('proxy')
 export async function startProxySequence(
   sendProgress: (step: number, message: string) => void,
   proxyManager: ProxyManager,
-  storageManager: StorageManager,
-  mainWindow: BrowserWindow | null,
-  tabManager: TabManager,
-  tabDeps: TabManagerDeps
+  storageManager: StorageManager
 ): Promise<void> {
   // Step 0: Starting proxy binary
   sendProgress(0, 'Starting proxy...')
@@ -50,11 +45,6 @@ export async function startProxySequence(
     await proxyManager.start()
   } finally {
     proxyManager.off('log', logListener)
-  }
-
-  // Initialize TabManager with proxy port
-  if (mainWindow) {
-    tabManager.initialize(mainWindow, proxyManager.getStatus().port, tabDeps)
   }
 
   // Wait for storage to finish (likely already done)

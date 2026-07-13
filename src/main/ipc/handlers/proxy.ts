@@ -5,7 +5,6 @@
 import { log } from './shared'
 import { emitContractToRenderer } from '../../events/renderer-events'
 import { startProxySequence } from '../../proxy/startup'
-import { getMainWindow } from '../../windows/main'
 import type { ServiceRegistry } from '../../services'
 import {
   proxyConnectContract,
@@ -17,18 +16,48 @@ import {
 import { ownIpcEmitterListener, secureContractHandle } from '../contract-handler'
 
 export function registerProxyHandlers(registry: ServiceRegistry): void {
-  const { proxyManager, storageManager, overlayManager, historyManager, contentFilterManager, paymentInterceptor } =
-    registry
+  const { proxyManager, storageManager } = registry
+  let statusRevision = 0
+
+  const getSynchronizedStatus = async () => {
+    while (true) {
+      const runtimeStatus = proxyManager.getStatus()
+      if (runtimeStatus.status !== 'connected') return runtimeStatus
+      await registry.tabManager.updateProxyPort(runtimeStatus.port)
+      const currentStatus = proxyManager.getStatus()
+      if (currentStatus.status === 'connected' && currentStatus.port !== runtimeStatus.port) continue
+      return currentStatus
+    }
+  }
+
+  const publishCurrentStatus = (): void => {
+    const runtimeStatus = proxyManager.getStatus()
+    emitContractToRenderer(proxyStatusEventContract, runtimeStatus)
+    const win = registry.tabManager.window
+    if (win) {
+      win.setTitle(runtimeStatus.status === 'connected' ? 'TON Browser [Connected]' : 'TON Browser')
+    }
+  }
 
   // ===== Proxy Status Events =====
   ownIpcEmitterListener(proxyManager, 'status', (status) => {
-    emitContractToRenderer(proxyStatusEventContract, proxyManager.getStatus())
-    // Update window title to show connection status
-    const win = getMainWindow()
-    if (win) {
-      const title = status === 'connected' ? 'TON Browser [Connected]' : 'TON Browser'
-      win.setTitle(title)
+    const revision = ++statusRevision
+    if (status === 'connected') {
+      const runtimeStatus = proxyManager.getStatus()
+      void registry.tabManager
+        .updateProxyPort(runtimeStatus.port)
+        .then(() => {
+          if (revision === statusRevision && proxyManager.getStatus().status === 'connected') publishCurrentStatus()
+        })
+        .catch((error) => {
+          log.error(`Failed to update browser proxy port: ${String(error)}`)
+          if (revision === statusRevision) {
+            emitContractToRenderer(proxyStatusEventContract, { status: 'error', error: String(error) })
+          }
+        })
+      return
     }
+    publishCurrentStatus()
   })
 
   ownIpcEmitterListener(proxyManager, 'error', (message) => {
@@ -37,33 +66,19 @@ export function registerProxyHandlers(registry: ServiceRegistry): void {
 
   // ===== Proxy Handlers =====
   secureContractHandle(proxyConnectContract, async () => {
-    const win = getMainWindow()
-
     // Helper to send progress updates
     const sendProgress = (step: number, message: string) => {
       emitContractToRenderer(proxyProgressEventContract, { step, message })
     }
 
-    const tabDeps = {
-      overlayManager,
-      proxyManager,
-      storageManager,
-      historyManager,
-      contentFilterManager,
-      paymentInterceptor,
-    }
-    await startProxySequence(sendProgress, proxyManager, storageManager, win, registry.tabManager, tabDeps)
-
-    return { ...proxyManager.getStatus(), success: true as const }
+    await startProxySequence(sendProgress, proxyManager, storageManager)
+    return { ...(await getSynchronizedStatus()), success: true as const }
   })
 
   secureContractHandle(proxyDisconnectContract, async () => {
-    storageManager.stop()
-    await proxyManager.stop()
+    await Promise.all([storageManager.stop(), proxyManager.stop()])
     return { success: true }
   })
 
-  secureContractHandle(proxyStatusContract, () => {
-    return proxyManager.getStatus()
-  })
+  secureContractHandle(proxyStatusContract, getSynchronizedStatus)
 }

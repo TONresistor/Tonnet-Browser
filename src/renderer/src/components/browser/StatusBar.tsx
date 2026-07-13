@@ -4,9 +4,6 @@
  */
 
 import { useEffect, useState, memo } from 'react'
-import { createLogger } from '@/logger'
-
-const log = createLogger('status')
 import { Wifi, WifiOff, LoaderCircle, ArrowDown, ArrowUp } from 'lucide-react'
 import walletIcon from '@/assets/wallet.svg'
 import { useBrowserStore } from '@/stores/browser'
@@ -15,7 +12,6 @@ import { usePreferencesStore } from '@/features/settings/preferences-store'
 import { useWalletStore } from '@/features/wallet/store'
 import { formatTonAmount } from '@/lib/ton-utils'
 import { useTabsStore } from '@/stores/tabs'
-import { proxyClient } from '@/features/proxy/client'
 import { storageClient } from '@/features/storage/client'
 import { APP_VERSION, TON_WALLET_PAGE, TUNNEL_SECTIONS } from '@shared/constants'
 import { useTranslation } from 'react-i18next'
@@ -42,44 +38,22 @@ function Clock({ locale }: { locale?: string }) {
 
 export const StatusBar = memo(function StatusBar() {
   const { t, i18n } = useTranslation('browser')
-  const { proxyConnected, proxySyncing, anonymousMode, circuitRelays, storageStats, setProxyStatus, setStorageStats } =
-    useBrowserStore(
-      useShallow((s) => ({
-        proxyConnected: s.proxyConnected,
-        proxySyncing: s.proxySyncing,
-        anonymousMode: s.anonymousMode,
-        circuitRelays: s.circuitRelays,
-        storageStats: s.storageStats,
-        setProxyStatus: s.setProxyStatus,
-        setStorageStats: s.setStorageStats,
-      }))
-    )
+  const { proxyConnected, proxySyncing, anonymousMode, circuitRelays, storageStats, setStorageStats } = useBrowserStore(
+    useShallow((s) => ({
+      proxyConnected: s.proxyConnected,
+      proxySyncing: s.proxySyncing,
+      anonymousMode: s.anonymousMode,
+      circuitRelays: s.circuitRelays,
+      storageStats: s.storageStats,
+      setStorageStats: s.setStorageStats,
+    }))
+  )
   const walletCreated = useWalletStore((s) => s.isCreated)
   const walletBalance = useWalletStore((s) => s.balance)
   const openOrSwitchToTab = useTabsStore((s) => s.openOrSwitchToTab)
   const seedingEnabled = usePreferencesStore((s) => s.saved.seedingEnabled)
   const tunnelMode = usePreferencesStore((s) => s.saved.tunnelMode)
   useEffect(() => {
-    // Listen for proxy status updates from main process
-    const unsubProxyStatus = proxyClient.onStatus((data) => {
-      // Runtime validation (the payload crosses an unchecked IPC boundary)
-      if (!data || typeof data !== 'object') {
-        log.error('Invalid proxy:status data:', data)
-        return
-      }
-      if (typeof data.status !== 'string') {
-        log.error('Invalid status field type')
-        return
-      }
-      setProxyStatus(
-        data.status === 'connected',
-        data.status === 'syncing',
-        undefined,
-        data.anonymousMode,
-        data.circuitRelays
-      )
-    })
-
     // Listen for storage bags updates
     const unsubBagsUpdated = storageClient.onBagsUpdated((bags) => {
       const downloadSpeed = bags.reduce((sum, b) => sum + b.downloadSpeed, 0)
@@ -92,10 +66,9 @@ export const StatusBar = memo(function StatusBar() {
     })
 
     return () => {
-      unsubProxyStatus()
       unsubBagsUpdated()
     }
-  }, [setProxyStatus, setStorageStats])
+  }, [setStorageStats])
 
   const getNetworkStatus = () => {
     if (proxyConnected) {

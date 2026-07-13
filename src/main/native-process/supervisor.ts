@@ -64,6 +64,7 @@ export class NativeProcessSupervisor {
   }
 
   start(spec: NativeProcessSpec): ChildProcess {
+    if (this.stopFlight) throw new Error('Cannot start native process while stop is in progress')
     if (this.child) return this.child
     this.lifecycleState = 'starting'
     this.currentSpec = spec
@@ -172,6 +173,7 @@ export class NativeProcessSupervisor {
   }
 
   async waitForReady(options: ReadinessProbeOptions): Promise<void> {
+    if (options.signal?.aborted) throw new Error('Readiness wait aborted')
     const child = this.child
     if (!child) throw new Error('Cannot wait for readiness without a running process')
     const deadline = Date.now() + options.timeoutMs
@@ -218,6 +220,7 @@ export class NativeProcessSupervisor {
   }
 
   async waitForOutput(options: OutputReadinessOptions): Promise<void> {
+    if (options.signal?.aborted) throw new Error('Readiness wait aborted')
     const child = this.child
     if (!child) throw new Error('Cannot wait for output without a running process')
     await new Promise<void>((resolve, reject) => {

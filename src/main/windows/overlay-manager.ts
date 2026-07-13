@@ -46,7 +46,8 @@ export class OverlayManager {
   private resizeHandler: (() => void) | null = null
   private clickOutsideHandlers = new Map<string, () => void>()
 
-  init(win: BrowserWindow): void {
+  attachWindow(win: BrowserWindow): void {
+    this.detachWindow()
     this.mainWindow = win
 
     for (let i = 0; i < this.POOL_SIZE; i++) {
@@ -235,7 +236,8 @@ export class OverlayManager {
     return null
   }
 
-  destroy(): void {
+  detachWindow(win?: BrowserWindow): void {
+    if (!this.mainWindow || (win && this.mainWindow !== win)) return
     if (this.resizeHandler && this.mainWindow) {
       this.mainWindow.off('resize', this.resizeHandler)
       this.resizeHandler = null
@@ -247,8 +249,14 @@ export class OverlayManager {
       view.webContents.close()
     }
     this.pool = []
+    this.active.clear()
+    this.clickOutsideHandlers.clear()
     this.mainWindow = null
     log.info('Overlay manager destroyed')
+  }
+
+  destroy(): void {
+    this.detachWindow()
   }
 }
 

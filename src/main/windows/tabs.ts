@@ -46,6 +46,12 @@ export class TabManager {
   private tabEventDeps: TabEventDeps | null = null
   private walletSidebarWidth = 0
   private overlayManager: OverlayManager | null = null
+  private sessionsActive = false
+  private windowGeneration = 0
+  private proxyPortBarrier: Promise<void> = Promise.resolve()
+  private proxyPortUpdate: { port: number; flight: Promise<void> } | null = null
+  private synchronizedProxyPort: number | null = null
+  private readonly pendingSessionCreations = new Set<Promise<Electron.Session>>()
 
   get window(): BrowserWindow | null {
     return this.mainWindow
@@ -68,10 +74,12 @@ export class TabManager {
     return this.tabEventDeps
   }
 
-  initialize(win: BrowserWindow, port: number, deps: TabManagerDeps): void {
-    this.detachResizeHandler()
+  attachWindow(win: BrowserWindow, port: number, deps: TabManagerDeps): void {
+    this.detachWindow()
+    this.windowGeneration += 1
     this.mainWindow = win
     this.proxyPort = port
+    if (this.synchronizedProxyPort !== port) this.synchronizedProxyPort = null
 
     this.overlayManager = deps.overlayManager
     this.tabEventDeps = {
@@ -83,6 +91,7 @@ export class TabManager {
       contentFilterManager: deps.contentFilterManager,
       paymentInterceptor: deps.paymentInterceptor,
     })
+    this.sessionsActive = true
     this.storage.storageManager = deps.storageManager
 
     this.storageListenerDisposable?.dispose()
@@ -94,6 +103,59 @@ export class TabManager {
       }
     }
     this.mainWindow.on('resize', this.resizeHandler)
+  }
+
+  captureWindowGeneration(): number {
+    return this.windowGeneration
+  }
+
+  ownsWindowGeneration(generation: number): boolean {
+    return this.mainWindow !== null && this.windowGeneration === generation
+  }
+
+  async getSessionForDomain(domain: string): Promise<Electron.Session> {
+    while (true) {
+      let barrier = this.proxyPortBarrier
+      await barrier
+      if (barrier !== this.proxyPortBarrier) continue
+      const creation = this.sessions.getSessionForDomain(domain, this.proxyPort)
+      this.pendingSessionCreations.add(creation)
+      try {
+        const session = await creation
+        while (barrier !== this.proxyPortBarrier) {
+          barrier = this.proxyPortBarrier
+          await barrier
+        }
+        return session
+      } finally {
+        this.pendingSessionCreations.delete(creation)
+      }
+    }
+  }
+
+  updateProxyPort(port: number): Promise<void> {
+    if (this.proxyPortUpdate?.port === port) return this.proxyPortUpdate.flight
+    if (!this.proxyPortUpdate && this.synchronizedProxyPort === port) return this.proxyPortBarrier
+    this.proxyPort = port
+    this.synchronizedProxyPort = null
+    const update = this.proxyPortBarrier
+      .catch(() => undefined)
+      .then(async () => {
+        await Promise.allSettled([...this.pendingSessionCreations])
+        await this.sessions.updateProxyPort(port)
+        this.synchronizedProxyPort = port
+      })
+    this.proxyPortBarrier = update
+    this.proxyPortUpdate = { port, flight: update }
+    update.then(
+      () => {
+        if (this.proxyPortUpdate?.flight === update) this.proxyPortUpdate = null
+      },
+      () => {
+        if (this.proxyPortUpdate?.flight === update) this.proxyPortUpdate = null
+      }
+    )
+    return update
   }
 
   updateSidebarWidth(width: number): void {
@@ -157,10 +219,17 @@ export class TabManager {
   }
 
   dispose(): void {
-    cleanupTabManagerFor(this)
+    this.detachWindow()
+    if (this.sessionsActive) {
+      this.sessions.dispose()
+      this.sessionsActive = false
+    }
   }
 
-  disposeLifecycle(): void {
+  detachWindow(win?: BrowserWindow): void {
+    if (!this.mainWindow || (win && this.mainWindow !== win)) return
+    this.windowGeneration += 1
+    cleanupTabViewsFor(this)
     this.storageListenerDisposable?.dispose()
     this.storageListenerDisposable = null
     this.detachResizeHandler()
@@ -168,7 +237,7 @@ export class TabManager {
     this.mainWindow = null
     this.overlayManager = null
     this.tabEventDeps = null
-    this.sessions.dispose()
+    this.sessions.detachWindow()
     disposeTabStorageState(this.storage)
   }
 
@@ -219,7 +288,7 @@ function setupNavAwareAttach(manager: TabManager, view: WebContentsView, tabId: 
       try {
         if (manager.window.contentView.children.includes(view)) {
           manager.window.contentView.removeChildView(view)
-          attachViewWhenReady(manager, view, tabId)
+          attachViewWhenReady(manager, view, tabId, manager.captureWindowGeneration())
         }
       } catch (err) {
         log.debug(`did-start-navigation detach failed for tab ${tabId}:`, err)
@@ -231,21 +300,29 @@ function setupNavAwareAttach(manager: TabManager, view: WebContentsView, tabId: 
 async function createTabFor(manager: TabManager, tabId: string, initialUrl?: string): Promise<boolean> {
   if (!manager.window) return false
   if (manager.views.has(tabId)) return false
+  const generation = manager.captureWindowGeneration()
+  let createdView: WebContentsView | null = null
 
   try {
     const domain = initialUrl ? extractDomain(initialUrl) : 'default'
-    const session = await manager.sessions.getSessionForDomain(domain, manager.port)
+    const session = await manager.getSessionForDomain(domain)
+    if (!manager.ownsWindowGeneration(generation) || manager.views.has(tabId)) return false
 
-    const view = createBrowserView(session)
-    setupViewEvents(manager, view, tabId)
+    createdView = createBrowserView(session)
+    setupViewEvents(manager, createdView, tabId)
     manager.sessions.setTabDomain(tabId, domain)
 
-    manager.switchTab(tabId)
+    if (!manager.switchTab(tabId)) {
+      manager.views.remove(tabId)
+      createdView.webContents.close()
+      return false
+    }
 
     return true
   } catch (error) {
     log.error(`Failed to create tab ${tabId}:`, error)
-    manager.views.remove(tabId)
+    if (createdView && manager.views.get(tabId) === createdView) manager.views.remove(tabId)
+    if (createdView && !createdView.webContents.isDestroyed()) createdView.webContents.close()
     return false
   }
 }
@@ -349,11 +426,7 @@ function showActiveViewFor(manager: TabManager): void {
   }
 }
 
-/**
- * Clean up all tab state on app exit.
- * Closes all WebContentsViews, disposes listeners, removes resize handler.
- */
-function cleanupTabManagerFor(manager: TabManager): void {
+function cleanupTabViewsFor(manager: TabManager): void {
   manager.hideAllViews()
 
   for (const [, { view }] of manager.views.entries()) {
@@ -361,7 +434,6 @@ function cleanupTabManagerFor(manager: TabManager): void {
     view.webContents.close()
   }
   manager.views.clear()
-  manager.disposeLifecycle()
 }
 
 // Deferred-attach window sizing.
@@ -381,13 +453,13 @@ const DEFERRED_ATTACH_MAX_WAIT_MS = 5000
  * Without this, on Linux the empty attached view exposes its paint-holding
  * color during the pre-paint gap (electron/electron#44652) — user sees black.
  */
-function attachViewWhenReady(manager: TabManager, view: WebContentsView, tabId: string): void {
+function attachViewWhenReady(manager: TabManager, view: WebContentsView, tabId: string, generation: number): void {
   if (!manager.window) return
   const startedAt = Date.now()
   let decided = false
 
   const performAttach = (): void => {
-    if (!manager.window) return
+    if (!manager.ownsWindowGeneration(generation) || !manager.window) return
     // A failed cold-start load can replace/tear down this view before the
     // deferred attach fires; bail before touching a stale/undefined webContents.
     if (manager.views.get(tabId) !== view) return
@@ -424,6 +496,7 @@ function attachViewWhenReady(manager: TabManager, view: WebContentsView, tabId: 
 async function navigateInTabFor(manager: TabManager, tabId: string, url: string): Promise<boolean> {
   const view = manager.views.get(tabId)
   if (!view) return false
+  const generation = manager.captureWindowGeneration()
 
   let navigateUrl = url
   if (
@@ -458,7 +531,8 @@ async function navigateInTabFor(manager: TabManager, tabId: string, url: string)
     safeDetach(manager, view, 'domain change')
     view.webContents.close()
 
-    const newSession = await manager.sessions.getSessionForDomain(domain, manager.port)
+    const newSession = await manager.getSessionForDomain(domain)
+    if (!manager.ownsWindowGeneration(generation) || manager.views.get(tabId) !== view) return false
     const newView = createBrowserView(newSession)
     setupViewEvents(manager, newView, tabId)
     manager.sessions.setTabDomain(tabId, domain)
@@ -467,7 +541,7 @@ async function navigateInTabFor(manager: TabManager, tabId: string, url: string)
     emitContractToRenderer(tabHistoryResetContract, tabId)
 
     if (isActive) {
-      attachViewWhenReady(manager, newView, tabId)
+      attachViewWhenReady(manager, newView, tabId, generation)
     }
 
     newView.webContents.loadURL(navigateUrl).catch((err) => {

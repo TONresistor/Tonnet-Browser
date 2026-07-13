@@ -53,6 +53,10 @@ export class TabSessionManager {
     this.startCookieAutoDeleteTimer()
   }
 
+  detachWindow(): void {
+    this.tabDomains.clear()
+  }
+
   async getSessionForDomain(domain: string, proxyPort: number): Promise<Electron.Session> {
     if (!this.deps) throw new Error('Tab session manager is not initialized.')
     const privacy: PrivacySettings = getSetting('privacy')
@@ -72,6 +76,15 @@ export class TabSessionManager {
     this.updateDomainActivity(domain)
     log.debug(`Created isolated session for domain: ${domain}`)
     return session
+  }
+
+  async updateProxyPort(proxyPort: number): Promise<void> {
+    await Promise.all(
+      this.getAllSessions().map(async (session) => {
+        await session.setProxy({ proxyRules: `http://127.0.0.1:${proxyPort}` })
+        await session.closeAllConnections()
+      })
+    )
   }
 
   cleanupDomainForTab(tabId: string): void {

@@ -219,6 +219,11 @@
       "to": ["src/main/wallet/ws-bridge-client.ts"]
     },
     {
+      "id": "proxy-startup-must-not-own-window-scope",
+      "from": ["src/main/proxy/startup.ts"],
+      "to": ["src/main/windows"]
+    },
+    {
       "id": "tonconnect-core-must-not-import-electron-adapters",
       "from": ["src/main/tonconnect/service.ts"],
       "to": [

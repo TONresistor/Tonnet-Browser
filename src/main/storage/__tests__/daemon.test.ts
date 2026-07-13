@@ -103,6 +103,7 @@ describe('StorageManager', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(mkdir).mockResolvedValue(undefined)
     mockClientInstances.length = 0
     mockPingResponse = true
     mockProcess = createMockProcess()
@@ -110,8 +111,8 @@ describe('StorageManager', () => {
     manager = new StorageManager()
   })
 
-  afterEach(() => {
-    manager.stop()
+  afterEach(async () => {
+    await manager.stop()
   })
 
   describe('Initial State', () => {
@@ -145,9 +146,32 @@ describe('StorageManager', () => {
       )
     })
 
-    it('throws if daemon already running', async () => {
+    it('is idempotent if daemon is already running', async () => {
       await manager.start()
-      await expect(manager.start()).rejects.toThrow('Storage daemon already running')
+      await expect(manager.start()).resolves.toBeUndefined()
+
+      expect(spawn).toHaveBeenCalledOnce()
+      expect(mockClientInstances).toHaveLength(1)
+    })
+
+    it('shares one start before directory creation completes', async () => {
+      let releaseDirectories: () => void = () => {}
+      const directoriesReady = new Promise<string | undefined>((resolve) => {
+        releaseDirectories = () => resolve(undefined)
+      })
+      vi.mocked(mkdir).mockReturnValue(directoriesReady)
+
+      const first = manager.start()
+      const second = manager.start()
+
+      expect(first).toBe(second)
+      await vi.waitFor(() => expect(mkdir).toHaveBeenCalledTimes(2))
+
+      releaseDirectories()
+      await Promise.all([first, second])
+
+      expect(spawn).toHaveBeenCalledOnce()
+      expect(mockClientInstances).toHaveLength(1)
     })
 
     it('tears down the spawned child when readiness fails, so a retry is not blocked', async () => {
@@ -162,6 +186,26 @@ describe('StorageManager', () => {
       // instead of throwing 'already running', and now succeeds.
       mockPingResponse = true
       await expect(manager.start()).resolves.toBeUndefined()
+    })
+
+    it('clears a failed shared start so a retry can succeed', async () => {
+      mockPingResponse = false
+      const first = manager.start()
+      const second = manager.start()
+      await vi.waitFor(() => expect(spawn).toHaveBeenCalledOnce())
+
+      expect(first).toBe(second)
+      mockProcess.emit('exit', 1)
+      await expect(first).rejects.toBeDefined()
+      await expect(second).rejects.toBeDefined()
+
+      mockPingResponse = true
+      mockProcess = createMockProcess()
+      vi.mocked(spawn).mockReturnValue(mockProcess as any)
+
+      await expect(manager.start()).resolves.toBeUndefined()
+      expect(spawn).toHaveBeenCalledTimes(2)
+      expect(mockClientInstances).toHaveLength(2)
     })
 
     it('creates storage directories if missing', async () => {
@@ -197,7 +241,7 @@ describe('StorageManager', () => {
   describe('stop()', () => {
     it('kills the process', async () => {
       await manager.start()
-      manager.stop()
+      await manager.stop()
 
       expect(mockProcess.kill).toHaveBeenCalledWith('SIGTERM')
     })
@@ -207,7 +251,7 @@ describe('StorageManager', () => {
       manager.on('stopped', stoppedSpy)
 
       await manager.start()
-      manager.stop()
+      await manager.stop()
 
       expect(stoppedSpy).toHaveBeenCalled()
     })
@@ -223,6 +267,95 @@ describe('StorageManager', () => {
     it('does nothing if not running', () => {
       expect(() => manager.stop()).not.toThrow()
       expect(mockProcess.kill).not.toHaveBeenCalled()
+    })
+
+    it('shares one stop while process termination is pending', async () => {
+      await manager.start()
+      mockProcess.kill.mockReturnValue(true)
+
+      const first = manager.stop()
+      const second = manager.stop()
+
+      expect(first).toBe(second)
+      await vi.waitFor(() => expect(mockProcess.kill).toHaveBeenCalledWith('SIGTERM'))
+      mockProcess.emit('exit', 0)
+      await Promise.all([first, second])
+    })
+
+    it('waits for process termination before spawning a replacement', async () => {
+      await manager.start()
+      const firstProcess = mockProcess
+      const secondProcess = createMockProcess()
+      firstProcess.kill.mockReturnValue(true)
+      vi.mocked(spawn).mockReturnValue(secondProcess as any)
+
+      const stopping = manager.stop()
+      const restarting = manager.start()
+
+      await vi.waitFor(() => expect(firstProcess.kill).toHaveBeenCalledWith('SIGTERM'))
+      expect(spawn).toHaveBeenCalledOnce()
+      firstProcess.emit('exit', 0)
+
+      await stopping
+      await restarting
+      expect(spawn).toHaveBeenCalledTimes(2)
+      expect(manager.getStatus().running).toBe(true)
+    })
+
+    it('finishes running after start, stop, start during readiness', async () => {
+      mockPingResponse = false
+      const firstProcess = mockProcess
+      const secondProcess = createMockProcess()
+      firstProcess.kill.mockReturnValue(true)
+
+      const firstStart = manager.start().catch((error) => error)
+      await vi.waitFor(() => expect(spawn).toHaveBeenCalledOnce())
+
+      const stopping = manager.stop()
+      mockPingResponse = true
+      vi.mocked(spawn).mockReturnValue(secondProcess as any)
+      const restarting = manager.start()
+
+      await vi.waitFor(() => expect(firstProcess.kill).toHaveBeenCalledWith('SIGTERM'))
+      expect(spawn).toHaveBeenCalledOnce()
+      firstProcess.emit('exit', 0)
+
+      expect(await firstStart).toBeInstanceOf(Error)
+      await stopping
+      await restarting
+      expect(spawn).toHaveBeenCalledTimes(2)
+      expect(manager.getStatus().running).toBe(true)
+      expect(manager.getClient()).not.toBeNull()
+    })
+
+    it('cancels a start that is waiting for directory creation', async () => {
+      let releaseDirectories: () => void = () => {}
+      const directoriesReady = new Promise<string | undefined>((resolve) => {
+        releaseDirectories = () => resolve(undefined)
+      })
+      vi.mocked(mkdir).mockReturnValue(directoriesReady)
+
+      const start = manager.start()
+      manager.stop()
+      releaseDirectories()
+
+      await expect(start).rejects.toThrow('Storage daemon start aborted')
+      expect(spawn).not.toHaveBeenCalled()
+      expect(manager.getStatus().running).toBe(false)
+      expect(manager.getClient()).toBeNull()
+    })
+
+    it('cancels a start that is waiting for API readiness', async () => {
+      mockPingResponse = false
+      const start = manager.start()
+      await vi.waitFor(() => expect(spawn).toHaveBeenCalledOnce())
+
+      manager.stop()
+
+      await expect(start).rejects.toThrow('Readiness wait aborted')
+      expect(mockProcess.kill).toHaveBeenCalledWith('SIGTERM')
+      expect(manager.getStatus().running).toBe(false)
+      expect(manager.getClient()).toBeNull()
     })
   })
 

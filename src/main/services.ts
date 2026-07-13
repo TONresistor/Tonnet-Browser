@@ -185,7 +185,7 @@ export async function destroyServices(registry: ServiceRegistry): Promise<void> 
   registry.paymentInterceptor.destroy()
   await registry.paymentPolicyStore.destroy()
   await registry.proxyManager.stop()
-  registry.storageManager.stop()
+  await registry.storageManager.stop()
   registry.walletManager.destroy()
   registry.withdrawDriver.stop()
   registry.recoveryDriver.stop()

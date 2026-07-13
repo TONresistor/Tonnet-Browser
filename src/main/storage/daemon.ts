@@ -57,6 +57,11 @@ export class StorageManager extends EventEmitter {
   private pollInterval: NodeJS.Timeout | null = null
   private lastBagsJson = ''
   private readonly pollFailures = new RepetitionAggregator(log)
+  private lifecycleTail: Promise<void> = Promise.resolve()
+  private desiredRunning = false
+  private startFlight: Promise<void> | null = null
+  private stopFlight: Promise<void> | null = null
+  private startAbortController: AbortController | null = null
 
   constructor() {
     super()
@@ -76,16 +81,38 @@ export class StorageManager extends EventEmitter {
     return { network, storage, advanced }
   }
 
-  async start(): Promise<void> {
-    const startedAt = Date.now()
-    if (this.supervisor.isRunning) {
-      throw new Error('Storage daemon already running')
+  start(): Promise<void> {
+    if (this.desiredRunning) {
+      if (this.startFlight) return this.startFlight
+      if (this.isRunning && this.supervisor.isRunning) return Promise.resolve()
     }
+
+    this.desiredRunning = true
+    const controller = new AbortController()
+    this.startAbortController = controller
+    const flight = this.enqueueLifecycle(() => this.startOnce(controller.signal)).finally(() => {
+      if (this.startFlight === flight) this.startFlight = null
+      if (this.startAbortController === controller) this.startAbortController = null
+    })
+    this.startFlight = flight
+    return flight
+  }
+
+  private enqueueLifecycle(operation: () => Promise<void>): Promise<void> {
+    const flight = this.lifecycleTail.then(operation)
+    this.lifecycleTail = flight.catch(() => {})
+    return flight
+  }
+
+  private async startOnce(signal: AbortSignal): Promise<void> {
+    const startedAt = Date.now()
+    this.throwIfStartAborted(signal)
 
     const { advanced } = this.loadSettings()
 
     // Ensure storage directories exist
     await Promise.all([mkdir(this.storagePath, { recursive: true }), mkdir(this.dbPath, { recursive: true })])
+    this.throwIfStartAborted(signal)
 
     const binPath = getBinaryPath('tonutils-storage')
     const configPath = getConfigPath()
@@ -159,9 +186,10 @@ export class StorageManager extends EventEmitter {
     // Wait for API to be ready. On failure, tear down the spawned child so it
     // cannot squat port 5555 and block the next start() with 'already running'.
     try {
-      await this.waitForReady()
+      await this.waitForReady(PING_MAX_ATTEMPTS, signal)
+      this.throwIfStartAborted(signal)
     } catch (err) {
-      this.stop()
+      await this.teardown()
       throw err
     }
 
@@ -176,11 +204,16 @@ export class StorageManager extends EventEmitter {
     this.startPolling()
   }
 
-  private async waitForReady(maxAttempts = PING_MAX_ATTEMPTS): Promise<void> {
+  private throwIfStartAborted(signal: AbortSignal): void {
+    if (signal.aborted) throw new Error('Storage daemon start aborted')
+  }
+
+  private async waitForReady(maxAttempts = PING_MAX_ATTEMPTS, signal?: AbortSignal): Promise<void> {
     let attempts = 0
     await this.supervisor.waitForReady({
       intervalMs: PING_RETRY_DELAY_MS,
       timeoutMs: Math.max(PING_RETRY_DELAY_MS, maxAttempts * PING_RETRY_DELAY_MS),
+      signal,
       probe: async () => {
         attempts += 1
         if (!this.client) return false
@@ -262,18 +295,40 @@ export class StorageManager extends EventEmitter {
     }
   }
 
-  stop(): void {
+  stop(): Promise<void> {
+    if (!this.desiredRunning && this.stopFlight) return this.stopFlight
+
+    const shouldEmitStopped = this.isRunning || this.client !== null || this.supervisor.isRunning
+    this.desiredRunning = false
+    this.startAbortController?.abort()
     this.stopPolling()
+    this.client = null
+    this.isRunning = false
+    let processStop: Promise<void> | null = null
     if (this.supervisor.isRunning) {
       log.info('Stopping storage daemon...')
-      this.client = null
-      this.isRunning = false
-      // killChildProcess detaches listeners, sends SIGTERM and escalates to
-      // SIGKILL; state is reset synchronously above so callers (sync stop) and
-      // tests see the daemon as stopped immediately.
-      void this.supervisor.stop()
-      this.emit('stopped')
+      processStop = this.supervisor.stop()
     }
+
+    const flight = this.enqueueLifecycle(async () => {
+      if (processStop) await processStop
+      await this.teardown()
+      if (shouldEmitStopped) this.emit('stopped')
+    }).finally(() => {
+      if (this.stopFlight === flight) this.stopFlight = null
+    })
+    this.stopFlight = flight
+    return flight
+  }
+
+  private async teardown(): Promise<void> {
+    this.stopPolling()
+    this.client = null
+    this.isRunning = false
+    if (this.supervisor.isRunning) {
+      log.info('Stopping storage daemon...')
+    }
+    await this.supervisor.stop()
   }
 
   getStatus() {

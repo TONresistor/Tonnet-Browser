@@ -398,6 +398,7 @@ function createMockRegistry(): ServiceRegistry {
       updateSidebarWidth: vi.fn(),
       updateWalletSidebarWidth: vi.fn(),
       onAppearanceSettingsChanged: vi.fn(),
+      updateProxyPort: vi.fn(() => Promise.resolve()),
       initialize: vi.fn(),
       dispose: vi.fn(),
     } as any,
@@ -422,6 +423,14 @@ function createMockRegistry(): ServiceRegistry {
 const createMockEvent = () => {
   // Event sender must match mainWindow.webContents for origin check
   return { sender: mockMainWindow?.webContents } as any
+}
+
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>((done) => {
+    resolve = done
+  })
+  return { promise, resolve }
 }
 
 let mockRegistry: ServiceRegistry
@@ -465,6 +474,39 @@ describe('IPC Handlers', () => {
   })
 
   describe('Proxy Handlers', () => {
+    it('applies the effective proxy port when the runtime connects', async () => {
+      vi.mocked(mockRegistry.proxyManager.getStatus).mockReturnValueOnce({
+        status: 'connected',
+        connected: true,
+        syncing: false,
+        port: 9090,
+      } as never)
+
+      mockProxyManager.emit('status', 'connected')
+      await Promise.resolve()
+
+      expect(mockRegistry.tabManager.updateProxyPort).toHaveBeenCalledWith(9090)
+    })
+
+    it('does not publish a stale connected status after the runtime stops', async () => {
+      const update = deferred<void>()
+      vi.mocked(mockRegistry.tabManager.updateProxyPort).mockReturnValueOnce(update.promise)
+      vi.mocked(mockRegistry.proxyManager.getStatus)
+        .mockReturnValueOnce({ status: 'connected', connected: true, port: 9090 } as never)
+        .mockReturnValueOnce({ status: 'stopped', connected: false, port: 9090 } as never)
+
+      mockProxyManager.emit('status', 'connected')
+      mockProxyManager.emit('status', 'stopped')
+      update.resolve()
+      await update.promise
+      await Promise.resolve()
+
+      const statusEvents = vi
+        .mocked(mockMainWindow.webContents.send)
+        .mock.calls.filter((call: unknown[]) => call[0] === IPC_CHANNELS.PROXY_STATUS)
+      expect(statusEvents).toEqual([[IPC_CHANNELS.PROXY_STATUS, expect.objectContaining({ status: 'stopped' })]])
+    })
+
     it('PROXY_CONNECT starts proxy and returns success', async () => {
       const handler = mockHandlers.get(IPC_CHANNELS.PROXY_CONNECT)!
       expect(handler).toBeDefined()
@@ -473,6 +515,46 @@ describe('IPC Handlers', () => {
 
       expect(result.success).toBe(true)
       expect(mockRegistry.proxyManager.start).toHaveBeenCalled()
+    })
+
+    it('PROXY_CONNECT waits for the effective proxy port', async () => {
+      const update = deferred<void>()
+      vi.mocked(mockRegistry.tabManager.updateProxyPort).mockReturnValueOnce(update.promise)
+      const handler = mockHandlers.get(IPC_CHANNELS.PROXY_CONNECT)!
+
+      const result = handler(createMockEvent())
+      await vi.waitFor(() => expect(mockRegistry.tabManager.updateProxyPort).toHaveBeenCalledWith(8080))
+      let settled = false
+      void result.then(() => {
+        settled = true
+      })
+      await Promise.resolve()
+      expect(settled).toBe(false)
+
+      update.resolve()
+      await expect(result).resolves.toMatchObject({ success: true })
+    })
+
+    it('PROXY_CONNECT follows proxy port changes before returning', async () => {
+      const firstUpdate = deferred<void>()
+      const secondUpdate = deferred<void>()
+      vi.mocked(mockRegistry.tabManager.updateProxyPort)
+        .mockReturnValueOnce(firstUpdate.promise)
+        .mockReturnValueOnce(secondUpdate.promise)
+      vi.mocked(mockRegistry.proxyManager.getStatus)
+        .mockReturnValueOnce({ status: 'connected', connected: true, port: 8080 } as never)
+        .mockReturnValueOnce({ status: 'connected', connected: true, port: 9090 } as never)
+        .mockReturnValueOnce({ status: 'connected', connected: true, port: 9090 } as never)
+        .mockReturnValueOnce({ status: 'connected', connected: true, port: 9090 } as never)
+      const handler = mockHandlers.get(IPC_CHANNELS.PROXY_CONNECT)!
+
+      const result = handler(createMockEvent())
+      await vi.waitFor(() => expect(mockRegistry.tabManager.updateProxyPort).toHaveBeenCalledWith(8080))
+      firstUpdate.resolve()
+      await vi.waitFor(() => expect(mockRegistry.tabManager.updateProxyPort).toHaveBeenCalledWith(9090))
+      secondUpdate.resolve()
+
+      await expect(result).resolves.toMatchObject({ success: true, status: 'connected', port: 9090 })
     })
 
     it('PROXY_CONNECT handles errors gracefully', async () => {
@@ -502,6 +584,40 @@ describe('IPC Handlers', () => {
 
       expect(result.status).toBe('connected')
       expect(result.port).toBe(8080)
+    })
+
+    it('PROXY_STATUS waits for the effective proxy port', async () => {
+      const update = deferred<void>()
+      vi.mocked(mockRegistry.tabManager.updateProxyPort).mockReturnValueOnce(update.promise)
+      const handler = mockHandlers.get(IPC_CHANNELS.PROXY_STATUS)!
+
+      const result = handler(createMockEvent())
+      await vi.waitFor(() => expect(mockRegistry.tabManager.updateProxyPort).toHaveBeenCalledWith(8080))
+      update.resolve()
+
+      await expect(result).resolves.toMatchObject({ status: 'connected', port: 8080 })
+    })
+
+    it('PROXY_STATUS follows proxy port changes before returning', async () => {
+      const firstUpdate = deferred<void>()
+      const secondUpdate = deferred<void>()
+      vi.mocked(mockRegistry.tabManager.updateProxyPort)
+        .mockReturnValueOnce(firstUpdate.promise)
+        .mockReturnValueOnce(secondUpdate.promise)
+      vi.mocked(mockRegistry.proxyManager.getStatus)
+        .mockReturnValueOnce({ status: 'connected', connected: true, port: 8080 } as never)
+        .mockReturnValueOnce({ status: 'connected', connected: true, port: 9090 } as never)
+        .mockReturnValueOnce({ status: 'connected', connected: true, port: 9090 } as never)
+        .mockReturnValueOnce({ status: 'connected', connected: true, port: 9090 } as never)
+      const handler = mockHandlers.get(IPC_CHANNELS.PROXY_STATUS)!
+
+      const result = handler(createMockEvent())
+      await vi.waitFor(() => expect(mockRegistry.tabManager.updateProxyPort).toHaveBeenCalledWith(8080))
+      firstUpdate.resolve()
+      await vi.waitFor(() => expect(mockRegistry.tabManager.updateProxyPort).toHaveBeenCalledWith(9090))
+      secondUpdate.resolve()
+
+      await expect(result).resolves.toMatchObject({ status: 'connected', port: 9090 })
     })
   })
 
@@ -644,13 +760,15 @@ describe('IPC Handlers', () => {
   })
 
   describe('Event Forwarding', () => {
-    it('forwards proxy status events to renderer', () => {
+    it('forwards proxy status events to renderer', async () => {
       // Emit event on proxy manager
       ;(mockRegistry.proxyManager as EventEmitter).emit('status', 'connected')
 
-      expect(mockMainWindow.webContents.send).toHaveBeenCalledWith(
-        'proxy:status',
-        expect.objectContaining({ status: 'connected' })
+      await vi.waitFor(() =>
+        expect(mockMainWindow.webContents.send).toHaveBeenCalledWith(
+          'proxy:status',
+          expect.objectContaining({ status: 'connected' })
+        )
       )
     })
 

@@ -67,6 +67,25 @@ describe('NativeProcessSupervisor', () => {
     expect(killChildProcess).toHaveBeenCalledOnce()
   })
 
+  it('rejects a new start until the previous process has stopped', async () => {
+    const first = processMock()
+    const second = processMock()
+    spawn.mockReturnValueOnce(first).mockReturnValueOnce(second)
+    let release!: () => void
+    killChildProcess.mockReturnValueOnce(new Promise<void>((resolve) => (release = resolve)))
+    const supervisor = new NativeProcessSupervisor()
+    supervisor.start({ name: 'daemon', command: '/bin/daemon', args: [] })
+
+    const stopping = supervisor.stop()
+
+    expect(() => supervisor.start({ name: 'daemon', command: '/bin/daemon', args: [] })).toThrow('stop is in progress')
+    expect(spawn).toHaveBeenCalledOnce()
+
+    release()
+    await stopping
+    expect(supervisor.start({ name: 'daemon', command: '/bin/daemon', args: [] })).toBe(second)
+  })
+
   it('clears ownership on spawn errors', () => {
     const child = processMock()
     spawn.mockReturnValue(child)
@@ -232,5 +251,22 @@ describe('NativeProcessSupervisor', () => {
     await expect(running).rejects.toThrow('retry aborted')
     expect(operation).toHaveBeenCalledOnce()
     vi.useRealTimers()
+  })
+
+  it('rejects an output readiness wait when its signal is already aborted', async () => {
+    const child = processMock()
+    spawn.mockReturnValue(child)
+    const supervisor = new NativeProcessSupervisor()
+    const controller = new AbortController()
+    supervisor.start({ name: 'daemon', command: '/bin/daemon', args: [] })
+    controller.abort()
+
+    await expect(
+      supervisor.waitForOutput({
+        matches: () => false,
+        timeoutMs: 0,
+        signal: controller.signal,
+      })
+    ).rejects.toThrow('aborted')
   })
 })
