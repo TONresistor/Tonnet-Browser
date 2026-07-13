@@ -133,7 +133,7 @@ export async function writeProxyConfig(workDir: string, tunnelSections: number):
       existing.TunnelConfig.NodesPoolConfigPath = ''
       existing.TunnelConfig.TunnelSectionsNum = tunnelSections
     }
-    existing.BlockHTTP = true // always block cleartext HTTP
+    delete existing.BlockHTTP
     await writeSecureJsonAtomicAsync(configPath, existing, 2)
     log.debug(`Proxy config updated: tunnelSections=${tunnelSections}`)
     return
@@ -147,7 +147,6 @@ export async function writeProxyConfig(workDir: string, tunnelSections: number):
   const config = {
     Version: 1,
     ADNLKey: generateKey(),
-    BlockHTTP: true,
     CustomTunnelNetworkConfigPath: '',
     TunnelConfig: {
       TunnelServerKey: generateKey(),

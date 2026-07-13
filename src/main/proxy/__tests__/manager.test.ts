@@ -132,7 +132,7 @@ describe('ProxyManager', () => {
 
       expect(spawn).toHaveBeenCalledWith(
         '/mock/bin/tonutils-proxy',
-        ['-addr', '127.0.0.1:8080', '-verbosity', '2'],
+        ['-addr', '127.0.0.1:8080', '-no-http', '-verbosity', '2'],
         expect.objectContaining({ windowsHide: true, cwd: expect.stringContaining('proxy') })
       )
 
@@ -230,7 +230,7 @@ describe('ProxyManager', () => {
 
       expect(spawn).toHaveBeenCalledWith(
         '/mock/bin/tonutils-proxy',
-        ['-addr', '127.0.0.1:8080', '-verbosity', '2'],
+        ['-addr', '127.0.0.1:8080', '-no-http', '-verbosity', '2'],
         expect.objectContaining({ windowsHide: true })
       )
 
@@ -456,6 +456,10 @@ describe('buildProxyArgs', () => {
     const args = buildProxyArgs(8080, base as any)
     expect(args).toContain('-addr')
     expect(args).toContain('127.0.0.1:8080')
+  })
+
+  it('always blocks ordinary HTTP requests', () => {
+    expect(buildProxyArgs(8080, base as any)).toContain('-no-http')
   })
 
   it('passes a bounded native verbosity', () => {

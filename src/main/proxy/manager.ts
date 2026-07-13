@@ -26,7 +26,13 @@ const log = createLogger('proxy')
  * Exported for unit testing.
  */
 export function buildProxyArgs(port: number, general: GeneralSettings, verbosity = 2): string[] {
-  const args: string[] = ['-addr', `127.0.0.1:${port}`, '-verbosity', String(Math.max(0, Math.min(3, verbosity)))]
+  const args: string[] = [
+    '-addr',
+    `127.0.0.1:${port}`,
+    '-no-http',
+    '-verbosity',
+    String(Math.max(0, Math.min(3, verbosity))),
+  ]
   if (general.resolveEth === false) {
     args.push('-no-eth')
   } else if (general.resolveEth === true && general.ethRpc.trim() !== '') {
