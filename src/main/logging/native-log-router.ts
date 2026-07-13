@@ -1,6 +1,7 @@
-import { appendFile, chmod, mkdir, rename, rm, stat } from 'node:fs/promises'
+import { chmod, mkdir, open, rename, rm, stat, type FileHandle } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { StringDecoder } from 'node:string_decoder'
+import { stripVTControlCharacters } from 'node:util'
 import { createLogger, redactNativeLogLine } from '../../shared/logger'
 
 const log = createLogger('logging')
@@ -100,6 +101,7 @@ class BoundedNativeLogWriter {
   private size = 0
   private initialized = false
   private lastFailureAt = 0
+  private handle: FileHandle | null = null
 
   constructor(
     private readonly filePath: string,
@@ -129,6 +131,11 @@ class BoundedNativeLogWriter {
     }
   }
 
+  async close(): Promise<void> {
+    await this.flush()
+    await this.closeHandle()
+  }
+
   private async initialize(): Promise<void> {
     if (this.initialized) return
     await mkdir(dirname(this.filePath), { recursive: true, mode: 0o700 }).catch(() => undefined)
@@ -142,9 +149,24 @@ class BoundedNativeLogWriter {
 
   private async rotateIfNeeded(incomingBytes: number): Promise<void> {
     if (this.size + incomingBytes <= MAX_FILE_SIZE) return
+    await this.closeHandle()
     await rm(this.oldFilePath, { force: true }).catch(() => undefined)
     await rename(this.filePath, this.oldFilePath).catch(() => undefined)
     this.size = 0
+  }
+
+  private async getHandle(): Promise<FileHandle> {
+    if (!this.handle) {
+      this.handle = await open(this.filePath, 'a', 0o600)
+      await this.handle.chmod(0o600).catch(() => undefined)
+    }
+    return this.handle
+  }
+
+  private async closeHandle(): Promise<void> {
+    const handle = this.handle
+    this.handle = null
+    await handle?.close().catch(() => undefined)
   }
 
   private async drain(): Promise<void> {
@@ -170,11 +192,13 @@ class BoundedNativeLogWriter {
         const content = `${batch.map((entry) => entry.serialized).join('\n')}\n`
         const bytes = Buffer.byteLength(content)
         await this.rotateIfNeeded(bytes)
-        await appendFile(this.filePath, content, { encoding: 'utf8', mode: 0o600 })
+        const handle = await this.getHandle()
+        await handle.appendFile(content, { encoding: 'utf8' })
         this.size += bytes
       }
       await chmod(this.filePath, 0o600).catch(() => undefined)
     } catch (error) {
+      await this.closeHandle()
       this.dropped += this.queue.length
       this.queue = []
       const now = Date.now()
@@ -212,7 +236,9 @@ class NativeLogRouter {
   private writer: BoundedNativeLogWriter | null = null
 
   configure(logsDir: string): void {
+    const previous = this.writer
     this.writer = new BoundedNativeLogWriter(join(logsDir, 'native.log'), join(logsDir, 'native.old.log'))
+    void previous?.close()
   }
 
   createSession(
@@ -224,9 +250,10 @@ class NativeLogRouter {
     const source = normalizeSource(processName)
     const runId = `${source}-${Date.now().toString(36)}`
     const consume = (stream: NativeLogStream, line: string): void => {
-      const level = nativeLevel(line)
-      onRawLine?.({ source, runId, pid, stream, level, line })
-      const safeLine = redactNativeLogLine(line)
+      const normalizedLine = stripVTControlCharacters(line)
+      const level = nativeLevel(normalizedLine)
+      onRawLine?.({ source, runId, pid, stream, level, line: normalizedLine })
+      const safeLine = redactNativeLogLine(normalizedLine)
       const entry: NativeLogLine = { source, runId, pid, stream, level, line: safeLine }
       this.writer?.enqueue({
         level: entry.level,
