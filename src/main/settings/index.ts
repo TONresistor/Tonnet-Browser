@@ -56,6 +56,7 @@ export function getDefaultSettings(): AppSettings {
 let settingsCache: AppSettings | null = null
 let settingsRepository: VersionedJsonRepository<AppSettings> | null = null
 let settingsMutationChain: Promise<void> = Promise.resolve()
+let settingsWritesBlocked: UnsupportedSchemaVersionError | null = null
 
 function freezeValue<T>(value: T): T {
   if (typeof value !== 'object' || value === null || Object.isFrozen(value)) return value
@@ -307,6 +308,7 @@ export function loadSettings(): AppSettings {
 
     return cached
   } catch (error) {
+    if (error instanceof UnsupportedSchemaVersionError) settingsWritesBlocked = error
     log.error(`Failed to load settings: ${String(error)}`)
     return cacheSettings(defaults)
   }
@@ -335,7 +337,12 @@ export function mergeSettingsPatch(settings: AppSettings, patch: SettingsPatch):
 }
 
 function enqueueSettingsMutation<TResult>(operation: () => Promise<TResult>): Promise<TResult> {
-  const result = settingsMutationChain.catch(() => undefined).then(operation)
+  const result = settingsMutationChain
+    .catch(() => undefined)
+    .then(() => {
+      assertSettingsWritable()
+      return operation()
+    })
   settingsMutationChain = result.then(
     () => undefined,
     () => undefined
@@ -343,7 +350,21 @@ function enqueueSettingsMutation<TResult>(operation: () => Promise<TResult>): Pr
   return result
 }
 
+function assertSettingsWritable(): void {
+  if (settingsWritesBlocked) throw settingsWritesBlocked
+  if (settingsCache || !existsSync(getSettingsFile())) return
+  try {
+    const raw: unknown = JSON.parse(readFileSync(getSettingsFile(), 'utf-8'))
+    assertSettingsVersion(raw)
+  } catch (error) {
+    if (!(error instanceof UnsupportedSchemaVersionError)) return
+    settingsWritesBlocked = error
+    throw error
+  }
+}
+
 async function writeSettings(settings: AppSettings): Promise<AppSettings> {
+  if (settingsWritesBlocked) throw settingsWritesBlocked
   const normalized = AppSettingsSchema.parse(settings)
   try {
     await getRepository().save(normalized)

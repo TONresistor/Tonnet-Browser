@@ -42,6 +42,8 @@ import { existsSync, readFileSync, promises as fsp } from 'fs'
 describe('Settings Persistence', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(existsSync).mockReset()
+    vi.mocked(readFileSync).mockReset()
     // clearAllMocks does not undo mockImplementation, so explicitly reset the
     // write mock to a no-op (a prior test sets it to throw to test error paths).
     vi.mocked(fsp.mkdir).mockReset()
