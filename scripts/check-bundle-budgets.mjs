@@ -1,4 +1,4 @@
-import { readdir, stat } from 'node:fs/promises'
+import { readFile, stat } from 'node:fs/promises'
 
 const budgets = [
   { file: 'out/preload/index.js', maxBytes: 16 * 1024, owner: 'preload bridge' },
@@ -26,25 +26,22 @@ for (const budget of budgets) {
 }
 
 try {
-  const assets = 'out/renderer/assets'
-  const candidates = (await readdir(assets)).filter((name) => /^index-.*\.js$/.test(name))
-  const sizes = await Promise.all(
-    candidates.map(async (name) => ({ name, bytes: (await stat(`${assets}/${name}`)).size }))
-  )
-  const initial = sizes.sort((left, right) => right.bytes - left.bytes)[0]
-  const baselineBytes = 931_979
-  const maxBytes = Math.ceil(baselineBytes * 1.1)
-  if (!initial) {
+  const html = await readFile('out/renderer/index.html', 'utf8')
+  const files = [...new Set([...html.matchAll(/(?:src|href)="\.\/(assets\/[^"?]+\.js)/g)].map((match) => match[1]))]
+  const sizes = await Promise.all(files.map(async (file) => (await stat(`out/renderer/${file}`)).size))
+  const totalBytes = sizes.reduce((total, bytes) => total + bytes, 0)
+  const maxBytes = 1.5 * 1024 * 1024
+  if (files.length === 0) {
     console.error('Bundle budget failed: renderer initial bundle was not found; run npm run build first.')
     failed = true
-  } else if (initial.bytes > maxBytes) {
+  } else if (totalBytes > maxBytes) {
     console.error(
-      `Bundle budget exceeded for renderer initial bundle: ${(initial.bytes / 1024).toFixed(2)} KiB > ${(maxBytes / 1024).toFixed(2)} KiB (${initial.name})`
+      `Bundle budget exceeded for renderer initial graph: ${(totalBytes / 1024).toFixed(2)} KiB > ${(maxBytes / 1024).toFixed(2)} KiB (${files.join(', ')})`
     )
     failed = true
   } else {
     console.log(
-      `Bundle budget passed for renderer initial bundle: ${(initial.bytes / 1024).toFixed(2)} KiB <= ${(maxBytes / 1024).toFixed(2)} KiB (${initial.name})`
+      `Bundle budget passed for renderer initial graph: ${(totalBytes / 1024).toFixed(2)} KiB <= ${(maxBytes / 1024).toFixed(2)} KiB (${files.join(', ')})`
     )
   }
 } catch {

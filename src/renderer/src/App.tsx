@@ -22,7 +22,6 @@ import {
   useShowStatusBar,
   useTabOrientation,
 } from '@/features/settings/public'
-import { useAppearanceEffects } from '@/features/settings/useAppearanceEffects'
 const WalletSidebar = lazy(() =>
   import('@/features/wallet/components/WalletSidebar').then((m) => ({ default: m.WalletSidebar }))
 )
@@ -35,14 +34,13 @@ import storageIcon from '@/assets/storage.svg'
 import cocoonIcon from '@/assets/cocoon.png'
 import messengerIcon from '@/assets/messenger.svg'
 import { Button } from '@/components/ui/button'
-import Lottie from 'lottie-react'
 import { useTranslation } from 'react-i18next'
 import { createLogger } from '@/logger'
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
 import { useIpcEvents } from '@/hooks/useIpcEvents'
 import { usePaymentApprovals } from '@/hooks/usePaymentApprovals'
 import { resolveInternalRoute } from '@/app-shell/internal-routes'
-import { InternalRouteContent, prefetchInternalRouteViews } from '@/app-shell/InternalRouteContent'
+import { InternalRouteContent } from '@/app-shell/InternalRouteContent'
 import { useApplicationBootstrap } from '@/app-shell/useApplicationBootstrap'
 import { useMessengerShortcut } from '@/features/messenger/useMessengerShortcut'
 import { appShellClient } from '@/app-shell/client'
@@ -71,9 +69,6 @@ function App() {
   const [cocoonSidebarWidth, setCocoonSidebarWidth] = useState(320)
   const messengerShortcutVisible = useMessengerShortcut(messengerNetworkEnabled)
 
-  // Loading animation; dynamically imported so its JSON stays out of the main chunk.
-  const animationData = useAppearanceEffects()
-
   // Debounce timer for settings save
   const settingsSaveTimer = useRef<NodeJS.Timeout | null>(null)
 
@@ -95,14 +90,9 @@ function App() {
     }
   }, [walletSidebarOpen, walletSidebarWidth, cocoonSidebarOpen, cocoonSidebarWidth])
 
-  // Create default tab when proxy connects + prefetch lazy pages
   useEffect(() => {
     if (proxyConnected) {
       ensureDefaultTab()
-      // Warm every lazy page + sidebar chunk during idle after connect so they
-      // open instantly. Code-splitting keeps the initial bundle small (faster
-      // cold start in prod); idle-prefetch keeps navigation instant. Complementary.
-      requestIdleCallback(prefetchInternalRouteViews)
     }
   }, [proxyConnected, ensureDefaultTab])
 
@@ -119,7 +109,7 @@ function App() {
 
   const loadingContent: ReactNode = (
     <div className="w-full h-full flex flex-col items-center justify-center bg-background-secondary">
-      {animationData ? <Lottie animationData={animationData} className="w-64 h-64" loop autoplay /> : null}
+      <div className="w-16 h-16 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
     </div>
   )
 
@@ -240,6 +230,7 @@ function App() {
               // Update local state immediately for real-time UI updates
               setCurrentSidebarWidth(width)
               setDraft('sidebarWidth', width)
+              appShellClient.setTabSidebarWidth(width)
 
               // Debounce settings save to avoid excessive disk writes
               if (settingsSaveTimer.current) {
@@ -262,11 +253,7 @@ function App() {
           <Suspense
             fallback={
               <div className="w-full h-full flex flex-col items-center justify-center bg-background-secondary">
-                {animationData ? (
-                  <Lottie animationData={animationData} className="w-64 h-64" loop autoplay />
-                ) : (
-                  <div className="w-16 h-16 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
-                )}
+                <div className="w-16 h-16 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
               </div>
             }
           >
@@ -283,7 +270,6 @@ function App() {
             maxWidth={420}
             onResize={(width) => {
               setWalletSidebarWidth(width)
-              appShellClient.setContentSidebarWidth(width)
             }}
             className="border-l border-border"
           >
@@ -302,7 +288,6 @@ function App() {
             maxWidth={420}
             onResize={(width) => {
               setCocoonSidebarWidth(width)
-              appShellClient.setContentSidebarWidth(width)
             }}
             className="border-l border-border"
           >
