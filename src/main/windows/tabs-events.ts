@@ -30,6 +30,7 @@ export interface TabEventDeps {
   historyManager: HistoryManager
   overlayManager: OverlayManager
   storage: TabStorageState
+  cancelNavigation(tabId: string): void
 }
 
 /** Set up non-security event listeners on a view (loading, navigation, favicon, context menu). */
@@ -226,12 +227,15 @@ export function setupViewEventListeners(view: WebContentsView, tabId: string, de
               clipboard.writeText(d.url)
               break
             case 'back':
+              deps.cancelNavigation(tabId)
               view.webContents.navigationHistory.goBack()
               break
             case 'forward':
+              deps.cancelNavigation(tabId)
               view.webContents.navigationHistory.goForward()
               break
             case 'reload':
+              deps.cancelNavigation(tabId)
               view.webContents.reload()
               break
             case 'dismiss':

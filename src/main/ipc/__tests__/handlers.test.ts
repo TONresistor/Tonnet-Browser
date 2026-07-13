@@ -15,6 +15,7 @@ const tabsMocks = vi.hoisted(() => ({
   navigateInTab: vi.fn(() => Promise.resolve(true)),
   loadBagFile: vi.fn(() => Promise.resolve()),
   getActiveTabId: vi.fn(() => 'tab-1'),
+  cancelNavigation: vi.fn(),
 }))
 const loggingMocks = vi.hoisted(() => ({
   flushNativeLogs: vi.fn(() => Promise.resolve()),
@@ -397,6 +398,7 @@ function createMockRegistry(): ServiceRegistry {
       hideAllViews,
       showActiveView,
       loadBagFile: tabsMocks.loadBagFile,
+      cancelNavigation: tabsMocks.cancelNavigation,
       updateSidebarWidth: vi.fn(),
       updateWalletSidebarWidth: vi.fn(),
       onAppearanceSettingsChanged: vi.fn(),
@@ -837,6 +839,14 @@ describe('IPC Handlers', () => {
 
 describe('Security - Input Validation', () => {
   beforeEach(resetHandlersTestEnv)
+
+  it('supersedes pending navigation for the requested internal tab', async () => {
+    const handler = mockHandlers.get(IPC_CHANNELS.NAVIGATE)!
+
+    await handler(createMockEvent(), 'ton://settings', 'tab-2')
+
+    expect(hideAllViews).toHaveBeenCalledWith('tab-2')
+  })
 
   it('navigation handler rejects javascript: URLs', async () => {
     const handler = mockHandlers.get(IPC_CHANNELS.NAVIGATE)!

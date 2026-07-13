@@ -18,7 +18,7 @@ import { updateViewBounds, updateSidebarBounds, invalidateAppearanceCache } from
 import type { AppearanceSettings } from '../../shared/types'
 import { setupSecurityHandlers, ALLOWED_SCHEMES } from './tabs-security'
 import { setupViewEventListeners, type TabEventDeps } from './tabs-events'
-import { DisposableStore, IDisposable, onWebContents } from '../utils/disposable'
+import { DisposableStore, type IDisposable } from '../utils/disposable'
 import type { OverlayManager } from './overlay-manager'
 import type { ProxyManager } from '../proxy/manager'
 import type { StorageManager } from '../storage/daemon'
@@ -30,8 +30,9 @@ import { DEFAULT_SETTINGS } from '../../shared/defaults'
 import { createLogger } from '../../shared/logger'
 import { emitContractToRenderer } from '../events/renderer-events'
 import { normalizeUrl } from '../../shared/utils/url'
-import { tabHistoryResetContract } from '../../shared/ipc-contract/browsing'
+import { BrowserUrlSchema, tabHistoryResetContract } from '../../shared/ipc-contract/browsing'
 import { ViewRegistry } from './view-registry'
+import { attachViewWhenReady, setupNavAwareAttach } from './tabs-attach'
 
 const log = createLogger('tabs')
 
@@ -53,6 +54,7 @@ export class TabManager {
   private proxyPortUpdate: { port: number; flight: Promise<void> } | null = null
   private synchronizedProxyPort: number | null = null
   private readonly pendingSessionCreations = new Set<Promise<Electron.Session>>()
+  private readonly navigationEpochByTab = new Map<string, number>()
 
   get window(): BrowserWindow | null {
     return this.mainWindow
@@ -87,6 +89,7 @@ export class TabManager {
       historyManager: deps.historyManager,
       overlayManager: deps.overlayManager,
       storage: this.storage,
+      cancelNavigation: (tabId) => this.cancelNavigation(tabId),
     }
     this.sessions.initialize({
       contentFilterManager: deps.contentFilterManager,
@@ -199,8 +202,8 @@ export class TabManager {
     return this.views.activeViewId
   }
 
-  hideAllViews(): void {
-    hideAllViewsFor(this)
+  hideAllViews(tabId?: string): void {
+    hideAllViewsFor(this, tabId)
   }
 
   showActiveView(): void {
@@ -209,6 +212,25 @@ export class TabManager {
 
   navigateInTab(tabId: string, url: string): Promise<boolean> {
     return navigateInTabFor(this, tabId, url)
+  }
+
+  beginNavigation(tabId: string): number {
+    const epoch = (this.navigationEpochByTab.get(tabId) ?? 0) + 1
+    this.navigationEpochByTab.set(tabId, epoch)
+    return epoch
+  }
+
+  ownsNavigation(tabId: string, epoch: number): boolean {
+    return this.navigationEpochByTab.get(tabId) === epoch
+  }
+
+  cancelNavigation(tabId: string): void {
+    this.beginNavigation(tabId)
+  }
+
+  forgetNavigation(tabId?: string): void {
+    if (tabId) this.navigationEpochByTab.delete(tabId)
+    else this.navigationEpochByTab.clear()
   }
 
   loadStorageBag(tabId: string, bagId: string): Promise<void> {
@@ -260,42 +282,28 @@ export interface TabManagerDeps {
 
 function setupViewEvents(manager: TabManager, view: WebContentsView, tabId: string): void {
   const store = new DisposableStore()
-  store.add(setupViewEventListeners(view, tabId, manager.eventDependencies))
-  store.add(setupSecurityHandlers(view, tabId))
-  store.add(setupNavAwareAttach(manager, view, tabId))
-  if (manager.views.has(tabId)) manager.views.replace(tabId, view, store)
-  else manager.views.add(tabId, view, store)
-}
-
-/**
- * Intercept Chromium-internal navigations (link clicks, redirects) to detach
- * the view before unload and reattach once the new page is painted.
- *
- * navigateInTab already handles address-bar / programmatic navigations via
- * attachViewWhenReady on fresh views, but link clicks stay in the same
- * webContents and would otherwise expose the view's paint-holding color
- * during the pre-paint gap on Linux (electron/electron#44652).
- */
-function setupNavAwareAttach(manager: TabManager, view: WebContentsView, tabId: string): IDisposable {
-  return onWebContents(
-    view.webContents,
-    'did-start-navigation',
-    (_e: Electron.Event, url: string, isInPlace: boolean, isMainFrame: boolean) => {
-      if (!isMainFrame || isInPlace) return
-      if (!url || !(url.startsWith('http:') || url.startsWith('https:'))) return
-      if (!manager.window) return
-      if (manager.views.get(tabId) !== view) return
-      if (manager.views.activeViewId !== tabId) return
-      try {
-        if (manager.window.contentView.children.includes(view)) {
-          manager.window.contentView.removeChildView(view)
-          attachViewWhenReady(manager, view, tabId, manager.captureWindowGeneration())
+  try {
+    store.add(setupViewEventListeners(view, tabId, manager.eventDependencies))
+    store.add(
+      setupSecurityHandlers(view, tabId, (url) => {
+        if (manager.views.get(tabId) !== view) return true
+        const currentDomain = manager.sessions.getTabDomain(tabId)
+        if (!currentDomain) return false
+        if (currentDomain === extractDomain(url)) {
+          manager.cancelNavigation(tabId)
+          return false
         }
-      } catch (err) {
-        log.debug(`did-start-navigation detach failed for tab ${tabId}:`, err)
-      }
-    }
-  )
+        void manager.navigateInTab(tabId, url).catch((error) => log.error('Cross-domain navigation failed:', error))
+        return true
+      })
+    )
+    store.add(setupNavAwareAttach(manager, view, tabId))
+    if (manager.views.has(tabId)) manager.views.replace(tabId, view, store)
+    else manager.views.add(tabId, view, store)
+  } catch (error) {
+    store.dispose()
+    throw error
+  }
 }
 
 async function createTabFor(manager: TabManager, tabId: string, initialUrl?: string): Promise<boolean> {
@@ -335,6 +343,7 @@ async function createTabFor(manager: TabManager, tabId: string, initialUrl?: str
 async function loadStorageBagFor(manager: TabManager, tabId: string, bagId: string): Promise<void> {
   const view = manager.views.get(tabId)
   if (!view) throw new Error(`View not found for tab ${tabId}`)
+  manager.cancelNavigation(tabId)
 
   await loadStorageBag(manager.storage, view, {
     bagId,
@@ -352,6 +361,7 @@ async function loadStorageBagFor(manager: TabManager, tabId: string, bagId: stri
 async function loadBagFileFor(manager: TabManager, tabId: string, bagId: string, relPath: string): Promise<void> {
   const view = manager.views.get(tabId)
   if (!view) throw new Error(`View not found for tab ${tabId}`)
+  manager.cancelNavigation(tabId)
   const fullPath = await resolveBagFilePath(manager.storage, bagId, relPath)
   await view.webContents.loadFile(fullPath)
   // A prior internal ton:// page may have detached all views (hideAllViews),
@@ -383,6 +393,7 @@ function closeTabFor(manager: TabManager, tabId: string): boolean {
   safeDetach(manager, view, 'closeTab')
 
   manager.sessions.cleanupDomainForTab(tabId)
+  manager.forgetNavigation(tabId)
 
   view.webContents.close()
   manager.views.remove(tabId)
@@ -408,8 +419,10 @@ function switchTabFor(manager: TabManager, tabId: string): boolean {
   return true
 }
 
-function hideAllViewsFor(manager: TabManager): void {
+function hideAllViewsFor(manager: TabManager, tabId?: string): void {
   if (!manager.window) return
+  const targetTabId = tabId ?? manager.views.activeViewId
+  if (targetTabId) manager.cancelNavigation(targetTabId)
   manager.overlay?.hideAll()
 
   const activeView = manager.views.getActive()
@@ -435,63 +448,7 @@ function cleanupTabViewsFor(manager: TabManager): void {
     view.webContents.close()
   }
   manager.views.clear()
-}
-
-// Deferred-attach window sizing.
-// Floor: prevents a Lottie flash on pages that paint in <150ms (cache, local).
-// Ceiling: guarantees the view attaches even if dom-ready never fires.
-const DEFERRED_ATTACH_MIN_HOLD_MS = 150
-const DEFERRED_ATTACH_MAX_WAIT_MS = 5000
-
-/**
- * Attach a newly created WebContentsView only once its content is ready to paint.
- *
- * Pattern borrowed from Min Browser / Wexond. While we wait, the renderer React
- * layer below stays visible and renders the loading state (App.tsx external-page
- * branch: Lottie on bg-background-secondary). Once dom-ready (or a fallback)
- * fires, the now-painted view is attached and covers the renderer.
- *
- * Without this, on Linux the empty attached view exposes its paint-holding
- * color during the pre-paint gap (electron/electron#44652) — user sees black.
- */
-function attachViewWhenReady(manager: TabManager, view: WebContentsView, tabId: string, generation: number): void {
-  if (!manager.window) return
-  const startedAt = Date.now()
-  let decided = false
-
-  const performAttach = (): void => {
-    if (!manager.ownsWindowGeneration(generation) || !manager.window) return
-    // A failed cold-start load can replace/tear down this view before the
-    // deferred attach fires; bail before touching a stale/undefined webContents.
-    if (manager.views.get(tabId) !== view) return
-    const wc = view.webContents
-    if (!wc || wc.isDestroyed()) return
-    if (manager.views.activeViewId !== tabId) return
-    try {
-      if (!manager.window.contentView.children.includes(view)) {
-        manager.window.contentView.addChildView(view)
-        updateViewBounds(view, manager.window, manager.sidebarWidth)
-      }
-    } catch (err) {
-      log.debug(`Deferred attach failed for tab ${tabId}:`, err)
-    }
-  }
-
-  const decide = (): void => {
-    if (decided) return
-    decided = true
-    const elapsed = Date.now() - startedAt
-    const delay = Math.max(0, DEFERRED_ATTACH_MIN_HOLD_MS - elapsed)
-    if (delay === 0) {
-      performAttach()
-    } else {
-      setTimeout(performAttach, delay)
-    }
-  }
-
-  view.webContents.once('dom-ready', decide)
-  view.webContents.once('did-fail-load', decide)
-  setTimeout(decide, DEFERRED_ATTACH_MAX_WAIT_MS)
+  manager.forgetNavigation()
 }
 
 async function navigateInTabFor(manager: TabManager, tabId: string, url: string): Promise<boolean> {
@@ -511,6 +468,11 @@ async function navigateInTabFor(manager: TabManager, tabId: string, url: string)
 
   navigateUrl = normalizeUrl(navigateUrl)
 
+  if (!BrowserUrlSchema.safeParse(navigateUrl).success) {
+    log.error('Invalid navigation URL')
+    return false
+  }
+
   try {
     const parsed = new URL(navigateUrl)
     if (!ALLOWED_SCHEMES.includes(parsed.protocol)) {
@@ -522,26 +484,44 @@ async function navigateInTabFor(manager: TabManager, tabId: string, url: string)
     return false
   }
 
+  const navigationEpoch = manager.beginNavigation(tabId)
+
   const domain = extractDomain(navigateUrl)
   const currentDomain = manager.sessions.getTabDomain(tabId)
-  const isActive = manager.views.activeViewId === tabId
 
   if (currentDomain && currentDomain !== domain) {
     log.debug('Domain changed, recreating view')
 
+    let newSession: Electron.Session
+    try {
+      newSession = await manager.getSessionForDomain(domain)
+    } catch (error) {
+      log.error(`Failed to create session for ${domain}:`, error)
+      return false
+    }
+    if (
+      !manager.ownsWindowGeneration(generation) ||
+      !manager.ownsNavigation(tabId, navigationEpoch) ||
+      manager.views.get(tabId) !== view
+    )
+      return false
+
+    let newView: WebContentsView | undefined
+    try {
+      newView = createBrowserView(newSession)
+      setupViewEvents(manager, newView, tabId)
+    } catch (error) {
+      if (newView && !newView.webContents.isDestroyed()) newView.webContents.close()
+      log.error(`Failed to create view for ${domain}:`, error)
+      return false
+    }
     safeDetach(manager, view, 'domain change')
     view.webContents.close()
-
-    const newSession = await manager.getSessionForDomain(domain)
-    if (!manager.ownsWindowGeneration(generation) || manager.views.get(tabId) !== view) return false
-    const newView = createBrowserView(newSession)
-    setupViewEvents(manager, newView, tabId)
     manager.sessions.setTabDomain(tabId, domain)
     manager.sessions.updateDomainActivity(domain)
+    emitContractToRenderer(tabHistoryResetContract, tabId, navigateUrl)
 
-    emitContractToRenderer(tabHistoryResetContract, tabId)
-
-    if (isActive) {
+    if (manager.views.activeViewId === tabId) {
       attachViewWhenReady(manager, newView, tabId, generation)
     }
 
@@ -554,7 +534,7 @@ async function navigateInTabFor(manager: TabManager, tabId: string, url: string)
     manager.sessions.setTabDomain(tabId, domain)
     manager.sessions.updateDomainActivity(domain)
 
-    if (isActive && manager.window) {
+    if (manager.views.activeViewId === tabId && manager.window) {
       safeDetach(manager, view, 'same-domain navigate')
       manager.window.contentView.addChildView(view)
       updateViewBounds(view, manager.window, manager.sidebarWidth)

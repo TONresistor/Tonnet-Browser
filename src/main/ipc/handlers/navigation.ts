@@ -58,7 +58,7 @@ export function registerNavigationHandlers(tabManager: TabManager): void {
     // Don't load internal ton:// URLs in WebContentsView
     if (url.startsWith('ton://')) {
       log.debug('Internal URL, hiding views')
-      tabManager.hideAllViews()
+      tabManager.hideAllViews(tabId || tabManager.getActiveTabId() || undefined)
       return { success: true, internal: true }
     }
 
@@ -82,12 +82,16 @@ export function registerNavigationHandlers(tabManager: TabManager): void {
     if (currentUrl.startsWith('file:///') && currentUrl.includes('/storage/')) {
       const cached = tabManager.storage.fileBrowserCache.get(view.webContents.id)
       if (cached) {
+        const tabId = tabManager.getActiveTabId()
+        if (tabId) tabManager.cancelNavigation(tabId)
         await loadDataHtml(view.webContents, cached)
         return { success: true }
       }
     }
 
     if (view.webContents.navigationHistory.canGoBack()) {
+      const tabId = tabManager.getActiveTabId()
+      if (tabId) tabManager.cancelNavigation(tabId)
       view.webContents.navigationHistory.goBack()
       return { success: true }
     }
@@ -97,6 +101,8 @@ export function registerNavigationHandlers(tabManager: TabManager): void {
   secureContractHandle(goForwardContract, () => {
     const view = tabManager.getActiveView()
     if (view?.webContents.navigationHistory.canGoForward()) {
+      const tabId = tabManager.getActiveTabId()
+      if (tabId) tabManager.cancelNavigation(tabId)
       view.webContents.navigationHistory.goForward()
       return { success: true }
     }
@@ -106,6 +112,8 @@ export function registerNavigationHandlers(tabManager: TabManager): void {
   secureContractHandle(reloadContract, () => {
     const view = tabManager.getActiveView()
     if (view) {
+      const tabId = tabManager.getActiveTabId()
+      if (tabId) tabManager.cancelNavigation(tabId)
       view.webContents.reload()
       return { success: true }
     }
@@ -115,6 +123,8 @@ export function registerNavigationHandlers(tabManager: TabManager): void {
   secureContractHandle(stopContract, () => {
     const view = tabManager.getActiveView()
     if (view) {
+      const tabId = tabManager.getActiveTabId()
+      if (tabId) tabManager.cancelNavigation(tabId)
       view.webContents.stop()
       return { success: true }
     }

@@ -40,7 +40,7 @@ export interface IpcEventMap {
   'storage:status': [status: { running: boolean }]
   'context:open-link': [url: string]
   'settings:changed': [change: SettingsChangedEvent]
-  'tab:history-reset': [tabId: string]
+  'tab:history-reset': [tabId: string, url: string]
   'wallet:balance-updated': [balance: string]
   'wallet:state-changed': [state: WalletState]
   'wallet:new-transaction': [tx: WalletTransaction]

@@ -7,6 +7,7 @@ export const TabIdSchema = z
   .min(1)
   .max(128)
   .regex(/^[A-Za-z0-9_-]+$/)
+export const BrowserUrlSchema = z.string().min(1).max(16_384)
 const SuccessSchema = z.object({ success: z.boolean() })
 const base = {
   direction: 'request' as const,
@@ -35,7 +36,7 @@ export const navigateContract = defineRequest({
   ...base,
   channel: BROWSING_CHANNELS.navigate,
   rateLimit: { kind: 'fixed-window', maxRequests: 30, windowMs: 1_000, key: 'sender' },
-  input: z.tuple([z.string().min(1).max(16_384), TabIdSchema.optional()]),
+  input: z.tuple([BrowserUrlSchema, TabIdSchema.optional()]),
   output: SuccessSchema.extend({ internal: z.boolean().optional() }),
   errors: ['RATE_LIMITED', 'INVALID_URL', 'INVALID_FILE_PATH', 'TAB_NOT_FOUND', 'NAVIGATION_FAILED'],
 })
@@ -59,7 +60,7 @@ export const pageNavigateContract = defineEvent({
   direction: 'event',
   recipient: 'main-renderer',
   payload: z.tuple([
-    z.object({ tabId: TabIdSchema, url: z.string().max(16_384), canGoBack: z.boolean(), canGoForward: z.boolean() }),
+    z.object({ tabId: TabIdSchema, url: BrowserUrlSchema, canGoBack: z.boolean(), canGoForward: z.boolean() }),
   ]),
   redaction: 'sensitive',
 })
@@ -81,15 +82,15 @@ export const contextOpenLinkContract = defineEvent({
   channel: BROWSING_CHANNELS.contextOpenLink,
   direction: 'event',
   recipient: 'main-renderer',
-  payload: z.tuple([z.string().max(16_384)]),
+  payload: z.tuple([BrowserUrlSchema]),
   redaction: 'sensitive',
 })
 export const tabHistoryResetContract = defineEvent({
   channel: BROWSING_CHANNELS.tabHistoryReset,
   direction: 'event',
   recipient: 'main-renderer',
-  payload: z.tuple([TabIdSchema]),
-  redaction: 'public',
+  payload: z.tuple([TabIdSchema, BrowserUrlSchema]),
+  redaction: 'sensitive',
 })
 
 export const BROWSING_REQUEST_CONTRACTS = [

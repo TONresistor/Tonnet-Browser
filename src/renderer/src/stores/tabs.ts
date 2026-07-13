@@ -16,6 +16,7 @@ import { getInternalPageFavicon, getInternalPageTitle, isInternalUrl } from '@/a
 export { getInternalPageFavicon, getInternalPageTitle } from '@/app-shell/internal-routes'
 
 const log = createLogger('tabs')
+const navigationRequestByTab = new Map<string, number>()
 
 export interface Tab extends BaseTab {
   history: string[]
@@ -64,10 +65,18 @@ async function getHomepage(): Promise<string> {
  */
 async function applyTabNavigation(
   set: (updater: (state: TabsState) => Partial<TabsState>) => void,
+  get: () => TabsState,
   tabId: string,
   updates: Partial<Tab>,
   errorLabel: string
 ): Promise<void> {
+  const previousTab = get().tabs.find((tab) => tab.id === tabId)
+  if (!previousTab) return
+  const request = (navigationRequestByTab.get(tabId) ?? 0) + 1
+  navigationRequestByTab.set(tabId, request)
+  const rollback = Object.fromEntries(
+    (Object.keys(updates) as Array<keyof Tab>).map((key) => [key, previousTab[key]])
+  ) as Partial<Tab>
   set((state) => ({
     tabs: state.tabs.map((t) => (t.id === tabId ? { ...t, ...updates } : t)),
   }))
@@ -75,10 +84,22 @@ async function applyTabNavigation(
   if (updates.url !== undefined) {
     browser.setNavigation(updates.url, updates.canGoBack ?? false, updates.canGoForward ?? false)
     if (updates.title) browser.setTitle(updates.title)
+    let success = false
     try {
-      await browserClient.navigate(updates.url, tabId)
+      success = (await browserClient.navigate(updates.url, tabId)).success
     } catch (error) {
       log.error(errorLabel, error)
+    }
+    if (navigationRequestByTab.get(tabId) !== request) return
+    navigationRequestByTab.delete(tabId)
+    if (success) return
+    set((state) => ({
+      tabs: state.tabs.map((tab) => (tab.id === tabId ? { ...tab, ...rollback } : tab)),
+    }))
+    const restored = get().tabs.find((tab) => tab.id === tabId)
+    if (restored && get().activeTabId === tabId) {
+      browser.setNavigation(restored.url, restored.canGoBack, restored.canGoForward)
+      browser.setTitle(restored.title)
     }
   }
 }
@@ -127,6 +148,7 @@ export const useTabsStore = create<TabsState>((set, get) => ({
   },
 
   closeTab: async (id: string) => {
+    navigationRequestByTab.delete(id)
     const { tabs, activeTabId, closedTabs } = get()
     const index = tabs.findIndex((t) => t.id === id)
     const closedTab = tabs.find((t) => t.id === id)
@@ -249,7 +271,7 @@ export const useTabsStore = create<TabsState>((set, get) => ({
       updates.favicon = getInternalPageFavicon(url) ?? undefined
     }
 
-    await applyTabNavigation(set, currentActiveTabId, updates, 'Failed to navigate:')
+    await applyTabNavigation(set, get, currentActiveTabId, updates, 'Failed to navigate:')
   },
 
   openOrSwitchToTab: async (url: string) => {
@@ -305,7 +327,7 @@ export const useTabsStore = create<TabsState>((set, get) => ({
       updates.favicon = getInternalPageFavicon(newUrl) ?? undefined
     }
 
-    await applyTabNavigation(set, activeTabId, updates, 'Failed to go back:')
+    await applyTabNavigation(set, get, activeTabId, updates, 'Failed to go back:')
   },
 
   goForward: async () => {
@@ -332,7 +354,7 @@ export const useTabsStore = create<TabsState>((set, get) => ({
       updates.favicon = getInternalPageFavicon(newUrl) ?? undefined
     }
 
-    await applyTabNavigation(set, activeTabId, updates, 'Failed to go forward:')
+    await applyTabNavigation(set, get, activeTabId, updates, 'Failed to go forward:')
   },
 
   duplicateTab: async (id: string) => {

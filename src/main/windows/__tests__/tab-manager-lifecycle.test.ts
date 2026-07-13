@@ -1,27 +1,39 @@
 import { EventEmitter } from 'node:events'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { sessions, createBrowserView, extractDomain, initStorageListener, firstStorageDispose, secondStorageDispose } =
-  vi.hoisted(() => ({
-    sessions: {
-      initialize: vi.fn(),
-      detachWindow: vi.fn(),
-      dispose: vi.fn(),
-      updateProxyPort: vi.fn(() => Promise.resolve()),
-      getSessionForDomain: vi.fn(),
-      updateDomainActivity: vi.fn(),
-      setTabDomain: vi.fn(),
-      getTabDomain: vi.fn(),
-      cleanupDomainForTab: vi.fn(),
-      getAllSessions: vi.fn(() => []),
-      onPrivacySettingsChanged: vi.fn(),
-    },
-    createBrowserView: vi.fn(),
-    extractDomain: vi.fn((url: string) => new URL(url).hostname),
-    initStorageListener: vi.fn(),
-    firstStorageDispose: vi.fn(),
-    secondStorageDispose: vi.fn(),
-  }))
+const {
+  sessions,
+  createBrowserView,
+  extractDomain,
+  initStorageListener,
+  setupSecurityHandlers,
+  emitContractToRenderer,
+  firstStorageDispose,
+  secondStorageDispose,
+} = vi.hoisted(() => ({
+  sessions: {
+    initialize: vi.fn(),
+    detachWindow: vi.fn(),
+    dispose: vi.fn(),
+    updateProxyPort: vi.fn(() => Promise.resolve()),
+    getSessionForDomain: vi.fn(),
+    updateDomainActivity: vi.fn(),
+    setTabDomain: vi.fn(),
+    getTabDomain: vi.fn(),
+    cleanupDomainForTab: vi.fn(),
+    getAllSessions: vi.fn(() => []),
+    onPrivacySettingsChanged: vi.fn(),
+  },
+  createBrowserView: vi.fn(),
+  extractDomain: vi.fn((url: string) => new URL(url).hostname),
+  initStorageListener: vi.fn(),
+  setupSecurityHandlers: vi.fn((_view: unknown, _tabId: string, _handoff?: (url: string) => boolean) => ({
+    dispose: vi.fn(),
+  })),
+  emitContractToRenderer: vi.fn(),
+  firstStorageDispose: vi.fn(),
+  secondStorageDispose: vi.fn(),
+}))
 
 vi.mock('electron', () => ({
   BrowserWindow: class {},
@@ -53,11 +65,11 @@ vi.mock('../tabs-bounds', () => ({
   invalidateAppearanceCache: vi.fn(),
 }))
 vi.mock('../tabs-security', () => ({
-  setupSecurityHandlers: vi.fn(() => ({ dispose: vi.fn() })),
+  setupSecurityHandlers,
   ALLOWED_SCHEMES: ['http:', 'https:'],
 }))
 vi.mock('../tabs-events', () => ({ setupViewEventListeners: vi.fn(() => ({ dispose: vi.fn() })) }))
-vi.mock('../../events/renderer-events', () => ({ emitContractToRenderer: vi.fn() }))
+vi.mock('../../events/renderer-events', () => ({ emitContractToRenderer }))
 
 import { TabManager } from '../tabs'
 import { DisposableStore } from '../../utils/disposable'
@@ -102,9 +114,15 @@ const deps = {
 describe('TabManager lifecycle ownership', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    sessions.getSessionForDomain.mockReset()
+    sessions.updateProxyPort.mockReset().mockResolvedValue(undefined)
+    createBrowserView.mockReset()
+    setupSecurityHandlers.mockReset()
+    initStorageListener.mockReset()
     sessions.getTabDomain.mockReturnValue(undefined)
     sessions.getSessionForDomain.mockResolvedValue({})
     createBrowserView.mockImplementation(() => createView(1))
+    setupSecurityHandlers.mockImplementation((_view, _tabId, _handoff) => ({ dispose: vi.fn() }))
     initStorageListener
       .mockReturnValueOnce({ dispose: firstStorageDispose })
       .mockReturnValueOnce({ dispose: secondStorageDispose })
@@ -193,6 +211,184 @@ describe('TabManager lifecycle ownership', () => {
     expect(createBrowserView).not.toHaveBeenCalled()
     expect(manager.views.size).toBe(0)
     expect(secondWindow.contentView.addChildView).not.toHaveBeenCalled()
+  })
+
+  it('hands page navigation to a target-domain session before replacing the old view', async () => {
+    const window = new WindowMock()
+    const manager = new TabManager()
+    const oldView = createView(1)
+    const newView = createView(2)
+    const targetSession = deferred<object>()
+    const firstSession = { id: 'first' }
+    const secondSession = { id: 'second' }
+    sessions.getSessionForDomain.mockResolvedValueOnce(firstSession).mockReturnValueOnce(targetSession.promise)
+    createBrowserView.mockReturnValueOnce(oldView).mockReturnValueOnce(newView)
+    manager.attachWindow(window as never, 8080, deps)
+    await expect(manager.createTab('tab-1', 'http://first.ton')).resolves.toBe(true)
+    sessions.getTabDomain.mockReturnValue('first.ton')
+
+    const handoff = setupSecurityHandlers.mock.calls[0]?.[2] as ((url: string) => boolean) | undefined
+    expect(handoff?.('http://second.ton/page')).toBe(true)
+    await vi.waitFor(() => expect(sessions.getSessionForDomain).toHaveBeenCalledTimes(2))
+    expect(oldView.webContents.close).not.toHaveBeenCalled()
+
+    targetSession.resolve(secondSession)
+    await vi.waitFor(() => expect(createBrowserView).toHaveBeenCalledTimes(2))
+
+    expect(createBrowserView).toHaveBeenLastCalledWith(secondSession)
+    expect(manager.views.get('tab-1')).toBe(newView)
+    expect(sessions.setTabDomain).toHaveBeenLastCalledWith('tab-1', 'second.ton')
+    expect(oldView.webContents.close).toHaveBeenCalledOnce()
+    expect(emitContractToRenderer).toHaveBeenCalledWith(
+      expect.objectContaining({ channel: 'tab:history-reset' }),
+      'tab-1',
+      'http://second.ton/page'
+    )
+  })
+
+  it('keeps the old view when target session creation fails', async () => {
+    const window = new WindowMock()
+    const manager = new TabManager()
+    const oldView = createView(1)
+    sessions.getTabDomain.mockReturnValue('first.ton')
+    sessions.getSessionForDomain.mockRejectedValueOnce(new Error('session failed'))
+    manager.attachWindow(window as never, 8080, deps)
+    manager.views.add('tab-1', oldView as never, new DisposableStore())
+    manager.views.activate('tab-1')
+
+    await expect(manager.navigateInTab('tab-1', 'http://second.ton')).resolves.toBe(false)
+
+    expect(manager.views.get('tab-1')).toBe(oldView)
+    expect(oldView.webContents.close).not.toHaveBeenCalled()
+    expect(createBrowserView).not.toHaveBeenCalled()
+  })
+
+  it('lets only the latest deferred cross-domain navigation replace the view', async () => {
+    const window = new WindowMock()
+    const manager = new TabManager()
+    const oldView = createView(1)
+    const newView = createView(2)
+    const secondSession = deferred<object>()
+    const thirdSession = deferred<object>()
+    sessions.getTabDomain.mockReturnValue('first.ton')
+    sessions.getSessionForDomain.mockReturnValueOnce(secondSession.promise).mockReturnValueOnce(thirdSession.promise)
+    createBrowserView.mockReturnValueOnce(newView)
+    manager.attachWindow(window as never, 8080, deps)
+    manager.views.add('tab-1', oldView as never, new DisposableStore())
+    manager.views.activate('tab-1')
+
+    const secondNavigation = manager.navigateInTab('tab-1', 'http://second.ton')
+    const thirdNavigation = manager.navigateInTab('tab-1', 'http://third.ton')
+    secondSession.resolve({ id: 'second' })
+    await expect(secondNavigation).resolves.toBe(false)
+    expect(createBrowserView).not.toHaveBeenCalled()
+
+    const latestSession = { id: 'third' }
+    thirdSession.resolve(latestSession)
+    await expect(thirdNavigation).resolves.toBe(true)
+
+    expect(createBrowserView).toHaveBeenCalledOnce()
+    expect(createBrowserView).toHaveBeenCalledWith(latestSession)
+    expect(sessions.setTabDomain).toHaveBeenLastCalledWith('tab-1', 'third.ton')
+    expect(oldView.webContents.close).toHaveBeenCalledOnce()
+  })
+
+  it('cancels a deferred handoff when a later same-domain navigation starts', async () => {
+    const window = new WindowMock()
+    const manager = new TabManager()
+    const oldView = createView(1)
+    const targetSession = deferred<object>()
+    sessions.getSessionForDomain.mockResolvedValueOnce({}).mockReturnValueOnce(targetSession.promise)
+    createBrowserView.mockReturnValueOnce(oldView)
+    manager.attachWindow(window as never, 8080, deps)
+    await manager.createTab('tab-1', 'http://first.ton')
+    sessions.getTabDomain.mockReturnValue('first.ton')
+    const handoff = setupSecurityHandlers.mock.calls[0][2]
+    const navigate = vi.spyOn(manager, 'navigateInTab')
+
+    expect(handoff?.('http://second.ton')).toBe(true)
+    await vi.waitFor(() => expect(sessions.getSessionForDomain).toHaveBeenCalledTimes(2))
+    const pendingNavigation = navigate.mock.results[0].value
+    expect(handoff?.('http://first.ton/latest')).toBe(false)
+    targetSession.resolve({})
+    await expect(pendingNavigation).resolves.toBe(false)
+
+    expect(manager.views.get('tab-1')).toBe(oldView)
+    expect(createBrowserView).toHaveBeenCalledOnce()
+  })
+
+  it('cancels a deferred handoff when an internal page supersedes it', async () => {
+    const window = new WindowMock()
+    const manager = new TabManager()
+    const oldView = createView(1)
+    const targetSession = deferred<object>()
+    sessions.getTabDomain.mockReturnValue('first.ton')
+    sessions.getSessionForDomain.mockReturnValueOnce(targetSession.promise)
+    manager.attachWindow(window as never, 8080, deps)
+    manager.views.add('tab-1', oldView as never, new DisposableStore())
+    manager.views.activate('tab-1')
+
+    const navigation = manager.navigateInTab('tab-1', 'http://second.ton')
+    manager.hideAllViews('tab-1')
+    targetSession.resolve({})
+
+    await expect(navigation).resolves.toBe(false)
+    expect(manager.views.get('tab-1')).toBe(oldView)
+    expect(oldView.webContents.close).not.toHaveBeenCalled()
+    expect(createBrowserView).not.toHaveBeenCalled()
+  })
+
+  it('keeps the old view when replacement listener setup fails', async () => {
+    const window = new WindowMock()
+    const manager = new TabManager()
+    const oldView = createView(1)
+    const newView = createView(2)
+    sessions.getTabDomain.mockReturnValue('first.ton')
+    sessions.getSessionForDomain.mockResolvedValueOnce({})
+    createBrowserView.mockReturnValueOnce(newView)
+    setupSecurityHandlers.mockImplementationOnce(() => {
+      throw new Error('listener setup failed')
+    })
+    manager.attachWindow(window as never, 8080, deps)
+    manager.views.add('tab-1', oldView as never, new DisposableStore())
+    manager.views.activate('tab-1')
+
+    await expect(manager.navigateInTab('tab-1', 'http://second.ton')).resolves.toBe(false)
+
+    expect(manager.views.get('tab-1')).toBe(oldView)
+    expect(oldView.webContents.close).not.toHaveBeenCalled()
+    expect(newView.webContents.close).toHaveBeenCalledOnce()
+  })
+
+  it('attaches a replacement when its tab becomes active during session creation', async () => {
+    vi.useFakeTimers()
+    try {
+      const window = new WindowMock()
+      const manager = new TabManager()
+      const oldView = createView(1)
+      const otherView = createView(2)
+      const newView = createView(3)
+      const targetSession = deferred<object>()
+      sessions.getTabDomain.mockReturnValue('first.ton')
+      sessions.getSessionForDomain.mockReturnValueOnce(targetSession.promise)
+      createBrowserView.mockReturnValueOnce(newView)
+      manager.attachWindow(window as never, 8080, deps)
+      manager.views.add('tab-1', oldView as never, new DisposableStore())
+      manager.views.add('tab-2', otherView as never, new DisposableStore())
+      manager.switchTab('tab-2')
+
+      const navigation = manager.navigateInTab('tab-1', 'http://second.ton')
+      manager.switchTab('tab-1')
+      targetSession.resolve({})
+      await expect(navigation).resolves.toBe(true)
+      newView.webContents.emit('dom-ready')
+      await vi.advanceTimersByTimeAsync(150)
+
+      expect(window.contentView.children).toContain(newView)
+      expect(window.contentView.children).not.toContain(oldView)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('updates the runtime proxy port without reattaching or destroying the window', async () => {
