@@ -97,7 +97,9 @@ function createMockPermissionStore() {
 
 function createMockOverlayManager() {
   return {
-    show: vi.fn(),
+    show: vi.fn(
+      (_id: string, _bounds: unknown, _content: unknown, _action?: (action: string) => void, _options?: unknown) => true
+    ),
     hide: vi.fn(),
   }
 }

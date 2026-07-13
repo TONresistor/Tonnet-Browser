@@ -67,6 +67,18 @@ describe('secureContractHandle', () => {
     })
   })
 
+  it('keeps unexpected handler failures internal', async () => {
+    secureContractHandle(contract, () => {
+      throw new Error('private implementation detail')
+    })
+
+    await expect(registered?.(4)).rejects.toMatchObject({
+      code: 'IPC_INTERNAL_ERROR',
+      message: 'Operation failed',
+      retryable: false,
+    })
+  })
+
   it('enforces a declared fixed-window policy before calling the handler', async () => {
     const limited = defineRequest({
       ...contract,

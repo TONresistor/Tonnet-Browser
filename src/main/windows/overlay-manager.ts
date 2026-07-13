@@ -26,6 +26,7 @@ interface OverlayInstance {
   view: WebContentsView
   id: string
   onAction?: OverlayActionHandler
+  handlesActions: boolean
   autoDismiss: boolean
 }
 
@@ -86,8 +87,8 @@ export class OverlayManager {
     content: OverlayContent,
     onAction?: OverlayActionHandler,
     options?: OverlayOptions
-  ): void {
-    if (!this.mainWindow) return
+  ): boolean {
+    if (!this.mainWindow) return false
     const autoDismiss = options?.autoDismiss !== false
 
     // Reuse existing overlay with same id (transitions like menu -> form)
@@ -96,14 +97,21 @@ export class OverlayManager {
       existing.view.setBounds(bounds)
       const payload = overlayContentEventContract.payload.parse([content])
       existing.view.webContents.send(overlayContentEventContract.channel, ...payload)
-      if (onAction) existing.onAction = onAction
+      existing.onAction = onAction
+      existing.handlesActions = Boolean(onAction)
+      if (existing.autoDismiss !== autoDismiss) {
+        this.clickOutsideHandlers.get(id)?.()
+        this.clickOutsideHandlers.delete(id)
+        existing.autoDismiss = autoDismiss
+        if (autoDismiss) this.setupClickOutside(id)
+      }
       try {
         this.mainWindow.contentView.addChildView(existing.view)
       } catch {
         // Already attached
       }
       if (autoDismiss) existing.view.webContents.focus()
-      return
+      return true
     }
 
     // Get a view from pool or create one
@@ -118,7 +126,7 @@ export class OverlayManager {
     const contentPayload = overlayContentEventContract.payload.parse([content])
     view.webContents.send(overlayContentEventContract.channel, ...contentPayload)
 
-    this.active.set(id, { view, id, onAction, autoDismiss })
+    this.active.set(id, { view, id, onAction, handlesActions: Boolean(onAction), autoDismiss })
 
     if (autoDismiss) {
       view.webContents.focus()
@@ -126,6 +134,7 @@ export class OverlayManager {
     }
 
     log.debug(`Overlay shown: ${id}`)
+    return true
   }
 
   private setupClickOutside(id: string): void {
@@ -138,7 +147,7 @@ export class OverlayManager {
       dismissTimer = setTimeout(() => {
         dismissTimer = null
         if (this.active.has(id)) {
-          this.emitDismiss(id)
+          this.dismiss(id)
         }
       }, OVERLAY_DISMISS_DEBOUNCE_MS)
     }
@@ -156,11 +165,28 @@ export class OverlayManager {
     })
   }
 
-  private emitDismiss(id: string): void {
-    if (!this.mainWindow) return
-    const payload = overlayActionEventContract.payload.parse([id, 'dismiss', {}])
-    this.mainWindow.webContents.send(overlayActionEventContract.channel, ...payload)
+  private dismiss(id: string): void {
+    const instance = this.active.get(id)
+    if (!instance) return
+    const handler = instance.onAction
+    instance.onAction = undefined
+    const forwardToRenderer = !instance.handlesActions
     this.hide(id)
+    if (handler) {
+      try {
+        handler('dismiss', {})
+      } catch (error) {
+        log.error(`Overlay dismiss handler failed: ${id}`, error)
+      }
+      return
+    }
+    if (!forwardToRenderer || !this.mainWindow) return
+    try {
+      const payload = overlayActionEventContract.payload.parse([id, 'dismiss', {}])
+      this.mainWindow.webContents.send(overlayActionEventContract.channel, ...payload)
+    } catch (error) {
+      log.debug(`Overlay dismiss event unavailable: ${id}`, error)
+    }
   }
 
   hide(id: string): void {
@@ -189,8 +215,8 @@ export class OverlayManager {
   }
 
   hideAll(): void {
-    for (const id of this.active.keys()) {
-      this.hide(id)
+    for (const id of [...this.active.keys()]) {
+      this.dismiss(id)
     }
   }
 
@@ -222,7 +248,14 @@ export class OverlayManager {
   handleAction(sender: Electron.WebContents, actionType: string, actionData: unknown): boolean {
     for (const [, instance] of this.active) {
       if (instance.view.webContents === sender && instance.onAction) {
-        instance.onAction(actionType, actionData)
+        const handler = instance.onAction
+        instance.onAction = undefined
+        try {
+          handler(actionType, actionData)
+        } catch (error) {
+          log.error(`Overlay action handler failed: ${instance.id}`, error)
+          this.hide(instance.id)
+        }
         return true
       }
     }

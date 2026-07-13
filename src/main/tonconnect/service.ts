@@ -92,6 +92,8 @@ export class TonConnectService {
   private manifestLoader: TonConnectManifestLoader
   private eventDelivery: TonConnectEventDeliveryPort
   private signingWorkflow: TonConnectSigningWorkflow
+  private sessionGeneration = 0
+  private lastGrantedAt = 0
   // Per-domain so one noisy tonsite cannot exhaust another's request budget.
   private limiter = new KeyedRateLimiter(10, 1000)
 
@@ -163,6 +165,7 @@ export class TonConnectService {
   }
 
   async clearSessions(): Promise<void> {
+    this.sessionGeneration += 1
     this.limiter.clear()
     for (const domain of this.sessionStore.list().map((s) => s.domain)) {
       await this.emitDisconnect(domain)
@@ -176,6 +179,7 @@ export class TonConnectService {
     request?: ConnectRequest,
     protocolVersion?: number
   ): Promise<ConnectEvent> {
+    const sessionGeneration = this.sessionGeneration
     if (protocolVersion && protocolVersion > TONCONNECT_PROTOCOL_VERSION) {
       return connectError(CONNECT_ERROR.BAD_REQUEST, 'Unsupported protocol version')
     }
@@ -216,38 +220,67 @@ export class TonConnectService {
       return connectError(CONNECT_ERROR.USER_DECLINED, 'User declined the connection')
     }
 
+    const approvedAccount = this.wallet.getTonConnectAccount()
+    if (!approvedAccount || !sameAddress(account.addressRaw, approvedAccount.addressRaw)) {
+      return connectError(CONNECT_ERROR.UNKNOWN, 'Wallet changed while connection approval was pending')
+    }
+
     const items: ConnectItemReply[] = [
       {
         name: 'ton_addr',
-        address: account.addressRaw,
+        address: approvedAccount.addressRaw,
         network: TON_MAINNET_CHAIN,
-        publicKey: account.publicKey,
-        walletStateInit: account.walletStateInit,
+        publicKey: approvedAccount.publicKey,
+        walletStateInit: approvedAccount.walletStateInit,
       },
     ]
 
     const proofItem = request.items.find((i): i is TonProofItem => i.name === 'ton_proof')
     if (proofItem) {
       try {
-        const proof = await this.wallet.signTonProof(domain, proofItem.payload)
+        const proof = await this.wallet.signTonProof(domain, proofItem.payload, approvedAccount.addressRaw)
         items.push({ name: 'ton_proof', proof })
       } catch (err) {
         items.push({ name: 'ton_proof', error: { code: 0, message: errorMessage(err) } })
       }
     }
 
+    const currentAccount = this.wallet.getTonConnectAccount()
+    if (
+      sessionGeneration !== this.sessionGeneration ||
+      !currentAccount ||
+      !sameAddress(approvedAccount.addressRaw, currentAccount.addressRaw)
+    ) {
+      return connectError(CONNECT_ERROR.UNKNOWN, 'Wallet changed while connection approval was pending')
+    }
+
+    const grantedAt = Math.max(Date.now(), this.lastGrantedAt + 1)
+    this.lastGrantedAt = grantedAt
     await this.sessionStore.set({
       domain,
       manifestUrl: request.manifestUrl,
       appName,
       appIconUrl,
       url: appUrl,
-      address: account.addressRaw,
+      address: approvedAccount.addressRaw,
       network: TON_MAINNET_CHAIN,
-      grantedAt: Date.now(),
+      grantedAt,
       lastEventId: 0,
       lastRpcId: null,
     })
+    const stored = this.sessionStore.get(domain)
+    const finalAccount = this.wallet.getTonConnectAccount()
+    if (
+      sessionGeneration !== this.sessionGeneration ||
+      !finalAccount ||
+      !sameAddress(approvedAccount.addressRaw, finalAccount.addressRaw)
+    ) {
+      if (stored?.grantedAt === grantedAt) await this.sessionStore.delete(domain)
+      return connectError(CONNECT_ERROR.UNKNOWN, 'Wallet changed while connection approval was pending')
+    }
+    if (stored?.grantedAt !== grantedAt) {
+      return connectError(CONNECT_ERROR.UNKNOWN, 'Connection approval was superseded by a newer request')
+    }
     this.eventDelivery.track(domain, event.sender)
     log.event('info', 'tonconnect.session.connected', 'TON Connect session established')
 
@@ -302,9 +335,9 @@ export class TonConnectService {
 
     switch (message.method) {
       case 'sendTransaction':
-        return this.signingWorkflow.sendTransaction(domain, session.appName, message)
+        return this.signingWorkflow.sendTransaction(domain, session.appName, session.address, message)
       case 'signData':
-        return this.signingWorkflow.signData(domain, session.appName, message)
+        return this.signingWorkflow.signData(domain, session.appName, session.address, message)
       default:
         return rpcError(message.id, TONCONNECT_ERROR.METHOD_NOT_SUPPORTED, `Method ${message.method} not supported`)
     }

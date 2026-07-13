@@ -53,11 +53,13 @@ vi.mock('../tabs-storage', () => ({
     storageManager: null,
     storageBagCache: new Map(),
     storageBrowserLoading: new Set(),
+    storageBrowserEpochs: new Map(),
     fileBrowserCache: new Map(),
   })),
   disposeTabStorageState: vi.fn(),
   initStorageListener,
   resolveBagFilePath: vi.fn(),
+  cancelStorageBrowserLoad: vi.fn(),
 }))
 vi.mock('../tabs-bounds', () => ({
   updateViewBounds: vi.fn(),
@@ -73,6 +75,7 @@ vi.mock('../../events/renderer-events', () => ({ emitContractToRenderer }))
 
 import { TabManager } from '../tabs'
 import { DisposableStore } from '../../utils/disposable'
+import { ensureViewIdentity } from '../tabs-view-lifecycle'
 
 class WindowMock extends EventEmitter {
   contentView = {
@@ -200,8 +203,9 @@ describe('TabManager lifecycle ownership', () => {
     sessions.getSessionForDomain.mockReturnValueOnce(session.promise)
 
     manager.attachWindow(firstWindow as never, 8080, deps)
+    manager.registerTab('tab-1')
     manager.views.add('tab-1', oldView as never, new DisposableStore())
-    manager.views.activate('tab-1')
+    manager.switchTab('tab-1')
     const navigation = manager.navigateInTab('tab-1', 'http://second.ton')
     manager.detachWindow(firstWindow as never)
     manager.attachWindow(secondWindow as never, 8080, deps)
@@ -253,8 +257,9 @@ describe('TabManager lifecycle ownership', () => {
     sessions.getTabDomain.mockReturnValue('first.ton')
     sessions.getSessionForDomain.mockRejectedValueOnce(new Error('session failed'))
     manager.attachWindow(window as never, 8080, deps)
+    manager.registerTab('tab-1')
     manager.views.add('tab-1', oldView as never, new DisposableStore())
-    manager.views.activate('tab-1')
+    manager.switchTab('tab-1')
 
     await expect(manager.navigateInTab('tab-1', 'http://second.ton')).resolves.toBe(false)
 
@@ -274,8 +279,9 @@ describe('TabManager lifecycle ownership', () => {
     sessions.getSessionForDomain.mockReturnValueOnce(secondSession.promise).mockReturnValueOnce(thirdSession.promise)
     createBrowserView.mockReturnValueOnce(newView)
     manager.attachWindow(window as never, 8080, deps)
+    manager.registerTab('tab-1')
     manager.views.add('tab-1', oldView as never, new DisposableStore())
-    manager.views.activate('tab-1')
+    manager.switchTab('tab-1')
 
     const secondNavigation = manager.navigateInTab('tab-1', 'http://second.ton')
     const thirdNavigation = manager.navigateInTab('tab-1', 'http://third.ton')
@@ -291,6 +297,35 @@ describe('TabManager lifecycle ownership', () => {
     expect(createBrowserView).toHaveBeenCalledWith(latestSession)
     expect(sessions.setTabDomain).toHaveBeenLastCalledWith('tab-1', 'third.ton')
     expect(oldView.webContents.close).toHaveBeenCalledOnce()
+  })
+
+  it('does not replace a view changed during deferred identity resolution', async () => {
+    const window = new WindowMock()
+    const manager = new TabManager()
+    const oldView = createView(1)
+    const navigatedView = createView(2)
+    const identityView = createView(3)
+    const identitySession = deferred<object>()
+    let identity = 'first.ton'
+    sessions.getTabDomain.mockImplementation(() => identity)
+    sessions.setTabDomain.mockImplementation((_tabId, nextIdentity) => {
+      identity = nextIdentity
+    })
+    sessions.getSessionForDomain.mockReturnValueOnce(identitySession.promise).mockResolvedValueOnce({})
+    createBrowserView.mockReturnValueOnce(navigatedView).mockReturnValueOnce(identityView)
+    manager.attachWindow(window as never, 8080, deps)
+    manager.registerTab('tab-1')
+    manager.views.add('tab-1', oldView as never, new DisposableStore())
+    manager.switchTab('tab-1')
+
+    const identityChange = ensureViewIdentity(manager, 'tab-1', 'bag:abc')
+    await expect(manager.navigateInTab('tab-1', 'http://second.ton')).resolves.toBe(true)
+    identitySession.resolve({})
+
+    await expect(identityChange).rejects.toThrow('Tab changed during identity resolution')
+    expect(manager.views.get('tab-1')).toBe(navigatedView)
+    expect(navigatedView.webContents.close).not.toHaveBeenCalled()
+    expect(identityView.webContents.close).not.toHaveBeenCalled()
   })
 
   it('cancels a deferred handoff when a later same-domain navigation starts', async () => {
@@ -325,8 +360,9 @@ describe('TabManager lifecycle ownership', () => {
     sessions.getTabDomain.mockReturnValue('first.ton')
     sessions.getSessionForDomain.mockReturnValueOnce(targetSession.promise)
     manager.attachWindow(window as never, 8080, deps)
+    manager.registerTab('tab-1')
     manager.views.add('tab-1', oldView as never, new DisposableStore())
-    manager.views.activate('tab-1')
+    manager.switchTab('tab-1')
 
     const navigation = manager.navigateInTab('tab-1', 'http://second.ton')
     manager.hideAllViews('tab-1')
@@ -350,8 +386,9 @@ describe('TabManager lifecycle ownership', () => {
       throw new Error('listener setup failed')
     })
     manager.attachWindow(window as never, 8080, deps)
+    manager.registerTab('tab-1')
     manager.views.add('tab-1', oldView as never, new DisposableStore())
-    manager.views.activate('tab-1')
+    manager.switchTab('tab-1')
 
     await expect(manager.navigateInTab('tab-1', 'http://second.ton')).resolves.toBe(false)
 
@@ -373,6 +410,8 @@ describe('TabManager lifecycle ownership', () => {
       sessions.getSessionForDomain.mockReturnValueOnce(targetSession.promise)
       createBrowserView.mockReturnValueOnce(newView)
       manager.attachWindow(window as never, 8080, deps)
+      manager.registerTab('tab-1')
+      manager.registerTab('tab-2')
       manager.views.add('tab-1', oldView as never, new DisposableStore())
       manager.views.add('tab-2', otherView as never, new DisposableStore())
       manager.switchTab('tab-2')

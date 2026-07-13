@@ -9,7 +9,7 @@ export interface TonConnectAccount {
 /** Capabilities TonConnect needs from a wallet, independent of its implementation. */
 export interface TonConnectWalletPort {
   getTonConnectAccount(): TonConnectAccount | null
-  signTonProof(domain: string, payload: string): Promise<TonProofReplyPayload>
-  signTonConnectTransaction(messages: TonConnectOutMessage[]): Promise<string>
-  signData(domain: string, payload: SignDataPayloadInput): Promise<SignDataResult>
+  signTonProof(domain: string, payload: string, expectedAddress: string): Promise<TonProofReplyPayload>
+  signTonConnectTransaction(messages: TonConnectOutMessage[], expectedAddress: string): Promise<string>
+  signData(domain: string, payload: SignDataPayloadInput, expectedAddress: string): Promise<SignDataResult>
 }

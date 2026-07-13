@@ -28,19 +28,20 @@ function setup(approved = true) {
 describe('TonConnectSigningWorkflow', () => {
   it('validates, presents and signs a transaction only after approval', async () => {
     const { workflow, wallet, approval } = setup()
-    const result = await workflow.sendTransaction('app.ton', 'App', {
+    const expectedAddress = `0:${'11'.repeat(32)}`
+    const result = await workflow.sendTransaction('app.ton', 'App', expectedAddress, {
       id: '1',
       method: 'sendTransaction',
       params: [JSON.stringify({ messages: [{ address: destination, amount: '1500000000' }] })],
     })
     expect(result).toEqual({ id: '1', result: 'signed-boc' })
     expect(approval.request).toHaveBeenCalledWith(expect.objectContaining({ amount: '1.5 GRAM', domain: 'app.ton' }))
-    expect(wallet.signTonConnectTransaction).toHaveBeenCalledOnce()
+    expect(wallet.signTonConnectTransaction).toHaveBeenCalledWith(expect.any(Array), expectedAddress)
   })
 
   it('never signs a rejected transaction', async () => {
     const { workflow, wallet } = setup(false)
-    const result = await workflow.sendTransaction('app.ton', 'App', {
+    const result = await workflow.sendTransaction('app.ton', 'App', `0:${'11'.repeat(32)}`, {
       id: '2',
       method: 'sendTransaction',
       params: [JSON.stringify({ messages: [{ address: destination, amount: '1' }] })],
@@ -51,7 +52,11 @@ describe('TonConnectSigningWorkflow', () => {
 
   it('rejects malformed signData before approval or signing', async () => {
     const { workflow, wallet, approval } = setup()
-    const result = await workflow.signData('app.ton', 'App', { id: '3', method: 'signData', params: ['{}'] })
+    const result = await workflow.signData('app.ton', 'App', `0:${'11'.repeat(32)}`, {
+      id: '3',
+      method: 'signData',
+      params: ['{}'],
+    })
     expect(result).toMatchObject({ id: '3', error: { code: 1 } })
     expect(approval.request).not.toHaveBeenCalled()
     expect(wallet.signData).not.toHaveBeenCalled()

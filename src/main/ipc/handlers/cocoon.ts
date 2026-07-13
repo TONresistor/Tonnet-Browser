@@ -75,7 +75,7 @@ export function registerCocoonHandlers(registry: ServiceRegistry): void {
 
   const requireNativeAddress = (action: string): string => {
     const native = registry.walletManager.getState().address
-    if (!native) throw new Error(`Native wallet not initialized — cannot ${action}`)
+    if (!native) ipcFailure('WALLET_NOT_FOUND', `Native wallet not initialized; cannot ${action}`)
     return native
   }
 
@@ -215,7 +215,7 @@ export function registerCocoonHandlers(registry: ServiceRegistry): void {
 
   secureContractHandle(cocoonCashoutContract, async () => {
     const bridge = requireBridge()
-    const native = requireNativeAddress('cashout')
+    const native = requireNativeAddress('cash out')
     return cashout(cocoonManager, bridge, native)
   })
 
@@ -265,7 +265,7 @@ export function registerCocoonHandlers(registry: ServiceRegistry): void {
    */
   secureContractHandle(cocoonArchiveExportMnemonicContract, async ({ archivedAt }) => {
     const entry = await consumedArchive.getByArchivedAt(archivedAt)
-    if (!entry) throw new Error('Archive entry not found')
+    if (!entry) ipcFailure('ARCHIVE_NOT_FOUND', 'Archive entry not found')
     return { mnemonic: entry.ownerMnemonic }
   })
 
@@ -282,7 +282,7 @@ export function registerCocoonHandlers(registry: ServiceRegistry): void {
    */
   secureContractHandle(cocoonRecoveryEnqueueContract, async ({ archivedAt, clientSCAddress }) => {
     const archive = await consumedArchive.getByArchivedAt(archivedAt)
-    if (!archive) throw new Error('Archive entry not found')
+    if (!archive) ipcFailure('ARCHIVE_NOT_FOUND', 'Archive entry not found')
 
     const bridge = requireBridge()
 

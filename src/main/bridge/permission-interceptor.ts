@@ -181,7 +181,7 @@ export class BridgePermissionInterceptor {
       const x = Math.round(bounds.width / 2 - menuW / 2)
       const y = Math.round(bounds.height / 3)
 
-      this.overlayManager.show(
+      const shown = this.overlayManager.show(
         `bridge-permission-${key}`,
         { x, y, width: menuW, height: menuH },
         {
@@ -212,6 +212,7 @@ export class BridgePermissionInterceptor {
           }
         }
       )
+      if (!shown) resolve(false)
     })
 
     this.pendingPermissionByKey.set(key, promise)

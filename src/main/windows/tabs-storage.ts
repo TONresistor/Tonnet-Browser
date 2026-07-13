@@ -22,6 +22,7 @@ export interface TabStorageState {
   storageManager: StorageManager | null
   readonly storageBagCache: Map<string, string>
   readonly storageBrowserLoading: Set<number>
+  readonly storageBrowserEpochs: Map<number, number>
   readonly fileBrowserCache: Map<number, string>
 }
 
@@ -30,6 +31,7 @@ export function createTabStorageState(): TabStorageState {
     storageManager: null,
     storageBagCache: new Map(),
     storageBrowserLoading: new Set(),
+    storageBrowserEpochs: new Map(),
     fileBrowserCache: new Map(),
   }
 }
@@ -38,7 +40,13 @@ export function disposeTabStorageState(state: TabStorageState): void {
   state.storageManager = null
   state.storageBagCache.clear()
   state.storageBrowserLoading.clear()
+  state.storageBrowserEpochs.clear()
   state.fileBrowserCache.clear()
+}
+
+export function cancelStorageBrowserLoad(state: TabStorageState, webContentsId: number): void {
+  const epoch = state.storageBrowserEpochs.get(webContentsId)
+  if (epoch !== undefined) state.storageBrowserEpochs.set(webContentsId, epoch + 1)
 }
 
 function getStorageManager(state: TabStorageState): StorageManager {
@@ -247,6 +255,7 @@ interface LoadStorageBagOptions {
   useCache?: boolean
   /** Try loading index.html if present (default: false) */
   checkIndexHtml?: boolean
+  isCurrent?: () => boolean
 }
 
 /**
@@ -259,11 +268,18 @@ interface LoadStorageBagOptions {
  * for its files to appear. Returns the details once it has at least one file, or
  * null if it never does (no files / download timed out).
  */
-async function resolveBagDetails(state: TabStorageState, bagId: string, timeout: number): Promise<BagDetails | null> {
+async function resolveBagDetails(
+  state: TabStorageState,
+  bagId: string,
+  timeout: number,
+  isCurrent: () => boolean
+): Promise<BagDetails | null> {
+  if (!isCurrent()) return null
   let details: BagDetails | null = null
   try {
     details = await getStorageManager(state).getBagDetails(bagId)
   } catch {
+    if (!isCurrent()) return null
     log.debug(`Bag ${bagId} not in daemon, adding`)
     await getStorageManager(state).addBag(bagId)
   }
@@ -271,7 +287,9 @@ async function resolveBagDetails(state: TabStorageState, bagId: string, timeout:
   // Wait for files
   if (!details || details.files.length === 0) {
     for (let i = 0; i < timeout; i++) {
+      if (!isCurrent()) return null
       await new Promise((r) => setTimeout(r, 1000))
+      if (!isCurrent()) return null
       try {
         details = await getStorageManager(state).getBagDetails(bagId)
         if (details.files.length > 0) break
@@ -319,6 +337,8 @@ export async function loadStorageBag(
   opts: LoadStorageBagOptions
 ): Promise<void> {
   const { label, timeout = 30, useCache = false, checkIndexHtml = false } = opts
+  const isCurrent = opts.isCurrent ?? (() => true)
+  if (!isCurrent()) return
 
   // Check cache first (for back navigation)
   if (useCache) {
@@ -336,8 +356,10 @@ export async function loadStorageBag(
   // Show loading page
   const loadingHtml = generateLoadingPage(label)
   await loadDataHtml(view.webContents, loadingHtml)
+  if (!isCurrent()) return
 
-  const details = await resolveBagDetails(state, bagId, timeout)
+  const details = await resolveBagDetails(state, bagId, timeout, isCurrent)
+  if (!isCurrent()) return
   if (!details) {
     if (opts.domain) {
       throw new Error('Bag has no files or failed to load')
@@ -357,10 +379,14 @@ export async function loadStorageBrowser(state: TabStorageState, view: WebConten
   const wcId = view.webContents.id
   if (state.storageBrowserLoading.has(wcId)) return
   state.storageBrowserLoading.add(wcId)
+  const epoch = (state.storageBrowserEpochs.get(wcId) ?? 0) + 1
+  state.storageBrowserEpochs.set(wcId, epoch)
+  const isCurrent = (): boolean => !view.webContents.isDestroyed() && state.storageBrowserEpochs.get(wcId) === epoch
 
   try {
-    await loadStorageBag(state, view, { domain, label: domain, timeout: 30 })
+    await loadStorageBag(state, view, { domain, label: domain, timeout: 30, isCurrent })
   } finally {
     state.storageBrowserLoading.delete(wcId)
+    state.storageBrowserEpochs.delete(wcId)
   }
 }

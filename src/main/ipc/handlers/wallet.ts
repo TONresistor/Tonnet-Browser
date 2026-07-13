@@ -2,13 +2,14 @@
  * IPC handlers for wallet operations.
  */
 
-import type { WalletState, WalletTransaction } from '../../../shared/types'
+import type { DnsResolveResult, WalletState, WalletTransaction } from '../../../shared/types'
 import { toError, log } from './shared'
 import { emitContractToRenderer } from '../../events/renderer-events'
 import { getMainWindow } from '../../windows/main'
 import { WALLET_HISTORY_DEFAULT_LIMIT } from '../../wallet/constants'
 import { fetchHistoryViaIndexer } from '../../wallet/indexer-client'
 import { getSetting } from '../../settings'
+import { isTonDomain } from '../../../shared/utils/ton'
 import type { ServiceRegistry } from '../../services'
 import {
   walletBalanceUpdatedContract,
@@ -34,6 +35,14 @@ import { ipcFailure, ownIpcEmitterListener, secureContractHandle, tonsiteContrac
 
 export function registerWalletHandlers(registry: ServiceRegistry): void {
   const { walletManager, walletHistoryManager, paymentInterceptor, overlayManager, tonConnectService } = registry
+  const clearAccountScopedState = async (): Promise<void> => {
+    const results = await Promise.allSettled([walletHistoryManager.clear(), tonConnectService.clearSessions()])
+    for (const result of results) {
+      if (result.status === 'rejected') {
+        log.warn(`Failed to clear account-scoped state: ${toError(result.reason).message}`)
+      }
+    }
+  }
 
   ownIpcEmitterListener(walletManager, 'balance-updated', (balance: string) => {
     emitContractToRenderer(walletBalanceUpdatedContract, balance)
@@ -51,7 +60,15 @@ export function registerWalletHandlers(registry: ServiceRegistry): void {
   })
 
   secureContractHandle(walletCreateContract, async () => {
-    return await walletManager.create()
+    if (walletManager.getState().isCreated) ipcFailure('WALLET_ALREADY_EXISTS', 'Wallet already exists')
+    try {
+      return await walletManager.create()
+    } catch (error) {
+      if (toError(error).message === 'Wallet already exists') {
+        ipcFailure('WALLET_ALREADY_EXISTS', 'Wallet already exists', false, error)
+      }
+      ipcFailure('WALLET_CREATE_FAILED', 'Unable to create wallet', false, error)
+    }
   })
 
   secureContractHandle(walletGetStateContract, () => {
@@ -59,22 +76,74 @@ export function registerWalletHandlers(registry: ServiceRegistry): void {
   })
 
   secureContractHandle(walletGetBalanceContract, async () => {
-    return await walletManager.getBalance()
+    if (!walletManager.getState().isCreated) ipcFailure('WALLET_UNAVAILABLE', 'Wallet is not initialized')
+    try {
+      return await walletManager.getBalance()
+    } catch (error) {
+      ipcFailure('BALANCE_READ_FAILED', 'Unable to read wallet balance', false, error)
+    }
   })
 
   secureContractHandle(walletResolveRecipientContract, async (input) => {
-    return await walletManager.resolveRecipient(input)
+    try {
+      return await walletManager.resolveRecipient(input)
+    } catch (error) {
+      const message = toError(error).message
+      const code =
+        message === 'Bridge not connected'
+          ? 'BRIDGE_DISCONNECTED'
+          : isTonDomain(input)
+            ? 'DNS_RESOLUTION_FAILED'
+            : 'INVALID_RECIPIENT'
+      ipcFailure(
+        code,
+        code === 'BRIDGE_DISCONNECTED'
+          ? 'Bridge not connected'
+          : code === 'DNS_RESOLUTION_FAILED'
+            ? 'Unable to resolve recipient domain'
+            : 'Invalid recipient',
+        false,
+        code === 'INVALID_RECIPIENT' ? undefined : error
+      )
+    }
   })
 
   secureContractHandle(walletSendContract, async (to, amount, comment?: string) => {
-    const resolved = await walletManager.resolveRecipient(to)
-    // Balance check: prevent sending more than available
-    const balance = await walletManager.getBalance()
-    if (BigInt(amount) > BigInt(balance)) {
-      throw new Error('Insufficient balance')
+    if (!walletManager.getState().isCreated) ipcFailure('WALLET_UNAVAILABLE', 'Wallet is not initialized')
+    if (!walletManager.getTonBridge()) ipcFailure('BRIDGE_DISCONNECTED', 'Bridge not connected')
+    if (BigInt(amount) <= 0n) ipcFailure('INVALID_AMOUNT', 'Amount must be greater than zero')
+    let resolved: { address: string; domain?: string }
+    try {
+      resolved = await walletManager.resolveRecipient(to)
+    } catch (error) {
+      const domainFailure = isTonDomain(to)
+      ipcFailure(
+        domainFailure ? 'DNS_RESOLUTION_FAILED' : 'INVALID_RECIPIENT',
+        domainFailure ? 'Unable to resolve recipient domain' : 'Invalid recipient',
+        false,
+        domainFailure ? error : undefined
+      )
     }
-    const tx = await walletManager.send(resolved.address, amount, comment)
-    await walletHistoryManager.add(tx)
+    let balance: string
+    try {
+      balance = await walletManager.getBalance()
+    } catch (error) {
+      ipcFailure('BALANCE_READ_FAILED', 'Unable to read wallet balance', true, error)
+    }
+    if (BigInt(amount) > BigInt(balance)) {
+      ipcFailure('INSUFFICIENT_BALANCE', 'Insufficient balance')
+    }
+    let tx: WalletTransaction
+    try {
+      tx = await walletManager.send(resolved.address, amount, comment)
+    } catch (error) {
+      ipcFailure('SIGNING_FAILED', 'Unable to sign or send transaction', false, error)
+    }
+    try {
+      await walletHistoryManager.add(tx)
+    } catch (error) {
+      log.warn(`Transaction sent but history persistence failed: ${toError(error).message}`)
+    }
     return tx
   })
 
@@ -106,19 +175,23 @@ export function registerWalletHandlers(registry: ServiceRegistry): void {
         log.warn(`On-chain history fetch failed, serving cached history: ${toError(error).message}`)
         return cached
       }
-      throw toError(error)
+      ipcFailure('WALLET_HISTORY_FAILED', 'Unable to load wallet history', false, error)
     }
   })
 
   secureContractHandle(walletClearHistoryContract, async () => {
-    await walletHistoryManager.clear()
-    return { success: true as const }
+    try {
+      await walletHistoryManager.clear()
+      return { success: true as const }
+    } catch (error) {
+      ipcFailure('WALLET_HISTORY_CLEAR_FAILED', 'Unable to clear wallet history', false, error)
+    }
   })
 
   secureContractHandle(walletExportKeyContract, () => {
     const state = walletManager.getState()
     if (!state.isCreated) {
-      throw new Error('No wallet exists')
+      ipcFailure('WALLET_NOT_FOUND', 'No wallet exists')
     }
     // SECURITY: Only return public key, NEVER private key
     return { publicKey: state.publicKey, address: state.address, addressRaw: state.addressRaw }
@@ -134,36 +207,57 @@ export function registerWalletHandlers(registry: ServiceRegistry): void {
     return { success: true as const }
   })
 
-  tonsiteContractHandle(walletPayForXhrContract, async (_domain, event, payload) => {
-    const { url } = payload
-    const sender = event.sender
-    try {
-      const reqOrigin = new URL(url).origin
-      const pageOrigin = new URL(sender.getURL()).origin
-      if (reqOrigin !== pageOrigin) {
-        ipcFailure('CROSS_ORIGIN', 'Payment URL must match the page origin')
+  tonsiteContractHandle(
+    walletPayForXhrContract,
+    (event) => registry.tabManager.resolveSenderIdentity(event.sender),
+    async (_domain, event, payload) => {
+      const { url } = payload
+      const sender = event.sender
+      try {
+        const reqOrigin = new URL(url).origin
+        const pageOrigin = new URL(sender.getURL()).origin
+        if (reqOrigin !== pageOrigin) {
+          ipcFailure('CROSS_ORIGIN', 'Payment URL must match the page origin')
+        }
+        log.debug(`pay-for-xhr origin: ${reqOrigin}`)
+      } catch {
+        ipcFailure('INVALID_URL', 'Invalid payment URL')
       }
-      log.debug(`pay-for-xhr origin: ${reqOrigin}`)
-    } catch {
-      ipcFailure('INVALID_URL', 'Invalid payment URL')
+      const result = await paymentInterceptor.requestXhrPayment(sender.id, url)
+      if (!result.success) ipcFailure('PAYMENT_FAILED', 'Payment could not be completed', false, result.error)
+      return { success: true as const }
     }
-    const result = await paymentInterceptor.requestXhrPayment(sender.id, url)
-    if (!result.success) ipcFailure('PAYMENT_FAILED', 'Payment could not be completed', false, result.error)
-    return { success: true as const }
-  })
+  )
 
   secureContractHandle(walletImportContract, async (mnemonic) => {
-    return await walletManager.importWallet(mnemonic)
+    let result: WalletState
+    try {
+      result = await walletManager.importWallet(mnemonic)
+    } catch (error) {
+      const code = toError(error).message === 'Invalid mnemonic phrase' ? 'INVALID_MNEMONIC' : 'WALLET_IMPORT_FAILED'
+      ipcFailure(
+        code,
+        code === 'INVALID_MNEMONIC' ? 'Invalid mnemonic phrase' : 'Unable to import wallet',
+        false,
+        code === 'INVALID_MNEMONIC' ? undefined : error
+      )
+    }
+    await clearAccountScopedState()
+    return result
   })
 
   secureContractHandle(walletDeleteContract, async () => {
     const state = walletManager.getState()
     if (!state.isCreated && !state.decryptFailed) {
-      throw new Error('No wallet to delete')
+      ipcFailure('WALLET_NOT_FOUND', 'No wallet to delete')
     }
-    const result = await walletManager.deleteWallet()
-    await walletHistoryManager.clear()
-    await tonConnectService.clearSessions()
+    let result: WalletState
+    try {
+      result = await walletManager.deleteWallet()
+    } catch (error) {
+      ipcFailure('WALLET_DELETE_FAILED', 'Unable to delete wallet', false, error)
+    }
+    await clearAccountScopedState()
     return result
   })
 
@@ -182,7 +276,7 @@ export function registerWalletHandlers(registry: ServiceRegistry): void {
       const y = Math.round(bounds.height / 3)
       const overlayId = 'wallet-export-confirm'
 
-      overlayManager.show(
+      const shown = overlayManager.show(
         overlayId,
         { x, y, width: w, height: h },
         {
@@ -207,22 +301,37 @@ export function registerWalletHandlers(registry: ServiceRegistry): void {
           resolve(actionType === 'show')
         }
       )
+      if (!shown) resolve(false)
     })
 
     if (!confirmed) {
-      throw new Error('Export cancelled by user')
+      ipcFailure('USER_CANCELLED', 'Export cancelled')
     }
-    return await walletManager.exportMnemonic()
+    try {
+      return await walletManager.exportMnemonic()
+    } catch (error) {
+      ipcFailure('MNEMONIC_UNAVAILABLE', 'Mnemonic is unavailable', false, error)
+    }
   })
 
   secureContractHandle(dnsResolveContract, async (domain) => {
-    const result = await walletManager.resolveDomain(domain)
+    const normalizedDomain = domain.trim().toLowerCase()
+    if (!isTonDomain(normalizedDomain)) ipcFailure('INVALID_DOMAIN', 'Invalid .ton domain')
+    let result: DnsResolveResult
+    try {
+      result = await walletManager.resolveDomain(normalizedDomain)
+    } catch (error) {
+      if (toError(error).message === 'Bridge not connected') {
+        ipcFailure('BRIDGE_DISCONNECTED', 'Bridge not connected')
+      }
+      ipcFailure('DNS_RESOLUTION_FAILED', 'Unable to resolve domain', false, error)
+    }
 
     // Enrich with storage bag ID if the proxy has already discovered it for this domain
     // (discovered via log parsing when serving .ton sites that use TON Storage).
     // This gives us the real bag ID from the contract/proxy without extra on-chain queries.
     if (result.has_storage && !result.storage_bag_id) {
-      const knownBag = registry.tabManager.storage.storageBagCache.get(domain.toLowerCase())
+      const knownBag = registry.tabManager.storage.storageBagCache.get(normalizedDomain)
       if (knownBag) {
         result.storage_bag_id = knownBag
       }

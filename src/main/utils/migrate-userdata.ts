@@ -107,6 +107,15 @@ function migrateFile(src: string, dst: string, name: string): void {
   }
 }
 
+function recoverPaymentSpending(src: string, dst: string): void {
+  try {
+    mkdirSync(dst, { recursive: true })
+    migrateFile(src, dst, 'payment-spending.dat')
+  } catch (error) {
+    log.warn(`Failed to recover payment-spending.dat: ${String(error)}`)
+  }
+}
+
 /**
  * Directories that are databases (LevelDB, etc.) and must be treated as
  * atomic units -- never merge individual files within them.
@@ -238,7 +247,10 @@ export function migrateUserData(canonicalDir: string): void {
   if (!existsSync(legacyDir)) return
 
   // Already migrated in a previous run
-  if (existsSync(join(canonicalDir, MIGRATED_MARKER))) return
+  if (existsSync(join(canonicalDir, MIGRATED_MARKER))) {
+    recoverPaymentSpending(legacyDir, canonicalDir)
+    return
+  }
 
   // Snapshot before logging (electron-log may create canonicalDir/logs/ on first write)
   const canonicalExists = existsSync(canonicalDir)

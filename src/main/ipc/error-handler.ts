@@ -11,10 +11,7 @@ class IpcErrorHandler {
    * Logs an error with context information.
    */
   logError(channel: string, error: Error): void {
-    log.error(`[IPC Error] ${channel}: ${error.message}`)
-    if (error.stack) {
-      log.error(error.stack)
-    }
+    log.event('error', 'ipc.request.failed', `IPC request failed: ${error.message}`, { channel, error })
   }
 }
 

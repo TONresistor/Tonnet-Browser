@@ -9,7 +9,7 @@ export interface WalletBroadcastPort {
 
 export interface WalletTransferContext {
   getBridge(): WalletBroadcastPort | null
-  buildBoc(messages: MessageRelaxed[], maxTimeout: number): Promise<{ boc: string }>
+  buildBoc(messages: MessageRelaxed[], maxTimeout: number, expectedAddress?: string): Promise<{ boc: string }>
   notifyStateChanged(): void
 }
 
@@ -17,12 +17,12 @@ export interface WalletTransferContext {
 export class WalletTransferService {
   constructor(private readonly context: WalletTransferContext) {}
 
-  async signTonConnectTransaction(messages: TonConnectOutMessage[]): Promise<string> {
+  async signTonConnectTransaction(messages: TonConnectOutMessage[], expectedAddress?: string): Promise<string> {
     const bridge = this.context.getBridge()
     if (!bridge) throw new Error('Bridge not connected')
 
     const internalMessages = messages.map(toInternalMessage)
-    const { boc } = await this.context.buildBoc(internalMessages, WALLET_MAX_TIMEOUT_S)
+    const { boc } = await this.context.buildBoc(internalMessages, WALLET_MAX_TIMEOUT_S, expectedAddress)
     const bytes = Buffer.from(boc, 'base64')
     try {
       await bridge.sendAndWatch(bytes)

@@ -46,7 +46,7 @@ function createDependencies() {
     tabManager: {
       updateProxyPort: vi.fn(() => Promise.resolve()),
       onAppearanceSettingsChanged: vi.fn(),
-      sessions: { onPrivacySettingsChanged: vi.fn() },
+      onPrivacySettingsChanged: vi.fn(() => Promise.resolve()),
     },
     chatSessionController: {
       session: null,

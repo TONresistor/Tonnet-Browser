@@ -23,20 +23,29 @@ function getBridgeConfigPath(): string {
 export function registerBridgeHandlers(registry: ServiceRegistry): void {
   const { bridgeInterceptor, bridgePermissionStore, proxyManager, chatSessionController, walletManager } = registry
 
-  tonsiteContractHandle(bridgeSendContract, async (domain, event, data) => {
-    return new Promise<void>((resolve) => {
-      bridgeInterceptor.handleRequest(
-        domain,
-        data,
-        (response: string) => {
-          const [validated] = bridgeMessageEventContract.payload.parse([response])
-          event.sender.send(bridgeMessageEventContract.channel, validated)
-          resolve()
-        },
-        event.sender
-      )
-    })
-  })
+  tonsiteContractHandle(
+    bridgeSendContract,
+    (event) => registry.tabManager.resolveSenderIdentity(event.sender),
+    async (domain, event, data) => {
+      return new Promise<void>((resolve) => {
+        bridgeInterceptor.handleRequest(
+          domain,
+          data,
+          (response: string) => {
+            try {
+              const [validated] = bridgeMessageEventContract.payload.parse([response])
+              if (!event.sender.isDestroyed()) event.sender.send(bridgeMessageEventContract.channel, validated)
+            } catch (error) {
+              log.error('Failed to deliver bridge response:', error)
+            } finally {
+              resolve()
+            }
+          },
+          event.sender
+        )
+      })
+    }
+  )
 
   secureContractHandle(bridgeGetPermissionsContract, () => {
     return bridgePermissionStore.getAllPermissions()

@@ -21,20 +21,26 @@ export function LandingPage() {
   const isYellow = theme === 'utya-duck'
   const [welcomeAnimation, setWelcomeAnimation] = useState<object | null>(null)
   const [loadingAnimation, setLoadingAnimation] = useState<object | null>(null)
+  const showLoading = isConnecting || autoConnecting
 
-  // Load only the ACTIVE theme's two animations, lazily, on this first screen —
-  // instead of statically bundling all four variants (~1.2MB, half dead weight)
-  // into the cold-start path.
   useEffect(() => {
     let cancelled = false
     const welcome = isYellow ? import('@/assets/welcome-yellow.json') : import('@/assets/welcome.json')
-    const loading = isYellow ? import('@/assets/loading-yellow.json') : import('@/assets/loading.json')
     welcome.then((m) => !cancelled && setWelcomeAnimation(m.default as object))
-    loading.then((m) => !cancelled && setLoadingAnimation(m.default as object))
     return () => {
       cancelled = true
     }
   }, [isYellow])
+
+  useEffect(() => {
+    if (!showLoading) return
+    let cancelled = false
+    const loading = isYellow ? import('@/assets/loading-yellow.json') : import('@/assets/loading.json')
+    loading.then((m) => !cancelled && setLoadingAnimation(m.default as object))
+    return () => {
+      cancelled = true
+    }
+  }, [isYellow, showLoading])
 
   const CONNECTION_STEPS = [
     t('connectionSteps.startingProxy'),
@@ -61,8 +67,6 @@ export function LandingPage() {
       unsubAutoConnect()
     }
   }, [])
-
-  const showLoading = isConnecting || autoConnecting
 
   // Reset step when not connecting
   useEffect(() => {

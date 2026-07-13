@@ -9,11 +9,20 @@ describe('ElectronTonConnectApproval', () => {
     expect(overlay.show).not.toHaveBeenCalled()
   })
 
+  it('fails closed when the overlay manager is detached', async () => {
+    const overlay = { show: vi.fn(() => false), hide: vi.fn() }
+    const window = { getContentBounds: () => ({ width: 800, height: 600 }) }
+    const approval = new ElectronTonConnectApproval(overlay as never, () => window as never)
+
+    await expect(approval.request({ type: 'approval' })).resolves.toBe(false)
+  })
+
   it('maps only the approve action to consent and owns unique overlay ids', async () => {
     let callback: ((action: string) => void) | undefined
     const overlay = {
       show: vi.fn((_id, _bounds, _content, action) => {
         callback = action
+        return true
       }),
       hide: vi.fn(),
     }

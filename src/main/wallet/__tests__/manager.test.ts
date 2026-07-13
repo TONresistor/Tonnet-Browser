@@ -448,4 +448,30 @@ describe('WalletManager.importWallet', () => {
     expect(readPreviousAccount).not.toHaveBeenCalled()
     expect(signed.address).toBe('0:test...')
   })
+
+  it('rejects an approved signing request when the wallet changes before signing', async () => {
+    const manager = new WalletManager(new InMemorySecureStorage())
+    const input = Array(24).fill('word')
+    const nextKeypair = { publicKey: Buffer.alloc(32, 7), secretKey: Buffer.alloc(64, 8) }
+    let resolveImport: (keypair: TestKeypair) => void = () => {}
+    const pendingImport = new Promise<TestKeypair>((resolve) => {
+      resolveImport = resolve
+    })
+    const setup = prepareWalletImport(manager, vi.fn().mockReturnValue(pendingImport))
+    const approvedAddress = `0:${'11'.repeat(32)}`
+    setup.state.walletContract = {
+      address: {
+        toString: () => 'UQOld',
+        toRawString: () => approvedAddress,
+      },
+    }
+
+    const importing = manager.importWallet(input)
+    await Promise.resolve()
+    const signing = manager.signData('example.ton', { type: 'text', text: 'Approve' }, approvedAddress)
+    resolveImport(nextKeypair)
+
+    await importing
+    await expect(signing).rejects.toThrow('Wallet changed while approval was pending')
+  })
 })

@@ -14,4 +14,5 @@ interface ViteHotContext {
 
 interface ImportMeta {
   readonly hot?: ViteHotContext
+  glob<T>(patterns: string[]): Record<string, () => Promise<T>>
 }

@@ -27,7 +27,13 @@ const tabCommand = <const TChannel extends string>(channel: TChannel) =>
     errors: ['INVALID_TAB_ID', 'TAB_COMMAND_FAILED'],
   })
 
-export const tabCreateContract = tabCommand(BROWSING_CHANNELS.tabCreate)
+export const tabCreateContract = defineRequest({
+  ...base,
+  channel: BROWSING_CHANNELS.tabCreate,
+  input: z.tuple([TabIdSchema, BrowserUrlSchema]),
+  output: SuccessSchema,
+  errors: ['INVALID_TAB_ID', 'INVALID_URL', 'TAB_COMMAND_FAILED'],
+})
 export const tabCloseContract = tabCommand(BROWSING_CHANNELS.tabClose)
 export const tabSwitchContract = tabCommand(BROWSING_CHANNELS.tabSwitch)
 export const viewHideContract = command(BROWSING_CHANNELS.viewHide)

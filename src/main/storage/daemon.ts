@@ -65,6 +65,7 @@ export class StorageManager extends EventEmitter {
   private isRunning = false
   private client: StorageHTTPClient | null = null
   private pollTimer: NodeJS.Timeout | null = null
+  private pollFlight: Promise<void> | null = null
   private pollGeneration = 0
   private lastBagsJson = ''
   private readonly pollFailures = new RepetitionAggregator(log)
@@ -264,11 +265,16 @@ export class StorageManager extends EventEmitter {
     const isCurrent = (): boolean => generation === this.pollGeneration && this.client === client && this.isRunning
     const schedule = (): void => {
       if (!isCurrent()) return
-      this.pollTimer = setTimeout(() => void poll(), interval)
+      this.pollTimer = setTimeout(() => {
+        this.pollTimer = null
+        const flight = poll().finally(() => {
+          if (this.pollFlight === flight) this.pollFlight = null
+        })
+        this.pollFlight = flight
+      }, interval)
     }
     const poll = async (): Promise<void> => {
       if (!isCurrent()) return
-      this.pollTimer = null
       try {
         const bags = await client.listBags()
         if (!isCurrent()) return
@@ -287,7 +293,7 @@ export class StorageManager extends EventEmitter {
         }
 
         if (!isCurrent()) return
-        const mapped = bags.map((b) => this.mapBagInfo(b, seedingEnabled))
+        const mapped = bags.map((b) => this.mapBagInfo(b))
         const snapshot = JSON.stringify(mapped)
         if (snapshot !== this.lastBagsJson) {
           this.lastBagsJson = snapshot
@@ -313,14 +319,16 @@ export class StorageManager extends EventEmitter {
     }
   }
 
-  private mapBagInfo(info: BagInfo, seedingEnabled: boolean): StorageBag {
+  private async stopPollingAndWait(): Promise<void> {
+    this.stopPolling()
+    const flight = this.pollFlight
+    if (flight) await flight.catch(() => undefined)
+  }
+
+  private mapBagInfo(info: BagInfo): StorageBag {
     let status: StorageBag['status'] = 'downloading'
     if (info.completed && info.active) {
       status = 'seeding'
-    } else if (info.completed && !info.active) {
-      // Completed but paused: show 'seeding' if seeding is globally enabled (temporarily paused),
-      // show 'paused' if seeding is disabled (expected state)
-      status = seedingEnabled ? 'paused' : 'seeding'
     } else if (!info.active) {
       status = 'paused'
     }
@@ -366,7 +374,7 @@ export class StorageManager extends EventEmitter {
   }
 
   private async teardown(): Promise<void> {
-    this.stopPolling()
+    await this.stopPollingAndWait()
     this.client = null
     this.isRunning = false
     if (this.supervisor.isRunning) {
@@ -404,7 +412,7 @@ export class StorageManager extends EventEmitter {
       return
     }
 
-    this.stopPolling()
+    await this.stopPollingAndWait()
     const seedingChanged = next.seedingEnabled !== current.seedingEnabled
     try {
       if (seedingChanged) await this.applySeeding(next.seedingEnabled, next.downloadPath)
@@ -519,9 +527,8 @@ export class StorageManager extends EventEmitter {
       return []
     }
 
-    const seedingEnabled = this.appliedSettings?.seedingEnabled ?? getSetting('storage').seedingEnabled
     const bags = await this.client.listBags()
-    return bags.map((b) => this.mapBagInfo(b, seedingEnabled))
+    return bags.map((b) => this.mapBagInfo(b))
   }
 
   async resumeSeeding(): Promise<void> {

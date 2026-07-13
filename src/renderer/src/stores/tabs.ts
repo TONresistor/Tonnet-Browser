@@ -128,7 +128,7 @@ export const useTabsStore = create<TabsState>((set, get) => ({
 
     try {
       // Create tab in main process
-      await browserClient.createTab(id)
+      await browserClient.createTab(id, targetUrl)
 
       set((state) => ({
         tabs: [...state.tabs, newTab],

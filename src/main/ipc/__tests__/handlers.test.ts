@@ -293,6 +293,18 @@ function createMockRegistry(): ServiceRegistry {
       const emitter = new EventEmitter()
       return Object.assign(emitter, {
         getState: vi.fn(() => ({ isCreated: false })),
+        importWallet: vi.fn(() =>
+          Promise.resolve({
+            isCreated: true,
+            address: 'UQImported',
+            addressRaw: '0:imported',
+            publicKey: '01',
+            balance: '0',
+          })
+        ),
+        resolveRecipient: vi.fn((input: string) => Promise.resolve({ address: input })),
+        getBalance: vi.fn(() => Promise.resolve('100')),
+        send: vi.fn(),
         setAutoLockMinutes: vi.fn(),
         getTonBridge: vi.fn(() => null),
         getMessengerBridge: vi.fn(() => null),
@@ -387,6 +399,7 @@ function createMockRegistry(): ServiceRegistry {
         storageManager: mockStorageManager,
         storageBagCache: new Map(),
         storageBrowserLoading: new Set(),
+        storageBrowserEpochs: new Map(),
         fileBrowserCache: new Map(),
       },
       createTab,
@@ -655,6 +668,56 @@ describe('IPC Handlers', () => {
     })
   })
 
+  describe('Wallet Handlers', () => {
+    it('clears account-scoped state after a wallet import succeeds', async () => {
+      const mnemonic = Array.from({ length: 24 }, (_, index) => `word${index + 1}`)
+      const handler = mockHandlers.get(IPC_CHANNELS.WALLET_IMPORT)!
+
+      const result = await handler(createMockEvent(), mnemonic)
+
+      expect(result).toMatchObject({ isCreated: true, address: 'UQImported' })
+      expect(mockRegistry.walletManager.importWallet).toHaveBeenCalledWith(mnemonic)
+      expect(mockRegistry.walletHistoryManager.clear).toHaveBeenCalledOnce()
+      expect(mockRegistry.tonConnectService.clearSessions).toHaveBeenCalledOnce()
+      expect(vi.mocked(mockRegistry.walletManager.importWallet).mock.invocationCallOrder[0]).toBeLessThan(
+        vi.mocked(mockRegistry.walletHistoryManager.clear).mock.invocationCallOrder[0]
+      )
+      expect(vi.mocked(mockRegistry.walletManager.importWallet).mock.invocationCallOrder[0]).toBeLessThan(
+        vi.mocked(mockRegistry.tonConnectService.clearSessions).mock.invocationCallOrder[0]
+      )
+    })
+
+    it('keeps account-scoped state when wallet import fails', async () => {
+      vi.mocked(mockRegistry.walletManager.importWallet).mockRejectedValueOnce(new Error('Invalid mnemonic phrase'))
+      const mnemonic = Array.from({ length: 24 }, (_, index) => `word${index + 1}`)
+      const handler = mockHandlers.get(IPC_CHANNELS.WALLET_IMPORT)!
+
+      const result = await handler(createMockEvent(), mnemonic)
+
+      expect(result).toEqual({
+        ok: false,
+        error: { code: 'INVALID_MNEMONIC', message: 'Invalid mnemonic phrase', retryable: false },
+      })
+      expect(mockRegistry.walletHistoryManager.clear).not.toHaveBeenCalled()
+      expect(mockRegistry.tonConnectService.clearSessions).not.toHaveBeenCalled()
+    })
+
+    it('reports an insufficient balance as a stable business failure', async () => {
+      vi.mocked(mockRegistry.walletManager.getState).mockReturnValueOnce({ isCreated: true } as never)
+      vi.mocked(mockRegistry.walletManager.getTonBridge).mockReturnValueOnce({} as never)
+      vi.mocked(mockRegistry.walletManager.getBalance).mockResolvedValueOnce('10')
+      const handler = mockHandlers.get(IPC_CHANNELS.WALLET_SEND)!
+
+      const result = await handler(createMockEvent(), 'EQRecipient', '11')
+
+      expect(result).toEqual({
+        ok: false,
+        error: { code: 'INSUFFICIENT_BALANCE', message: 'Insufficient balance', retryable: false },
+      })
+      expect(mockRegistry.walletManager.send).not.toHaveBeenCalled()
+    })
+  })
+
   describe('Storage Handlers', () => {
     it('STORAGE_ADD_BAG forwards a valid bagId to addBag', async () => {
       const handler = mockHandlers.get(IPC_CHANNELS.STORAGE_ADD_BAG)!
@@ -748,6 +811,21 @@ describe('IPC Handlers', () => {
   })
 
   describe('Chat Handlers', () => {
+    it('reports disabled Messenger networking without collapsing it to an internal error', async () => {
+      vi.mocked(getSetting).mockImplementation(((category: string) => {
+        if (category === 'messenger') return { networkEnabled: false, attachWalletIdentity: false }
+        return {}
+      }) as typeof getSetting)
+      const handler = mockHandlers.get(IPC_CHANNELS.CHAT_CONNECT)!
+
+      const result = await handler(createMockEvent(), 'tonnet:groupchat', undefined)
+
+      expect(result).toEqual({
+        ok: false,
+        error: { code: 'MESSENGER_DISABLED', message: 'Messenger networking is disabled', retryable: false },
+      })
+    })
+
     it('emits replayed history messages even when the signed broadcast date is stale', async () => {
       const room = 'tonnet:groupchat'
       const overlayId = overlayIdB64ForRoom(room)
@@ -903,6 +981,17 @@ const COCOON_ROOT_MAINNET = 'EQCns7bYSp0igFvS1wpb5wsZjCKCV19MD5AVzI4EyxsnU73k'
 
 describe('Cocoon AI Handlers', () => {
   beforeEach(resetHandlersTestEnv)
+
+  it('reports a missing archive entry with its declared business code', async () => {
+    const handler = mockHandlers.get(IPC_CHANNELS.COCOON_ARCHIVE_EXPORT_MNEMONIC)!
+
+    const result = await handler(createMockEvent(), { archivedAt: 1_700_000_000_000 })
+
+    expect(result).toEqual({
+      ok: false,
+      error: { code: 'ARCHIVE_NOT_FOUND', message: 'Archive entry not found', retryable: false },
+    })
+  })
 
   // ── COCOON_START ────────────────────────────────────────────────────────────
 

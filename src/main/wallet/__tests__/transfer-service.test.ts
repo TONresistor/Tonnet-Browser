@@ -17,9 +17,10 @@ function setup(sendAndWatch: () => Promise<string> = async () => 'hash') {
 describe('WalletTransferService', () => {
   it('builds and watches a TonConnect transaction', async () => {
     const { service, bridge, context } = setup()
-    const boc = await service.signTonConnectTransaction([{ address: recipient, amount: '42' }])
+    const expectedAddress = `0:${'11'.repeat(32)}`
+    const boc = await service.signTonConnectTransaction([{ address: recipient, amount: '42' }], expectedAddress)
     expect(Buffer.from(boc, 'base64').length).toBeGreaterThan(0)
-    expect(context.buildBoc).toHaveBeenCalledWith(expect.any(Array), 300)
+    expect(context.buildBoc).toHaveBeenCalledWith(expect.any(Array), 300, expectedAddress)
     expect(bridge.sendAndWatch).toHaveBeenCalledOnce()
     expect(bridge.broadcast).not.toHaveBeenCalled()
     expect(context.notifyStateChanged).toHaveBeenCalledOnce()

@@ -135,7 +135,7 @@ export class SettingsCoordinator {
       tabManager.onAppearanceSettingsChanged(current.appearance)
     }
     if (force || categoryChanged(previous, current, 'privacy')) {
-      tabManager.sessions.onPrivacySettingsChanged(current.privacy)
+      await tabManager.onPrivacySettingsChanged(previous.privacy, current.privacy)
     }
   }
 

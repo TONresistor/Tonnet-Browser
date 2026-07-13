@@ -81,6 +81,7 @@ export default defineConfig({
       alias: {
         '@': resolve(__dirname, 'src/renderer/src'),
         '@shared': resolve(__dirname, 'src/shared'),
+        'lottie-web': resolve(__dirname, 'node_modules/lottie-web/build/player/lottie_light.min.js'),
       },
     },
   },

@@ -103,6 +103,7 @@ export function secureContractHandle<TArgs extends readonly unknown[], TResult>(
 
 export function tonsiteContractHandle<TArgs extends readonly unknown[], TResult>(
   contract: IpcRequestContract<TArgs, TResult>,
+  resolveIdentity: (event: IpcMainInvokeEvent) => string | null,
   handler: (domain: string, event: IpcMainInvokeEvent, ...args: NoInfer<TArgs>) => TResult | Promise<TResult>
 ): void {
   if (contract.caller !== 'tonsite' || contract.authorization !== 'owning-tonsite-session') {
@@ -110,7 +111,7 @@ export function tonsiteContractHandle<TArgs extends readonly unknown[], TResult>
   }
   const enforceRateLimit = createRateLimitGuard(contract)
   ownRegistration(
-    tonsiteHandle(contract.channel, async (domain, event, ...rawArgs: unknown[]) => {
+    tonsiteHandle(contract.channel, resolveIdentity, async (domain, event, ...rawArgs: unknown[]) => {
       enforceRateLimit(
         contract.rateLimit.kind === 'fixed-window' && contract.rateLimit.key === 'domain'
           ? domain

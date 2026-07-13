@@ -22,6 +22,7 @@ import {
   useShowStatusBar,
   useTabOrientation,
 } from '@/features/settings/public'
+import { useAppearanceEffects } from '@/features/settings/useAppearanceEffects'
 const WalletSidebar = lazy(() =>
   import('@/features/wallet/components/WalletSidebar').then((m) => ({ default: m.WalletSidebar }))
 )
@@ -73,6 +74,7 @@ function App() {
   const settingsSaveTimer = useRef<NodeJS.Timeout | null>(null)
 
   useApplicationBootstrap()
+  useAppearanceEffects()
 
   // Sync current sidebar width with saved value when preferences load
   useEffect(() => {
@@ -85,10 +87,13 @@ function App() {
   useEffect(() => {
     const width = walletSidebarOpen ? walletSidebarWidth : cocoonSidebarOpen ? cocoonSidebarWidth : 0
     appShellClient.setContentSidebarWidth(width)
+  }, [walletSidebarOpen, walletSidebarWidth, cocoonSidebarOpen, cocoonSidebarWidth])
+
+  useEffect(() => {
     return () => {
       appShellClient.setContentSidebarWidth(0)
     }
-  }, [walletSidebarOpen, walletSidebarWidth, cocoonSidebarOpen, cocoonSidebarWidth])
+  }, [])
 
   useEffect(() => {
     if (proxyConnected) {

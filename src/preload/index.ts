@@ -182,7 +182,8 @@ const electronAPI = {
 
   // Tabs
   tabs: {
-    create: (tabId: string) => invokeChannel<typeof tabCreateContract>(IPC_CHANNELS.TAB_CREATE, tabId),
+    create: (tabId: string, initialUrl: string) =>
+      invokeChannel<typeof tabCreateContract>(IPC_CHANNELS.TAB_CREATE, tabId, initialUrl),
     close: (tabId: string) => invokeChannel<typeof tabCloseContract>(IPC_CHANNELS.TAB_CLOSE, tabId),
     switch: (tabId: string) => invokeChannel<typeof tabSwitchContract>(IPC_CHANNELS.TAB_SWITCH, tabId),
   },

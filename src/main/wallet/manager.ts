@@ -67,7 +67,7 @@ export class WalletManager extends EventEmitter {
     })
     this.transferService = new WalletTransferService({
       getBridge: () => this.wsBridge,
-      buildBoc: (messages, maxTimeout) => this.buildBoc(messages, maxTimeout),
+      buildBoc: (messages, maxTimeout, expectedAddress) => this.buildBoc(messages, maxTimeout, expectedAddress),
       notifyStateChanged: () => this.emit('state-changed', this.getState()),
     })
     this.accountService = new WalletAccountService({
@@ -400,16 +400,22 @@ export class WalletManager extends EventEmitter {
     return this.accountService.getTonConnectAccount()
   }
 
-  async signTonConnectTransaction(messages: TonConnectOutMessage[]): Promise<string> {
-    return this.transferService.signTonConnectTransaction(messages)
+  async signTonConnectTransaction(messages: TonConnectOutMessage[], expectedAddress?: string): Promise<string> {
+    return this.transferService.signTonConnectTransaction(messages, expectedAddress)
   }
 
-  async signTonProof(domain: string, payload: string): Promise<TonProofReplyPayload> {
-    return this.runExclusive(() => this.signingService.signTonProof(domain, payload))
+  async signTonProof(domain: string, payload: string, expectedAddress?: string): Promise<TonProofReplyPayload> {
+    return this.runExclusive(() => {
+      this.accountService.assertTonConnectAccount(expectedAddress)
+      return this.signingService.signTonProof(domain, payload)
+    })
   }
 
-  async signData(domain: string, payload: SignDataPayloadInput): Promise<SignDataResult> {
-    return this.runExclusive(() => this.signingService.signData(domain, payload))
+  async signData(domain: string, payload: SignDataPayloadInput, expectedAddress?: string): Promise<SignDataResult> {
+    return this.runExclusive(() => {
+      this.accountService.assertTonConnectAccount(expectedAddress)
+      return this.signingService.signData(domain, payload)
+    })
   }
 
   private async signWithKeyUnlocked<T>(fn: (secretKey: Buffer) => T): Promise<T> {
@@ -434,11 +440,13 @@ export class WalletManager extends EventEmitter {
 
   private buildBoc(
     messages: MessageRelaxed[],
-    maxTimeout: number
+    maxTimeout: number,
+    expectedAddress?: string
   ): Promise<{ boc: string; seqno: number; validUntil: number }> {
     // Serialize signing through a promise chain to prevent concurrent
     // calls from reading the same localSeqno before it is incremented.
     return this.runExclusive(async () => {
+      this.accountService.assertTonConnectAccount(expectedAddress)
       await this.syncSeqnoUnlocked()
       return this.buildBocUnlocked(messages, maxTimeout)
     })

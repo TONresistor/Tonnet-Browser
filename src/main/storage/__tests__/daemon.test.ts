@@ -591,6 +591,57 @@ describe('StorageManager', () => {
       expect(spawn).toHaveBeenCalledOnce()
     })
 
+    it('waits for an active poll before applying a seeding change', async () => {
+      vi.useFakeTimers()
+      try {
+        await manager.start()
+        const client = getLastMockClient()
+        const activeBag = {
+          bag_id: 'bag1',
+          description: 'Bag',
+          downloaded: 100,
+          size: 100,
+          download_speed: 0,
+          upload_speed: 0,
+          files_count: 1,
+          dir_name: 'bag',
+          completed: true,
+          header_loaded: true,
+          info_loaded: true,
+          active: true,
+          seeding: true,
+          peers: 0,
+        }
+        let releaseStop: () => void = () => {}
+        client.stopBag.mockReturnValueOnce(
+          new Promise((resolve) => {
+            releaseStop = () => resolve({ ok: true })
+          })
+        )
+        client.listBags.mockResolvedValueOnce([activeBag]).mockResolvedValueOnce([{ ...activeBag, active: false }])
+
+        await vi.advanceTimersByTimeAsync(1000)
+        await vi.waitFor(() => expect(client.stopBag).toHaveBeenCalledWith('bag1'))
+        const previous = getAppSettings()
+        const applying = manager.applySettingsChange({
+          ...previous,
+          storage: { ...previous.storage, seedingEnabled: true },
+        })
+        await Promise.resolve()
+
+        expect(client.addBag).not.toHaveBeenCalled()
+        releaseStop()
+        await applying
+        expect(client.addBag).toHaveBeenCalledWith({
+          bag_id: 'bag1',
+          path: '/mock/downloads',
+          download_all: true,
+        })
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
     it('does not start a stopped daemon and uses current settings on the next start', async () => {
       mockSettings.network.storagePort = 6002
       mockSettings.storage.downloadSpeedLimit = 4096
@@ -889,6 +940,30 @@ describe('StorageManager', () => {
 
         const bags = await manager.listBags()
         expect(bags[0].status).toBe('seeding')
+      })
+
+      it('sets a completed inactive bag to paused', async () => {
+        getLastMockClient().listBags.mockResolvedValue([
+          {
+            bag_id: 'bag1',
+            description: 'Completed bag',
+            downloaded: 100,
+            size: 100,
+            download_speed: 0,
+            upload_speed: 0,
+            files_count: 1,
+            dir_name: '',
+            completed: true,
+            header_loaded: true,
+            info_loaded: true,
+            active: false,
+            seeding: false,
+            peers: 0,
+          },
+        ])
+
+        const bags = await manager.listBags()
+        expect(bags[0].status).toBe('paused')
       })
     })
 

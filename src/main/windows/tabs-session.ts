@@ -14,11 +14,24 @@ export function extractDomain(url: string): string {
   }
 }
 
-async function purgeSessionData(session: Electron.Session): Promise<void> {
-  await session.clearStorageData({
-    storages: ['cookies', 'localstorage', 'indexdb', 'websql', 'serviceworkers', 'cachestorage'],
-  })
-  await session.clearCache()
+async function purgeSessionCookies(session: Electron.Session, domain: string, shared: boolean): Promise<void> {
+  if (!shared) {
+    await session.clearStorageData({ storages: ['cookies'] })
+    return
+  }
+  const cookies = await session.cookies.get({ domain })
+  await Promise.all(
+    cookies.map((cookie) => {
+      const host = (cookie.domain || domain).replace(/^\./, '')
+      const path = cookie.path?.startsWith('/') ? cookie.path : '/'
+      return session.cookies.remove(`${cookie.secure ? 'https' : 'http'}://${host}${path}`, cookie.name)
+    })
+  )
+}
+
+function partitionForIdentity(identity: string): string {
+  if (identity.startsWith('bag:')) return `persist:ton-bag-${identity.slice(4).toLowerCase()}`
+  return `persist:ton-domain-${identity}`
 }
 
 export class TabSessionManager {
@@ -57,10 +70,13 @@ export class TabSessionManager {
     this.tabDomains.clear()
   }
 
-  async getSessionForDomain(domain: string, proxyPort: number): Promise<Electron.Session> {
+  async getSessionForDomain(
+    domain: string,
+    proxyPort: number,
+    firstPartyIsolation = getSetting('privacy').firstPartyIsolation ?? true
+  ): Promise<Electron.Session> {
     if (!this.deps) throw new Error('Tab session manager is not initialized.')
-    const privacy: PrivacySettings = getSetting('privacy')
-    if (!(privacy.firstPartyIsolation ?? true)) {
+    if (!firstPartyIsolation) {
       this.tonSession ??= await createTonSession(this.deps, proxyPort, SESSION_PARTITION)
       return this.tonSession
     }
@@ -71,7 +87,7 @@ export class TabSessionManager {
       return existing
     }
 
-    const session = await createTonSession(this.deps, proxyPort, `persist:ton-domain-${domain}`)
+    const session = await createTonSession(this.deps, proxyPort, partitionForIdentity(domain))
     this.domainSessions.set(domain, session)
     this.updateDomainActivity(domain)
     log.debug(`Created isolated session for domain: ${domain}`)
@@ -91,14 +107,9 @@ export class TabSessionManager {
     const domain = this.tabDomains.get(tabId)
     this.tabDomains.delete(tabId)
     if (!domain || [...this.tabDomains.values()].includes(domain)) return
-    const session = this.domainSessions.get(domain)
-    if (session) {
-      purgeSessionData(session).catch((error) =>
-        this.purgeFailures.record(domain, 'privacy.session_purge.failed', 'session purge failed', { error })
-      )
-    }
-    this.domainSessions.delete(domain)
-    this.domainActivity.delete(domain)
+    this.domainActivity.set(domain, Date.now())
+    const privacy: PrivacySettings = getSetting('privacy')
+    if (privacy.cookieAutoDelete ?? false) this.startCookieAutoDeleteTimer(privacy)
   }
 
   getAllSessions(): Electron.Session[] {
@@ -136,13 +147,14 @@ export class TabSessionManager {
 
     for (const [domain, lastActivity] of this.domainActivity) {
       if (activeDomains.has(domain) || now - lastActivity <= inactiveThreshold) continue
-      const session = this.domainSessions.get(domain)
+      const session = this.domainSessions.get(domain) ?? this.tonSession
       if (!session) continue
       try {
-        await purgeSessionData(session)
+        const shared = session === this.tonSession
+        await purgeSessionCookies(session, domain, shared)
         this.purgeFailures.recovered(domain, 'privacy.session_purge.restored', 'session purge restored')
         this.domainActivity.delete(domain)
-        this.domainSessions.delete(domain)
+        if (!shared) this.domainSessions.delete(domain)
       } catch (error) {
         this.purgeFailures.record(domain, 'privacy.session_purge.failed', 'session purge failed', { error })
       }

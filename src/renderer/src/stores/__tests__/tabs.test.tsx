@@ -153,7 +153,7 @@ describe('tabs store', () => {
       await useTabsStore.getState().addTab('http://example.ton')
 
       const tab = useTabsStore.getState().tabs[0]
-      expect(mockElectron.tabs.create).toHaveBeenCalledWith(tab.id)
+      expect(mockElectron.tabs.create).toHaveBeenCalledWith(tab.id, 'http://example.ton')
       expect(mockElectron.navigate).toHaveBeenCalledWith('http://example.ton', tab.id)
     })
 

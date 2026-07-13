@@ -6,6 +6,10 @@
  * window-all-closed and before-quit paths can both invoke it safely.
  */
 import log from '../shared/logger'
+import { app } from 'electron'
+import { existsSync, unlinkSync } from 'fs'
+import { readdir, rm } from 'fs/promises'
+import { join } from 'path'
 import { getSetting, loadSettings } from './settings'
 import { destroyServices, type ServiceRegistry } from './services'
 import { flushNativeLogs } from './logging/native-log-router'
@@ -46,9 +50,6 @@ export async function runCleanup(services: ServiceRegistry): Promise<void> {
     // persist on disk as a plaintext list of every visited hostname, even in
     // memory-only history mode. Best-effort: some may be held open at exit.
     try {
-      const { app } = await import('electron')
-      const { rm, readdir } = await import('fs/promises')
-      const { join } = await import('path')
       const partitionsDir = join(app.getPath('userData'), 'Partitions')
       const entries = await readdir(partitionsDir).catch(() => [] as string[])
       let swept = 0
@@ -66,7 +67,6 @@ export async function runCleanup(services: ServiceRegistry): Promise<void> {
     // Clear bookmarks file (privacy: leave no browsing trace)
     try {
       const { getBookmarksFile } = await import('./bookmarks')
-      const { unlinkSync, existsSync } = await import('fs')
       const file = getBookmarksFile()
       if (existsSync(file)) {
         unlinkSync(file)
