@@ -25,6 +25,10 @@ import type { TabStorageState } from './tabs-storage'
 
 const log = createLogger('tabs-events')
 
+function isInternalPresentationUrl(url: string): boolean {
+  return url.startsWith('data:') || url.startsWith('file:')
+}
+
 /** Dependencies needed by setupViewEventListeners */
 export interface TabEventDeps {
   historyManager: HistoryManager
@@ -52,6 +56,7 @@ export function setupViewEventListeners(view: WebContentsView, tabId: string, de
   )
 
   const handleNavigate = (_e: unknown, url: string): void => {
+    if (isInternalPresentationUrl(url)) return
     emitContractToRenderer(pageNavigateContract, {
       tabId,
       url,
@@ -68,7 +73,7 @@ export function setupViewEventListeners(view: WebContentsView, tabId: string, de
       emitContractToRenderer(pageTitleContract, title, tabId)
 
       const url = view.webContents.getURL()
-      historyManager.addEntry(url, title, undefined, false)
+      if (!isInternalPresentationUrl(url)) historyManager.addEntry(url, title, undefined, false)
     })
   )
 
