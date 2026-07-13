@@ -9,7 +9,6 @@ export interface WalletBroadcastPort {
 
 export interface WalletTransferContext {
   getBridge(): WalletBroadcastPort | null
-  syncSeqno(): Promise<void>
   buildBoc(messages: MessageRelaxed[], maxTimeout: number): Promise<{ boc: string }>
   notifyStateChanged(): void
 }
@@ -21,7 +20,6 @@ export class WalletTransferService {
   async signTonConnectTransaction(messages: TonConnectOutMessage[]): Promise<string> {
     const bridge = this.context.getBridge()
     if (!bridge) throw new Error('Bridge not connected')
-    await this.context.syncSeqno()
 
     const internalMessages = messages.map(toInternalMessage)
     const { boc } = await this.context.buildBoc(internalMessages, WALLET_MAX_TIMEOUT_S)

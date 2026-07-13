@@ -142,7 +142,13 @@ export class WalletKeyStorage {
 
     const keypair = await mnemonicToPrivateKey(words)
     const data: MnemonicStorageData = { type: 'mnemonic', mnemonic: words }
-    await this.storeData(data)
+    try {
+      await this.storeData(data)
+    } catch (error) {
+      keypair.secretKey.fill(0)
+      keypair.publicKey.fill(0)
+      throw error
+    }
 
     this.cachedPublicKey = keypair.publicKey
     this.cachedSecretKey = keypair.secretKey
