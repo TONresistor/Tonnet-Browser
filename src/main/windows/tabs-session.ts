@@ -44,8 +44,8 @@ export class TabSessionManager {
     if ((privacy.cookieAutoDelete ?? false) && !this.cookieAutoDeleteTimer) this.startCookieAutoDeleteTimer()
   }
 
-  onPrivacySettingsChanged(): void {
-    this.startCookieAutoDeleteTimer()
+  onPrivacySettingsChanged(settings?: PrivacySettings): void {
+    this.startCookieAutoDeleteTimer(settings)
   }
 
   initialize(deps: SessionDeps): void {
@@ -115,10 +115,10 @@ export class TabSessionManager {
     this.deps = null
   }
 
-  private startCookieAutoDeleteTimer(): void {
+  private startCookieAutoDeleteTimer(settings?: PrivacySettings): void {
     if (this.cookieAutoDeleteTimer) clearInterval(this.cookieAutoDeleteTimer)
     this.cookieAutoDeleteTimer = null
-    const privacy: PrivacySettings = getSetting('privacy')
+    const privacy: PrivacySettings = settings ?? getSetting('privacy')
     if (!(privacy.cookieAutoDelete ?? false) || this.domainActivity.size === 0) return
     this.cookieAutoDeleteTimer = setInterval(() => {
       void this.checkInactiveDomains().catch((error) =>

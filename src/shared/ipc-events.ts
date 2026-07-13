@@ -1,4 +1,11 @@
-import type { ProxyStatus, WalletState, WalletTransaction, PaymentNotificationData, StorageBag } from './types'
+import type {
+  AppSettings,
+  ProxyStatus,
+  WalletState,
+  WalletTransaction,
+  PaymentNotificationData,
+  StorageBag,
+} from './types'
 import type { CocoonState, CocoonLogEvent, WithdrawDriverEvent, RecoveryDriverEvent } from './cocoon-types'
 
 export interface ProxyStatusEvent extends Partial<ProxyStatus> {
@@ -18,6 +25,7 @@ export interface SettingsChangedEvent {
   reset?: boolean
   category?: string
   values?: object
+  settings?: AppSettings
 }
 
 export interface IpcEventMap {

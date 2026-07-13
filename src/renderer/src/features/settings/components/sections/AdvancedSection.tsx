@@ -7,7 +7,6 @@ import { RotateCcw } from 'lucide-react'
 import { SectionHeader } from '../shared/SectionHeader'
 import { SettingRow } from '../shared/SettingRow'
 import { Toggle } from '../shared/Toggle'
-import { TextInput } from '../shared/TextInput'
 import { Segmented } from '@/components/ui/ios/Segmented'
 import type { SectionProps } from '../types'
 import { useTranslation } from 'react-i18next'
@@ -116,14 +115,6 @@ export const AdvancedSection = memo(function AdvancedSection({
               { value: '2', label: t('advanced.normal') },
               { value: '3', label: t('advanced.verbose') },
             ]}
-          />
-        </SettingRow>
-        <SettingRow label={t('advanced.syncTestDomain')} description={t('advanced.syncTestDomainDesc')}>
-          <TextInput
-            value={draft.syncTestDomain}
-            onChange={(value) => setDraft('syncTestDomain', value)}
-            placeholder="tonnet-sync-check.ton"
-            ariaLabel={t('advanced.syncTestDomain')}
           />
         </SettingRow>
         <SettingRow label={t('advanced.diagnosticLogging')} description={t('advanced.diagnosticLoggingDesc')}>

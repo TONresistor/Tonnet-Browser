@@ -40,6 +40,10 @@ import {
   walletPaymentRequestedContract,
 } from '../shared/ipc-contract/wallet'
 import { DisposableStore, onEmitter } from './utils/disposable'
+import { SettingsCoordinator } from './settings/coordinator'
+import { createLogger } from '../shared/logger'
+
+const log = createLogger('services')
 
 export interface ServiceRegistry {
   ipcRegistrations: DisposableStore
@@ -65,6 +69,7 @@ export interface ServiceRegistry {
   tabManager: TabManager
   chatSessionController: ChatSessionController<ChatRuntimeSession>
   cocoonPersistence: CocoonPersistence
+  settingsCoordinator: SettingsCoordinator
 }
 
 export function createServices(): ServiceRegistry {
@@ -104,6 +109,18 @@ export function createServices(): ServiceRegistry {
     }
   )
   const bridgeInterceptor = new BridgePermissionInterceptor(bridgePermissionStore, overlayManager)
+  lifecycleRegistrations.add(
+    onEmitter(proxyManager, 'ws-bridge-ready', (wsPort: number) => {
+      void Promise.all([walletManager.applyBridgePort(wsPort), bridgeInterceptor.applyBridgePort(wsPort)]).catch(
+        (error) => log.error(`Failed to synchronize bridge clients: ${String(error)}`)
+      )
+    })
+  )
+  lifecycleRegistrations.add(
+    onEmitter(proxyManager, 'bridge-exit', () => {
+      void chatSessionController.disconnect().catch((error) => log.error(`Failed to disconnect chat: ${String(error)}`))
+    })
+  )
   const tonConnectSessionStore = new TonConnectSessionStore()
   const tonConnectService = new TonConnectService(
     walletManager,
@@ -143,6 +160,17 @@ export function createServices(): ServiceRegistry {
     sendNative: (to, amount) => walletManager.send(to, amount),
     persistence: cocoonPersistence,
   }
+  const settingsCoordinator = new SettingsCoordinator({
+    proxyManager,
+    storageManager,
+    historyManager,
+    contentFilterManager,
+    walletManager,
+    bridgePermissionStore,
+    bridgeInterceptor,
+    tabManager,
+    chatSessionController,
+  })
 
   return {
     ipcRegistrations,
@@ -168,6 +196,7 @@ export function createServices(): ServiceRegistry {
     tabManager,
     chatSessionController,
     cocoonPersistence,
+    settingsCoordinator,
   }
 }
 

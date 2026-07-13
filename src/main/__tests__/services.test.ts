@@ -145,6 +145,9 @@ vi.mock('../settings', () => ({
   }),
   setSetting: vi.fn(),
   getDownloadPath: vi.fn(() => '/tmp/downloads'),
+  getDefaultSettings: vi.fn(),
+  mergeSettingsPatch: vi.fn(),
+  transactSettings: vi.fn(),
 }))
 
 vi.mock('../settings/validation', () => ({
@@ -201,5 +204,25 @@ describe('services composition root', () => {
     for (const spy of spies) {
       expect(spy).toHaveBeenCalledOnce()
     }
+  })
+
+  it('synchronizes both bridge clients after native Bridge readiness', async () => {
+    const wallet = vi.spyOn(registry.walletManager, 'applyBridgePort').mockResolvedValue()
+    const interceptor = vi.spyOn(registry.bridgeInterceptor, 'applyBridgePort').mockResolvedValue()
+
+    registry.proxyManager.emit('ws-bridge-ready', 9123)
+
+    await vi.waitFor(() => {
+      expect(wallet).toHaveBeenCalledWith(9123)
+      expect(interceptor).toHaveBeenCalledWith(9123)
+    })
+  })
+
+  it('disconnects chat after an unexpected native Bridge exit', async () => {
+    const disconnect = vi.spyOn(registry.chatSessionController, 'disconnect').mockResolvedValue()
+
+    registry.proxyManager.emit('bridge-exit', 1)
+
+    await vi.waitFor(() => expect(disconnect).toHaveBeenCalledOnce())
   })
 })

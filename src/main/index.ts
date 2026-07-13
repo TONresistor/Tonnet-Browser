@@ -33,6 +33,7 @@ import { configureNativeLogging } from './logging/native-log-router'
 import { attachWindowScope } from './windows/window-scope'
 import { ProxyAutoConnector } from './proxy/auto-connect'
 import type { IDisposable } from './utils/disposable'
+import { reconcileHistoryModeAtStartup } from './history/startup'
 import {
   proxyAutoConnectEventContract,
   proxyProgressEventContract,
@@ -436,6 +437,14 @@ app.whenReady().then(async () => {
   // Explicit synchronous bootstrap read; all interactive settings writes are asynchronous.
   loadSettings()
   services = createServices()
+  await services.historyManager.ready()
+  const historyMode = (await services.historyManager.getStats()).mode
+  await reconcileHistoryModeAtStartup(
+    historyMode,
+    getSetting('privacy').historyMode,
+    (mode) => services!.settingsCoordinator.apply({ privacy: { historyMode: mode } }),
+    (error) => appLog.error('Failed to persist degraded history mode:', error)
+  )
   registerIpcHandlers(services)
   autoConnector = new ProxyAutoConnector(
     () =>

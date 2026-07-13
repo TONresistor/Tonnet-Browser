@@ -5,9 +5,11 @@ import {
   settingsDiagnosticsGetContract,
   settingsDiagnosticsCopyContract,
   settingsGetContract,
+  settingsApplyContract,
   settingsSetContract,
   SettingsCategorySchema,
 } from '../settings'
+import { AppSettingsSchema } from '../../types'
 
 describe('settings IPC contracts', () => {
   it('uses the canonical category allowlist at the boundary', () => {
@@ -15,11 +17,19 @@ describe('settings IPC contracts', () => {
     expect(() => SettingsCategorySchema.parse('developerSecrets')).toThrow()
   })
   it('rejects non-object updates and validates change events', () => {
+    const settings = AppSettingsSchema.parse({})
     expect(() => settingsSetContract.input.parse(['wallet', null])).toThrow()
     expect(
-      settingsChangedContract.payload.parse([{ category: 'privacy', values: { clearOnExit: true } }])
+      settingsChangedContract.payload.parse([{ category: 'privacy', values: { clearOnExit: true }, settings }])
     ).toHaveLength(1)
-    expect(() => settingsChangedContract.payload.parse([{ category: 'invalid', values: {} }])).toThrow()
+    expect(() => settingsChangedContract.payload.parse([{ category: 'invalid', values: {}, settings }])).toThrow()
+    expect(
+      settingsApplyContract.input.parse([{ network: { proxyPort: 9000 }, privacy: { clearOnExit: false } }])
+    ).toHaveLength(1)
+    expect(() => settingsApplyContract.input.parse([{}])).toThrow()
+    expect(() => settingsApplyContract.input.parse([{ network: { unexpected: true } }])).toThrow()
+    expect(() => settingsApplyContract.input.parse([{ network: undefined }])).toThrow()
+    expect(() => settingsApplyContract.input.parse([{ network: { proxyPort: undefined } }])).toThrow()
   })
 
   it('preserves the wallet category shape in settings:get output', () => {

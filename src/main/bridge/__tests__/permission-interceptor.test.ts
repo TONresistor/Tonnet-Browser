@@ -8,6 +8,10 @@ function getLatestWs(): any {
   return (globalThis as any).__latestWs
 }
 
+function getSockets(): any[] {
+  return (globalThis as any).__sockets
+}
+
 vi.mock('ws', async () => {
   const { EventEmitter: EE } = await import('events')
   const { vi: _vi } = await import('vitest')
@@ -21,11 +25,14 @@ vi.mock('ws', async () => {
       this.readyState = 3
     })
     terminate = _vi.fn()
+    url: string
 
-    constructor() {
+    constructor(url: string) {
       super()
+      this.url = url
       // Expose to tests via a global-ish holder injected at module scope
       ;(globalThis as any).__latestWs = this
+      ;((globalThis as any).__sockets ??= []).push(this)
       setTimeout(() => this.emit('open'), 0)
     }
   }
@@ -79,9 +86,10 @@ function createMockPermissionStore() {
   return {
     init: vi.fn(),
     getPermission: vi.fn((): 'granted' | 'denied' | 'unknown' => 'unknown'),
-    setPermission: vi.fn(),
+    setPermission: vi.fn(() => Promise.resolve()),
     clearSessionGrants: vi.fn(),
-    revokePermission: vi.fn(),
+    revokePermission: vi.fn(() => Promise.resolve()),
+    revokeSessionPermission: vi.fn(),
     getAllPermissions: vi.fn(() => []),
     getDefaultPolicy: vi.fn(() => 'ask' as 'ask' | 'deny'),
   }
@@ -123,6 +131,7 @@ describe('BridgePermissionInterceptor', () => {
     overlay = createMockOverlayManager()
     interceptor = new BridgePermissionInterceptor(store as any, overlay as any)
     ;(globalThis as any).__latestWs = null
+    ;(globalThis as any).__sockets = []
   })
 
   afterEach(() => {
@@ -348,6 +357,27 @@ describe('BridgePermissionInterceptor', () => {
       expect(store.setPermission).toHaveBeenCalledWith('app.ton', 'blockchain', 'granted')
     })
 
+    it('denies the request when a persistent grant cannot be saved', async () => {
+      store.getPermission.mockReturnValue('unknown')
+      store.getDefaultPolicy.mockReturnValue('ask')
+      store.setPermission.mockRejectedValueOnce(new Error('disk full'))
+      interceptor.init()
+      await vi.advanceTimersByTimeAsync(0)
+
+      const sendResponse = vi.fn()
+      const promise = interceptor.handleRequest(
+        'app.ton',
+        JSON.stringify({ id: 2, method: 'lite.getAccountState' }),
+        sendResponse
+      )
+      const callback = overlay.show.mock.calls[0][3] as (action: string) => void
+      callback('always-allow')
+      await promise
+
+      expect(JSON.parse(sendResponse.mock.calls[0][0]).error.code).toBe(-32003)
+      expect(getLatestWs().send).not.toHaveBeenCalled()
+    })
+
     it('denies on "deny" action', async () => {
       store.getPermission.mockReturnValue('unknown')
       store.getDefaultPolicy.mockReturnValue('ask')
@@ -482,6 +512,8 @@ describe('BridgePermissionInterceptor', () => {
       // Trigger the destroyed callback
       sender._triggerDestroyed()
 
+      expect(store.revokeSessionPermission).toHaveBeenCalledTimes(3)
+
       // Second request with the same sender should re-register it
       const data2 = JSON.stringify({ id: 2, method: 'subscribe.blocks' })
       await interceptor.handleRequest('app.ton', data2, sendResponse, sender)
@@ -511,6 +543,37 @@ describe('BridgePermissionInterceptor', () => {
       // A new MockWebSocket should have been created
       const secondWs = getLatestWs()
       expect(secondWs).not.toBe(firstWs)
+    })
+
+    it('coalesces concurrent rebinds to the same bridge port', async () => {
+      interceptor.init()
+      await vi.advanceTimersByTimeAsync(0)
+      const firstWs = getLatestWs()
+
+      const first = interceptor.applyBridgePort(7777)
+      const second = interceptor.applyBridgePort(7777)
+
+      expect(first).toBe(second)
+      expect(getSockets()).toHaveLength(2)
+      expect(getLatestWs().url).toBe('ws://127.0.0.1:7777')
+      expect(firstWs.close).toHaveBeenCalledOnce()
+
+      await vi.advanceTimersByTimeAsync(0)
+      await first
+      expect(getSockets()).toHaveLength(2)
+    })
+
+    it('records a pre-init bridge port and opens exactly one socket during idempotent init', async () => {
+      await interceptor.applyBridgePort(7777)
+
+      expect(getSockets()).toHaveLength(0)
+
+      interceptor.init()
+      interceptor.init()
+
+      expect(getSockets()).toHaveLength(1)
+      expect(getLatestWs().url).toBe('ws://127.0.0.1:7777')
+      await vi.advanceTimersByTimeAsync(0)
     })
 
     it('calls init on permission store and clears session grants', () => {

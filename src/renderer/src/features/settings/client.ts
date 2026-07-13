@@ -1,4 +1,5 @@
 import type { SettingsChangedEvent } from '@shared/ipc-events'
+import type { SettingsPatch } from '@shared/ipc-contract/settings'
 import type { AppSettings } from '@shared/types'
 
 /** Typed main-process boundary owned by settings and preferences. */
@@ -8,8 +9,7 @@ export const settingsClient = {
   get: <K extends keyof AppSettings>(category: K) => window.electron.settings.get(category),
   set: <K extends keyof AppSettings>(category: K, values: Partial<AppSettings[K]>) =>
     window.electron.settings.set(category, { ...values }),
-  setCategory: (category: keyof AppSettings, values: Record<string, unknown>) =>
-    window.electron.settings.set(category, values),
+  apply: (patch: SettingsPatch) => window.electron.settings.apply(patch),
   reset: () => window.electron.settings.reset(),
   diagnostics: {
     get: () => window.electron.settings.diagnostics.get(),

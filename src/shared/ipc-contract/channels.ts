@@ -33,6 +33,7 @@ export const SETTINGS_CHANNELS = {
   getAll: 'settings:get-all',
   get: 'settings:get',
   set: 'settings:set',
+  apply: 'settings:apply',
   reset: 'settings:reset',
   diagnosticsGet: 'settings:diagnostics:get',
   diagnosticsEnable: 'settings:diagnostics:enable',

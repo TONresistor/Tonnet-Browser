@@ -91,6 +91,7 @@ vi.mock('../../storage/daemon', () => ({
 
 // Mock settings
 vi.mock('../../settings', () => ({
+  SettingsRuntimeApplyError: class SettingsRuntimeApplyError extends Error {},
   loadSettings: vi.fn(() => ({ general: {}, network: {}, storage: {} })),
   getSetting: vi.fn(() => ({})),
   setSetting: vi.fn(),
@@ -229,7 +230,7 @@ vi.mock('../../cocoon/platform', () => ({
 // Import after mocks
 import { registerIpcHandlers, _resetHandlersForTesting } from '../handlers'
 import { IPC_CHANNELS } from '../../../shared/ipc-channels'
-import { setSetting, resetSettings, getSetting } from '../../settings'
+import { getSetting, SettingsRuntimeApplyError } from '../../settings'
 import type { ServiceRegistry } from '../../services'
 import { DisposableStore } from '../../utils/disposable'
 import { overlayIdB64ForRoom } from '../../chat/room'
@@ -238,6 +239,7 @@ import { marshalEnvelope, signEnvelope } from '../../chat/envelope'
 import { generateCocoonWallet, loadCocoonWallet, markSetupComplete } from '../../cocoon/wallet'
 import { getOwnerBalance, getCocoonWalletBalance, fundCocoonFromOwner } from '../../cocoon/setup'
 import { ChatSessionController } from '../../chat/session-controller'
+import { AppSettingsSchema } from '../../../shared/types'
 
 // Build mock service registry from the mock emitters
 const mockProxyManager = (() => {
@@ -416,6 +418,10 @@ function createMockRegistry(): ServiceRegistry {
       sendNative: vi.fn(() => Promise.resolve()),
       persistence: null as any,
     },
+    settingsCoordinator: {
+      apply: vi.fn(() => Promise.resolve(AppSettingsSchema.parse({}))),
+      reset: vi.fn(() => Promise.resolve(AppSettingsSchema.parse({}))),
+    } as any,
   }
 }
 
@@ -691,7 +697,31 @@ describe('IPC Handlers', () => {
 
       await handler(createMockEvent(), 'network', { proxyPort: 9000 })
 
-      expect(setSetting).toHaveBeenCalledWith('network', { proxyPort: 9000 })
+      expect(mockRegistry.settingsCoordinator.apply).toHaveBeenCalledWith({ network: { proxyPort: 9000 } })
+    })
+
+    it('SETTINGS_APPLY submits one multi-category transaction', async () => {
+      const handler = mockHandlers.get(IPC_CHANNELS.SETTINGS_APPLY)!
+      const patch = { network: { proxyPort: 9000 }, privacy: { clearOnExit: false } }
+
+      const result = await handler(createMockEvent(), patch)
+
+      expect(mockRegistry.settingsCoordinator.apply).toHaveBeenCalledWith(patch)
+      expect(result).toEqual(AppSettingsSchema.parse({}))
+    })
+
+    it('SETTINGS_SET reports runtime apply failures', async () => {
+      vi.mocked(mockRegistry.settingsCoordinator.apply).mockRejectedValueOnce(
+        new SettingsRuntimeApplyError(new Error('port unavailable'))
+      )
+      const handler = mockHandlers.get(IPC_CHANNELS.SETTINGS_SET)!
+
+      const result = await handler(createMockEvent(), 'network', { proxyPort: 9000 })
+
+      expect(result).toEqual({
+        ok: false,
+        error: { code: 'RUNTIME_APPLY_FAILED', message: 'Unable to apply settings', retryable: false },
+      })
     })
 
     it('SETTINGS_RESET restores defaults', async () => {
@@ -700,7 +730,7 @@ describe('IPC Handlers', () => {
 
       await handler(createMockEvent())
 
-      expect(resetSettings).toHaveBeenCalled()
+      expect(mockRegistry.settingsCoordinator.reset).toHaveBeenCalled()
     })
 
     it('flushes native logs before copying the diagnostic report', async () => {

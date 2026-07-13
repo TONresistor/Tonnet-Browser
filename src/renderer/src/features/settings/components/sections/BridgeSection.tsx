@@ -19,6 +19,7 @@ import { REQUIRED_NAMESPACES, OPTIONAL_NAMESPACES, isRequiredNamespace } from '@
 import type { BridgeConfig, NamespaceKey } from '@shared/bridge-config'
 import type { BridgePermission } from '@shared/types'
 import { useSectionHandle } from '@/hooks/useSectionHandle'
+import { settingsClient } from '@/features/settings/client'
 
 const log = createLogger('bridge-settings')
 
@@ -74,6 +75,34 @@ export const BridgeSection = memo(function BridgeSection({ onDirtyChange, sectio
 
   // Load on mount
   useEffect(() => {
+    let active = true
+    let canonicalRevision = 0
+    let resetSinceLoad = false
+    let policyInitialized = false
+    const off = settingsClient.onChanged((change) => {
+      if (!change.settings || (!change.reset && change.category !== 'bridge')) return
+      canonicalRevision += 1
+      resetSinceLoad ||= change.reset === true
+      const next = change.settings.bridge
+      const values = change.values as Partial<typeof next> | undefined
+      const replacePolicyDraft =
+        change.reset || !policyInitialized || !values || Object.prototype.hasOwnProperty.call(values, 'defaultPolicy')
+      setSavedPolicy(next.defaultPolicy)
+      if (replacePolicyDraft) setDraftPolicy(next.defaultPolicy)
+      policyInitialized = true
+      setPermissions((current) => {
+        if (change.reset) return next.permissions
+        const persistent = new Set(next.permissions.map((permission) => `${permission.domain}:${permission.scope}`))
+        return [
+          ...next.permissions,
+          ...current.filter(
+            (permission) =>
+              permission.decision === 'session' && !persistent.has(`${permission.domain}:${permission.scope}`)
+          ),
+        ]
+      })
+    })
+    const loadRevision = canonicalRevision
     const load = async () => {
       try {
         const [config, bridgeSettings, perms] = await Promise.all([
@@ -82,25 +111,44 @@ export const BridgeSection = memo(function BridgeSection({ onDirtyChange, sectio
           bridgeClient.getPermissions(),
         ])
 
+        if (!active) return
         if (config) {
           setSavedConfig(config)
           setDraftConfig(deepClone(config))
         }
 
-        const policy = (bridgeSettings as { defaultPolicy?: string })?.defaultPolicy
-        if (policy === 'ask' || policy === 'deny') {
-          setSavedPolicy(policy)
-          setDraftPolicy(policy)
-        }
+        if (canonicalRevision === loadRevision) {
+          const policy = (bridgeSettings as { defaultPolicy?: string })?.defaultPolicy
+          if (policy === 'ask' || policy === 'deny') {
+            setSavedPolicy(policy)
+            setDraftPolicy(policy)
+            policyInitialized = true
+          }
 
-        if (Array.isArray(perms)) setPermissions(perms)
+          if (Array.isArray(perms)) setPermissions(perms)
+        } else if (Array.isArray(perms) && !resetSinceLoad) {
+          setPermissions((current) => {
+            const occupied = new Set(current.map((permission) => `${permission.domain}:${permission.scope}`))
+            return [
+              ...current,
+              ...perms.filter(
+                (permission) =>
+                  permission.decision === 'session' && !occupied.has(`${permission.domain}:${permission.scope}`)
+              ),
+            ]
+          })
+        }
       } catch (err) {
-        log.error('Failed to load bridge settings:', err)
+        if (active) log.error('Failed to load bridge settings:', err)
       } finally {
-        setIsLoading(false)
+        if (active) setIsLoading(false)
       }
     }
-    load()
+    void load()
+    return () => {
+      active = false
+      off()
+    }
   }, [])
 
   // Save
@@ -117,6 +165,7 @@ export const BridgeSection = memo(function BridgeSection({ onDirtyChange, sectio
       }
     } catch (err) {
       log.error('Failed to save bridge settings:', err)
+      throw err
     }
   }, [draftConfig, draftPolicy, configChanged, policyChanged])
 

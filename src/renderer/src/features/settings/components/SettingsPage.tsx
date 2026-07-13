@@ -112,20 +112,24 @@ export function SettingsPage() {
 
   const handleResetAll = () => {
     if (resetConfirm.trigger()) {
-      resetToDefaults()
+      void resetToDefaults().catch((error) => log.error('Failed to reset settings:', error))
     }
   }
 
   const handleSave = async () => {
-    await save()
-    if (walletSectionRef.current?.hasChanges) {
-      await walletSectionRef.current.save()
-    }
-    if (bridgeSectionRef.current?.hasChanges) {
-      await bridgeSectionRef.current.save()
-    }
-    if (http402SectionRef.current?.hasChanges) {
-      await http402SectionRef.current.save()
+    try {
+      await save()
+      if (walletSectionRef.current?.hasChanges) {
+        await walletSectionRef.current.save()
+      }
+      if (bridgeSectionRef.current?.hasChanges) {
+        await bridgeSectionRef.current.save()
+      }
+      if (http402SectionRef.current?.hasChanges) {
+        await http402SectionRef.current.save()
+      }
+    } catch (error) {
+      log.error('Failed to save settings:', error)
     }
   }
 

@@ -69,6 +69,23 @@ export class ChatSessionController<TSession extends ManagedChatSession> {
     })
   }
 
+  runWhenIdle<TResult>(operation: () => Promise<TResult>): Promise<TResult> {
+    return this.enqueue(async () => {
+      if (this.current || !['idle', 'failed'].includes(this.stateValue.kind)) {
+        throw new Error('Disconnect Messenger before restarting the Bridge')
+      }
+      return operation()
+    })
+  }
+
+  runDisconnected<TResult>(operation: () => Promise<TResult>): Promise<TResult> {
+    return this.enqueue(async () => {
+      await this.leaveCurrent()
+      this.stateValue = { kind: 'idle' }
+      return operation()
+    })
+  }
+
   private async leaveCurrent(): Promise<void> {
     const session = this.current
     if (!session) return

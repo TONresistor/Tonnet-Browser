@@ -27,7 +27,6 @@ export const DEFAULT_SETTINGS = {
   wsPort: 8081,
   autoConnect: false,
   connectionTimeout: 30,
-  syncCheckInterval: 3000,
   anonymousMode: false,
   tunnelMode: 'standard' as const,
 
@@ -73,7 +72,6 @@ export const DEFAULT_SETTINGS = {
   // Advanced
   proxyVerbosity: 2,
   storageVerbosity: 2,
-  syncTestDomain: 'tonnet-sync-check.ton',
 
   // Wallet
   wallet: {

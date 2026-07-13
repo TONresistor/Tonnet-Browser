@@ -4,12 +4,21 @@
  */
 
 import { create } from 'zustand'
-import type { CustomTheme, ThemeColors } from '@shared/types'
+import type { AppearanceSettings, CustomTheme, ThemeColors } from '@shared/types'
 import { createThemeFromBase, exportThemeToJson, importThemeFromJson, generateThemeId } from '@/lib/theme-utils'
 import { createLogger } from '@/logger'
 import { settingsClient } from '@/features/settings/client'
 
 const log = createLogger('themes')
+type ThemeUpdates = Partial<Omit<CustomTheme, 'id' | 'createdAt'>>
+
+function applyThemeUpdates(theme: CustomTheme, updates: ThemeUpdates): CustomTheme {
+  const updated = { ...theme, ...updates, updatedAt: Date.now() }
+  if (Object.prototype.hasOwnProperty.call(updates, 'description') && updates.description === undefined) {
+    delete updated.description
+  }
+  return updated
+}
 
 interface ThemeStore {
   // Custom themes list
@@ -24,7 +33,7 @@ interface ThemeStore {
 
   // CRUD operations
   createTheme: (base: 'resistance-dog' | 'utya-duck', name: string) => CustomTheme
-  updateTheme: (id: string, updates: Partial<Omit<CustomTheme, 'id' | 'createdAt'>>) => void
+  updateTheme: (id: string, updates: ThemeUpdates) => void
   updateThemeColor: (id: string, colorKey: keyof ThemeColors, value: string) => void
   deleteTheme: (id: string) => void
   duplicateTheme: (id: string) => CustomTheme | null
@@ -63,11 +72,8 @@ export const useThemeStore = create<ThemeStore>()((set, get) => ({
 
   updateTheme: (id, updates) => {
     set((state) => ({
-      customThemes: state.customThemes.map((t) => (t.id === id ? { ...t, ...updates, updatedAt: Date.now() } : t)),
-      editingTheme:
-        state.editingTheme?.id === id
-          ? { ...state.editingTheme, ...updates, updatedAt: Date.now() }
-          : state.editingTheme,
+      customThemes: state.customThemes.map((t) => (t.id === id ? applyThemeUpdates(t, updates) : t)),
+      editingTheme: state.editingTheme?.id === id ? applyThemeUpdates(state.editingTheme, updates) : state.editingTheme,
     }))
   },
 
@@ -183,9 +189,32 @@ export const useThemeStore = create<ThemeStore>()((set, get) => ({
       await settingsClient.set('appearance', { customThemes })
     } catch (error) {
       log.error('Failed to save themes:', error)
+      throw error
     }
   },
 }))
+
+if (settingsClient.isAvailable()) {
+  const unsubscribe = settingsClient.onChanged((data) => {
+    if (!data.settings || (!data.reset && data.category !== 'appearance')) return
+    const values = data.values as Partial<AppearanceSettings> | undefined
+    if (!data.reset && values && !Object.prototype.hasOwnProperty.call(values, 'customThemes')) return
+    const customThemes = data.settings.appearance.customThemes
+    useThemeStore.setState((state) => {
+      const editingTheme = state.editingTheme
+        ? (customThemes.find((theme) => theme.id === state.editingTheme?.id) ?? null)
+        : null
+      return {
+        customThemes,
+        editingTheme: data.reset ? null : editingTheme,
+        previewColors: data.reset || !editingTheme ? null : state.previewColors,
+        isLoaded: true,
+      }
+    })
+  })
+  const hot = import.meta.hot
+  if (hot) hot.dispose(() => unsubscribe())
+}
 
 // Note: loadFromSettings() is called from App.tsx useEffect
 // to ensure consistent initialization with other stores

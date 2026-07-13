@@ -24,8 +24,17 @@ export function invalidateAppearanceCache(): void {
 }
 
 /** Get cached appearance settings or refresh cache. */
-export function getAppearanceSettings(): AppearanceCache {
+export function getAppearanceSettings(settings?: AppearanceSettings): AppearanceCache {
   const now = Date.now()
+
+  if (settings) {
+    appearanceCache = {
+      showBookmarksBar: settings.showBookmarksBar ?? false,
+      isVertical: settings.tabOrientation === 'vertical',
+      timestamp: now,
+    }
+    return appearanceCache
+  }
 
   if (appearanceCache && now - appearanceCache.timestamp < CACHE_VALIDITY_MS) {
     return appearanceCache
@@ -42,11 +51,16 @@ export function getAppearanceSettings(): AppearanceCache {
 }
 
 /** Update bounds of a WebContentsView based on current window size and layout settings. */
-export function updateViewBounds(view: WebContentsView, win: BrowserWindow, walletSidebarWidth: number): void {
+export function updateViewBounds(
+  view: WebContentsView,
+  win: BrowserWindow,
+  walletSidebarWidth: number,
+  settings?: AppearanceSettings
+): void {
   const bounds = win.getContentBounds()
 
-  const { isVertical, showBookmarksBar } = getAppearanceSettings()
-  const sidebarWidth = (getSetting('appearance') as AppearanceSettings).sidebarWidth ?? DEFAULT_SIDEBAR_WIDTH
+  const { isVertical, showBookmarksBar } = getAppearanceSettings(settings)
+  const sidebarWidth = settings?.sidebarWidth ?? getSetting('appearance').sidebarWidth ?? DEFAULT_SIDEBAR_WIDTH
 
   let chromeHeight = NAVBAR_HEIGHT
   if (!isVertical) {

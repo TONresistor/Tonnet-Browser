@@ -15,6 +15,7 @@ import {
   resolveBagFilePath,
 } from './tabs-storage'
 import { updateViewBounds, updateSidebarBounds, invalidateAppearanceCache } from './tabs-bounds'
+import type { AppearanceSettings } from '../../shared/types'
 import { setupSecurityHandlers, ALLOWED_SCHEMES } from './tabs-security'
 import { setupViewEventListeners, type TabEventDeps } from './tabs-events'
 import { DisposableStore, IDisposable, onWebContents } from '../utils/disposable'
@@ -172,10 +173,10 @@ export class TabManager {
     }
   }
 
-  onAppearanceSettingsChanged(): void {
+  onAppearanceSettingsChanged(settings?: AppearanceSettings): void {
     invalidateAppearanceCache()
     const activeView = this.getActiveView()
-    if (activeView && this.mainWindow) updateViewBounds(activeView, this.mainWindow, this.walletSidebarWidth)
+    if (activeView && this.mainWindow) updateViewBounds(activeView, this.mainWindow, this.walletSidebarWidth, settings)
   }
 
   createTab(tabId: string, initialUrl?: string): Promise<boolean> {

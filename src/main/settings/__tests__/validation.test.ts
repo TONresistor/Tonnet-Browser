@@ -340,6 +340,10 @@ describe('validateCategoryValues', () => {
       expect(result.valid).toBe(false)
     })
 
+    it('rejects explicit undefined values', () => {
+      expect(validateCategoryValues('network', { proxyPort: undefined }).valid).toBe(false)
+    })
+
     it('rejects out-of-range port value', () => {
       const result = validateCategoryValues('network', { proxyPort: 0 })
       expect(result.valid).toBe(false)

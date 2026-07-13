@@ -8,7 +8,7 @@ import { randomBytes } from 'crypto'
 import { getBinaryPath, getStoragePath, getConfigPath } from '../utils/paths'
 import { validatePort, validateVerbosity } from '../utils/validators'
 import { StorageHTTPClient, BagInfo } from './http-client'
-import type { StorageBag } from '../../shared/types'
+import type { AppSettings, StorageBag } from '../../shared/types'
 import { getSetting, getDownloadPath } from '../settings'
 import { PING_RETRY_DELAY_MS, PING_MAX_ATTEMPTS } from './constants'
 import { NativeProcessSupervisor } from '../native-process/supervisor'
@@ -16,6 +16,16 @@ import { createLogger, RepetitionAggregator } from '../../shared/logger'
 const log = createLogger('storage')
 import { mkdir } from 'fs/promises'
 import path from 'path'
+
+type StorageRuntimeSettings = {
+  port: number
+  downloadPath: string
+  pollingInterval: number
+  seedingEnabled: boolean
+  downloadSpeedLimit: number
+  uploadSpeedLimit: number
+  storageVerbosity: number
+}
 
 /** Typed event contract for StorageManager. */
 interface StorageManagerEventMap {
@@ -62,6 +72,8 @@ export class StorageManager extends EventEmitter {
   private startFlight: Promise<void> | null = null
   private stopFlight: Promise<void> | null = null
   private startAbortController: AbortController | null = null
+  private readonly settingsAbortControllers = new Set<AbortController>()
+  private appliedSettings: StorageRuntimeSettings | null = null
 
   constructor() {
     super()
@@ -70,15 +82,22 @@ export class StorageManager extends EventEmitter {
 
   // Download destination, always read live from settings (single source of truth).
   private get storagePath(): string {
-    return getDownloadPath()
+    return this.appliedSettings?.downloadPath ?? getDownloadPath()
   }
 
-  private loadSettings() {
-    const network = getSetting('network')
-    const storage = getSetting('storage')
-    const advanced = getSetting('advanced')
-    this.port = network.storagePort
-    return { network, storage, advanced }
+  private readRuntimeSettings(source?: AppSettings): StorageRuntimeSettings {
+    const network = source?.network ?? getSetting('network')
+    const storage = source?.storage ?? getSetting('storage')
+    const advanced = source?.advanced ?? getSetting('advanced')
+    return {
+      port: validatePort(network.storagePort, 5555),
+      downloadPath: storage.downloadPath,
+      pollingInterval: storage.pollingInterval,
+      seedingEnabled: storage.seedingEnabled,
+      downloadSpeedLimit: storage.downloadSpeedLimit,
+      uploadSpeedLimit: storage.uploadSpeedLimit,
+      storageVerbosity: validateVerbosity(advanced.storageVerbosity),
+    }
   }
 
   start(): Promise<void> {
@@ -104,23 +123,20 @@ export class StorageManager extends EventEmitter {
     return flight
   }
 
-  private async startOnce(signal: AbortSignal): Promise<void> {
+  private async startOnce(signal: AbortSignal, settings = this.readRuntimeSettings()): Promise<void> {
     const startedAt = Date.now()
     this.throwIfStartAborted(signal)
 
-    const { advanced } = this.loadSettings()
-
     // Ensure storage directories exist
-    await Promise.all([mkdir(this.storagePath, { recursive: true }), mkdir(this.dbPath, { recursive: true })])
+    await Promise.all([mkdir(settings.downloadPath, { recursive: true }), mkdir(this.dbPath, { recursive: true })])
     this.throwIfStartAborted(signal)
 
     const binPath = getBinaryPath('tonutils-storage')
     const configPath = getConfigPath()
 
     // Security: Validate spawn arguments (storage default port is 5555)
-    const safePort = validatePort(this.port, 5555)
-    const safeVerbosity = validateVerbosity(advanced.storageVerbosity)
-    this.port = safePort
+    const safePort = settings.port
+    const safeVerbosity = settings.storageVerbosity
 
     // Generate ephemeral auth credentials for this session
     const apiLogin = randomBytes(16).toString('hex')
@@ -133,7 +149,6 @@ export class StorageManager extends EventEmitter {
     log.debug(`Verbosity: ${safeVerbosity}`)
 
     // Build spawn arguments
-    const { storage } = this.loadSettings()
     const args = [
       '-daemon',
       '-api',
@@ -149,11 +164,11 @@ export class StorageManager extends EventEmitter {
       '-verbosity',
       String(safeVerbosity),
     ]
-    if (storage.downloadSpeedLimit > 0) {
-      args.push('-limit-download', String(storage.downloadSpeedLimit))
+    if (settings.downloadSpeedLimit > 0) {
+      args.push('-limit-download', String(settings.downloadSpeedLimit))
     }
-    if (storage.uploadSpeedLimit > 0) {
-      args.push('-limit-upload', String(storage.uploadSpeedLimit))
+    if (settings.uploadSpeedLimit > 0) {
+      args.push('-limit-upload', String(settings.uploadSpeedLimit))
     }
 
     this.supervisor.start({
@@ -181,7 +196,7 @@ export class StorageManager extends EventEmitter {
     })
 
     // Create HTTP client with same auth credentials
-    this.client = new StorageHTTPClient('127.0.0.1', this.port, { login: apiLogin, password: apiPassword })
+    this.client = new StorageHTTPClient('127.0.0.1', safePort, { login: apiLogin, password: apiPassword })
 
     // Wait for API to be ready. On failure, tear down the spawned child so it
     // cannot squat port 5555 and block the next start() with 'already running'.
@@ -193,7 +208,15 @@ export class StorageManager extends EventEmitter {
       throw err
     }
 
+    try {
+      await this.applySeeding(settings.seedingEnabled, settings.downloadPath)
+    } catch (error) {
+      await this.teardown()
+      throw error
+    }
     this.isRunning = true
+    this.port = safePort
+    this.appliedSettings = settings
     log.status('storage.ready', `storage ready · ${Date.now() - startedAt}ms`, {
       durationMs: Date.now() - startedAt,
       port: safePort,
@@ -201,7 +224,7 @@ export class StorageManager extends EventEmitter {
     this.emit('started')
 
     // Start polling for updates
-    this.startPolling()
+    this.startPolling(settings.pollingInterval, true)
   }
 
   private throwIfStartAborted(signal: AbortSignal): void {
@@ -229,10 +252,9 @@ export class StorageManager extends EventEmitter {
     })
   }
 
-  private startPolling(): void {
-    const { storage } = this.loadSettings()
-    const interval = storage.pollingInterval
-    this.lastBagsJson = ''
+  private startPolling(interval: number, resetSnapshot = false): void {
+    this.stopPolling()
+    if (resetSnapshot) this.lastBagsJson = ''
 
     this.pollInterval = setInterval(async () => {
       if (!this.client || !this.isRunning) return
@@ -241,8 +263,8 @@ export class StorageManager extends EventEmitter {
         this.pollFailures.recovered('bags', 'storage.poll.restored', 'storage polling restored')
 
         // Auto-stop seeding bags when seeding is disabled
-        const { storage: storageSettings } = this.loadSettings()
-        if (!storageSettings.seedingEnabled) {
+        const seedingEnabled = this.appliedSettings?.seedingEnabled ?? getSetting('storage').seedingEnabled
+        if (!seedingEnabled) {
           for (const bag of bags) {
             if (bag.completed && bag.active) {
               log.debug(`Seeding disabled: stopping bag ${bag.bag_id.slice(0, 8)}...`)
@@ -251,7 +273,7 @@ export class StorageManager extends EventEmitter {
           }
         }
 
-        const mapped = bags.map((b) => this.mapBagInfo(b, storageSettings.seedingEnabled))
+        const mapped = bags.map((b) => this.mapBagInfo(b, seedingEnabled))
         const snapshot = JSON.stringify(mapped)
         if (snapshot !== this.lastBagsJson) {
           this.lastBagsJson = snapshot
@@ -301,6 +323,7 @@ export class StorageManager extends EventEmitter {
     const shouldEmitStopped = this.isRunning || this.client !== null || this.supervisor.isRunning
     this.desiredRunning = false
     this.startAbortController?.abort()
+    for (const controller of this.settingsAbortControllers) controller.abort()
     this.stopPolling()
     this.client = null
     this.isRunning = false
@@ -331,12 +354,94 @@ export class StorageManager extends EventEmitter {
     await this.supervisor.stop()
   }
 
+  applySettingsChange(source?: AppSettings): Promise<void> {
+    const controller = new AbortController()
+    this.settingsAbortControllers.add(controller)
+    const flight = this.enqueueLifecycle(() => this.applySettingsChangeOnce(controller.signal, source))
+    return flight.finally(() => this.settingsAbortControllers.delete(controller))
+  }
+
+  private async applySettingsChangeOnce(signal: AbortSignal, source?: AppSettings): Promise<void> {
+    if (signal.aborted) throw new Error('Storage settings apply aborted')
+    if (!this.desiredRunning) return
+
+    const next = this.readRuntimeSettings(source)
+    if (!this.isRunning || !this.supervisor.isRunning) {
+      await this.startOnce(signal, next)
+      return
+    }
+    const current = this.appliedSettings
+    const needsRestart =
+      !current ||
+      next.port !== current.port ||
+      next.downloadSpeedLimit !== current.downloadSpeedLimit ||
+      next.uploadSpeedLimit !== current.uploadSpeedLimit ||
+      next.storageVerbosity !== current.storageVerbosity
+
+    if (needsRestart) {
+      await this.restartForSettings(next, current, signal)
+      return
+    }
+
+    const seedingChanged = next.seedingEnabled !== current.seedingEnabled
+    try {
+      if (seedingChanged) await this.applySeeding(next.seedingEnabled, next.downloadPath)
+      if (next.pollingInterval !== current.pollingInterval) this.startPolling(next.pollingInterval)
+      this.appliedSettings = next
+    } catch (error) {
+      if (!seedingChanged) throw error
+      try {
+        await this.applySeeding(current.seedingEnabled, current.downloadPath)
+      } catch (rollbackError) {
+        this.appliedSettings = null
+        throw new AggregateError([error, rollbackError], 'Storage seeding apply and rollback failed')
+      }
+      throw error
+    }
+  }
+
+  private async restartForSettings(
+    next: StorageRuntimeSettings,
+    previous: StorageRuntimeSettings | null,
+    signal: AbortSignal
+  ): Promise<void> {
+    await this.teardown()
+    if (signal.aborted || !this.desiredRunning) throw new Error('Storage settings apply aborted')
+
+    try {
+      await this.startOnce(signal, next)
+    } catch (error) {
+      if (!signal.aborted && this.desiredRunning && previous) {
+        try {
+          await this.teardown()
+          await this.startOnce(signal, previous)
+        } catch (rollbackError) {
+          this.appliedSettings = null
+          throw new AggregateError([error, rollbackError], 'Storage settings apply and rollback failed')
+        }
+      }
+      throw error
+    }
+  }
+
   getStatus() {
     return {
       running: this.isRunning,
       port: this.port,
       storagePath: this.storagePath,
     }
+  }
+
+  isActive(): boolean {
+    return (
+      this.desiredRunning ||
+      this.isRunning ||
+      this.supervisor.isRunning ||
+      this.client !== null ||
+      this.startFlight !== null ||
+      this.stopFlight !== null ||
+      this.settingsAbortControllers.size > 0
+    )
   }
 
   getClient(): StorageHTTPClient | null {
@@ -388,29 +493,36 @@ export class StorageManager extends EventEmitter {
       return []
     }
 
-    const { storage } = this.loadSettings()
+    const seedingEnabled = this.appliedSettings?.seedingEnabled ?? getSetting('storage').seedingEnabled
     const bags = await this.client.listBags()
-    return bags.map((b) => this.mapBagInfo(b, storage.seedingEnabled))
+    return bags.map((b) => this.mapBagInfo(b, seedingEnabled))
   }
 
   async resumeSeeding(): Promise<void> {
-    if (!this.client) return
+    await this.applySeeding(true)
+  }
+
+  private async applySeeding(enabled: boolean, downloadPath = this.storagePath): Promise<void> {
+    const client = this.client
+    if (!client || !this.supervisor.isRunning) return
     try {
-      const bags = await this.client.listBags()
+      const bags = await client.listBags()
       for (const bag of bags) {
-        if (bag.completed && !bag.active) {
+        if (enabled && bag.completed && !bag.active) {
           log.debug(`Seeding enabled: resuming bag ${bag.bag_id.slice(0, 8)}...`)
-          await this.client
-            .addBag({
-              bag_id: bag.bag_id,
-              path: this.storagePath,
-              download_all: true,
-            })
-            .catch(() => {})
+          await client.addBag({
+            bag_id: bag.bag_id,
+            path: downloadPath,
+            download_all: true,
+          })
+        } else if (!enabled && bag.completed && bag.active) {
+          log.debug(`Seeding disabled: stopping bag ${bag.bag_id.slice(0, 8)}...`)
+          await client.stopBag(bag.bag_id)
         }
       }
     } catch (err) {
-      log.error(`Resume seeding error: ${String(err)}`)
+      log.error(`Apply seeding setting error: ${String(err)}`)
+      throw err
     }
   }
 

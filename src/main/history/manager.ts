@@ -5,10 +5,10 @@
  */
 
 import { EventEmitter } from 'events'
-import { getSetting, setSetting } from '../settings'
+import { getSetting } from '../settings'
 import { SafeStorageWrapper } from './safe-storage-wrapper'
 import { createLogger } from '../../shared/logger'
-import { HistoryEntry, HistoryStats } from '../../shared/types'
+import { HistoryEntry, HistoryStats, PrivacySettings } from '../../shared/types'
 import { HistoryEntrySchema } from '../../shared/ipc-contract/history'
 import { z } from 'zod'
 const log = createLogger('history')
@@ -35,7 +35,14 @@ export class HistoryManager extends EventEmitter {
   private storage: SafeStorageWrapper<HistoryEntry[]> | null = null
   private readyPromise: Promise<void>
   private isReady: boolean = false
-  private pendingEntries: Array<{ url: string; title: string; favicon?: string }> = []
+  private pendingEntries: Array<{ url: string; title: string; favicon?: string; countVisit: boolean }> = []
+  private settingsTransitionEntries: Array<{
+    url: string
+    title: string
+    favicon?: string
+    countVisit: boolean
+  }> | null = null
+  private settingsTransitionPromise: Promise<void> | null = null
   private saveTimer: ReturnType<typeof setTimeout> | null = null
   private lastVisitKey: string = ''
   private lastVisitTime: number = 0
@@ -50,7 +57,7 @@ export class HistoryManager extends EventEmitter {
       if (this.pendingEntries.length > 0) {
         log.debug(`Flushing ${this.pendingEntries.length} buffered history entries`)
         for (const entry of this.pendingEntries) {
-          this.addEntry(entry.url, entry.title, entry.favicon)
+          this.addEntry(entry.url, entry.title, entry.favicon, entry.countVisit)
         }
         this.pendingEntries = []
       }
@@ -61,21 +68,26 @@ export class HistoryManager extends EventEmitter {
     return this.readyPromise
   }
 
-  /**
-   * (Re)create the persistent store and load any existing entries into memory.
-   * Callers own the error policy: loadSettings() swallows read failures
-   * (best-effort at startup), changeMode() lets them propagate so it can roll back.
-   */
+  private createStorage(): SafeStorageWrapper<HistoryEntry[]> {
+    return new SafeStorageWrapper('history', historyStorageOptions)
+  }
+
   private async loadPersistedEntries(): Promise<void> {
-    this.storage = new SafeStorageWrapper('history', historyStorageOptions)
-    const data = await this.storage.read()
+    const storage = this.createStorage()
+    const data = await storage.read()
+    const entries = new Map<string, HistoryEntry>()
     if (data && Array.isArray(data)) {
-      this.entries.clear()
       data.forEach((entry) => {
-        this.entries.set(entry.id, entry)
+        entries.set(entry.id, entry)
       })
-      log.info(`Loaded ${data.length} entries from persistent storage`)
+      if (entries.size > this.maxEntries) {
+        this.enforceLimitOn(entries, this.maxEntries)
+        await storage.write([...entries.values()])
+      }
+      log.info(`Loaded ${entries.size} entries from persistent storage`)
     }
+    this.entries = entries
+    this.storage = storage
   }
 
   private async loadSettings(): Promise<void> {
@@ -91,43 +103,82 @@ export class HistoryManager extends EventEmitter {
         await this.loadPersistedEntries()
       } catch (error) {
         log.error('Failed to load persistent history:', error)
+        this.mode = HistoryMode.MEMORY
+        this.storage = null
       }
     }
   }
 
-  /**
-   * Change history mode (no password needed)
-   */
-  async changeMode(newMode: HistoryMode): Promise<{ success: true }> {
-    const oldMode = this.mode
-
+  async applySettings(settings: PrivacySettings): Promise<void> {
+    await this.readyPromise
+    if (this.settingsTransitionPromise) throw new Error('History settings transition already in progress')
+    const operation = this.applySettingsOnce(settings)
+    this.settingsTransitionPromise = operation
     try {
-      // Save current entries before switching
-      if (oldMode === HistoryMode.PERSISTENT) {
-        log.info('Migrating from persistent to memory')
+      await operation
+    } finally {
+      if (this.settingsTransitionPromise === operation) this.settingsTransitionPromise = null
+    }
+  }
+
+  private async applySettingsOnce(settings: PrivacySettings): Promise<void> {
+    this.settingsTransitionEntries = []
+    const nextMode = settings.historyMode as HistoryMode
+    const previousMode = this.mode
+    let nextEntries = this.entries
+    let nextStorage = this.storage
+    try {
+      if (nextMode !== previousMode) {
+        if (nextMode === HistoryMode.PERSISTENT) {
+          const storage = this.createStorage()
+          const persisted = await storage.read()
+          const entries = new Map<string, HistoryEntry>()
+          for (const entry of persisted ?? []) entries.set(entry.id, entry)
+          for (const entry of this.entries.values()) {
+            const existing = entries.get(entry.id)
+            if (!existing || entry.visitedAt >= existing.visitedAt) {
+              entries.set(entry.id, {
+                ...existing,
+                ...entry,
+                visitCount: Math.max(existing?.visitCount ?? 0, entry.visitCount),
+              })
+            }
+          }
+          this.enforceLimitOn(entries, settings.historyMaxEntries)
+          await storage.write([...entries.values()])
+          nextEntries = entries
+          nextStorage = storage
+        } else {
+          await this.flushSave()
+          nextStorage = null
+        }
       }
 
-      // Update mode
-      this.mode = newMode
-      await setSetting('privacy', { historyMode: newMode })
-
-      // Reinitialize storage
-      if (newMode === HistoryMode.PERSISTENT) {
-        await this.loadPersistedEntries()
-      } else {
-        // MEMORY mode - keep current in-memory entries
-        this.storage = null
+      if (settings.historyMaxEntries < nextEntries.size) {
+        if (nextMode === HistoryMode.PERSISTENT && previousMode === HistoryMode.PERSISTENT) {
+          await this.flushSave()
+        }
+        const entries = new Map(nextEntries)
+        this.enforceLimitOn(entries, settings.historyMaxEntries)
+        if (nextMode === HistoryMode.PERSISTENT) {
+          if (!nextStorage) throw new Error('Persistent history storage is unavailable')
+          await nextStorage.write([...entries.values()])
+        }
+        nextEntries = entries
       }
 
-      this.emit('mode-changed', newMode)
-      log.info(`Mode changed: ${oldMode} → ${newMode}`)
-      return { success: true }
-    } catch (error) {
-      log.error('Failed to change mode:', error)
-      // Rollback
-      this.mode = oldMode
-      await setSetting('privacy', { historyMode: oldMode })
-      throw error
+      this.entries = nextEntries
+      this.storage = nextStorage
+      this.mode = nextMode
+      this.maxEntries = settings.historyMaxEntries
+      if (nextMode !== previousMode) {
+        this.emit('mode-changed', nextMode)
+        log.info(`Mode changed: ${previousMode} → ${nextMode}`)
+      }
+    } finally {
+      const pending = this.settingsTransitionEntries
+      this.settingsTransitionEntries = null
+      for (const entry of pending ?? []) this.addEntry(entry.url, entry.title, entry.favicon, entry.countVisit)
     }
   }
 
@@ -139,7 +190,11 @@ export class HistoryManager extends EventEmitter {
     // Buffer entry if manager not yet ready (readyPromise not resolved)
     if (!this.isReady) {
       log.debug(`HistoryManager not ready, buffering entry: ${url}`)
-      this.pendingEntries.push({ url, title, favicon })
+      this.pendingEntries.push({ url, title, favicon, countVisit })
+      return
+    }
+    if (this.settingsTransitionEntries) {
+      this.settingsTransitionEntries.push({ url, title, favicon, countVisit })
       return
     }
 
@@ -212,16 +267,19 @@ export class HistoryManager extends EventEmitter {
   }
 
   private enforceLimit(): void {
-    if (this.entries.size <= this.maxEntries) {
+    this.enforceLimitOn(this.entries, this.maxEntries)
+  }
+
+  private enforceLimitOn(entries: Map<string, HistoryEntry>, maxEntries: number): void {
+    if (entries.size <= maxEntries) {
       return
     }
 
-    // Remove oldest entries
-    const sorted = Array.from(this.entries.values()).sort((a, b) => a.visitedAt - b.visitedAt)
+    const sorted = Array.from(entries.values()).sort((a, b) => a.visitedAt - b.visitedAt)
 
-    const toRemove = sorted.slice(0, sorted.length - this.maxEntries)
+    const toRemove = sorted.slice(0, sorted.length - maxEntries)
     toRemove.forEach((entry) => {
-      this.entries.delete(entry.id)
+      entries.delete(entry.id)
     })
 
     log.info(`Enforced limit: removed ${toRemove.length} old entries`)
@@ -273,6 +331,7 @@ export class HistoryManager extends EventEmitter {
    * One ranged op instead of one IPC round-trip + write per entry.
    */
   deleteByDateRange(startDate: number, endDate: number): number {
+    this.assertNoSettingsTransition()
     let deleted = 0
     for (const entry of Array.from(this.entries.values())) {
       if (entry.visitedAt >= startDate && entry.visitedAt <= endDate) {
@@ -291,6 +350,7 @@ export class HistoryManager extends EventEmitter {
    * Delete single entry
    */
   deleteEntry(id: string): boolean {
+    this.assertNoSettingsTransition()
     const deleted = this.entries.delete(id)
 
     if (deleted) {
@@ -310,6 +370,7 @@ export class HistoryManager extends EventEmitter {
    * Delete entries by URL pattern
    */
   deleteByPattern(pattern: string): number {
+    this.assertNoSettingsTransition()
     // Anti-ReDoS protection: validate pattern complexity
     if (!pattern || pattern.length > 500) {
       return 0
@@ -367,6 +428,7 @@ export class HistoryManager extends EventEmitter {
    * Clear all history
    */
   clear(): void {
+    this.assertNoSettingsTransition()
     const count = this.entries.size
     this.entries.clear()
 
@@ -449,6 +511,8 @@ export class HistoryManager extends EventEmitter {
    * Called on app exit
    */
   async onAppExit(): Promise<void> {
+    await this.readyPromise
+    await this.settingsTransitionPromise?.catch(() => undefined)
     if (this.mode === HistoryMode.MEMORY) {
       // Clear everything
       this.clear()
@@ -459,6 +523,10 @@ export class HistoryManager extends EventEmitter {
       await this.savePersistent()
       log.info('Persistent history saved on exit')
     }
+  }
+
+  private assertNoSettingsTransition(): void {
+    if (this.settingsTransitionPromise) throw new Error('History settings transition in progress')
   }
 }
 

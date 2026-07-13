@@ -36,6 +36,7 @@ export class WebSocketTransport {
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null
   private pongTimer: ReturnType<typeof setTimeout> | null = null
   private reconnectAttempt = 0
+  private hasConnected = false
   private pendingReject: ((error: Error) => void) | null = null
 
   constructor(
@@ -48,6 +49,10 @@ export class WebSocketTransport {
   connect(): Promise<void> {
     if (this.state === 'connected') return Promise.resolve()
     if (this.connectFlight) return this.connectFlight
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer)
+      this.reconnectTimer = null
+    }
     this.state = 'connecting'
     this.connectFlight = this.establish(false).finally(() => {
       this.connectFlight = null
@@ -114,7 +119,9 @@ export class WebSocketTransport {
           }
           this.state = 'connected'
           this.reconnectAttempt = 0
-          this.hooks.onReady(reconnected)
+          const connectionIsReconnect = reconnected || this.hasConnected
+          this.hasConnected = true
+          this.hooks.onReady(connectionIsReconnect)
           this.pendingReject = null
           resolve()
         } catch (error) {
@@ -180,7 +187,13 @@ export class WebSocketTransport {
       this.reconnectTimer = null
       if (this.state === 'stopped') return
       this.state = 'connecting'
-      void this.establish(true).catch(() => this.scheduleReconnect())
+      const flight = this.establish(true)
+      this.connectFlight = flight
+      void flight
+        .catch(() => this.scheduleReconnect())
+        .finally(() => {
+          if (this.connectFlight === flight) this.connectFlight = null
+        })
     }, delay)
   }
 

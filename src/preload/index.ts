@@ -39,9 +39,11 @@ import type {
   settingsDiagnosticsEnableContract,
   settingsDiagnosticsDisableContract,
   settingsDiagnosticsCopyContract,
+  settingsApplyContract,
   settingsResetContract,
   settingsSetContract,
   SettingsCategory,
+  SettingsPatch,
 } from '../shared/ipc-contract/settings'
 import type {
   historyChangeModeContract,
@@ -284,6 +286,7 @@ const electronAPI = {
       invokeChannel<typeof settingsGetContract>(IPC_CHANNELS.SETTINGS_GET, category) as Promise<AppSettings[K]>,
     set: (category: SettingsCategory, values: Record<string, unknown>) =>
       invokeChannel<typeof settingsSetContract>(IPC_CHANNELS.SETTINGS_SET, category, values),
+    apply: (patch: SettingsPatch) => invokeChannel<typeof settingsApplyContract>(IPC_CHANNELS.SETTINGS_APPLY, patch),
     reset: () => invokeChannel<typeof settingsResetContract>(IPC_CHANNELS.SETTINGS_RESET),
     diagnostics: {
       get: () => invokeChannel<typeof settingsDiagnosticsGetContract>(IPC_CHANNELS.SETTINGS_DIAGNOSTICS_GET),

@@ -21,7 +21,7 @@ function getBridgeConfigPath(): string {
 }
 
 export function registerBridgeHandlers(registry: ServiceRegistry): void {
-  const { bridgeInterceptor, bridgePermissionStore, proxyManager } = registry
+  const { bridgeInterceptor, bridgePermissionStore, proxyManager, chatSessionController, walletManager } = registry
 
   tonsiteContractHandle(bridgeSendContract, async (domain, event, data) => {
     return new Promise<void>((resolve) => {
@@ -42,8 +42,8 @@ export function registerBridgeHandlers(registry: ServiceRegistry): void {
     return bridgePermissionStore.getAllPermissions()
   })
 
-  secureContractHandle(bridgeRevokePermissionContract, (domain, scope) => {
-    bridgePermissionStore.revokePermission(domain, scope)
+  secureContractHandle(bridgeRevokePermissionContract, async (domain, scope) => {
+    await bridgePermissionStore.revokePermission(domain, scope)
     return { success: true }
   })
 
@@ -112,7 +112,11 @@ export function registerBridgeHandlers(registry: ServiceRegistry): void {
   // Bridge restart (bridge process only; proxy stays up)
   secureContractHandle(bridgeRestartContract, async () => {
     try {
-      await proxyManager.restartBridge()
+      await chatSessionController.runDisconnected(async () => {
+        await proxyManager.restartBridge()
+        const { wsPort } = proxyManager.getStatus()
+        await Promise.all([walletManager.applyBridgePort(wsPort), bridgeInterceptor.applyBridgePort(wsPort)])
+      })
       return { success: true }
     } catch (err) {
       ipcFailure('BRIDGE_RESTART_FAILED', 'Unable to restart bridge', true, err)

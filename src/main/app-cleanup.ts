@@ -6,7 +6,7 @@
  * window-all-closed and before-quit paths can both invoke it safely.
  */
 import log from '../shared/logger'
-import { getSetting, loadSettings, saveSettings } from './settings'
+import { getSetting, loadSettings } from './settings'
 import { destroyServices, type ServiceRegistry } from './services'
 import { flushNativeLogs } from './logging/native-log-router'
 
@@ -85,10 +85,10 @@ export async function runCleanup(services: ServiceRegistry): Promise<void> {
         settings.wallet.sitePolicies.length > 0 ||
         settings.wallet.autoPayDomains.length > 0
       if (hasTraces) {
-        settings.bridge.permissions = []
-        settings.wallet.sitePolicies = []
-        settings.wallet.autoPayDomains = []
-        await saveSettings(settings)
+        await services.settingsCoordinator.apply({
+          bridge: { permissions: [] },
+          wallet: { sitePolicies: [], autoPayDomains: [] },
+        })
         log.info('Cleared browsing traces from settings file')
       }
     } catch (error) {

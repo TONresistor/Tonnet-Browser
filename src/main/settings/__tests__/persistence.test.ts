@@ -80,6 +80,21 @@ describe('Settings Persistence', () => {
       expect(first).toBe(second) // Same reference
     })
 
+    it('does not expose mutable cached settings', async () => {
+      const { loadSettings: freshLoad } = await import('../index')
+      vi.mocked(existsSync).mockReturnValue(true)
+      vi.mocked(readFileSync).mockReturnValue(JSON.stringify({ network: { proxyPort: 8080 } }))
+
+      const settings = freshLoad()
+
+      expect(Object.isFrozen(settings)).toBe(true)
+      expect(Object.isFrozen(settings.network)).toBe(true)
+      expect(() => {
+        settings.network.proxyPort = 9000
+      }).toThrow()
+      expect(freshLoad().network.proxyPort).toBe(8080)
+    })
+
     it('creates defaults when file does not exist', async () => {
       vi.resetModules()
       const { loadSettings: freshLoad, getDefaultSettings: getDefaults } = await import('../index')
@@ -188,6 +203,36 @@ describe('Settings Persistence', () => {
 
       expect(settings.general.homepage).toBe(defaults.general.homepage)
     })
+
+    it('repairs legacy duplicate ports without resetting unrelated settings', async () => {
+      const { loadSettings: freshLoad } = await import('../index')
+      vi.mocked(existsSync).mockReturnValue(true)
+      vi.mocked(readFileSync).mockReturnValue(
+        JSON.stringify({
+          general: { homepage: 'ton://custom' },
+          network: { proxyPort: 5555 },
+          wallet: { indexerEnabled: true },
+          bridge: {
+            defaultPolicy: 'deny',
+            permissions: [{ domain: 'example.ton', scope: 'blockchain', decision: 'granted', grantedAt: 123 }],
+          },
+        })
+      )
+
+      const settings = freshLoad()
+
+      expect(settings.network).toMatchObject({ proxyPort: 5555, storagePort: 8080, wsPort: 8081 })
+      expect(settings.general.homepage).toBe('ton://custom')
+      expect(settings.wallet.indexerEnabled).toBe(true)
+      expect(settings.bridge).toMatchObject({
+        defaultPolicy: 'deny',
+        permissions: [expect.objectContaining({ domain: 'example.ton', decision: 'granted' })],
+      })
+      await vi.waitFor(() => expect(atomicFile.writeFile).toHaveBeenCalled())
+      const written = JSON.parse(atomicFile.writeFile.mock.calls[0][0] as string)
+      expect(written.network).toMatchObject({ proxyPort: 5555, storagePort: 8080, wsPort: 8081 })
+      expect(written.bridge.permissions).toHaveLength(1)
+    })
   })
 
   describe('saveSettings()', () => {
@@ -293,6 +338,217 @@ describe('Settings Persistence', () => {
       const finalDocument = JSON.parse(atomicFile.writeFile.mock.calls.at(-1)?.[0] as string)
       expect(finalDocument.network.proxyPort).toBe(9001)
       expect(finalDocument.privacy.clearOnExit).toBe(false)
+    })
+
+    it('preserves nested wallet limits in memory and on disk', async () => {
+      const { setSetting: freshSet, loadSettings: freshLoad } = await import('../index')
+      vi.mocked(existsSync).mockReturnValue(false)
+      freshLoad()
+
+      await freshSet('wallet', { limits: { perRequest: '42' } })
+
+      expect(freshLoad().wallet.limits).toEqual({ perRequest: '42', perDay: '0', perSitePerMonth: '0' })
+      const finalDocument = JSON.parse(atomicFile.writeFile.mock.calls.at(-1)?.[0] as string)
+      expect(finalDocument.wallet.limits).toEqual({ perRequest: '42', perDay: '0', perSitePerMonth: '0' })
+    })
+  })
+
+  describe('transactSettings()', () => {
+    it('rejects explicit undefined patch values', async () => {
+      const { getDefaultSettings, mergeSettingsPatch } = await import('../index')
+      const settings = getDefaultSettings()
+
+      expect(() => mergeSettingsPatch(settings, { network: undefined } as never)).toThrow(
+        'Settings patch values must be defined'
+      )
+      expect(() => mergeSettingsPatch(settings, { network: { proxyPort: undefined } } as never)).toThrow(
+        'Settings patch values must be defined'
+      )
+    })
+
+    it('skips runtime and persistence work for an unchanged transaction', async () => {
+      const { getDefaultSettings, loadSettings: freshLoad, transactSettings } = await import('../index')
+      const defaults = getDefaultSettings()
+      vi.mocked(existsSync).mockReturnValue(true)
+      vi.mocked(readFileSync).mockReturnValue(JSON.stringify(defaults))
+      freshLoad()
+      const reconcile = vi.fn(async () => undefined)
+
+      await transactSettings((current) => current, reconcile)
+
+      expect(reconcile).not.toHaveBeenCalled()
+      expect(atomicFile.writeFile).not.toHaveBeenCalled()
+    })
+
+    it('can explicitly reconcile an unchanged transaction', async () => {
+      const { getDefaultSettings, loadSettings: freshLoad, transactSettings } = await import('../index')
+      const defaults = getDefaultSettings()
+      vi.mocked(existsSync).mockReturnValue(true)
+      vi.mocked(readFileSync).mockReturnValue(JSON.stringify(defaults))
+      freshLoad()
+      const reconcile = vi.fn(async () => undefined)
+
+      await transactSettings((current) => current, reconcile, undefined, undefined, { applyUnchanged: true })
+
+      expect(reconcile).toHaveBeenCalledOnce()
+      expect(atomicFile.writeFile).toHaveBeenCalledOnce()
+    })
+
+    it('restores persistence, cache and runtime after apply failure', async () => {
+      const {
+        getDefaultSettings,
+        loadSettings: freshLoad,
+        mergeSettingsPatch,
+        transactSettings,
+      } = await import('../index')
+      const defaults = getDefaultSettings()
+      vi.mocked(existsSync).mockReturnValue(true)
+      vi.mocked(readFileSync).mockReturnValue(JSON.stringify(defaults))
+      const appliedPorts: number[] = []
+
+      await expect(
+        transactSettings(
+          (current) => mergeSettingsPatch(current, { network: { proxyPort: 9000 } }),
+          async (_previous, current) => {
+            appliedPorts.push(current.network.proxyPort)
+            if (current.network.proxyPort === 9000) throw new Error('port unavailable')
+          }
+        )
+      ).rejects.toMatchObject({ name: 'SettingsRuntimeApplyError' })
+
+      expect(appliedPorts).toEqual([9000, 8080])
+      expect(freshLoad().network.proxyPort).toBe(8080)
+      expect(atomicFile.writeFile).not.toHaveBeenCalled()
+    })
+
+    it('serializes persistence and runtime reconciliation together', async () => {
+      const {
+        getDefaultSettings,
+        loadSettings: freshLoad,
+        mergeSettingsPatch,
+        transactSettings,
+      } = await import('../index')
+      const defaults = getDefaultSettings()
+      vi.mocked(existsSync).mockReturnValue(true)
+      vi.mocked(readFileSync).mockReturnValue(JSON.stringify(defaults))
+      freshLoad()
+      let release!: () => void
+      const blocked = new Promise<void>((resolve) => {
+        release = resolve
+      })
+      const appliedPorts: number[] = []
+
+      const first = transactSettings(
+        (current) => mergeSettingsPatch(current, { network: { proxyPort: 9001 } }),
+        async (_previous, current) => {
+          appliedPorts.push(current.network.proxyPort)
+          await blocked
+        }
+      )
+      await vi.waitFor(() => expect(appliedPorts).toEqual([9001]))
+      const second = transactSettings(
+        (current) => mergeSettingsPatch(current, { network: { proxyPort: 9002 } }),
+        async (_previous, current) => {
+          appliedPorts.push(current.network.proxyPort)
+        }
+      )
+      await Promise.resolve()
+      expect(appliedPorts).toEqual([9001])
+      expect(freshLoad().network.proxyPort).toBe(8080)
+      expect(atomicFile.writeFile).not.toHaveBeenCalled()
+
+      release()
+      await Promise.all([first, second])
+      expect(appliedPorts).toEqual([9001, 9002])
+      expect(freshLoad().network.proxyPort).toBe(9002)
+    })
+
+    it('restores runtime and cache when the candidate write fails', async () => {
+      const {
+        getDefaultSettings,
+        loadSettings: freshLoad,
+        mergeSettingsPatch,
+        transactSettings,
+      } = await import('../index')
+      const defaults = getDefaultSettings()
+      vi.mocked(existsSync).mockReturnValue(true)
+      vi.mocked(readFileSync).mockReturnValue(JSON.stringify(defaults))
+      freshLoad()
+      atomicFile.writeFile.mockRejectedValueOnce(new Error('Disk full'))
+      const appliedPorts: number[] = []
+
+      await expect(
+        transactSettings(
+          (current) => mergeSettingsPatch(current, { network: { proxyPort: 9000 } }),
+          async (_previous, current) => {
+            appliedPorts.push(current.network.proxyPort)
+          }
+        )
+      ).rejects.toThrow('Disk full')
+
+      expect(appliedPorts).toEqual([9000, 8080])
+      expect(freshLoad().network.proxyPort).toBe(8080)
+    })
+
+    it('restores persistence, cache and runtime when finalization fails', async () => {
+      const {
+        getDefaultSettings,
+        loadSettings: freshLoad,
+        mergeSettingsPatch,
+        transactSettings,
+      } = await import('../index')
+      const defaults = getDefaultSettings()
+      vi.mocked(existsSync).mockReturnValue(true)
+      vi.mocked(readFileSync).mockReturnValue(JSON.stringify(defaults))
+      freshLoad()
+      const appliedPorts: number[] = []
+
+      await expect(
+        transactSettings(
+          (current) => mergeSettingsPatch(current, { network: { proxyPort: 9000 } }),
+          async (_previous, current) => {
+            appliedPorts.push(current.network.proxyPort)
+          },
+          async () => {
+            throw new Error('history write failed')
+          }
+        )
+      ).rejects.toMatchObject({ name: 'SettingsRuntimeApplyError' })
+
+      expect(appliedPorts).toEqual([9000, 8080])
+      expect(freshLoad().network.proxyPort).toBe(8080)
+      const restored = JSON.parse(atomicFile.writeFile.mock.calls.at(-1)?.[0] as string)
+      expect(restored.network.proxyPort).toBe(8080)
+    })
+
+    it('keeps cache aligned with the candidate when persistence rollback fails', async () => {
+      const {
+        getDefaultSettings,
+        loadSettings: freshLoad,
+        mergeSettingsPatch,
+        transactSettings,
+      } = await import('../index')
+      const defaults = getDefaultSettings()
+      vi.mocked(existsSync).mockReturnValue(true)
+      vi.mocked(readFileSync).mockReturnValue(JSON.stringify(defaults))
+      freshLoad()
+      atomicFile.writeFile.mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error('rollback disk full'))
+      const appliedPorts: number[] = []
+
+      await expect(
+        transactSettings(
+          (current) => mergeSettingsPatch(current, { network: { proxyPort: 9000 } }),
+          async (_previous, current) => {
+            appliedPorts.push(current.network.proxyPort)
+          },
+          async () => {
+            throw new Error('history write failed')
+          }
+        )
+      ).rejects.toMatchObject({ name: 'SettingsRuntimeApplyError', rollbackError: expect.any(AggregateError) })
+
+      expect(appliedPorts).toEqual([9000])
+      expect(freshLoad().network.proxyPort).toBe(9000)
     })
   })
 

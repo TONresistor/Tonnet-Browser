@@ -14,7 +14,7 @@ import type {
   SignDataResult,
 } from '../tonconnect/types'
 import { WalletKeyStorage, WalletDecryptionError } from './key-storage'
-import { encodeCommentBody, isCommentWithinLimit } from './comment'
+import { encodeCommentBody, normalizeComment } from './comment'
 import type { ISecureStorage } from '../ports/secure-storage'
 import type { MessengerBridgePort, TonBridgePort } from '../ports/ton-bridge'
 import { WsBridgeClient } from './ws-bridge-client'
@@ -34,26 +34,13 @@ import { WalletSigningService } from './signing-service'
 import { WalletTransferService } from './transfer-service'
 import { WalletAccountService } from './account-service'
 import { WalletSubscriptionService } from './subscription-service'
+import { connectWalletBridge, prepareWalletBridge, warmupWalletBridge } from './bridge-lifecycle'
 const log = createLogger('wallet')
-
-/**
- * Trim a user comment, collapse empty to undefined, and enforce the byte cap.
- * Defense in depth: the WALLET_SEND IPC handler validates first, but signing
- * paths may be reached directly, so we never encode an oversized memo.
- */
-function normalizeComment(comment?: string): string | undefined {
-  if (typeof comment !== 'string') return undefined
-  const trimmed = comment.trim()
-  if (!trimmed) return undefined
-  if (!isCommentWithinLimit(trimmed)) {
-    throw new Error('Comment exceeds maximum length')
-  }
-  return trimmed
-}
 
 export class WalletManager extends EventEmitter {
   private keyStorage: WalletKeyStorage
   private wsBridge: WsBridgeClient | null = null
+  private wsBridgePort: number | null = null
   private walletContract: WalletContractV5R1 | null = null
   private keypair: { publicKey: Buffer; secretKey: Buffer } | null = null
   private publicKey: Buffer | null = null
@@ -97,8 +84,15 @@ export class WalletManager extends EventEmitter {
     const startedAt = Date.now()
 
     const network = getSetting('network')
-    this.wsBridge = new WsBridgeClient(network.wsPort)
-    await this.wsBridge.connect()
+    const bridge = new WsBridgeClient(network.wsPort)
+    try {
+      await connectWalletBridge(bridge)
+    } catch (error) {
+      bridge.disconnect()
+      throw error
+    }
+    this.wsBridge = bridge
+    this.wsBridgePort = network.wsPort
 
     if (await this.keyStorage.exists()) {
       try {
@@ -107,7 +101,12 @@ export class WalletManager extends EventEmitter {
         this.walletContract = WalletContractV5R1.create({ publicKey: this.keypair.publicKey, workchain: 0 })
         // warmup (balance priming) and seqno sync hit independent bridge
         // methods with no data dependency, so run them concurrently.
-        await Promise.allSettled([this.warmupLiteserverPool(), this.syncSeqno()])
+        await Promise.allSettled([
+          warmupWalletBridge(() => this.getBalance()).then((ready) => {
+            if (!ready) log.warn('Liteserver pool warmup: shard did not respond, proceeding with cached balance')
+          }),
+          this.syncSeqno(),
+        ])
         this.subscribeAccount()
         const walletSettings = getSetting('wallet')
         this.keyStorage.setAutoLockMinutes(walletSettings.autoLockMinutes)
@@ -294,29 +293,6 @@ export class WalletManager extends EventEmitter {
   /** Narrow overlay/DHT capability port for Messenger; transport mechanics stay private. */
   getMessengerBridge(): MessengerBridgePort | null {
     return this.wsBridge
-  }
-
-  /**
-   * Retry getBalance until the wallet's shard liteserver responds.
-   * The WS transport probe (getMasterchainInfo) validates the masterchain
-   * connection but the wallet lives on a specific shard that may need a
-   * separate ADNL handshake. Retrying getBalance warms up that path.
-   */
-  private async warmupLiteserverPool(): Promise<void> {
-    const MAX_ATTEMPTS = 10
-    const BASE_DELAY = 500
-    for (let i = 0; i < MAX_ATTEMPTS; i++) {
-      try {
-        await this.getBalance()
-        return
-      } catch {
-        if (i < MAX_ATTEMPTS - 1) {
-          const delay = Math.min(BASE_DELAY * Math.pow(2, i), 5_000)
-          await new Promise((r) => setTimeout(r, delay))
-        }
-      }
-    }
-    log.warn('Liteserver pool warmup: shard did not respond, proceeding with cached balance')
   }
 
   /**
@@ -527,6 +503,20 @@ export class WalletManager extends EventEmitter {
     this.keyStorage.setAutoLockMinutes(minutes)
   }
 
+  applyBridgePort(wsPort: number): Promise<void> {
+    return this.runExclusive(async () => {
+      const previous = this.wsBridge
+      if (!previous) return
+      const next = await prepareWalletBridge(previous, this.wsBridgePort, wsPort)
+      if (next === previous) return
+      this.unsubscribeAccount()
+      this.wsBridge = next
+      this.wsBridgePort = wsPort
+      previous.disconnect()
+      this.subscribeAccount()
+    })
+  }
+
   /**
    * Stop timers and wipe keys from memory.
    */
@@ -548,6 +538,7 @@ export class WalletManager extends EventEmitter {
       this.wsBridge.disconnect()
       this.wsBridge = null
     }
+    this.wsBridgePort = null
     this.walletContract = null
     this.initialized = false
     log.info('Wallet manager destroyed')

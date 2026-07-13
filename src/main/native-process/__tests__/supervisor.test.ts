@@ -171,6 +171,34 @@ describe('NativeProcessSupervisor', () => {
     expect(child.stderr.listenerCount('data')).toBe(stderrBaseline)
   })
 
+  it('recognizes readiness output emitted before the wait starts', async () => {
+    const child = processMock()
+    spawn.mockReturnValue(child)
+    const supervisor = new NativeProcessSupervisor()
+    supervisor.start({ name: 'daemon', command: '/bin/daemon', args: [] })
+    child.stdout.emit('data', Buffer.from('LISTENING 127.0.0.1'))
+
+    await expect(
+      supervisor.waitForOutput({ matches: (data) => data.toString().includes('LISTENING'), timeoutMs: 10 })
+    ).resolves.toBeUndefined()
+  })
+
+  it('recognizes a readiness marker split across output chunks', async () => {
+    const child = processMock()
+    spawn.mockReturnValue(child)
+    const supervisor = new NativeProcessSupervisor()
+    supervisor.start({ name: 'daemon', command: '/bin/daemon', args: [] })
+    const waiting = supervisor.waitForOutput({
+      matches: (data) => data.toString().includes('LISTENING'),
+      timeoutMs: 1_000,
+    })
+
+    child.stderr.emit('data', Buffer.from('LIST'))
+    child.stderr.emit('data', Buffer.from('ENING'))
+
+    await expect(waiting).resolves.toBeUndefined()
+  })
+
   it('classifies a port-conflict exit as a readiness failure and crash', async () => {
     const child = processMock()
     spawn.mockReturnValue(child)

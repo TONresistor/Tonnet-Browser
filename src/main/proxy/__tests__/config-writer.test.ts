@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import { tmpdir } from 'os'
-import { applyBridgeDefaults, syncMessengerBridgeNamespaces, writeProxyConfig } from '../config-writer'
+import { applyBridgeDefaults, writeProxyConfig } from '../config-writer'
 
 const tmpRoots: string[] = []
 
@@ -65,14 +65,14 @@ describe('bridge config writer messenger namespaces', () => {
     const dir = makeWorkDir(baseConfig())
     await applyBridgeDefaults(dir)
 
-    await expect(syncMessengerBridgeNamespaces(dir, true)).resolves.toBe(true)
+    await applyBridgeDefaults(dir, { enableChatNamespaces: true })
     let config = readConfig(dir)
     expect(config._messengerNamespacesManaged).toBe(true)
     expect(config.namespaces.adnl.enabled).toBe(true)
     expect(config.namespaces.overlay.enabled).toBe(true)
     expect(config.namespaces.dht.enabled).toBe(true)
 
-    await expect(syncMessengerBridgeNamespaces(dir, false)).resolves.toBe(true)
+    await applyBridgeDefaults(dir, { enableChatNamespaces: false })
     config = readConfig(dir)
     expect(config._messengerNamespacesManaged).toBe(false)
     expect(config.namespaces.adnl.enabled).toBe(false)

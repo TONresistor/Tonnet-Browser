@@ -318,13 +318,14 @@ export function importThemeFromJson(json: string): CustomTheme | null {
     if (!data || typeof data !== 'object') return null
     if (typeof data.name !== 'string') return null
     if (typeof data.isDark !== 'boolean') return null
+    if (data.description !== undefined && typeof data.description !== 'string') return null
     if (!validateColors(data.colors)) return null
 
     const now = Date.now()
     return {
       id: generateThemeId(),
       name: data.name,
-      description: data.description,
+      ...(data.description === undefined ? {} : { description: data.description }),
       colors: data.colors,
       isDark: data.isDark,
       createdAt: now,

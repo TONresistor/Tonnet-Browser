@@ -71,4 +71,42 @@ describe('ChatSessionController', () => {
     await controller.connect('good', async () => session('good'))
     expect(controller.state).toEqual({ kind: 'connected', room: 'good' })
   })
+
+  it('holds later connects until an idle-only operation completes', async () => {
+    const events: string[] = []
+    const controller = new ChatSessionController<ManagedChatSession>()
+    const gate = deferred<void>()
+    const guarded = controller.runWhenIdle(async () => {
+      events.push('guard:start')
+      await gate.promise
+      events.push('guard:end')
+    })
+    const connect = controller.connect('room', async () => {
+      events.push('connect')
+      return session('room')
+    })
+
+    await vi.waitFor(() => expect(events).toEqual(['guard:start']))
+    gate.resolve()
+    await Promise.all([guarded, connect])
+
+    expect(events).toEqual(['guard:start', 'guard:end', 'connect'])
+  })
+
+  it('disconnects the current session before a guarded restart', async () => {
+    const events: string[] = []
+    const controller = new ChatSessionController<ManagedChatSession>()
+    await controller.connect('room', async () =>
+      session('room', async () => {
+        events.push('dispose')
+      })
+    )
+
+    await controller.runDisconnected(async () => {
+      events.push('restart')
+    })
+
+    expect(events).toEqual(['dispose', 'restart'])
+    expect(controller.state).toEqual({ kind: 'idle' })
+  })
 })
