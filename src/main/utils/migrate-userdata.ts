@@ -39,6 +39,7 @@ const USER_FILES = [
   'bags.json',
   'nft-cache.dat',
   'wallet-history.dat',
+  'payment-spending.dat',
 ]
 
 /** Directories whose contents should be merged (not replaced wholesale). */
