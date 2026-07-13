@@ -64,7 +64,8 @@ export class StorageManager extends EventEmitter {
   private dbPath: string
   private isRunning = false
   private client: StorageHTTPClient | null = null
-  private pollInterval: NodeJS.Timeout | null = null
+  private pollTimer: NodeJS.Timeout | null = null
+  private pollGeneration = 0
   private lastBagsJson = ''
   private readonly pollFailures = new RepetitionAggregator(log)
   private lifecycleTail: Promise<void> = Promise.resolve()
@@ -256,23 +257,36 @@ export class StorageManager extends EventEmitter {
     this.stopPolling()
     if (resetSnapshot) this.lastBagsJson = ''
 
-    this.pollInterval = setInterval(async () => {
-      if (!this.client || !this.isRunning) return
+    const client = this.client
+    const generation = this.pollGeneration
+    if (!client || !this.isRunning) return
+
+    const isCurrent = (): boolean => generation === this.pollGeneration && this.client === client && this.isRunning
+    const schedule = (): void => {
+      if (!isCurrent()) return
+      this.pollTimer = setTimeout(() => void poll(), interval)
+    }
+    const poll = async (): Promise<void> => {
+      if (!isCurrent()) return
+      this.pollTimer = null
       try {
-        const bags = await this.client.listBags()
+        const bags = await client.listBags()
+        if (!isCurrent()) return
         this.pollFailures.recovered('bags', 'storage.poll.restored', 'storage polling restored')
 
         // Auto-stop seeding bags when seeding is disabled
         const seedingEnabled = this.appliedSettings?.seedingEnabled ?? getSetting('storage').seedingEnabled
         if (!seedingEnabled) {
           for (const bag of bags) {
+            if (!isCurrent()) return
             if (bag.completed && bag.active) {
               log.debug(`Seeding disabled: stopping bag ${bag.bag_id.slice(0, 8)}...`)
-              await this.client.stopBag(bag.bag_id).catch(() => {})
+              await client.stopBag(bag.bag_id).catch(() => {})
             }
           }
         }
 
+        if (!isCurrent()) return
         const mapped = bags.map((b) => this.mapBagInfo(b, seedingEnabled))
         const snapshot = JSON.stringify(mapped)
         if (snapshot !== this.lastBagsJson) {
@@ -280,15 +294,22 @@ export class StorageManager extends EventEmitter {
           this.emit('bags-updated', mapped)
         }
       } catch (err) {
-        this.pollFailures.record('bags', 'storage.poll.failed', 'storage polling failed', { error: err })
+        if (isCurrent()) {
+          this.pollFailures.record('bags', 'storage.poll.failed', 'storage polling failed', { error: err })
+        }
+      } finally {
+        schedule()
       }
-    }, interval)
+    }
+
+    schedule()
   }
 
   private stopPolling(): void {
-    if (this.pollInterval) {
-      clearInterval(this.pollInterval)
-      this.pollInterval = null
+    this.pollGeneration += 1
+    if (this.pollTimer) {
+      clearTimeout(this.pollTimer)
+      this.pollTimer = null
     }
   }
 
@@ -383,15 +404,20 @@ export class StorageManager extends EventEmitter {
       return
     }
 
+    this.stopPolling()
     const seedingChanged = next.seedingEnabled !== current.seedingEnabled
     try {
       if (seedingChanged) await this.applySeeding(next.seedingEnabled, next.downloadPath)
-      if (next.pollingInterval !== current.pollingInterval) this.startPolling(next.pollingInterval)
       this.appliedSettings = next
+      this.startPolling(next.pollingInterval)
     } catch (error) {
-      if (!seedingChanged) throw error
+      if (!seedingChanged) {
+        this.startPolling(current.pollingInterval)
+        throw error
+      }
       try {
         await this.applySeeding(current.seedingEnabled, current.downloadPath)
+        this.startPolling(current.pollingInterval)
       } catch (rollbackError) {
         this.appliedSettings = null
         throw new AggregateError([error, rollbackError], 'Storage seeding apply and rollback failed')
