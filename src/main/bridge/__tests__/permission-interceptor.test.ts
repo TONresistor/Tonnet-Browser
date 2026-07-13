@@ -102,10 +102,10 @@ function createMockOverlayManager() {
   }
 }
 
-function createMockSender() {
+function createMockSender(id = 1) {
   const destroyCallbacks: Array<() => void> = []
   return {
-    id: 1,
+    id,
     send: vi.fn(),
     once: vi.fn((event: string, cb: () => void) => {
       if (event === 'destroyed') destroyCallbacks.push(cb)
@@ -504,7 +504,9 @@ describe('BridgePermissionInterceptor', () => {
 
       // First request registers the sender
       const data = JSON.stringify({ id: 1, method: 'subscribe.blocks' })
-      await interceptor.handleRequest('app.ton', data, sendResponse, sender)
+      const firstRequest = interceptor.handleRequest('app.ton', data, sendResponse, sender)
+      await vi.advanceTimersByTimeAsync(0)
+      await firstRequest
 
       // Sender should have been registered (once for 'destroyed')
       expect(sender.once).toHaveBeenCalledWith('destroyed', expect.any(Function))
@@ -516,7 +518,9 @@ describe('BridgePermissionInterceptor', () => {
 
       // Second request with the same sender should re-register it
       const data2 = JSON.stringify({ id: 2, method: 'subscribe.blocks' })
-      await interceptor.handleRequest('app.ton', data2, sendResponse, sender)
+      const secondRequest = interceptor.handleRequest('app.ton', data2, sendResponse, sender)
+      await vi.advanceTimersByTimeAsync(0)
+      await secondRequest
 
       // once('destroyed') should have been called again for the re-registration
       expect((sender.once as any).mock.calls.filter((c: any) => c[0] === 'destroyed').length).toBe(2)
@@ -587,28 +591,51 @@ describe('BridgePermissionInterceptor', () => {
   // Push notifications to subscribed senders
   // -----------------------------------------------------------------------
   describe('push notifications', () => {
-    it('forwards push notifications to subscribed senders only', async () => {
+    it('forwards raw bridge events only to their owning sender', async () => {
       store.getPermission.mockReturnValue('granted')
       interceptor.init()
       await vi.advanceTimersByTimeAsync(0)
 
-      const ws = getLatestWs()
-      const sender = createMockSender()
-      const sendResponse = vi.fn()
+      const senderA = createMockSender(1)
+      const senderB = createMockSender(2)
+      const responseA = vi.fn()
+      const responseB = vi.fn()
 
-      // Subscribe the sender
-      const data = JSON.stringify({ id: 1, method: 'subscribe.blocks' })
-      await interceptor.handleRequest('app.ton', data, sendResponse, sender)
+      const requestA = interceptor.handleRequest(
+        'a.ton',
+        JSON.stringify({ id: 1, method: 'subscribe.blocks' }),
+        responseA,
+        senderA
+      )
+      const wsA = getLatestWs()
+      await vi.advanceTimersByTimeAsync(0)
+      await requestA
+      const sentA = JSON.parse(wsA.send.mock.calls[0][0])
+      wsA.emit('message', JSON.stringify({ jsonrpc: '2.0', id: sentA.id, result: { subscription_id: 'a' } }))
 
-      // Drain the forwarded RPC response
-      const sent = JSON.parse(ws.send.mock.calls[0][0])
-      ws.emit('message', JSON.stringify({ jsonrpc: '2.0', id: sent.id, result: 'subscribed' }))
+      const requestB = interceptor.handleRequest(
+        'b.ton',
+        JSON.stringify({ id: 2, method: 'subscribe.blocks' }),
+        responseB,
+        senderB
+      )
+      const wsB = getLatestWs()
+      await vi.advanceTimersByTimeAsync(0)
+      await requestB
+      const sentB = JSON.parse(wsB.send.mock.calls[0][0])
+      wsB.emit('message', JSON.stringify({ jsonrpc: '2.0', id: sentB.id, result: { subscription_id: 'b' } }))
 
-      // Now simulate a push notification (no id, has method)
-      const push = JSON.stringify({ jsonrpc: '2.0', method: 'subscribe.blocks', params: { block: 123 } })
-      ws.emit('message', push)
+      const pushA = JSON.stringify({ event: 'block', data: { seqno: 123 } })
+      wsA.emit('message', pushA)
 
-      expect((sender as any).send).toHaveBeenCalledWith('bridge:message', push)
+      expect((senderA as any).send).toHaveBeenCalledWith('bridge:message', pushA)
+      expect((senderB as any).send).not.toHaveBeenCalled()
+
+      const pushB = JSON.stringify({ event: 'block', data: { seqno: 124 } })
+      wsB.emit('message', pushB)
+
+      expect((senderB as any).send).toHaveBeenCalledWith('bridge:message', pushB)
+      expect((senderA as any).send).toHaveBeenCalledTimes(1)
     })
   })
 

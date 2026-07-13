@@ -30,6 +30,14 @@ interface PendingRpc {
   timer: ReturnType<typeof setTimeout>
 }
 
+interface SenderBridgeConnection {
+  ws: WebSocket | null
+  connectFlight: Promise<void> | null
+  reconnectTimer: ReturnType<typeof setTimeout> | null
+  generation: number
+  pendingRpc: Map<string, PendingRpc>
+}
+
 export class BridgePermissionInterceptor {
   private ws: WebSocket | null = null
   private initialized = false
@@ -40,7 +48,7 @@ export class BridgePermissionInterceptor {
   private pendingRpc = new Map<string, PendingRpc>()
   private pendingPermissionByKey = new Map<string, Promise<boolean>>()
   private activeSenders = new Set<Electron.WebContents>()
-  private subscribedSenders = new Set<Electron.WebContents>()
+  private senderConnections = new Map<Electron.WebContents, SenderBridgeConnection>()
   private senderDomains = new Map<Electron.WebContents, string>()
   private wsPort: number = DEFAULT_SETTINGS.wsPort
   private pendingWsPort: number | null = null
@@ -71,13 +79,22 @@ export class BridgePermissionInterceptor {
     sender?: Electron.WebContents
   ): Promise<void> {
     if (sender) {
+      const previousDomain = this.senderDomains.get(sender)
+      if (previousDomain && previousDomain !== domain) {
+        this.disposeSenderConnection(sender)
+      }
       this.senderDomains.set(sender, domain)
+      if (previousDomain && previousDomain !== domain && ![...this.senderDomains.values()].includes(previousDomain)) {
+        for (const scope of ['blockchain', 'p2p', 'write'] as BridgeScope[]) {
+          this.bridgePermissionStore.revokeSessionPermission(previousDomain, scope)
+        }
+      }
       if (!this.activeSenders.has(sender)) {
         this.activeSenders.add(sender)
         sender.once('destroyed', () => {
           const lastDomain = this.senderDomains.get(sender)
           this.activeSenders.delete(sender)
-          this.subscribedSenders.delete(sender)
+          this.disposeSenderConnection(sender)
           this.senderDomains.delete(sender)
           if (lastDomain) {
             const otherHasDomain = [...this.senderDomains.values()].includes(lastDomain)
@@ -138,8 +155,9 @@ export class BridgePermissionInterceptor {
       }
     }
 
-    if (sender && method.startsWith('subscribe.')) {
-      this.subscribedSenders.add(sender)
+    if (sender) {
+      await this.forwardToSender(sender, parsed, sendResponse)
+      return
     }
 
     this.forwardToBridge(parsed, sendResponse)
@@ -223,6 +241,187 @@ export class BridgePermissionInterceptor {
     this.ws.send(rewritten)
   }
 
+  private async forwardToSender(
+    sender: Electron.WebContents,
+    parsed: { id?: string | number; [key: string]: unknown },
+    sendResponse: (data: string) => void
+  ): Promise<void> {
+    let connection = this.senderConnections.get(sender)
+    if (!connection) {
+      connection = {
+        ws: null,
+        connectFlight: null,
+        reconnectTimer: null,
+        generation: this.connectionGeneration,
+        pendingRpc: new Map(),
+      }
+      this.senderConnections.set(sender, connection)
+    }
+
+    try {
+      await this.ensureSenderConnected(sender, connection)
+    } catch {
+      sendResponse(rpcError(parsed.id ?? null, RPC_ERRORS.BRIDGE_UNAVAILABLE, 'Bridge not connected'))
+      return
+    }
+
+    const ws = connection.ws
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      sendResponse(rpcError(parsed.id ?? null, RPC_ERRORS.BRIDGE_UNAVAILABLE, 'Bridge not connected'))
+      return
+    }
+
+    const internalId = randomUUID()
+    const originalId = parsed.id ?? null
+    const rewritten = JSON.stringify({ ...parsed, id: internalId })
+    const timer = setTimeout(() => {
+      connection.pendingRpc.delete(internalId)
+      sendResponse(rpcError(originalId, RPC_ERRORS.BRIDGE_UNAVAILABLE, 'Bridge timeout'))
+    }, RPC_TIMEOUT_MS)
+
+    connection.pendingRpc.set(internalId, { resolve: sendResponse, originalId, timer })
+    ws.send(rewritten)
+  }
+
+  private ensureSenderConnected(sender: Electron.WebContents, connection: SenderBridgeConnection): Promise<void> {
+    if (connection.ws?.readyState === WebSocket.OPEN) return Promise.resolve()
+    if (connection.connectFlight) return connection.connectFlight
+    const generation = connection.generation
+    const flight = this.connectSender(sender, connection, generation).finally(() => {
+      if (connection.connectFlight === flight) connection.connectFlight = null
+    })
+    connection.connectFlight = flight
+    return flight
+  }
+
+  private connectSender(
+    sender: Electron.WebContents,
+    connection: SenderBridgeConnection,
+    generation: number
+  ): Promise<void> {
+    if (this.destroyed || sender.isDestroyed()) return Promise.reject(new Error('Bridge sender unavailable'))
+    const ws = new WebSocket(`ws://127.0.0.1:${this.wsPort}`)
+    connection.ws = ws
+    return new Promise<void>((resolve, reject) => {
+      let settled = false
+      let connectTimer: ReturnType<typeof setTimeout> | null = null
+      const finish = (error?: Error): void => {
+        if (settled) return
+        settled = true
+        if (connectTimer) clearTimeout(connectTimer)
+        if (error) reject(error)
+        else resolve()
+      }
+      connectTimer = setTimeout(() => {
+        finish(new Error('Bridge connection timeout'))
+        ws.terminate()
+      }, RPC_TIMEOUT_MS)
+      ws.once('open', () => {
+        if (
+          this.destroyed ||
+          sender.isDestroyed() ||
+          this.senderConnections.get(sender) !== connection ||
+          connection.generation !== generation
+        ) {
+          ws.close()
+          finish(new Error('Bridge connection superseded'))
+          return
+        }
+        connection.ws = ws
+        finish()
+      })
+      ws.on('message', (raw: WebSocket.Data) => {
+        if (connection.ws !== ws) return
+        this.handleSenderMessage(sender, connection, raw.toString())
+      })
+      ws.once('close', () => {
+        const isCurrent = connection.ws === ws
+        if (isCurrent) {
+          connection.ws = null
+          this.failPending(connection.pendingRpc)
+        }
+        finish(new Error('Bridge connection closed'))
+        if (isCurrent) this.scheduleSenderReconnect(sender, connection, generation)
+      })
+      ws.on('error', (error) => {
+        finish(error)
+        if (ws.readyState !== WebSocket.CLOSED && ws.readyState !== WebSocket.CLOSING) ws.terminate()
+      })
+    })
+  }
+
+  private handleSenderMessage(sender: Electron.WebContents, connection: SenderBridgeConnection, data: string): void {
+    let parsed: { id?: string | number; event?: string }
+    try {
+      parsed = JSON.parse(data) as { id?: string | number; event?: string }
+    } catch {
+      return
+    }
+
+    if (parsed.id !== undefined) {
+      const pending = connection.pendingRpc.get(String(parsed.id))
+      if (!pending) return
+      clearTimeout(pending.timer)
+      connection.pendingRpc.delete(String(parsed.id))
+      pending.resolve(JSON.stringify({ ...parsed, id: pending.originalId }))
+      return
+    }
+
+    if (parsed.event && !sender.isDestroyed()) {
+      try {
+        sender.send('bridge:message', data)
+      } catch {
+        this.disposeSenderConnection(sender)
+      }
+    }
+  }
+
+  private scheduleSenderReconnect(
+    sender: Electron.WebContents,
+    connection: SenderBridgeConnection,
+    generation: number
+  ): void {
+    if (
+      this.destroyed ||
+      sender.isDestroyed() ||
+      this.senderConnections.get(sender) !== connection ||
+      connection.generation !== generation ||
+      connection.reconnectTimer
+    )
+      return
+    connection.reconnectTimer = setTimeout(() => {
+      connection.reconnectTimer = null
+      void this.ensureSenderConnected(sender, connection).catch(() =>
+        this.scheduleSenderReconnect(sender, connection, generation)
+      )
+    }, RECONNECT_DELAY_MS)
+  }
+
+  private failPending(pendingRpc: Map<string, PendingRpc>): void {
+    for (const [, pending] of pendingRpc) {
+      clearTimeout(pending.timer)
+      try {
+        pending.resolve(rpcError(pending.originalId, RPC_ERRORS.BRIDGE_UNAVAILABLE, 'Bridge disconnected'))
+      } catch {
+        continue
+      }
+    }
+    pendingRpc.clear()
+  }
+
+  private disposeSenderConnection(sender: Electron.WebContents): void {
+    const connection = this.senderConnections.get(sender)
+    if (!connection) return
+    this.senderConnections.delete(sender)
+    connection.generation += 1
+    if (connection.reconnectTimer) clearTimeout(connection.reconnectTimer)
+    connection.reconnectTimer = null
+    this.failPending(connection.pendingRpc)
+    const ws = connection.ws
+    connection.ws = null
+    if (ws) ws.close()
+  }
+
   applyBridgePort(wsPort: number): Promise<void> {
     if (this.destroyed) return Promise.reject(new Error('Bridge interceptor destroyed'))
     if (!this.initialized) {
@@ -240,6 +439,8 @@ export class BridgePermissionInterceptor {
 
   private async rebind(wsPort: number): Promise<void> {
     const generation = ++this.connectionGeneration
+    const senders = [...this.senderConnections.keys()]
+    for (const sender of senders) this.disposeSenderConnection(sender)
     this.wsPort = wsPort
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer)
@@ -255,6 +456,18 @@ export class BridgePermissionInterceptor {
     for (let attempt = 0; attempt < 20; attempt += 1) {
       try {
         await this.connectToBridge(generation)
+        for (const sender of senders) {
+          if (sender.isDestroyed() || !this.activeSenders.has(sender)) continue
+          const connection: SenderBridgeConnection = {
+            ws: null,
+            connectFlight: null,
+            reconnectTimer: null,
+            generation,
+            pendingRpc: new Map(),
+          }
+          this.senderConnections.set(sender, connection)
+          void this.ensureSenderConnected(sender, connection).catch(() => {})
+        }
         return
       } catch (error) {
         lastError = error
@@ -271,12 +484,18 @@ export class BridgePermissionInterceptor {
     const ws = new WebSocket(url)
     return new Promise<void>((resolve, reject) => {
       let settled = false
+      let connectTimer: ReturnType<typeof setTimeout> | null = null
       const finish = (error?: Error) => {
         if (settled) return
         settled = true
+        if (connectTimer) clearTimeout(connectTimer)
         if (error) reject(error)
         else resolve()
       }
+      connectTimer = setTimeout(() => {
+        finish(new Error('Bridge connection timeout'))
+        ws.terminate()
+      }, RPC_TIMEOUT_MS)
       ws.once('open', () => {
         if (generation !== this.connectionGeneration || this.destroyed) {
           ws.close()
@@ -290,9 +509,9 @@ export class BridgePermissionInterceptor {
       })
       ws.on('message', (raw: WebSocket.Data) => {
         const data = raw.toString()
-        let parsed: { id?: string | number; method?: string }
+        let parsed: { id?: string | number }
         try {
-          parsed = JSON.parse(data) as { id?: string | number; method?: string }
+          parsed = JSON.parse(data) as { id?: string | number }
         } catch {
           return
         }
@@ -306,15 +525,6 @@ export class BridgePermissionInterceptor {
             pending.resolve(response)
             return
           }
-        }
-
-        if (parsed.method && !parsed.id) {
-          for (const sender of this.subscribedSenders) {
-            if (!sender.isDestroyed()) {
-              sender.send('bridge:message', data)
-            }
-          }
-          return
         }
       })
       ws.once('close', () => {
@@ -361,6 +571,8 @@ export class BridgePermissionInterceptor {
       clearTimeout(pending.timer)
     }
     this.pendingRpc.clear()
+    for (const sender of [...this.senderConnections.keys()]) this.disposeSenderConnection(sender)
+    this.activeSenders.clear()
     this.senderDomains.clear()
 
     this.ws?.close()
