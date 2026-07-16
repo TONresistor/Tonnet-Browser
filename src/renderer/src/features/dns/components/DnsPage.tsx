@@ -128,7 +128,7 @@ function DnsPage() {
   return (
     <div className="h-full overflow-auto bg-background-secondary" style={{ fontFamily: 'Inter, sans-serif' }}>
       <div className="mx-auto max-w-lg p-5">
-        <h1 className="mb-5 text-center text-xl font-semibold text-foreground">{t('title')}</h1>
+        <h1 className="mb-5 text-center text-xl font-semibold text-heading">{t('title')}</h1>
 
         <div className="relative mb-6">
           <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -157,7 +157,7 @@ function DnsPage() {
         {!loading && !error && hasData && result && (
           <div className="space-y-5">
             <div className="flex items-center justify-center gap-3">
-              <h2 className="text-[15px] font-semibold text-foreground">{getDomain(query)}</h2>
+              <h2 className="text-[15px] font-semibold text-heading">{getDomain(query)}</h2>
               {result.site_adnl && (
                 <ActionButton
                   variant="filled"

@@ -26,6 +26,7 @@
     "format": "prettier --write \"src/**/*.{ts,tsx,json,css}\" \"scripts/*.{mjs,json}\" architecture.config.json",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,json,css}\" \"scripts/*.{mjs,json}\" architecture.config.json",
     "architecture": "node scripts/check-architecture.mjs",
+    "verify:theme-tokens": "node scripts/check-theme-tokens.mjs",
     "verify:bundle-budgets": "node scripts/check-bundle-budgets.mjs",
     "verify:release-metadata": "node scripts/verify-release-metadata.mjs",
     "generate:sbom": "npm sbom --sbom-format cyclonedx",
@@ -56,7 +57,7 @@
     "build:win": "npm run build:binaries:win && npm run verify:binaries:win && npm run build && electron-builder --win",
     "build:mac": "npm run build:binaries:mac && npm run verify:binaries:mac && npm run build && electron-builder --mac",
     "clean": "rimraf out dist release",
-    "validate": "npm run architecture && npm run type-check && npm run lint && npm run format:check && npm test"
+    "validate": "npm run architecture && npm run verify:theme-tokens && npm run type-check && npm run lint && npm run format:check && npm test"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

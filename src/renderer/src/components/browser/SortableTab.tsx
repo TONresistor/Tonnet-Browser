@@ -58,8 +58,8 @@ export const SortableTab = memo(function SortableTab({
       tabIndex={isActive ? 0 : -1}
       className={`no-drag group flex items-center gap-2 px-2.5 py-1.5 ${isVertical ? 'rounded-lg w-full' : 'rounded-full max-w-[200px]'} cursor-pointer transition-all duration-200 border ${
         isActive
-          ? 'bg-surface-active border-border-medium text-foreground'
-          : 'bg-surface border-transparent text-foreground-muted hover:bg-surface-hover hover:text-foreground'
+          ? 'bg-surface-active border-border-medium text-chrome-foreground'
+          : 'bg-surface border-transparent text-chrome-foreground hover:bg-surface-hover'
       } ${isNarrow ? 'justify-center' : ''}`}
       onClick={(_e) => {
         // Only activate if not dragging
@@ -77,11 +77,11 @@ export const SortableTab = memo(function SortableTab({
           <Favicon
             src={tab.favicon}
             className="w-5 h-5 object-contain transition-opacity group-hover:opacity-0"
-            fallbackClassName="w-5 h-5 text-foreground-muted transition-opacity group-hover:opacity-0"
+            fallbackClassName="w-5 h-5 text-icon/60 transition-opacity group-hover:opacity-0"
           />
           {/* Close button overlay */}
           <button
-            className="absolute inset-0 opacity-0 group-hover:opacity-100 focus:opacity-100 rounded-full transition-opacity flex items-center justify-center bg-surface-active"
+            className="absolute inset-0 opacity-0 group-hover:opacity-100 focus:opacity-100 rounded-full text-icon transition-opacity flex items-center justify-center bg-surface-active"
             aria-label={`Close ${tab.title || t('tabs.closeTab')}`}
             tabIndex={0}
             onClick={(e) => onClose(e, tab.id)}
@@ -95,7 +95,7 @@ export const SortableTab = memo(function SortableTab({
           <Favicon
             src={tab.favicon}
             className="w-5 h-5 flex-shrink-0 object-contain"
-            fallbackClassName="w-5 h-5 flex-shrink-0 text-foreground-muted"
+            fallbackClassName="w-5 h-5 flex-shrink-0 text-icon/60"
           />
         </>
       )}
@@ -106,7 +106,7 @@ export const SortableTab = memo(function SortableTab({
       {/* Close button - Standard position (only in non-narrow mode) */}
       {!isNarrow && (
         <button
-          className="opacity-0 group-hover:opacity-100 focus:opacity-100 hover:bg-surface-active rounded-full p-0.5 transition-opacity"
+          className="opacity-0 group-hover:opacity-100 focus:opacity-100 hover:bg-surface-active rounded-full p-0.5 text-icon transition-opacity"
           aria-label={`Close ${tab.title || t('tabs.closeTab')}`}
           tabIndex={0}
           onClick={(e) => onClose(e, tab.id)}

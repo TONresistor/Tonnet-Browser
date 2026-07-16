@@ -51,7 +51,7 @@ export function SettingsSidebar({ activeSection, onSectionChange }: SettingsSide
     <div className="m-3 flex w-[288px] shrink-0 flex-col overflow-hidden rounded-panel border border-border-subtle bg-elevation-1 shadow-panel">
       {/* Header */}
       <div className="px-4 pb-3 pt-4">
-        <h2 className="text-[22px] font-bold tracking-tight text-foreground">{t('title')}</h2>
+        <h2 className="text-[22px] font-bold tracking-tight text-heading">{t('title')}</h2>
       </div>
 
       {/* Grouped inset list */}
@@ -80,10 +80,12 @@ export function SettingsSidebar({ activeSection, onSectionChange }: SettingsSide
                 >
                   {/* Colored rounded icon tile */}
                   <span
-                    className="grid h-[29px] w-[29px] shrink-0 place-items-center rounded-control"
-                    style={{ backgroundColor: section.color }}
+                    className={cn(
+                      'grid h-[29px] w-[29px] shrink-0 place-items-center rounded-control',
+                      section.tileClass
+                    )}
                   >
-                    <Icon className="h-[17px] w-[17px] text-white" />
+                    <Icon className="h-[17px] w-[17px]" />
                   </span>
 
                   {/* Label + chevron, with an inset hairline above every row but the first */}
@@ -96,9 +98,7 @@ export function SettingsSidebar({ activeSection, onSectionChange }: SettingsSide
                     <span className="flex-1 truncate text-[15px] font-medium text-foreground">
                       {getSectionLabel(section)}
                     </span>
-                    <ChevronRight
-                      className={cn('h-4 w-4 shrink-0', isActive ? 'text-foreground/40' : 'text-muted-foreground/60')}
-                    />
+                    <ChevronRight className={cn('h-4 w-4 shrink-0', isActive ? 'text-icon/40' : 'text-icon/30')} />
                   </span>
                 </button>
               )

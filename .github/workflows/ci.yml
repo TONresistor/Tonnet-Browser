@@ -76,6 +76,9 @@ jobs:
       - name: Architecture boundaries
         run: npm run architecture
 
+      - name: Theme token contract
+        run: npm run verify:theme-tokens
+
       - name: Lint
         run: npm run lint
 

@@ -6,13 +6,7 @@
 import { useEffect, useCallback, useRef } from 'react'
 import { IPC_CHANNELS } from '@shared/ipc-channels'
 import { browserClient } from '@/features/browser/client'
-
-interface OverlayBounds {
-  x: number
-  y: number
-  width: number
-  height: number
-}
+import { toIpcOverlayBounds, type OverlayBounds } from '@/lib/overlay-position'
 
 type OverlayActionCallback = (actionType: string, data: unknown) => void
 
@@ -40,7 +34,7 @@ export function useOverlay(id: string, onAction?: OverlayActionCallback) {
 
   const show = useCallback(
     (bounds: OverlayBounds, content: { type: string; [key: string]: unknown }, options?: { autoDismiss?: boolean }) => {
-      browserClient.showOverlay(id, bounds, content, options)
+      browserClient.showOverlay(id, toIpcOverlayBounds(bounds), content, options)
       activeRef.current = true
     },
     [id]

@@ -19,7 +19,7 @@ import {
   Eye,
   EyeOff,
 } from 'lucide-react'
-import walletIcon from '@/assets/wallet.svg'
+import { AppIcon } from '@/components/ui/AppIcon'
 import { useWalletStore } from '@/features/wallet/store'
 import { formatTonAmount } from '@/lib/ton-utils'
 import type { WalletTransaction } from '@shared/types'
@@ -140,8 +140,8 @@ export function WalletSidebar({ onClose }: WalletSidebarProps) {
     return (
       <div className="flex flex-col h-full bg-[hsl(var(--elevation-1))] border-l border-border">
         <div className="px-4 py-3 border-b border-border flex items-center gap-2">
-          <img src={walletIcon} alt="" className="h-4 w-4" />
-          <span className="text-sm font-semibold text-foreground">{t('backup.title')}</span>
+          <AppIcon name="wallet" className="h-4 w-4 text-icon" />
+          <span className="text-sm font-semibold text-heading">{t('backup.title')}</span>
         </div>
 
         <div className="flex-1 overflow-auto px-4 py-4 space-y-4">
@@ -219,8 +219,8 @@ export function WalletSidebar({ onClose }: WalletSidebarProps) {
         {/* Header */}
         <div className="px-4 py-3 border-b border-border flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <img src={walletIcon} alt="" className="h-4 w-4" />
-            <span className="text-sm font-semibold text-foreground">{t('page.title')}</span>
+            <AppIcon name="wallet" className="h-4 w-4 text-icon" />
+            <span className="text-sm font-semibold text-heading">{t('page.title')}</span>
           </div>
           <Button
             variant="ghost"
@@ -236,7 +236,7 @@ export function WalletSidebar({ onClose }: WalletSidebarProps) {
 
         <div className="flex flex-1 items-center justify-center">
           <EmptyState
-            icon={<img src={walletIcon} alt="" className="h-7 w-7 opacity-70" />}
+            icon={<AppIcon name="wallet" className="h-7 w-7 text-icon opacity-70" />}
             title={t('page.noWalletTitle')}
             description={t('page.noWalletDesc')}
             action={
@@ -272,9 +272,9 @@ export function WalletSidebar({ onClose }: WalletSidebarProps) {
               <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
             </Button>
           ) : (
-            <img src={walletIcon} alt="" className="h-4 w-4" />
+            <AppIcon name="wallet" className="h-4 w-4 text-icon" />
           )}
-          <span className="text-sm font-semibold text-foreground">
+          <span className="text-sm font-semibold text-heading">
             {view === 'overview' ? t('page.title') : view === 'send' ? t('tabs.send') : t('tabs.receive')}
           </span>
         </div>

@@ -10,7 +10,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { ExternalLink, X } from 'lucide-react'
 import Lottie from 'lottie-react'
-import cocoonIcon from '@/assets/cocoon.png'
 import cocoonAnimation from '@/assets/cocoon.json'
 import { useOpenOrSwitchBrowserTab } from '@/features/browser/navigation'
 import { useCocoonChatStore, selectActiveMessages } from '@/features/cocoon/store'
@@ -19,6 +18,7 @@ import { useCocoonSession, unstakedHeaderKey } from '@/features/cocoon/useCocoon
 import { CocoonChat } from './CocoonChat'
 import { SetupWizard } from './SetupWizard'
 import { useTranslation } from 'react-i18next'
+import { AppIcon } from '@/components/ui/AppIcon'
 
 const COCOON_PAGE = 'ton://cocoon'
 
@@ -50,8 +50,8 @@ export function CocoonSidebar({ onClose }: CocoonSidebarProps) {
     <div className="flex flex-col h-full bg-[hsl(var(--elevation-1))] border-l border-border">
       <div className="px-4 py-3 border-b border-border flex items-center justify-between shrink-0 gap-2">
         <div className="flex items-center gap-2 min-w-0">
-          <img src={cocoonIcon} alt="" className="h-5 w-5 brightness-0 invert shrink-0" />
-          <span className="text-xl font-bold text-foreground truncate">Cocoon Ai</span>
+          <AppIcon name="cocoon" className="h-5 w-5 text-icon" />
+          <span className="text-xl font-bold text-heading truncate">Cocoon Ai</span>
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
           {showChatControls && messagesCount > 0 && (

@@ -89,7 +89,7 @@ export function Step4Stake({ onComplete, onBack, initialFunded = false }: Props)
   return (
     <div className="space-y-5">
       <div className="text-center">
-        <h2 className="text-lg font-semibold text-foreground">Connect to Cocoon</h2>
+        <h2 className="text-lg font-semibold text-heading">Connect to Cocoon</h2>
         <p className="mx-auto mt-1 max-w-sm text-[13px] leading-relaxed text-muted-foreground">
           Keep your browser open while your Cocoon wallet opens a channel with the Cocoon network.
         </p>

@@ -40,10 +40,10 @@ export class ErrorBoundary extends Component<Props, State> {
     if (this.state.hasError) {
       return (
         <div className="flex flex-col items-center justify-center h-screen bg-background-secondary text-foreground p-8">
-          <TriangleAlert className="h-16 w-16 text-red-500 mb-4" aria-hidden="true" />
-          <h1 className="text-2xl font-bold mb-2">{i18n.t('error.title')}</h1>
+          <TriangleAlert className="h-16 w-16 text-destructive mb-4" aria-hidden="true" />
+          <h1 className="text-2xl font-bold text-heading mb-2">{i18n.t('error.title')}</h1>
           <p className="text-muted-foreground mb-4 text-center max-w-md">{i18n.t('error.description')}</p>
-          <code className="text-xs text-red-400 bg-card p-3 rounded mb-6 max-w-lg overflow-auto">
+          <code className="text-xs text-destructive bg-destructive/10 p-3 rounded mb-6 max-w-lg overflow-auto">
             {this.state.error?.message || 'Unknown error'}
           </code>
           <Button

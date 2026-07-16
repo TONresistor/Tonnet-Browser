@@ -169,7 +169,7 @@ describe('Settings Persistence', () => {
     it('does not overwrite settings written by a future application version', async () => {
       vi.resetModules()
       const { loadSettings: freshLoad, getDefaultSettings: getDefaults } = await import('../index')
-      const future = JSON.stringify({ schemaVersion: 2, general: { homepage: 'ton://future' } })
+      const future = JSON.stringify({ schemaVersion: 4, general: { homepage: 'ton://future' } })
       vi.mocked(existsSync).mockReturnValue(true)
       vi.mocked(readFileSync).mockReturnValue(future)
 
@@ -692,6 +692,70 @@ describe('Settings Persistence', () => {
       expect(migrateSettings(null)).toEqual({ migrated: false, data: null })
       expect(migrateSettings([])).toEqual({ migrated: false, data: [] })
       expect(migrateSettings('string')).toEqual({ migrated: false, data: 'string' })
+    })
+  })
+
+  describe('migrateThemeColors()', () => {
+    it('migrates v1 custom themes to independent semantic roles', async () => {
+      const { migrateThemeColors } = await import('../index')
+      const { BUILT_IN_THEME_COLORS } = await import('../../../shared/theme-tokens')
+      const colors = { ...BUILT_IN_THEME_COLORS['resistance-dog'] } as Record<string, string>
+      colors.foreground = colors.textPrimary
+      colors.mutedForeground = colors.textSecondary
+      delete colors.textPrimary
+      delete colors.textSecondary
+      delete colors.heading
+      delete colors.chromeForeground
+      delete colors.icon
+
+      const { migrated, data } = migrateThemeColors({
+        appearance: {
+          customThemes: [{ id: 'legacy', colors, isDark: true }],
+        },
+      })
+
+      expect(migrated).toBe(true)
+      const appearance = (data as { appearance: { customThemes: Array<{ colors: Record<string, string> }> } })
+        .appearance
+      expect(appearance.customThemes[0].colors).toMatchObject({
+        textPrimary: colors.foreground,
+        textSecondary: colors.mutedForeground,
+        heading: colors.foreground,
+        chromeForeground: colors.foreground,
+        icon: colors.foreground,
+      })
+      expect(appearance.customThemes[0].colors).not.toHaveProperty('foreground')
+      expect(appearance.customThemes[0].colors).not.toHaveProperty('mutedForeground')
+    })
+
+    it('preserves the independent v2 icon value during migration', async () => {
+      const { migrateThemeColors } = await import('../index')
+      const { BUILT_IN_THEME_COLORS } = await import('../../../shared/theme-tokens')
+      const colors = { ...BUILT_IN_THEME_COLORS['resistance-dog'], icon: '180 50% 50%' } as Record<string, string>
+      colors.foreground = colors.textPrimary
+      colors.mutedForeground = colors.textSecondary
+      delete colors.textPrimary
+      delete colors.textSecondary
+      delete colors.heading
+      delete colors.chromeForeground
+      const current = { appearance: { customThemes: [{ colors }] } }
+
+      const result = migrateThemeColors(current)
+
+      expect(result.migrated).toBe(true)
+      const migratedColors = (result.data as typeof current).appearance.customThemes[0].colors
+      expect(migratedColors.icon).toBe('180 50% 50%')
+      expect(migratedColors.chromeForeground).toBe(colors.foreground)
+    })
+
+    it('is idempotent for v3 themes', async () => {
+      const { migrateThemeColors } = await import('../index')
+      const { BUILT_IN_THEME_COLORS } = await import('../../../shared/theme-tokens')
+      const current = {
+        appearance: { customThemes: [{ colors: { ...BUILT_IN_THEME_COLORS['resistance-dog'] } }] },
+      }
+
+      expect(migrateThemeColors(current)).toEqual({ migrated: false, data: current })
     })
   })
 

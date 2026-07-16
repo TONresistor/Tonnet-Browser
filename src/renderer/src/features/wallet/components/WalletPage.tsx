@@ -24,8 +24,8 @@ import {
 } from 'lucide-react'
 import Lottie from 'lottie-react'
 import explorerAnimation from '@/assets/explorer.json'
-import walletIcon from '@/assets/wallet.svg'
 import { Button } from '@/components/ui/button'
+import { AppIcon } from '@/components/ui/AppIcon'
 import { cn } from '@/lib/utils'
 import { useWalletStore } from '@/features/wallet/store'
 import { formatTonAmount } from '@/lib/ton-utils'
@@ -176,8 +176,8 @@ export function WalletPage() {
         <div className="p-8 max-w-4xl mx-auto">
           <div className="mb-8">
             <div className="flex items-center gap-3">
-              <img src={walletIcon} alt="" className="h-6 w-6" />
-              <h1 className="text-xl font-semibold text-foreground">{t('page.title')}</h1>
+              <AppIcon name="wallet" className="h-6 w-6 text-icon" />
+              <h1 className="text-xl font-semibold text-heading">{t('page.title')}</h1>
             </div>
           </div>
 
@@ -185,7 +185,7 @@ export function WalletPage() {
             <div className="flex items-start gap-3 p-4 bg-muted border border-border rounded-card">
               <AlertTriangle className="h-5 w-5 text-warning mt-0.5 shrink-0" aria-hidden="true" />
               <div>
-                <p className="text-sm font-semibold text-foreground">{t('recovery.title')}</p>
+                <p className="text-sm font-semibold text-heading">{t('recovery.title')}</p>
                 <p className="text-xs text-muted-foreground mt-1">{t('recovery.description')}</p>
               </div>
             </div>
@@ -262,8 +262,8 @@ export function WalletPage() {
         <div className="p-8 max-w-4xl mx-auto">
           <div className="mb-8">
             <div className="flex items-center gap-3">
-              <img src={walletIcon} alt="" className="h-6 w-6" />
-              <h1 className="text-xl font-semibold text-foreground">{t('backup.title')}</h1>
+              <AppIcon name="wallet" className="h-6 w-6 text-icon" />
+              <h1 className="text-xl font-semibold text-heading">{t('backup.title')}</h1>
             </div>
           </div>
 
@@ -363,8 +363,8 @@ export function WalletPage() {
       <div className="p-5 max-w-4xl mx-auto">
         {/* Header */}
         <div className="mb-5 flex items-center justify-center gap-2">
-          <img src={walletIcon} alt="" className="h-5 w-5" />
-          <h1 className="text-xl font-semibold text-foreground">{t('page.title')}</h1>
+          <AppIcon name="wallet" className="h-5 w-5 text-icon" />
+          <h1 className="text-xl font-semibold text-heading">{t('page.title')}</h1>
           {isCreated && (
             <Button
               type="button"
@@ -385,7 +385,7 @@ export function WalletPage() {
           <div className="flex flex-col items-center justify-center gap-4 py-10 text-center">
             <Lottie animationData={explorerAnimation} className="mb-1 h-24 w-24" loop autoplay />
             <div>
-              <h2 className="text-base font-semibold text-foreground">{t('page.noWalletTitle')}</h2>
+              <h2 className="text-base font-semibold text-heading">{t('page.noWalletTitle')}</h2>
               <p className="mt-1 max-w-xs text-sm text-muted-foreground">{t('page.noWalletDesc')}</p>
             </div>
             {error && <p className="text-sm text-destructive">{error}</p>}

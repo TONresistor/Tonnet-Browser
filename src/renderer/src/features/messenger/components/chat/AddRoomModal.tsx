@@ -35,7 +35,7 @@ export function AddRoomModal({ isOpen, onClose, onAdd }: AddRoomModalProps): Rea
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-scrim/60"
       onClick={close}
       onKeyDown={(e) => {
         if (e.key === 'Escape') close()
@@ -58,7 +58,7 @@ export function AddRoomModal({ isOpen, onClose, onAdd }: AddRoomModalProps): Rea
           <X className="h-4 w-4" />
         </button>
 
-        <h3 id="add-room-title" className="pr-8 text-[17px] font-semibold text-foreground">
+        <h3 id="add-room-title" className="pr-8 text-[17px] font-semibold text-heading">
           Add a room
         </h3>
         <p className="mb-4 mt-1 text-[13px] text-muted-foreground">

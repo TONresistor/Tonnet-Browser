@@ -17,6 +17,7 @@ const views = {
   settings: lazy(() =>
     import('@/features/settings/components/SettingsPage').then((module) => ({ default: module.SettingsPage }))
   ),
+  theme: lazy(() => import('@/features/themes/components/ThemePage').then((module) => ({ default: module.ThemePage }))),
   history: lazy(() =>
     import('@/features/history/components/HistoryPage').then((module) => ({ default: module.HistoryPage }))
   ),

@@ -23,7 +23,7 @@ import { AppSettingsSchema, NetworkSettingsSchema } from '../../shared/types'
 import { hasExplicitUndefined } from '../../shared/schemas'
 import { createLogger } from '../../shared/logger'
 const log = createLogger('settings')
-const SETTINGS_SCHEMA_VERSION = 1
+const SETTINGS_SCHEMA_VERSION = 3
 
 // Re-export settings types for consumers that import from this module
 export type {
@@ -208,6 +208,39 @@ export function migrateTheme(raw: unknown): { migrated: boolean; data: unknown }
   return { migrated: false, data: raw }
 }
 
+export function migrateThemeColors(raw: unknown): { migrated: boolean; data: unknown } {
+  if (!isPlainObject(raw) || !isPlainObject(raw.appearance) || !Array.isArray(raw.appearance.customThemes)) {
+    return { migrated: false, data: raw }
+  }
+
+  let migrated = false
+  const customThemes = raw.appearance.customThemes.map((theme) => {
+    if (!isPlainObject(theme) || !isPlainObject(theme.colors)) return theme
+
+    const { foreground, mutedForeground, ...currentColors } = theme.colors
+    if (!foreground && !mutedForeground) return theme
+
+    const textPrimary = currentColors.textPrimary ?? foreground
+    const textSecondary = currentColors.textSecondary ?? mutedForeground
+    if (typeof textPrimary !== 'string' || typeof textSecondary !== 'string') return theme
+    migrated = true
+    return {
+      ...theme,
+      colors: {
+        ...currentColors,
+        textPrimary,
+        textSecondary,
+        heading: currentColors.heading ?? textPrimary,
+        chromeForeground: currentColors.chromeForeground ?? textPrimary,
+        icon: currentColors.icon ?? textPrimary,
+      },
+    }
+  })
+
+  if (!migrated) return { migrated: false, data: raw }
+  return { migrated: true, data: { ...raw, appearance: { ...raw.appearance, customThemes } } }
+}
+
 function migrateDuplicatePorts(raw: unknown): { migrated: boolean; data: unknown } {
   if (!isPlainObject(raw) || !isPlainObject(raw.network)) return { migrated: false, data: raw }
   const parsed = NetworkSettingsSchema.safeParse(raw.network)
@@ -248,8 +281,12 @@ function migrateAll(raw: unknown): { migrated: boolean; data: unknown } {
   const r1 = migrateSettings(raw)
   const r2 = migrateNotificationStyle(r1.data)
   const r3 = migrateTheme(r2.data)
-  const r4 = migrateDuplicatePorts(r3.data)
-  return { migrated: r1.migrated || r2.migrated || r3.migrated || r4.migrated, data: r4.data }
+  const r4 = migrateThemeColors(r3.data)
+  const r5 = migrateDuplicatePorts(r4.data)
+  return {
+    migrated: r1.migrated || r2.migrated || r3.migrated || r4.migrated || r5.migrated,
+    data: r5.data,
+  }
 }
 
 /** Persist during load without letting a transient write failure abort startup. */

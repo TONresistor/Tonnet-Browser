@@ -37,7 +37,7 @@ export const SortableBookmarkItem = memo(function SortableBookmarkItem({
       style={style}
       {...attributes}
       {...listeners}
-      className="px-2.5 py-1.5 rounded-full text-sm transition-all duration-200 shrink-0 bg-surface text-foreground-muted hover:bg-surface-active hover:text-foreground flex items-center gap-2"
+      className="px-2.5 py-1.5 rounded-full text-sm transition-all duration-200 shrink-0 bg-surface text-chrome-foreground hover:bg-surface-active flex items-center gap-2"
       onClick={(_e) => {
         // Only navigate if not dragging
         if (!isDragging) {

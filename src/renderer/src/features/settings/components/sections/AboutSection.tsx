@@ -58,7 +58,7 @@ export const AboutSection = memo(function AboutSection() {
         return (
           <button
             onClick={handleCheck}
-            className="flex items-center gap-1.5 px-4 py-1.5 rounded-md text-sm font-medium transition-colors bg-primary text-white shadow-none hover:bg-primary/90"
+            className="flex items-center gap-1.5 px-4 py-1.5 rounded-md text-sm font-medium transition-colors bg-primary text-primary-foreground shadow-none hover:bg-primary/90"
           >
             <RefreshCw className="h-4 w-4" />
             {t('about.update.check')}
@@ -69,7 +69,7 @@ export const AboutSection = memo(function AboutSection() {
         return (
           <button
             disabled
-            className="flex items-center gap-1.5 px-4 py-1.5 rounded-md text-sm font-medium transition-colors bg-primary text-white opacity-70 shadow-none"
+            className="flex items-center gap-1.5 px-4 py-1.5 rounded-md text-sm font-medium transition-colors bg-primary text-primary-foreground opacity-70 shadow-none"
           >
             <LoaderCircle className="h-4 w-4 animate-spin" />
             {t('about.update.checking')}
@@ -95,7 +95,7 @@ export const AboutSection = memo(function AboutSection() {
             </span>
             <button
               onClick={handleOpenDownloadPage}
-              className="flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-200 bg-primary/90 text-white shadow-[0_4px_16px_var(--primary-glow)] hover:bg-primary"
+              className="flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-200 bg-primary/90 text-primary-foreground shadow-[0_4px_16px_var(--primary-glow)] hover:bg-primary"
             >
               <Download className="h-4 w-4" />
               {t('about.update.download')}
@@ -128,7 +128,7 @@ export const AboutSection = memo(function AboutSection() {
         <div className="w-16 h-16 mx-auto mb-4">
           <img src={tonLogo} alt="TON" className="w-full h-full object-contain" />
         </div>
-        <h3 className="text-2xl font-bold text-foreground mb-1">{APP_NAME}</h3>
+        <h3 className="text-2xl font-bold text-heading mb-1">{APP_NAME}</h3>
         <p className="text-muted-foreground mb-4">{t('about.version', { version: APP_VERSION })}</p>
         <p className="text-muted-foreground text-sm max-w-md mx-auto">{t('about.description')}</p>
 

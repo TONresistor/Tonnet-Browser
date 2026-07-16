@@ -93,7 +93,7 @@ export function LandingPage() {
         <div className="w-[200px] h-[200px] mb-8" />
       )}
 
-      <h1 className="text-[42px] font-bold text-foreground mb-3">{t('title')}</h1>
+      <h1 className="text-[42px] font-bold text-heading mb-3">{t('title')}</h1>
 
       <p className="text-muted-foreground text-xl mb-8">{t('subtitle')}</p>
 
@@ -101,11 +101,11 @@ export function LandingPage() {
       <button
         onClick={connect}
         disabled={showLoading}
-        className="relative text-xl font-medium px-16 py-5 rounded-full min-w-[340px] transition-all duration-300 bg-primary text-primary-foreground backdrop-blur-[20px] border border-white/20 disabled:opacity-70 disabled:cursor-not-allowed shadow-[0_8px_32px_hsl(var(--primary)/0.4)] [box-shadow:var(--glass-highlight)]"
+        className="relative text-xl font-medium px-16 py-5 rounded-full min-w-[340px] transition-all duration-300 bg-tonsite text-identity-foreground backdrop-blur-[20px] border border-identity-foreground/20 disabled:opacity-70 disabled:cursor-not-allowed shadow-tonsite"
       >
         {showLoading ? (
           <div className="flex items-center justify-center gap-3">
-            <div className="w-6 h-6 border-2 border-primary-foreground/20 border-t-primary-foreground rounded-full animate-spin" />
+            <div className="w-6 h-6 border-2 border-identity-foreground/20 border-t-identity-foreground rounded-full animate-spin" />
             <span>{stepMessage || t('buttons.connecting', { ns: 'common' })}</span>
           </div>
         ) : (

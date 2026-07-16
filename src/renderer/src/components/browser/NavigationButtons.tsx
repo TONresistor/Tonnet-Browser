@@ -3,10 +3,9 @@
  * Back, forward, reload, home, and stop.
  */
 
-import { ArrowLeft, ArrowRight, RotateCw, X } from 'lucide-react'
 import { browserClient } from '@/features/browser/client'
 import { Button } from '@/components/ui/button'
-import homeIconSrc from '@/assets/home.svg'
+import { AppIcon } from '@/components/ui/AppIcon'
 import { useBrowserStore } from '@/stores/browser'
 import { useTabsStore } from '@/stores/tabs'
 import { useTranslation } from 'react-i18next'
@@ -50,11 +49,11 @@ export function NavigationButtons() {
         size="icon"
         onClick={handleBack}
         disabled={!canGoBack}
-        className="h-7 w-7 rounded-full"
+        className="h-7 w-7 rounded-full text-icon hover:text-icon"
         title={t('navigation.back')}
         aria-label={t('navigation.goBackAria')}
       >
-        <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+        <AppIcon name="back" className="h-4 w-4" />
       </Button>
 
       <Button
@@ -62,39 +61,33 @@ export function NavigationButtons() {
         size="icon"
         onClick={handleForward}
         disabled={!canGoForward}
-        className="h-7 w-7 rounded-full"
+        className="h-7 w-7 rounded-full text-icon hover:text-icon"
         title={t('navigation.forward')}
         aria-label={t('navigation.goForwardAria')}
       >
-        <ArrowRight className="h-4 w-4" aria-hidden="true" />
+        <AppIcon name="forward" className="h-4 w-4" />
       </Button>
 
       <Button
         variant="ghost"
         size="icon"
         onClick={handleReload}
-        className="h-7 w-7 rounded-full"
+        className="h-7 w-7 rounded-full text-icon hover:text-icon"
         title={isLoading ? t('navigation.stop') : t('navigation.reload')}
         aria-label={isLoading ? t('navigation.stopLoadingAria') : t('navigation.reloadAria')}
       >
-        {isLoading ? <X className="h-4 w-4" aria-hidden="true" /> : <RotateCw className="h-4 w-4" aria-hidden="true" />}
+        <AppIcon name={isLoading ? 'stop' : 'reload'} className="h-4 w-4" />
       </Button>
 
       <Button
         variant="ghost"
         size="icon"
         onClick={handleHome}
-        className="h-7 w-7 rounded-full"
+        className="h-7 w-7 rounded-full text-icon hover:text-icon"
         title={t('navigation.home')}
         aria-label={t('navigation.goHomeAria')}
       >
-        <img
-          src={homeIconSrc}
-          alt=""
-          className="h-4 w-4 text-foreground"
-          style={{ filter: 'brightness(0) invert(1)' }}
-          aria-hidden="true"
-        />
+        <AppIcon name="home" className="h-4 w-4" />
       </Button>
     </nav>
   )

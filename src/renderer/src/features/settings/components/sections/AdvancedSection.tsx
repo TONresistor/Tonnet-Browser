@@ -97,6 +97,7 @@ export const AdvancedSection = memo(function AdvancedSection({
           <Segmented
             value={String(draft.proxyVerbosity)}
             onChange={(v) => setDraft('proxyVerbosity', Number(v))}
+            ariaLabel={t('advanced.proxyVerbosity')}
             options={[
               { value: '0', label: t('advanced.silent') },
               { value: '1', label: t('advanced.errorsOnly') },
@@ -109,6 +110,7 @@ export const AdvancedSection = memo(function AdvancedSection({
           <Segmented
             value={String(draft.storageVerbosity)}
             onChange={(v) => setDraft('storageVerbosity', Number(v))}
+            ariaLabel={t('advanced.storageVerbosity')}
             options={[
               { value: '0', label: t('advanced.silent') },
               { value: '1', label: t('advanced.errorsOnly') },

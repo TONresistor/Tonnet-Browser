@@ -1,7 +1,8 @@
 /* Settings group — solid inset card (iOS grouped-table look), matches the floating sidebar groups */
 .settings-group {
   position: relative;
-  background: hsl(var(--elevation-2));
+  background: hsl(var(--card));
+  color: hsl(var(--card-foreground));
   border: 1px solid hsl(var(--border-subtle));
   border-radius: var(--radius-card);
 }

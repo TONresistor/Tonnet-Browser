@@ -97,7 +97,7 @@ function CenteredNotice({ title, description }: { title: string; description?: s
   return (
     <div className="flex-1 overflow-auto p-6">
       <div className="max-w-md mx-auto space-y-4 text-center">
-        <h1 className="text-xl font-semibold text-foreground">{title}</h1>
+        <h1 className="text-xl font-semibold text-heading">{title}</h1>
         {description && <p className="text-sm text-muted-foreground">{description}</p>}
       </div>
     </div>

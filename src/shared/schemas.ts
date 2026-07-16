@@ -4,6 +4,7 @@
  */
 
 import { z } from 'zod'
+import { THEME_TOKEN_KEYS, type ThemeColorKey } from './theme-tokens'
 
 export function hasExplicitUndefined(value: unknown): boolean {
   if (value === undefined) return true
@@ -46,32 +47,12 @@ const LegacyThemeSchema = z.enum(['midnight-blue', 'canard-yellow'])
 const CustomThemeIdSchema = z.string().startsWith('custom:')
 export const ThemeTypeSchema = z.union([BuiltInThemeSchema, LegacyThemeSchema, CustomThemeIdSchema])
 
-export const ThemeColorsSchema = z.object({
-  background: z.string(),
-  backgroundSecondary: z.string(),
-  foreground: z.string(),
-  card: z.string(),
-  cardForeground: z.string(),
-  primary: z.string(),
-  primaryForeground: z.string(),
-  secondary: z.string(),
-  secondaryForeground: z.string(),
-  accent: z.string(),
-  accentForeground: z.string(),
-  muted: z.string(),
-  mutedForeground: z.string(),
-  destructive: z.string(),
-  destructiveForeground: z.string(),
-  success: z.string(),
-  successForeground: z.string(),
-  warning: z.string(),
-  warningForeground: z.string(),
-  info: z.string(),
-  infoForeground: z.string(),
-  border: z.string(),
-  input: z.string(),
-  ring: z.string(),
-})
+const ThemeColorShape = Object.fromEntries(THEME_TOKEN_KEYS.map((key) => [key, z.string()])) as Record<
+  ThemeColorKey,
+  z.ZodString
+>
+
+export const ThemeColorsSchema = z.object(ThemeColorShape)
 
 export const CustomThemeSchema = z.object({
   id: z.string(),

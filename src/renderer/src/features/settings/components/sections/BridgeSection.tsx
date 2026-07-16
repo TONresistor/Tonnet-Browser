@@ -280,16 +280,16 @@ export const BridgeSection = memo(function BridgeSection({ onDirtyChange, sectio
 
       {/* Restart required banner */}
       {restartRequired && (
-        <div className="mb-6 settings-group px-4 py-3 border border-yellow-500/30 bg-yellow-500/5">
+        <div className="mb-6 settings-group px-4 py-3 border border-warning/30 bg-warning/5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 text-yellow-500 shrink-0" />
+              <AlertTriangle className="h-4 w-4 text-warning shrink-0" />
               <span className="text-sm text-foreground">{t('bridge.restartRequired')}</span>
             </div>
             <button
               onClick={handleRestart}
               disabled={restarting}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 transition-colors disabled:opacity-50"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm bg-warning/20 text-warning hover:bg-warning/30 transition-colors disabled:opacity-50"
             >
               <RotateCw className={cn('h-3.5 w-3.5', restarting && 'animate-spin')} />
               {restarting ? t('bridge.restarting') : t('bridge.restartNow')}
@@ -304,6 +304,7 @@ export const BridgeSection = memo(function BridgeSection({ onDirtyChange, sectio
           <Segmented
             value={draftPolicy}
             onChange={(v) => setDraftPolicy(v as 'ask' | 'deny')}
+            ariaLabel={t('bridge.defaultPolicy')}
             options={[
               { value: 'ask', label: t('bridge.policyAsk') },
               { value: 'deny', label: t('bridge.policyDeny') },
@@ -433,7 +434,7 @@ export const BridgeSection = memo(function BridgeSection({ onDirtyChange, sectio
           <div className="space-y-4">
             {Object.entries(grouped).map(([domain, perms]) => (
               <div key={domain} className="settings-group p-4">
-                <h4 className="text-foreground font-medium mb-3">{domain}</h4>
+                <h4 className="text-heading font-medium mb-3">{domain}</h4>
                 <div className="space-y-2">
                   {perms.map((p) => (
                     <div key={`${p.domain}:${p.scope}`} className="flex items-center justify-between py-1.5">
@@ -443,10 +444,10 @@ export const BridgeSection = memo(function BridgeSection({ onDirtyChange, sectio
                           className={cn(
                             'text-xs px-2 py-0.5 rounded-full',
                             p.decision === 'granted'
-                              ? 'bg-green-500/20 text-green-400'
+                              ? 'bg-success/20 text-success'
                               : p.decision === 'denied'
-                                ? 'bg-red-500/20 text-red-400'
-                                : 'bg-yellow-500/20 text-yellow-400'
+                                ? 'bg-destructive/20 text-destructive'
+                                : 'bg-warning/20 text-warning'
                           )}
                         >
                           {getDecisionLabel(p.decision)}

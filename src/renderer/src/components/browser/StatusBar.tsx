@@ -5,7 +5,7 @@
 
 import { useEffect, useState, memo } from 'react'
 import { Wifi, WifiOff, LoaderCircle, ArrowDown, ArrowUp } from 'lucide-react'
-import walletIcon from '@/assets/wallet.svg'
+import { AppIcon } from '@/components/ui/AppIcon'
 import { useBrowserStore } from '@/stores/browser'
 import { useShallow } from 'zustand/react/shallow'
 import { usePreferencesStore } from '@/features/settings/preferences-store'
@@ -33,7 +33,7 @@ function Clock({ locale }: { locale?: string }) {
     const timer = setInterval(() => setNow(new Date()), 1000)
     return () => clearInterval(timer)
   }, [])
-  return <span className="text-foreground">{formatTime(now, locale)}</span>
+  return <span className="text-chrome-foreground">{formatTime(now, locale)}</span>
 }
 
 export const StatusBar = memo(function StatusBar() {
@@ -104,7 +104,7 @@ export const StatusBar = memo(function StatusBar() {
     const hops = TUNNEL_SECTIONS[tunnelMode]
 
     return (
-      <span className="text-tonsite">
+      <span className="text-primary">
         {isReady ? t('statusBar.garlicRouting', { hops }) : t('statusBar.buildingCircuit')}
       </span>
     )
@@ -118,7 +118,7 @@ export const StatusBar = memo(function StatusBar() {
 
   return (
     <footer
-      className="flex items-center justify-between px-3 py-1 bg-[hsl(var(--elevation-0))] border-t border-border text-xs text-muted-foreground"
+      className="flex items-center justify-between px-3 py-1 bg-[hsl(var(--elevation-0))] border-t border-border text-xs text-chrome-foreground"
       role="contentinfo"
     >
       <div className="flex items-center gap-3">
@@ -145,7 +145,7 @@ export const StatusBar = memo(function StatusBar() {
         <button
           type="button"
           onClick={() => openOrSwitchToTab('ton://storage')}
-          className="flex items-center gap-1.5 text-muted-foreground transition-colors hover:text-foreground"
+          className="flex items-center gap-1.5 text-chrome-foreground transition-colors"
           aria-label={`${storageStats.bagsCount} ${storageStats.bagsCount === 1 ? t('statusBar.bag') : t('statusBar.bags')}`}
         >
           <span>{t('statusBar.storage')}</span>
@@ -184,11 +184,11 @@ export const StatusBar = memo(function StatusBar() {
             <button
               type="button"
               onClick={() => openOrSwitchToTab(TON_WALLET_PAGE)}
-              className="flex items-center gap-1 hover:text-foreground transition-colors"
+              className="flex items-center gap-1 text-tonsite transition-colors"
               title={t('statusBar.walletTitle')}
               aria-label={t('statusBar.walletAria')}
             >
-              <img src={walletIcon} alt="" className="h-3 w-3" />
+              <AppIcon name="wallet" className="h-3 w-3" />
               <span>{formatTonAmount(walletBalance)} GRAM</span>
             </button>
             <Separator />

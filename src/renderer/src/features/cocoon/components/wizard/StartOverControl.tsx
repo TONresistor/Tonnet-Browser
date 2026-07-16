@@ -104,7 +104,7 @@ export function StartOverControl({ onReset }: { onReset: () => void }) {
         <p className="text-xs text-muted-foreground">
           This Cocoon wallet was never funded, so nothing is lost. Delete it and start a fresh setup?
         </p>
-        {error && <p className="text-[11px] text-red-400">{error}</p>}
+        {error && <p className="text-[11px] text-destructive">{error}</p>}
         <div className="flex justify-end gap-2">
           <Button type="button" variant="outline" size="sm" onClick={() => setPhase('idle')}>
             Cancel
@@ -133,7 +133,7 @@ export function StartOverControl({ onReset }: { onReset: () => void }) {
             </p>
           </div>
         </div>
-        {error && <p className="text-[11px] text-red-400">{error}</p>}
+        {error && <p className="text-[11px] text-destructive">{error}</p>}
         <div className="flex flex-wrap justify-end gap-2">
           <Button type="button" variant="outline" size="sm" onClick={() => setPhase('idle')}>
             Cancel
@@ -165,7 +165,7 @@ export function StartOverControl({ onReset }: { onReset: () => void }) {
         {copied ? <Check className="mr-1.5 h-3.5 w-3.5" /> : <Copy className="mr-1.5 h-3.5 w-3.5" />}
         {copied ? 'Copied' : 'Copy phrase'}
       </Button>
-      {error && <p className="text-[11px] text-red-400">{error}</p>}
+      {error && <p className="text-[11px] text-destructive">{error}</p>}
       <div className="flex justify-end gap-2">
         <Button type="button" variant="outline" size="sm" onClick={() => setPhase('warnFunded')}>
           Back

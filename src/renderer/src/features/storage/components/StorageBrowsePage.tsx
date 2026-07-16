@@ -157,9 +157,7 @@ export function StorageBrowsePage({ bagId }: { bagId: string }) {
       {/* Floating sidebar: bag list */}
       <aside className="m-3 flex w-[260px] shrink-0 flex-col overflow-hidden rounded-panel border border-border-subtle bg-elevation-1 shadow-panel">
         <div className="flex items-center justify-between px-4 pb-2 pt-4">
-          <h1 className="text-[15px] font-semibold text-foreground">
-            {t('storage.bagsTitle', { defaultValue: 'Bags' })}
-          </h1>
+          <h1 className="text-[15px] font-semibold text-heading">{t('storage.bagsTitle', { defaultValue: 'Bags' })}</h1>
           <span className="text-[13px] font-medium text-muted-foreground tabular-nums">{bags.length}</span>
         </div>
         <nav className="flex-1 overflow-auto px-2 pb-2">
@@ -190,7 +188,7 @@ export function StorageBrowsePage({ bagId }: { bagId: string }) {
           <div className="mx-auto w-full max-w-3xl px-6 py-5">
             {/* Header: name + full copyable bag id + meta */}
             <div className="mb-4">
-              <h2 className="text-xl font-semibold text-foreground" title={bagName}>
+              <h2 className="text-xl font-semibold text-heading" title={bagName}>
                 {bagName}
               </h2>
               <CopyableBagId id={selectedId} />

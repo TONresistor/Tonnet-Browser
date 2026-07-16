@@ -34,7 +34,7 @@ export function Step2Backup({ mnemonic, onComplete, onBack }: Props) {
   return (
     <div className="space-y-5">
       <div className="text-center">
-        <h2 className="text-lg font-semibold text-foreground">Back up your recovery phrase</h2>
+        <h2 className="text-lg font-semibold text-heading">Back up your recovery phrase</h2>
         <p className="mx-auto mt-1 max-w-sm text-[13px] text-muted-foreground">
           Write the 24 words down and keep them offline. Anyone with them controls your wallet.
         </p>

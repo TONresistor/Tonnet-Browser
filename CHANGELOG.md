@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- Dedicated `ton://theme` workspace for selecting, creating, editing, importing and exporting browser themes.
+
+### Changed
+
+- Theme creation and editing now use an inline, responsive workbench with semantic color controls and an explicit temporary preview.
+
+### Fixed
+
+- New, duplicated and imported themes remain local drafts until explicitly saved; canceling no longer persists partial themes.
+
 ## [2.4.0] - 2026-07-11
 
 ### Added

@@ -7,6 +7,9 @@
   --color-background-secondary: hsl(var(--background-secondary));
 
   --color-foreground: hsl(var(--foreground));
+  --color-heading: hsl(var(--heading));
+  --color-chrome-foreground: hsl(var(--chrome-foreground));
+  --color-icon: hsl(var(--icon));
 
   --color-card: hsl(var(--card));
   --color-card-foreground: hsl(var(--card-foreground));
@@ -47,6 +50,11 @@
   --color-border-strong: hsl(var(--border-strong));
   --color-input: hsl(var(--input));
   --color-ring: hsl(var(--ring));
+  --color-scrim: hsl(var(--scrim));
+  --color-identity-foreground: hsl(var(--identity-foreground));
+  --color-switch-thumb: hsl(var(--switch-thumb));
+
+  --color-tonsite: #0098ea;
 
   --radius-pill: 1000px;
   --radius-container: 20px;
@@ -74,6 +82,7 @@
 
   --shadow-control: 0 1px 3px rgba(0, 0, 0, 0.25);
   --shadow-panel: 0 10px 30px -6px rgba(0, 0, 0, 0.45);
+  --shadow-tonsite: 0 8px 32px rgba(0, 152, 234, 0.4), var(--glass-highlight);
 
   --font-sans: Inter, system-ui, sans-serif;
 }
@@ -109,19 +118,22 @@
     --background: 210 26% 13%; /* #17212b */
     --background-secondary: 210 32% 9%; /* #0e1621 */
     --foreground: 0 0% 96%; /* #f5f5f5 */
+    --heading: 0 0% 96%;
+    --chrome-foreground: 0 0% 96%;
+    --icon: 0 0% 96%;
     --card: 210 24% 18%; /* #232e3c */
     --card-foreground: 0 0% 96%;
     --popover: 210 24% 18%; /* #232e3c */
     --popover-foreground: 0 0% 96%;
     --primary: 200 100% 46%; /* #0098ea - TON blue */
-    --primary-foreground: 0 0% 100%;
+    --primary-foreground: 210 32% 9%;
     --secondary: 210 24% 18%; /* #232e3c */
     --secondary-foreground: 0 0% 96%;
     --muted: 210 22% 15%; /* #1b2734 */
-    --muted-foreground: 210 18% 52%; /* #708499 */
+    --muted-foreground: 210 16% 60%;
     --accent: 200 100% 46%; /* #0098ea - TON blue */
-    --accent-foreground: 0 0% 100%;
-    --destructive: 356 82% 58%; /* #ec3942 */
+    --accent-foreground: 210 32% 9%;
+    --destructive: 356 75% 52%;
     --destructive-foreground: 0 0% 100%;
     --border: 210 22% 22%; /* #2b3d4f */
     --input: 210 24% 18%; /* #232e3c */
@@ -129,11 +141,15 @@
     --radius: 0.5rem;
     /* Status colors */
     --success: 145 55% 58%; /* #59cf8a - soft green */
-    --success-foreground: 0 0% 100%;
+    --success-foreground: 210 32% 9%;
     --warning: 38 92% 50%; /* #f59e0b */
     --warning-foreground: 0 0% 0%;
     --info: 199 89% 48%; /* #0ea5e9 */
-    --info-foreground: 0 0% 100%;
+    --info-foreground: 210 32% 9%;
+
+    --scrim: 0 0% 0%;
+    --identity-foreground: 0 0% 100%;
+    --switch-thumb: 0 0% 100%;
 
     /* Surface variants (white with opacity for dark theme) */
     --surface: 0 0% 100% / 0.06;
@@ -180,18 +196,21 @@
     --background: 50 100% 60%; /* #FFE600 - Jaune vif */
     --background-secondary: 48 100% 55%; /* #FFD900 - Jaune legerement plus fonce */
     --foreground: 0 0% 8%; /* #141414 - Texte noir */
+    --heading: 0 0% 8%;
+    --chrome-foreground: 0 0% 8%;
+    --icon: 0 0% 8%;
     --card: 52 100% 65%; /* #FFEB33 - Jaune clair pour cards */
     --card-foreground: 0 0% 8%;
     --popover: 50 100% 60%; /* #FFE600 */
     --popover-foreground: 0 0% 8%;
     --primary: 200 85% 55%; /* #2AABEE - Bleu Telegram */
-    --primary-foreground: 0 0% 100%;
+    --primary-foreground: 0 0% 8%;
     --secondary: 48 90% 55%; /* #F0D000 - Jaune dore */
     --secondary-foreground: 0 0% 8%;
     --muted: 48 80% 65%; /* #F0DC4D - Jaune moyen */
     --muted-foreground: 0 0% 15%; /* #262626 - Gris tres fonce */
     --accent: 200 80% 45%; /* #1E96D1 - Bleu Telegram fonce */
-    --accent-foreground: 0 0% 100%;
+    --accent-foreground: 0 0% 8%;
     --destructive: 0 80% 45%; /* #CC2929 - Rouge */
     --destructive-foreground: 0 0% 100%;
     --border: 40 70% 35%; /* #998219 - Bordure marron-or */
@@ -200,7 +219,7 @@
     --radius: 0.5rem;
     /* Status colors */
     --success: 145 48% 40%; /* #35976a - soft green (light theme) */
-    --success-foreground: 0 0% 100%;
+    --success-foreground: 0 0% 8%;
     --warning: 15 90% 40%; /* #C24D0A - Rouge-orange */
     --warning-foreground: 0 0% 100%;
     --info: 210 90% 35%; /* #0959A6 - Bleu fonce */
@@ -288,31 +307,9 @@
   -webkit-app-region: no-drag;
 }
 
-/* Tonsite badge color - #0098EA */
-.bg-tonsite {
-  background-color: #0098ea;
-}
-
-.text-tonsite {
-  color: #0098ea;
-}
-
 /* Theme gradient utilities */
 .gradient-primary {
   background: linear-gradient(to right, hsl(var(--primary)), hsl(var(--accent)));
-}
-
-/* Theme-specific scrollbar for Utya Duck theme */
-[data-theme='utya-duck'] ::-webkit-scrollbar-track {
-  background: hsl(50 100% 60%);
-}
-
-[data-theme='utya-duck'] ::-webkit-scrollbar-thumb {
-  background: hsl(40 70% 35%);
-}
-
-[data-theme='utya-duck'] ::-webkit-scrollbar-thumb:hover {
-  background: hsl(40 70% 25%);
 }
 
 /* Glass surface material */

@@ -1,5 +1,5 @@
 import { cn } from '@/lib/utils'
-import type { ReactNode } from 'react'
+import type { KeyboardEvent, ReactNode } from 'react'
 
 interface SegmentedOption<T extends string> {
   value: T
@@ -13,7 +13,7 @@ interface SegmentedProps<T extends string> {
   options: SegmentedOption<T>[]
   disabled?: boolean
   fullWidth?: boolean
-  ariaLabel?: string
+  ariaLabel: string
   className?: string
 }
 
@@ -26,10 +26,29 @@ export function Segmented<T extends string>({
   ariaLabel,
   className,
 }: SegmentedProps<T>) {
+  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (disabled || !['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) return
+
+    event.preventDefault()
+    const currentIndex = options.findIndex((option) => option.value === value)
+    let nextIndex = currentIndex
+    if (event.key === 'Home') nextIndex = 0
+    else if (event.key === 'End') nextIndex = options.length - 1
+    else if (event.key === 'ArrowRight' || event.key === 'ArrowDown') nextIndex = (currentIndex + 1) % options.length
+    else nextIndex = (currentIndex - 1 + options.length) % options.length
+
+    const nextOption = options[nextIndex]
+    if (!nextOption) return
+    onChange(nextOption.value)
+    event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="radio"]')[nextIndex]?.focus()
+  }
+
   return (
     <div
-      role={ariaLabel ? 'tablist' : undefined}
+      role="radiogroup"
       aria-label={ariaLabel}
+      aria-disabled={disabled}
+      onKeyDown={handleKeyDown}
       className={cn('inline-flex rounded-segment bg-surface p-[2px]', fullWidth && 'flex w-full', className)}
     >
       {options.map((option) => {
@@ -38,8 +57,9 @@ export function Segmented<T extends string>({
           <button
             key={option.value}
             type="button"
-            role={ariaLabel ? 'tab' : undefined}
-            aria-selected={ariaLabel ? selected : undefined}
+            role="radio"
+            aria-checked={selected}
+            tabIndex={selected ? 0 : -1}
             onClick={() => !disabled && onChange(option.value)}
             disabled={disabled}
             className={cn(

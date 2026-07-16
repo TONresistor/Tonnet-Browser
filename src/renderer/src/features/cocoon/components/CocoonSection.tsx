@@ -131,7 +131,7 @@ export const CocoonSection = memo(function CocoonSection({ draft, setDraft }: Se
           onClick={() => setAdvancedRecoveryOpen((v) => !v)}
         >
           <div className="min-w-0">
-            <h4 className="text-sm font-semibold text-foreground">{t('cocoon.recovery.sectionTitle')}</h4>
+            <h4 className="text-sm font-semibold text-heading">{t('cocoon.recovery.sectionTitle')}</h4>
             <p className="mt-0.5 text-xs text-muted-foreground truncate">{t('cocoon.recovery.sectionDesc')}</p>
           </div>
           <ChevronDown

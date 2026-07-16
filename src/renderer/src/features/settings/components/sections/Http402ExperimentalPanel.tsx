@@ -224,6 +224,7 @@ export const Http402ExperimentalPanel = memo(function Http402ExperimentalPanel({
                 <Segmented
                   value={draft.paymentMode}
                   onChange={(v) => updateDraft({ paymentMode: v as PaymentMode })}
+                  ariaLabel={t('wallet.paymentMode')}
                   options={[
                     { value: 'manual', label: t('wallet.modeManual') },
                     { value: 'auto', label: t('wallet.modeAuto') },
@@ -234,6 +235,7 @@ export const Http402ExperimentalPanel = memo(function Http402ExperimentalPanel({
                 <Segmented
                   value={draft.notificationStyle}
                   onChange={(v) => updateDraft({ notificationStyle: v as NotificationStyle })}
+                  ariaLabel={t('wallet.notificationStyle')}
                   options={[
                     { value: 'popup', label: t('wallet.notifPopup') },
                     { value: 'addressbar', label: t('wallet.notifAddressbar') },

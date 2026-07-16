@@ -63,7 +63,7 @@ export const PrivacySection = memo(function PrivacySection({
           <button
             onClick={onClearData}
             disabled={clearing}
-            className="flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-200 disabled:opacity-50 bg-destructive/90 shadow-[0_4px_16px_var(--destructive-glow)] text-white"
+            className="flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-200 disabled:opacity-50 bg-destructive/90 shadow-[0_4px_16px_var(--destructive-glow)] text-destructive-foreground"
           >
             {clearing ? (
               t('privacy.clearing')
@@ -132,6 +132,7 @@ export const PrivacySection = memo(function PrivacySection({
           <Segmented
             value={draft.historyMode}
             onChange={(v) => !changingHistoryMode && (v === 'memory' || v === 'persistent') && onHistoryModeChange(v)}
+            ariaLabel={t('history.historyMode')}
             options={historyModeOptions}
             disabled={changingHistoryMode}
           />

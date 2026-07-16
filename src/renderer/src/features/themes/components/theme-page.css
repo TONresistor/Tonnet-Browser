@@ -1,0 +1,88 @@
+.theme-page-shell {
+  container-name: theme-page;
+  container-type: inline-size;
+}
+
+.theme-page-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(220px, 40%) minmax(0, 1fr);
+}
+
+.theme-page-shell .theme-library {
+  width: auto;
+  min-height: 0;
+  margin-bottom: 0;
+}
+
+.theme-page-main {
+  padding-top: 1rem;
+}
+
+.theme-page-main--editor {
+  overflow: hidden;
+  padding: 0;
+}
+
+.theme-detail-commandbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  min-height: 72px;
+  column-gap: 1.5rem;
+}
+
+.theme-page-workspace {
+  container-name: theme-workspace;
+  container-type: inline-size;
+}
+
+.theme-base-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+}
+
+.theme-workbench {
+  container-name: theme-workbench;
+  container-type: inline-size;
+}
+
+.theme-identity-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@container theme-page (min-width: 760px) {
+  .theme-page-layout {
+    grid-template-columns: 312px minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .theme-page-shell .theme-library {
+    width: 288px;
+    margin-bottom: 0.75rem;
+  }
+
+  .theme-page-main {
+    padding: clamp(1.5rem, 3cqw, 2.5rem);
+  }
+
+  .theme-page-main.theme-page-main--editor {
+    padding: 0;
+  }
+}
+
+@container theme-page (max-width: 920px) {
+  .theme-detail-commandbar {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 0.875rem;
+  }
+
+  .theme-detail-actions {
+    justify-content: flex-start;
+  }
+}
+
+@container theme-workbench (min-width: 620px) {
+  .theme-identity-grid {
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.4fr);
+  }
+}

@@ -77,13 +77,13 @@ function ChatRoomView({
       <div className="m-3 mb-0 flex items-center gap-2">
         <div className="flex min-w-0 flex-1 items-center gap-2.5 rounded-full border border-border-subtle bg-elevation-1 px-3 py-1.5 shadow-panel">
           <span
-            className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-[14px] font-semibold text-white"
+            className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-[14px] font-semibold text-identity-foreground"
             style={{ backgroundColor: avatarColor(room) }}
           >
             {initial(room)}
           </span>
           <div className="min-w-0 flex-1">
-            <div className="truncate text-[15px] font-semibold leading-tight text-foreground" title={room}>
+            <div className="truncate text-[15px] font-semibold leading-tight text-heading" title={room}>
               {roomLabel(room)}
             </div>
             <div className="flex items-center gap-1.5 text-[12px] leading-tight text-muted-foreground">

@@ -6,8 +6,8 @@
  */
 
 import { Brain, Plus, Trash2, Wallet } from 'lucide-react'
-import cocoonIcon from '@/assets/cocoon.png'
 import { ActionButton } from '@/components/ui/ios/ActionButton'
+import { AppIcon } from '@/components/ui/AppIcon'
 import { Toggle } from '@/features/settings/components/shared/Toggle'
 import { cn } from '@/lib/utils'
 import { useCocoonChatStore } from '@/features/cocoon/store'
@@ -39,8 +39,8 @@ export function CocoonConversationsRail({
   return (
     <aside className="m-3 flex w-[260px] shrink-0 flex-col overflow-hidden rounded-panel border border-border-subtle bg-elevation-1 shadow-panel">
       <div className="flex items-center justify-center gap-2 px-4 pb-3 pt-4">
-        <img src={cocoonIcon} alt="" className="h-5 w-5 brightness-0 invert" />
-        <span className="text-xl font-bold text-foreground">Cocoon Ai</span>
+        <AppIcon name="cocoon" className="h-5 w-5 text-icon" />
+        <span className="text-xl font-bold text-heading">Cocoon Ai</span>
       </div>
 
       <nav className="min-h-0 flex-1 overflow-y-auto px-2 py-3">

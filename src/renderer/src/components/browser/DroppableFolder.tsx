@@ -61,8 +61,8 @@ export function DroppableFolder({ folder, onClick, onContextMenu }: DroppableFol
         flex items-center gap-1
         ${
           isOver
-            ? 'bg-primary/20 text-foreground ring-2 ring-primary scale-105'
-            : 'bg-surface text-foreground-muted hover:bg-surface-active hover:text-foreground'
+            ? 'bg-primary/20 text-chrome-foreground ring-2 ring-primary scale-105'
+            : 'bg-surface text-chrome-foreground hover:bg-surface-active'
         }
       `}
       onClick={(e) => {

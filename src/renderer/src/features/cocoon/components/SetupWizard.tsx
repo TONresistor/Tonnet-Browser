@@ -133,7 +133,7 @@ export function SetupWizard({ onComplete, compact = false, resumeFrom }: Props) 
           ) : (
             // Mnemonic already wiped (user navigated back after acknowledging)
             <div className="space-y-4">
-              <h2 className="text-lg font-semibold text-foreground">Step 2: Back up your recovery phrase</h2>
+              <h2 className="text-lg font-semibold text-heading">Step 2: Back up your recovery phrase</h2>
               <p className="text-sm text-muted-foreground">
                 Recovery phrase already backed up. You can continue to fund your wallet.
               </p>

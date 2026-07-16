@@ -20,7 +20,7 @@ const SLIDER_CSS = `
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: #fff;
+  background: hsl(var(--switch-thumb));
   box-shadow: var(--shadow-control);
   cursor: pointer;
   margin-top: -8px;
@@ -34,7 +34,7 @@ const SLIDER_CSS = `
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: #fff;
+  background: hsl(var(--switch-thumb));
   box-shadow: var(--shadow-control);
   cursor: pointer;
   border: none;

@@ -3,71 +3,23 @@
  */
 
 import type { ThemeColors, CustomTheme } from '@shared/types'
+import type { ThemeType } from '@shared/defaults'
+import { BUILT_IN_THEME_COLORS, THEME_TOKEN_CSS_VARIABLES, THEME_TOKEN_KEYS } from '@shared/theme-tokens'
 
 // Default theme colors (resistance-dog theme)
-export const RESISTANCE_DOG_COLORS: ThemeColors = {
-  background: '210 26% 13%',
-  backgroundSecondary: '210 32% 9%',
-  foreground: '0 0% 96%',
-  card: '210 24% 18%',
-  cardForeground: '0 0% 96%',
-  primary: '210 44% 53%',
-  primaryForeground: '0 0% 100%',
-  secondary: '210 24% 18%',
-  secondaryForeground: '0 0% 96%',
-  accent: '207 83% 68%',
-  accentForeground: '0 0% 100%',
-  muted: '210 22% 15%',
-  mutedForeground: '210 18% 52%',
-  destructive: '356 82% 58%',
-  destructiveForeground: '0 0% 100%',
-  success: '142 76% 36%',
-  successForeground: '0 0% 100%',
-  warning: '38 92% 50%',
-  warningForeground: '0 0% 0%',
-  info: '199 89% 48%',
-  infoForeground: '0 0% 100%',
-  border: '210 22% 22%',
-  input: '210 24% 18%',
-  ring: '207 83% 68%',
-}
+export const RESISTANCE_DOG_COLORS: ThemeColors = { ...BUILT_IN_THEME_COLORS['resistance-dog'] }
 
 // Utya Duck theme colors
-export const UTYA_DUCK_COLORS: ThemeColors = {
-  background: '50 100% 60%',
-  backgroundSecondary: '48 100% 55%',
-  foreground: '0 0% 8%',
-  card: '52 100% 65%',
-  cardForeground: '0 0% 8%',
-  primary: '200 85% 55%',
-  primaryForeground: '0 0% 100%',
-  secondary: '48 90% 55%',
-  secondaryForeground: '0 0% 8%',
-  accent: '200 80% 45%',
-  accentForeground: '0 0% 100%',
-  muted: '48 80% 65%',
-  mutedForeground: '0 0% 15%',
-  destructive: '0 80% 45%',
-  destructiveForeground: '0 0% 100%',
-  success: '142 80% 30%',
-  successForeground: '0 0% 100%',
-  warning: '15 90% 40%',
-  warningForeground: '0 0% 100%',
-  info: '210 90% 35%',
-  infoForeground: '0 0% 100%',
-  border: '40 70% 35%',
-  input: '52 100% 62%',
-  ring: '200 85% 55%',
-}
+export const UTYA_DUCK_COLORS: ThemeColors = { ...BUILT_IN_THEME_COLORS['utya-duck'] }
 
 /**
  * Extract the numeric H, S, L components from an "H S% L%" string.
  * Returns null when the string does not contain at least three numbers.
  */
 function parseHslParts(hsl: string): [number, number, number] | null {
-  const parts = hsl.match(/(\d+(?:\.\d+)?)/g)
-  if (!parts || parts.length < 3) return null
-  return [parseFloat(parts[0]), parseFloat(parts[1]), parseFloat(parts[2])]
+  const match = hsl.trim().match(/^(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)%\s+(-?\d+(?:\.\d+)?)%$/)
+  if (!match) return null
+  return [Number(match[1]), Number(match[2]), Number(match[3])]
 }
 
 /**
@@ -155,11 +107,39 @@ export function parseHsl(hsl: string): { h: number; s: number; l: number } {
   return { h: parsed[0], s: parsed[1], l: parsed[2] }
 }
 
-/**
- * Convert camelCase to kebab-case
- */
-function camelToKebab(str: string): string {
-  return str.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase()
+const DERIVED_THEME_PROPERTIES = [
+  '--popover',
+  '--popover-foreground',
+  '--surface',
+  '--surface-hover',
+  '--surface-active',
+  '--border-subtle',
+  '--border-medium',
+  '--border-strong',
+  '--foreground-secondary',
+  '--foreground-muted',
+  '--shadow-color',
+  '--primary-glow',
+  '--destructive-glow',
+  '--button-highlight',
+  '--glass-blur',
+  '--glass-tint',
+  '--glass-wash',
+  '--glass-border',
+  '--glass-shadow',
+  '--glass-highlight',
+  '--elevation-0',
+  '--elevation-1',
+  '--elevation-2',
+  '--elevation-3',
+  '--elevation-4',
+] as const
+
+const CUSTOM_THEME_PROPERTIES = [...Object.values(THEME_TOKEN_CSS_VARIABLES), ...DERIVED_THEME_PROPERTIES]
+
+function adjustLightness(hsl: string, delta: number): string {
+  const { h, s, l } = parseHsl(hsl)
+  return `${h} ${s}% ${Math.max(0, Math.min(100, l + delta))}%`
 }
 
 /**
@@ -171,11 +151,10 @@ export function applyCustomTheme(theme: CustomTheme): void {
   // Set custom theme marker
   root.setAttribute('data-theme', `custom:${theme.id}`)
 
-  // Inject CSS variables
-  Object.entries(theme.colors).forEach(([key, value]) => {
-    const cssVar = `--${camelToKebab(key)}`
-    root.style.setProperty(cssVar, value)
-  })
+  THEME_TOKEN_KEYS.forEach((key) => root.style.setProperty(THEME_TOKEN_CSS_VARIABLES[key], theme.colors[key]))
+
+  root.style.setProperty('--popover', theme.colors.card)
+  root.style.setProperty('--popover-foreground', theme.colors.cardForeground)
 
   // Handle surface variants based on isDark
   const surfaceBase = theme.isDark ? '0 0% 100%' : '0 0% 0%'
@@ -206,6 +185,26 @@ export function applyCustomTheme(theme: CustomTheme): void {
 
   // Button highlight
   root.style.setProperty('--button-highlight', 'rgba(255, 255, 255, 0.2)')
+
+  root.style.setProperty('--glass-blur', '12px')
+  root.style.setProperty('--glass-tint', theme.isDark ? 'rgba(255, 255, 255, 0.07)' : 'rgba(0, 0, 0, 0.04)')
+  root.style.setProperty('--glass-wash', theme.isDark ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.02)')
+  root.style.setProperty('--glass-border', theme.isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.1)')
+  root.style.setProperty(
+    '--glass-shadow',
+    theme.isDark
+      ? '0 4px 24px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.08)'
+      : '0 4px 24px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.5)'
+  )
+  root.style.setProperty(
+    '--glass-highlight',
+    theme.isDark ? 'inset 0 1px 0 rgba(255, 255, 255, 0.15)' : 'inset 0 1px 0 rgba(255, 255, 255, 0.4)'
+  )
+  root.style.setProperty('--elevation-0', theme.colors.backgroundSecondary)
+  root.style.setProperty('--elevation-1', theme.colors.background)
+  root.style.setProperty('--elevation-2', theme.colors.card)
+  root.style.setProperty('--elevation-3', adjustLightness(theme.colors.card, theme.isDark ? 4 : 3))
+  root.style.setProperty('--elevation-4', adjustLightness(theme.colors.card, theme.isDark ? 8 : 6))
 }
 
 /**
@@ -214,8 +213,7 @@ export function applyCustomTheme(theme: CustomTheme): void {
 export function removeCustomTheme(): void {
   const root = document.documentElement
 
-  // Clear all custom CSS properties
-  root.style.cssText = ''
+  CUSTOM_THEME_PROPERTIES.forEach((property) => root.style.removeProperty(property))
 }
 
 /**
@@ -224,35 +222,27 @@ export function removeCustomTheme(): void {
 export function validateColors(colors: unknown): colors is ThemeColors {
   if (!colors || typeof colors !== 'object') return false
 
-  const required: (keyof ThemeColors)[] = [
-    'background',
-    'backgroundSecondary',
-    'foreground',
-    'card',
-    'cardForeground',
-    'primary',
-    'primaryForeground',
-    'secondary',
-    'secondaryForeground',
-    'accent',
-    'accentForeground',
-    'muted',
-    'mutedForeground',
-    'destructive',
-    'destructiveForeground',
-    'success',
-    'successForeground',
-    'warning',
-    'warningForeground',
-    'info',
-    'infoForeground',
-    'border',
-    'input',
-    'ring',
-  ]
-
   const c = colors as Record<string, unknown>
-  return required.every((key) => typeof c[key] === 'string' && isValidHsl(c[key] as string))
+  return THEME_TOKEN_KEYS.every((key) => typeof c[key] === 'string' && isValidHsl(c[key] as string))
+}
+
+function migrateManifestColors(colors: unknown, version: number): ThemeColors | null {
+  if (!colors || typeof colors !== 'object' || Array.isArray(colors)) return null
+  const source = colors as Record<string, unknown>
+  const migrated =
+    version < 3
+      ? {
+          ...source,
+          textPrimary: source.textPrimary ?? source.foreground,
+          textSecondary: source.textSecondary ?? source.mutedForeground,
+          heading: source.heading ?? source.foreground,
+          chromeForeground: source.chromeForeground ?? source.foreground,
+          icon: source.icon ?? source.foreground,
+        }
+      : source
+
+  const canonical = Object.fromEntries(THEME_TOKEN_KEYS.map((key) => [key, migrated[key]]))
+  return validateColors(canonical) ? (canonical as ThemeColors) : null
 }
 
 /**
@@ -297,7 +287,7 @@ export function createThemeFromBase(base: 'resistance-dog' | 'utya-duck', name: 
 export function exportThemeToJson(theme: CustomTheme): string {
   return JSON.stringify(
     {
-      version: 1,
+      version: 3,
       name: theme.name,
       description: theme.description,
       isDark: theme.isDark,
@@ -316,17 +306,20 @@ export function importThemeFromJson(json: string): CustomTheme | null {
     const data = JSON.parse(json)
 
     if (!data || typeof data !== 'object') return null
+    const version = data.version === undefined ? 1 : data.version
+    if (version !== 1 && version !== 2 && version !== 3) return null
     if (typeof data.name !== 'string') return null
     if (typeof data.isDark !== 'boolean') return null
     if (data.description !== undefined && typeof data.description !== 'string') return null
-    if (!validateColors(data.colors)) return null
+    const colors = migrateManifestColors(data.colors, version)
+    if (!colors) return null
 
     const now = Date.now()
     return {
       id: generateThemeId(),
       name: data.name,
       ...(data.description === undefined ? {} : { description: data.description }),
-      colors: data.colors,
+      colors,
       isDark: data.isDark,
       createdAt: now,
       updatedAt: now,
@@ -341,4 +334,22 @@ export function importThemeFromJson(json: string): CustomTheme | null {
  */
 export function parseCustomThemeId(theme: string): string | null {
   return theme.startsWith('custom:') ? theme.slice('custom:'.length) : null
+}
+
+export function applyThemeSelection(theme: ThemeType, customThemes: CustomTheme[]): void {
+  const customThemeId = parseCustomThemeId(theme)
+  if (customThemeId !== null) {
+    const customTheme = customThemes.find((candidate) => candidate.id === customThemeId)
+    if (customTheme) {
+      applyCustomTheme(customTheme)
+      return
+    }
+
+    removeCustomTheme()
+    document.documentElement.setAttribute('data-theme', 'resistance-dog')
+    return
+  }
+
+  removeCustomTheme()
+  document.documentElement.setAttribute('data-theme', theme)
 }

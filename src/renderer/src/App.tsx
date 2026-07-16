@@ -22,19 +22,16 @@ import {
   useShowStatusBar,
   useTabOrientation,
 } from '@/features/settings/public'
-import { useAppearanceEffects } from '@/features/settings/useAppearanceEffects'
+import { useLocaleEffects } from '@/features/settings/useLocaleEffects'
+import { useThemeEffects } from '@/features/themes/public'
 const WalletSidebar = lazy(() =>
   import('@/features/wallet/components/WalletSidebar').then((m) => ({ default: m.WalletSidebar }))
 )
 const CocoonSidebar = lazy(() =>
   import('@/features/cocoon/components/CocoonSidebar').then((m) => ({ default: m.CocoonSidebar }))
 )
-import { Settings } from 'lucide-react'
-import walletIcon from '@/assets/wallet.svg'
-import storageIcon from '@/assets/storage.svg'
-import cocoonIcon from '@/assets/cocoon.png'
-import messengerIcon from '@/assets/messenger.svg'
 import { Button } from '@/components/ui/button'
+import { AppIcon } from '@/components/ui/AppIcon'
 import { useTranslation } from 'react-i18next'
 import { createLogger } from '@/logger'
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
@@ -74,7 +71,8 @@ function App() {
   const settingsSaveTimer = useRef<NodeJS.Timeout | null>(null)
 
   useApplicationBootstrap()
-  useAppearanceEffects()
+  useLocaleEffects()
+  useThemeEffects()
 
   // Sync current sidebar width with saved value when preferences load
   useEffect(() => {
@@ -158,57 +156,62 @@ function App() {
             <Button
               variant="ghost"
               size="icon"
-              className="h-7 w-7 rounded-full"
+              className="h-7 w-7 rounded-full text-icon hover:text-icon"
               onClick={() => {
                 setWalletSidebarOpen((v) => !v)
                 setCocoonSidebarOpen(false)
               }}
               title={t('tooltips.wallet')}
+              aria-label={t('tooltips.wallet')}
             >
-              <img src={walletIcon} alt="" className="h-4 w-4 brightness-0 invert" />
+              <AppIcon name="wallet" className="h-4 w-4" />
             </Button>
             <Button
               variant="ghost"
               size="icon"
-              className="h-7 w-7 rounded-full"
+              className="h-7 w-7 rounded-full text-icon hover:text-icon"
               onClick={() => {
                 setCocoonSidebarOpen((v) => !v)
                 setWalletSidebarOpen(false)
               }}
               title={t('tooltips.cocoon')}
+              aria-label={t('tooltips.cocoon')}
             >
-              <img src={cocoonIcon} alt="" className="h-5 w-5 brightness-0 invert" />
+              <AppIcon name="cocoon" className="h-5 w-5" />
             </Button>
             {messengerShortcutVisible && (
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7 rounded-full"
+                className="h-7 w-7 rounded-full text-icon hover:text-icon"
                 onClick={() => openOrSwitchToTab('ton://chat')}
                 title={t('tooltips.messenger')}
+                aria-label={t('tooltips.messenger')}
               >
-                <img src={messengerIcon} alt="" className="h-5 w-5 brightness-0 invert" />
+                <AppIcon name="messenger" className="h-5 w-5" />
               </Button>
             )}
             <Button
               variant="ghost"
               size="icon"
-              className="h-7 w-7 rounded-full"
+              className="h-7 w-7 rounded-full text-icon hover:text-icon"
               onClick={() => openOrSwitchToTab('ton://storage')}
               title={t('tooltips.storage')}
+              aria-label={t('tooltips.storage')}
             >
-              <img src={storageIcon} alt="" className="h-4 w-4 brightness-0 invert" />
+              <AppIcon name="storage" className="h-4 w-4" />
             </Button>
           </div>
           <div className="no-drag flex items-center gap-0.5 rounded-full px-1 py-0.5 glass-surface">
             <Button
               variant="ghost"
               size="icon"
-              className="h-7 w-7 rounded-full"
+              className="h-7 w-7 rounded-full text-icon hover:text-icon"
               onClick={() => openOrSwitchToTab('ton://settings')}
               title={t('tooltips.settings')}
+              aria-label={t('tooltips.settings')}
             >
-              <Settings className="h-4 w-4" />
+              <AppIcon name="settings" className="h-4 w-4" />
             </Button>
           </div>
         </div>

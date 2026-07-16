@@ -23,7 +23,7 @@ export function WindowControls() {
   }
 
   return (
-    <div className="flex items-center no-drag" role="group" aria-label={t('windowControls.group')}>
+    <div className="flex items-center text-icon no-drag" role="group" aria-label={t('windowControls.group')}>
       <button
         className="h-8 w-10 flex items-center justify-center hover:bg-border transition-colors"
         onClick={handleMinimize}
@@ -43,7 +43,7 @@ export function WindowControls() {
       </button>
 
       <button
-        className="h-8 w-10 flex items-center justify-center hover:bg-destructive transition-colors"
+        className="h-8 w-10 flex items-center justify-center hover:bg-destructive hover:text-destructive-foreground transition-colors"
         onClick={handleClose}
         title={t('windowControls.close')}
         aria-label={t('windowControls.close')}
