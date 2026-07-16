@@ -359,9 +359,21 @@ app.whenReady().then(async () => {
           { role: 'reload' },
           { role: 'forceReload' },
           { type: 'separator' },
-          { role: 'resetZoom' },
-          { role: 'zoomIn' },
-          { role: 'zoomOut' },
+          {
+            label: 'Reset Zoom',
+            accelerator: 'CommandOrControl+0',
+            click: () => services?.tabManager.zoomReset(),
+          },
+          {
+            label: 'Zoom In',
+            accelerator: 'CommandOrControl+Plus',
+            click: () => services?.tabManager.zoomIn(),
+          },
+          {
+            label: 'Zoom Out',
+            accelerator: 'CommandOrControl+-',
+            click: () => services?.tabManager.zoomOut(),
+          },
           { type: 'separator' },
           { role: 'togglefullscreen' },
         ],
@@ -382,6 +394,10 @@ app.whenReady().then(async () => {
     // Intercept Ctrl+Shift+I (or Cmd+Option+I on macOS) to open DevTools for active WebContentsView (not main window)
     // This prevents DevTools from appearing under the WebContentsView overlay
     window.webContents.on('before-input-event', (event, input) => {
+      if (services?.tabManager.handleZoomInput(input)) {
+        event.preventDefault()
+        return
+      }
       const isDevToolsShortcut =
         (input.control && input.shift && input.key.toLowerCase() === 'i') ||
         (process.platform === 'darwin' && input.meta && input.alt && input.key.toLowerCase() === 'i')

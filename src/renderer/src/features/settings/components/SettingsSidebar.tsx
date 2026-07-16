@@ -60,7 +60,7 @@ export function SettingsSidebar({ activeSection, onSectionChange }: SettingsSide
         role="listbox"
         aria-label={t('title')}
         onKeyDown={handleKeyDown}
-        className="flex-1 space-y-5 overflow-y-auto px-3 pb-5"
+        className="settings-sidebar-scroll flex-1 space-y-5 overflow-y-auto px-3 pb-5"
       >
         {groupList.map((group, gi) => (
           <div key={gi} className="overflow-hidden rounded-group bg-elevation-2">

@@ -239,7 +239,7 @@ describe('TabManager lifecycle ownership', () => {
     targetSession.resolve(secondSession)
     await vi.waitFor(() => expect(createBrowserView).toHaveBeenCalledTimes(2))
 
-    expect(createBrowserView).toHaveBeenLastCalledWith(secondSession)
+    expect(createBrowserView).toHaveBeenLastCalledWith(secondSession, 100)
     expect(manager.views.get('tab-1')).toBe(newView)
     expect(sessions.setTabDomain).toHaveBeenLastCalledWith('tab-1', 'second.ton')
     expect(oldView.webContents.close).toHaveBeenCalledOnce()
@@ -294,7 +294,7 @@ describe('TabManager lifecycle ownership', () => {
     await expect(thirdNavigation).resolves.toBe(true)
 
     expect(createBrowserView).toHaveBeenCalledOnce()
-    expect(createBrowserView).toHaveBeenCalledWith(latestSession)
+    expect(createBrowserView).toHaveBeenCalledWith(latestSession, 100)
     expect(sessions.setTabDomain).toHaveBeenLastCalledWith('tab-1', 'third.ton')
     expect(oldView.webContents.close).toHaveBeenCalledOnce()
   })

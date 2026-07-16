@@ -37,6 +37,7 @@ function createHarness() {
     overlayManager: {} as never,
     storage: {} as never,
     cancelNavigation: vi.fn(),
+    handleZoomInput: vi.fn(),
   })
   return { historyManager, listeners, webContents }
 }

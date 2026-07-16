@@ -32,7 +32,7 @@ export function SettingsActions({ hasChanges, isSaving, onSave, onDiscard }: Set
         <button
           onClick={onSave}
           disabled={isSaving}
-          className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 hover:scale-[1.02] disabled:opacity-50 bg-primary/90 backdrop-blur-md shadow-[0_4px_16px_var(--primary-glow),inset_0_1px_0_var(--button-highlight)] text-primary-foreground"
+          className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 hover:scale-[1.02] disabled:opacity-50 bg-primary/90 backdrop-blur-md shadow-[0_4px_16px_var(--primary-glow),inset_0_1px_0_var(--button-highlight)] text-identity-foreground"
         >
           <Save className="h-4 w-4" />
           {isSaving ? t('actions.saving') : t('actions.saveChanges')}

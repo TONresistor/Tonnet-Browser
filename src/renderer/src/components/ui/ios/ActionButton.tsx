@@ -4,7 +4,7 @@ import type { ButtonHTMLAttributes, ReactNode } from 'react'
 type ActionVariant = 'filled' | 'tinted' | 'gray'
 
 const VARIANTS: Record<ActionVariant, string> = {
-  filled: 'bg-primary text-primary-foreground hover:bg-primary/90',
+  filled: 'bg-primary text-identity-foreground hover:bg-primary/90',
   tinted: 'bg-[hsl(var(--primary)/0.14)] text-primary hover:bg-[hsl(var(--primary)/0.22)]',
   gray: 'bg-surface-hover text-foreground border border-border-medium hover:bg-surface-active',
 }

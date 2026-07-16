@@ -113,7 +113,7 @@ function DmView({ conversation, connected, error, input, onInput, onSend, onBack
           onClick={onSend}
           disabled={!connected || !input.trim()}
           aria-label="Send"
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground transition-opacity hover:bg-primary/90 disabled:opacity-40"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-identity-foreground transition-opacity hover:bg-primary/90 disabled:opacity-40"
         >
           <SendIcon className="h-[18px] w-[18px]" />
         </button>

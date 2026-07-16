@@ -94,7 +94,9 @@ export function Step2Backup({ mnemonic, onComplete, onBack }: Props) {
               : 'border-border-medium bg-surface group-hover:border-border-strong'
           )}
         >
-          {acknowledged && <Check className="h-3.5 w-3.5" strokeWidth={3} aria-hidden="true" />}
+          {acknowledged && (
+            <Check className="h-3.5 w-3.5 text-identity-foreground" strokeWidth={3} aria-hidden="true" />
+          )}
         </span>
         <span className="text-[12px] leading-relaxed text-muted-foreground">
           I have safely backed up my recovery phrase and understand it cannot be recovered if lost.

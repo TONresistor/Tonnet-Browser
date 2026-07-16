@@ -21,6 +21,7 @@ export interface TabViewLifecycleManager {
   readonly storage: TabStorageState
   readonly views: ViewRegistry<WebContentsView>
   readonly eventDependencies: TabEventDeps
+  readonly defaultZoom: number
   captureWindowGeneration(): number
   ownsWindowGeneration(generation: number): boolean
   getSessionForDomain(domain: string, firstPartyIsolation?: boolean): Promise<Electron.Session>
@@ -89,7 +90,7 @@ export async function rebuildViewsForIsolation(
       const identity = manager.sessions.getTabDomain(tabId)
       if (!identity) continue
       const session = await manager.getSessionForDomain(identity, firstPartyIsolation)
-      const next = createBrowserView(session)
+      const next = createBrowserView(session, manager.defaultZoom)
       const events = createViewEventStore(manager, next, tabId)
       prepared.push({ tabId, previous, next, events, url: previous.webContents.getURL() })
     }
@@ -152,7 +153,7 @@ export async function ensureViewIdentity(
     throw new Error(`Tab changed during identity resolution: ${tabId}`)
   }
 
-  const nextView = createBrowserView(session)
+  const nextView = createBrowserView(session, manager.defaultZoom)
   try {
     setupViewEvents(manager, nextView, tabId)
     if (currentView) {

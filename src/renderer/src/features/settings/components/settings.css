@@ -7,6 +7,14 @@
   border-radius: var(--radius-card);
 }
 
+.settings-sidebar-scroll {
+  scrollbar-width: none;
+}
+
+.settings-sidebar-scroll::-webkit-scrollbar {
+  display: none;
+}
+
 @keyframes msgSlideInRight {
   from {
     transform: translateX(16px);

@@ -46,6 +46,7 @@ function createDependencies() {
     tabManager: {
       updateProxyPort: vi.fn(() => Promise.resolve()),
       onAppearanceSettingsChanged: vi.fn(),
+      applyDefaultZoom: vi.fn(),
       onPrivacySettingsChanged: vi.fn(() => Promise.resolve()),
     },
     chatSessionController: {
@@ -90,6 +91,15 @@ describe('SettingsCoordinator', () => {
         return guard ? guard(previous, next, operation) : operation()
       }
     )
+  })
+
+  it('applies a changed default zoom to existing page views', async () => {
+    const dependencies = createDependencies()
+    const coordinator = new SettingsCoordinator(dependencies)
+
+    await coordinator.apply({ appearance: { defaultZoom: 150 } })
+
+    expect(dependencies.tabManager.applyDefaultZoom).toHaveBeenCalledWith(150)
   })
 
   it('waits for every runtime before publishing a batch', async () => {

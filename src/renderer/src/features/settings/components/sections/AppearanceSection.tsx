@@ -13,6 +13,7 @@ import { Segmented } from '@/components/ui/ios/Segmented'
 import { useOpenOrSwitchBrowserTab } from '@/features/browser/navigation'
 import type { SectionProps } from '../types'
 import { useTranslation } from 'react-i18next'
+import { PAGE_ZOOM } from '@shared/constants'
 
 export const AppearanceSection = memo(function AppearanceSection({ draft, setDraft }: SectionProps) {
   const { t } = useTranslation('settings')
@@ -38,29 +39,9 @@ export const AppearanceSection = memo(function AppearanceSection({ draft, setDra
           <SliderInput
             value={draft.defaultZoom}
             onChange={(v) => setDraft('defaultZoom', v)}
-            min={30}
-            max={300}
-            step={10}
-            suffix="%"
-          />
-        </SettingRow>
-        <SettingRow label={t('appearance.zoom.min')} description={t('appearance.zoom.minDesc')}>
-          <SliderInput
-            value={draft.zoomMin}
-            onChange={(v) => setDraft('zoomMin', v)}
-            min={10}
-            max={100}
-            step={10}
-            suffix="%"
-          />
-        </SettingRow>
-        <SettingRow label={t('appearance.zoom.max')} description={t('appearance.zoom.maxDesc')}>
-          <SliderInput
-            value={draft.zoomMax}
-            onChange={(v) => setDraft('zoomMax', v)}
-            min={100}
-            max={500}
-            step={10}
+            min={PAGE_ZOOM.MIN_PERCENT}
+            max={PAGE_ZOOM.MAX_PERCENT}
+            step={PAGE_ZOOM.STEP_PERCENT}
             suffix="%"
           />
         </SettingRow>

@@ -36,11 +36,7 @@
     },
     "zoom": {
       "default": "기본 확대/축소",
-      "defaultDesc": "페이지의 초기 확대/축소 수준",
-      "min": "최소 확대/축소",
-      "minDesc": "허용되는 최저 확대/축소 수준",
-      "max": "최대 확대/축소",
-      "maxDesc": "허용되는 최고 확대/축소 수준"
+      "defaultDesc": "페이지의 초기 확대/축소 수준"
     },
     "ui": {
       "showBookmarksBar": "북마크 바 표시",

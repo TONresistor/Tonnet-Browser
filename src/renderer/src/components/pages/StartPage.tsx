@@ -51,7 +51,7 @@ export function StartPage() {
           />
           <button
             type="submit"
-            className="w-14 h-14 flex items-center justify-center rounded-full text-2xl font-medium transition-all duration-200 hover:scale-105 bg-primary text-primary-foreground backdrop-blur-[10px] shadow-[var(--glass-shadow)]"
+            className="w-14 h-14 flex items-center justify-center rounded-full text-2xl font-medium transition-all duration-200 hover:scale-105 bg-primary text-identity-foreground backdrop-blur-[10px] shadow-[var(--glass-shadow)]"
             aria-label={t('start.searchButton')}
           >
             →

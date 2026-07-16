@@ -55,6 +55,14 @@
   --color-switch-thumb: hsl(var(--switch-thumb));
 
   --color-tonsite: #0098ea;
+  --color-settings-blue: #0a84ff;
+  --color-settings-purple: #af52de;
+  --color-settings-green: #34c759;
+  --color-settings-cyan: #32ade6;
+  --color-settings-indigo: #5856d6;
+  --color-settings-teal: #30b0c7;
+  --color-settings-orange: #ff9f0a;
+  --color-settings-slate: #64748b;
 
   --radius-pill: 1000px;
   --radius-container: 20px;

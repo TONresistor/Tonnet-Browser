@@ -50,9 +50,6 @@ export const goBackContract = command(BROWSING_CHANNELS.goBack)
 export const goForwardContract = command(BROWSING_CHANNELS.goForward)
 export const reloadContract = command(BROWSING_CHANNELS.reload)
 export const stopContract = command(BROWSING_CHANNELS.stop)
-export const zoomInContract = command(BROWSING_CHANNELS.zoomIn)
-export const zoomOutContract = command(BROWSING_CHANNELS.zoomOut)
-export const zoomResetContract = command(BROWSING_CHANNELS.zoomReset)
 export const toggleDevtoolsContract = command(BROWSING_CHANNELS.toggleDevtools)
 export const pageLoadingContract = defineEvent({
   channel: BROWSING_CHANNELS.pageLoading,
@@ -110,9 +107,6 @@ export const BROWSING_REQUEST_CONTRACTS = [
   goForwardContract,
   reloadContract,
   stopContract,
-  zoomInContract,
-  zoomOutContract,
-  zoomResetContract,
   toggleDevtoolsContract,
 ] as const
 export const BROWSING_EVENT_CONTRACTS = [

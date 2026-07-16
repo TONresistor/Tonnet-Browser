@@ -93,7 +93,7 @@ export const ContentProtectionPanel = memo(function ContentProtectionPanel({ dra
             <button
               onClick={handleAddDomain}
               disabled={!newDomain.trim()}
-              className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition-all duration-200 hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-identity-foreground transition-all duration-200 hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Plus className="h-4 w-4" />
               {t('contentFiltering.add')}

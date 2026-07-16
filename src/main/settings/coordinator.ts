@@ -134,6 +134,9 @@ export class SettingsCoordinator {
     if (force || categoryChanged(previous, current, 'appearance')) {
       tabManager.onAppearanceSettingsChanged(current.appearance)
     }
+    if (force || previous.appearance.defaultZoom !== current.appearance.defaultZoom) {
+      tabManager.applyDefaultZoom(current.appearance.defaultZoom)
+    }
     if (force || categoryChanged(previous, current, 'privacy')) {
       await tabManager.onPrivacySettingsChanged(previous.privacy, current.privacy)
     }

@@ -5,6 +5,7 @@
 
 import { z } from 'zod'
 import { THEME_TOKEN_KEYS, type ThemeColorKey } from './theme-tokens'
+import { PAGE_ZOOM } from './constants'
 
 export function hasExplicitUndefined(value: unknown): boolean {
   if (value === undefined) return true
@@ -68,9 +69,7 @@ export const AppearanceSettingsSchema = z.object({
   theme: ThemeTypeSchema.default('resistance-dog'),
   customThemes: z.array(CustomThemeSchema).default([]),
   language: z.string().default('en'),
-  defaultZoom: z.number().min(25).max(500).default(100),
-  zoomMin: z.number().min(10).max(100).default(30),
-  zoomMax: z.number().min(100).max(500).default(300),
+  defaultZoom: z.number().min(PAGE_ZOOM.MIN_PERCENT).max(PAGE_ZOOM.MAX_PERCENT).default(100),
   showBookmarksBar: z.boolean().default(true),
   showStatusBar: z.boolean().default(true),
   tabOrientation: z.enum(['horizontal', 'vertical']).default('horizontal'),

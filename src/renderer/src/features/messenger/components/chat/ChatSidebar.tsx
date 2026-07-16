@@ -110,7 +110,7 @@ function RoomRow({
             className={cn(
               'hidden shrink-0 rounded-full p-1 transition-colors group-hover:block',
               active
-                ? 'text-primary-foreground/80 hover:bg-primary-foreground/20 hover:text-primary-foreground'
+                ? 'text-identity-foreground/80 hover:bg-identity-foreground/20 hover:text-identity-foreground'
                 : 'text-muted-foreground hover:bg-destructive/10 hover:text-destructive'
             )}
           >
@@ -194,7 +194,7 @@ function DmRow({
             className={cn(
               'hidden shrink-0 rounded-full p-1 transition-colors group-hover:block',
               active
-                ? 'text-primary-foreground/80 hover:bg-primary-foreground/20 hover:text-primary-foreground'
+                ? 'text-identity-foreground/80 hover:bg-identity-foreground/20 hover:text-identity-foreground'
                 : 'text-muted-foreground hover:bg-destructive/10 hover:text-destructive'
             )}
           >

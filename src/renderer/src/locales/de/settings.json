@@ -36,11 +36,7 @@
     },
     "zoom": {
       "default": "Standard-Zoom",
-      "defaultDesc": "Anfängliche Zoomstufe für Seiten",
-      "min": "Minimaler Zoom",
-      "minDesc": "Niedrigste erlaubte Zoomstufe",
-      "max": "Maximaler Zoom",
-      "maxDesc": "Höchste erlaubte Zoomstufe"
+      "defaultDesc": "Anfängliche Zoomstufe für Seiten"
     },
     "ui": {
       "showBookmarksBar": "Lesezeichenleiste anzeigen",

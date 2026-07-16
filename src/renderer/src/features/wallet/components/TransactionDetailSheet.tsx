@@ -84,11 +84,7 @@ export function TransactionDetailSheet({ tx, selfAddress, onClose }: Transaction
               isReceive ? 'bg-success' : 'bg-primary'
             )}
           >
-            <Icon
-              className={cn('h-6 w-6', isReceive ? 'text-success-foreground' : 'text-primary-foreground')}
-              strokeWidth={2.5}
-              aria-hidden="true"
-            />
+            <Icon className="h-6 w-6 text-identity-foreground" strokeWidth={2.5} aria-hidden="true" />
           </div>
           <p className="text-[13px] font-medium text-muted-foreground">{t(`history.types.${tx.type}`)}</p>
           <p className={cn('text-[32px] font-bold leading-none tabular-nums', amountColor)}>

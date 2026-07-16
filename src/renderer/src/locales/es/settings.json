@@ -36,11 +36,7 @@
     },
     "zoom": {
       "default": "Zoom predeterminado",
-      "defaultDesc": "Nivel de zoom inicial para las páginas",
-      "min": "Zoom mínimo",
-      "minDesc": "Nivel de zoom más bajo permitido",
-      "max": "Zoom máximo",
-      "maxDesc": "Nivel de zoom más alto permitido"
+      "defaultDesc": "Nivel de zoom inicial para las páginas"
     },
     "ui": {
       "showBookmarksBar": "Mostrar barra de marcadores",

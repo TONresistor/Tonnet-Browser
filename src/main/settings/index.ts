@@ -21,6 +21,7 @@ import type {
 } from '../../shared/types'
 import { AppSettingsSchema, NetworkSettingsSchema } from '../../shared/types'
 import { hasExplicitUndefined } from '../../shared/schemas'
+import { PAGE_ZOOM } from '../../shared/constants'
 import { createLogger } from '../../shared/logger'
 const log = createLogger('settings')
 const SETTINGS_SCHEMA_VERSION = 3
@@ -268,6 +269,18 @@ function migrateDuplicatePorts(raw: unknown): { migrated: boolean; data: unknown
   return { migrated: true, data: { ...raw, network } }
 }
 
+export function migratePageZoom(raw: unknown): { migrated: boolean; data: unknown } {
+  if (!isPlainObject(raw) || !isPlainObject(raw.appearance)) return { migrated: false, data: raw }
+  const current = raw.appearance.defaultZoom
+  if (typeof current !== 'number') return { migrated: false, data: raw }
+  const defaultZoom = Math.min(Math.max(current, PAGE_ZOOM.MIN_PERCENT), PAGE_ZOOM.MAX_PERCENT)
+  if (defaultZoom === current) return { migrated: false, data: raw }
+  return {
+    migrated: true,
+    data: { ...raw, appearance: { ...raw.appearance, defaultZoom } },
+  }
+}
+
 function assertSettingsVersion(raw: unknown): void {
   if (!raw || typeof raw !== 'object') return
   const version = (raw as { schemaVersion?: unknown }).schemaVersion
@@ -283,9 +296,10 @@ function migrateAll(raw: unknown): { migrated: boolean; data: unknown } {
   const r3 = migrateTheme(r2.data)
   const r4 = migrateThemeColors(r3.data)
   const r5 = migrateDuplicatePorts(r4.data)
+  const r6 = migratePageZoom(r5.data)
   return {
-    migrated: r1.migrated || r2.migrated || r3.migrated || r4.migrated || r5.migrated,
-    data: r5.data,
+    migrated: r1.migrated || r2.migrated || r3.migrated || r4.migrated || r5.migrated || r6.migrated,
+    data: r6.data,
   }
 }
 

@@ -34,6 +34,7 @@ import { ViewRegistry } from './view-registry'
 import { attachViewWhenReady } from './tabs-attach'
 import { rebuildViewsForIsolation, safeDetach, setupViewEvents } from './tabs-view-lifecycle'
 import { loadBagFileFor, loadStorageBagFor } from './tabs-storage-navigation'
+import { PageZoomController } from './page-zoom'
 
 const log = createLogger('tabs')
 
@@ -58,6 +59,11 @@ export class TabManager {
   private readonly navigationEpochByTab = new Map<string, number>()
   private readonly tabIds = new Set<string>()
   private activeTabId: string | null = null
+  private readonly pageZoom: PageZoomController
+
+  constructor(defaultZoom: number = DEFAULT_SETTINGS.defaultZoom) {
+    this.pageZoom = new PageZoomController(defaultZoom)
+  }
 
   get window(): BrowserWindow | null {
     return this.mainWindow
@@ -80,6 +86,10 @@ export class TabManager {
     return this.tabEventDeps
   }
 
+  get defaultZoom(): number {
+    return this.pageZoom.defaultZoom
+  }
+
   attachWindow(win: BrowserWindow, port: number, deps: TabManagerDeps): void {
     this.detachWindow()
     this.windowGeneration += 1
@@ -93,6 +103,7 @@ export class TabManager {
       overlayManager: deps.overlayManager,
       storage: this.storage,
       cancelNavigation: (tabId) => this.cancelNavigation(tabId),
+      handleZoomInput: (input) => this.handleZoomInput(input),
     }
     this.sessions.initialize({
       contentFilterManager: deps.contentFilterManager,
@@ -183,6 +194,27 @@ export class TabManager {
     invalidateAppearanceCache()
     const activeView = this.getActiveView()
     if (activeView && this.mainWindow) updateViewBounds(activeView, this.mainWindow, this.walletSidebarWidth, settings)
+  }
+
+  applyDefaultZoom(defaultZoom: number): void {
+    const normalizedZoom = this.pageZoom.setDefaultZoom(defaultZoom)
+    for (const [, { view }] of this.views.entries()) view.webContents.setZoomFactor(normalizedZoom / 100)
+  }
+
+  zoomIn(): boolean {
+    return this.pageZoom.zoomIn(this.getActiveView())
+  }
+
+  zoomOut(): boolean {
+    return this.pageZoom.zoomOut(this.getActiveView())
+  }
+
+  zoomReset(): boolean {
+    return this.pageZoom.reset(this.getActiveView())
+  }
+
+  handleZoomInput(input: Electron.Input): boolean {
+    return this.pageZoom.handleInput(input, this.getActiveView())
   }
 
   async onPrivacySettingsChanged(previous: PrivacySettings, current: PrivacySettings): Promise<void> {
@@ -337,7 +369,7 @@ async function createTabFor(manager: TabManager, tabId: string, initialUrl?: str
     const session = await manager.getSessionForDomain(domain)
     if (!manager.ownsWindowGeneration(generation) || !manager.hasTab(tabId) || manager.views.has(tabId)) return false
 
-    createdView = createBrowserView(session)
+    createdView = createBrowserView(session, manager.defaultZoom)
     setupViewEvents(manager, createdView, tabId)
     manager.sessions.setTabDomain(tabId, domain)
 
@@ -483,7 +515,7 @@ async function navigateInTabFor(manager: TabManager, tabId: string, url: string)
     )
       return false
     try {
-      view = createBrowserView(session)
+      view = createBrowserView(session, manager.defaultZoom)
       setupViewEvents(manager, view, tabId)
       manager.sessions.setTabDomain(tabId, domain)
       manager.sessions.updateDomainActivity(domain)
@@ -525,7 +557,7 @@ async function navigateInTabFor(manager: TabManager, tabId: string, url: string)
 
     let newView: WebContentsView | undefined
     try {
-      newView = createBrowserView(newSession)
+      newView = createBrowserView(newSession, manager.defaultZoom)
       setupViewEvents(manager, newView, tabId)
     } catch (error) {
       if (newView && !newView.webContents.isDestroyed()) newView.webContents.close()

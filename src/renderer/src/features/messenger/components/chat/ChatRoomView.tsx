@@ -156,7 +156,7 @@ function ChatRoomView({
             type="button"
             onClick={onEnableNetworking}
             disabled={networkEnabling}
-            className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full bg-primary px-3 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-60"
+            className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full bg-primary px-3 text-xs font-semibold text-identity-foreground transition-colors hover:bg-primary/90 disabled:opacity-60"
           >
             {networkEnabling && <LoaderCircle className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />}
             Enable
@@ -231,7 +231,7 @@ function ChatRoomView({
           onClick={onSend}
           disabled={!connected || !input.trim()}
           aria-label="Send"
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground transition-opacity hover:bg-primary/90 disabled:opacity-40"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-identity-foreground transition-opacity hover:bg-primary/90 disabled:opacity-40"
         >
           <SendIcon className="h-[18px] w-[18px]" />
         </button>

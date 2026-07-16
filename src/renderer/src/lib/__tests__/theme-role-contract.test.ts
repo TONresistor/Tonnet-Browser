@@ -28,7 +28,7 @@ describe('semantic theme-role contract', () => {
     expect(`${statusBar}\n${addressBar}\n${sortableTab}\n${tabBar}`).not.toMatch(/text-chrome-foreground\/\d+/)
     expect(sortableTab).toContain('rounded-full text-icon transition-opacity')
     expect(tabBar).toContain('flex-shrink-0 text-icon/60')
-    expect(settingsSections).toContain("tileClass: 'bg-muted text-icon'")
+    expect(settingsSections).toContain("tileClass: 'bg-settings-blue text-identity-foreground'")
     expect(sectionHeader).toContain('text-heading')
     expect(bookmarksPage.match(/<h3[^>]*text-heading/g)).toHaveLength(4)
     expect(errorBoundary).toContain('font-bold text-heading')
@@ -41,10 +41,14 @@ describe('semantic theme-role contract', () => {
     const tileClasses = [...settingsSections.matchAll(/tileClass: '([^']+)'/g)].map((match) => match[1])
 
     expect(tileClasses).toHaveLength(11)
-    expect(tileClasses.every((className) => className.split(' ').includes('text-icon'))).toBe(true)
+    expect(tileClasses.every((className) => className.split(' ').includes('text-identity-foreground'))).toBe(true)
+    expect(
+      tileClasses.some((className) => /\bbg-(?:muted|secondary|primary|accent|info|success|warning)\b/.test(className))
+    ).toBe(false)
     expect(statusBar).toContain('className="flex items-center gap-1 text-tonsite transition-colors"')
     expect(statusBar).toContain('<AppIcon name="wallet" className="h-3 w-3" />')
     expect(globalStyles).toContain('--color-tonsite: #0098ea;')
+    expect(globalStyles).toContain('--color-settings-slate: #64748b;')
   })
 
   it('keeps the landing connection action on the fixed TON identity colors', () => {

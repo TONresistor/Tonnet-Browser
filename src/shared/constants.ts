@@ -29,6 +29,12 @@ export const UI_DIMENSIONS = {
   DEFAULT_SIDEBAR_WIDTH: 240,
 } as const
 
+export const PAGE_ZOOM = {
+  MIN_PERCENT: 30,
+  MAX_PERCENT: 200,
+  STEP_PERCENT: 10,
+} as const
+
 // Tunnel mode → section count mapping (used by proxy manager and status bar)
 export const TUNNEL_SECTIONS: Record<'standard' | 'maximum', number> = { standard: 2, maximum: 3 }
 

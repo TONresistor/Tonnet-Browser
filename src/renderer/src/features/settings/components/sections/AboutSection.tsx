@@ -58,7 +58,7 @@ export const AboutSection = memo(function AboutSection() {
         return (
           <button
             onClick={handleCheck}
-            className="flex items-center gap-1.5 px-4 py-1.5 rounded-md text-sm font-medium transition-colors bg-primary text-primary-foreground shadow-none hover:bg-primary/90"
+            className="flex items-center gap-1.5 px-4 py-1.5 rounded-md text-sm font-medium transition-colors bg-primary text-identity-foreground shadow-none hover:bg-primary/90"
           >
             <RefreshCw className="h-4 w-4" />
             {t('about.update.check')}
@@ -69,7 +69,7 @@ export const AboutSection = memo(function AboutSection() {
         return (
           <button
             disabled
-            className="flex items-center gap-1.5 px-4 py-1.5 rounded-md text-sm font-medium transition-colors bg-primary text-primary-foreground opacity-70 shadow-none"
+            className="flex items-center gap-1.5 px-4 py-1.5 rounded-md text-sm font-medium transition-colors bg-primary text-identity-foreground opacity-70 shadow-none"
           >
             <LoaderCircle className="h-4 w-4 animate-spin" />
             {t('about.update.checking')}
@@ -95,7 +95,7 @@ export const AboutSection = memo(function AboutSection() {
             </span>
             <button
               onClick={handleOpenDownloadPage}
-              className="flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-200 bg-primary/90 text-primary-foreground shadow-[0_4px_16px_var(--primary-glow)] hover:bg-primary"
+              className="flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-200 bg-primary/90 text-identity-foreground shadow-[0_4px_16px_var(--primary-glow)] hover:bg-primary"
             >
               <Download className="h-4 w-4" />
               {t('about.update.download')}

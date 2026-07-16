@@ -187,11 +187,7 @@
     },
     "zoom": {
       "default": "Default zoom",
-      "defaultDesc": "Initial zoom level for pages",
-      "min": "Minimum zoom",
-      "minDesc": "Lowest allowed zoom level",
-      "max": "Maximum zoom",
-      "maxDesc": "Highest allowed zoom level"
+      "defaultDesc": "Initial zoom level for pages"
     },
     "ui": {
       "showBookmarksBar": "Show bookmarks bar",

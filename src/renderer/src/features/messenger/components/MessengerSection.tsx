@@ -218,7 +218,7 @@ export const MessengerSection = memo(function MessengerSection({ onIdentityChang
             className="flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-surface-hover"
           >
             <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground">
-              <AppIcon name="wallet" className="h-[18px] w-[18px]" />
+              <AppIcon name="wallet" className="h-[18px] w-[18px] text-identity-foreground" />
             </span>
             <div className="min-w-0 flex-1">
               <div className="text-[14px] font-medium text-foreground">Wallet address</div>
@@ -285,7 +285,7 @@ export const MessengerSection = memo(function MessengerSection({ onIdentityChang
       <div className="settings-group">
         <div className="flex items-center gap-3 rounded-t-[13px] px-3 py-2.5">
           <span className="grid h-[29px] w-[29px] shrink-0 place-items-center rounded-control bg-secondary text-secondary-foreground">
-            <AppIcon name="messengerDevice" className="h-[17px] w-[17px]" />
+            <AppIcon name="messengerDevice" className="h-[17px] w-[17px] text-identity-foreground" />
           </span>
           <div className="min-w-0 flex-1">
             <div className="text-[14px] font-medium text-foreground">Device key</div>
@@ -311,7 +311,7 @@ export const MessengerSection = memo(function MessengerSection({ onIdentityChang
 
         <div className="flex items-center gap-3 border-t border-border-subtle px-3 py-2.5">
           <span className="grid h-[29px] w-[29px] shrink-0 place-items-center rounded-control bg-success text-success-foreground">
-            <RadioTower className="h-[17px] w-[17px]" aria-hidden="true" />
+            <RadioTower className="h-[17px] w-[17px] text-identity-foreground" aria-hidden="true" />
           </span>
           <div className="min-w-0 flex-1">
             <div className="text-[14px] font-medium text-foreground">Messenger network</div>
@@ -329,7 +329,7 @@ export const MessengerSection = memo(function MessengerSection({ onIdentityChang
 
         <div className="flex items-center gap-3 border-t border-border-subtle px-3 py-2.5">
           <span className="grid h-[29px] w-[29px] shrink-0 place-items-center rounded-control bg-primary text-primary-foreground">
-            <AppIcon name="wallet" className="h-[17px] w-[17px]" />
+            <AppIcon name="wallet" className="h-[17px] w-[17px] text-identity-foreground" />
           </span>
           <div className="min-w-0 flex-1">
             <div className="text-[14px] font-medium text-foreground">Link wallet</div>
@@ -345,7 +345,7 @@ export const MessengerSection = memo(function MessengerSection({ onIdentityChang
           className="flex w-full items-center gap-3 border-t border-border-subtle px-3 py-2.5 text-left transition-colors enabled:hover:bg-surface-hover disabled:opacity-60"
         >
           <span className="grid h-[29px] w-[29px] shrink-0 place-items-center rounded-control bg-primary text-primary-foreground">
-            <AppIcon name="ton" className="h-[17px] w-[17px]" />
+            <AppIcon name="ton" className="h-[17px] w-[17px] text-identity-foreground" />
           </span>
           <div className="min-w-0 flex-1">
             <div className="text-[14px] font-medium text-foreground">Link a .ton</div>
@@ -356,7 +356,7 @@ export const MessengerSection = memo(function MessengerSection({ onIdentityChang
 
         <div className="flex items-center gap-3 rounded-b-[13px] border-t border-border-subtle px-3 py-2.5">
           <span className="grid h-[29px] w-[29px] shrink-0 place-items-center rounded-control bg-destructive text-destructive-foreground">
-            <AppIcon name="messengerReset" className="h-[17px] w-[17px]" />
+            <AppIcon name="messengerReset" className="h-[17px] w-[17px] text-identity-foreground" />
           </span>
           <span className="flex-1 text-[14px] font-medium text-foreground">Reset identity</span>
           <Button variant="destructive" size="sm" onClick={handleReset}>

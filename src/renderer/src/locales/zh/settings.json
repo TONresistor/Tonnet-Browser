@@ -36,11 +36,7 @@
     },
     "zoom": {
       "default": "默认缩放",
-      "defaultDesc": "页面的初始缩放级别",
-      "min": "最小缩放",
-      "minDesc": "允许的最低缩放级别",
-      "max": "最大缩放",
-      "maxDesc": "允许的最高缩放级别"
+      "defaultDesc": "页面的初始缩放级别"
     },
     "ui": {
       "showBookmarksBar": "显示书签栏",

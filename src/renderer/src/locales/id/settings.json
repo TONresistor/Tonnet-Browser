@@ -36,11 +36,7 @@
     },
     "zoom": {
       "default": "Zoom default",
-      "defaultDesc": "Tingkat zoom awal untuk halaman",
-      "min": "Zoom minimum",
-      "minDesc": "Tingkat zoom terendah yang diizinkan",
-      "max": "Zoom maksimum",
-      "maxDesc": "Tingkat zoom tertinggi yang diizinkan"
+      "defaultDesc": "Tingkat zoom awal untuk halaman"
     },
     "ui": {
       "showBookmarksBar": "Tampilkan bilah penanda",

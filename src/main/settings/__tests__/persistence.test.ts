@@ -759,6 +759,23 @@ describe('Settings Persistence', () => {
     })
   })
 
+  describe('migratePageZoom()', () => {
+    it('clamps persisted zoom to the supported range', async () => {
+      const { migratePageZoom } = await import('../index')
+
+      expect(migratePageZoom({ appearance: { defaultZoom: 300 } })).toMatchObject({
+        migrated: true,
+        data: { appearance: { defaultZoom: 200 } },
+      })
+      expect(migratePageZoom({ appearance: { defaultZoom: 20 } })).toMatchObject({
+        migrated: true,
+        data: { appearance: { defaultZoom: 30 } },
+      })
+      const current = { appearance: { defaultZoom: 100 } }
+      expect(migratePageZoom(current)).toEqual({ migrated: false, data: current })
+    })
+  })
+
   describe('loadSettings() — v1.5.3 upgrade', () => {
     it('migrates legacy network fields and persists the result', async () => {
       vi.resetModules()

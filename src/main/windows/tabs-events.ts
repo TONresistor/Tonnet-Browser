@@ -35,6 +35,7 @@ export interface TabEventDeps {
   overlayManager: OverlayManager
   storage: TabStorageState
   cancelNavigation(tabId: string): void
+  handleZoomInput(input: Electron.Input): boolean
 }
 
 /** Set up non-security event listeners on a view (loading, navigation, favicon, context menu). */
@@ -42,6 +43,12 @@ export function setupViewEventListeners(view: WebContentsView, tabId: string, de
   const { historyManager, overlayManager, storage } = deps
 
   const store = new DisposableStore()
+
+  store.add(
+    onWebContents(view.webContents, 'before-input-event', (event: Electron.Event, input: Electron.Input) => {
+      if (deps.handleZoomInput(input)) event.preventDefault()
+    })
+  )
 
   store.add(
     onWebContents(view.webContents, 'did-start-loading', () => {

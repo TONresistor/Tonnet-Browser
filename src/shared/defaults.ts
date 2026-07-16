@@ -42,8 +42,6 @@ export const DEFAULT_SETTINGS = {
   customThemes: [] as CustomTheme[],
   language: 'en',
   defaultZoom: 100,
-  zoomMin: 30,
-  zoomMax: 300,
   showBookmarksBar: true,
   showStatusBar: true,
   tabOrientation: 'horizontal' as 'horizontal' | 'vertical',

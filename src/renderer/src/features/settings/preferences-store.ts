@@ -42,8 +42,6 @@ export interface AppPreferences {
   theme: ThemeType
   language: string
   defaultZoom: number
-  zoomMin: number
-  zoomMax: number
   showBookmarksBar: boolean
   showStatusBar: boolean
   tabOrientation: 'horizontal' | 'vertical'
@@ -121,8 +119,6 @@ export const defaultPreferences: AppPreferences = {
   theme: DEFAULT_SETTINGS.theme,
   language: DEFAULT_SETTINGS.language,
   defaultZoom: DEFAULT_SETTINGS.defaultZoom,
-  zoomMin: DEFAULT_SETTINGS.zoomMin,
-  zoomMax: DEFAULT_SETTINGS.zoomMax,
   showBookmarksBar: DEFAULT_SETTINGS.showBookmarksBar,
   showStatusBar: DEFAULT_SETTINGS.showStatusBar,
   tabOrientation: DEFAULT_SETTINGS.tabOrientation,
@@ -183,8 +179,6 @@ const prefToCategory: Record<keyof AppPreferences, PreferenceMapping> = {
   theme: { category: 'appearance', field: 'theme' },
   language: { category: 'appearance', field: 'language' },
   defaultZoom: { category: 'appearance', field: 'defaultZoom' },
-  zoomMin: { category: 'appearance', field: 'zoomMin' },
-  zoomMax: { category: 'appearance', field: 'zoomMax' },
   showBookmarksBar: { category: 'appearance', field: 'showBookmarksBar' },
   showStatusBar: { category: 'appearance', field: 'showStatusBar' },
   tabOrientation: { category: 'appearance', field: 'tabOrientation' },

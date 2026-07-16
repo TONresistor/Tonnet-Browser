@@ -5,7 +5,6 @@
 import { errorMessage } from '../../../shared/errors'
 import { isValidNavigationUrl } from '../validation'
 import { log } from './shared'
-import { getSetting } from '../../settings'
 import { loadDataHtml } from '../../windows/page-templates'
 import type { TabManager } from '../../windows/tabs'
 import {
@@ -15,9 +14,6 @@ import {
   reloadContract,
   stopContract,
   toggleDevtoolsContract,
-  zoomInContract,
-  zoomOutContract,
-  zoomResetContract,
 } from '../../../shared/ipc-contract/browsing'
 import { ipcFailure, secureContractHandle } from '../contract-handler'
 
@@ -126,40 +122,6 @@ export function registerNavigationHandlers(tabManager: TabManager): void {
       const tabId = tabManager.getActiveTabId()
       if (tabId) tabManager.cancelNavigation(tabId)
       view.webContents.stop()
-      return { success: true }
-    }
-    return { success: false }
-  })
-
-  secureContractHandle(zoomInContract, () => {
-    const view = tabManager.getActiveView()
-    if (view) {
-      const { zoomMax } = getSetting('appearance')
-      const maxFactor = zoomMax / 100
-      const currentZoom = view.webContents.getZoomFactor()
-      view.webContents.setZoomFactor(Math.min(currentZoom + 0.1, maxFactor))
-      return { success: true }
-    }
-    return { success: false }
-  })
-
-  secureContractHandle(zoomOutContract, () => {
-    const view = tabManager.getActiveView()
-    if (view) {
-      const { zoomMin } = getSetting('appearance')
-      const minFactor = zoomMin / 100
-      const currentZoom = view.webContents.getZoomFactor()
-      view.webContents.setZoomFactor(Math.max(currentZoom - 0.1, minFactor))
-      return { success: true }
-    }
-    return { success: false }
-  })
-
-  secureContractHandle(zoomResetContract, () => {
-    const view = tabManager.getActiveView()
-    if (view) {
-      const { defaultZoom } = getSetting('appearance')
-      view.webContents.setZoomFactor(defaultZoom / 100)
       return { success: true }
     }
     return { success: false }

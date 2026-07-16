@@ -139,7 +139,7 @@ export async function createTonSession(
   return ses
 }
 
-export function createBrowserView(ses: Electron.Session): WebContentsView {
+export function createBrowserView(ses: Electron.Session, defaultZoom: number): WebContentsView {
   const view = new WebContentsView({
     webPreferences: {
       preload: join(__dirname, '../../resources/preload/tonsite.js'),
@@ -156,6 +156,8 @@ export function createBrowserView(ses: Electron.Session): WebContentsView {
       plugins: true,
     },
   })
+
+  view.webContents.setZoomFactor(defaultZoom / 100)
 
   // WebContentsView defaults to white background -- prevent white flash
   view.setBackgroundColor('#0a0a0a')

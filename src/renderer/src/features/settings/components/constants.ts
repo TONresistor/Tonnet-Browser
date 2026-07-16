@@ -34,30 +34,84 @@ const mod = (key: string): string => {
  */
 export const SECTIONS: SectionInfo[] = [
   // Group 0 — Preferences
-  { id: 'general', label: 'General', icon: Globe, tileClass: 'bg-muted text-icon', group: 0 },
+  {
+    id: 'general',
+    label: 'General',
+    icon: Globe,
+    tileClass: 'bg-settings-blue text-identity-foreground',
+    group: 0,
+  },
   {
     id: 'appearance',
     label: 'Appearance',
     icon: AppearanceIcon,
-    tileClass: 'bg-destructive text-icon',
+    tileClass: 'bg-settings-purple text-identity-foreground',
     group: 0,
   },
-  { id: 'privacy', label: 'Privacy', icon: PrivacyIcon, tileClass: 'bg-success text-icon', group: 0 },
-  { id: 'network', label: 'Network', icon: NetworkIcon, tileClass: 'bg-info text-icon', group: 0 },
+  {
+    id: 'privacy',
+    label: 'Privacy',
+    icon: PrivacyIcon,
+    tileClass: 'bg-settings-green text-identity-foreground',
+    group: 0,
+  },
+  {
+    id: 'network',
+    label: 'Network',
+    icon: NetworkIcon,
+    tileClass: 'bg-settings-cyan text-identity-foreground',
+    group: 0,
+  },
   {
     id: 'nameServices',
     label: 'Name Services',
     icon: AtSign,
-    tileClass: 'bg-accent text-icon',
+    tileClass: 'bg-settings-indigo text-identity-foreground',
     group: 0,
   },
-  { id: 'storage', label: 'Storage', icon: HardDrive, tileClass: 'bg-secondary text-icon', group: 0 },
-  { id: 'wallet', label: 'Wallet', icon: WalletIcon, tileClass: 'bg-primary text-icon', group: 1 },
-  { id: 'bridge', label: 'Bridge', icon: Cable, tileClass: 'bg-warning text-icon', group: 1 },
-  { id: 'cocoon', label: 'Cocoon AI', icon: CocoonIcon, tileClass: 'bg-accent text-icon', group: 1 },
-  { id: 'advanced', label: 'Advanced', icon: Wrench, tileClass: 'bg-muted text-icon', group: 2 },
+  {
+    id: 'storage',
+    label: 'Storage',
+    icon: HardDrive,
+    tileClass: 'bg-settings-teal text-identity-foreground',
+    group: 0,
+  },
+  {
+    id: 'wallet',
+    label: 'Wallet',
+    icon: WalletIcon,
+    tileClass: 'bg-tonsite text-identity-foreground',
+    group: 1,
+  },
+  {
+    id: 'bridge',
+    label: 'Bridge',
+    icon: Cable,
+    tileClass: 'bg-settings-orange text-identity-foreground',
+    group: 1,
+  },
+  {
+    id: 'cocoon',
+    label: 'Cocoon AI',
+    icon: CocoonIcon,
+    tileClass: 'bg-settings-purple text-identity-foreground',
+    group: 1,
+  },
+  {
+    id: 'advanced',
+    label: 'Advanced',
+    icon: Wrench,
+    tileClass: 'bg-settings-slate text-identity-foreground',
+    group: 2,
+  },
   // Group 3 — Info
-  { id: 'about', label: 'About', icon: Info, tileClass: 'bg-info text-icon', group: 3 },
+  {
+    id: 'about',
+    label: 'About',
+    icon: Info,
+    tileClass: 'bg-settings-blue text-identity-foreground',
+    group: 3,
+  },
 ]
 
 /**

@@ -78,21 +78,6 @@ export function useKeyboardShortcuts(openOrSwitchToTab: (url: string) => void): 
       else if (e.key === 'Escape') {
         browserClient.stop()
       }
-      // Ctrl/Cmd++: Zoom in
-      else if (mod && (e.key === '+' || e.key === '=')) {
-        e.preventDefault()
-        browserClient.zoomIn()
-      }
-      // Ctrl/Cmd+-: Zoom out
-      else if (mod && e.key === '-') {
-        e.preventDefault()
-        browserClient.zoomOut()
-      }
-      // Ctrl/Cmd+0: Reset zoom
-      else if (mod && e.key === '0') {
-        e.preventDefault()
-        browserClient.zoomReset()
-      }
       // F12: Toggle DevTools (Ctrl+Shift+I is handled in main process)
       else if (e.key === 'F12') {
         e.preventDefault()

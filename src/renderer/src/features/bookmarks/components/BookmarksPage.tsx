@@ -270,7 +270,7 @@ export const BookmarksPage = memo(function BookmarksPage() {
             <h1 className="text-[22px] font-bold tracking-tight text-heading">{t('bookmarks.title')}</h1>
             <button
               onClick={() => handleNewFolder(selectedFolderId)}
-              className="grid h-7 w-7 place-items-center rounded-full bg-primary text-primary-foreground transition-colors hover:bg-primary/90"
+              className="grid h-7 w-7 place-items-center rounded-full bg-primary text-identity-foreground transition-colors hover:bg-primary/90"
               title={t('bookmarks.newFolder')}
             >
               <Plus className="h-4 w-4" />
@@ -429,7 +429,7 @@ export const BookmarksPage = memo(function BookmarksPage() {
                 {t('bookmarks.cancel')}
               </button>
               <button
-                className="flex-1 rounded-full bg-primary py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+                className="flex-1 rounded-full bg-primary py-2.5 text-sm font-medium text-identity-foreground transition-colors hover:bg-primary/90"
                 onClick={handleSaveEdit}
               >
                 {t('bookmarks.save')}
@@ -473,7 +473,7 @@ export const BookmarksPage = memo(function BookmarksPage() {
                 {t('bookmarks.cancel')}
               </button>
               <button
-                className="flex-1 rounded-full bg-primary py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+                className="flex-1 rounded-full bg-primary py-2.5 text-sm font-medium text-identity-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
                 onClick={handleSaveNewFolder}
                 disabled={!creatingFolder.name.trim()}
               >
@@ -517,7 +517,7 @@ export const BookmarksPage = memo(function BookmarksPage() {
                 {t('bookmarks.cancel')}
               </button>
               <button
-                className="flex-1 rounded-full bg-primary py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+                className="flex-1 rounded-full bg-primary py-2.5 text-sm font-medium text-identity-foreground transition-colors hover:bg-primary/90"
                 onClick={handleSaveFolderEdit}
               >
                 {t('bookmarks.save')}

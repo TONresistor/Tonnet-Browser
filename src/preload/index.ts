@@ -71,9 +71,6 @@ import type {
   toggleDevtoolsContract,
   viewHideContract,
   viewShowContract,
-  zoomInContract,
-  zoomOutContract,
-  zoomResetContract,
 } from '../shared/ipc-contract/browsing'
 import type {
   storageAddBagContract,
@@ -214,9 +211,6 @@ const electronAPI = {
   goForward: () => invokeChannel<typeof goForwardContract>(IPC_CHANNELS.GO_FORWARD),
   reload: () => invokeChannel<typeof reloadContract>(IPC_CHANNELS.RELOAD),
   stop: () => invokeChannel<typeof stopContract>(IPC_CHANNELS.STOP),
-  zoomIn: () => invokeChannel<typeof zoomInContract>(IPC_CHANNELS.ZOOM_IN),
-  zoomOut: () => invokeChannel<typeof zoomOutContract>(IPC_CHANNELS.ZOOM_OUT),
-  zoomReset: () => invokeChannel<typeof zoomResetContract>(IPC_CHANNELS.ZOOM_RESET),
   toggleDevTools: () => invokeChannel<typeof toggleDevtoolsContract>(IPC_CHANNELS.TOGGLE_DEVTOOLS),
 
   // Storage

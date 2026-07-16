@@ -85,7 +85,7 @@ export function StorageSidebar({ filter, onFilterChange, counts, onAddBag }: Sto
                 <span
                   className={cn('grid h-[29px] w-[29px] shrink-0 place-items-center rounded-control', def.tileClass)}
                 >
-                  <Icon className="h-[17px] w-[17px]" />
+                  <Icon className="h-[17px] w-[17px] text-identity-foreground" />
                 </span>
                 <span
                   className={cn(
@@ -114,7 +114,7 @@ export function StorageSidebar({ filter, onFilterChange, counts, onAddBag }: Sto
         <div className="mt-auto overflow-hidden rounded-group bg-elevation-2 pt-1">
           <div className="flex items-center gap-3 pl-3">
             <span className="grid h-[29px] w-[29px] shrink-0 place-items-center rounded-control bg-warning text-warning-foreground">
-              <Upload className="h-[17px] w-[17px]" />
+              <Upload className="h-[17px] w-[17px] text-identity-foreground" />
             </span>
             <span className="flex h-[50px] min-w-0 flex-1 items-center gap-2 pr-3">
               <span className="flex-1 truncate text-[15px] font-medium text-foreground">
@@ -133,7 +133,7 @@ export function StorageSidebar({ filter, onFilterChange, counts, onAddBag }: Sto
             className="flex w-full items-center gap-3 pl-3 text-left transition-colors hover:bg-surface-hover"
           >
             <span className="grid h-[29px] w-[29px] shrink-0 place-items-center rounded-control bg-secondary text-secondary-foreground">
-              <AppIcon name="settings" className="h-[17px] w-[17px]" />
+              <AppIcon name="settings" className="h-[17px] w-[17px] text-identity-foreground" />
             </span>
             <span className="flex h-[50px] min-w-0 flex-1 items-center gap-2 border-t border-border-subtle pr-3">
               <span className="flex-1 truncate text-[15px] font-medium text-foreground">

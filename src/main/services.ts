@@ -42,6 +42,7 @@ import {
 import { DisposableStore, onEmitter } from './utils/disposable'
 import { SettingsCoordinator } from './settings/coordinator'
 import { createLogger } from '../shared/logger'
+import { getSetting } from './settings'
 
 const log = createLogger('services')
 
@@ -81,7 +82,7 @@ export function createServices(): ServiceRegistry {
   const proxyManager = new ProxyManager()
   const storageManager = new StorageManager()
   const overlayManager = new OverlayManager()
-  const tabManager = new TabManager()
+  const tabManager = new TabManager(getSetting('appearance').defaultZoom)
   const chatSessionController = new ChatSessionController<ChatRuntimeSession>()
   const cocoonPersistence: CocoonPersistence = {
     consumedArchive: new ConsumedArchive(undefined, secureStorage),
