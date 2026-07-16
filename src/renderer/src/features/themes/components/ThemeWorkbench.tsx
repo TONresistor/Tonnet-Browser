@@ -76,10 +76,10 @@ export function ThemeWorkbench({
   }
 
   return (
-    <section className="theme-workbench flex h-full min-h-0 flex-col" aria-busy={isSaving}>
+    <section className="theme-workbench relative flex h-full min-h-0 flex-col" aria-busy={isSaving}>
       <div className="theme-workbench-scroll min-h-0 flex-1 overflow-y-auto">
         <div className="theme-workbench-body mx-auto w-full max-w-[920px] min-w-0">
-          <div className="min-w-0 space-y-5 p-5">
+          <div className="min-w-0 space-y-5 px-5 pb-24 pt-5">
             <ThemeDetails
               choice={choice}
               activeTheme={activeTheme}
@@ -125,23 +125,30 @@ export function ThemeWorkbench({
         </div>
       </div>
 
-      <footer className="flex min-h-16 shrink-0 flex-wrap items-center justify-between gap-3 border-t border-border-subtle bg-elevation-1/95 px-5 py-3 backdrop-blur">
-        <div className="min-w-0 flex-1">
-          {error && (
-            <p role="alert" className="text-sm text-destructive">
-              {error}
-            </p>
-          )}
-          {!error && isDirty && <p className="text-xs text-muted-foreground">{t('actions.unsavedChanges')}</p>}
-        </div>
-        <div className="ml-auto flex gap-2">
-          <Button variant="outline" onClick={onBack} disabled={isSaving || !isDirty}>
-            {t('common:buttons.cancel')}
-          </Button>
-          <Button onClick={() => void save()} disabled={isSaving || !theme.name.trim() || !isDirty} className="gap-2">
-            <Save className="h-4 w-4" />
-            {isSaving ? t('actions.saving') : t('themeEditor.editor.saveTheme')}
-          </Button>
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-28 backdrop-blur [mask-image:linear-gradient(to_bottom,transparent_0%,transparent_20%,black_100%)] [-webkit-mask-image:linear-gradient(to_bottom,transparent_0%,transparent_20%,black_100%)]"
+      />
+
+      <footer className="pointer-events-none absolute inset-x-0 bottom-4 z-20 flex justify-center px-5">
+        <div className="pointer-events-auto flex min-h-14 w-full max-w-[880px] flex-wrap items-center justify-between gap-3 rounded-pill border border-border-medium bg-elevation-2/95 py-2 pl-4 pr-2 shadow-panel backdrop-blur-xl">
+          <div className="min-w-0 flex-1">
+            {error && (
+              <p role="alert" className="text-sm text-destructive">
+                {error}
+              </p>
+            )}
+            {!error && isDirty && <p className="text-xs text-muted-foreground">{t('actions.unsavedChanges')}</p>}
+          </div>
+          <div className="ml-auto flex shrink-0 gap-2">
+            <Button variant="outline" onClick={onBack} disabled={isSaving || !isDirty}>
+              {t('common:buttons.cancel')}
+            </Button>
+            <Button onClick={() => void save()} disabled={isSaving || !theme.name.trim() || !isDirty} className="gap-2">
+              <Save className="h-4 w-4" />
+              {isSaving ? t('actions.saving') : t('themeEditor.editor.saveTheme')}
+            </Button>
+          </div>
         </div>
       </footer>
     </section>
