@@ -4,7 +4,12 @@ import { PAGE_ZOOM } from '../../shared/constants'
 export class PageZoomController {
   private defaultZoomPercent: number
 
-  constructor(defaultZoom: number) {
+  constructor(
+    defaultZoom: number,
+    private readonly getActiveView: () => WebContentsView | null,
+    private readonly getActiveTabId: () => string | null,
+    private readonly onChange: (zoom: number, tabId: string) => void
+  ) {
     this.defaultZoomPercent = this.clamp(defaultZoom)
   }
 
@@ -12,47 +17,65 @@ export class PageZoomController {
     return this.defaultZoomPercent
   }
 
-  setDefaultZoom(defaultZoom: number): number {
+  applyDefault(defaultZoom: number, views: Iterable<WebContentsView>): void {
     this.defaultZoomPercent = this.clamp(defaultZoom)
-    return this.defaultZoomPercent
+    for (const view of views) view.webContents.setZoomFactor(this.defaultZoomPercent / 100)
+    this.emit()
   }
 
-  zoomIn(view: WebContentsView | null): boolean {
-    return this.adjust(view, PAGE_ZOOM.STEP_PERCENT)
+  get(): number | null {
+    const view = this.getActiveView()
+    if (!view) return null
+    return this.clamp(Math.round(view.webContents.getZoomFactor() * 100))
   }
 
-  zoomOut(view: WebContentsView | null): boolean {
-    return this.adjust(view, -PAGE_ZOOM.STEP_PERCENT)
+  set(percent: number): number | null {
+    const view = this.getActiveView()
+    if (!view) return null
+    const zoom = this.clamp(percent)
+    view.webContents.setZoomFactor(zoom / 100)
+    this.emit(zoom)
+    return zoom
   }
 
-  reset(view: WebContentsView | null): boolean {
-    if (!view) return false
-    view.webContents.setZoomFactor(this.defaultZoomPercent / 100)
-    return true
+  zoomIn(): boolean {
+    return this.adjust(PAGE_ZOOM.STEP_PERCENT)
   }
 
-  handleInput(input: Electron.Input, view: WebContentsView | null): boolean {
+  zoomOut(): boolean {
+    return this.adjust(-PAGE_ZOOM.STEP_PERCENT)
+  }
+
+  reset(): boolean {
+    return this.set(this.defaultZoomPercent) !== null
+  }
+
+  handleInput(input: Electron.Input): boolean {
     if (process.platform === 'darwin' || input.type !== 'keyDown' || !input.control || input.alt) return false
     if (input.key === '+' || input.key === '=') {
-      this.zoomIn(view)
+      this.zoomIn()
       return true
     }
     if (input.key === '-') {
-      this.zoomOut(view)
+      this.zoomOut()
       return true
     }
     if (input.key === '0') {
-      this.reset(view)
+      this.reset()
       return true
     }
     return false
   }
 
-  private adjust(view: WebContentsView | null, deltaPercent: number): boolean {
-    if (!view) return false
-    const currentPercent = Math.round(view.webContents.getZoomFactor() * 100)
-    view.webContents.setZoomFactor(this.clamp(currentPercent + deltaPercent) / 100)
-    return true
+  emit(zoom = this.get()): void {
+    const tabId = this.getActiveTabId()
+    if (tabId && zoom !== null) this.onChange(zoom, tabId)
+  }
+
+  private adjust(deltaPercent: number): boolean {
+    const currentPercent = this.get()
+    if (currentPercent === null) return false
+    return this.set(currentPercent + deltaPercent) !== null
   }
 
   private clamp(percent: number): number {

@@ -74,6 +74,7 @@
     "networkStatus": "État du réseau : {{status}}",
     "downloadSpeedAria": "Vitesse de téléchargement : {{speed}}",
     "uploadSpeedAria": "Vitesse d'envoi : {{speed}}",
+    "zoom": "Zoom de la page",
     "walletTitle": "Solde du portefeuille",
     "walletAria": "Affichage du solde du portefeuille"
   }

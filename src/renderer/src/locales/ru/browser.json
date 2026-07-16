@@ -74,6 +74,7 @@
     "networkStatus": "Статус сети: {{status}}",
     "downloadSpeedAria": "Скорость загрузки: {{speed}}",
     "uploadSpeedAria": "Скорость отдачи: {{speed}}",
+    "zoom": "Масштаб страницы",
     "walletTitle": "Баланс кошелька",
     "walletAria": "Отображение баланса кошелька"
   }

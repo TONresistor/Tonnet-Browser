@@ -64,6 +64,10 @@ export class ViewRegistry<TView> {
     return this.entriesById.entries()
   }
 
+  *values(): IterableIterator<TView> {
+    for (const { view } of this.entriesById.values()) yield view
+  }
+
   clear(): RegisteredView<TView>[] {
     const entries = [...this.entriesById.values()]
     for (const entry of entries) entry.disposables.dispose()

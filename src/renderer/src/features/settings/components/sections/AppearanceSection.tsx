@@ -7,7 +7,7 @@ import { Columns3, Palette, Rows3 } from 'lucide-react'
 import { SectionHeader } from '../shared/SectionHeader'
 import { SettingRow } from '../shared/SettingRow'
 import { Toggle } from '../shared/Toggle'
-import { SliderInput } from '../shared/SliderInput'
+import { SliderInput } from '@/components/ui/ios/SliderInput'
 import { OpenPageButton } from '../shared/OpenPageButton'
 import { Segmented } from '@/components/ui/ios/Segmented'
 import { useOpenOrSwitchBrowserTab } from '@/features/browser/navigation'
@@ -43,6 +43,7 @@ export const AppearanceSection = memo(function AppearanceSection({ draft, setDra
             max={PAGE_ZOOM.MAX_PERCENT}
             step={PAGE_ZOOM.STEP_PERCENT}
             suffix="%"
+            ariaLabel={t('appearance.zoom.default')}
           />
         </SettingRow>
         <div className="border-t border-border" />

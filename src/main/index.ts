@@ -362,17 +362,17 @@ app.whenReady().then(async () => {
           {
             label: 'Reset Zoom',
             accelerator: 'CommandOrControl+0',
-            click: () => services?.tabManager.zoomReset(),
+            click: () => services?.tabManager.pageZoom.reset(),
           },
           {
             label: 'Zoom In',
             accelerator: 'CommandOrControl+Plus',
-            click: () => services?.tabManager.zoomIn(),
+            click: () => services?.tabManager.pageZoom.zoomIn(),
           },
           {
             label: 'Zoom Out',
             accelerator: 'CommandOrControl+-',
-            click: () => services?.tabManager.zoomOut(),
+            click: () => services?.tabManager.pageZoom.zoomOut(),
           },
           { type: 'separator' },
           { role: 'togglefullscreen' },
@@ -394,7 +394,7 @@ app.whenReady().then(async () => {
     // Intercept Ctrl+Shift+I (or Cmd+Option+I on macOS) to open DevTools for active WebContentsView (not main window)
     // This prevents DevTools from appearing under the WebContentsView overlay
     window.webContents.on('before-input-event', (event, input) => {
-      if (services?.tabManager.handleZoomInput(input)) {
+      if (services?.tabManager.pageZoom.handleInput(input)) {
         event.preventDefault()
         return
       }

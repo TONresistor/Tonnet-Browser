@@ -101,6 +101,8 @@ function createView(id: number) {
     close: vi.fn(),
     isDestroyed: vi.fn(() => false),
     loadURL: vi.fn(() => Promise.resolve()),
+    getZoomFactor: vi.fn(() => 1),
+    setZoomFactor: vi.fn(),
   })
   return { webContents }
 }

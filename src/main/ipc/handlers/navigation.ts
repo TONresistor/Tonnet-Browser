@@ -14,6 +14,8 @@ import {
   reloadContract,
   stopContract,
   toggleDevtoolsContract,
+  zoomGetContract,
+  zoomSetContract,
 } from '../../../shared/ipc-contract/browsing'
 import { ipcFailure, secureContractHandle } from '../contract-handler'
 
@@ -125,6 +127,16 @@ export function registerNavigationHandlers(tabManager: TabManager): void {
       return { success: true }
     }
     return { success: false }
+  })
+
+  secureContractHandle(zoomGetContract, () => {
+    const zoom = tabManager.pageZoom.get()
+    return { success: zoom !== null, zoom }
+  })
+
+  secureContractHandle(zoomSetContract, (percent) => {
+    const zoom = tabManager.pageZoom.set(percent)
+    return { success: zoom !== null, zoom }
   })
 
   secureContractHandle(toggleDevtoolsContract, () => {

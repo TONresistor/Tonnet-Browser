@@ -74,6 +74,7 @@
     "networkStatus": "네트워크 상태: {{status}}",
     "downloadSpeedAria": "다운로드 속도: {{speed}}",
     "uploadSpeedAria": "업로드 속도: {{speed}}",
+    "zoom": "페이지 확대/축소",
     "walletTitle": "지갑 잔액",
     "walletAria": "지갑 잔액 표시"
   }

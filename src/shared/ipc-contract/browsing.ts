@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { PAGE_ZOOM } from '../constants'
 import { BROWSING_CHANNELS } from './channels'
 import { defineEvent, defineRequest } from './definition'
 
@@ -9,6 +10,8 @@ export const TabIdSchema = z
   .regex(/^[A-Za-z0-9_-]+$/)
 export const BrowserUrlSchema = z.string().min(1).max(16_384)
 const SuccessSchema = z.object({ success: z.boolean() })
+const ZoomPercentSchema = z.number().int().min(PAGE_ZOOM.MIN_PERCENT).max(PAGE_ZOOM.MAX_PERCENT)
+const ZoomResultSchema = z.object({ success: z.boolean(), zoom: ZoomPercentSchema.nullable() })
 const base = {
   direction: 'request' as const,
   caller: 'main-renderer' as const,
@@ -50,6 +53,20 @@ export const goBackContract = command(BROWSING_CHANNELS.goBack)
 export const goForwardContract = command(BROWSING_CHANNELS.goForward)
 export const reloadContract = command(BROWSING_CHANNELS.reload)
 export const stopContract = command(BROWSING_CHANNELS.stop)
+export const zoomGetContract = defineRequest({
+  ...base,
+  channel: BROWSING_CHANNELS.zoomGet,
+  input: z.tuple([]),
+  output: ZoomResultSchema,
+  errors: ['BROWSING_COMMAND_FAILED'],
+})
+export const zoomSetContract = defineRequest({
+  ...base,
+  channel: BROWSING_CHANNELS.zoomSet,
+  input: z.tuple([ZoomPercentSchema]),
+  output: ZoomResultSchema,
+  errors: ['BROWSING_COMMAND_FAILED'],
+})
 export const toggleDevtoolsContract = command(BROWSING_CHANNELS.toggleDevtools)
 export const pageLoadingContract = defineEvent({
   channel: BROWSING_CHANNELS.pageLoading,
@@ -81,6 +98,13 @@ const pageStringEvent = <const TChannel extends string>(
   })
 export const pageTitleContract = pageStringEvent(BROWSING_CHANNELS.pageTitle, 16_384, 'sensitive')
 export const pageFaviconContract = pageStringEvent(BROWSING_CHANNELS.pageFavicon, 4_194_304, 'sensitive')
+export const pageZoomContract = defineEvent({
+  channel: BROWSING_CHANNELS.pageZoom,
+  direction: 'event',
+  recipient: 'main-renderer',
+  payload: z.tuple([ZoomPercentSchema, TabIdSchema]),
+  redaction: 'public',
+})
 export const contextOpenLinkContract = defineEvent({
   channel: BROWSING_CHANNELS.contextOpenLink,
   direction: 'event',
@@ -107,6 +131,8 @@ export const BROWSING_REQUEST_CONTRACTS = [
   goForwardContract,
   reloadContract,
   stopContract,
+  zoomGetContract,
+  zoomSetContract,
   toggleDevtoolsContract,
 ] as const
 export const BROWSING_EVENT_CONTRACTS = [
@@ -114,6 +140,7 @@ export const BROWSING_EVENT_CONTRACTS = [
   pageNavigateContract,
   pageTitleContract,
   pageFaviconContract,
+  pageZoomContract,
   contextOpenLinkContract,
   tabHistoryResetContract,
 ] as const

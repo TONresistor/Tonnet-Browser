@@ -29,7 +29,7 @@ import { DEFAULT_SETTINGS } from '../../shared/defaults'
 import { createLogger } from '../../shared/logger'
 import { emitContractToRenderer } from '../events/renderer-events'
 import { normalizeUrl } from '../../shared/utils/url'
-import { BrowserUrlSchema, tabHistoryResetContract } from '../../shared/ipc-contract/browsing'
+import { BrowserUrlSchema, pageZoomContract, tabHistoryResetContract } from '../../shared/ipc-contract/browsing'
 import { ViewRegistry } from './view-registry'
 import { attachViewWhenReady } from './tabs-attach'
 import { rebuildViewsForIsolation, safeDetach, setupViewEvents } from './tabs-view-lifecycle'
@@ -59,10 +59,15 @@ export class TabManager {
   private readonly navigationEpochByTab = new Map<string, number>()
   private readonly tabIds = new Set<string>()
   private activeTabId: string | null = null
-  private readonly pageZoom: PageZoomController
+  readonly pageZoom: PageZoomController
 
   constructor(defaultZoom: number = DEFAULT_SETTINGS.defaultZoom) {
-    this.pageZoom = new PageZoomController(defaultZoom)
+    this.pageZoom = new PageZoomController(
+      defaultZoom,
+      () => this.getActiveView(),
+      () => this.activeTabId,
+      (zoom, tabId) => emitContractToRenderer(pageZoomContract, zoom, tabId)
+    )
   }
 
   get window(): BrowserWindow | null {
@@ -103,7 +108,7 @@ export class TabManager {
       overlayManager: deps.overlayManager,
       storage: this.storage,
       cancelNavigation: (tabId) => this.cancelNavigation(tabId),
-      handleZoomInput: (input) => this.handleZoomInput(input),
+      handleZoomInput: (input) => this.pageZoom.handleInput(input),
     }
     this.sessions.initialize({
       contentFilterManager: deps.contentFilterManager,
@@ -197,24 +202,11 @@ export class TabManager {
   }
 
   applyDefaultZoom(defaultZoom: number): void {
-    const normalizedZoom = this.pageZoom.setDefaultZoom(defaultZoom)
-    for (const [, { view }] of this.views.entries()) view.webContents.setZoomFactor(normalizedZoom / 100)
+    this.pageZoom.applyDefault(defaultZoom, this.views.values())
   }
 
-  zoomIn(): boolean {
-    return this.pageZoom.zoomIn(this.getActiveView())
-  }
-
-  zoomOut(): boolean {
-    return this.pageZoom.zoomOut(this.getActiveView())
-  }
-
-  zoomReset(): boolean {
-    return this.pageZoom.reset(this.getActiveView())
-  }
-
-  handleZoomInput(input: Electron.Input): boolean {
-    return this.pageZoom.handleInput(input, this.getActiveView())
+  emitActiveZoom(): void {
+    this.pageZoom.emit()
   }
 
   async onPrivacySettingsChanged(previous: PrivacySettings, current: PrivacySettings): Promise<void> {
@@ -427,6 +419,7 @@ function switchTabFor(manager: TabManager, tabId: string): boolean {
   } else {
     manager.views.deactivate()
   }
+  manager.emitActiveZoom()
 
   return true
 }
@@ -521,6 +514,7 @@ async function navigateInTabFor(manager: TabManager, tabId: string, url: string)
       manager.sessions.updateDomainActivity(domain)
       if (manager.getActiveTabId() === tabId) {
         manager.views.activate(tabId)
+        manager.emitActiveZoom()
         attachViewWhenReady(manager, view, tabId, generation)
       }
       view.webContents.loadURL(navigateUrl).catch((error) => {
@@ -571,6 +565,7 @@ async function navigateInTabFor(manager: TabManager, tabId: string, url: string)
     emitContractToRenderer(tabHistoryResetContract, tabId, navigateUrl)
 
     if (manager.views.activeViewId === tabId) {
+      manager.emitActiveZoom()
       attachViewWhenReady(manager, newView, tabId, generation)
     }
 

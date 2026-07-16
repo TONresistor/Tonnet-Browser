@@ -3,9 +3,10 @@
  * Shows connection status and storage stats.
  */
 
-import { useEffect, useState, memo } from 'react'
+import { useEffect, useRef, useState, memo } from 'react'
 import { Wifi, WifiOff, LoaderCircle, ArrowDown, ArrowUp } from 'lucide-react'
 import { AppIcon } from '@/components/ui/AppIcon'
+import { SliderInput } from '@/components/ui/ios/SliderInput'
 import { useBrowserStore } from '@/stores/browser'
 import { useShallow } from 'zustand/react/shallow'
 import { usePreferencesStore } from '@/features/settings/preferences-store'
@@ -13,7 +14,10 @@ import { useWalletStore } from '@/features/wallet/store'
 import { formatTonAmount } from '@/lib/ton-utils'
 import { useTabsStore } from '@/stores/tabs'
 import { storageClient } from '@/features/storage/client'
-import { APP_VERSION, TON_WALLET_PAGE, TUNNEL_SECTIONS } from '@shared/constants'
+import { browserClient } from '@/features/browser/client'
+import { isInternalUrl } from '@/app-shell/internal-routes'
+import { APP_VERSION, PAGE_ZOOM, TON_WALLET_PAGE, TUNNEL_SECTIONS } from '@shared/constants'
+import { IPC_CHANNELS } from '@shared/ipc-channels'
 import { useTranslation } from 'react-i18next'
 import { formatSpeed } from '@/lib/format'
 
@@ -33,7 +37,7 @@ function Clock({ locale }: { locale?: string }) {
     const timer = setInterval(() => setNow(new Date()), 1000)
     return () => clearInterval(timer)
   }, [])
-  return <span className="text-chrome-foreground">{formatTime(now, locale)}</span>
+  return <span className="text-chrome-foreground opacity-60">{formatTime(now, locale)}</span>
 }
 
 export const StatusBar = memo(function StatusBar() {
@@ -50,9 +54,61 @@ export const StatusBar = memo(function StatusBar() {
   )
   const walletCreated = useWalletStore((s) => s.isCreated)
   const walletBalance = useWalletStore((s) => s.balance)
-  const openOrSwitchToTab = useTabsStore((s) => s.openOrSwitchToTab)
-  const seedingEnabled = usePreferencesStore((s) => s.saved.seedingEnabled)
-  const tunnelMode = usePreferencesStore((s) => s.saved.tunnelMode)
+  const { openOrSwitchToTab, activeTabId, activeTabUrl } = useTabsStore(
+    useShallow((s) => ({
+      openOrSwitchToTab: s.openOrSwitchToTab,
+      activeTabId: s.activeTabId,
+      activeTabUrl: s.tabs.find((tab) => tab.id === s.activeTabId)?.url ?? null,
+    }))
+  )
+  const { seedingEnabled, tunnelMode, defaultZoom } = usePreferencesStore(
+    useShallow((s) => ({
+      seedingEnabled: s.saved.seedingEnabled,
+      tunnelMode: s.saved.tunnelMode,
+      defaultZoom: s.saved.defaultZoom,
+    }))
+  )
+  const [zoom, setZoom] = useState(defaultZoom)
+  const zoomRequest = useRef(0)
+  const isZoomable = Boolean(activeTabId && activeTabUrl && !isInternalUrl(activeTabUrl))
+
+  useEffect(() => {
+    const request = ++zoomRequest.current
+    if (!isZoomable || !activeTabId) {
+      setZoom(defaultZoom)
+      return
+    }
+
+    void browserClient
+      .getZoom()
+      .then((result) => {
+        if (zoomRequest.current === request && result.success && result.zoom !== null) setZoom(result.zoom)
+      })
+      .catch(() => undefined)
+
+    const unsubscribe = browserClient.on(IPC_CHANNELS.PAGE_ZOOM, (nextZoom, tabId) => {
+      if (tabId !== activeTabId) return
+      zoomRequest.current += 1
+      setZoom(nextZoom)
+    })
+
+    return () => {
+      zoomRequest.current += 1
+      unsubscribe()
+    }
+  }, [activeTabId, defaultZoom, isZoomable])
+
+  const setActiveZoom = (nextZoom: number): void => {
+    const request = ++zoomRequest.current
+    setZoom(nextZoom)
+    void browserClient
+      .setZoom(nextZoom)
+      .then((result) => {
+        if (zoomRequest.current === request && result.zoom !== null) setZoom(result.zoom)
+      })
+      .catch(() => undefined)
+  }
+
   useEffect(() => {
     // Listen for storage bags updates
     const unsubBagsUpdated = storageClient.onBagsUpdated((bags) => {
@@ -179,6 +235,22 @@ export const StatusBar = memo(function StatusBar() {
 
       {/* Right side: wallet balance + version + clock */}
       <div className="flex items-center gap-3">
+        {isZoomable && (
+          <>
+            <SliderInput
+              value={zoom}
+              onChange={setActiveZoom}
+              min={PAGE_ZOOM.MIN_PERCENT}
+              max={PAGE_ZOOM.MAX_PERCENT}
+              step={PAGE_ZOOM.STEP_PERCENT}
+              suffix="%"
+              ariaLabel={t('statusBar.zoom')}
+              compact
+              className="opacity-70"
+            />
+            <Separator />
+          </>
+        )}
         {walletCreated && (
           <>
             <button
@@ -194,7 +266,9 @@ export const StatusBar = memo(function StatusBar() {
             <Separator />
           </>
         )}
-        <span aria-label={`Version ${APP_VERSION}`}>v{APP_VERSION}</span>
+        <span className="text-chrome-foreground opacity-60" aria-label={`Version ${APP_VERSION}`}>
+          v{APP_VERSION}
+        </span>
         <Separator />
         <Clock locale={i18n.language} />
       </div>

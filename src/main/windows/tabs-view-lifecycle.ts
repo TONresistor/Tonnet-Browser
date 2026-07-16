@@ -30,6 +30,7 @@ export interface TabViewLifecycleManager {
   cancelNavigation(tabId: string): void
   ownsNavigation(tabId: string, epoch: number): boolean
   navigateInTab(tabId: string, url: string): Promise<boolean>
+  emitActiveZoom(): void
 }
 
 function createViewEventStore(manager: TabViewLifecycleManager, view: WebContentsView, tabId: string): DisposableStore {
@@ -110,6 +111,7 @@ export async function rebuildViewsForIsolation(
         manager.window.contentView.addChildView(item.next)
         updateViewBounds(item.next, manager.window, manager.sidebarWidth)
         manager.views.activate(item.tabId)
+        manager.emitActiveZoom()
       }
       if (item.url) {
         item.next.webContents.loadURL(item.url).catch((error) => {
@@ -168,6 +170,7 @@ export async function ensureViewIdentity(
       manager.window.contentView.addChildView(nextView)
       updateViewBounds(nextView, manager.window, manager.sidebarWidth)
       manager.views.activate(tabId)
+      manager.emitActiveZoom()
     }
     return nextView
   } catch (error) {

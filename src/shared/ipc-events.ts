@@ -33,6 +33,7 @@ export interface IpcEventMap {
   'page:navigate': [event: PageNavigateEvent]
   'page:title': [title: string, tabId: string]
   'page:favicon': [favicon: string, tabId: string]
+  'page:zoom': [zoom: number, tabId: string]
   'proxy:status': [status: ProxyStatusEvent]
   'proxy:progress': [progress: { step: number; message: string }]
   'proxy:auto-connect': []

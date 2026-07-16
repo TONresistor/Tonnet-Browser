@@ -340,3 +340,35 @@
   border-radius: var(--radius-container);
   box-shadow: var(--glass-shadow);
 }
+
+.slider-input {
+  height: 4px;
+}
+
+.slider-input::-webkit-slider-runnable-track {
+  height: 4px;
+  border: 0;
+  border-radius: var(--radius-pill);
+}
+
+.slider-input::-webkit-slider-thumb {
+  width: 20px;
+  height: 20px;
+  margin-top: -8px;
+  cursor: pointer;
+  appearance: none;
+  border-radius: 50%;
+  background: hsl(var(--switch-thumb));
+  box-shadow: var(--shadow-control);
+}
+
+.slider-input.compact,
+.slider-input.compact::-webkit-slider-runnable-track {
+  height: 3px;
+}
+
+.slider-input.compact::-webkit-slider-thumb {
+  width: 12px;
+  height: 12px;
+  margin-top: -4.5px;
+}
