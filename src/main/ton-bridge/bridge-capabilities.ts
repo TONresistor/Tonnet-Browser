@@ -1,9 +1,11 @@
 import type { DnsResolveResult } from '../../shared/types'
 import {
   AdnlConnectionResultSchema,
+  DhtOverlayNodesResultSchema,
   DhtValueResultSchema,
   DnsResolveResultSchema,
   OverlayMessageEventSchema,
+  OverlayQueryResultSchema,
 } from './bridge-codecs'
 import type { BridgeEventCallback } from './bridge-event-bus'
 
@@ -47,7 +49,12 @@ export class BridgeOverlayClient {
     const connection = AdnlConnectionResultSchema.parse(
       await this.request('adnl.connectByADNL', { adnl_id: anchorAdnlB64 })
     )
-    await this.request('overlay.join', { overlay_id: overlayIdB64, peer_id: connection.peer_id })
+    try {
+      await this.request('overlay.join', { overlay_id: overlayIdB64, peer_id: connection.peer_id })
+    } catch (error) {
+      await this.request('adnl.disconnect', { peer_id: connection.peer_id }).catch(() => {})
+      throw error
+    }
     return connection.peer_id
   }
 
@@ -57,6 +64,17 @@ export class BridgeOverlayClient {
 
   async sendRaw(overlayIdB64: string, dataB64: string): Promise<void> {
     await this.request('overlay.sendRaw', { overlay_id: overlayIdB64, data: dataB64 })
+  }
+
+  async query(overlayIdB64: string, dataB64: string, timeoutSec = 3): Promise<string> {
+    const result = OverlayQueryResultSchema.parse(
+      await this.request(
+        'overlay.query',
+        { overlay_id: overlayIdB64, data: dataB64, timeout: timeoutSec },
+        (timeoutSec + 1) * 1_000
+      )
+    )
+    return result.data
   }
 
   async ping(peerId: string): Promise<void> {
@@ -96,5 +114,11 @@ export class BridgeDhtClient {
     }
     if (lastError) this.onFailure(`dht.findValue gave up after ${this.attempts} attempts: ${lastError.message}`)
     return null
+  }
+
+  async findOverlayNodes(overlayKeyB64: string) {
+    return DhtOverlayNodesResultSchema.parse(
+      await this.request('dht.findOverlayNodes', { overlay_key: overlayKeyB64 }, this.timeoutMs)
+    )
   }
 }

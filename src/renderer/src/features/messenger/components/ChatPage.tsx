@@ -7,7 +7,7 @@ import { AddRoomModal } from './chat/AddRoomModal'
 import { useFollowedRooms, type FollowedRoom } from './chat/useFollowedRooms'
 import { useRoomPreviews } from './chat/useRoomPreviews'
 import { useDmConversations } from './chat/useDmConversations'
-import type { ChatMsg, ChatStatus } from './chat/util'
+import { appendUniqueBounded, type ChatMsg, type ChatStatus } from './chat/util'
 import { messengerClient } from '@/features/messenger/client'
 
 function ChatPage(): React.JSX.Element {
@@ -30,9 +30,6 @@ function ChatPage(): React.JSX.Element {
   const [activeDm, setActiveDm] = useState<string>('')
   const [dmInput, setDmInput] = useState('')
   const [dmError, setDmError] = useState<string | null>(null)
-
-  const seenRef = useRef<Set<string>>(new Set())
-  const [participants, setParticipants] = useState(0)
 
   const roomRef = useRef(room)
   roomRef.current = room
@@ -73,21 +70,11 @@ function ChatPage(): React.JSX.Element {
   }, [refreshMessengerSettings])
 
   useEffect(() => {
-    if (status !== 'connected' || !identity?.address) return
-    if (!seenRef.current.has(identity.address)) {
-      seenRef.current.add(identity.address)
-      setParticipants(seenRef.current.size)
-    }
-  }, [status, identity])
-
-  useEffect(() => {
     let cancelled = false
     const key = `${room} ${node} ${networkEnabled ? 'enabled' : 'disabled'}`
     connectedKeyRef.current = key
     setMessages([])
     setError(null)
-    seenRef.current = new Set()
-    setParticipants(0)
     if (!room) {
       setStatus('idle')
       messengerClient.disconnect().catch(() => {})
@@ -129,27 +116,17 @@ function ChatPage(): React.JSX.Element {
       const forRoom = m.room || roomRef.current
       if (forRoom !== roomRef.current) return
       updatePreview(forRoom, m.text, m.ts)
-      const who = m.identity?.address ?? m.nick
-      if (who && !seenRef.current.has(who)) {
-        seenRef.current.add(who)
-        setParticipants(seenRef.current.size)
-      }
-      setMessages((prev) => {
-        if (m.id && prev.some((p) => p.id === m.id)) return prev
-        if (m.self && prev.some((p) => p.self && p.ts === m.ts && p.text === m.text)) return prev
-        return [
-          ...prev,
-          {
-            id: m.id,
-            nick: m.nick,
-            text: m.text,
-            ts: m.ts,
-            self: m.self,
-            deviceKey: m.deviceKey,
-            identity: m.identity,
-          },
-        ].sort((a, b) => a.ts - b.ts)
-      })
+      setMessages((prev) =>
+        appendUniqueBounded(prev, {
+          id: m.id,
+          nick: m.nick,
+          text: m.text,
+          ts: m.ts,
+          self: m.self,
+          deviceKey: m.deviceKey,
+          identity: m.identity,
+        })
+      )
     })
     return () => off()
   }, [updatePreview])
@@ -160,6 +137,23 @@ function ChatPage(): React.JSX.Element {
     })
     return () => off()
   }, [receiveDm])
+
+  useEffect(() => {
+    const off = messengerClient.onConnection((event) => {
+      if (event.room !== roomRef.current) return
+      if (event.status === 'reconnecting') {
+        setStatus('reconnecting')
+        setError(null)
+      } else if (event.status === 'connected') {
+        setStatus('connected')
+        setError(null)
+      } else {
+        setStatus('error')
+        setError('Unable to restore the room connection.')
+      }
+    })
+    return () => off()
+  }, [])
 
   const openRoom = useCallback((r: FollowedRoom) => {
     setRoom(r.room)
@@ -270,7 +264,7 @@ function ChatPage(): React.JSX.Element {
       }
       const me = identityRef.current
       const meNick = me?.domain || me?.addressShort || (me?.deviceKey ? `#${me.deviceKey.slice(0, 8)}` : '')
-      setMessages((prev) => [...prev, { nick: meNick, text, ts: Date.now(), self: true }])
+      setMessages((prev) => appendUniqueBounded(prev, { id: res.id, nick: meNick, text, ts: res.ts, self: true }))
     } catch (e) {
       setInput(text)
       setError(e instanceof Error ? e.message : String(e))
@@ -313,7 +307,6 @@ function ChatPage(): React.JSX.Element {
           error={error}
           networkEnabled={networkEnabled}
           networkEnabling={enablingNetwork}
-          participants={participants}
           messages={messages}
           input={input}
           onInput={setInput}

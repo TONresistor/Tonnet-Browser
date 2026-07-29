@@ -29,7 +29,7 @@ const PEER_SEED = Buffer.alloc(32, 2)
 const DM_NONCE = Buffer.alloc(12, 0x0b)
 const DM_PLAINTEXT = 'dm interop vector'
 const WTS = 1719900000
-const WEXP = 1722492000
+const WEXP = 1720504800
 const ROOM = 'tonnet:groupchat'
 
 function buildVectors(): Record<string, unknown> {
@@ -137,6 +137,18 @@ describe('cross-language chat identity vectors', () => {
     }
   })
 
+  it('requires recipients only for dm and cert-grant envelopes', () => {
+    expect(() =>
+      signEnvelope(
+        { type: 'msg', nick: '', text: 'x', ts: WTS * 1000, room: ROOM, to: fixture.dmPeerPub as string },
+        DEVICE_SEED
+      )
+    ).toThrow('unexpected recipient')
+    expect(() => signEnvelope({ type: 'dm', nick: '', text: 'x', ts: WTS * 1000, room: ROOM }, DEVICE_SEED)).toThrow(
+      'malformed recipient'
+    )
+  })
+
   it('opens the fixture dm box and rejects redirect', () => {
     const env = v4Dm()
     const opened = openDM(
@@ -162,6 +174,10 @@ describe('cross-language chat identity vectors', () => {
 
     const expired = verifyProof(proofed, (fixture.wexp as number) + 1)
     expect(expired.ok).toBe(false)
+    expect(verifyProof({ ...proofed, wexp: WTS + 7 * 24 * 3600 + 1 }, now)).toMatchObject({
+      ok: false,
+      reason: 'bad-proof',
+    })
 
     const grafted = { ...v4NoProof(), ...proofFields() }
     expect(verifyEnvelope(grafted)).toBe('invalid')

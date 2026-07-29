@@ -231,6 +231,10 @@ export class WsBridgeClient {
     await this.overlay.sendRaw(overlayIdB64, dataB64)
   }
 
+  async overlayQuery(overlayIdB64: string, dataB64: string, timeoutSec = 3): Promise<string> {
+    return this.overlay.query(overlayIdB64, dataB64, timeoutSec)
+  }
+
   async adnlPing(peerId: string): Promise<void> {
     await this.overlay.ping(peerId)
   }
@@ -245,6 +249,10 @@ export class WsBridgeClient {
 
   async dhtFindValue(keyIdB64: string, name: string, index = 0): Promise<{ data: string; ttl: number } | null> {
     return this.dht.findValue(keyIdB64, name, index)
+  }
+
+  async dhtFindOverlayNodes(overlayKeyB64: string) {
+    return this.dht.findOverlayNodes(overlayKeyB64)
   }
 
   // --- Internal: JSON-RPC transport ---

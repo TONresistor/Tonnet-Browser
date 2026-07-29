@@ -109,6 +109,20 @@ export const AdnlConnectionResultSchema = z.object({ peer_id: z.string().min(1) 
 
 export const DhtValueResultSchema = z.object({ data: z.string(), ttl: z.number().int().nonnegative() }).nullable()
 
+export const DhtOverlayNodesResultSchema = z.object({
+  nodes: z.array(
+    z.object({
+      id: z.string().min(1),
+      adnl_id: z.string().min(1),
+      overlay: z.string().min(1),
+      version: z.number().int(),
+    })
+  ),
+  count: z.number().int().nonnegative(),
+})
+
+export const OverlayQueryResultSchema = z.object({ data: z.string() })
+
 const NullableStringSchema = z.string().nullable().optional()
 export const DnsResolveResultSchema = z
   .object({

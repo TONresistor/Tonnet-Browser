@@ -133,6 +133,7 @@ export const CHAT_CHANNELS = {
   disconnect: 'chat:disconnect',
   message: 'chat:message',
   dmMessage: 'chat:dm',
+  connection: 'chat:connection',
   identity: 'chat:identity',
   linkIdentity: 'chat:identity:link',
   claimDomain: 'chat:identity:claim-domain',
@@ -213,4 +214,5 @@ export const MAIN_RENDERER_EVENT_CHANNELS = [
   COCOON_CHANNELS.recoveryEvent,
   CHAT_CHANNELS.message,
   CHAT_CHANNELS.dmMessage,
+  CHAT_CHANNELS.connection,
 ] as const

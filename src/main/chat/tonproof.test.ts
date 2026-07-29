@@ -7,8 +7,8 @@ const wallet = keyPairFromSeed(Buffer.alloc(32, 11))
 const wkey = wallet.publicKey.toString('hex')
 const deviceKey = keyPairFromSeed(Buffer.alloc(32, 22)).publicKey.toString('hex')
 const now = 2_000_000
-const wexp = now + PROOF_TTL_S
 const wts = now - 10
+const wexp = wts + PROOF_TTL_S
 
 function buildProof(): WireEnvelope {
   const address = deriveWalletAddress(wkey)!

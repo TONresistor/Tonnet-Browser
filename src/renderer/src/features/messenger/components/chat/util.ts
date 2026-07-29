@@ -1,17 +1,26 @@
 import type { ChatIdentityInfo } from '@shared/types'
 
-export type ChatStatus = 'idle' | 'connecting' | 'connected' | 'error'
+export type ChatStatus = 'idle' | 'connecting' | 'reconnecting' | 'connected' | 'error'
 
 export type { ChatIdentityInfo }
 
 export interface ChatMsg {
-  id?: string
+  id: string
   nick: string
   text: string
   ts: number
   self?: boolean
   deviceKey?: string
   identity?: ChatIdentityInfo
+}
+
+export const PUBLIC_MESSAGE_LIMIT = 500
+
+export function appendUniqueBounded(messages: ChatMsg[], message: ChatMsg, limit = PUBLIC_MESSAGE_LIMIT): ChatMsg[] {
+  if (messages.some((candidate) => candidate.id === message.id)) return messages
+  if (limit <= 0) return []
+  const overflow = messages.length + 1 - limit
+  return overflow > 0 ? [...messages.slice(overflow), message] : [...messages, message]
 }
 
 const AVATAR_COLORS = ['#0098EA', '#5856D6', '#34C759', '#FF9500', '#FF2D55', '#AF52DE', '#FF3B30', '#00C7BE']

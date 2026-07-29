@@ -1,5 +1,5 @@
 import { memo, useEffect, useRef, useState } from 'react'
-import { LoaderCircle, LogOut, Search, Users, X } from 'lucide-react'
+import { LoaderCircle, LogOut, Search, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { EmptyState } from '@/components/ui/ios/EmptyState'
 import { ChatsIcon } from './ChatsIcon'
@@ -13,7 +13,6 @@ interface ChatRoomViewProps {
   error: string | null
   networkEnabled: boolean
   networkEnabling: boolean
-  participants: number
   messages: ChatMsg[]
   input: string
   onInput: (v: string) => void
@@ -23,9 +22,10 @@ interface ChatRoomViewProps {
   onEnableNetworking: () => void
 }
 
-function subtitle(status: ChatStatus, participants: number): string {
-  if (status === 'connected') return `${participants} participant${participants === 1 ? '' : 's'}`
+function subtitle(status: ChatStatus): string {
+  if (status === 'connected') return 'connected'
   if (status === 'connecting') return 'connecting…'
+  if (status === 'reconnecting') return 'reconnecting…'
   if (status === 'error') return 'connection error'
   return ''
 }
@@ -36,7 +36,6 @@ function ChatRoomView({
   error,
   networkEnabled,
   networkEnabling,
-  participants,
   messages,
   input,
   onInput,
@@ -87,8 +86,7 @@ function ChatRoomView({
               {roomLabel(room)}
             </div>
             <div className="flex items-center gap-1.5 text-[12px] leading-tight text-muted-foreground">
-              {connected && <Users className="h-3.5 w-3.5" />}
-              <span className="truncate">{subtitle(status, participants)}</span>
+              <span className="truncate">{subtitle(status)}</span>
             </div>
           </div>
         </div>
@@ -177,10 +175,7 @@ function ChatRoomView({
           </div>
         )}
         {visible.map((m) => (
-          <div
-            key={m.id ?? `${m.ts}:${m.deviceKey ?? 'me'}`}
-            className={cn('flex flex-col', m.self ? 'items-end' : 'items-start')}
-          >
+          <div key={m.id} className={cn('flex flex-col', m.self ? 'items-end' : 'items-start')}>
             <div
               className={cn(
                 'max-w-[75%] rounded-2xl px-3 py-2 text-sm',

@@ -52,8 +52,13 @@ export interface TonBridgePort {
 /** Overlay/DHT capabilities required by Messenger, without transport exposure. */
 export interface MessengerBridgePort {
   dhtFindValue(keyIdB64: string, name: string, index?: number): Promise<{ data: string; ttl: number } | null>
+  dhtFindOverlayNodes(overlayKeyB64: string): Promise<{
+    nodes: Array<{ id: string; adnl_id: string; overlay: string; version: number }>
+    count: number
+  }>
   overlayConnectAndJoin(anchorAdnlB64: string, overlayIdB64: string): Promise<string>
   overlaySendRaw(overlayIdB64: string, dataB64: string): Promise<void>
+  overlayQuery(overlayIdB64: string, dataB64: string, timeoutSec?: number): Promise<string>
   adnlPing(peerId: string): Promise<void>
   overlayLeaveAndDisconnect(overlayIdB64: string, peerId: string): Promise<void>
   onOverlayMessage(callback: (data: { overlay_id: string; message: string; trusted?: boolean }) => void): () => void

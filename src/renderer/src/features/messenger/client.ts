@@ -20,4 +20,6 @@ export const messengerClient = {
     window.electron.on('chat:message', listener),
   onDirectMessage: (listener: Parameters<typeof window.electron.on<'chat:dm'>>[1]) =>
     window.electron.on('chat:dm', listener),
+  onConnection: (listener: Parameters<typeof window.electron.on<'chat:connection'>>[1]) =>
+    window.electron.on('chat:connection', listener),
 }

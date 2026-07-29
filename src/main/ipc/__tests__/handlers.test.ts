@@ -231,8 +231,8 @@ import { getSetting, SettingsRuntimeApplyError } from '../../settings'
 import type { ServiceRegistry } from '../../services'
 import { DisposableStore } from '../../utils/disposable'
 import { overlayIdB64ForRoom } from '../../chat/room'
-import { sealBroadcast } from '../../chat/broadcast'
-import { marshalEnvelope, signEnvelope } from '../../chat/envelope'
+import { broadcastId, parseBroadcast, sealBroadcast } from '../../chat/broadcast'
+import { marshalEnvelope, parseEnvelope, signEnvelope } from '../../chat/envelope'
 import { generateCocoonWallet, loadCocoonWallet, markSetupComplete } from '../../cocoon/wallet'
 import { getOwnerBalance, getCocoonWalletBalance, fundCocoonFromOwner } from '../../cocoon/setup'
 import { ChatSessionController } from '../../chat/session-controller'
@@ -1143,14 +1143,70 @@ describe('IPC Handlers', () => {
       })
     })
 
-    it('emits replayed history messages even when the signed broadcast date is stale', async () => {
+    it('rejects a candidate when its challenge-bearing presence cannot be sent', async () => {
+      const room = 'tonnet:groupchat'
+      const bootstrap = Buffer.alloc(32, 9).toString('base64')
+      const bridge = {
+        dhtFindValue: vi.fn(),
+        dhtFindOverlayNodes: vi.fn(() => Promise.resolve({ nodes: [], count: 0 })),
+        overlayConnectAndJoin: vi.fn(() => Promise.resolve('peer-id')),
+        overlayQuery: vi.fn((_overlay: string, data: string) => {
+          if (data === 'onDZSA==') {
+            const response = Buffer.alloc(40)
+            Buffer.from('4c34c713', 'hex').copy(response)
+            Buffer.alloc(32, 0x42).copy(response, 4)
+            response.writeInt32LE(Math.floor(Date.now() / 1000) + 60, 36)
+            return Promise.resolve(response.toString('base64'))
+          }
+          const response = Buffer.alloc(8)
+          Buffer.from('47a0c32f', 'hex').copy(response)
+          response.writeInt32LE(Math.floor(Date.now() / 1000), 4)
+          return Promise.resolve(response.toString('base64'))
+        }),
+        onOverlayMessage: vi.fn(() => vi.fn()),
+        overlaySendRaw: vi.fn(() => Promise.reject(new Error('presence send failed'))),
+        overlayLeaveAndDisconnect: vi.fn(() => Promise.resolve()),
+        adnlPing: vi.fn(() => Promise.resolve()),
+      }
+      vi.mocked(getSetting).mockImplementation(((category: string) => {
+        if (category === 'messenger') return { networkEnabled: true, attachWalletIdentity: false }
+        return {}
+      }) as typeof getSetting)
+      vi.mocked(mockRegistry.tonBridgeProviders.messenger.getBridge).mockReturnValue(bridge as any)
+
+      const connect = mockHandlers.get(IPC_CHANNELS.CHAT_CONNECT)!
+      const result = await connect(createMockEvent(), room, bootstrap)
+
+      expect(result).toMatchObject({
+        ok: false,
+        error: { code: 'ROOM_UNAVAILABLE', retryable: true },
+      })
+      expect(bridge.overlayLeaveAndDisconnect).toHaveBeenCalledWith(overlayIdB64ForRoom(room), 'peer-id')
+      expect(mockRegistry.chatSessionController.session).toBeNull()
+    })
+
+    it('returns the canonical public send id and emits replayed history inside the bounded window', async () => {
       const room = 'tonnet:groupchat'
       const overlayId = overlayIdB64ForRoom(room)
       const bootstrap = Buffer.alloc(32, 9).toString('base64')
       let overlayMessage: ((data: { overlay_id: string; message: string }) => void) | null = null
       const bridge = {
         dhtFindValue: vi.fn(),
+        dhtFindOverlayNodes: vi.fn(() => Promise.resolve({ nodes: [], count: 0 })),
         overlayConnectAndJoin: vi.fn(() => Promise.resolve('peer-id')),
+        overlayQuery: vi.fn((_overlay: string, data: string) => {
+          if (data === 'onDZSA==') {
+            const response = Buffer.alloc(40)
+            Buffer.from('4c34c713', 'hex').copy(response)
+            Buffer.alloc(32, 0x42).copy(response, 4)
+            response.writeInt32LE(Math.floor(Date.now() / 1000) + 60, 36)
+            return Promise.resolve(response.toString('base64'))
+          }
+          const response = Buffer.alloc(8)
+          Buffer.from('47a0c32f', 'hex').copy(response)
+          response.writeInt32LE(Math.floor(Date.now() / 1000), 4)
+          return Promise.resolve(response.toString('base64'))
+        }),
         onOverlayMessage: vi.fn((cb: (data: { overlay_id: string; message: string }) => void) => {
           overlayMessage = cb
           return vi.fn()
@@ -1166,8 +1222,21 @@ describe('IPC Handlers', () => {
       vi.mocked(mockRegistry.tonBridgeProviders.messenger.getBridge).mockReturnValue(bridge as any)
 
       const connect = mockHandlers.get(IPC_CHANNELS.CHAT_CONNECT)!
+      const send = mockHandlers.get(IPC_CHANNELS.CHAT_SEND)!
       const disconnect = mockHandlers.get(IPC_CHANNELS.CHAT_DISCONNECT)!
       await connect(createMockEvent(), room, bootstrap)
+
+      bridge.overlaySendRaw.mockClear()
+      const sent = await send(createMockEvent(), 'local message')
+      const sentCall = bridge.overlaySendRaw.mock.calls[0] as unknown as [string, string]
+      const sentWire = parseBroadcast(Buffer.from(sentCall[1], 'base64'))
+      expect(sentWire).not.toBeNull()
+      const sentEnvelope = parseEnvelope(sentWire!.data)
+      expect(sent).toMatchObject({
+        sent: true,
+        id: broadcastId(sentWire!.src, sentWire!.data, sentWire!.flags).toString('hex'),
+        ts: sentEnvelope.ts,
+      })
 
       const peerSeed = Buffer.alloc(32, 19)
       const env = signEnvelope(

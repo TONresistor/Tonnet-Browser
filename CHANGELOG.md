@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- Messenger node discovery, clock calibration, connection challenges and automatic reconnect.
+
+### Changed
+
+- Messenger preserves receive order and bounds replay and receive processing.
+
+### Fixed
+
+- Messenger uses canonical broadcast IDs, revalidates cached wallet proofs and keeps gated rooms disabled by default.
+
 ## [2.6.0] - 2026-08-27
 
 ### Added

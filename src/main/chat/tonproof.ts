@@ -8,8 +8,8 @@ export const TONPROOF_DOMAIN = 'tonnet.chat'
 export const PROOF_TTL_S = 7 * 24 * 3600
 const MAX_SKEW_S = 300
 const ADDR_CACHE_MAX = 4096
-const HEX32 = /^[0-9a-fA-F]{64}$/
-const HEX64 = /^[0-9a-fA-F]{128}$/
+const HEX32 = /^[0-9a-f]{64}$/
+const HEX64 = /^[0-9a-f]{128}$/
 
 const addrCache = new Map<string, Address>()
 
@@ -72,6 +72,7 @@ export function verifyProof(e: WireEnvelope, nowSec: number): ProofResult {
     return { ok: false, reason: 'bad-proof' }
   }
   if (e.wts > nowSec + MAX_SKEW_S) return { ok: false, reason: 'future' }
+  if (e.wexp <= e.wts || e.wexp - e.wts > PROOF_TTL_S) return { ok: false, reason: 'bad-proof' }
   if (e.wexp <= nowSec) return { ok: false, reason: 'expired' }
   const address = deriveWalletAddress(e.wkey)
   if (!address) return { ok: false, reason: 'bad-proof' }
