@@ -126,7 +126,7 @@ export function StorageFileViewerPage({ bagId, filePath }: { bagId: string; file
         </button>
         <FileSpreadsheet className="h-[18px] w-[18px] shrink-0 text-primary" />
         <div className="min-w-0 flex-1">
-          <h1 className="truncate text-sm font-semibold text-foreground" title={fileName}>
+          <h1 className="truncate text-sm font-semibold text-heading" title={fileName}>
             {fileName}
           </h1>
           {table && (

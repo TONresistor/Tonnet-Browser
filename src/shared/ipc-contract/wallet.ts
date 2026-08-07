@@ -105,7 +105,7 @@ export const walletResolveRecipientContract = defineRequest({
   channel: WALLET_CONTRACT_CHANNELS.resolveRecipient,
   input: z.tuple([z.string().min(1).max(1_024)]),
   output: z.object({ address: z.string().min(1), domain: z.string().optional() }),
-  errors: ['INVALID_RECIPIENT', 'DNS_RESOLUTION_FAILED'],
+  errors: ['INVALID_RECIPIENT', 'DNS_RESOLUTION_FAILED', 'BRIDGE_DISCONNECTED'],
 })
 export const walletSendContract = defineRequest({
   ...mainBase,
@@ -119,7 +119,17 @@ export const walletSendContract = defineRequest({
       .optional(),
   ]),
   output: WalletTransactionSchema,
-  errors: ['INVALID_RECIPIENT', 'INVALID_AMOUNT', 'COMMENT_TOO_LONG', 'INSUFFICIENT_BALANCE', 'SIGNING_FAILED'],
+  errors: [
+    'WALLET_UNAVAILABLE',
+    'BRIDGE_DISCONNECTED',
+    'INVALID_RECIPIENT',
+    'DNS_RESOLUTION_FAILED',
+    'BALANCE_READ_FAILED',
+    'INVALID_AMOUNT',
+    'COMMENT_TOO_LONG',
+    'INSUFFICIENT_BALANCE',
+    'SIGNING_FAILED',
+  ],
   redaction: 'secret',
 })
 export const walletGetHistoryContract = defineRequest({
@@ -205,7 +215,7 @@ export const dnsResolveContract = defineRequest({
   channel: WALLET_CONTRACT_CHANNELS.dnsResolve,
   input: z.tuple([z.string().min(1).max(253)]),
   output: DnsResolveResultSchema,
-  errors: ['INVALID_DOMAIN', 'DNS_RESOLUTION_FAILED'],
+  errors: ['INVALID_DOMAIN', 'DNS_RESOLUTION_FAILED', 'BRIDGE_DISCONNECTED'],
 })
 
 export const walletBalanceUpdatedContract = defineEvent({

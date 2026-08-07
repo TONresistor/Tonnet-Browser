@@ -2,7 +2,6 @@
  * IPC handlers for browsing history management.
  */
 
-import { HistoryMode } from '../../history/manager'
 import type { ServiceRegistry } from '../../services'
 import {
   historyChangeModeContract,
@@ -28,8 +27,8 @@ export function registerHistoryHandlers(registry: ServiceRegistry): void {
 
   secureContractHandle(historyChangeModeContract, async (mode) => {
     try {
-      const result = await historyManager.changeMode(mode as HistoryMode)
-      return result
+      await registry.settingsCoordinator.apply({ privacy: { historyMode: mode } })
+      return { success: true }
     } catch (error) {
       ipcFailure('HISTORY_MODE_CHANGE_FAILED', 'Unable to change history mode', false, error)
     }

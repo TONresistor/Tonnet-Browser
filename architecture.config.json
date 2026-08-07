@@ -219,6 +219,11 @@
       "to": ["src/main/wallet/ws-bridge-client.ts"]
     },
     {
+      "id": "proxy-startup-must-not-own-window-scope",
+      "from": ["src/main/proxy/startup.ts"],
+      "to": ["src/main/windows"]
+    },
+    {
       "id": "tonconnect-core-must-not-import-electron-adapters",
       "from": ["src/main/tonconnect/service.ts"],
       "to": [
@@ -251,6 +256,7 @@
         "src/renderer/src/features/proxy",
         "src/renderer/src/features/settings",
         "src/renderer/src/features/storage",
+        "src/renderer/src/features/themes",
         "src/renderer/src/features/tonconnect",
         "src/renderer/src/features/wallet"
       ],
@@ -270,7 +276,7 @@
       "from": ["src/renderer/src/features/storage"],
       "to": [
         "src/renderer/src/features/settings/preferences-store.ts",
-        "src/renderer/src/features/settings/theme-store.ts",
+        "src/renderer/src/features/themes/store.ts",
         "src/renderer/src/features/settings/ui-store.ts"
       ]
     }

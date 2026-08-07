@@ -26,8 +26,9 @@ import { ChatIdentityManager, type ChatProof } from '../../chat/identity'
 import type { OwnChatIdentity } from '../../../shared/types'
 import { ownedDomains } from '../../chat/detect'
 import { getSetting } from '../../settings'
+import { isTonDomain } from '../../../shared/utils/ton'
 import { toError, log } from './shared'
-import { secureContractHandle } from '../contract-handler'
+import { ipcFailure, secureContractHandle } from '../contract-handler'
 import { emitContractToRenderer } from '../../events/renderer-events'
 import type { MessengerBridgePort } from '../../ports/ton-bridge'
 import type { ServiceRegistry } from '../../services'
@@ -230,13 +231,20 @@ async function connectRoom(
   bootstrap: string | undefined,
   markJoining: () => void
 ): Promise<ChatRuntimeSession> {
-  const parsed = parseRoomName(room)
+  let parsed: ReturnType<typeof parseRoomName>
+  try {
+    parsed = parseRoomName(room)
+  } catch {
+    ipcFailure('INVALID_ROOM', 'Invalid room name')
+  }
   const overlayId = overlayIdB64ForRoom(room)
   const candidates = await resolveCandidates(bridge, room, overlayId, bootstrap)
   if (candidates.length === 0) {
-    throw new Error(
+    ipcFailure(
+      'ROOM_UNAVAILABLE',
       `No nodes found for room "${room}". Its nodes may be offline, or the room is new and not yet ` +
-        `discoverable on the network. Paste a known node id to connect directly.`
+        `discoverable on the network. Paste a known node id to connect directly.`,
+      true
     )
   }
   markJoining()
@@ -374,7 +382,7 @@ async function connectRoom(
       })
     }
   }
-  throw lastErr ?? new Error(`Could not connect to any node for room "${room}"`)
+  ipcFailure('ROOM_UNAVAILABLE', `Could not connect to any node for room "${room}"`, true, lastErr)
 }
 
 export function registerChatHandlers(registry: ServiceRegistry): void {
@@ -384,15 +392,25 @@ export function registerChatHandlers(registry: ServiceRegistry): void {
   const recentGrants = new Map<string, number>()
 
   secureContractHandle(chatConnectContract, async (roomArg?: string, nodeArg?: string) => {
-    const room = normalizeRoom(roomArg)
-    const bootstrap = normalizeNodeId(nodeArg)
+    let room: string
+    let bootstrap: string | undefined
+    try {
+      room = normalizeRoom(roomArg)
+    } catch {
+      ipcFailure('INVALID_ROOM', 'Invalid room name')
+    }
+    try {
+      bootstrap = normalizeNodeId(nodeArg)
+    } catch {
+      ipcFailure('INVALID_NODE_ID', 'Invalid node id')
+    }
 
     const connected = await chatSessionController.connect(room, async ({ markJoining }) => {
       if (!getSetting('messenger').networkEnabled) {
-        throw new Error('Messenger is experimental and disabled. Enable Messenger to join rooms.')
+        ipcFailure('MESSENGER_DISABLED', 'Messenger networking is disabled')
       }
       const bridge = walletManager.getMessengerBridge()
-      if (!bridge) throw new Error('Bridge not connected. Connect the proxy first')
+      if (!bridge) ipcFailure('BRIDGE_DISCONNECTED', 'Bridge not connected')
 
       return connectRoom(
         chatSessionController,
@@ -412,7 +430,7 @@ export function registerChatHandlers(registry: ServiceRegistry): void {
   secureContractHandle(chatSendContract, async (text) => {
     const bridge = walletManager.getMessengerBridge()
     const session = chatSessionController.session
-    if (!bridge || !session) throw new Error('Chat not connected')
+    if (!bridge || !session) ipcFailure('CHAT_DISCONNECTED', 'Chat not connected')
     if (session.gated && !session.cert) {
       return { sent: false, pendingMembership: true, identity: await ownIdentityView(identity) }
     }
@@ -431,25 +449,49 @@ export function registerChatHandlers(registry: ServiceRegistry): void {
       },
       proof
     )
-    await sendEnvelope(bridge, session.overlayId, env, seed, session.cert)
-    return { sent: true, identity: await ownIdentityView(identity) }
+    try {
+      await sendEnvelope(bridge, session.overlayId, env, seed, session.cert)
+    } catch (error) {
+      ipcFailure('SEND_FAILED', 'Unable to send message', true, error)
+    }
+    let identityView: OwnChatIdentity | undefined
+    try {
+      identityView = await ownIdentityView(identity)
+    } catch (error) {
+      log.warn(`chat: sent message but identity refresh failed: ${toError(error).message}`)
+    }
+    return { sent: true, identity: identityView }
   })
 
   secureContractHandle(chatCreateRoomContract, async (displayArg) => {
-    const display = normalizeRoom(displayArg)
-    if (display.includes('#')) throw new Error('room name must not contain "#"')
-    const full = await membership.createGatedRoom(display)
-    return { room: full }
+    let display: string
+    try {
+      display = normalizeRoom(displayArg)
+    } catch {
+      ipcFailure('INVALID_ROOM', 'Invalid room name')
+    }
+    if (display.includes('#')) ipcFailure('INVALID_ROOM', 'Room name must not contain "#"')
+    try {
+      parseRoomName(display)
+    } catch {
+      ipcFailure('INVALID_ROOM', 'Invalid room name')
+    }
+    try {
+      const full = await membership.createGatedRoom(display)
+      return { room: full }
+    } catch (error) {
+      ipcFailure('ROOM_CREATE_FAILED', 'Unable to create room', false, error)
+    }
   })
 
   secureContractHandle(chatDmSendContract, async (peerKeyArg, text) => {
     const bridge = walletManager.getMessengerBridge()
     const session = chatSessionController.session
-    if (!bridge || !session) throw new Error('Chat not connected')
+    if (!bridge || !session) ipcFailure('CHAT_DISCONNECTED', 'Chat not connected')
     const peerKey = String(peerKeyArg ?? '').toLowerCase()
-    if (!/^[0-9a-f]{64}$/.test(peerKey)) throw new Error('Bad recipient key')
+    if (!/^[0-9a-f]{64}$/.test(peerKey)) ipcFailure('INVALID_RECIPIENT', 'Invalid recipient key')
     const ownKey = await identity.devicePub()
-    if (peerKey === ownKey) throw new Error('Cannot DM yourself')
+    if (peerKey === ownKey) ipcFailure('INVALID_RECIPIENT', 'Cannot send a direct message to yourself')
     if (session.gated && !session.cert) {
       return { sent: false, pendingMembership: true, identity: await ownIdentityView(identity) }
     }
@@ -471,27 +513,54 @@ export function registerChatHandlers(registry: ServiceRegistry): void {
       },
       proof
     )
-    await sendEnvelope(bridge, session.overlayId, env, seed, session.cert)
-    return { sent: true, id: String(env.sig ?? '').slice(0, 32), ts: env.ts, identity: await ownIdentityView(identity) }
+    try {
+      await sendEnvelope(bridge, session.overlayId, env, seed, session.cert)
+    } catch (error) {
+      ipcFailure('SEND_FAILED', 'Unable to send direct message', true, error)
+    }
+    let identityView: OwnChatIdentity | undefined
+    try {
+      identityView = await ownIdentityView(identity)
+    } catch (error) {
+      log.warn(`chat: sent direct message but identity refresh failed: ${toError(error).message}`)
+    }
+    return { sent: true, id: String(env.sig ?? '').slice(0, 32), ts: env.ts, identity: identityView }
   })
 
   secureContractHandle(chatIdentityContract, async () => {
-    return ownIdentityView(identity)
+    try {
+      return await ownIdentityView(identity)
+    } catch (error) {
+      ipcFailure('IDENTITY_FAILED', 'Unable to read chat identity', false, error)
+    }
   })
 
   secureContractHandle(chatLinkIdentityContract, async () => {
-    await identity.relink()
-    return ownIdentityView(identity)
+    try {
+      await identity.relink()
+      return await ownIdentityView(identity)
+    } catch (error) {
+      ipcFailure('IDENTITY_FAILED', 'Unable to link chat identity', false, error)
+    }
   })
 
   secureContractHandle(chatClaimDomainContract, async (domain) => {
-    const res = await identity.claimDomain(String(domain ?? ''))
-    return { ...res, identity: await ownIdentityView(identity) }
+    if (!isTonDomain(domain)) ipcFailure('INVALID_DOMAIN', 'Invalid .ton domain')
+    try {
+      const res = await identity.claimDomain(domain)
+      return { ...res, identity: await ownIdentityView(identity) }
+    } catch (error) {
+      ipcFailure('DOMAIN_CLAIM_FAILED', 'Unable to claim domain', false, error)
+    }
   })
 
   secureContractHandle(chatClearDomainContract, async () => {
-    await identity.clearDomain()
-    return ownIdentityView(identity)
+    try {
+      await identity.clearDomain()
+      return await ownIdentityView(identity)
+    } catch (error) {
+      ipcFailure('IDENTITY_FAILED', 'Unable to clear claimed domain', false, error)
+    }
   })
 
   secureContractHandle(chatDetectDomainsContract, async () => {
@@ -502,19 +571,27 @@ export function registerChatHandlers(registry: ServiceRegistry): void {
       return { domains: await ownedDomains(own.address, wallet.indexerEndpoint, wallet.indexerApiKey || undefined) }
     } catch (err) {
       log.warn(`chat: domain detection failed: ${toError(err).message}`)
-      return { domains: [] }
+      ipcFailure('DOMAIN_DETECTION_FAILED', 'Unable to detect owned domains', true, err)
     }
   })
 
   secureContractHandle(chatResetIdentityContract, async () => {
-    await chatSessionController.disconnect()
-    await identity.resetIdentity()
-    await membership.clear()
-    return ownIdentityView(identity)
+    try {
+      await chatSessionController.disconnect()
+      await identity.resetIdentity()
+      await membership.clear()
+      return await ownIdentityView(identity)
+    } catch (error) {
+      ipcFailure('IDENTITY_FAILED', 'Unable to reset chat identity', false, error)
+    }
   })
 
   secureContractHandle(chatDisconnectContract, async () => {
-    await chatSessionController.disconnect()
-    return { disconnected: true as const }
+    try {
+      await chatSessionController.disconnect()
+      return { disconnected: true as const }
+    } catch (error) {
+      ipcFailure('DISCONNECT_FAILED', 'Unable to disconnect chat', true, error)
+    }
   })
 }

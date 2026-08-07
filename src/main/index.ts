@@ -28,9 +28,12 @@ import {
 import { loadWindowBounds, saveWindowBounds, flushWindowBoundsOnQuit } from './windows/bounds'
 import { autostartCocoonIfEnabled } from './cocoon/autostart'
 import { runCleanup, isCleanupInProgress } from './app-cleanup'
-import { reapStaleDaemons, installDaemonSignalHandlers } from './daemon-registry'
+import { reapStaleDaemons, installDaemonSignalHandlers, killAllDaemonsSync } from './daemon-registry'
 import { configureNativeLogging } from './logging/native-log-router'
-import { setupMainContextMenu } from './windows/main-context-menu'
+import { attachWindowScope } from './windows/window-scope'
+import { ProxyAutoConnector } from './proxy/auto-connect'
+import type { IDisposable } from './utils/disposable'
+import { reconcileHistoryModeAtStartup } from './history/startup'
 import {
   proxyAutoConnectEventContract,
   proxyProgressEventContract,
@@ -94,14 +97,7 @@ process.on('uncaughtException', (error: NodeJS.ErrnoException) => {
   if (error.code === 'EPIPE' || error.message === 'write EPIPE') return
   appLog.error(`Uncaught exception: ${String(error)}`)
   // Force-kill child processes to prevent zombies
-  if (services) {
-    try {
-      services.proxyManager.stop().catch(() => {})
-      services.storageManager.stop()
-    } catch {
-      /* ignore */
-    }
-  }
+  killAllDaemonsSync()
   process.exit(1)
 })
 
@@ -168,6 +164,34 @@ app.commandLine.appendSwitch(
 
 // Service registry -- populated in app.whenReady()
 let services: ServiceRegistry
+let windowScope: IDisposable | null = null
+let autoConnector: ProxyAutoConnector
+
+function getTabDeps() {
+  return {
+    overlayManager: services.overlayManager,
+    proxyManager: services.proxyManager,
+    storageManager: services.storageManager,
+    historyManager: services.historyManager,
+    contentFilterManager: services.contentFilterManager,
+    paymentInterceptor: services.paymentInterceptor,
+  }
+}
+
+async function emitSynchronizedProxyStatus() {
+  while (true) {
+    const runtimeStatus = services.proxyManager.getStatus()
+    if (runtimeStatus.status !== 'connected') {
+      emitContractToRenderer(proxyStatusEventContract, runtimeStatus)
+      return runtimeStatus
+    }
+    await services.tabManager.updateProxyPort(runtimeStatus.port)
+    const currentStatus = services.proxyManager.getStatus()
+    if (currentStatus.status === 'connected' && currentStatus.port !== runtimeStatus.port) continue
+    emitContractToRenderer(proxyStatusEventContract, currentStatus)
+    return currentStatus
+  }
+}
 
 function createWindow(): void {
   const savedBounds = loadWindowBounds()
@@ -193,7 +217,14 @@ function createWindow(): void {
 
   // Register window with our module for IPC handlers
   setMainWindow(mainWindow)
-  services.overlayManager.init(mainWindow)
+  windowScope?.dispose()
+  const proxyStatus = services.proxyManager.getStatus()
+  const activeProxyPort = proxyStatus.status === 'stopped' ? getSetting('network').proxyPort : proxyStatus.port
+  windowScope = attachWindowScope(mainWindow, activeProxyPort, {
+    overlayManager: services.overlayManager,
+    tabManager: services.tabManager,
+    tabDeps: getTabDeps(),
+  })
 
   // Security: Add Content-Security-Policy for main window (React UI)
   // Dev mode uses Report-Only to avoid breaking HMR/hot reload
@@ -209,7 +240,6 @@ function createWindow(): void {
     })
   })
 
-  let autoConnectStarted = false
   mainWindow.on('ready-to-show', async () => {
     // Restore maximized state
     if (savedBounds.isMaximized) {
@@ -220,42 +250,27 @@ function createWindow(): void {
       durationMs: Date.now() - applicationStartedAt,
     })
 
-    // Auto-connect if enabled -- reuse same progress events as manual connect
+    let runtimeStatus
+    try {
+      runtimeStatus = await emitSynchronizedProxyStatus()
+    } catch (error) {
+      appLog.error(`Proxy status synchronization failed: ${String(error)}`)
+      emitContractToRenderer(proxyStatusEventContract, {
+        status: 'error',
+        error: error instanceof Error ? error.message : String(error),
+      })
+      return
+    }
     const { autoConnect } = getSetting('network')
-    if (autoConnect && !autoConnectStarted) {
-      autoConnectStarted = true
+    if (autoConnect && !runtimeStatus.connected) {
       appLog.info('Auto-connect enabled, starting proxy...')
-      const sendProgress = (step: number, message: string) => {
-        emitContractToRenderer(proxyProgressEventContract, { step, message })
-      }
-      // Tell renderer to show loading state
       emitContractToRenderer(proxyAutoConnectEventContract)
       try {
-        const tabDeps = {
-          overlayManager: services.overlayManager,
-          proxyManager: services.proxyManager,
-          storageManager: services.storageManager,
-          historyManager: services.historyManager,
-          contentFilterManager: services.contentFilterManager,
-          paymentInterceptor: services.paymentInterceptor,
-        }
-        await startProxySequence(
-          sendProgress,
-          services.proxyManager,
-          services.storageManager,
-          mainWindow,
-          services.tabManager,
-          tabDeps
-        )
+        await autoConnector.connect()
+        await emitSynchronizedProxyStatus()
         appLog.info('Auto-connect complete')
-        // Notify renderer of connection status
-        emitContractToRenderer(proxyStatusEventContract, {
-          ...services.proxyManager.getStatus(),
-          status: 'connected',
-        })
       } catch (error) {
         appLog.error(`Auto-connect failed: ${String(error)}`)
-        // Notify renderer of connection failure (field name matches ProxyStatus.error)
         emitContractToRenderer(proxyStatusEventContract, {
           status: 'error',
           error: error instanceof Error ? error.message : String(error),
@@ -267,9 +282,6 @@ function createWindow(): void {
   // Save window bounds on resize/move
   mainWindow.on('resized', () => saveWindowBounds(mainWindow))
   mainWindow.on('moved', () => saveWindowBounds(mainWindow))
-
-  // Context menu for internal pages (overlay instead of native menu)
-  services.lifecycleRegistrations.add(setupMainContextMenu(mainWindow, services.overlayManager))
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
     try {
@@ -347,9 +359,21 @@ app.whenReady().then(async () => {
           { role: 'reload' },
           { role: 'forceReload' },
           { type: 'separator' },
-          { role: 'resetZoom' },
-          { role: 'zoomIn' },
-          { role: 'zoomOut' },
+          {
+            label: 'Reset Zoom',
+            accelerator: 'CommandOrControl+0',
+            click: () => services?.tabManager.pageZoom.reset(),
+          },
+          {
+            label: 'Zoom In',
+            accelerator: 'CommandOrControl+Plus',
+            click: () => services?.tabManager.pageZoom.zoomIn(),
+          },
+          {
+            label: 'Zoom Out',
+            accelerator: 'CommandOrControl+-',
+            click: () => services?.tabManager.pageZoom.zoomOut(),
+          },
           { type: 'separator' },
           { role: 'togglefullscreen' },
         ],
@@ -370,6 +394,10 @@ app.whenReady().then(async () => {
     // Intercept Ctrl+Shift+I (or Cmd+Option+I on macOS) to open DevTools for active WebContentsView (not main window)
     // This prevents DevTools from appearing under the WebContentsView overlay
     window.webContents.on('before-input-event', (event, input) => {
+      if (services?.tabManager.pageZoom.handleInput(input)) {
+        event.preventDefault()
+        return
+      }
       const isDevToolsShortcut =
         (input.control && input.shift && input.key.toLowerCase() === 'i') ||
         (process.platform === 'darwin' && input.meta && input.alt && input.key.toLowerCase() === 'i')
@@ -425,7 +453,24 @@ app.whenReady().then(async () => {
   // Explicit synchronous bootstrap read; all interactive settings writes are asynchronous.
   loadSettings()
   services = createServices()
+  await services.historyManager.ready()
+  const historyMode = (await services.historyManager.getStats()).mode
+  await reconcileHistoryModeAtStartup(
+    historyMode,
+    getSetting('privacy').historyMode,
+    (mode) => services!.settingsCoordinator.apply({ privacy: { historyMode: mode } }),
+    (error) => appLog.error('Failed to persist degraded history mode:', error)
+  )
   registerIpcHandlers(services)
+  autoConnector = new ProxyAutoConnector(
+    () =>
+      startProxySequence(
+        (step, message) => emitContractToRenderer(proxyProgressEventContract, { step, message }),
+        services.proxyManager,
+        services.storageManager
+      ),
+    () => services.proxyManager.isRunning()
+  )
   await services.tonConnectService.init()
 
   // Defer wallet + bridge interceptor init until WS bridge is ready (proxy must be running first)

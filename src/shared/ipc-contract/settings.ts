@@ -12,6 +12,18 @@ import {
   PrivacySettingsSchema,
   StorageSettingsSchema,
   WalletSettingsSchema,
+  GeneralSettingsPartialSchema,
+  NetworkSettingsPartialSchema,
+  StorageSettingsPartialSchema,
+  AppearanceSettingsPartialSchema,
+  PrivacySettingsPartialSchema,
+  ContentFilteringSettingsPartialSchema,
+  AdvancedSettingsPartialSchema,
+  WalletSettingsPartialSchema,
+  BridgeSettingsPartialSchema,
+  CocoonSettingsPartialSchema,
+  MessengerSettingsPartialSchema,
+  hasExplicitUndefined,
 } from '../schemas'
 import { defineEvent, defineRequest } from './definition'
 import { SETTINGS_CHANNELS } from './channels'
@@ -44,6 +56,24 @@ const SettingsCategoryValueSchema = z.union([
   MessengerSettingsSchema.strict(),
 ])
 const SuccessSchema = z.object({ success: z.literal(true) })
+export const SettingsPatchSchema = z
+  .object({
+    general: GeneralSettingsPartialSchema,
+    network: NetworkSettingsPartialSchema,
+    storage: StorageSettingsPartialSchema,
+    appearance: AppearanceSettingsPartialSchema,
+    privacy: PrivacySettingsPartialSchema,
+    contentFiltering: ContentFilteringSettingsPartialSchema,
+    advanced: AdvancedSettingsPartialSchema,
+    wallet: WalletSettingsPartialSchema,
+    bridge: BridgeSettingsPartialSchema,
+    cocoon: CocoonSettingsPartialSchema,
+    messenger: MessengerSettingsPartialSchema,
+  })
+  .partial()
+  .strict()
+  .refine((patch) => !hasExplicitUndefined(patch), { message: 'Settings patch values must be defined' })
+  .refine((patch) => Object.keys(patch).length > 0)
 const base = {
   direction: 'request' as const,
   caller: 'main-renderer' as const,
@@ -73,11 +103,18 @@ export const settingsSetContract = defineRequest({
   output: SuccessSchema,
   errors: ['INVALID_SETTINGS_CATEGORY', 'INVALID_SETTINGS_VALUES', 'SETTINGS_WRITE_FAILED', 'RUNTIME_APPLY_FAILED'],
 })
+export const settingsApplyContract = defineRequest({
+  ...base,
+  channel: SETTINGS_CHANNELS.apply,
+  input: z.tuple([SettingsPatchSchema]),
+  output: AppSettingsSchema,
+  errors: ['INVALID_SETTINGS_VALUES', 'SETTINGS_WRITE_FAILED', 'RUNTIME_APPLY_FAILED'],
+})
 export const settingsResetContract = defineRequest({
   ...base,
   channel: SETTINGS_CHANNELS.reset,
   input: z.tuple([]),
-  output: SuccessSchema,
+  output: SuccessSchema.extend({ settings: AppSettingsSchema }),
   errors: ['SETTINGS_RESET_FAILED', 'RUNTIME_APPLY_FAILED'],
 })
 const DiagnosticStatusSchema = z.object({ enabled: z.boolean(), until: z.number().int().positive().nullable() })
@@ -122,8 +159,12 @@ export const settingsChangedContract = defineEvent({
   recipient: 'main-renderer',
   payload: z.tuple([
     z.union([
-      z.object({ reset: z.literal(true) }),
-      z.object({ category: SettingsCategorySchema, values: z.record(z.string(), z.unknown()) }),
+      z.object({ reset: z.literal(true), settings: AppSettingsSchema }),
+      z.object({
+        category: SettingsCategorySchema,
+        values: z.record(z.string(), z.unknown()),
+        settings: AppSettingsSchema,
+      }),
     ]),
   ]),
   redaction: 'sensitive',
@@ -132,6 +173,7 @@ export const SETTINGS_REQUEST_CONTRACTS = [
   settingsGetAllContract,
   settingsGetContract,
   settingsSetContract,
+  settingsApplyContract,
   settingsResetContract,
   settingsDiagnosticsGetContract,
   settingsDiagnosticsEnableContract,
@@ -140,3 +182,4 @@ export const SETTINGS_REQUEST_CONTRACTS = [
   clearBrowsingDataContract,
 ] as const
 export type SettingsCategory = z.infer<typeof SettingsCategorySchema>
+export type SettingsPatch = z.infer<typeof SettingsPatchSchema>

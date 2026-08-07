@@ -39,16 +39,6 @@ export const NetworkSection = memo(function NetworkSection({ draft, setDraft }: 
             suffix="sec"
           />
         </SettingRow>
-        <SettingRow label={t('network.syncCheckInterval')} description={t('network.syncCheckIntervalDesc')}>
-          <NumberInput
-            value={draft.syncCheckInterval}
-            onChange={(v) => setDraft('syncCheckInterval', v)}
-            min={1000}
-            max={10000}
-            step={500}
-            suffix="ms"
-          />
-        </SettingRow>
       </div>
     </div>
   )

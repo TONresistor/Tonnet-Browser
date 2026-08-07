@@ -41,7 +41,7 @@ export const chatConnectContract = defineRequest({
   channel: CHAT_CHANNELS.connect,
   input: z.tuple([optionalInput, optionalInput]),
   output: z.object({ connected: z.literal(true), room: z.string().min(1), via: z.enum(['node', 'dht']) }),
-  errors: ['MESSENGER_DISABLED', 'BRIDGE_DISCONNECTED', 'ROOM_UNAVAILABLE'],
+  errors: ['INVALID_ROOM', 'INVALID_NODE_ID', 'MESSENGER_DISABLED', 'BRIDGE_DISCONNECTED', 'ROOM_UNAVAILABLE'],
 })
 export const chatSendContract = defineRequest({
   ...mainBase,

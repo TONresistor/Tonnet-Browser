@@ -32,7 +32,7 @@ export function Step1Welcome({ onComplete }: Props) {
       <div className="flex flex-col items-center gap-3 text-center">
         <img src={cocoonIcon} alt="" className="h-12 w-12" />
         <div>
-          <h2 className="text-lg font-semibold text-foreground">Welcome to Cocoon AI</h2>
+          <h2 className="text-lg font-semibold text-heading">Welcome to Cocoon AI</h2>
           <p className="mx-auto mt-1 max-w-sm text-[13px] leading-relaxed text-muted-foreground">
             Connect to the Cocoon AI network.
           </p>

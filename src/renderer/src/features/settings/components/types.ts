@@ -35,8 +35,7 @@ export interface SectionInfo {
   id: SettingsSection
   label: string
   icon: React.ElementType
-  /** iOS-style tile color (hex) for the settings list icon */
-  color: string
+  tileClass: string
   /** Index of the grouped inset block this section belongs to */
   group: number
 }

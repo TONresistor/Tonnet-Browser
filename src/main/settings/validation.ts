@@ -18,6 +18,7 @@ import {
   CocoonSettingsPartialSchema,
   MessengerSettingsPartialSchema,
 } from '../../shared/types'
+import { hasExplicitUndefined } from '../../shared/schemas'
 import { createLogger } from '../../shared/logger'
 const log = createLogger('settings')
 
@@ -56,6 +57,9 @@ export function validateCategoryValues<K extends keyof AppSettings>(
   category: K,
   values: unknown
 ): { valid: true; data: Partial<AppSettings[K]> } | { valid: false; error: string } {
+  if (hasExplicitUndefined(values)) {
+    return { valid: false, error: 'Settings values must be defined' }
+  }
   // Use partial schemas WITHOUT defaults so Zod only validates/strips provided fields.
   // This preserves the partial update semantics: only the supplied keys are returned.
   const schemas: Record<string, z.ZodSchema> = {
@@ -145,6 +149,12 @@ export function isValidSettingsObject(obj: unknown): obj is Partial<AppSettings>
     if (appearance.defaultZoom !== undefined && typeof appearance.defaultZoom !== 'number') return false
     // customThemes must be an array if present
     if (appearance.customThemes !== undefined && !Array.isArray(appearance.customThemes)) return false
+  }
+
+  const advanced = settings.advanced as Record<string, unknown> | undefined
+  if (advanced) {
+    if (advanced.displayUnicodeDomains !== undefined && typeof advanced.displayUnicodeDomains !== 'boolean')
+      return false
   }
 
   const messenger = settings.messenger as Record<string, unknown> | undefined

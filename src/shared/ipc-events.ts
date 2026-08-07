@@ -1,4 +1,11 @@
-import type { ProxyStatus, WalletState, WalletTransaction, PaymentNotificationData, StorageBag } from './types'
+import type {
+  AppSettings,
+  ProxyStatus,
+  WalletState,
+  WalletTransaction,
+  PaymentNotificationData,
+  StorageBag,
+} from './types'
 import type { CocoonState, CocoonLogEvent, WithdrawDriverEvent, RecoveryDriverEvent } from './cocoon-types'
 
 export interface ProxyStatusEvent extends Partial<ProxyStatus> {
@@ -18,6 +25,7 @@ export interface SettingsChangedEvent {
   reset?: boolean
   category?: string
   values?: object
+  settings?: AppSettings
 }
 
 export interface IpcEventMap {
@@ -25,6 +33,7 @@ export interface IpcEventMap {
   'page:navigate': [event: PageNavigateEvent]
   'page:title': [title: string, tabId: string]
   'page:favicon': [favicon: string, tabId: string]
+  'page:zoom': [zoom: number, tabId: string]
   'proxy:status': [status: ProxyStatusEvent]
   'proxy:progress': [progress: { step: number; message: string }]
   'proxy:auto-connect': []
@@ -32,7 +41,7 @@ export interface IpcEventMap {
   'storage:status': [status: { running: boolean }]
   'context:open-link': [url: string]
   'settings:changed': [change: SettingsChangedEvent]
-  'tab:history-reset': [tabId: string]
+  'tab:history-reset': [tabId: string, url: string]
   'wallet:balance-updated': [balance: string]
   'wallet:state-changed': [state: WalletState]
   'wallet:new-transaction': [tx: WalletTransaction]

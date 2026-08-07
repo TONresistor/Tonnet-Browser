@@ -4,6 +4,22 @@
 
 const VIEWPORT_PADDING = 4
 
+export interface OverlayBounds {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+export function toIpcOverlayBounds(bounds: OverlayBounds): OverlayBounds {
+  return {
+    x: Math.round(bounds.x),
+    y: Math.round(bounds.y),
+    width: Math.max(1, Math.round(bounds.width)),
+    height: Math.max(1, Math.round(bounds.height)),
+  }
+}
+
 /**
  * Clamp a desired overlay origin so the box stays fully inside the window,
  * keeping `padding` px from each edge. Pass the already-offset desired x/y

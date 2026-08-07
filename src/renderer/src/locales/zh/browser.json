@@ -74,6 +74,7 @@
     "networkStatus": "网络状态：{{status}}",
     "downloadSpeedAria": "下载速度: {{speed}}",
     "uploadSpeedAria": "上传速度: {{speed}}",
+    "zoom": "页面缩放",
     "walletTitle": "钱包余额",
     "walletAria": "钱包余额显示"
   }

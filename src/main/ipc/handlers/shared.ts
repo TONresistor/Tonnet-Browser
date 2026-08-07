@@ -6,7 +6,7 @@ import { ipcMain, IpcMainInvokeEvent } from 'electron'
 import { ipcErrorHandler } from '../error-handler'
 import { createLogger } from '../../../shared/logger'
 import { getMainWindow } from '../../windows/main'
-import type { IpcFailure } from '../../../shared/ipc-contract/failure'
+import type { IpcFailure } from '../../../shared/ipc-failure'
 import type { IDisposable } from '../../utils/disposable'
 
 export const log = createLogger('ipc')
@@ -63,6 +63,10 @@ function toIpcFailure(reason: unknown): IpcFailure {
 }
 
 function logBoundaryError(channel: string, reason: unknown): void {
+  if (reason instanceof IpcBoundaryError && reason.internalCause === undefined) {
+    log.debug(`IPC request rejected: ${channel} (${reason.code})`)
+    return
+  }
   const internal = reason instanceof IpcBoundaryError && reason.internalCause ? reason.internalCause : reason
   ipcErrorHandler.logError(channel, toError(internal))
 }
@@ -132,6 +136,7 @@ export function overlayHandle<TArgs extends unknown[], TResult>(
  */
 export function tonsiteHandle<TArgs extends unknown[], TResult>(
   channel: string,
+  resolveIdentity: (event: IpcMainInvokeEvent) => string | null,
   handler: (domain: string, event: IpcMainInvokeEvent, ...args: TArgs) => TResult | Promise<TResult>
 ): IDisposable {
   ipcMain.handle(channel, async (event: IpcMainInvokeEvent, ...args: unknown[]) => {
@@ -140,15 +145,9 @@ export function tonsiteHandle<TArgs extends unknown[], TResult>(
       if (mainWindow && event.sender === mainWindow.webContents) {
         throw new Error('Unauthorized: this channel is for tonsites only')
       }
-      const url = event.sender.getURL()
-      let hostname: string
-      try {
-        hostname = new URL(url).hostname
-      } catch {
-        hostname = ''
-      }
-      if (!hostname) hostname = 'local'
-      return await handler(hostname, event, ...(args as TArgs))
+      const identity = resolveIdentity(event)
+      if (!identity) throw new Error('Unauthorized: sender is not owned by the tab manager')
+      return await handler(identity, event, ...(args as TArgs))
     } catch (err) {
       logBoundaryError(channel, err)
       return toIpcFailure(err)

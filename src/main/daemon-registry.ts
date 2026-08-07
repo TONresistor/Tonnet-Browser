@@ -138,7 +138,7 @@ export function reapStaleDaemons(): void {
  * Synchronously SIGKILL every tracked daemon. Used by the signal handlers, where
  * async teardown cannot be awaited before the process exits.
  */
-function killAllDaemonsSync(): void {
+export function killAllDaemonsSync(): void {
   for (const pid of live.keys()) {
     forceKillTree(pid)
   }

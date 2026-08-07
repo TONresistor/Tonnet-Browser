@@ -1,4 +1,4 @@
-import { getSetting, setSetting } from '../settings'
+import { getSetting, transactSettings } from '../settings'
 import type { BridgePermission, BridgeScope, BridgeDecision } from '../../shared/types'
 import { createLogger } from '../../shared/logger'
 const log = createLogger('bridge-permissions')
@@ -39,13 +39,15 @@ export const SCOPE_DESCRIPTIONS: Record<BridgeScope, string> = {
   write: 'broadcast data to the network',
 }
 
-interface CachedGrant {
-  decision: BridgeDecision
+interface SessionGrant {
   grantedAt: number
 }
 
 export class BridgePermissionStore {
-  private cache = new Map<string, CachedGrant>()
+  private sessionGrants = new Map<string, SessionGrant>()
+  private sessionGenerations = new Map<string, number>()
+  private sessionEpoch = 0
+  private mutationTail: Promise<void> | null = null
 
   private key(domain: string, scope: BridgeScope): string {
     return `${domain}:${scope}`
@@ -58,49 +60,90 @@ export class BridgePermissionStore {
 
   init(): void {
     const { permissions } = getSetting('bridge')
-    this.cache.clear()
-    for (const p of permissions) {
-      this.cache.set(this.key(p.domain, p.scope), { decision: p.decision, grantedAt: p.grantedAt })
-    }
     log.debug(`Loaded ${permissions.length} bridge permissions`)
   }
 
   getPermission(domain: string, scope: BridgeScope): BridgeDecision | 'unknown' {
-    return this.cache.get(this.key(domain, scope))?.decision ?? 'unknown'
+    const key = this.key(domain, scope)
+    const persistent = getSetting('bridge').permissions.find(
+      (permission) => this.key(permission.domain, permission.scope) === key
+    )
+    return persistent?.decision ?? (this.sessionGrants.has(key) ? 'session' : 'unknown')
   }
 
-  setPermission(domain: string, scope: BridgeScope, decision: BridgeDecision): void {
-    this.cache.set(this.key(domain, scope), { decision, grantedAt: Date.now() })
-    this.persist()
-    log.event('info', 'bridge.permission.set', 'bridge permission updated', { scope, decision })
+  setPermission(domain: string, scope: BridgeScope, decision: BridgeDecision): Promise<void> {
+    const key = this.key(domain, scope)
+    if (decision === 'session') {
+      const epoch = this.sessionEpoch
+      const generation = this.sessionGeneration(key)
+      return this.enqueueMutation(async () => {
+        if (epoch !== this.sessionEpoch || generation !== this.sessionGeneration(key)) return
+        this.sessionGrants.set(key, { grantedAt: Date.now() })
+        log.event('info', 'bridge.permission.set', 'bridge permission updated', { scope, decision })
+      })
+    }
+    return this.enqueueMutation(async () => {
+      await transactSettings(
+        (current) => ({
+          ...current,
+          bridge: {
+            ...current.bridge,
+            permissions: [
+              ...current.bridge.permissions.filter(
+                (permission) => this.key(permission.domain, permission.scope) !== key
+              ),
+              { domain, scope, decision, grantedAt: Date.now() },
+            ],
+          },
+        }),
+        async () => {}
+      )
+      this.invalidateSession(key)
+      log.event('info', 'bridge.permission.set', 'bridge permission updated', { scope, decision })
+    })
   }
 
-  revokePermission(domain: string, scope: BridgeScope): void {
-    this.cache.delete(this.key(domain, scope))
-    this.persist()
-    log.event('info', 'bridge.permission.revoked', 'bridge permission revoked', { scope })
+  revokePermission(domain: string, scope: BridgeScope): Promise<void> {
+    const key = this.key(domain, scope)
+    this.invalidateSession(key)
+    return this.enqueueMutation(async () => {
+      await transactSettings(
+        (current) => ({
+          ...current,
+          bridge: {
+            ...current.bridge,
+            permissions: current.bridge.permissions.filter(
+              (permission) => this.key(permission.domain, permission.scope) !== key
+            ),
+          },
+        }),
+        async () => {}
+      )
+      log.event('info', 'bridge.permission.revoked', 'bridge permission revoked', { scope })
+    })
+  }
+
+  revokeSessionPermission(domain: string, scope: BridgeScope): void {
+    this.invalidateSession(this.key(domain, scope))
   }
 
   getAllPermissions(): BridgePermission[] {
-    const result: BridgePermission[] = []
-    for (const [key, grant] of this.cache) {
+    const result = getSetting('bridge').permissions.map((permission) => ({ ...permission }))
+    const persistentKeys = new Set(result.map((grant) => this.key(grant.domain, grant.scope)))
+    for (const [key, grant] of this.sessionGrants) {
+      if (persistentKeys.has(key)) continue
       const { domain, scope } = this.parseKey(key)
-      result.push({ domain, scope, decision: grant.decision, grantedAt: grant.grantedAt })
+      result.push({ domain, scope, decision: 'session', grantedAt: grant.grantedAt })
     }
     return result
   }
 
   clearSessionGrants(): void {
-    const entries = [...this.cache.entries()]
-    let cleared = 0
-    for (const [key, grant] of entries) {
-      if (grant.decision === 'session') {
-        this.cache.delete(key)
-        cleared++
-      }
-    }
+    const cleared = this.sessionGrants.size
+    this.sessionEpoch += 1
+    this.sessionGenerations.clear()
+    this.sessionGrants.clear()
     if (cleared > 0) {
-      this.persist()
       log.info(`Cleared ${cleared} session-only grants`)
     }
   }
@@ -109,16 +152,23 @@ export class BridgePermissionStore {
     return getSetting('bridge').defaultPolicy
   }
 
-  private persist(): void {
-    const permissions: BridgePermission[] = []
-    for (const [key, grant] of this.cache) {
-      if (grant.decision === 'session') continue
-      const { domain, scope } = this.parseKey(key)
-      permissions.push({ domain, scope, decision: grant.decision, grantedAt: grant.grantedAt })
-    }
-    void setSetting('bridge', { permissions }).catch((error) =>
-      log.error('Failed to persist bridge permission:', error)
-    )
+  private sessionGeneration(key: string): number {
+    return this.sessionGenerations.get(key) ?? 0
+  }
+
+  private invalidateSession(key: string): void {
+    this.sessionGenerations.set(key, this.sessionGeneration(key) + 1)
+    this.sessionGrants.delete(key)
+  }
+
+  private enqueueMutation(operation: () => Promise<void>): Promise<void> {
+    const previous = this.mutationTail
+    const result = previous ? previous.catch(() => undefined).then(operation) : operation()
+    const owned = result.finally(() => {
+      if (this.mutationTail === owned) this.mutationTail = null
+    })
+    this.mutationTail = owned
+    return owned
   }
 }
 

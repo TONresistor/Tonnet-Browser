@@ -7,6 +7,7 @@ import messengerIcon from '@/assets/messenger.svg'
 import settingsIcon from '@/assets/settings.svg'
 import storageIcon from '@/assets/storage.svg'
 import walletIcon from '@/assets/wallet.svg'
+import themeIcon from '@/assets/appearance.svg'
 
 export type InternalRouteView =
   | 'start'
@@ -15,6 +16,7 @@ export type InternalRouteView =
   | 'storage-view'
   | 'loading'
   | 'settings'
+  | 'theme'
   | 'history'
   | 'bookmarks'
   | 'wallet'
@@ -29,6 +31,7 @@ export type InternalRoute =
   | { kind: 'storage-view'; view: 'storage-view'; bagId: string; filePath: string }
   | { kind: 'storage-file'; view: 'loading' }
   | { kind: 'settings'; view: 'settings' }
+  | { kind: 'theme'; view: 'theme' }
   | { kind: 'history'; view: 'history' }
   | { kind: 'bookmarks'; view: 'bookmarks' }
   | { kind: 'wallet'; view: 'wallet' }
@@ -66,6 +69,12 @@ const routes = {
     view: 'settings',
     title: () => i18n.t('title', { ns: 'settings' }),
     favicon: settingsIcon,
+  },
+  theme: {
+    kind: 'theme',
+    view: 'theme',
+    title: () => i18n.t('appearance.theme.label', { ns: 'settings' }),
+    favicon: themeIcon,
   },
   cocoon: {
     kind: 'cocoon',

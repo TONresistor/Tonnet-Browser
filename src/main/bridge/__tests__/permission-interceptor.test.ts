@@ -8,6 +8,10 @@ function getLatestWs(): any {
   return (globalThis as any).__latestWs
 }
 
+function getSockets(): any[] {
+  return (globalThis as any).__sockets
+}
+
 vi.mock('ws', async () => {
   const { EventEmitter: EE } = await import('events')
   const { vi: _vi } = await import('vitest')
@@ -21,11 +25,14 @@ vi.mock('ws', async () => {
       this.readyState = 3
     })
     terminate = _vi.fn()
+    url: string
 
-    constructor() {
+    constructor(url: string) {
       super()
+      this.url = url
       // Expose to tests via a global-ish holder injected at module scope
       ;(globalThis as any).__latestWs = this
+      ;((globalThis as any).__sockets ??= []).push(this)
       setTimeout(() => this.emit('open'), 0)
     }
   }
@@ -79,9 +86,10 @@ function createMockPermissionStore() {
   return {
     init: vi.fn(),
     getPermission: vi.fn((): 'granted' | 'denied' | 'unknown' => 'unknown'),
-    setPermission: vi.fn(),
+    setPermission: vi.fn(() => Promise.resolve()),
     clearSessionGrants: vi.fn(),
-    revokePermission: vi.fn(),
+    revokePermission: vi.fn(() => Promise.resolve()),
+    revokeSessionPermission: vi.fn(),
     getAllPermissions: vi.fn(() => []),
     getDefaultPolicy: vi.fn(() => 'ask' as 'ask' | 'deny'),
   }
@@ -89,15 +97,17 @@ function createMockPermissionStore() {
 
 function createMockOverlayManager() {
   return {
-    show: vi.fn(),
+    show: vi.fn(
+      (_id: string, _bounds: unknown, _content: unknown, _action?: (action: string) => void, _options?: unknown) => true
+    ),
     hide: vi.fn(),
   }
 }
 
-function createMockSender() {
+function createMockSender(id = 1) {
   const destroyCallbacks: Array<() => void> = []
   return {
-    id: 1,
+    id,
     send: vi.fn(),
     once: vi.fn((event: string, cb: () => void) => {
       if (event === 'destroyed') destroyCallbacks.push(cb)
@@ -123,6 +133,7 @@ describe('BridgePermissionInterceptor', () => {
     overlay = createMockOverlayManager()
     interceptor = new BridgePermissionInterceptor(store as any, overlay as any)
     ;(globalThis as any).__latestWs = null
+    ;(globalThis as any).__sockets = []
   })
 
   afterEach(() => {
@@ -348,6 +359,27 @@ describe('BridgePermissionInterceptor', () => {
       expect(store.setPermission).toHaveBeenCalledWith('app.ton', 'blockchain', 'granted')
     })
 
+    it('denies the request when a persistent grant cannot be saved', async () => {
+      store.getPermission.mockReturnValue('unknown')
+      store.getDefaultPolicy.mockReturnValue('ask')
+      store.setPermission.mockRejectedValueOnce(new Error('disk full'))
+      interceptor.init()
+      await vi.advanceTimersByTimeAsync(0)
+
+      const sendResponse = vi.fn()
+      const promise = interceptor.handleRequest(
+        'app.ton',
+        JSON.stringify({ id: 2, method: 'lite.getAccountState' }),
+        sendResponse
+      )
+      const callback = overlay.show.mock.calls[0][3] as (action: string) => void
+      callback('always-allow')
+      await promise
+
+      expect(JSON.parse(sendResponse.mock.calls[0][0]).error.code).toBe(-32003)
+      expect(getLatestWs().send).not.toHaveBeenCalled()
+    })
+
     it('denies on "deny" action', async () => {
       store.getPermission.mockReturnValue('unknown')
       store.getDefaultPolicy.mockReturnValue('ask')
@@ -474,7 +506,9 @@ describe('BridgePermissionInterceptor', () => {
 
       // First request registers the sender
       const data = JSON.stringify({ id: 1, method: 'subscribe.blocks' })
-      await interceptor.handleRequest('app.ton', data, sendResponse, sender)
+      const firstRequest = interceptor.handleRequest('app.ton', data, sendResponse, sender)
+      await vi.advanceTimersByTimeAsync(0)
+      await firstRequest
 
       // Sender should have been registered (once for 'destroyed')
       expect(sender.once).toHaveBeenCalledWith('destroyed', expect.any(Function))
@@ -482,9 +516,13 @@ describe('BridgePermissionInterceptor', () => {
       // Trigger the destroyed callback
       sender._triggerDestroyed()
 
+      expect(store.revokeSessionPermission).toHaveBeenCalledTimes(3)
+
       // Second request with the same sender should re-register it
       const data2 = JSON.stringify({ id: 2, method: 'subscribe.blocks' })
-      await interceptor.handleRequest('app.ton', data2, sendResponse, sender)
+      const secondRequest = interceptor.handleRequest('app.ton', data2, sendResponse, sender)
+      await vi.advanceTimersByTimeAsync(0)
+      await secondRequest
 
       // once('destroyed') should have been called again for the re-registration
       expect((sender.once as any).mock.calls.filter((c: any) => c[0] === 'destroyed').length).toBe(2)
@@ -513,6 +551,37 @@ describe('BridgePermissionInterceptor', () => {
       expect(secondWs).not.toBe(firstWs)
     })
 
+    it('coalesces concurrent rebinds to the same bridge port', async () => {
+      interceptor.init()
+      await vi.advanceTimersByTimeAsync(0)
+      const firstWs = getLatestWs()
+
+      const first = interceptor.applyBridgePort(7777)
+      const second = interceptor.applyBridgePort(7777)
+
+      expect(first).toBe(second)
+      expect(getSockets()).toHaveLength(2)
+      expect(getLatestWs().url).toBe('ws://127.0.0.1:7777')
+      expect(firstWs.close).toHaveBeenCalledOnce()
+
+      await vi.advanceTimersByTimeAsync(0)
+      await first
+      expect(getSockets()).toHaveLength(2)
+    })
+
+    it('records a pre-init bridge port and opens exactly one socket during idempotent init', async () => {
+      await interceptor.applyBridgePort(7777)
+
+      expect(getSockets()).toHaveLength(0)
+
+      interceptor.init()
+      interceptor.init()
+
+      expect(getSockets()).toHaveLength(1)
+      expect(getLatestWs().url).toBe('ws://127.0.0.1:7777')
+      await vi.advanceTimersByTimeAsync(0)
+    })
+
     it('calls init on permission store and clears session grants', () => {
       interceptor.init()
       expect(store.init).toHaveBeenCalledTimes(1)
@@ -524,28 +593,51 @@ describe('BridgePermissionInterceptor', () => {
   // Push notifications to subscribed senders
   // -----------------------------------------------------------------------
   describe('push notifications', () => {
-    it('forwards push notifications to subscribed senders only', async () => {
+    it('forwards raw bridge events only to their owning sender', async () => {
       store.getPermission.mockReturnValue('granted')
       interceptor.init()
       await vi.advanceTimersByTimeAsync(0)
 
-      const ws = getLatestWs()
-      const sender = createMockSender()
-      const sendResponse = vi.fn()
+      const senderA = createMockSender(1)
+      const senderB = createMockSender(2)
+      const responseA = vi.fn()
+      const responseB = vi.fn()
 
-      // Subscribe the sender
-      const data = JSON.stringify({ id: 1, method: 'subscribe.blocks' })
-      await interceptor.handleRequest('app.ton', data, sendResponse, sender)
+      const requestA = interceptor.handleRequest(
+        'a.ton',
+        JSON.stringify({ id: 1, method: 'subscribe.blocks' }),
+        responseA,
+        senderA
+      )
+      const wsA = getLatestWs()
+      await vi.advanceTimersByTimeAsync(0)
+      await requestA
+      const sentA = JSON.parse(wsA.send.mock.calls[0][0])
+      wsA.emit('message', JSON.stringify({ jsonrpc: '2.0', id: sentA.id, result: { subscription_id: 'a' } }))
 
-      // Drain the forwarded RPC response
-      const sent = JSON.parse(ws.send.mock.calls[0][0])
-      ws.emit('message', JSON.stringify({ jsonrpc: '2.0', id: sent.id, result: 'subscribed' }))
+      const requestB = interceptor.handleRequest(
+        'b.ton',
+        JSON.stringify({ id: 2, method: 'subscribe.blocks' }),
+        responseB,
+        senderB
+      )
+      const wsB = getLatestWs()
+      await vi.advanceTimersByTimeAsync(0)
+      await requestB
+      const sentB = JSON.parse(wsB.send.mock.calls[0][0])
+      wsB.emit('message', JSON.stringify({ jsonrpc: '2.0', id: sentB.id, result: { subscription_id: 'b' } }))
 
-      // Now simulate a push notification (no id, has method)
-      const push = JSON.stringify({ jsonrpc: '2.0', method: 'subscribe.blocks', params: { block: 123 } })
-      ws.emit('message', push)
+      const pushA = JSON.stringify({ event: 'block', data: { seqno: 123 } })
+      wsA.emit('message', pushA)
 
-      expect((sender as any).send).toHaveBeenCalledWith('bridge:message', push)
+      expect((senderA as any).send).toHaveBeenCalledWith('bridge:message', pushA)
+      expect((senderB as any).send).not.toHaveBeenCalled()
+
+      const pushB = JSON.stringify({ event: 'block', data: { seqno: 124 } })
+      wsB.emit('message', pushB)
+
+      expect((senderB as any).send).toHaveBeenCalledWith('bridge:message', pushB)
+      expect((senderA as any).send).toHaveBeenCalledTimes(1)
     })
   })
 

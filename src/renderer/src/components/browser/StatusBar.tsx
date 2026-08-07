@@ -3,21 +3,21 @@
  * Shows connection status and storage stats.
  */
 
-import { useEffect, useState, memo } from 'react'
-import { createLogger } from '@/logger'
-
-const log = createLogger('status')
+import { useEffect, useRef, useState, memo } from 'react'
 import { Wifi, WifiOff, LoaderCircle, ArrowDown, ArrowUp } from 'lucide-react'
-import walletIcon from '@/assets/wallet.svg'
+import { AppIcon } from '@/components/ui/AppIcon'
+import { SliderInput } from '@/components/ui/ios/SliderInput'
 import { useBrowserStore } from '@/stores/browser'
 import { useShallow } from 'zustand/react/shallow'
 import { usePreferencesStore } from '@/features/settings/preferences-store'
 import { useWalletStore } from '@/features/wallet/store'
 import { formatTonAmount } from '@/lib/ton-utils'
 import { useTabsStore } from '@/stores/tabs'
-import { proxyClient } from '@/features/proxy/client'
 import { storageClient } from '@/features/storage/client'
-import { APP_VERSION, TON_WALLET_PAGE, TUNNEL_SECTIONS } from '@shared/constants'
+import { browserClient } from '@/features/browser/client'
+import { isInternalUrl } from '@/app-shell/internal-routes'
+import { APP_VERSION, PAGE_ZOOM, TON_WALLET_PAGE, TUNNEL_SECTIONS } from '@shared/constants'
+import { IPC_CHANNELS } from '@shared/ipc-channels'
 import { useTranslation } from 'react-i18next'
 import { formatSpeed } from '@/lib/format'
 
@@ -37,49 +37,79 @@ function Clock({ locale }: { locale?: string }) {
     const timer = setInterval(() => setNow(new Date()), 1000)
     return () => clearInterval(timer)
   }, [])
-  return <span className="text-foreground">{formatTime(now, locale)}</span>
+  return <span className="text-chrome-foreground opacity-60">{formatTime(now, locale)}</span>
 }
 
 export const StatusBar = memo(function StatusBar() {
   const { t, i18n } = useTranslation('browser')
-  const { proxyConnected, proxySyncing, anonymousMode, circuitRelays, storageStats, setProxyStatus, setStorageStats } =
-    useBrowserStore(
-      useShallow((s) => ({
-        proxyConnected: s.proxyConnected,
-        proxySyncing: s.proxySyncing,
-        anonymousMode: s.anonymousMode,
-        circuitRelays: s.circuitRelays,
-        storageStats: s.storageStats,
-        setProxyStatus: s.setProxyStatus,
-        setStorageStats: s.setStorageStats,
-      }))
-    )
+  const { proxyConnected, proxySyncing, anonymousMode, circuitRelays, storageStats, setStorageStats } = useBrowserStore(
+    useShallow((s) => ({
+      proxyConnected: s.proxyConnected,
+      proxySyncing: s.proxySyncing,
+      anonymousMode: s.anonymousMode,
+      circuitRelays: s.circuitRelays,
+      storageStats: s.storageStats,
+      setStorageStats: s.setStorageStats,
+    }))
+  )
   const walletCreated = useWalletStore((s) => s.isCreated)
   const walletBalance = useWalletStore((s) => s.balance)
-  const openOrSwitchToTab = useTabsStore((s) => s.openOrSwitchToTab)
-  const seedingEnabled = usePreferencesStore((s) => s.saved.seedingEnabled)
-  const tunnelMode = usePreferencesStore((s) => s.saved.tunnelMode)
+  const { openOrSwitchToTab, activeTabId, activeTabUrl } = useTabsStore(
+    useShallow((s) => ({
+      openOrSwitchToTab: s.openOrSwitchToTab,
+      activeTabId: s.activeTabId,
+      activeTabUrl: s.tabs.find((tab) => tab.id === s.activeTabId)?.url ?? null,
+    }))
+  )
+  const { seedingEnabled, tunnelMode, defaultZoom } = usePreferencesStore(
+    useShallow((s) => ({
+      seedingEnabled: s.saved.seedingEnabled,
+      tunnelMode: s.saved.tunnelMode,
+      defaultZoom: s.saved.defaultZoom,
+    }))
+  )
+  const [zoom, setZoom] = useState(defaultZoom)
+  const zoomRequest = useRef(0)
+  const isZoomable = Boolean(activeTabId && activeTabUrl && !isInternalUrl(activeTabUrl))
+
   useEffect(() => {
-    // Listen for proxy status updates from main process
-    const unsubProxyStatus = proxyClient.onStatus((data) => {
-      // Runtime validation (the payload crosses an unchecked IPC boundary)
-      if (!data || typeof data !== 'object') {
-        log.error('Invalid proxy:status data:', data)
-        return
-      }
-      if (typeof data.status !== 'string') {
-        log.error('Invalid status field type')
-        return
-      }
-      setProxyStatus(
-        data.status === 'connected',
-        data.status === 'syncing',
-        undefined,
-        data.anonymousMode,
-        data.circuitRelays
-      )
+    const request = ++zoomRequest.current
+    if (!isZoomable || !activeTabId) {
+      setZoom(defaultZoom)
+      return
+    }
+
+    void browserClient
+      .getZoom()
+      .then((result) => {
+        if (zoomRequest.current === request && result.success && result.zoom !== null) setZoom(result.zoom)
+      })
+      .catch(() => undefined)
+
+    const unsubscribe = browserClient.on(IPC_CHANNELS.PAGE_ZOOM, (nextZoom, tabId) => {
+      if (tabId !== activeTabId) return
+      zoomRequest.current += 1
+      setZoom(nextZoom)
     })
 
+    return () => {
+      zoomRequest.current += 1
+      unsubscribe()
+    }
+  }, [activeTabId, defaultZoom, isZoomable])
+
+  const setActiveZoom = (nextZoom: number): void => {
+    const request = ++zoomRequest.current
+    setZoom(nextZoom)
+    void browserClient
+      .setZoom(nextZoom)
+      .then((result) => {
+        if (zoomRequest.current === request && result.zoom !== null) setZoom(result.zoom)
+      })
+      .catch(() => undefined)
+  }
+
+  useEffect(() => {
     // Listen for storage bags updates
     const unsubBagsUpdated = storageClient.onBagsUpdated((bags) => {
       const downloadSpeed = bags.reduce((sum, b) => sum + b.downloadSpeed, 0)
@@ -92,10 +122,9 @@ export const StatusBar = memo(function StatusBar() {
     })
 
     return () => {
-      unsubProxyStatus()
       unsubBagsUpdated()
     }
-  }, [setProxyStatus, setStorageStats])
+  }, [setStorageStats])
 
   const getNetworkStatus = () => {
     if (proxyConnected) {
@@ -131,7 +160,7 @@ export const StatusBar = memo(function StatusBar() {
     const hops = TUNNEL_SECTIONS[tunnelMode]
 
     return (
-      <span className="text-tonsite">
+      <span className="text-primary">
         {isReady ? t('statusBar.garlicRouting', { hops }) : t('statusBar.buildingCircuit')}
       </span>
     )
@@ -145,7 +174,7 @@ export const StatusBar = memo(function StatusBar() {
 
   return (
     <footer
-      className="flex items-center justify-between px-3 py-1 bg-[hsl(var(--elevation-0))] border-t border-border text-xs text-muted-foreground"
+      className="flex items-center justify-between px-3 py-1 bg-[hsl(var(--elevation-0))] border-t border-border text-xs text-chrome-foreground"
       role="contentinfo"
     >
       <div className="flex items-center gap-3">
@@ -172,7 +201,7 @@ export const StatusBar = memo(function StatusBar() {
         <button
           type="button"
           onClick={() => openOrSwitchToTab('ton://storage')}
-          className="flex items-center gap-1.5 text-muted-foreground transition-colors hover:text-foreground"
+          className="flex items-center gap-1.5 text-chrome-foreground transition-colors"
           aria-label={`${storageStats.bagsCount} ${storageStats.bagsCount === 1 ? t('statusBar.bag') : t('statusBar.bags')}`}
         >
           <span>{t('statusBar.storage')}</span>
@@ -206,22 +235,40 @@ export const StatusBar = memo(function StatusBar() {
 
       {/* Right side: wallet balance + version + clock */}
       <div className="flex items-center gap-3">
+        {isZoomable && (
+          <>
+            <SliderInput
+              value={zoom}
+              onChange={setActiveZoom}
+              min={PAGE_ZOOM.MIN_PERCENT}
+              max={PAGE_ZOOM.MAX_PERCENT}
+              step={PAGE_ZOOM.STEP_PERCENT}
+              suffix="%"
+              ariaLabel={t('statusBar.zoom')}
+              compact
+              className="opacity-70"
+            />
+            <Separator />
+          </>
+        )}
         {walletCreated && (
           <>
             <button
               type="button"
               onClick={() => openOrSwitchToTab(TON_WALLET_PAGE)}
-              className="flex items-center gap-1 hover:text-foreground transition-colors"
+              className="flex items-center gap-1 text-tonsite transition-colors"
               title={t('statusBar.walletTitle')}
               aria-label={t('statusBar.walletAria')}
             >
-              <img src={walletIcon} alt="" className="h-3 w-3" />
+              <AppIcon name="wallet" className="h-3 w-3" />
               <span>{formatTonAmount(walletBalance)} GRAM</span>
             </button>
             <Separator />
           </>
         )}
-        <span aria-label={`Version ${APP_VERSION}`}>v{APP_VERSION}</span>
+        <span className="text-chrome-foreground opacity-60" aria-label={`Version ${APP_VERSION}`}>
+          v{APP_VERSION}
+        </span>
         <Separator />
         <Clock locale={i18n.language} />
       </div>

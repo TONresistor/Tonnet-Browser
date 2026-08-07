@@ -7,6 +7,7 @@ import { create } from 'zustand'
 import { DEFAULT_SETTINGS } from '@shared/defaults'
 import type { ThemeType } from '@shared/defaults'
 import type { AppSettings } from '@shared/types'
+import type { SettingsPatch } from '@shared/ipc-contract/settings'
 import { createLogger } from '@/logger'
 import { settingsClient } from '@/features/settings/client'
 
@@ -27,7 +28,6 @@ export interface AppPreferences {
   storagePort: number
   autoConnect: boolean
   connectionTimeout: number
-  syncCheckInterval: number
   anonymousMode: boolean
   tunnelMode: 'standard' | 'maximum'
 
@@ -42,8 +42,6 @@ export interface AppPreferences {
   theme: ThemeType
   language: string
   defaultZoom: number
-  zoomMin: number
-  zoomMax: number
   showBookmarksBar: boolean
   showStatusBar: boolean
   tabOrientation: 'horizontal' | 'vertical'
@@ -69,7 +67,7 @@ export interface AppPreferences {
   // Advanced
   proxyVerbosity: number
   storageVerbosity: number
-  syncTestDomain: string
+  displayUnicodeDomains: boolean
 
   // Cocoon AI
   cocoonAutostart: boolean
@@ -108,7 +106,6 @@ export const defaultPreferences: AppPreferences = {
   storagePort: DEFAULT_SETTINGS.storagePort,
   autoConnect: DEFAULT_SETTINGS.autoConnect,
   connectionTimeout: DEFAULT_SETTINGS.connectionTimeout,
-  syncCheckInterval: DEFAULT_SETTINGS.syncCheckInterval,
   anonymousMode: DEFAULT_SETTINGS.anonymousMode,
   tunnelMode: DEFAULT_SETTINGS.tunnelMode,
 
@@ -123,8 +120,6 @@ export const defaultPreferences: AppPreferences = {
   theme: DEFAULT_SETTINGS.theme,
   language: DEFAULT_SETTINGS.language,
   defaultZoom: DEFAULT_SETTINGS.defaultZoom,
-  zoomMin: DEFAULT_SETTINGS.zoomMin,
-  zoomMax: DEFAULT_SETTINGS.zoomMax,
   showBookmarksBar: DEFAULT_SETTINGS.showBookmarksBar,
   showStatusBar: DEFAULT_SETTINGS.showStatusBar,
   tabOrientation: DEFAULT_SETTINGS.tabOrientation,
@@ -150,7 +145,7 @@ export const defaultPreferences: AppPreferences = {
   // Advanced
   proxyVerbosity: DEFAULT_SETTINGS.proxyVerbosity,
   storageVerbosity: DEFAULT_SETTINGS.storageVerbosity,
-  syncTestDomain: DEFAULT_SETTINGS.syncTestDomain,
+  displayUnicodeDomains: DEFAULT_SETTINGS.displayUnicodeDomains,
 
   // Cocoon AI
   cocoonAutostart: DEFAULT_SETTINGS.cocoon.autostart,
@@ -176,7 +171,6 @@ const prefToCategory: Record<keyof AppPreferences, PreferenceMapping> = {
   storagePort: { category: 'network', field: 'storagePort' },
   autoConnect: { category: 'network', field: 'autoConnect' },
   connectionTimeout: { category: 'network', field: 'connectionTimeout' },
-  syncCheckInterval: { category: 'network', field: 'syncCheckInterval' },
   anonymousMode: { category: 'network', field: 'anonymousMode' },
   tunnelMode: { category: 'network', field: 'tunnelMode' },
   downloadPath: { category: 'storage', field: 'downloadPath' },
@@ -187,8 +181,6 @@ const prefToCategory: Record<keyof AppPreferences, PreferenceMapping> = {
   theme: { category: 'appearance', field: 'theme' },
   language: { category: 'appearance', field: 'language' },
   defaultZoom: { category: 'appearance', field: 'defaultZoom' },
-  zoomMin: { category: 'appearance', field: 'zoomMin' },
-  zoomMax: { category: 'appearance', field: 'zoomMax' },
   showBookmarksBar: { category: 'appearance', field: 'showBookmarksBar' },
   showStatusBar: { category: 'appearance', field: 'showStatusBar' },
   tabOrientation: { category: 'appearance', field: 'tabOrientation' },
@@ -209,7 +201,7 @@ const prefToCategory: Record<keyof AppPreferences, PreferenceMapping> = {
   whitelistedDomains: { category: 'contentFiltering', field: 'whitelistedDomains' },
   proxyVerbosity: { category: 'advanced', field: 'proxyVerbosity' },
   storageVerbosity: { category: 'advanced', field: 'storageVerbosity' },
-  syncTestDomain: { category: 'advanced', field: 'syncTestDomain' },
+  displayUnicodeDomains: { category: 'advanced', field: 'displayUnicodeDomains' },
   cocoonAutostart: { category: 'cocoon', field: 'autostart' },
   messengerNetworkEnabled: { category: 'messenger', field: 'networkEnabled' },
 }
@@ -246,13 +238,6 @@ function hasPreferencesChanged(a: AppPreferences, b: AppPreferences): boolean {
     if (prefValueChanged(a[key], b[key])) return true
   }
   return false
-}
-
-function settingsSaveError(result: unknown): string | null {
-  if (!result || typeof result !== 'object') return null
-  const maybe = result as { success?: unknown; error?: unknown }
-  if (maybe.success !== false) return null
-  return typeof maybe.error === 'string' ? maybe.error : 'Failed to save settings'
 }
 
 // Selector to get current applied preferences (from saved)
@@ -292,6 +277,7 @@ export const usePreferencesStore = create<PreferencesState>()((set, get) => ({
 
   save: async () => {
     const { draft, saved } = get()
+    const submittedDraft = { ...draft }
     set({ isSaving: true })
 
     // Find changed values and group by category
@@ -306,19 +292,31 @@ export const usePreferencesStore = create<PreferencesState>()((set, get) => ({
       }
     }
 
-    // Sync all changed categories to main process in parallel
     try {
-      const results = await Promise.all(
-        Object.entries(categoryUpdates).map(([category, values]) =>
-          settingsClient.setCategory(category as keyof AppSettings, values)
-        )
-      )
-      const failure = results.map(settingsSaveError).find((error): error is string => Boolean(error))
-      if (failure) throw new Error(failure)
-      set({ saved: { ...draft }, hasChanges: false, isSaving: false })
+      if (Object.keys(categoryUpdates).length === 0) {
+        set({ hasChanges: false, isSaving: false })
+        return
+      }
+      const settings = await settingsClient.apply(categoryUpdates as SettingsPatch)
+      const preferences = mainSettingsToPrefs(settings)
+      set((state) => {
+        const nextDraft = { ...preferences }
+        for (const key of Object.keys(state.draft) as Array<keyof AppPreferences>) {
+          if (prefValueChanged(state.draft[key], submittedDraft[key])) {
+            ;(nextDraft as Record<keyof AppPreferences, unknown>)[key] = state.draft[key]
+          }
+        }
+        return {
+          saved: preferences,
+          draft: nextDraft,
+          hasChanges: hasPreferencesChanged(preferences, nextDraft),
+          isSaving: false,
+        }
+      })
     } catch (error) {
       log.error('Failed to save:', error)
       set({ isSaving: false })
+      throw error
     }
   },
 
@@ -330,16 +328,18 @@ export const usePreferencesStore = create<PreferencesState>()((set, get) => ({
   resetToDefaults: async () => {
     set({ isSaving: true })
     try {
-      await settingsClient.reset()
+      const result = await settingsClient.reset()
+      const preferences = mainSettingsToPrefs(result.settings)
       set({
-        saved: { ...defaultPreferences },
-        draft: { ...defaultPreferences },
+        saved: preferences,
+        draft: { ...preferences },
         hasChanges: false,
         isSaving: false,
       })
     } catch (error) {
       log.error('Failed to reset:', error)
       set({ isSaving: false })
+      throw error
     }
   },
 }))
@@ -347,13 +347,24 @@ export const usePreferencesStore = create<PreferencesState>()((set, get) => ({
 // Listen for settings changes from main process
 if (settingsClient.isAvailable()) {
   const unsubscribe = settingsClient.onChanged((data) => {
-    if (data.reset) {
-      usePreferencesStore.setState({
-        saved: { ...defaultPreferences },
-        draft: { ...defaultPreferences },
-        hasChanges: false,
-      })
+    if (!data.settings) {
+      void usePreferencesStore.getState().loadFromMain()
+      return
     }
+    const incoming = mainSettingsToPrefs(data.settings)
+    if (data.reset) {
+      usePreferencesStore.setState({ saved: incoming, draft: { ...incoming }, hasChanges: false })
+      return
+    }
+    usePreferencesStore.setState((state) => {
+      const draft = { ...incoming }
+      for (const key of Object.keys(state.draft) as Array<keyof AppPreferences>) {
+        if (prefValueChanged(state.draft[key], state.saved[key])) {
+          ;(draft as Record<keyof AppPreferences, unknown>)[key] = state.draft[key]
+        }
+      }
+      return { saved: incoming, draft, hasChanges: hasPreferencesChanged(incoming, draft) }
+    })
   })
 
   // Cleanup listener on HMR module replacement

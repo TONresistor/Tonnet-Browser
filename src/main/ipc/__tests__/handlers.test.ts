@@ -15,6 +15,7 @@ const tabsMocks = vi.hoisted(() => ({
   navigateInTab: vi.fn(() => Promise.resolve(true)),
   loadBagFile: vi.fn(() => Promise.resolve()),
   getActiveTabId: vi.fn(() => 'tab-1'),
+  cancelNavigation: vi.fn(),
 }))
 const loggingMocks = vi.hoisted(() => ({
   flushNativeLogs: vi.fn(() => Promise.resolve()),
@@ -91,6 +92,7 @@ vi.mock('../../storage/daemon', () => ({
 
 // Mock settings
 vi.mock('../../settings', () => ({
+  SettingsRuntimeApplyError: class SettingsRuntimeApplyError extends Error {},
   loadSettings: vi.fn(() => ({ general: {}, network: {}, storage: {} })),
   getSetting: vi.fn(() => ({})),
   setSetting: vi.fn(),
@@ -229,7 +231,7 @@ vi.mock('../../cocoon/platform', () => ({
 // Import after mocks
 import { registerIpcHandlers, _resetHandlersForTesting } from '../handlers'
 import { IPC_CHANNELS } from '../../../shared/ipc-channels'
-import { setSetting, resetSettings, getSetting } from '../../settings'
+import { getSetting, SettingsRuntimeApplyError } from '../../settings'
 import type { ServiceRegistry } from '../../services'
 import { DisposableStore } from '../../utils/disposable'
 import { overlayIdB64ForRoom } from '../../chat/room'
@@ -238,6 +240,7 @@ import { marshalEnvelope, signEnvelope } from '../../chat/envelope'
 import { generateCocoonWallet, loadCocoonWallet, markSetupComplete } from '../../cocoon/wallet'
 import { getOwnerBalance, getCocoonWalletBalance, fundCocoonFromOwner } from '../../cocoon/setup'
 import { ChatSessionController } from '../../chat/session-controller'
+import { AppSettingsSchema } from '../../../shared/types'
 
 // Build mock service registry from the mock emitters
 const mockProxyManager = (() => {
@@ -290,6 +293,18 @@ function createMockRegistry(): ServiceRegistry {
       const emitter = new EventEmitter()
       return Object.assign(emitter, {
         getState: vi.fn(() => ({ isCreated: false })),
+        importWallet: vi.fn(() =>
+          Promise.resolve({
+            isCreated: true,
+            address: 'UQImported',
+            addressRaw: '0:imported',
+            publicKey: '01',
+            balance: '0',
+          })
+        ),
+        resolveRecipient: vi.fn((input: string) => Promise.resolve({ address: input })),
+        getBalance: vi.fn(() => Promise.resolve('100')),
+        send: vi.fn(),
         setAutoLockMinutes: vi.fn(),
         getTonBridge: vi.fn(() => null),
         getMessengerBridge: vi.fn(() => null),
@@ -384,6 +399,7 @@ function createMockRegistry(): ServiceRegistry {
         storageManager: mockStorageManager,
         storageBagCache: new Map(),
         storageBrowserLoading: new Set(),
+        storageBrowserEpochs: new Map(),
         fileBrowserCache: new Map(),
       },
       createTab,
@@ -395,9 +411,11 @@ function createMockRegistry(): ServiceRegistry {
       hideAllViews,
       showActiveView,
       loadBagFile: tabsMocks.loadBagFile,
+      cancelNavigation: tabsMocks.cancelNavigation,
       updateSidebarWidth: vi.fn(),
       updateWalletSidebarWidth: vi.fn(),
       onAppearanceSettingsChanged: vi.fn(),
+      updateProxyPort: vi.fn(() => Promise.resolve()),
       initialize: vi.fn(),
       dispose: vi.fn(),
     } as any,
@@ -415,6 +433,10 @@ function createMockRegistry(): ServiceRegistry {
       sendNative: vi.fn(() => Promise.resolve()),
       persistence: null as any,
     },
+    settingsCoordinator: {
+      apply: vi.fn(() => Promise.resolve(AppSettingsSchema.parse({}))),
+      reset: vi.fn(() => Promise.resolve(AppSettingsSchema.parse({}))),
+    } as any,
   }
 }
 
@@ -422,6 +444,14 @@ function createMockRegistry(): ServiceRegistry {
 const createMockEvent = () => {
   // Event sender must match mainWindow.webContents for origin check
   return { sender: mockMainWindow?.webContents } as any
+}
+
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>((done) => {
+    resolve = done
+  })
+  return { promise, resolve }
 }
 
 let mockRegistry: ServiceRegistry
@@ -465,6 +495,39 @@ describe('IPC Handlers', () => {
   })
 
   describe('Proxy Handlers', () => {
+    it('applies the effective proxy port when the runtime connects', async () => {
+      vi.mocked(mockRegistry.proxyManager.getStatus).mockReturnValueOnce({
+        status: 'connected',
+        connected: true,
+        syncing: false,
+        port: 9090,
+      } as never)
+
+      mockProxyManager.emit('status', 'connected')
+      await Promise.resolve()
+
+      expect(mockRegistry.tabManager.updateProxyPort).toHaveBeenCalledWith(9090)
+    })
+
+    it('does not publish a stale connected status after the runtime stops', async () => {
+      const update = deferred<void>()
+      vi.mocked(mockRegistry.tabManager.updateProxyPort).mockReturnValueOnce(update.promise)
+      vi.mocked(mockRegistry.proxyManager.getStatus)
+        .mockReturnValueOnce({ status: 'connected', connected: true, port: 9090 } as never)
+        .mockReturnValueOnce({ status: 'stopped', connected: false, port: 9090 } as never)
+
+      mockProxyManager.emit('status', 'connected')
+      mockProxyManager.emit('status', 'stopped')
+      update.resolve()
+      await update.promise
+      await Promise.resolve()
+
+      const statusEvents = vi
+        .mocked(mockMainWindow.webContents.send)
+        .mock.calls.filter((call: unknown[]) => call[0] === IPC_CHANNELS.PROXY_STATUS)
+      expect(statusEvents).toEqual([[IPC_CHANNELS.PROXY_STATUS, expect.objectContaining({ status: 'stopped' })]])
+    })
+
     it('PROXY_CONNECT starts proxy and returns success', async () => {
       const handler = mockHandlers.get(IPC_CHANNELS.PROXY_CONNECT)!
       expect(handler).toBeDefined()
@@ -473,6 +536,46 @@ describe('IPC Handlers', () => {
 
       expect(result.success).toBe(true)
       expect(mockRegistry.proxyManager.start).toHaveBeenCalled()
+    })
+
+    it('PROXY_CONNECT waits for the effective proxy port', async () => {
+      const update = deferred<void>()
+      vi.mocked(mockRegistry.tabManager.updateProxyPort).mockReturnValueOnce(update.promise)
+      const handler = mockHandlers.get(IPC_CHANNELS.PROXY_CONNECT)!
+
+      const result = handler(createMockEvent())
+      await vi.waitFor(() => expect(mockRegistry.tabManager.updateProxyPort).toHaveBeenCalledWith(8080))
+      let settled = false
+      void result.then(() => {
+        settled = true
+      })
+      await Promise.resolve()
+      expect(settled).toBe(false)
+
+      update.resolve()
+      await expect(result).resolves.toMatchObject({ success: true })
+    })
+
+    it('PROXY_CONNECT follows proxy port changes before returning', async () => {
+      const firstUpdate = deferred<void>()
+      const secondUpdate = deferred<void>()
+      vi.mocked(mockRegistry.tabManager.updateProxyPort)
+        .mockReturnValueOnce(firstUpdate.promise)
+        .mockReturnValueOnce(secondUpdate.promise)
+      vi.mocked(mockRegistry.proxyManager.getStatus)
+        .mockReturnValueOnce({ status: 'connected', connected: true, port: 8080 } as never)
+        .mockReturnValueOnce({ status: 'connected', connected: true, port: 9090 } as never)
+        .mockReturnValueOnce({ status: 'connected', connected: true, port: 9090 } as never)
+        .mockReturnValueOnce({ status: 'connected', connected: true, port: 9090 } as never)
+      const handler = mockHandlers.get(IPC_CHANNELS.PROXY_CONNECT)!
+
+      const result = handler(createMockEvent())
+      await vi.waitFor(() => expect(mockRegistry.tabManager.updateProxyPort).toHaveBeenCalledWith(8080))
+      firstUpdate.resolve()
+      await vi.waitFor(() => expect(mockRegistry.tabManager.updateProxyPort).toHaveBeenCalledWith(9090))
+      secondUpdate.resolve()
+
+      await expect(result).resolves.toMatchObject({ success: true, status: 'connected', port: 9090 })
     })
 
     it('PROXY_CONNECT handles errors gracefully', async () => {
@@ -503,14 +606,48 @@ describe('IPC Handlers', () => {
       expect(result.status).toBe('connected')
       expect(result.port).toBe(8080)
     })
+
+    it('PROXY_STATUS waits for the effective proxy port', async () => {
+      const update = deferred<void>()
+      vi.mocked(mockRegistry.tabManager.updateProxyPort).mockReturnValueOnce(update.promise)
+      const handler = mockHandlers.get(IPC_CHANNELS.PROXY_STATUS)!
+
+      const result = handler(createMockEvent())
+      await vi.waitFor(() => expect(mockRegistry.tabManager.updateProxyPort).toHaveBeenCalledWith(8080))
+      update.resolve()
+
+      await expect(result).resolves.toMatchObject({ status: 'connected', port: 8080 })
+    })
+
+    it('PROXY_STATUS follows proxy port changes before returning', async () => {
+      const firstUpdate = deferred<void>()
+      const secondUpdate = deferred<void>()
+      vi.mocked(mockRegistry.tabManager.updateProxyPort)
+        .mockReturnValueOnce(firstUpdate.promise)
+        .mockReturnValueOnce(secondUpdate.promise)
+      vi.mocked(mockRegistry.proxyManager.getStatus)
+        .mockReturnValueOnce({ status: 'connected', connected: true, port: 8080 } as never)
+        .mockReturnValueOnce({ status: 'connected', connected: true, port: 9090 } as never)
+        .mockReturnValueOnce({ status: 'connected', connected: true, port: 9090 } as never)
+        .mockReturnValueOnce({ status: 'connected', connected: true, port: 9090 } as never)
+      const handler = mockHandlers.get(IPC_CHANNELS.PROXY_STATUS)!
+
+      const result = handler(createMockEvent())
+      await vi.waitFor(() => expect(mockRegistry.tabManager.updateProxyPort).toHaveBeenCalledWith(8080))
+      firstUpdate.resolve()
+      await vi.waitFor(() => expect(mockRegistry.tabManager.updateProxyPort).toHaveBeenCalledWith(9090))
+      secondUpdate.resolve()
+
+      await expect(result).resolves.toMatchObject({ status: 'connected', port: 9090 })
+    })
   })
 
   describe('Tab Handlers', () => {
     it('TAB_CREATE creates a new tab', async () => {
       const handler = mockHandlers.get(IPC_CHANNELS.TAB_CREATE)!
-      const result = await handler!(createMockEvent(), 'new-tab-id')
+      const result = await handler!(createMockEvent(), 'new-tab-id', 'ton://start')
 
-      expect(createTab).toHaveBeenCalledWith('new-tab-id')
+      expect(createTab).toHaveBeenCalledWith('new-tab-id', 'ton://start')
       expect(result.success).toBe(true)
     })
 
@@ -528,6 +665,56 @@ describe('IPC Handlers', () => {
 
       expect(switchTab).toHaveBeenCalledWith('tab-to-activate')
       expect(result.success).toBe(true)
+    })
+  })
+
+  describe('Wallet Handlers', () => {
+    it('clears account-scoped state after a wallet import succeeds', async () => {
+      const mnemonic = Array.from({ length: 24 }, (_, index) => `word${index + 1}`)
+      const handler = mockHandlers.get(IPC_CHANNELS.WALLET_IMPORT)!
+
+      const result = await handler(createMockEvent(), mnemonic)
+
+      expect(result).toMatchObject({ isCreated: true, address: 'UQImported' })
+      expect(mockRegistry.walletManager.importWallet).toHaveBeenCalledWith(mnemonic)
+      expect(mockRegistry.walletHistoryManager.clear).toHaveBeenCalledOnce()
+      expect(mockRegistry.tonConnectService.clearSessions).toHaveBeenCalledOnce()
+      expect(vi.mocked(mockRegistry.walletManager.importWallet).mock.invocationCallOrder[0]).toBeLessThan(
+        vi.mocked(mockRegistry.walletHistoryManager.clear).mock.invocationCallOrder[0]
+      )
+      expect(vi.mocked(mockRegistry.walletManager.importWallet).mock.invocationCallOrder[0]).toBeLessThan(
+        vi.mocked(mockRegistry.tonConnectService.clearSessions).mock.invocationCallOrder[0]
+      )
+    })
+
+    it('keeps account-scoped state when wallet import fails', async () => {
+      vi.mocked(mockRegistry.walletManager.importWallet).mockRejectedValueOnce(new Error('Invalid mnemonic phrase'))
+      const mnemonic = Array.from({ length: 24 }, (_, index) => `word${index + 1}`)
+      const handler = mockHandlers.get(IPC_CHANNELS.WALLET_IMPORT)!
+
+      const result = await handler(createMockEvent(), mnemonic)
+
+      expect(result).toEqual({
+        ok: false,
+        error: { code: 'INVALID_MNEMONIC', message: 'Invalid mnemonic phrase', retryable: false },
+      })
+      expect(mockRegistry.walletHistoryManager.clear).not.toHaveBeenCalled()
+      expect(mockRegistry.tonConnectService.clearSessions).not.toHaveBeenCalled()
+    })
+
+    it('reports an insufficient balance as a stable business failure', async () => {
+      vi.mocked(mockRegistry.walletManager.getState).mockReturnValueOnce({ isCreated: true } as never)
+      vi.mocked(mockRegistry.walletManager.getTonBridge).mockReturnValueOnce({} as never)
+      vi.mocked(mockRegistry.walletManager.getBalance).mockResolvedValueOnce('10')
+      const handler = mockHandlers.get(IPC_CHANNELS.WALLET_SEND)!
+
+      const result = await handler(createMockEvent(), 'EQRecipient', '11')
+
+      expect(result).toEqual({
+        ok: false,
+        error: { code: 'INSUFFICIENT_BALANCE', message: 'Insufficient balance', retryable: false },
+      })
+      expect(mockRegistry.walletManager.send).not.toHaveBeenCalled()
     })
   })
 
@@ -575,7 +762,31 @@ describe('IPC Handlers', () => {
 
       await handler(createMockEvent(), 'network', { proxyPort: 9000 })
 
-      expect(setSetting).toHaveBeenCalledWith('network', { proxyPort: 9000 })
+      expect(mockRegistry.settingsCoordinator.apply).toHaveBeenCalledWith({ network: { proxyPort: 9000 } })
+    })
+
+    it('SETTINGS_APPLY submits one multi-category transaction', async () => {
+      const handler = mockHandlers.get(IPC_CHANNELS.SETTINGS_APPLY)!
+      const patch = { network: { proxyPort: 9000 }, privacy: { clearOnExit: false } }
+
+      const result = await handler(createMockEvent(), patch)
+
+      expect(mockRegistry.settingsCoordinator.apply).toHaveBeenCalledWith(patch)
+      expect(result).toEqual(AppSettingsSchema.parse({}))
+    })
+
+    it('SETTINGS_SET reports runtime apply failures', async () => {
+      vi.mocked(mockRegistry.settingsCoordinator.apply).mockRejectedValueOnce(
+        new SettingsRuntimeApplyError(new Error('port unavailable'))
+      )
+      const handler = mockHandlers.get(IPC_CHANNELS.SETTINGS_SET)!
+
+      const result = await handler(createMockEvent(), 'network', { proxyPort: 9000 })
+
+      expect(result).toEqual({
+        ok: false,
+        error: { code: 'RUNTIME_APPLY_FAILED', message: 'Unable to apply settings', retryable: false },
+      })
     })
 
     it('SETTINGS_RESET restores defaults', async () => {
@@ -584,7 +795,7 @@ describe('IPC Handlers', () => {
 
       await handler(createMockEvent())
 
-      expect(resetSettings).toHaveBeenCalled()
+      expect(mockRegistry.settingsCoordinator.reset).toHaveBeenCalled()
     })
 
     it('flushes native logs before copying the diagnostic report', async () => {
@@ -600,6 +811,21 @@ describe('IPC Handlers', () => {
   })
 
   describe('Chat Handlers', () => {
+    it('reports disabled Messenger networking without collapsing it to an internal error', async () => {
+      vi.mocked(getSetting).mockImplementation(((category: string) => {
+        if (category === 'messenger') return { networkEnabled: false, attachWalletIdentity: false }
+        return {}
+      }) as typeof getSetting)
+      const handler = mockHandlers.get(IPC_CHANNELS.CHAT_CONNECT)!
+
+      const result = await handler(createMockEvent(), 'tonnet:groupchat', undefined)
+
+      expect(result).toEqual({
+        ok: false,
+        error: { code: 'MESSENGER_DISABLED', message: 'Messenger networking is disabled', retryable: false },
+      })
+    })
+
     it('emits replayed history messages even when the signed broadcast date is stale', async () => {
       const room = 'tonnet:groupchat'
       const overlayId = overlayIdB64ForRoom(room)
@@ -644,13 +870,15 @@ describe('IPC Handlers', () => {
   })
 
   describe('Event Forwarding', () => {
-    it('forwards proxy status events to renderer', () => {
+    it('forwards proxy status events to renderer', async () => {
       // Emit event on proxy manager
       ;(mockRegistry.proxyManager as EventEmitter).emit('status', 'connected')
 
-      expect(mockMainWindow.webContents.send).toHaveBeenCalledWith(
-        'proxy:status',
-        expect.objectContaining({ status: 'connected' })
+      await vi.waitFor(() =>
+        expect(mockMainWindow.webContents.send).toHaveBeenCalledWith(
+          'proxy:status',
+          expect.objectContaining({ status: 'connected' })
+        )
       )
     })
 
@@ -689,6 +917,14 @@ describe('IPC Handlers', () => {
 
 describe('Security - Input Validation', () => {
   beforeEach(resetHandlersTestEnv)
+
+  it('supersedes pending navigation for the requested internal tab', async () => {
+    const handler = mockHandlers.get(IPC_CHANNELS.NAVIGATE)!
+
+    await handler(createMockEvent(), 'ton://settings', 'tab-2')
+
+    expect(hideAllViews).toHaveBeenCalledWith('tab-2')
+  })
 
   it('navigation handler rejects javascript: URLs', async () => {
     const handler = mockHandlers.get(IPC_CHANNELS.NAVIGATE)!
@@ -745,6 +981,17 @@ const COCOON_ROOT_MAINNET = 'EQCns7bYSp0igFvS1wpb5wsZjCKCV19MD5AVzI4EyxsnU73k'
 
 describe('Cocoon AI Handlers', () => {
   beforeEach(resetHandlersTestEnv)
+
+  it('reports a missing archive entry with its declared business code', async () => {
+    const handler = mockHandlers.get(IPC_CHANNELS.COCOON_ARCHIVE_EXPORT_MNEMONIC)!
+
+    const result = await handler(createMockEvent(), { archivedAt: 1_700_000_000_000 })
+
+    expect(result).toEqual({
+      ok: false,
+      error: { code: 'ARCHIVE_NOT_FOUND', message: 'Archive entry not found', retryable: false },
+    })
+  })
 
   // ── COCOON_START ────────────────────────────────────────────────────────────
 
@@ -914,7 +1161,7 @@ describe('Cocoon AI Handlers', () => {
 
       expect(result).toEqual({
         ok: false,
-        error: { code: 'BALANCE_READ_FAILED', message: 'Operation failed', retryable: false },
+        error: { code: 'BRIDGE_DISCONNECTED', message: 'Bridge not connected', retryable: false },
       })
     })
   })
@@ -941,7 +1188,7 @@ describe('Cocoon AI Handlers', () => {
 
       expect(result).toEqual({
         ok: false,
-        error: { code: 'BALANCE_READ_FAILED', message: 'Operation failed', retryable: false },
+        error: { code: 'BRIDGE_DISCONNECTED', message: 'Bridge not connected', retryable: false },
       })
     })
   })
@@ -1002,7 +1249,7 @@ describe('Cocoon AI Handlers', () => {
 
       expect(result).toEqual({
         ok: false,
-        error: { code: 'FUND_FAILED', message: 'Operation failed', retryable: false },
+        error: { code: 'BRIDGE_DISCONNECTED', message: 'Bridge not connected', retryable: false },
       })
     })
   })

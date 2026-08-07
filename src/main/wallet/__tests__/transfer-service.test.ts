@@ -8,7 +8,6 @@ function setup(sendAndWatch: () => Promise<string> = async () => 'hash') {
   const bridge = { sendAndWatch: vi.fn(sendAndWatch), broadcast: vi.fn(async () => {}) }
   const context = {
     getBridge: () => bridge,
-    syncSeqno: vi.fn(async () => {}),
     buildBoc: vi.fn(async () => ({ boc: beginCell().storeUint(1, 1).endCell().toBoc().toString('base64') })),
     notifyStateChanged: vi.fn(),
   }
@@ -18,10 +17,10 @@ function setup(sendAndWatch: () => Promise<string> = async () => 'hash') {
 describe('WalletTransferService', () => {
   it('builds and watches a TonConnect transaction', async () => {
     const { service, bridge, context } = setup()
-    const boc = await service.signTonConnectTransaction([{ address: recipient, amount: '42' }])
+    const expectedAddress = `0:${'11'.repeat(32)}`
+    const boc = await service.signTonConnectTransaction([{ address: recipient, amount: '42' }], expectedAddress)
     expect(Buffer.from(boc, 'base64').length).toBeGreaterThan(0)
-    expect(context.syncSeqno).toHaveBeenCalledOnce()
-    expect(context.buildBoc).toHaveBeenCalledWith(expect.any(Array), 300)
+    expect(context.buildBoc).toHaveBeenCalledWith(expect.any(Array), 300, expectedAddress)
     expect(bridge.sendAndWatch).toHaveBeenCalledOnce()
     expect(bridge.broadcast).not.toHaveBeenCalled()
     expect(context.notifyStateChanged).toHaveBeenCalledOnce()
@@ -38,7 +37,6 @@ describe('WalletTransferService', () => {
   it('fails before signing when no bridge is available', async () => {
     const service = new WalletTransferService({
       getBridge: () => null,
-      syncSeqno: async () => {},
       buildBoc: async () => ({ boc: '' }),
       notifyStateChanged: () => {},
     })

@@ -98,32 +98,49 @@ export const Http402ExperimentalPanel = memo(function Http402ExperimentalPanel({
 
   useEffect(() => {
     let active = true
-    walletClient
+    let canonicalRevision = 0
+    let initialized = false
+    const off = walletClient.onSettingsChanged((change) => {
+      if (!change.settings || (!change.reset && change.category !== 'wallet')) return
+      canonicalRevision += 1
+      const next = pickHttp402Settings(change.settings.wallet)
+      const values = change.values as Partial<WalletSettings> | undefined
+      const replaceDraft =
+        change.reset ||
+        !initialized ||
+        !values ||
+        ['paymentMode', 'notificationStyle', 'limits', 'sitePolicies', 'autoPayDomains'].some((key) =>
+          Object.prototype.hasOwnProperty.call(values, key)
+        )
+      setSaved(next)
+      if (replaceDraft) {
+        setDraft(next)
+        applyDisplayValues(next)
+      }
+      setIsLoading(false)
+      initialized = true
+    })
+    const loadRevision = canonicalRevision
+    void walletClient
       .getSettings()
       .then((walletSettings) => {
-        if (!active || !walletSettings) return
+        if (!active || !walletSettings || canonicalRevision !== loadRevision) return
         const next = pickHttp402Settings(walletSettings as WalletSettings)
         setSaved(next)
         setDraft(next)
         applyDisplayValues(next)
+        initialized = true
       })
-      .catch((err) => log.error('Failed to load HTTP 402 settings:', err))
+      .catch((err) => {
+        if (active) log.error('Failed to load HTTP 402 settings:', err)
+      })
       .finally(() => {
         if (active) setIsLoading(false)
       })
     return () => {
       active = false
+      off()
     }
-  }, [applyDisplayValues])
-
-  useEffect(() => {
-    const off = walletClient.onSettingsChanged((change) => {
-      if (!change.reset) return
-      setSaved(DEFAULT_HTTP402_SETTINGS)
-      setDraft(DEFAULT_HTTP402_SETTINGS)
-      applyDisplayValues(DEFAULT_HTTP402_SETTINGS)
-    })
-    return () => off()
   }, [applyDisplayValues])
 
   const updateDraft = (updates: Partial<Http402Settings>) => {
@@ -152,6 +169,7 @@ export const Http402ExperimentalPanel = memo(function Http402ExperimentalPanel({
       setSaved(draft)
     } catch (err) {
       log.error('Failed to save HTTP 402 settings:', err)
+      throw err
     }
   }, [draft])
 
@@ -206,6 +224,7 @@ export const Http402ExperimentalPanel = memo(function Http402ExperimentalPanel({
                 <Segmented
                   value={draft.paymentMode}
                   onChange={(v) => updateDraft({ paymentMode: v as PaymentMode })}
+                  ariaLabel={t('wallet.paymentMode')}
                   options={[
                     { value: 'manual', label: t('wallet.modeManual') },
                     { value: 'auto', label: t('wallet.modeAuto') },
@@ -216,6 +235,7 @@ export const Http402ExperimentalPanel = memo(function Http402ExperimentalPanel({
                 <Segmented
                   value={draft.notificationStyle}
                   onChange={(v) => updateDraft({ notificationStyle: v as NotificationStyle })}
+                  ariaLabel={t('wallet.notificationStyle')}
                   options={[
                     { value: 'popup', label: t('wallet.notifPopup') },
                     { value: 'addressbar', label: t('wallet.notifAddressbar') },

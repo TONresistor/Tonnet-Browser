@@ -21,7 +21,7 @@ function DetailRow({ label, children }: { label: string; children: ReactNode }) 
   return (
     <div className="flex items-center justify-between gap-3 border-b border-border-subtle px-4 py-3 last:border-0">
       <span className="shrink-0 text-[13px] text-muted-foreground">{label}</span>
-      <span className="min-w-0 truncate text-right text-[14px] text-foreground">{children}</span>
+      <span className="min-w-0 truncate text-right text-[14px] text-card-foreground">{children}</span>
     </div>
   )
 }
@@ -58,7 +58,7 @@ export function TransactionDetailSheet({ tx, selfAddress, onClose }: Transaction
 
   return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-scrim/50 p-4 backdrop-blur-sm"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
@@ -84,7 +84,7 @@ export function TransactionDetailSheet({ tx, selfAddress, onClose }: Transaction
               isReceive ? 'bg-success' : 'bg-primary'
             )}
           >
-            <Icon className="h-6 w-6 text-white" strokeWidth={2.5} aria-hidden="true" />
+            <Icon className="h-6 w-6 text-identity-foreground" strokeWidth={2.5} aria-hidden="true" />
           </div>
           <p className="text-[13px] font-medium text-muted-foreground">{t(`history.types.${tx.type}`)}</p>
           <p className={cn('text-[32px] font-bold leading-none tabular-nums', amountColor)}>

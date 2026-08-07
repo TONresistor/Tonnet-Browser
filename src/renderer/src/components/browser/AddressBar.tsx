@@ -12,7 +12,7 @@ import { useBrowserStore } from '@/stores/browser'
 import { useBookmarksStore } from '@/features/bookmarks/store'
 import { useTabsStore } from '@/stores/tabs'
 import { cn } from '@/lib/utils'
-import { processNavigationInput, stripHttpPrefix, getHostname } from '@/lib/url-utils'
+import { decodePunycodeUrl, processNavigationInput, stripHttpPrefix, getHostname } from '@/lib/url-utils'
 import { clampToViewport } from '@/lib/overlay-position'
 import type { OverlayMenuItem } from '@shared/types'
 import tonIcon from '@/assets/ton.png'
@@ -117,6 +117,7 @@ export const AddressBar = memo(function AddressBar() {
   const notificationStyle = useWalletStore((s) => s.notificationStyle)
   const resolveEth = usePreferencesStore((s) => s.saved.resolveEth)
   const resolveSol = usePreferencesStore((s) => s.saved.resolveSol)
+  const displayUnicodeDomains = usePreferencesStore((s) => s.saved.displayUnicodeDomains)
   const [chainDisabledError, setChainDisabledError] = useState<string | null>(null)
   const { t: tw } = useTranslation('wallet')
   const show402 = useMemo(() => {
@@ -126,6 +127,11 @@ export const AddressBar = memo(function AddressBar() {
   }, [pending402Notification, hostname, notificationStyle])
 
   const showTipButton = isTonDomain && walletCreated && !show402
+  const rawAddressValue = useMemo(() => (isTonSite ? stripHttpPrefix(currentUrl) : currentUrl), [currentUrl, isTonSite])
+  const displayAddressValue = useMemo(() => {
+    if (!isTonSite || !displayUnicodeDomains) return rawAddressValue
+    return stripHttpPrefix(decodePunycodeUrl(currentUrl))
+  }, [currentUrl, displayUnicodeDomains, isTonSite, rawAddressValue])
 
   // Display URL without http:// for TON sites, and friendly names for bag files
   useEffect(() => {
@@ -151,11 +157,11 @@ export const AddressBar = memo(function AddressBar() {
         setInput(fileName)
       }
     } else if (isTonSite) {
-      setInput(stripHttpPrefix(currentUrl))
+      setInput(displayAddressValue)
     } else {
       setInput(currentUrl)
     }
-  }, [currentUrl, isTonSite, t])
+  }, [currentUrl, displayAddressValue, isTonSite, t])
 
   // Fetch history suggestions when input changes
   useEffect(() => {
@@ -304,7 +310,7 @@ export const AddressBar = memo(function AddressBar() {
           {/* TON site badge */}
           {isTonSite && !isLoading ? (
             <div
-              className="absolute left-1.5 top-1/2 -translate-y-1/2 z-10 flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-tonsite text-white"
+              className="absolute left-1.5 top-1/2 -translate-y-1/2 z-10 flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-primary text-identity-foreground"
               aria-hidden="true"
             >
               <Lock className="h-3 w-3" />
@@ -313,7 +319,7 @@ export const AddressBar = memo(function AddressBar() {
           ) : (
             <div className="absolute left-3 top-1/2 -translate-y-1/2 z-10" aria-hidden="true">
               {isLoading ? (
-                <LoaderCircle className="h-4 w-4 text-muted-foreground animate-spin" />
+                <LoaderCircle className="h-4 w-4 text-icon/60 animate-spin" />
               ) : (
                 <img src={tonIcon} alt="" className="h-4 w-4" />
               )}
@@ -325,18 +331,24 @@ export const AddressBar = memo(function AddressBar() {
             id="address-bar-input"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onFocus={(e) => {
-              e.target.select()
+            onFocus={() => {
+              if (input === displayAddressValue && displayAddressValue !== rawAddressValue) {
+                setInput(rawAddressValue)
+              }
               setIsFocused(true)
+              window.requestAnimationFrame(() => inputRef.current?.select())
             }}
             onBlur={() => {
+              if (input === rawAddressValue && displayAddressValue !== rawAddressValue) {
+                setInput(displayAddressValue)
+              }
               // Delay to allow suggestion click to register
               setTimeout(() => setIsFocused(false), 200)
             }}
             onKeyDown={handleKeyDown}
             onContextMenu={handleInputContextMenu}
             className={cn(
-              'h-8 bg-transparent border-0 rounded-full shadow-none focus:ring-0 focus:outline-none focus-visible:ring-0 focus-visible:outline-none',
+              'h-8 bg-transparent border-0 rounded-full text-chrome-foreground placeholder:text-chrome-foreground shadow-none focus:ring-0 focus:outline-none focus-visible:ring-0 focus-visible:outline-none',
               showTipButton || show402 ? 'pr-2' : 'pr-10',
               isTonSite && !isLoading ? 'pl-24' : 'pl-10'
             )}
@@ -349,17 +361,17 @@ export const AddressBar = memo(function AddressBar() {
 
           {show402 && pending402Notification && (
             <div className="flex-shrink-0 flex items-center gap-1 mr-0.5 pr-0.5">
-              <span className="text-[10px] text-muted-foreground/70 font-medium whitespace-nowrap">
+              <span className="text-[10px] text-chrome-foreground font-medium whitespace-nowrap">
                 {tw('payment.required')}
               </span>
-              <span className="text-[10px] text-foreground font-medium whitespace-nowrap">
+              <span className="text-[10px] text-chrome-foreground font-medium whitespace-nowrap">
                 {formatTonAmount(pending402Notification.amount)} TON
               </span>
               <button
                 type="button"
                 onClick={approvePending402}
                 aria-label={`${tw('payment.approve')}: ${formatTonAmount(pending402Notification.amount)} GRAM → ${pending402Notification.domain}`}
-                className="rounded-full px-2 py-0.5 text-[10px] font-medium bg-green-600/50 hover:bg-green-600/75 text-white transition-colors whitespace-nowrap"
+                className="rounded-full px-2 py-0.5 text-[10px] font-medium bg-success text-success-foreground whitespace-nowrap transition-shadow hover:ring-1 hover:ring-success-foreground/30 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
                 {tw('payment.approve')}
               </button>
@@ -367,7 +379,7 @@ export const AddressBar = memo(function AddressBar() {
                 type="button"
                 onClick={rejectPending402}
                 aria-label={`${tw('payment.reject')}: ${pending402Notification.domain}`}
-                className="rounded-full px-2 py-0.5 text-[10px] font-medium bg-red-600/50 hover:bg-red-600/75 text-white transition-colors whitespace-nowrap"
+                className="rounded-full px-2 py-0.5 text-[10px] font-medium bg-destructive text-destructive-foreground whitespace-nowrap transition-shadow hover:ring-1 hover:ring-destructive-foreground/30 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
                 {tw('payment.reject')}
               </button>
@@ -395,7 +407,7 @@ export const AddressBar = memo(function AddressBar() {
             aria-pressed={isBookmarked}
           >
             <Star
-              className={cn('h-3.5 w-3.5', isBookmarked ? 'fill-yellow-500 text-yellow-500' : 'text-muted-foreground')}
+              className={cn('h-3.5 w-3.5', isBookmarked ? 'fill-warning text-warning' : 'text-icon/60')}
               aria-hidden="true"
             />
           </Button>

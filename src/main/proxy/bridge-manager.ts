@@ -17,10 +17,10 @@ import { getBinaryPath } from '../utils/paths'
 import { stripAnsi } from '../utils/strip-ansi'
 import { createLogger } from '../../shared/logger'
 import { applyBridgeDefaults } from './config-writer'
-import { getSetting } from '../settings'
 import { NativeProcessSupervisor } from '../native-process/supervisor'
 
 const log = createLogger('bridge')
+const BRIDGE_READY_TIMEOUT_MS = 15_000
 
 export class BridgeManager extends EventEmitter {
   private readonly supervisor = new NativeProcessSupervisor()
@@ -35,12 +35,19 @@ export class BridgeManager extends EventEmitter {
     return dir
   }
 
-  async start(wsPort: number): Promise<void> {
+  async start(
+    wsPort: number,
+    settings: { verbosity: number; messengerNetworkEnabled: boolean },
+    signal?: AbortSignal
+  ): Promise<void> {
     const startedAt = Date.now()
+    if (signal?.aborted) throw new Error('Bridge start aborted')
     const bridgeBinPath = getBinaryPath('tonutils-bridge')
     const bridgeWorkDir = await this.getWorkDir()
-    await applyBridgeDefaults(bridgeWorkDir, { enableChatNamespaces: getSetting('messenger').networkEnabled })
-    const verbosity = Math.max(0, Math.min(3, getSetting('advanced').proxyVerbosity))
+    if (signal?.aborted) throw new Error('Bridge start aborted')
+    await applyBridgeDefaults(bridgeWorkDir, { enableChatNamespaces: settings.messengerNetworkEnabled })
+    if (signal?.aborted) throw new Error('Bridge start aborted')
+    const verbosity = Math.max(0, Math.min(3, settings.verbosity))
     const bridgeArgs = ['-addr', `127.0.0.1:${wsPort}`, '-data-dir', bridgeWorkDir, '-verbosity', String(verbosity)]
 
     log.debug(`Starting bridge from: ${bridgeBinPath}`)
@@ -48,16 +55,7 @@ export class BridgeManager extends EventEmitter {
 
     const handleBridgeOutput = (raw: string) => {
       if (!raw) return
-      const message = stripAnsi(raw)
       this.emit('log', raw)
-
-      if (message.toLowerCase().includes('websocket-adnl bridge started')) {
-        log.status('bridge.ready', `bridge ready · ${Date.now() - startedAt}ms`, {
-          durationMs: Date.now() - startedAt,
-          port: wsPort,
-        })
-        this.emit('ready', wsPort)
-      }
     }
 
     this.supervisor.start({
@@ -75,6 +73,22 @@ export class BridgeManager extends EventEmitter {
         this.emit('error', error.message)
       },
     })
+
+    try {
+      await this.supervisor.waitForOutput({
+        timeoutMs: BRIDGE_READY_TIMEOUT_MS,
+        signal,
+        matches: (data) => stripAnsi(data.toString()).toLowerCase().includes('websocket-adnl bridge started'),
+      })
+      log.status('bridge.ready', `bridge ready · ${Date.now() - startedAt}ms`, {
+        durationMs: Date.now() - startedAt,
+        port: wsPort,
+      })
+      this.emit('ready', wsPort)
+    } catch (error) {
+      await this.supervisor.stop()
+      throw error
+    }
   }
 
   async stop(): Promise<void> {

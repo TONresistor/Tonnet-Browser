@@ -37,7 +37,7 @@ function DmView({ conversation, connected, error, input, onInput, onSend, onBack
             <ArrowLeft className="h-[18px] w-[18px]" />
           </button>
           <span
-            className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-[14px] font-semibold text-white"
+            className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-[14px] font-semibold text-identity-foreground"
             style={{ backgroundColor: avatarColor(conversation.address ?? conversation.peerKey) }}
           >
             {initial(conversation.name)}
@@ -46,7 +46,7 @@ function DmView({ conversation, connected, error, input, onInput, onSend, onBack
             <div className="flex items-center gap-1">
               <span
                 className={cn(
-                  'min-w-0 truncate text-[15px] font-semibold leading-tight text-foreground',
+                  'min-w-0 truncate text-[15px] font-semibold leading-tight text-heading',
                   conversation.domain ? 'lowercase' : 'font-mono'
                 )}
               >
@@ -113,7 +113,7 @@ function DmView({ conversation, connected, error, input, onInput, onSend, onBack
           onClick={onSend}
           disabled={!connected || !input.trim()}
           aria-label="Send"
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground transition-opacity hover:bg-primary/90 disabled:opacity-40"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-identity-foreground transition-opacity hover:bg-primary/90 disabled:opacity-40"
         >
           <SendIcon className="h-[18px] w-[18px]" />
         </button>

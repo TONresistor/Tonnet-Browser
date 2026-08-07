@@ -10,9 +10,13 @@ import { secureContractHandle, tonsiteContractHandle } from '../contract-handler
 export function registerTonConnectHandlers(registry: ServiceRegistry): void {
   const { tonConnectService } = registry
 
-  tonsiteContractHandle(tonConnectRequestContract, async (domain, event, payload) => {
-    return tonConnectService.handleRequest(domain, event, payload)
-  })
+  tonsiteContractHandle(
+    tonConnectRequestContract,
+    (event) => registry.tabManager.resolveSenderIdentity(event.sender),
+    async (domain, event, payload) => {
+      return tonConnectService.handleRequest(domain, event, payload)
+    }
+  )
 
   secureContractHandle(tonConnectGetSessionsContract, () => {
     return tonConnectService.getSessions()

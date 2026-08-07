@@ -15,7 +15,12 @@ export function InsetGroup({ title, footer, children, className, bodyClassName }
       {title && (
         <h3 className="mb-2 px-4 text-[13px] font-medium uppercase tracking-wide text-muted-foreground">{title}</h3>
       )}
-      <div className={cn('overflow-hidden rounded-card border border-border-subtle bg-elevation-2', bodyClassName)}>
+      <div
+        className={cn(
+          'overflow-hidden rounded-card border border-border-subtle bg-card text-card-foreground',
+          bodyClassName
+        )}
+      >
         {children}
       </div>
       {footer && <div className="mt-2 px-4 text-[13px] text-muted-foreground">{footer}</div>}

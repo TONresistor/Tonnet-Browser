@@ -152,7 +152,7 @@ export const SendForm = memo(function SendForm({ onSend, isSending, error, balan
     return (
       <div className="flex flex-col gap-4">
         <div className="bg-muted rounded-lg p-4 space-y-3">
-          <h3 className="text-sm font-medium text-foreground">{t('send.confirm')}</h3>
+          <h3 className="text-sm font-medium text-heading">{t('send.confirm')}</h3>
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
               <span className="text-muted-foreground">{t('send.to')}</span>

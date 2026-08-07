@@ -173,12 +173,12 @@ export function BookmarksBar() {
 
         <DragOverlay>
           {activeItem && activeItem.type === 'bookmark' && (
-            <div className="px-2.5 py-1.5 rounded-full text-sm bg-surface text-foreground shadow-2xl opacity-90 flex items-center gap-2 border border-border-medium">
+            <div className="px-2.5 py-1.5 rounded-full text-sm bg-surface text-chrome-foreground shadow-2xl opacity-90 flex items-center gap-2 border border-border-medium">
               <span>{(activeItem.item as Bookmark).title}</span>
             </div>
           )}
           {activeItem && activeItem.type === 'folder' && (
-            <div className="px-3 py-1.5 rounded-full text-sm bg-surface text-foreground shadow-2xl opacity-90 border border-border-medium">
+            <div className="px-3 py-1.5 rounded-full text-sm bg-surface text-chrome-foreground shadow-2xl opacity-90 border border-border-medium">
               {(activeItem.item as BookmarkFolder).name}
             </div>
           )}
@@ -197,7 +197,7 @@ export function BookmarksBar() {
           </button>
           <button
             onClick={cancelFolderDelete}
-            className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-surface-hover hover:bg-surface-active transition-colors text-muted-foreground"
+            className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-surface-hover hover:bg-surface-active transition-colors text-chrome-foreground"
           >
             {t('bookmarks.cancel')}
           </button>

@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import { tmpdir } from 'os'
-import { applyBridgeDefaults, syncMessengerBridgeNamespaces } from '../config-writer'
+import { applyBridgeDefaults, writeProxyConfig } from '../config-writer'
 
 const tmpRoots: string[] = []
 
@@ -10,6 +10,12 @@ function makeWorkDir(config: Record<string, unknown>): string {
   const dir = mkdtempSync(join(tmpdir(), 'tonnet-bridge-config-'))
   tmpRoots.push(dir)
   writeFileSync(join(dir, 'config.json'), JSON.stringify(config))
+  return dir
+}
+
+function makeEmptyWorkDir(): string {
+  const dir = mkdtempSync(join(tmpdir(), 'tonnet-proxy-config-'))
+  tmpRoots.push(dir)
   return dir
 }
 
@@ -59,14 +65,14 @@ describe('bridge config writer messenger namespaces', () => {
     const dir = makeWorkDir(baseConfig())
     await applyBridgeDefaults(dir)
 
-    await expect(syncMessengerBridgeNamespaces(dir, true)).resolves.toBe(true)
+    await applyBridgeDefaults(dir, { enableChatNamespaces: true })
     let config = readConfig(dir)
     expect(config._messengerNamespacesManaged).toBe(true)
     expect(config.namespaces.adnl.enabled).toBe(true)
     expect(config.namespaces.overlay.enabled).toBe(true)
     expect(config.namespaces.dht.enabled).toBe(true)
 
-    await expect(syncMessengerBridgeNamespaces(dir, false)).resolves.toBe(true)
+    await applyBridgeDefaults(dir, { enableChatNamespaces: false })
     config = readConfig(dir)
     expect(config._messengerNamespacesManaged).toBe(false)
     expect(config.namespaces.adnl.enabled).toBe(false)
@@ -87,5 +93,29 @@ describe('bridge config writer messenger namespaces', () => {
     expect(config.namespaces.adnl.enabled).toBe(true)
     expect(config.namespaces.overlay.enabled).toBe(true)
     expect(config.namespaces.dht.enabled).toBe(true)
+  })
+})
+
+describe('proxy config writer', () => {
+  it('does not encode HTTP blocking in generated configs', async () => {
+    const dir = makeEmptyWorkDir()
+
+    await writeProxyConfig(dir, 2)
+
+    expect(readConfig(dir)).not.toHaveProperty('BlockHTTP')
+  })
+
+  it('removes the unsupported BlockHTTP field from existing configs', async () => {
+    const dir = makeWorkDir({
+      BlockHTTP: true,
+      TunnelConfig: { NodesPoolConfigPath: 'stale', TunnelSectionsNum: 0 },
+    })
+
+    await writeProxyConfig(dir, 2)
+
+    const config = readConfig(dir)
+    expect(config).not.toHaveProperty('BlockHTTP')
+    expect(config.TunnelConfig.NodesPoolConfigPath).toBe('')
+    expect(config.TunnelConfig.TunnelSectionsNum).toBe(2)
   })
 })

@@ -31,15 +31,12 @@
       "description": "创建和管理您自己的主题",
       "basedOnDark": "基于深色主题",
       "basedOnLight": "基于浅色主题",
-      "deleteConfirm": "删除 \"{{name}}\"？"
+      "deleteConfirm": "删除 \"{{name}}\"？",
+      "deleteWarning": "此操作无法撤销。"
     },
     "zoom": {
       "default": "默认缩放",
-      "defaultDesc": "页面的初始缩放级别",
-      "min": "最小缩放",
-      "minDesc": "允许的最低缩放级别",
-      "max": "最大缩放",
-      "maxDesc": "允许的最高缩放级别"
+      "defaultDesc": "页面的初始缩放级别"
     },
     "ui": {
       "showBookmarksBar": "显示书签栏",
@@ -65,6 +62,24 @@
       "portuguese": "Português（葡萄牙语）",
       "korean": "한국어（韩语）"
     }
+  },
+  "themePage": {
+    "description": "选择内置主题，或在独立工作区中创建自己的主题。",
+    "newTheme": "新建主题",
+    "builtInThemes": "内置主题",
+    "activeTheme": "当前主题",
+    "useTheme": "使用主题",
+    "backToLibrary": "返回主题库",
+    "chooseBase": "选择一个基础主题。完成编辑前不会保存任何内容。",
+    "importDescription": "粘贴或上传主题文件，并在保存前进行检查。",
+    "reviewImport": "检查主题",
+    "basicColors": "基础颜色",
+    "basicColorsDescription": "定义主题的主要颜色。",
+    "advancedColors": "高级颜色",
+    "advancedColorsDescription": "微调文本、状态、输入框和边框。",
+    "copySuffix": "（副本）",
+    "openStudio": "打开主题工作室",
+    "moreActions": "更多操作"
   },
   "general": {
     "title": "常规",
@@ -266,6 +281,11 @@
     "verbose": "详细",
     "syncTestDomain": "同步测试域名",
     "syncTestDomainDesc": "用于验证 DHT 同步的域名",
+    "experimental": {
+      "title": "实验性功能",
+      "unicodeDomains": "Unicode 域名（IDN）",
+      "unicodeDomainsDesc": "显示俄语、表情符号和其他国际化域名，而不是 xn-- Punycode。编辑时会显示 Punycode。"
+    },
     "resetAll": "将所有设置重置为默认值",
     "resetAllConfirm": "再次点击确认"
   },
@@ -332,61 +352,72 @@
   "themeEditor": {
     "colors": {
       "background": "背景",
-      "backgroundDesc": "主背景",
+      "backgroundDesc": "浏览器栏和应用主要界面的基础颜色。",
       "backgroundSecondary": "次要背景",
-      "backgroundSecondaryDesc": "侧边栏、面板",
-      "foreground": "前景",
-      "foregroundDesc": "主文本颜色",
+      "backgroundSecondaryDesc": "页面、侧边栏和次级面板后方的画布颜色。",
+      "textPrimary": "主要文本",
+      "textPrimaryDesc": "基础表面上的正文、字段值和高强调内容颜色。",
+      "textSecondary": "次要文本",
+      "textSecondaryDesc": "描述、元数据、占位文本和低强调内容颜色。",
+      "heading": "标题",
+      "headingDesc": "页面、面板、分区和对话框的标题颜色。",
+      "chromeForeground": "浏览器界面",
+      "chromeForegroundDesc": "地址栏、标签页、书签、状态栏和时钟的文本颜色。",
+      "icon": "图标",
+      "iconDesc": "整个浏览器中独立导航和界面图标的颜色。",
       "card": "卡片",
-      "cardDesc": "卡片背景",
+      "cardDesc": "卡片、弹出层和悬浮分组界面的背景颜色。",
       "cardForeground": "卡片文本",
+      "cardForegroundDesc": "卡片界面上显示的文字和图标颜色。",
       "primary": "主要",
-      "primaryDesc": "按钮、链接",
+      "primaryDesc": "实心按钮、链接、进度和活动指示器使用的主要操作颜色。",
       "primaryForeground": "主要文本",
+      "primaryForegroundDesc": "主要控件上显示的文字和图标颜色。",
       "secondary": "次要",
+      "secondaryDesc": "次要控件和较低优先级操作的背景颜色。",
       "secondaryForeground": "次要文本",
+      "secondaryForegroundDesc": "次要控件上显示的文字和图标颜色。",
       "accent": "强调",
-      "accentDesc": "高亮",
+      "accentDesc": "强调状态和交互状态使用的高亮颜色。",
       "accentForeground": "强调文本",
+      "accentForegroundDesc": "强调界面上显示的文字和图标颜色。",
       "muted": "柔和",
-      "mutedDesc": "淡色背景",
-      "mutedForeground": "柔和文本",
-      "mutedForegroundDesc": "次要文本",
+      "mutedDesc": "低强调或非活动区域使用的柔和背景颜色。",
       "destructive": "危险",
-      "destructiveDesc": "错误、删除",
+      "destructiveDesc": "错误、删除操作和危险状态使用的颜色。",
       "destructiveForeground": "危险文本",
+      "destructiveForegroundDesc": "危险界面上显示的文字和图标颜色。",
       "success": "成功",
-      "successDesc": "已连接、有效",
+      "successDesc": "已完成、已连接、有效和成功状态使用的颜色。",
       "successForeground": "成功文本",
+      "successForegroundDesc": "成功界面上显示的文字和图标颜色。",
       "warning": "警告",
-      "warningDesc": "警示状态",
+      "warningDesc": "警示、待处理、同步中和未保存更改状态使用的颜色。",
       "warningForeground": "警告文本",
+      "warningForegroundDesc": "警告界面上显示的文字和图标颜色。",
       "info": "信息",
-      "infoDesc": "信息",
+      "infoDesc": "中性信息状态和下载指示器使用的颜色。",
       "infoForeground": "信息文本",
+      "infoForegroundDesc": "信息界面上显示的文字和图标颜色。",
       "border": "边框",
-      "borderDesc": "默认边框",
+      "borderDesc": "面板、控件和分隔线使用的默认实线边框颜色。",
       "input": "输入框",
-      "inputDesc": "输入框背景",
+      "inputDesc": "可编辑输入字段的背景颜色。",
       "ring": "聚焦环",
-      "ringDesc": "聚焦环"
+      "ringDesc": "控件获得键盘焦点时显示的外轮廓颜色。"
     },
     "sections": {
-      "background": "背景",
-      "text": "文本",
+      "background": "表面",
+      "text": "内容",
       "primaryAccent": "主要和强调",
-      "secondaryMuted": "次要和柔和",
+      "secondaryMuted": "次要控件",
       "statusColors": "状态颜色",
-      "borderInput": "边框和输入"
+      "borderInput": "边框和焦点"
     },
     "editor": {
       "themeName": "主题名称",
       "descriptionPlaceholder": "描述（可选）",
-      "themeType": "主题类型:",
-      "dark": "深色",
-      "light": "浅色",
       "preview": "预览",
-      "resetToBase": "重置为基础主题:",
       "cancel": "取消",
       "saveTheme": "保存主题"
     },
@@ -398,7 +429,17 @@
       "primary": "主要",
       "secondary": "次要",
       "connected": "已连接",
-      "syncing": "同步中"
+      "syncing": "同步中",
+      "modeLabel": "预览模式",
+      "browser": "浏览器",
+      "components": "组件",
+      "sidebar": "导航",
+      "startPage": "起始页",
+      "accent": "强调色",
+      "focusedInput": "搜索 TON 或输入地址",
+      "mutedSurface": "柔和表面",
+      "destructive": "错误",
+      "information": "信息"
     },
     "list": {
       "noThemes": "还没有自定义主题。创建一个开始使用。",
@@ -407,8 +448,7 @@
       "editTheme": "编辑主题",
       "duplicateTheme": "复制主题",
       "exportTheme": "导出主题",
-      "deleteTheme": "删除主题",
-      "confirmDelete": "再次点击确认"
+      "deleteTheme": "删除主题"
     },
     "importDialog": {
       "title": "导入主题",
@@ -430,6 +470,7 @@
   },
   "actions": {
     "unsavedChanges": "有未保存的更改",
+    "discardWarning": "如果继续，您的更改将会丢失。",
     "discard": "放弃",
     "saveChanges": "保存更改",
     "saving": "保存中..."

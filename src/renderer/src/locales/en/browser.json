@@ -74,6 +74,7 @@
     "networkStatus": "Network status: {{status}}",
     "downloadSpeedAria": "Download speed: {{speed}}",
     "uploadSpeedAria": "Upload speed: {{speed}}",
+    "zoom": "Page zoom",
     "walletTitle": "Wallet balance",
     "walletAria": "Wallet balance display"
   }

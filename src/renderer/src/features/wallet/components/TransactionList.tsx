@@ -77,7 +77,7 @@ export const TransactionList = memo(function TransactionList({
                 isReceive ? 'bg-success' : 'bg-primary'
               )}
             >
-              <TypeIcon className="h-[18px] w-[18px] text-white" strokeWidth={2.5} aria-hidden="true" />
+              <TypeIcon className="h-[18px] w-[18px] text-identity-foreground" strokeWidth={2.5} aria-hidden="true" />
             </div>
 
             <div className="min-w-0 flex-1">

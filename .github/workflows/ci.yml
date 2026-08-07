@@ -76,6 +76,9 @@ jobs:
       - name: Architecture boundaries
         run: npm run architecture
 
+      - name: Theme token contract
+        run: npm run verify:theme-tokens
+
       - name: Lint
         run: npm run lint
 
@@ -134,6 +137,7 @@ jobs:
           VALIDATE_RESULT: ${{ needs.validate.result }}
           BEFORE_SHA: ${{ github.event.before }}
           AFTER_SHA: ${{ github.event.after }}
+          PUSH_SIZE: ${{ github.event.size }}
           BRANCH: ${{ github.ref_name }}
         run: |
           if [ -z "$TELEGRAM_BOT_TOKEN" ]; then
@@ -146,14 +150,20 @@ jobs:
 
           # One summary notification per push for every branch (avoid per-commit spam)
           if [ -n "$BRANCH" ]; then
-            if [ "$BEFORE_SHA" = "$NULL_SHA" ] || ! git merge-base --is-ancestor "$BEFORE_SHA" "$AFTER_SHA" 2>/dev/null; then
-              COUNT=$(git rev-list --count "$AFTER_SHA")
+            if [ "$BEFORE_SHA" = "$NULL_SHA" ]; then
               RANGE="$AFTER_SHA"
               URL="$REPO_URL/commits/$BRANCH"
             else
-              COUNT=$(git rev-list --count "$BEFORE_SHA..$AFTER_SHA")
               RANGE="$BEFORE_SHA..$AFTER_SHA"
               URL="$REPO_URL/compare/$BEFORE_SHA...$AFTER_SHA"
+            fi
+            COUNT="$PUSH_SIZE"
+            case "$COUNT" in
+              ''|*[!0-9]*) COUNT=$(git rev-list --count "$RANGE") ;;
+            esac
+            if [ "$COUNT" -eq 0 ]; then
+              COUNT=1
+              RANGE="$AFTER_SHA"
             fi
             NOUN=commits; [ "$COUNT" = "1" ] && NOUN=commit
             REPO_NAME=${REPO_URL##*/}
@@ -166,7 +176,8 @@ jobs:
             fi
             # Commit titles (HTML-escaped), oldest first, capped to avoid huge messages.
             MAX=50
-            TITLES=$(git log --reverse --max-count="$MAX" --pretty=format:'%s' "$RANGE" \
+            TITLE_LIMIT="$COUNT"; [ "$TITLE_LIMIT" -gt "$MAX" ] && TITLE_LIMIT="$MAX"
+            TITLES=$(git log --reverse --max-count="$TITLE_LIMIT" --pretty=format:'%s' "$RANGE" \
               | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g')
             if [ "$COUNT" -gt "$MAX" ]; then
               printf -v TITLES '%s\n… and %s more' "$TITLES" "$((COUNT - MAX))"

@@ -95,7 +95,7 @@ export function SpendingLimits() {
     <div className="space-y-6">
       <div className="flex items-center gap-2">
         <Shield className="h-4 w-4 text-primary" />
-        <h3 className="text-sm font-semibold text-foreground">{t('settings.limits.title')}</h3>
+        <h3 className="text-sm font-semibold text-heading">{t('settings.limits.title')}</h3>
       </div>
 
       <div className="space-y-4">

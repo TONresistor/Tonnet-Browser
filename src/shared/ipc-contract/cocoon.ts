@@ -206,7 +206,7 @@ export const cocoonRecoveryEnqueueContract = defineRequest({
   channel: COCOON_CHANNELS.recoveryEnqueue,
   input: z.tuple([ArchivedAtInputSchema.extend({ clientSCAddress: AddressSchema })]),
   output: z.object({ success: z.literal(true), refundBocHash: HashSchema }),
-  errors: ['ARCHIVE_NOT_FOUND', 'BRIDGE_DISCONNECTED', 'RECOVERY_ENQUEUE_FAILED'],
+  errors: ['ARCHIVE_NOT_FOUND', 'BRIDGE_DISCONNECTED', 'WALLET_NOT_FOUND', 'RECOVERY_ENQUEUE_FAILED'],
   redaction: 'secret',
 })
 export const cocoonRecoveryListContract = request(COCOON_CHANNELS.recoveryList, z.array(RecoveryEntrySchema), [
@@ -222,7 +222,7 @@ export const cocoonRecoveryRemoveContract = defineRequest({
 export const cocoonRecoveryAllContract = request(
   COCOON_CHANNELS.recoveryAll,
   CocoonRecoveryAllResultSchema,
-  ['BRIDGE_DISCONNECTED', 'RECOVERY_FAILED'],
+  ['BRIDGE_DISCONNECTED', 'WALLET_NOT_FOUND', 'RECOVERY_FAILED'],
   'secret'
 )
 

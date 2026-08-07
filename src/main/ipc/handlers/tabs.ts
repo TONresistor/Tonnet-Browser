@@ -8,9 +8,9 @@ import { tabCloseContract, tabCreateContract, tabSwitchContract } from '../../..
 import { secureContractHandle } from '../contract-handler'
 
 export function registerTabsHandlers(tabManager: TabManager): void {
-  secureContractHandle(tabCreateContract, async (tabId) => {
+  secureContractHandle(tabCreateContract, async (tabId, initialUrl) => {
     log.debug(`Tab create: ${tabId}`)
-    const success = await tabManager.createTab(tabId)
+    const success = await tabManager.createTab(tabId, initialUrl)
     return { success }
   })
 

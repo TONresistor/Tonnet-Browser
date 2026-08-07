@@ -31,15 +31,12 @@
       "description": "Crea y gestiona tus propios temas",
       "basedOnDark": "Basado en tema oscuro",
       "basedOnLight": "Basado en tema claro",
-      "deleteConfirm": "¿Eliminar \"{{name}}\"?"
+      "deleteConfirm": "¿Eliminar \"{{name}}\"?",
+      "deleteWarning": "Esta acción no se puede deshacer."
     },
     "zoom": {
       "default": "Zoom predeterminado",
-      "defaultDesc": "Nivel de zoom inicial para las páginas",
-      "min": "Zoom mínimo",
-      "minDesc": "Nivel de zoom más bajo permitido",
-      "max": "Zoom máximo",
-      "maxDesc": "Nivel de zoom más alto permitido"
+      "defaultDesc": "Nivel de zoom inicial para las páginas"
     },
     "ui": {
       "showBookmarksBar": "Mostrar barra de marcadores",
@@ -65,6 +62,24 @@
       "portuguese": "Português (Portugués)",
       "korean": "한국어 (Coreano)"
     }
+  },
+  "themePage": {
+    "description": "Elige un tema integrado o crea el tuyo en un espacio dedicado.",
+    "newTheme": "Nuevo tema",
+    "builtInThemes": "Temas integrados",
+    "activeTheme": "Tema activo",
+    "useTheme": "Usar tema",
+    "backToLibrary": "Volver a los temas",
+    "chooseBase": "Elige una base. Nada se guarda hasta que termines de editar.",
+    "importDescription": "Pega o carga un tema y revísalo antes de guardarlo.",
+    "reviewImport": "Revisar tema",
+    "basicColors": "Colores esenciales",
+    "basicColorsDescription": "Los colores principales que definen el tema.",
+    "advancedColors": "Colores avanzados",
+    "advancedColorsDescription": "Ajusta textos, estados, campos y bordes.",
+    "copySuffix": "(Copia)",
+    "openStudio": "Abrir estudio de temas",
+    "moreActions": "Más acciones"
   },
   "general": {
     "title": "General",
@@ -266,6 +281,11 @@
     "verbose": "Detallado",
     "syncTestDomain": "Dominio de prueba de sincronización",
     "syncTestDomainDesc": "Dominio utilizado para verificar la sincronización DHT",
+    "experimental": {
+      "title": "Funciones experimentales",
+      "unicodeDomains": "Dominios Unicode (IDN)",
+      "unicodeDomainsDesc": "Muestra dominios rusos, con emojis y otros dominios internacionales en lugar del Punycode xn--. El Punycode se muestra durante la edición."
+    },
     "resetAll": "Restablecer toda la configuración a valores predeterminados",
     "resetAllConfirm": "Haz clic de nuevo para confirmar"
   },
@@ -306,6 +326,7 @@
   },
   "actions": {
     "unsavedChanges": "Tienes cambios sin guardar",
+    "discardWarning": "Tus cambios se perderán si continúas.",
     "discard": "Descartar",
     "saveChanges": "Guardar cambios",
     "saving": "Guardando..."
@@ -338,61 +359,72 @@
   "themeEditor": {
     "colors": {
       "background": "Fondo",
-      "backgroundDesc": "Fondo principal",
+      "backgroundDesc": "Color base de las barras del navegador y de las superficies principales de la aplicación.",
       "backgroundSecondary": "Fondo secundario",
-      "backgroundSecondaryDesc": "Barra lateral, paneles",
-      "foreground": "Primer plano",
-      "foregroundDesc": "Color de texto principal",
+      "backgroundSecondaryDesc": "Color del lienzo situado tras páginas, barras laterales y paneles secundarios.",
+      "textPrimary": "Texto principal",
+      "textPrimaryDesc": "Texto del cuerpo, valores de campo y contenido destacado sobre superficies base.",
+      "textSecondary": "Texto secundario",
+      "textSecondaryDesc": "Descripciones, metadatos, marcadores de posición y contenido de menor énfasis.",
+      "heading": "Títulos",
+      "headingDesc": "Títulos de páginas, paneles, secciones y cuadros de diálogo.",
+      "chromeForeground": "Interfaz del navegador",
+      "chromeForegroundDesc": "Texto de la barra de direcciones, pestañas, marcadores, barra de estado y reloj.",
+      "icon": "Iconos",
+      "iconDesc": "Color de los iconos independientes de navegación e interfaz en todo el navegador.",
       "card": "Tarjeta",
-      "cardDesc": "Fondos de tarjeta",
+      "cardDesc": "Fondo de tarjetas, ventanas emergentes y superficies agrupadas elevadas.",
       "cardForeground": "Texto de tarjeta",
+      "cardForegroundDesc": "Color del texto y los iconos sobre superficies de tarjeta.",
       "primary": "Primario",
-      "primaryDesc": "Botones, enlaces",
+      "primaryDesc": "Color de acción principal para botones rellenos, enlaces, progreso e indicadores activos.",
       "primaryForeground": "Texto primario",
+      "primaryForegroundDesc": "Color del texto y los iconos sobre controles primarios.",
       "secondary": "Secundario",
+      "secondaryDesc": "Fondo de controles secundarios y acciones de menor relevancia.",
       "secondaryForeground": "Texto secundario",
+      "secondaryForegroundDesc": "Color del texto y los iconos sobre controles secundarios.",
       "accent": "Acento",
-      "accentDesc": "Resaltados",
+      "accentDesc": "Color de resaltado para estados destacados e interactivos.",
       "accentForeground": "Texto de acento",
+      "accentForegroundDesc": "Color del texto y los iconos sobre superficies de acento.",
       "muted": "Atenuado",
-      "mutedDesc": "Fondos sutiles",
-      "mutedForeground": "Texto atenuado",
-      "mutedForegroundDesc": "Texto secundario",
+      "mutedDesc": "Fondo de bajo énfasis para áreas discretas o inactivas.",
       "destructive": "Destructivo",
-      "destructiveDesc": "Errores, eliminar",
+      "destructiveDesc": "Color para errores, acciones de eliminación y estados peligrosos.",
       "destructiveForeground": "Texto destructivo",
+      "destructiveForegroundDesc": "Color del texto y los iconos sobre superficies destructivas.",
       "success": "Correcto",
-      "successDesc": "Conectado, válido",
+      "successDesc": "Color para estados completados, conectados, válidos y correctos.",
       "successForeground": "Texto de éxito",
+      "successForegroundDesc": "Color del texto y los iconos sobre superficies de éxito.",
       "warning": "Advertencia",
-      "warningDesc": "Estados de precaución",
+      "warningDesc": "Color para estados de precaución, pendientes, sincronización y cambios sin guardar.",
       "warningForeground": "Texto de advertencia",
+      "warningForegroundDesc": "Color del texto y los iconos sobre superficies de advertencia.",
       "info": "Info",
-      "infoDesc": "Información",
+      "infoDesc": "Color para información neutral e indicadores de descarga.",
       "infoForeground": "Texto informativo",
+      "infoForegroundDesc": "Color del texto y los iconos sobre superficies informativas.",
       "border": "Borde",
-      "borderDesc": "Bordes predeterminados",
+      "borderDesc": "Borde sólido predeterminado para paneles, controles y separadores.",
       "input": "Entrada",
-      "inputDesc": "Fondos de entrada",
+      "inputDesc": "Color de fondo de los campos de entrada editables.",
       "ring": "Anillo",
-      "ringDesc": "Anillo de enfoque"
+      "ringDesc": "Contorno que aparece alrededor de un control cuando recibe el foco del teclado."
     },
     "sections": {
-      "background": "Fondo",
-      "text": "Texto",
+      "background": "Superficies",
+      "text": "Contenido",
       "primaryAccent": "Primario y acento",
-      "secondaryMuted": "Secundario y atenuado",
+      "secondaryMuted": "Controles secundarios",
       "statusColors": "Colores de estado",
-      "borderInput": "Borde y entrada"
+      "borderInput": "Bordes y foco"
     },
     "editor": {
       "themeName": "Nombre del tema",
       "descriptionPlaceholder": "Descripción (opcional)",
-      "themeType": "Tipo de tema:",
-      "dark": "Oscuro",
-      "light": "Claro",
       "preview": "Vista previa",
-      "resetToBase": "Restablecer al tema base:",
       "cancel": "Cancelar",
       "saveTheme": "Guardar tema"
     },
@@ -404,7 +436,17 @@
       "primary": "Primario",
       "secondary": "Secundario",
       "connected": "Conectado",
-      "syncing": "Sincronizando"
+      "syncing": "Sincronizando",
+      "modeLabel": "Modo de vista previa",
+      "browser": "Navegador",
+      "components": "Componentes",
+      "sidebar": "Navegación",
+      "startPage": "Inicio",
+      "accent": "Acento",
+      "focusedInput": "Buscar en TON o introducir una dirección",
+      "mutedSurface": "Superficie atenuada",
+      "destructive": "Error",
+      "information": "Información"
     },
     "list": {
       "noThemes": "Aún no hay temas personalizados. Crea uno para comenzar.",
@@ -413,8 +455,7 @@
       "editTheme": "Editar tema",
       "duplicateTheme": "Duplicar tema",
       "exportTheme": "Exportar tema",
-      "deleteTheme": "Eliminar tema",
-      "confirmDelete": "Haz clic de nuevo para confirmar"
+      "deleteTheme": "Eliminar tema"
     },
     "importDialog": {
       "title": "Importar tema",

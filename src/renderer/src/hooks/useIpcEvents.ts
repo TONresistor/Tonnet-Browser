@@ -61,15 +61,18 @@ export function useIpcEvents(updateTab: ReturnType<typeof useTabsStore.getState>
 
     // Handle first-party isolation view recreation: reset renderer history so
     // back/forward buttons don't point to URLs of a destroyed WebContentsView
-    const unsubHistoryReset = browserClient.on(IPC_CHANNELS.TAB_HISTORY_RESET, (tabId) => {
-      const tab = useTabsStore.getState().tabs.find((t) => t.id === tabId)
+    const unsubHistoryReset = browserClient.on(IPC_CHANNELS.TAB_HISTORY_RESET, (tabId, url) => {
+      const state = useTabsStore.getState()
+      const tab = state.tabs.find((candidate) => candidate.id === tabId)
       if (tab) {
-        useTabsStore.getState().updateTab(tabId, {
-          history: [tab.url],
+        state.updateTab(tabId, {
+          url,
+          history: [url],
           historyIndex: 0,
           canGoBack: false,
           canGoForward: false,
         })
+        if (state.activeTabId === tabId) setNavigation(url, false, false)
       }
     })
 

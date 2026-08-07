@@ -39,9 +39,11 @@ import type {
   settingsDiagnosticsEnableContract,
   settingsDiagnosticsDisableContract,
   settingsDiagnosticsCopyContract,
+  settingsApplyContract,
   settingsResetContract,
   settingsSetContract,
   SettingsCategory,
+  SettingsPatch,
 } from '../shared/ipc-contract/settings'
 import type {
   historyChangeModeContract,
@@ -69,9 +71,8 @@ import type {
   toggleDevtoolsContract,
   viewHideContract,
   viewShowContract,
-  zoomInContract,
-  zoomOutContract,
-  zoomResetContract,
+  zoomGetContract,
+  zoomSetContract,
 } from '../shared/ipc-contract/browsing'
 import type {
   storageAddBagContract,
@@ -147,38 +148,16 @@ import type {
   cocoonWalletMarkSetupCompleteContract,
 } from '../shared/ipc-contract/cocoon'
 import type { updaterCheckContract, updaterOpenDownloadPageContract } from '../shared/ipc-contract/updater'
+import { IpcClientError, isIpcFailure } from '../shared/ipc-failure'
 
-export class IpcClientError extends Error {
-  constructor(
-    readonly code: string,
-    message: string,
-    readonly retryable: boolean
-  ) {
-    super(message)
-    this.name = 'IpcClientError'
-  }
-}
-
-function isFailureEnvelope(value: unknown): value is {
-  ok: false
-  error: { code: string; message: string; retryable: boolean }
-} {
-  if (!value || typeof value !== 'object') return false
-  const candidate = value as { ok?: unknown; error?: Record<string, unknown> }
-  return (
-    candidate.ok === false &&
-    typeof candidate.error?.code === 'string' &&
-    typeof candidate.error.message === 'string' &&
-    typeof candidate.error.retryable === 'boolean'
-  )
-}
+export { IpcClientError } from '../shared/ipc-failure'
 
 async function invokeChannel<TContract extends IpcRequestContract<readonly unknown[], unknown>>(
   channel: string,
   ...args: RequestArgs<TContract>
 ): Promise<RequestResult<TContract>> {
   const result: unknown = await ipcRenderer.invoke(channel, ...args)
-  if (isFailureEnvelope(result)) {
+  if (isIpcFailure(result)) {
     throw new IpcClientError(result.error.code, result.error.message, result.error.retryable)
   }
   return result as RequestResult<TContract>
@@ -202,7 +181,8 @@ const electronAPI = {
 
   // Tabs
   tabs: {
-    create: (tabId: string) => invokeChannel<typeof tabCreateContract>(IPC_CHANNELS.TAB_CREATE, tabId),
+    create: (tabId: string, initialUrl: string) =>
+      invokeChannel<typeof tabCreateContract>(IPC_CHANNELS.TAB_CREATE, tabId, initialUrl),
     close: (tabId: string) => invokeChannel<typeof tabCloseContract>(IPC_CHANNELS.TAB_CLOSE, tabId),
     switch: (tabId: string) => invokeChannel<typeof tabSwitchContract>(IPC_CHANNELS.TAB_SWITCH, tabId),
   },
@@ -233,9 +213,10 @@ const electronAPI = {
   goForward: () => invokeChannel<typeof goForwardContract>(IPC_CHANNELS.GO_FORWARD),
   reload: () => invokeChannel<typeof reloadContract>(IPC_CHANNELS.RELOAD),
   stop: () => invokeChannel<typeof stopContract>(IPC_CHANNELS.STOP),
-  zoomIn: () => invokeChannel<typeof zoomInContract>(IPC_CHANNELS.ZOOM_IN),
-  zoomOut: () => invokeChannel<typeof zoomOutContract>(IPC_CHANNELS.ZOOM_OUT),
-  zoomReset: () => invokeChannel<typeof zoomResetContract>(IPC_CHANNELS.ZOOM_RESET),
+  zoom: {
+    get: () => invokeChannel<typeof zoomGetContract>(IPC_CHANNELS.ZOOM_GET),
+    set: (percent: number) => invokeChannel<typeof zoomSetContract>(IPC_CHANNELS.ZOOM_SET, percent),
+  },
   toggleDevTools: () => invokeChannel<typeof toggleDevtoolsContract>(IPC_CHANNELS.TOGGLE_DEVTOOLS),
 
   // Storage
@@ -284,6 +265,7 @@ const electronAPI = {
       invokeChannel<typeof settingsGetContract>(IPC_CHANNELS.SETTINGS_GET, category) as Promise<AppSettings[K]>,
     set: (category: SettingsCategory, values: Record<string, unknown>) =>
       invokeChannel<typeof settingsSetContract>(IPC_CHANNELS.SETTINGS_SET, category, values),
+    apply: (patch: SettingsPatch) => invokeChannel<typeof settingsApplyContract>(IPC_CHANNELS.SETTINGS_APPLY, patch),
     reset: () => invokeChannel<typeof settingsResetContract>(IPC_CHANNELS.SETTINGS_RESET),
     diagnostics: {
       get: () => invokeChannel<typeof settingsDiagnosticsGetContract>(IPC_CHANNELS.SETTINGS_DIAGNOSTICS_GET),

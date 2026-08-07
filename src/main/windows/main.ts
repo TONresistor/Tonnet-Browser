@@ -10,8 +10,8 @@ let mainWindow: BrowserWindow | null = null
 export function setMainWindow(win: BrowserWindow): void {
   mainWindow = win
 
-  mainWindow.on('closed', () => {
-    mainWindow = null
+  win.on('closed', () => {
+    if (mainWindow === win) mainWindow = null
   })
 }
 

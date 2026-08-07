@@ -181,9 +181,9 @@ export const RecoveryPanel = memo(function RecoveryPanel() {
         </div>
       )}
       {success && (
-        <div className="rounded-lg px-3 py-2 flex items-start gap-2 border border-green-500/30 bg-green-500/5">
-          <CircleCheckBig className="h-3.5 w-3.5 text-green-400 mt-0.5 shrink-0" />
-          <p className="text-xs text-green-400">{success}</p>
+        <div className="rounded-lg px-3 py-2 flex items-start gap-2 border border-success/30 bg-success/5">
+          <CircleCheckBig className="h-3.5 w-3.5 text-success mt-0.5 shrink-0" />
+          <p className="text-xs text-success">{success}</p>
         </div>
       )}
       {recoverResult && <RecoverAllSummary result={recoverResult} t={t} />}
@@ -215,10 +215,10 @@ function RecoveryRow({ entry, now, busy, onRemove, t }: RecoveryRowProps) {
   const tone = entry.phase === 'done' ? 'success' : entry.phase === 'failed' ? 'error' : 'warning'
   const toneCls =
     tone === 'success'
-      ? 'text-green-400 bg-green-500/10 border-green-500/30'
+      ? 'text-success bg-success/10 border-success/30'
       : tone === 'error'
         ? 'text-destructive bg-destructive/5 border-destructive/30'
-        : 'text-amber-400 bg-amber-500/10 border-amber-500/30'
+        : 'text-warning bg-warning/10 border-warning/30'
 
   const secondsRemaining = entry.phase === 'cooldown' && entry.unlockTs ? Math.max(0, entry.unlockTs - now) : 0
 
@@ -242,9 +242,9 @@ function RecoveryRow({ entry, now, busy, onRemove, t }: RecoveryRowProps) {
       </div>
 
       {entry.phase === 'cooldown' && secondsRemaining > 0 && (
-        <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2">
+        <div className="rounded-lg border border-warning/20 bg-warning/5 px-3 py-2">
           <p className={`text-xs ${PANEL_MUTED_TEXT} mb-0.5`}>{t('cocoon.stake.unlocksIn')}</p>
-          <p className="text-base font-mono font-semibold text-amber-400">{formatCountdown(secondsRemaining)}</p>
+          <p className="text-base font-mono font-semibold text-warning">{formatCountdown(secondsRemaining)}</p>
         </div>
       )}
 
@@ -286,7 +286,7 @@ function RecoverAllSummary({
           <p className="text-[11px] text-foreground-muted">{t('cocoon.recovery.resultSkipped')}</p>
         </div>
       </div>
-      {result.locked.length > 0 && <p className="text-xs text-amber-400">{t('cocoon.recovery.lockedHint')}</p>}
+      {result.locked.length > 0 && <p className="text-xs text-warning">{t('cocoon.recovery.lockedHint')}</p>}
       {result.skipped.length > 0 && <p className={`text-xs ${PANEL_MUTED_TEXT}`}>{result.skipped[0].reason}</p>}
     </div>
   )

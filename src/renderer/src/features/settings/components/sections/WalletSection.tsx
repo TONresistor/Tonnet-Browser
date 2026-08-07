@@ -17,6 +17,7 @@ import { LoaderCircle } from 'lucide-react'
 import { WalletManagementPanel } from './WalletManagementPanel'
 import { ConnectedAppsPanel } from './ConnectedAppsPanel'
 import { useSectionHandle } from '@/hooks/useSectionHandle'
+import { settingsClient } from '@/features/settings/client'
 
 const log = createLogger('wallet-settings')
 
@@ -53,21 +54,55 @@ export const WalletSection = memo(function WalletSection({ onDirtyChange, sectio
 
   // Load settings on mount
   useEffect(() => {
+    let active = true
+    let canonicalRevision = 0
+    let initialized = false
+    const off = settingsClient.onChanged((change) => {
+      if (!change.settings || (!change.reset && change.category !== 'wallet')) return
+      canonicalRevision += 1
+      const next = change.settings.wallet
+      const values = change.values as Partial<WalletSettings> | undefined
+      const replaceIndexerDraft =
+        change.reset ||
+        !initialized ||
+        !values ||
+        ['indexerEnabled', 'indexerEndpoint', 'indexerApiKey'].some((key) =>
+          Object.prototype.hasOwnProperty.call(values, key)
+        )
+      setSaved(next)
+      setDraft((current) =>
+        replaceIndexerDraft
+          ? next
+          : {
+              ...next,
+              indexerEnabled: current.indexerEnabled,
+              indexerEndpoint: current.indexerEndpoint,
+              indexerApiKey: current.indexerApiKey,
+            }
+      )
+      setIsLoading(false)
+      initialized = true
+    })
+    const loadRevision = canonicalRevision
     const load = async () => {
       try {
         const walletSettings = await walletClient.getSettings()
-        if (walletSettings) {
-          const s = walletSettings as WalletSettings
-          setSaved(s)
-          setDraft(s)
-        }
+        if (!active || !walletSettings || canonicalRevision !== loadRevision) return
+        const next = walletSettings as WalletSettings
+        setSaved(next)
+        setDraft(next)
+        initialized = true
       } catch (err) {
-        log.error('Failed to load wallet settings:', err)
+        if (active) log.error('Failed to load wallet settings:', err)
       } finally {
-        setIsLoading(false)
+        if (active) setIsLoading(false)
       }
     }
-    load()
+    void load()
+    return () => {
+      active = false
+      off()
+    }
   }, [])
 
   const saveToMain = useCallback(async () => {
@@ -80,6 +115,7 @@ export const WalletSection = memo(function WalletSection({ onDirtyChange, sectio
       setSaved(draft)
     } catch (err) {
       log.error('Failed to save wallet settings:', err)
+      throw err
     }
   }, [draft])
 

@@ -17,7 +17,12 @@ export class TonConnectSigningWorkflow {
     private readonly approval: TonConnectApprovalPort
   ) {}
 
-  async sendTransaction(domain: string, appName: string, message: AppRequest): Promise<WalletResponse> {
+  async sendTransaction(
+    domain: string,
+    appName: string,
+    expectedAddress: string,
+    message: AppRequest
+  ): Promise<WalletResponse> {
     const account = this.wallet.getTonConnectAccount()
     const parsed = parseTransactionRequest(message.params?.[0], account?.addressRaw ?? null)
     if (!parsed.ok) return rpcError(message.id, TONCONNECT_ERROR.BAD_REQUEST, parsed.error)
@@ -42,13 +47,21 @@ export class TonConnectSigningWorkflow {
     if (!approved) return rpcError(message.id, TONCONNECT_ERROR.USER_DECLINED, 'Transaction rejected by user')
 
     try {
-      return { id: message.id, result: await this.wallet.signTonConnectTransaction(parsed.messages) }
+      return {
+        id: message.id,
+        result: await this.wallet.signTonConnectTransaction(parsed.messages, expectedAddress),
+      }
     } catch (error) {
       return rpcError(message.id, TONCONNECT_ERROR.UNKNOWN, errorMessage(error))
     }
   }
 
-  async signData(domain: string, appName: string, message: AppRequest): Promise<WalletResponse> {
+  async signData(
+    domain: string,
+    appName: string,
+    expectedAddress: string,
+    message: AppRequest
+  ): Promise<WalletResponse> {
     let raw: unknown
     try {
       raw = JSON.parse(message.params?.[0] ?? '')
@@ -74,7 +87,7 @@ export class TonConnectSigningWorkflow {
     if (!approved) return rpcError(message.id, TONCONNECT_ERROR.USER_DECLINED, 'Sign request rejected by user')
 
     try {
-      return { id: message.id, result: await this.wallet.signData(domain, raw) }
+      return { id: message.id, result: await this.wallet.signData(domain, raw, expectedAddress) }
     } catch (error) {
       return rpcError(message.id, TONCONNECT_ERROR.UNKNOWN, errorMessage(error))
     }

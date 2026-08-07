@@ -24,6 +24,10 @@ import dnsEn from './locales/en/dns.json'
 const NAMESPACES = ['common', 'landing', 'browser', 'settings', 'storage', 'pages', 'wallet', 'dns'] as const
 // Namespaces that may be missing in some locales: fall back to an empty bundle.
 const OPTIONAL_NS = new Set<string>(['wallet', 'dns'])
+const localeLoaders = import.meta.glob<{ default: Record<string, unknown> }>([
+  './locales/*/*.json',
+  '!./locales/en/*.json',
+])
 
 // Track which languages have been loaded
 const loadedLanguages = new Set<string>(['en'])
@@ -70,9 +74,9 @@ export async function loadLanguage(lang: string): Promise<void> {
     // Dynamic imports for the requested language, one per namespace.
     await Promise.all(
       NAMESPACES.map(async (ns) => {
-        const mod = OPTIONAL_NS.has(ns)
-          ? await import(`./locales/${lang}/${ns}.json`).catch(() => ({ default: {} }))
-          : await import(`./locales/${lang}/${ns}.json`)
+        const loader = localeLoaders[`./locales/${lang}/${ns}.json`]
+        if (!loader && !OPTIONAL_NS.has(ns)) throw new Error(`Unsupported locale: ${lang}/${ns}`)
+        const mod = loader ? await loader() : { default: {} }
         i18n.addResourceBundle(lang, ns, mod.default)
       })
     )

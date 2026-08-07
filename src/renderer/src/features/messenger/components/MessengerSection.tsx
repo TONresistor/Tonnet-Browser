@@ -6,17 +6,10 @@ import { createLogger } from '@/logger'
 import { useConfirmAction } from '@/hooks/useConfirmAction'
 import type { OwnChatIdentity, MessengerSettings } from '@shared/types'
 import { avatarColor, initial } from '@/features/messenger/components/chat/util'
-import deviceTileSrc from '@/assets/messenger-device.svg'
-import walletTileSrc from '@/assets/wallet.svg'
-import tonTileSrc from '@/assets/ton.png'
-import resetTileSrc from '@/assets/messenger-reset.svg'
 import vkdogSrc from '@/assets/vkdog.png'
-import anonAvatarSrc from '@/assets/anon-avatar.svg'
 import '@/features/settings/components/settings.css'
 import { messengerClient } from '@/features/messenger/client'
-
-const TILE_GLYPH = 'h-[17px] w-[17px] object-contain'
-const TILE_WHITE = { filter: 'brightness(0) invert(1)' }
+import { AppIcon } from '@/components/ui/AppIcon'
 
 const log = createLogger('messenger-settings')
 
@@ -224,11 +217,8 @@ export const MessengerSection = memo(function MessengerSection({ onIdentityChang
             }}
             className="flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-surface-hover"
           >
-            <span
-              className="grid h-9 w-9 shrink-0 place-items-center rounded-full"
-              style={{ backgroundColor: '#0098EA' }}
-            >
-              <img src={walletTileSrc} alt="" className="h-[18px] w-[18px] object-contain" style={TILE_WHITE} />
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground">
+              <AppIcon name="wallet" className="h-[18px] w-[18px] text-identity-foreground" />
             </span>
             <div className="min-w-0 flex-1">
               <div className="text-[14px] font-medium text-foreground">Wallet address</div>
@@ -248,7 +238,7 @@ export const MessengerSection = memo(function MessengerSection({ onIdentityChang
               className="flex w-full items-center gap-3 border-t border-border-subtle px-3 py-2.5 text-left transition-colors hover:bg-surface-hover"
             >
               <span
-                className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-[14px] font-semibold text-white"
+                className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-[14px] font-semibold text-identity-foreground"
                 style={{ backgroundColor: avatarColor(d) }}
               >
                 {initial(d)}
@@ -279,10 +269,10 @@ export const MessengerSection = memo(function MessengerSection({ onIdentityChang
           <img src={vkdogSrc} alt="" className="h-16 w-16 rounded-full object-cover" />
         ) : (
           <span
-            className="grid h-16 w-16 place-items-center rounded-full"
+            className="grid h-16 w-16 place-items-center rounded-full text-identity-foreground"
             style={{ backgroundColor: avatarColor(avatarSeed) }}
           >
-            <img src={anonAvatarSrc} alt="" className="h-9 w-9 object-contain" style={TILE_WHITE} />
+            <AppIcon name="anonAvatar" className="h-9 w-9" />
           </span>
         )}
         <div
@@ -294,11 +284,8 @@ export const MessengerSection = memo(function MessengerSection({ onIdentityChang
 
       <div className="settings-group">
         <div className="flex items-center gap-3 rounded-t-[13px] px-3 py-2.5">
-          <span
-            className="grid h-[29px] w-[29px] shrink-0 place-items-center rounded-[8px]"
-            style={{ backgroundColor: '#8E8E93' }}
-          >
-            <img src={deviceTileSrc} alt="" className={TILE_GLYPH} style={TILE_WHITE} />
+          <span className="grid h-[29px] w-[29px] shrink-0 place-items-center rounded-control bg-secondary text-secondary-foreground">
+            <AppIcon name="messengerDevice" className="h-[17px] w-[17px] text-identity-foreground" />
           </span>
           <div className="min-w-0 flex-1">
             <div className="text-[14px] font-medium text-foreground">Device key</div>
@@ -323,11 +310,8 @@ export const MessengerSection = memo(function MessengerSection({ onIdentityChang
         </div>
 
         <div className="flex items-center gap-3 border-t border-border-subtle px-3 py-2.5">
-          <span
-            className="grid h-[29px] w-[29px] shrink-0 place-items-center rounded-[8px]"
-            style={{ backgroundColor: '#34C759' }}
-          >
-            <RadioTower className="h-[17px] w-[17px] text-white" aria-hidden="true" />
+          <span className="grid h-[29px] w-[29px] shrink-0 place-items-center rounded-control bg-success text-success-foreground">
+            <RadioTower className="h-[17px] w-[17px] text-identity-foreground" aria-hidden="true" />
           </span>
           <div className="min-w-0 flex-1">
             <div className="text-[14px] font-medium text-foreground">Messenger network</div>
@@ -344,11 +328,8 @@ export const MessengerSection = memo(function MessengerSection({ onIdentityChang
         </div>
 
         <div className="flex items-center gap-3 border-t border-border-subtle px-3 py-2.5">
-          <span
-            className="grid h-[29px] w-[29px] shrink-0 place-items-center rounded-[8px]"
-            style={{ backgroundColor: '#0098EA' }}
-          >
-            <img src={walletTileSrc} alt="" className={TILE_GLYPH} style={TILE_WHITE} />
+          <span className="grid h-[29px] w-[29px] shrink-0 place-items-center rounded-control bg-primary text-primary-foreground">
+            <AppIcon name="wallet" className="h-[17px] w-[17px] text-identity-foreground" />
           </span>
           <div className="min-w-0 flex-1">
             <div className="text-[14px] font-medium text-foreground">Link wallet</div>
@@ -363,11 +344,8 @@ export const MessengerSection = memo(function MessengerSection({ onIdentityChang
           disabled={!linked}
           className="flex w-full items-center gap-3 border-t border-border-subtle px-3 py-2.5 text-left transition-colors enabled:hover:bg-surface-hover disabled:opacity-60"
         >
-          <span
-            className="grid h-[29px] w-[29px] shrink-0 place-items-center rounded-[8px]"
-            style={{ backgroundColor: '#0098EA' }}
-          >
-            <img src={tonTileSrc} alt="" className={TILE_GLYPH} style={TILE_WHITE} />
+          <span className="grid h-[29px] w-[29px] shrink-0 place-items-center rounded-control bg-primary text-primary-foreground">
+            <AppIcon name="ton" className="h-[17px] w-[17px] text-identity-foreground" />
           </span>
           <div className="min-w-0 flex-1">
             <div className="text-[14px] font-medium text-foreground">Link a .ton</div>
@@ -377,11 +355,8 @@ export const MessengerSection = memo(function MessengerSection({ onIdentityChang
         </button>
 
         <div className="flex items-center gap-3 rounded-b-[13px] border-t border-border-subtle px-3 py-2.5">
-          <span
-            className="grid h-[29px] w-[29px] shrink-0 place-items-center rounded-[8px]"
-            style={{ backgroundColor: '#FF3B30' }}
-          >
-            <img src={resetTileSrc} alt="" className={TILE_GLYPH} style={TILE_WHITE} />
+          <span className="grid h-[29px] w-[29px] shrink-0 place-items-center rounded-control bg-destructive text-destructive-foreground">
+            <AppIcon name="messengerReset" className="h-[17px] w-[17px] text-identity-foreground" />
           </span>
           <span className="flex-1 text-[14px] font-medium text-foreground">Reset identity</span>
           <Button variant="destructive" size="sm" onClick={handleReset}>

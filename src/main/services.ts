@@ -40,6 +40,11 @@ import {
   walletPaymentRequestedContract,
 } from '../shared/ipc-contract/wallet'
 import { DisposableStore, onEmitter } from './utils/disposable'
+import { SettingsCoordinator } from './settings/coordinator'
+import { createLogger } from '../shared/logger'
+import { getSetting } from './settings'
+
+const log = createLogger('services')
 
 export interface ServiceRegistry {
   ipcRegistrations: DisposableStore
@@ -65,6 +70,7 @@ export interface ServiceRegistry {
   tabManager: TabManager
   chatSessionController: ChatSessionController<ChatRuntimeSession>
   cocoonPersistence: CocoonPersistence
+  settingsCoordinator: SettingsCoordinator
 }
 
 export function createServices(): ServiceRegistry {
@@ -76,7 +82,7 @@ export function createServices(): ServiceRegistry {
   const proxyManager = new ProxyManager()
   const storageManager = new StorageManager()
   const overlayManager = new OverlayManager()
-  const tabManager = new TabManager()
+  const tabManager = new TabManager(getSetting('appearance').defaultZoom)
   const chatSessionController = new ChatSessionController<ChatRuntimeSession>()
   const cocoonPersistence: CocoonPersistence = {
     consumedArchive: new ConsumedArchive(undefined, secureStorage),
@@ -104,6 +110,18 @@ export function createServices(): ServiceRegistry {
     }
   )
   const bridgeInterceptor = new BridgePermissionInterceptor(bridgePermissionStore, overlayManager)
+  lifecycleRegistrations.add(
+    onEmitter(proxyManager, 'ws-bridge-ready', (wsPort: number) => {
+      void Promise.all([walletManager.applyBridgePort(wsPort), bridgeInterceptor.applyBridgePort(wsPort)]).catch(
+        (error) => log.error(`Failed to synchronize bridge clients: ${String(error)}`)
+      )
+    })
+  )
+  lifecycleRegistrations.add(
+    onEmitter(proxyManager, 'bridge-exit', () => {
+      void chatSessionController.disconnect().catch((error) => log.error(`Failed to disconnect chat: ${String(error)}`))
+    })
+  )
   const tonConnectSessionStore = new TonConnectSessionStore()
   const tonConnectService = new TonConnectService(
     walletManager,
@@ -143,6 +161,17 @@ export function createServices(): ServiceRegistry {
     sendNative: (to, amount) => walletManager.send(to, amount),
     persistence: cocoonPersistence,
   }
+  const settingsCoordinator = new SettingsCoordinator({
+    proxyManager,
+    storageManager,
+    historyManager,
+    contentFilterManager,
+    walletManager,
+    bridgePermissionStore,
+    bridgeInterceptor,
+    tabManager,
+    chatSessionController,
+  })
 
   return {
     ipcRegistrations,
@@ -168,6 +197,7 @@ export function createServices(): ServiceRegistry {
     tabManager,
     chatSessionController,
     cocoonPersistence,
+    settingsCoordinator,
   }
 }
 
@@ -185,7 +215,7 @@ export async function destroyServices(registry: ServiceRegistry): Promise<void> 
   registry.paymentInterceptor.destroy()
   await registry.paymentPolicyStore.destroy()
   await registry.proxyManager.stop()
-  registry.storageManager.stop()
+  await registry.storageManager.stop()
   registry.walletManager.destroy()
   registry.withdrawDriver.stop()
   registry.recoveryDriver.stop()

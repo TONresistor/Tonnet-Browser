@@ -4,6 +4,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { createMockProcess } from '../../__tests__/mock-child-process'
+import { AppSettingsSchema } from '../../../shared/schemas'
 
 // Mock settings
 const mockSettings = {
@@ -13,10 +14,21 @@ const mockSettings = {
   storage: {
     downloadPath: '/mock/downloads',
     pollingInterval: 1000,
+    seedingEnabled: false,
+    downloadSpeedLimit: 0,
+    uploadSpeedLimit: 0,
   },
   advanced: {
     storageVerbosity: 2,
   },
+}
+
+function getAppSettings() {
+  return AppSettingsSchema.parse({
+    network: { ...mockSettings.network, proxyPort: 8080, wsPort: 8081 },
+    storage: mockSettings.storage,
+    advanced: mockSettings.advanced,
+  })
 }
 
 // Mock modules
@@ -47,12 +59,15 @@ vi.mock('fs/promises', () => ({ mkdir: vi.fn(() => Promise.resolve()) }))
 // Mock StorageHTTPClient with a real class
 const mockClientInstances: any[] = []
 let mockPingResponse = true
+let mockPingImplementation: (() => Promise<boolean>) | null = null
+let mockListBagsImplementation: (() => Promise<unknown[]>) | null = null
+let mockAddBagImplementation: (() => Promise<{ ok: boolean }>) | null = null
 vi.mock('../http-client', () => {
   return {
     StorageHTTPClient: class MockStorageHTTPClient {
-      ping = vi.fn(() => Promise.resolve(mockPingResponse))
-      listBags = vi.fn(() => Promise.resolve([]))
-      addBag = vi.fn(() => Promise.resolve({ ok: true }))
+      ping = vi.fn(() => mockPingImplementation?.() ?? Promise.resolve(mockPingResponse))
+      listBags = vi.fn(() => mockListBagsImplementation?.() ?? Promise.resolve([]))
+      addBag = vi.fn(() => mockAddBagImplementation?.() ?? Promise.resolve({ ok: true }))
       removeBag = vi.fn(() => Promise.resolve({ ok: true }))
       stopBag = vi.fn(() => Promise.resolve({ ok: true }))
       getBagDetails = vi.fn(() =>
@@ -103,15 +118,26 @@ describe('StorageManager', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    mockSettings.network.storagePort = 5555
+    mockSettings.storage.downloadPath = '/mock/downloads'
+    mockSettings.storage.pollingInterval = 1000
+    mockSettings.storage.seedingEnabled = false
+    mockSettings.storage.downloadSpeedLimit = 0
+    mockSettings.storage.uploadSpeedLimit = 0
+    mockSettings.advanced.storageVerbosity = 2
+    vi.mocked(mkdir).mockResolvedValue(undefined)
     mockClientInstances.length = 0
     mockPingResponse = true
+    mockPingImplementation = null
+    mockListBagsImplementation = null
+    mockAddBagImplementation = null
     mockProcess = createMockProcess()
     vi.mocked(spawn).mockReturnValue(mockProcess as any)
     manager = new StorageManager()
   })
 
-  afterEach(() => {
-    manager.stop()
+  afterEach(async () => {
+    await manager.stop()
   })
 
   describe('Initial State', () => {
@@ -121,6 +147,27 @@ describe('StorageManager', () => {
 
     it('has null client initially', () => {
       expect(manager.getClient()).toBeNull()
+    })
+
+    it('tracks a requested start before the storage process exists', async () => {
+      let releaseDirectories: () => void = () => {}
+      vi.mocked(mkdir).mockReturnValue(
+        new Promise<string | undefined>((resolve) => {
+          releaseDirectories = () => resolve(undefined)
+        })
+      )
+
+      const starting = manager.start()
+      const activeAfterRequest = manager.isActive()
+      const stopping = manager.stop()
+      const activeWhileStopping = manager.isActive()
+      releaseDirectories()
+
+      await expect(starting).rejects.toThrow('Storage daemon start aborted')
+      await stopping
+      expect(activeAfterRequest).toBe(true)
+      expect(activeWhileStopping).toBe(true)
+      expect(manager.isActive()).toBe(false)
     })
   })
 
@@ -145,9 +192,32 @@ describe('StorageManager', () => {
       )
     })
 
-    it('throws if daemon already running', async () => {
+    it('is idempotent if daemon is already running', async () => {
       await manager.start()
-      await expect(manager.start()).rejects.toThrow('Storage daemon already running')
+      await expect(manager.start()).resolves.toBeUndefined()
+
+      expect(spawn).toHaveBeenCalledOnce()
+      expect(mockClientInstances).toHaveLength(1)
+    })
+
+    it('shares one start before directory creation completes', async () => {
+      let releaseDirectories: () => void = () => {}
+      const directoriesReady = new Promise<string | undefined>((resolve) => {
+        releaseDirectories = () => resolve(undefined)
+      })
+      vi.mocked(mkdir).mockReturnValue(directoriesReady)
+
+      const first = manager.start()
+      const second = manager.start()
+
+      expect(first).toBe(second)
+      await vi.waitFor(() => expect(mkdir).toHaveBeenCalledTimes(2))
+
+      releaseDirectories()
+      await Promise.all([first, second])
+
+      expect(spawn).toHaveBeenCalledOnce()
+      expect(mockClientInstances).toHaveLength(1)
     })
 
     it('tears down the spawned child when readiness fails, so a retry is not blocked', async () => {
@@ -162,6 +232,26 @@ describe('StorageManager', () => {
       // instead of throwing 'already running', and now succeeds.
       mockPingResponse = true
       await expect(manager.start()).resolves.toBeUndefined()
+    })
+
+    it('clears a failed shared start so a retry can succeed', async () => {
+      mockPingResponse = false
+      const first = manager.start()
+      const second = manager.start()
+      await vi.waitFor(() => expect(spawn).toHaveBeenCalledOnce())
+
+      expect(first).toBe(second)
+      mockProcess.emit('exit', 1)
+      await expect(first).rejects.toBeDefined()
+      await expect(second).rejects.toBeDefined()
+
+      mockPingResponse = true
+      mockProcess = createMockProcess()
+      vi.mocked(spawn).mockReturnValue(mockProcess as any)
+
+      await expect(manager.start()).resolves.toBeUndefined()
+      expect(spawn).toHaveBeenCalledTimes(2)
+      expect(mockClientInstances).toHaveLength(2)
     })
 
     it('creates storage directories if missing', async () => {
@@ -197,7 +287,7 @@ describe('StorageManager', () => {
   describe('stop()', () => {
     it('kills the process', async () => {
       await manager.start()
-      manager.stop()
+      await manager.stop()
 
       expect(mockProcess.kill).toHaveBeenCalledWith('SIGTERM')
     })
@@ -207,7 +297,7 @@ describe('StorageManager', () => {
       manager.on('stopped', stoppedSpy)
 
       await manager.start()
-      manager.stop()
+      await manager.stop()
 
       expect(stoppedSpy).toHaveBeenCalled()
     })
@@ -223,6 +313,459 @@ describe('StorageManager', () => {
     it('does nothing if not running', () => {
       expect(() => manager.stop()).not.toThrow()
       expect(mockProcess.kill).not.toHaveBeenCalled()
+    })
+
+    it('shares one stop while process termination is pending', async () => {
+      await manager.start()
+      mockProcess.kill.mockReturnValue(true)
+
+      const first = manager.stop()
+      const second = manager.stop()
+
+      expect(first).toBe(second)
+      await vi.waitFor(() => expect(mockProcess.kill).toHaveBeenCalledWith('SIGTERM'))
+      mockProcess.emit('exit', 0)
+      await Promise.all([first, second])
+    })
+
+    it('waits for process termination before spawning a replacement', async () => {
+      await manager.start()
+      const firstProcess = mockProcess
+      const secondProcess = createMockProcess()
+      firstProcess.kill.mockReturnValue(true)
+      vi.mocked(spawn).mockReturnValue(secondProcess as any)
+
+      const stopping = manager.stop()
+      const restarting = manager.start()
+
+      await vi.waitFor(() => expect(firstProcess.kill).toHaveBeenCalledWith('SIGTERM'))
+      expect(spawn).toHaveBeenCalledOnce()
+      firstProcess.emit('exit', 0)
+
+      await stopping
+      await restarting
+      expect(spawn).toHaveBeenCalledTimes(2)
+      expect(manager.getStatus().running).toBe(true)
+    })
+
+    it('finishes running after start, stop, start during readiness', async () => {
+      mockPingResponse = false
+      const firstProcess = mockProcess
+      const secondProcess = createMockProcess()
+      firstProcess.kill.mockReturnValue(true)
+
+      const firstStart = manager.start().catch((error) => error)
+      await vi.waitFor(() => expect(spawn).toHaveBeenCalledOnce())
+
+      const stopping = manager.stop()
+      mockPingResponse = true
+      vi.mocked(spawn).mockReturnValue(secondProcess as any)
+      const restarting = manager.start()
+
+      await vi.waitFor(() => expect(firstProcess.kill).toHaveBeenCalledWith('SIGTERM'))
+      expect(spawn).toHaveBeenCalledOnce()
+      firstProcess.emit('exit', 0)
+
+      expect(await firstStart).toBeInstanceOf(Error)
+      await stopping
+      await restarting
+      expect(spawn).toHaveBeenCalledTimes(2)
+      expect(manager.getStatus().running).toBe(true)
+      expect(manager.getClient()).not.toBeNull()
+    })
+
+    it('cancels a start that is waiting for directory creation', async () => {
+      let releaseDirectories: () => void = () => {}
+      const directoriesReady = new Promise<string | undefined>((resolve) => {
+        releaseDirectories = () => resolve(undefined)
+      })
+      vi.mocked(mkdir).mockReturnValue(directoriesReady)
+
+      const start = manager.start()
+      manager.stop()
+      releaseDirectories()
+
+      await expect(start).rejects.toThrow('Storage daemon start aborted')
+      expect(spawn).not.toHaveBeenCalled()
+      expect(manager.getStatus().running).toBe(false)
+      expect(manager.getClient()).toBeNull()
+    })
+
+    it('cancels a start that is waiting for API readiness', async () => {
+      mockPingResponse = false
+      const start = manager.start()
+      await vi.waitFor(() => expect(spawn).toHaveBeenCalledOnce())
+
+      manager.stop()
+
+      await expect(start).rejects.toThrow('Readiness wait aborted')
+      expect(mockProcess.kill).toHaveBeenCalledWith('SIGTERM')
+      expect(manager.getStatus().running).toBe(false)
+      expect(manager.getClient()).toBeNull()
+    })
+
+    it('applies startup seeding before reporting readiness', async () => {
+      const completedBag = {
+        bag_id: 'bag1',
+        description: 'Bag',
+        downloaded: 100,
+        size: 100,
+        download_speed: 0,
+        upload_speed: 0,
+        files_count: 1,
+        dir_name: 'bag',
+        completed: true,
+        header_loaded: true,
+        info_loaded: true,
+        active: false,
+        seeding: false,
+        peers: 0,
+      }
+      let releaseSeeding: () => void = () => {}
+      const seedingApplied = new Promise<{ ok: boolean }>((resolve) => {
+        releaseSeeding = () => resolve({ ok: true })
+      })
+      mockSettings.storage.seedingEnabled = true
+      mockSettings.storage.downloadPath = '/startup/downloads'
+      mockListBagsImplementation = () => Promise.resolve([completedBag])
+      mockAddBagImplementation = () => seedingApplied
+      const started = vi.fn()
+      manager.on('started', started)
+
+      const starting = manager.start()
+      await vi.waitFor(() => expect(getLastMockClient().addBag).toHaveBeenCalledOnce())
+
+      const runningBeforeReady = manager.getStatus().running
+      const startedBeforeReady = started.mock.calls.length
+      expect(getLastMockClient().addBag).toHaveBeenCalledWith({
+        bag_id: 'bag1',
+        path: '/startup/downloads',
+        download_all: true,
+      })
+
+      releaseSeeding()
+      await starting
+
+      expect(runningBeforeReady).toBe(false)
+      expect(startedBeforeReady).toBe(0)
+      expect(manager.getStatus().running).toBe(true)
+      expect(started).toHaveBeenCalledOnce()
+    })
+  })
+
+  describe('applySettingsChange()', () => {
+    it('does not drift the effective port while reading pending settings', async () => {
+      await manager.start()
+      mockSettings.network.storagePort = 6000
+
+      await manager.listBags()
+
+      expect(manager.getStatus()).toMatchObject({ running: true, port: 5555 })
+      expect(spawn).toHaveBeenCalledOnce()
+    })
+
+    it('restarts with updated daemon arguments and commits the port after readiness', async () => {
+      await manager.start()
+      const secondProcess = createMockProcess()
+      let releasePing: (ready: boolean) => void = () => {}
+      const pendingPing = new Promise<boolean>((resolve) => {
+        releasePing = resolve
+      })
+      mockPingImplementation = () => pendingPing
+      vi.mocked(spawn).mockReturnValue(secondProcess as any)
+      const previous = getAppSettings()
+      const candidate = {
+        ...previous,
+        network: { ...previous.network, storagePort: 6001 },
+        storage: {
+          ...previous.storage,
+          downloadPath: '/candidate/downloads',
+          downloadSpeedLimit: 2048,
+          uploadSpeedLimit: 1024,
+        },
+        advanced: { ...previous.advanced, storageVerbosity: 4 },
+      }
+
+      const applying = manager.applySettingsChange(candidate)
+
+      await vi.waitFor(() => expect(spawn).toHaveBeenCalledTimes(2))
+      expect(manager.getStatus()).toMatchObject({ running: false, port: 5555 })
+      expect(mockSettings.network.storagePort).toBe(5555)
+      expect(mockSettings.storage.downloadPath).toBe('/mock/downloads')
+      const args = vi.mocked(spawn).mock.calls[1][1] as string[]
+      expect(args).toEqual(
+        expect.arrayContaining([
+          '-api',
+          '127.0.0.1:6001',
+          '-verbosity',
+          '4',
+          '-limit-download',
+          '2048',
+          '-limit-upload',
+          '1024',
+        ])
+      )
+
+      releasePing(true)
+      await applying
+      expect(manager.getStatus()).toMatchObject({
+        running: true,
+        port: 6001,
+        storagePath: '/candidate/downloads',
+      })
+      expect(mkdir).toHaveBeenCalledWith('/candidate/downloads', { recursive: true })
+    })
+
+    it('replaces the polling timer without restarting the daemon', async () => {
+      vi.useFakeTimers()
+      try {
+        await manager.start()
+        const client = getLastMockClient()
+        client.listBags.mockClear()
+        mockSettings.storage.pollingInterval = 500
+
+        await manager.applySettingsChange()
+        await vi.advanceTimersByTimeAsync(499)
+        expect(client.listBags).not.toHaveBeenCalled()
+        await vi.advanceTimersByTimeAsync(1)
+        expect(client.listBags).toHaveBeenCalledOnce()
+        expect(spawn).toHaveBeenCalledOnce()
+        await manager.stop()
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it('applies seeding changes immediately without restarting the daemon', async () => {
+      await manager.start()
+      const client = getLastMockClient()
+      client.listBags.mockResolvedValue([
+        {
+          bag_id: 'bag1',
+          description: 'Bag',
+          downloaded: 100,
+          size: 100,
+          download_speed: 0,
+          upload_speed: 0,
+          files_count: 1,
+          dir_name: 'bag',
+          completed: true,
+          header_loaded: true,
+          info_loaded: true,
+          active: false,
+          seeding: false,
+          peers: 0,
+        },
+      ])
+      mockSettings.storage.seedingEnabled = true
+
+      await manager.applySettingsChange()
+      expect(client.addBag).toHaveBeenCalledWith({
+        bag_id: 'bag1',
+        path: '/mock/downloads',
+        download_all: true,
+      })
+
+      client.listBags.mockResolvedValue([
+        {
+          bag_id: 'bag1',
+          description: 'Bag',
+          downloaded: 100,
+          size: 100,
+          download_speed: 0,
+          upload_speed: 0,
+          files_count: 1,
+          dir_name: 'bag',
+          completed: true,
+          header_loaded: true,
+          info_loaded: true,
+          active: true,
+          seeding: true,
+          peers: 0,
+        },
+      ])
+      mockSettings.storage.seedingEnabled = false
+
+      await manager.applySettingsChange()
+      expect(client.stopBag).toHaveBeenCalledWith('bag1')
+      expect(spawn).toHaveBeenCalledOnce()
+    })
+
+    it('waits for an active poll before applying a seeding change', async () => {
+      vi.useFakeTimers()
+      try {
+        await manager.start()
+        const client = getLastMockClient()
+        const activeBag = {
+          bag_id: 'bag1',
+          description: 'Bag',
+          downloaded: 100,
+          size: 100,
+          download_speed: 0,
+          upload_speed: 0,
+          files_count: 1,
+          dir_name: 'bag',
+          completed: true,
+          header_loaded: true,
+          info_loaded: true,
+          active: true,
+          seeding: true,
+          peers: 0,
+        }
+        let releaseStop: () => void = () => {}
+        client.stopBag.mockReturnValueOnce(
+          new Promise((resolve) => {
+            releaseStop = () => resolve({ ok: true })
+          })
+        )
+        client.listBags.mockResolvedValueOnce([activeBag]).mockResolvedValueOnce([{ ...activeBag, active: false }])
+
+        await vi.advanceTimersByTimeAsync(1000)
+        await vi.waitFor(() => expect(client.stopBag).toHaveBeenCalledWith('bag1'))
+        const previous = getAppSettings()
+        const applying = manager.applySettingsChange({
+          ...previous,
+          storage: { ...previous.storage, seedingEnabled: true },
+        })
+        await Promise.resolve()
+
+        expect(client.addBag).not.toHaveBeenCalled()
+        releaseStop()
+        await applying
+        expect(client.addBag).toHaveBeenCalledWith({
+          bag_id: 'bag1',
+          path: '/mock/downloads',
+          download_all: true,
+        })
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it('does not start a stopped daemon and uses current settings on the next start', async () => {
+      mockSettings.network.storagePort = 6002
+      mockSettings.storage.downloadSpeedLimit = 4096
+
+      await manager.applySettingsChange()
+      expect(spawn).not.toHaveBeenCalled()
+      expect(manager.getStatus()).toMatchObject({ running: false, port: 0 })
+
+      await manager.start()
+      const args = vi.mocked(spawn).mock.calls[0][1] as string[]
+      expect(args).toEqual(expect.arrayContaining(['-api', '127.0.0.1:6002', '-limit-download', '4096']))
+      expect(manager.getStatus()).toMatchObject({ running: true, port: 6002 })
+    })
+
+    it('restores the last working settings after failure and allows a retry', async () => {
+      await manager.start()
+      const failedProcess = createMockProcess()
+      const rollbackProcess = createMockProcess()
+      vi.mocked(spawn)
+        .mockReturnValueOnce(failedProcess as any)
+        .mockReturnValueOnce(rollbackProcess as any)
+      mockPingImplementation = () => Promise.resolve(mockClientInstances.length !== 2)
+      mockSettings.network.storagePort = 6003
+
+      const firstApply = manager.applySettingsChange()
+      await vi.waitFor(() => expect(spawn).toHaveBeenCalledTimes(2))
+      failedProcess.emit('exit', 1)
+
+      await expect(firstApply).rejects.toThrow('Process exited before ready')
+      expect(spawn).toHaveBeenCalledTimes(3)
+      expect(manager.getStatus()).toMatchObject({ running: true, port: 5555 })
+      const rollbackArgs = vi.mocked(spawn).mock.calls[2][1] as string[]
+      expect(rollbackArgs).toEqual(expect.arrayContaining(['-api', '127.0.0.1:5555']))
+
+      const retryProcess = createMockProcess()
+      vi.mocked(spawn).mockReturnValue(retryProcess as any)
+      await manager.applySettingsChange()
+
+      expect(spawn).toHaveBeenCalledTimes(4)
+      expect(manager.getStatus()).toMatchObject({ running: true, port: 6003 })
+    })
+
+    it('does not roll back or respawn after stop aborts an in-flight apply', async () => {
+      await manager.start()
+      const secondProcess = createMockProcess()
+      mockPingImplementation = () => new Promise<boolean>(() => {})
+      vi.mocked(spawn).mockReturnValue(secondProcess as any)
+      mockSettings.network.storagePort = 6004
+
+      const applying = manager.applySettingsChange()
+      await vi.waitFor(() => expect(spawn).toHaveBeenCalledTimes(2))
+      const stopping = manager.stop()
+
+      await expect(applying).rejects.toThrow('Readiness wait aborted')
+      await stopping
+      expect(spawn).toHaveBeenCalledTimes(2)
+      expect(manager.getStatus().running).toBe(false)
+    })
+
+    it('surfaces both errors when a seeding apply and its compensation fail', async () => {
+      await manager.start()
+      const client = getLastMockClient()
+      const completedBag = {
+        bag_id: 'bag1',
+        description: 'Bag',
+        downloaded: 100,
+        size: 100,
+        download_speed: 0,
+        upload_speed: 0,
+        files_count: 1,
+        dir_name: 'bag',
+        completed: true,
+        header_loaded: true,
+        info_loaded: true,
+        active: false,
+        seeding: false,
+        peers: 0,
+      }
+      client.listBags.mockResolvedValueOnce([completedBag]).mockRejectedValueOnce(new Error('rollback failed'))
+      client.addBag.mockRejectedValueOnce(new Error('resume failed'))
+      const previous = getAppSettings()
+      const candidate = {
+        ...previous,
+        storage: { ...previous.storage, seedingEnabled: true },
+      }
+
+      await expect(manager.applySettingsChange(candidate)).rejects.toMatchObject({
+        name: 'AggregateError',
+        message: 'Storage seeding apply and rollback failed',
+      })
+
+      const restoredProcess = createMockProcess()
+      vi.mocked(spawn).mockReturnValue(restoredProcess as any)
+      await manager.applySettingsChange(previous)
+
+      expect(spawn).toHaveBeenCalledTimes(2)
+      expect(manager.getStatus()).toMatchObject({ running: true, port: 5555 })
+    })
+
+    it('surfaces both errors when a restart and its compensation fail', async () => {
+      await manager.start()
+      const candidateProcess = createMockProcess()
+      const compensationProcess = createMockProcess()
+      vi.mocked(spawn)
+        .mockReturnValueOnce(candidateProcess as any)
+        .mockReturnValueOnce(compensationProcess as any)
+      mockPingImplementation = () => new Promise<boolean>(() => {})
+      const previous = getAppSettings()
+      const candidate = {
+        ...previous,
+        network: { ...previous.network, storagePort: 6005 },
+      }
+
+      const applying = manager.applySettingsChange(candidate)
+      await vi.waitFor(() => expect(spawn).toHaveBeenCalledTimes(2))
+      candidateProcess.emit('exit', 1)
+      await vi.waitFor(() => expect(spawn).toHaveBeenCalledTimes(3))
+      compensationProcess.emit('exit', 1)
+
+      await expect(applying).rejects.toMatchObject({
+        name: 'AggregateError',
+        message: 'Storage settings apply and rollback failed',
+      })
+      expect(manager.getStatus().running).toBe(false)
     })
   })
 
@@ -398,6 +941,30 @@ describe('StorageManager', () => {
         const bags = await manager.listBags()
         expect(bags[0].status).toBe('seeding')
       })
+
+      it('sets a completed inactive bag to paused', async () => {
+        getLastMockClient().listBags.mockResolvedValue([
+          {
+            bag_id: 'bag1',
+            description: 'Completed bag',
+            downloaded: 100,
+            size: 100,
+            download_speed: 0,
+            upload_speed: 0,
+            files_count: 1,
+            dir_name: '',
+            completed: true,
+            header_loaded: true,
+            info_loaded: true,
+            active: false,
+            seeding: false,
+            peers: 0,
+          },
+        ])
+
+        const bags = await manager.listBags()
+        expect(bags[0].status).toBe('paused')
+      })
     })
 
     describe('pauseBag()', () => {
@@ -493,7 +1060,14 @@ describe('StorageManager', () => {
 describe('Port Validation', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockSettings.network.storagePort = 5555
+    mockSettings.storage.pollingInterval = 1000
+    mockSettings.storage.seedingEnabled = false
+    mockSettings.storage.downloadSpeedLimit = 0
+    mockSettings.storage.uploadSpeedLimit = 0
+    mockSettings.advanced.storageVerbosity = 2
     mockClientInstances.length = 0
+    mockPingImplementation = null
   })
 
   it.each([

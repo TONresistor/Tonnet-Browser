@@ -100,7 +100,7 @@ export function Step3Fund({ ownerAddress, onComplete, onBack }: Props) {
   return (
     <div className="space-y-5">
       <div className="text-center">
-        <h2 className="text-lg font-semibold text-foreground mb-1">Step 3: Fund your wallet</h2>
+        <h2 className="text-lg font-semibold text-heading mb-1">Step 3: Fund your wallet</h2>
         <p className="text-sm text-muted-foreground">Send at least 20 GRAM to your owner address (stake amount).</p>
       </div>
 
@@ -134,14 +134,14 @@ export function Step3Fund({ ownerAddress, onComplete, onBack }: Props) {
           </p>
           <p className="text-[11px] text-muted-foreground mt-1">Required: 20.00 GRAM minimum</p>
           {balanceError && (
-            <p className="text-[11px] text-red-400 mt-1">Failed to load balance: {balanceError}. Retrying…</p>
+            <p className="text-[11px] text-destructive mt-1">Failed to load balance: {balanceError}. Retrying…</p>
           )}
         </div>
         <div className="flex flex-col items-center gap-1.5">
           {funded ? (
             <>
-              <CheckCircle2 className="h-6 w-6 text-green-400" />
-              <span className="text-[11px] text-green-400">Funded</span>
+              <CheckCircle2 className="h-6 w-6 text-success" />
+              <span className="text-[11px] text-success">Funded</span>
             </>
           ) : (
             <>

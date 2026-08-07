@@ -39,6 +39,7 @@ const USER_FILES = [
   'bags.json',
   'nft-cache.dat',
   'wallet-history.dat',
+  'payment-spending.dat',
 ]
 
 /** Directories whose contents should be merged (not replaced wholesale). */
@@ -103,6 +104,15 @@ function migrateFile(src: string, dst: string, name: string): void {
     log.info(`Replaced ${name} (legacy was newer)`)
   } else {
     log.info(`Kept ${name} (canonical was newer)`)
+  }
+}
+
+function recoverPaymentSpending(src: string, dst: string): void {
+  try {
+    mkdirSync(dst, { recursive: true })
+    migrateFile(src, dst, 'payment-spending.dat')
+  } catch (error) {
+    log.warn(`Failed to recover payment-spending.dat: ${String(error)}`)
   }
 }
 
@@ -237,7 +247,10 @@ export function migrateUserData(canonicalDir: string): void {
   if (!existsSync(legacyDir)) return
 
   // Already migrated in a previous run
-  if (existsSync(join(canonicalDir, MIGRATED_MARKER))) return
+  if (existsSync(join(canonicalDir, MIGRATED_MARKER))) {
+    recoverPaymentSpending(legacyDir, canonicalDir)
+    return
+  }
 
   // Snapshot before logging (electron-log may create canonicalDir/logs/ on first write)
   const canonicalExists = existsSync(canonicalDir)

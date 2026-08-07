@@ -267,10 +267,10 @@ export const BookmarksPage = memo(function BookmarksPage() {
         {/* Floating folder sidebar */}
         <aside className="m-3 flex w-[260px] shrink-0 flex-col overflow-hidden rounded-panel border border-border-subtle bg-elevation-1 shadow-panel">
           <div className="flex items-center justify-between px-4 pb-2 pt-4">
-            <h1 className="text-[22px] font-bold tracking-tight text-foreground">{t('bookmarks.title')}</h1>
+            <h1 className="text-[22px] font-bold tracking-tight text-heading">{t('bookmarks.title')}</h1>
             <button
               onClick={() => handleNewFolder(selectedFolderId)}
-              className="grid h-7 w-7 place-items-center rounded-full bg-primary text-primary-foreground transition-colors hover:bg-primary/90"
+              className="grid h-7 w-7 place-items-center rounded-full bg-primary text-identity-foreground transition-colors hover:bg-primary/90"
               title={t('bookmarks.newFolder')}
             >
               <Plus className="h-4 w-4" />
@@ -379,14 +379,14 @@ export const BookmarksPage = memo(function BookmarksPage() {
       {/* Edit Bookmark Modal */}
       {editingBookmark && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-scrim/50 p-4 backdrop-blur-sm"
           onClick={() => setEditingBookmark(null)}
         >
           <div
             className="w-full max-w-md mx-4 rounded-panel border border-border-subtle bg-elevation-1 p-6 shadow-panel"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-[17px] font-semibold mb-4">{t('bookmarks.editBookmark')}</h3>
+            <h3 className="text-[17px] font-semibold text-heading mb-4">{t('bookmarks.editBookmark')}</h3>
             <div className="space-y-4">
               <div>
                 <label className="text-sm text-muted-foreground block mb-2">{t('bookmarks.bookmarkTitle')}</label>
@@ -429,7 +429,7 @@ export const BookmarksPage = memo(function BookmarksPage() {
                 {t('bookmarks.cancel')}
               </button>
               <button
-                className="flex-1 rounded-full bg-primary py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+                className="flex-1 rounded-full bg-primary py-2.5 text-sm font-medium text-identity-foreground transition-colors hover:bg-primary/90"
                 onClick={handleSaveEdit}
               >
                 {t('bookmarks.save')}
@@ -442,14 +442,14 @@ export const BookmarksPage = memo(function BookmarksPage() {
       {/* New Folder Modal */}
       {creatingFolder && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-scrim/50 p-4 backdrop-blur-sm"
           onClick={() => setCreatingFolder(null)}
         >
           <div
             className="w-full max-w-md mx-4 rounded-panel border border-border-subtle bg-elevation-1 p-6 shadow-panel"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-[17px] font-semibold mb-4">{t('bookmarks.newFolderTitle')}</h3>
+            <h3 className="text-[17px] font-semibold text-heading mb-4">{t('bookmarks.newFolderTitle')}</h3>
             <div className="space-y-4">
               <div>
                 <label className="text-sm text-muted-foreground block mb-2">{t('bookmarks.name')}</label>
@@ -473,7 +473,7 @@ export const BookmarksPage = memo(function BookmarksPage() {
                 {t('bookmarks.cancel')}
               </button>
               <button
-                className="flex-1 rounded-full bg-primary py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+                className="flex-1 rounded-full bg-primary py-2.5 text-sm font-medium text-identity-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
                 onClick={handleSaveNewFolder}
                 disabled={!creatingFolder.name.trim()}
               >
@@ -487,14 +487,14 @@ export const BookmarksPage = memo(function BookmarksPage() {
       {/* Edit Folder Modal */}
       {editingFolder && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-scrim/50 p-4 backdrop-blur-sm"
           onClick={() => setEditingFolder(null)}
         >
           <div
             className="w-full max-w-md mx-4 rounded-panel border border-border-subtle bg-elevation-1 p-6 shadow-panel"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-[17px] font-semibold mb-4">{t('bookmarks.renameFolder')}</h3>
+            <h3 className="text-[17px] font-semibold text-heading mb-4">{t('bookmarks.renameFolder')}</h3>
             <div className="space-y-4">
               <div>
                 <label className="text-sm text-muted-foreground block mb-2">{t('bookmarks.name')}</label>
@@ -517,7 +517,7 @@ export const BookmarksPage = memo(function BookmarksPage() {
                 {t('bookmarks.cancel')}
               </button>
               <button
-                className="flex-1 rounded-full bg-primary py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+                className="flex-1 rounded-full bg-primary py-2.5 text-sm font-medium text-identity-foreground transition-colors hover:bg-primary/90"
                 onClick={handleSaveFolderEdit}
               >
                 {t('bookmarks.save')}
@@ -530,14 +530,14 @@ export const BookmarksPage = memo(function BookmarksPage() {
       {/* Reset Confirmation Modal */}
       {showResetModal && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-scrim/50 p-4 backdrop-blur-sm"
           onClick={() => setShowResetModal(false)}
         >
           <div
             className="w-full max-w-sm mx-4 rounded-panel border border-border-subtle bg-elevation-1 p-6 shadow-panel"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-[17px] font-semibold mb-2">{t('bookmarks.resetBookmarks')}</h3>
+            <h3 className="text-[17px] font-semibold text-heading mb-2">{t('bookmarks.resetBookmarks')}</h3>
             <p className="text-sm text-muted-foreground mb-6">{t('bookmarks.deleteFolderConfirm')}</p>
             <div className="flex gap-3">
               <button

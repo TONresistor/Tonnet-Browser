@@ -231,7 +231,7 @@ function ActionCard({ view, actionPending, error, success, onStake, onUnstake, o
   return (
     <div className={CARD_CLASS}>
       <div className="space-y-1 border-b border-border-subtle px-4 py-3">
-        <h2 className="text-sm font-semibold text-foreground">
+        <h2 className="text-sm font-semibold text-heading">
           {isActiveWithdraw ? 'Deactivate Cocoon' : t(actionTitleKey(view.kind))}
         </h2>
         <p className="text-xs text-muted-foreground">

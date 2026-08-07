@@ -25,11 +25,17 @@ import type { TabStorageState } from './tabs-storage'
 
 const log = createLogger('tabs-events')
 
+function isInternalPresentationUrl(url: string): boolean {
+  return url.startsWith('data:') || url.startsWith('file:')
+}
+
 /** Dependencies needed by setupViewEventListeners */
 export interface TabEventDeps {
   historyManager: HistoryManager
   overlayManager: OverlayManager
   storage: TabStorageState
+  cancelNavigation(tabId: string): void
+  handleZoomInput(input: Electron.Input): boolean
 }
 
 /** Set up non-security event listeners on a view (loading, navigation, favicon, context menu). */
@@ -37,6 +43,12 @@ export function setupViewEventListeners(view: WebContentsView, tabId: string, de
   const { historyManager, overlayManager, storage } = deps
 
   const store = new DisposableStore()
+
+  store.add(
+    onWebContents(view.webContents, 'before-input-event', (event: Electron.Event, input: Electron.Input) => {
+      if (deps.handleZoomInput(input)) event.preventDefault()
+    })
+  )
 
   store.add(
     onWebContents(view.webContents, 'did-start-loading', () => {
@@ -51,6 +63,7 @@ export function setupViewEventListeners(view: WebContentsView, tabId: string, de
   )
 
   const handleNavigate = (_e: unknown, url: string): void => {
+    if (isInternalPresentationUrl(url)) return
     emitContractToRenderer(pageNavigateContract, {
       tabId,
       url,
@@ -67,7 +80,7 @@ export function setupViewEventListeners(view: WebContentsView, tabId: string, de
       emitContractToRenderer(pageTitleContract, title, tabId)
 
       const url = view.webContents.getURL()
-      historyManager.addEntry(url, title, undefined, false)
+      if (!isInternalPresentationUrl(url)) historyManager.addEntry(url, title, undefined, false)
     })
   )
 
@@ -226,12 +239,15 @@ export function setupViewEventListeners(view: WebContentsView, tabId: string, de
               clipboard.writeText(d.url)
               break
             case 'back':
+              deps.cancelNavigation(tabId)
               view.webContents.navigationHistory.goBack()
               break
             case 'forward':
+              deps.cancelNavigation(tabId)
               view.webContents.navigationHistory.goForward()
               break
             case 'reload':
+              deps.cancelNavigation(tabId)
               view.webContents.reload()
               break
             case 'dismiss':

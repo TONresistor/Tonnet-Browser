@@ -75,7 +75,7 @@ function RoomRow({
       )}
     >
       <span
-        className="grid h-12 w-12 shrink-0 place-items-center rounded-full text-[17px] font-semibold text-white"
+        className="grid h-12 w-12 shrink-0 place-items-center rounded-full text-[17px] font-semibold text-identity-foreground"
         style={{ backgroundColor: avatarColor(room.room) }}
       >
         {initial(room.room)}
@@ -110,7 +110,7 @@ function RoomRow({
             className={cn(
               'hidden shrink-0 rounded-full p-1 transition-colors group-hover:block',
               active
-                ? 'text-primary-foreground/80 hover:bg-white/20 hover:text-white'
+                ? 'text-identity-foreground/80 hover:bg-identity-foreground/20 hover:text-identity-foreground'
                 : 'text-muted-foreground hover:bg-destructive/10 hover:text-destructive'
             )}
           >
@@ -157,7 +157,7 @@ function DmRow({
       )}
     >
       <span
-        className="grid h-12 w-12 shrink-0 place-items-center rounded-full text-[17px] font-semibold text-white"
+        className="grid h-12 w-12 shrink-0 place-items-center rounded-full text-[17px] font-semibold text-identity-foreground"
         style={{ backgroundColor: avatarColor(dm.address ?? dm.peerKey) }}
       >
         {initial(dm.name)}
@@ -194,7 +194,7 @@ function DmRow({
             className={cn(
               'hidden shrink-0 rounded-full p-1 transition-colors group-hover:block',
               active
-                ? 'text-primary-foreground/80 hover:bg-white/20 hover:text-white'
+                ? 'text-identity-foreground/80 hover:bg-identity-foreground/20 hover:text-identity-foreground'
                 : 'text-muted-foreground hover:bg-destructive/10 hover:text-destructive'
             )}
           >
@@ -277,7 +277,7 @@ function ChatSidebar({
       className="relative m-3 flex shrink-0 flex-col overflow-hidden rounded-panel border border-border-subtle bg-elevation-1 shadow-panel"
     >
       <div className="relative flex items-center justify-center px-4 pb-2 pt-4">
-        <h2 className="text-lg font-semibold tracking-tight text-foreground">
+        <h2 className="text-lg font-semibold tracking-tight text-heading">
           {tab === 'profile' ? 'Profile' : 'Messenger'}
         </h2>
         {tab !== 'profile' && (

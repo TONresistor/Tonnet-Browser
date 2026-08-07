@@ -42,3 +42,11 @@ export function commentByteLength(text: string): number {
 export function isCommentWithinLimit(text: string): boolean {
   return commentByteLength(text) <= WALLET_MAX_COMMENT_BYTES
 }
+
+export function normalizeComment(comment?: string): string | undefined {
+  if (typeof comment !== 'string') return undefined
+  const trimmed = comment.trim()
+  if (!trimmed) return undefined
+  if (!isCommentWithinLimit(trimmed)) throw new Error('Comment exceeds maximum length')
+  return trimmed
+}

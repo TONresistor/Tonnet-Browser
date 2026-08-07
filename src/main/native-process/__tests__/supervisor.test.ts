@@ -67,6 +67,25 @@ describe('NativeProcessSupervisor', () => {
     expect(killChildProcess).toHaveBeenCalledOnce()
   })
 
+  it('rejects a new start until the previous process has stopped', async () => {
+    const first = processMock()
+    const second = processMock()
+    spawn.mockReturnValueOnce(first).mockReturnValueOnce(second)
+    let release!: () => void
+    killChildProcess.mockReturnValueOnce(new Promise<void>((resolve) => (release = resolve)))
+    const supervisor = new NativeProcessSupervisor()
+    supervisor.start({ name: 'daemon', command: '/bin/daemon', args: [] })
+
+    const stopping = supervisor.stop()
+
+    expect(() => supervisor.start({ name: 'daemon', command: '/bin/daemon', args: [] })).toThrow('stop is in progress')
+    expect(spawn).toHaveBeenCalledOnce()
+
+    release()
+    await stopping
+    expect(supervisor.start({ name: 'daemon', command: '/bin/daemon', args: [] })).toBe(second)
+  })
+
   it('clears ownership on spawn errors', () => {
     const child = processMock()
     spawn.mockReturnValue(child)
@@ -152,6 +171,34 @@ describe('NativeProcessSupervisor', () => {
     expect(child.stderr.listenerCount('data')).toBe(stderrBaseline)
   })
 
+  it('recognizes readiness output emitted before the wait starts', async () => {
+    const child = processMock()
+    spawn.mockReturnValue(child)
+    const supervisor = new NativeProcessSupervisor()
+    supervisor.start({ name: 'daemon', command: '/bin/daemon', args: [] })
+    child.stdout.emit('data', Buffer.from('LISTENING 127.0.0.1'))
+
+    await expect(
+      supervisor.waitForOutput({ matches: (data) => data.toString().includes('LISTENING'), timeoutMs: 10 })
+    ).resolves.toBeUndefined()
+  })
+
+  it('recognizes a readiness marker split across output chunks', async () => {
+    const child = processMock()
+    spawn.mockReturnValue(child)
+    const supervisor = new NativeProcessSupervisor()
+    supervisor.start({ name: 'daemon', command: '/bin/daemon', args: [] })
+    const waiting = supervisor.waitForOutput({
+      matches: (data) => data.toString().includes('LISTENING'),
+      timeoutMs: 1_000,
+    })
+
+    child.stderr.emit('data', Buffer.from('LIST'))
+    child.stderr.emit('data', Buffer.from('ENING'))
+
+    await expect(waiting).resolves.toBeUndefined()
+  })
+
   it('classifies a port-conflict exit as a readiness failure and crash', async () => {
     const child = processMock()
     spawn.mockReturnValue(child)
@@ -232,5 +279,22 @@ describe('NativeProcessSupervisor', () => {
     await expect(running).rejects.toThrow('retry aborted')
     expect(operation).toHaveBeenCalledOnce()
     vi.useRealTimers()
+  })
+
+  it('rejects an output readiness wait when its signal is already aborted', async () => {
+    const child = processMock()
+    spawn.mockReturnValue(child)
+    const supervisor = new NativeProcessSupervisor()
+    const controller = new AbortController()
+    supervisor.start({ name: 'daemon', command: '/bin/daemon', args: [] })
+    controller.abort()
+
+    await expect(
+      supervisor.waitForOutput({
+        matches: () => false,
+        timeoutMs: 0,
+        signal: controller.signal,
+      })
+    ).rejects.toThrow('aborted')
   })
 })

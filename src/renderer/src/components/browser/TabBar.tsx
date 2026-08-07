@@ -247,12 +247,12 @@ export const TabBar = memo(function TabBar({ sidebarWidth }: TabBarProps) {
               const activeTab = tabs.find((t) => t.id === activeId)
               return activeTab ? (
                 <div
-                  className={`px-2.5 py-1.5 ${isVertical ? 'rounded-lg' : 'rounded-full'} text-sm bg-surface text-foreground shadow-2xl opacity-90 border border-border-medium flex items-center gap-2 ${isVertical ? 'w-full' : 'max-w-[200px]'}`}
+                  className={`px-2.5 py-1.5 ${isVertical ? 'rounded-lg' : 'rounded-full'} text-sm bg-surface text-chrome-foreground shadow-2xl opacity-90 border border-border-medium flex items-center gap-2 ${isVertical ? 'w-full' : 'max-w-[200px]'}`}
                 >
                   {activeTab.favicon ? (
                     <img src={activeTab.favicon} alt="" className="w-5 h-5 flex-shrink-0 object-contain" />
                   ) : (
-                    <Globe className="w-5 h-5 flex-shrink-0" />
+                    <Globe className="w-5 h-5 flex-shrink-0 text-icon/60" />
                   )}
                   <span className="truncate">{activeTab.title || t('tabs.newTab')}</span>
                 </div>
@@ -262,7 +262,7 @@ export const TabBar = memo(function TabBar({ sidebarWidth }: TabBarProps) {
       </DndContext>
 
       <button
-        className={`${isVertical ? 'w-full py-2 rounded-lg' : 'h-7 w-7 rounded-full'} no-drag flex items-center justify-center transition-all duration-200 bg-surface text-foreground-muted hover:bg-surface-active hover:text-foreground`}
+        className={`${isVertical ? 'w-full py-2 rounded-lg' : 'h-7 w-7 rounded-full'} no-drag flex items-center justify-center transition-all duration-200 bg-surface text-icon/60 hover:bg-surface-active hover:text-icon`}
         onClick={() => addTab()}
         title={t('tabs.newTab')}
         aria-label={t('tabs.openNewTab')}

@@ -27,7 +27,6 @@ export const DEFAULT_SETTINGS = {
   wsPort: 8081,
   autoConnect: false,
   connectionTimeout: 30,
-  syncCheckInterval: 3000,
   anonymousMode: false,
   tunnelMode: 'standard' as const,
 
@@ -43,8 +42,6 @@ export const DEFAULT_SETTINGS = {
   customThemes: [] as CustomTheme[],
   language: 'en',
   defaultZoom: 100,
-  zoomMin: 30,
-  zoomMax: 300,
   showBookmarksBar: true,
   showStatusBar: true,
   tabOrientation: 'horizontal' as 'horizontal' | 'vertical',
@@ -73,7 +70,7 @@ export const DEFAULT_SETTINGS = {
   // Advanced
   proxyVerbosity: 2,
   storageVerbosity: 2,
-  syncTestDomain: 'tonnet-sync-check.ton',
+  displayUnicodeDomains: false,
 
   // Wallet
   wallet: {

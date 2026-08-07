@@ -14,7 +14,7 @@ import type {
   SignDataResult,
 } from '../tonconnect/types'
 import { WalletKeyStorage, WalletDecryptionError } from './key-storage'
-import { encodeCommentBody, isCommentWithinLimit } from './comment'
+import { encodeCommentBody, normalizeComment } from './comment'
 import type { ISecureStorage } from '../ports/secure-storage'
 import type { MessengerBridgePort, TonBridgePort } from '../ports/ton-bridge'
 import { WsBridgeClient } from './ws-bridge-client'
@@ -34,26 +34,13 @@ import { WalletSigningService } from './signing-service'
 import { WalletTransferService } from './transfer-service'
 import { WalletAccountService } from './account-service'
 import { WalletSubscriptionService } from './subscription-service'
+import { connectWalletBridge, prepareWalletBridge, warmupWalletBridge } from './bridge-lifecycle'
 const log = createLogger('wallet')
-
-/**
- * Trim a user comment, collapse empty to undefined, and enforce the byte cap.
- * Defense in depth: the WALLET_SEND IPC handler validates first, but signing
- * paths may be reached directly, so we never encode an oversized memo.
- */
-function normalizeComment(comment?: string): string | undefined {
-  if (typeof comment !== 'string') return undefined
-  const trimmed = comment.trim()
-  if (!trimmed) return undefined
-  if (!isCommentWithinLimit(trimmed)) {
-    throw new Error('Comment exceeds maximum length')
-  }
-  return trimmed
-}
 
 export class WalletManager extends EventEmitter {
   private keyStorage: WalletKeyStorage
   private wsBridge: WsBridgeClient | null = null
+  private wsBridgePort: number | null = null
   private walletContract: WalletContractV5R1 | null = null
   private keypair: { publicKey: Buffer; secretKey: Buffer } | null = null
   private publicKey: Buffer | null = null
@@ -62,7 +49,7 @@ export class WalletManager extends EventEmitter {
   private initialized: boolean = false
   private decryptFailed: boolean = false
   private weakEncryption: boolean = false
-  private signLock: Promise<void> = Promise.resolve()
+  private operationTail: Promise<void> = Promise.resolve()
   private queryService: WalletQueryService
   private signingService: WalletSigningService
   private transferService: WalletTransferService
@@ -76,12 +63,11 @@ export class WalletManager extends EventEmitter {
     this.signingService = new WalletSigningService({
       getAddress: () => this.walletContract?.address ?? null,
       nowSeconds: () => Math.floor(Date.now() / 1000),
-      signDigest: (digest) => this.signWithKey((secretKey) => Buffer.from(sign(digest, secretKey))),
+      signDigest: (digest) => this.signWithKeyUnlocked((secretKey) => Buffer.from(sign(digest, secretKey))),
     })
     this.transferService = new WalletTransferService({
       getBridge: () => this.wsBridge,
-      syncSeqno: () => this.syncSeqno(),
-      buildBoc: (messages, maxTimeout) => this.buildBoc(messages, maxTimeout),
+      buildBoc: (messages, maxTimeout, expectedAddress) => this.buildBoc(messages, maxTimeout, expectedAddress),
       notifyStateChanged: () => this.emit('state-changed', this.getState()),
     })
     this.accountService = new WalletAccountService({
@@ -98,8 +84,15 @@ export class WalletManager extends EventEmitter {
     const startedAt = Date.now()
 
     const network = getSetting('network')
-    this.wsBridge = new WsBridgeClient(network.wsPort)
-    await this.wsBridge.connect()
+    const bridge = new WsBridgeClient(network.wsPort)
+    try {
+      await connectWalletBridge(bridge)
+    } catch (error) {
+      bridge.disconnect()
+      throw error
+    }
+    this.wsBridge = bridge
+    this.wsBridgePort = network.wsPort
 
     if (await this.keyStorage.exists()) {
       try {
@@ -108,7 +101,12 @@ export class WalletManager extends EventEmitter {
         this.walletContract = WalletContractV5R1.create({ publicKey: this.keypair.publicKey, workchain: 0 })
         // warmup (balance priming) and seqno sync hit independent bridge
         // methods with no data dependency, so run them concurrently.
-        await Promise.allSettled([this.warmupLiteserverPool(), this.syncSeqno()])
+        await Promise.allSettled([
+          warmupWalletBridge(() => this.getBalance()).then((ready) => {
+            if (!ready) log.warn('Liteserver pool warmup: shard did not respond, proceeding with cached balance')
+          }),
+          this.syncSeqno(),
+        ])
         this.subscribeAccount()
         const walletSettings = getSetting('wallet')
         this.keyStorage.setAutoLockMinutes(walletSettings.autoLockMinutes)
@@ -139,35 +137,37 @@ export class WalletManager extends EventEmitter {
    * Create a new wallet using a 24-word mnemonic.
    */
   async create(): Promise<WalletState & { mnemonic: string[] }> {
-    if (this.keypair) {
-      throw new Error('Wallet already exists')
-    }
     // Ensure bridge is initialized before creating wallet
     if (!this.initialized) {
       await this.init()
     }
 
-    // If previous wallet could not be decrypted, remove the stale file first
-    if (this.decryptFailed) {
-      await this.keyStorage.deleteFile()
-      this.decryptFailed = false
-    }
+    return this.runExclusive(async () => {
+      if (this.keypair || this.publicKey || this.walletContract) {
+        throw new Error('Wallet already exists')
+      }
 
-    const { keypair, mnemonic } = await this.keyStorage.generateFromMnemonic()
-    this.keypair = keypair
-    this.publicKey = Buffer.from(keypair.publicKey)
-    this.walletContract = WalletContractV5R1.create({ publicKey: this.keypair.publicKey, workchain: 0 })
-    this.localSeqno = 0
-    this.weakEncryption = this.keyStorage.isBasicTextBackend()
-    this.subscribeAccount()
+      if (this.decryptFailed) {
+        await this.keyStorage.deleteFile()
+        this.decryptFailed = false
+      }
 
-    const state = this.getState()
-    this.emit('state-changed', state)
-    log.info('Wallet created')
-    const result = { ...state, mnemonic: [...mnemonic] }
-    mnemonic.fill('')
-    ;(mnemonic as string[]).length = 0
-    return result
+      const { keypair, mnemonic } = await this.keyStorage.generateFromMnemonic()
+      this.keypair = keypair
+      this.publicKey = Buffer.from(keypair.publicKey)
+      this.walletContract = WalletContractV5R1.create({ publicKey: this.keypair.publicKey, workchain: 0 })
+      this.localSeqno = 0
+      this.weakEncryption = this.keyStorage.isBasicTextBackend()
+      this.subscribeAccount()
+
+      const state = this.getState()
+      this.emit('state-changed', state)
+      log.info('Wallet created')
+      const result = { ...state, mnemonic: [...mnemonic] }
+      mnemonic.fill('')
+      ;(mnemonic as string[]).length = 0
+      return result
+    })
   }
 
   /**
@@ -175,68 +175,75 @@ export class WalletManager extends EventEmitter {
    * Overwrites any existing wallet.
    */
   async importWallet(mnemonic: string[]): Promise<WalletState> {
-    if (!this.initialized) {
-      await this.init()
-    }
-    // Unsubscribe existing account state and wipe old keys
-    this.unsubscribeAccount()
-    if (this.keypair) {
-      this.keypair.secretKey.fill(0)
-      this.keypair.publicKey.fill(0)
-      this.keypair = null
-    }
-    if (this.publicKey) {
-      this.publicKey.fill(0)
-      this.publicKey = null
-    }
-    this.keyStorage.destroy()
+    try {
+      if (!this.initialized) {
+        await this.init()
+      }
 
-    // Delete old wallet file so importFromMnemonic can write a new one
-    await this.keyStorage.deleteFile()
+      return await this.runExclusive(async () => {
+        const importedKeypair = await this.keyStorage.importFromMnemonic(mnemonic)
+        const importedContract = WalletContractV5R1.create({ publicKey: importedKeypair.publicKey, workchain: 0 })
+        const previousKeypair = this.keypair
+        const previousPublicKey = this.publicKey
 
-    this.keypair = await this.keyStorage.importFromMnemonic(mnemonic)
-    mnemonic.fill('')
-    ;(mnemonic as string[]).length = 0
-    this.publicKey = Buffer.from(this.keypair.publicKey)
-    this.walletContract = WalletContractV5R1.create({ publicKey: this.keypair.publicKey, workchain: 0 })
-    this.localSeqno = 0
-    this.currentBalance = '0'
-    this.decryptFailed = false
-    this.weakEncryption = this.keyStorage.isBasicTextBackend()
-    this.subscribeAccount()
+        this.unsubscribeAccount()
+        this.keypair = importedKeypair
+        this.publicKey = Buffer.from(importedKeypair.publicKey)
+        this.walletContract = importedContract
 
-    const state = this.getState()
-    this.emit('state-changed', state)
-    log.info('Wallet imported from mnemonic')
-    return state
+        if (previousKeypair && previousKeypair !== importedKeypair) {
+          previousKeypair.secretKey.fill(0)
+          previousKeypair.publicKey.fill(0)
+        }
+        if (previousPublicKey) {
+          previousPublicKey.fill(0)
+        }
+
+        this.localSeqno = 0
+        this.currentBalance = '0'
+        this.decryptFailed = false
+        this.weakEncryption = this.keyStorage.isBasicTextBackend()
+        this.subscribeAccount()
+
+        const state = this.getState()
+        this.emit('state-changed', state)
+        log.info('Wallet imported from mnemonic')
+        return state
+      })
+    } finally {
+      mnemonic.fill('')
+      ;(mnemonic as string[]).length = 0
+    }
   }
 
   /**
    * Delete the wallet: wipe keys from memory, remove file from disk, reset state.
    */
   async deleteWallet(): Promise<WalletState> {
-    this.unsubscribeAccount()
-    if (this.keypair) {
-      this.keypair.secretKey.fill(0)
-      this.keypair.publicKey.fill(0)
-      this.keypair = null
-    }
-    if (this.publicKey) {
-      this.publicKey.fill(0)
-      this.publicKey = null
-    }
-    this.keyStorage.destroy()
-    await this.keyStorage.deleteFile()
-    this.walletContract = null
-    this.localSeqno = 0
-    this.currentBalance = '0'
-    this.decryptFailed = false
-    this.weakEncryption = false
+    return this.runExclusive(async () => {
+      await this.keyStorage.deleteFile()
+      this.unsubscribeAccount()
+      if (this.keypair) {
+        this.keypair.secretKey.fill(0)
+        this.keypair.publicKey.fill(0)
+        this.keypair = null
+      }
+      if (this.publicKey) {
+        this.publicKey.fill(0)
+        this.publicKey = null
+      }
+      this.keyStorage.destroy()
+      this.walletContract = null
+      this.localSeqno = 0
+      this.currentBalance = '0'
+      this.decryptFailed = false
+      this.weakEncryption = false
 
-    const state = this.getState()
-    this.emit('state-changed', state)
-    log.info('Wallet deleted')
-    return state
+      const state = this.getState()
+      this.emit('state-changed', state)
+      log.info('Wallet deleted')
+      return state
+    })
   }
 
   /**
@@ -289,29 +296,6 @@ export class WalletManager extends EventEmitter {
   }
 
   /**
-   * Retry getBalance until the wallet's shard liteserver responds.
-   * The WS transport probe (getMasterchainInfo) validates the masterchain
-   * connection but the wallet lives on a specific shard that may need a
-   * separate ADNL handshake. Retrying getBalance warms up that path.
-   */
-  private async warmupLiteserverPool(): Promise<void> {
-    const MAX_ATTEMPTS = 10
-    const BASE_DELAY = 500
-    for (let i = 0; i < MAX_ATTEMPTS; i++) {
-      try {
-        await this.getBalance()
-        return
-      } catch {
-        if (i < MAX_ATTEMPTS - 1) {
-          const delay = Math.min(BASE_DELAY * Math.pow(2, i), 5_000)
-          await new Promise((r) => setTimeout(r, delay))
-        }
-      }
-    }
-    log.warn('Liteserver pool warmup: shard did not respond, proceeding with cached balance')
-  }
-
-  /**
    * Fetch current balance from the network.
    */
   async getBalance(): Promise<string> {
@@ -343,7 +327,6 @@ export class WalletManager extends EventEmitter {
     const bridge = this.wsBridge
     if (!bridge) throw new Error('Bridge not connected')
     const memo = normalizeComment(comment)
-    await this.syncSeqno()
     const boc = await this.signTransfer(to, amount, memo)
     const bocBuffer = Buffer.from(boc, 'base64')
 
@@ -392,58 +375,59 @@ export class WalletManager extends EventEmitter {
    * Sign an x402 payment and return the ExactTonPayload.
    */
   async signX402Payment(paymentReq: PaymentRequirements): Promise<ExactTonPayload> {
-    if (!this.publicKey || !this.walletContract) throw new Error('Wallet not initialized')
-    await this.syncSeqno()
-    const message = internal({
-      to: Address.parseRaw(paymentReq.payTo),
-      value: BigInt(paymentReq.amount),
-      bounce: false,
+    return this.runExclusive(async () => {
+      if (!this.publicKey || !this.walletContract) throw new Error('Wallet not initialized')
+      await this.syncSeqnoUnlocked()
+      const message = internal({
+        to: Address.parseRaw(paymentReq.payTo),
+        value: BigInt(paymentReq.amount),
+        bounce: false,
+      })
+      const { boc, seqno, validUntil } = await this.buildBocUnlocked([message], paymentReq.maxTimeoutSeconds)
+      this.emit('payment-signed', paymentReq)
+      log.event('info', 'payment.signed', 'HTTP 402 payment signed')
+      return {
+        signedBoc: boc,
+        walletPublicKey: this.publicKey.toString('hex'),
+        walletAddress: this.walletContract.address.toRawString(),
+        seqno,
+        validUntil,
+      }
     })
-    const { boc, seqno, validUntil } = await this.buildBoc([message], paymentReq.maxTimeoutSeconds)
-    this.emit('payment-signed', paymentReq)
-    log.event('info', 'payment.signed', 'HTTP 402 payment signed')
-    return {
-      signedBoc: boc,
-      walletPublicKey: this.publicKey.toString('hex'),
-      walletAddress: this.walletContract.address.toRawString(),
-      seqno,
-      validUntil,
-    }
   }
 
   getTonConnectAccount(): { addressRaw: string; publicKey: string; walletStateInit: string } | null {
     return this.accountService.getTonConnectAccount()
   }
 
-  async signTonConnectTransaction(messages: TonConnectOutMessage[]): Promise<string> {
-    return this.transferService.signTonConnectTransaction(messages)
+  async signTonConnectTransaction(messages: TonConnectOutMessage[], expectedAddress?: string): Promise<string> {
+    return this.transferService.signTonConnectTransaction(messages, expectedAddress)
   }
 
-  async signTonProof(domain: string, payload: string): Promise<TonProofReplyPayload> {
-    return this.signingService.signTonProof(domain, payload)
-  }
-
-  async signData(domain: string, payload: SignDataPayloadInput): Promise<SignDataResult> {
-    return this.signingService.signData(domain, payload)
-  }
-
-  private signWithKey<T>(fn: (secretKey: Buffer) => T): Promise<T> {
-    const result = this.signLock.then(async () => {
-      if (!this.keypair || this.keyStorage.isLocked()) {
-        this.keypair = await this.keyStorage.load()
-      }
-      try {
-        return fn(this.keypair.secretKey)
-      } finally {
-        this.keyStorage.lock()
-        this.keypair = null
-      }
+  async signTonProof(domain: string, payload: string, expectedAddress?: string): Promise<TonProofReplyPayload> {
+    return this.runExclusive(() => {
+      this.accountService.assertTonConnectAccount(expectedAddress)
+      return this.signingService.signTonProof(domain, payload)
     })
-    this.signLock = result.then(
-      () => {},
-      () => {}
-    )
-    return result
+  }
+
+  async signData(domain: string, payload: SignDataPayloadInput, expectedAddress?: string): Promise<SignDataResult> {
+    return this.runExclusive(() => {
+      this.accountService.assertTonConnectAccount(expectedAddress)
+      return this.signingService.signData(domain, payload)
+    })
+  }
+
+  private async signWithKeyUnlocked<T>(fn: (secretKey: Buffer) => T): Promise<T> {
+    if (!this.keypair || this.keyStorage.isLocked()) {
+      this.keypair = await this.keyStorage.load()
+    }
+    try {
+      return fn(this.keypair.secretKey)
+    } finally {
+      this.keyStorage.lock()
+      this.keypair = null
+    }
   }
 
   async resolveDomain(domain: string): Promise<DnsResolveResult> {
@@ -456,19 +440,28 @@ export class WalletManager extends EventEmitter {
 
   private buildBoc(
     messages: MessageRelaxed[],
-    maxTimeout: number
+    maxTimeout: number,
+    expectedAddress?: string
   ): Promise<{ boc: string; seqno: number; validUntil: number }> {
     // Serialize signing through a promise chain to prevent concurrent
     // calls from reading the same localSeqno before it is incremented.
-    const result = this.signLock.then(() => this._buildBocInner(messages, maxTimeout))
-    this.signLock = result.then(
+    return this.runExclusive(async () => {
+      this.accountService.assertTonConnectAccount(expectedAddress)
+      await this.syncSeqnoUnlocked()
+      return this.buildBocUnlocked(messages, maxTimeout)
+    })
+  }
+
+  private runExclusive<T>(operation: () => T | Promise<T>): Promise<T> {
+    const result = this.operationTail.then(operation)
+    this.operationTail = result.then(
       () => {},
       () => {}
     )
     return result
   }
 
-  private async _buildBocInner(
+  private async buildBocUnlocked(
     messages: MessageRelaxed[],
     maxTimeout: number
   ): Promise<{ boc: string; seqno: number; validUntil: number }> {
@@ -518,6 +511,20 @@ export class WalletManager extends EventEmitter {
     this.keyStorage.setAutoLockMinutes(minutes)
   }
 
+  applyBridgePort(wsPort: number): Promise<void> {
+    return this.runExclusive(async () => {
+      const previous = this.wsBridge
+      if (!previous) return
+      const next = await prepareWalletBridge(previous, this.wsBridgePort, wsPort)
+      if (next === previous) return
+      this.unsubscribeAccount()
+      this.wsBridge = next
+      this.wsBridgePort = wsPort
+      previous.disconnect()
+      this.subscribeAccount()
+    })
+  }
+
   /**
    * Stop timers and wipe keys from memory.
    */
@@ -539,6 +546,7 @@ export class WalletManager extends EventEmitter {
       this.wsBridge.disconnect()
       this.wsBridge = null
     }
+    this.wsBridgePort = null
     this.walletContract = null
     this.initialized = false
     log.info('Wallet manager destroyed')
@@ -565,7 +573,11 @@ export class WalletManager extends EventEmitter {
     this.subscriptionService.stop()
   }
 
-  private async syncSeqno(): Promise<void> {
+  private syncSeqno(): Promise<void> {
+    return this.runExclusive(() => this.syncSeqnoUnlocked())
+  }
+
+  private async syncSeqnoUnlocked(): Promise<void> {
     if (!this.wsBridge || !this.walletContract) return
     try {
       const onChainSeqno = await this.wsBridge.getSeqno(this.getState().address)

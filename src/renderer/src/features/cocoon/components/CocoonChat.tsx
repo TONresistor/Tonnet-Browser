@@ -229,7 +229,7 @@ export function CocoonChat({ state, compact = false, startError = null, onRetryS
 const BUBBLE_VARIANTS = {
   user: 'bg-primary text-primary-foreground',
   assistant: 'bg-[hsl(var(--elevation-1))] text-foreground border border-border',
-  error: 'bg-red-500/10 text-red-400 border border-red-500/40',
+  error: 'bg-destructive/10 text-destructive border border-destructive/40',
 } as const
 
 const ChatBubble = memo(function ChatBubble({

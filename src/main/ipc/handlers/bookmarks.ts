@@ -4,12 +4,15 @@
 
 import { bookmarksLoadContract, bookmarksSaveContract } from '../../../shared/ipc-contract/bookmarks'
 import { secureContractHandle } from '../contract-handler'
-import { loadBookmarks, saveBookmarks } from '../../bookmarks'
 
 export function registerBookmarkHandlers(): void {
-  secureContractHandle(bookmarksLoadContract, () => loadBookmarks())
+  secureContractHandle(bookmarksLoadContract, async () => {
+    const { loadBookmarks } = await import('../../bookmarks')
+    return loadBookmarks()
+  })
 
   secureContractHandle(bookmarksSaveContract, async (data) => {
+    const { saveBookmarks } = await import('../../bookmarks')
     await saveBookmarks(data)
     return { success: true as const }
   })

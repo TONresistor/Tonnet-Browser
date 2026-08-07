@@ -74,6 +74,7 @@
     "networkStatus": "Netzwerkstatus: {{status}}",
     "downloadSpeedAria": "Download-Geschwindigkeit: {{speed}}",
     "uploadSpeedAria": "Upload-Geschwindigkeit: {{speed}}",
+    "zoom": "Seitenzoom",
     "walletTitle": "Geldbörsen-Guthaben",
     "walletAria": "Anzeige des Geldbörsen-Guthabens"
   }

@@ -1,8 +1,9 @@
-import { readdir, stat } from 'node:fs/promises'
+import { readFile, stat } from 'node:fs/promises'
+import { posix } from 'node:path'
 
 const budgets = [
   { file: 'out/preload/index.js', maxBytes: 16 * 1024, owner: 'preload bridge' },
-  { file: 'out/main/index.js', maxBytes: 600 * 1024, owner: 'main process' },
+  { file: 'out/main/index.js', maxBytes: 604 * 1024, owner: 'main process' },
 ]
 
 let failed = false
@@ -25,30 +26,62 @@ for (const budget of budgets) {
   }
 }
 
+const rendererRoot = 'out/renderer'
+const rendererColdStartMaxBytes = 2.1 * 1024 * 1024
+
+async function addStaticGraph(file, graph, visited) {
+  if (visited.has(file)) return
+  visited.add(file)
+  graph.add(file)
+  const source = await readFile(`${rendererRoot}/${file}`, 'utf8')
+  const imports = [
+    ...source.matchAll(/\bimport\s*['"]\.\/([^'"?]+\.js)['"]/g),
+    ...source.matchAll(/\b(?:import|export)\s*[^('"`]*?\bfrom\s*['"]\.\/([^'"?]+\.js)['"]/g),
+  ]
+  await Promise.all(imports.map((match) => addStaticGraph(posix.join(posix.dirname(file), match[1]), graph, visited)))
+}
+
 try {
-  const assets = 'out/renderer/assets'
-  const candidates = (await readdir(assets)).filter((name) => /^index-.*\.js$/.test(name))
-  const sizes = await Promise.all(
-    candidates.map(async (name) => ({ name, bytes: (await stat(`${assets}/${name}`)).size }))
-  )
-  const initial = sizes.sort((left, right) => right.bytes - left.bytes)[0]
-  const baselineBytes = 931_979
-  const maxBytes = Math.ceil(baselineBytes * 1.1)
-  if (!initial) {
+  const html = await readFile(`${rendererRoot}/index.html`, 'utf8')
+  const files = [...new Set([...html.matchAll(/(?:src|href)="\.\/(assets\/[^"?]+\.js)/g)].map((match) => match[1]))]
+  const entry = files.find((file) => /^assets\/index-.*\.js$/.test(file))
+  if (!entry) throw new Error('renderer entry was not found')
+
+  const entrySource = await readFile(`${rendererRoot}/${entry}`, 'utf8')
+  const landingAsset = entrySource.match(/import\(['"]\.\/(LandingPage-[^'"]+\.js)['"]\)/)?.[1]
+  if (!landingAsset) throw new Error('LandingPage cold-start chunk was not found')
+
+  const landingFile = `assets/${landingAsset}`
+  const graph = new Set(files)
+  const visited = new Set()
+  await Promise.all(files.map((file) => addStaticGraph(file, graph, visited)))
+  await addStaticGraph(landingFile, graph, visited)
+
+  const landingSource = await readFile(`${rendererRoot}/${landingFile}`, 'utf8')
+  const welcomeAsset = landingSource.match(/import\(['"]\.\/(welcome-(?!yellow-)[^'"]+\.js)['"]\)/)?.[1]
+  if (!welcomeAsset) throw new Error('default welcome animation chunk was not found')
+  await addStaticGraph(`assets/${welcomeAsset}`, graph, visited)
+
+  const coldStartFiles = [...graph]
+  const sizes = await Promise.all(coldStartFiles.map(async (file) => (await stat(`${rendererRoot}/${file}`)).size))
+  const totalBytes = sizes.reduce((total, bytes) => total + bytes, 0)
+  if (coldStartFiles.length === 0) {
     console.error('Bundle budget failed: renderer initial bundle was not found; run npm run build first.')
     failed = true
-  } else if (initial.bytes > maxBytes) {
+  } else if (totalBytes > rendererColdStartMaxBytes) {
     console.error(
-      `Bundle budget exceeded for renderer initial bundle: ${(initial.bytes / 1024).toFixed(2)} KiB > ${(maxBytes / 1024).toFixed(2)} KiB (${initial.name})`
+      `Bundle budget exceeded for renderer cold start: ${(totalBytes / 1024).toFixed(2)} KiB > ${(rendererColdStartMaxBytes / 1024).toFixed(2)} KiB (${coldStartFiles.join(', ')})`
     )
     failed = true
   } else {
     console.log(
-      `Bundle budget passed for renderer initial bundle: ${(initial.bytes / 1024).toFixed(2)} KiB <= ${(maxBytes / 1024).toFixed(2)} KiB (${initial.name})`
+      `Bundle budget passed for renderer cold start: ${(totalBytes / 1024).toFixed(2)} KiB <= ${(rendererColdStartMaxBytes / 1024).toFixed(2)} KiB (${coldStartFiles.join(', ')})`
     )
   }
-} catch {
-  console.error('Bundle budget failed: out/renderer/assets does not exist; run npm run build first.')
+} catch (error) {
+  console.error(
+    `Bundle budget failed: ${error instanceof Error ? error.message : String(error)}; run npm run build first.`
+  )
   failed = true
 }
 

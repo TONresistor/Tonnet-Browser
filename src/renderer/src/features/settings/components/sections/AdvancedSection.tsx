@@ -7,7 +7,6 @@ import { RotateCcw } from 'lucide-react'
 import { SectionHeader } from '../shared/SectionHeader'
 import { SettingRow } from '../shared/SettingRow'
 import { Toggle } from '../shared/Toggle'
-import { TextInput } from '../shared/TextInput'
 import { Segmented } from '@/components/ui/ios/Segmented'
 import type { SectionProps } from '../types'
 import { useTranslation } from 'react-i18next'
@@ -98,6 +97,7 @@ export const AdvancedSection = memo(function AdvancedSection({
           <Segmented
             value={String(draft.proxyVerbosity)}
             onChange={(v) => setDraft('proxyVerbosity', Number(v))}
+            ariaLabel={t('advanced.proxyVerbosity')}
             options={[
               { value: '0', label: t('advanced.silent') },
               { value: '1', label: t('advanced.errorsOnly') },
@@ -110,20 +110,13 @@ export const AdvancedSection = memo(function AdvancedSection({
           <Segmented
             value={String(draft.storageVerbosity)}
             onChange={(v) => setDraft('storageVerbosity', Number(v))}
+            ariaLabel={t('advanced.storageVerbosity')}
             options={[
               { value: '0', label: t('advanced.silent') },
               { value: '1', label: t('advanced.errorsOnly') },
               { value: '2', label: t('advanced.normal') },
               { value: '3', label: t('advanced.verbose') },
             ]}
-          />
-        </SettingRow>
-        <SettingRow label={t('advanced.syncTestDomain')} description={t('advanced.syncTestDomainDesc')}>
-          <TextInput
-            value={draft.syncTestDomain}
-            onChange={(value) => setDraft('syncTestDomain', value)}
-            placeholder="tonnet-sync-check.ton"
-            ariaLabel={t('advanced.syncTestDomain')}
           />
         </SettingRow>
         <SettingRow label={t('advanced.diagnosticLogging')} description={t('advanced.diagnosticLoggingDesc')}>
@@ -157,6 +150,16 @@ export const AdvancedSection = memo(function AdvancedSection({
             checked={draft.messengerNetworkEnabled}
             onChange={(v) => setDraft('messengerNetworkEnabled', v)}
             ariaLabel={t('advanced.experimental.messenger')}
+          />
+        </SettingRow>
+        <SettingRow
+          label={t('advanced.experimental.unicodeDomains')}
+          description={t('advanced.experimental.unicodeDomainsDesc')}
+        >
+          <Toggle
+            checked={draft.displayUnicodeDomains}
+            onChange={(v) => setDraft('displayUnicodeDomains', v)}
+            ariaLabel={t('advanced.experimental.unicodeDomains')}
           />
         </SettingRow>
         <Http402ExperimentalPanel onDirtyChange={onHttp402DirtyChange} sectionRef={http402SectionRef} />

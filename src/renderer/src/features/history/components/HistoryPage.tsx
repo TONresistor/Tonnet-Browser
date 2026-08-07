@@ -174,7 +174,7 @@ export function HistoryPage() {
           {/* Header */}
           <div className="mb-4 flex items-center gap-2">
             <History className="h-5 w-5 text-primary" />
-            <h1 className="text-xl font-semibold text-foreground">{t('history.title')}</h1>
+            <h1 className="text-xl font-semibold text-heading">{t('history.title')}</h1>
           </div>
 
           {/* Search */}
@@ -232,7 +232,7 @@ export function HistoryPage() {
           ) : entries.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <Lottie animationData={explorerAnimation} className="mb-4 h-32 w-32" loop autoplay />
-              <h3 className="text-base font-semibold text-foreground">
+              <h3 className="text-base font-semibold text-heading">
                 {query ? t('history.empty.noResults') : t('history.empty.title')}
               </h3>
               <p className="mt-1 text-sm text-muted-foreground">

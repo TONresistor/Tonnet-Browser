@@ -86,6 +86,7 @@ vi.mock('electron', () => ({
 
 // Import after mocks
 import { WalletKeyStorage, WalletDecryptionError } from '../key-storage'
+import { mnemonicToPrivateKey } from '@ton/crypto'
 
 // --- Helpers ---
 
@@ -174,6 +175,22 @@ describe('WalletKeyStorage', () => {
       storage.setAvailable(false)
       const words = Array(24).fill('word')
       await expect(ks.importFromMnemonic(words)).rejects.toThrow('Secure storage is not available')
+    })
+
+    it('wipes derived keys when persistence fails', async () => {
+      const words = Array(24).fill('word')
+      const candidate = {
+        publicKey: Buffer.alloc(32, 7),
+        secretKey: Buffer.alloc(64, 8),
+      }
+      vi.mocked(mnemonicToPrivateKey).mockResolvedValueOnce(candidate)
+      vi.mocked(fs.unlink).mockResolvedValueOnce(undefined)
+      atomicHandleWriteFile.mockRejectedValueOnce(new Error('Disk write failed'))
+
+      await expect(ks.importFromMnemonic(words)).rejects.toThrow('Disk write failed')
+
+      expect(candidate.publicKey.every((value) => value === 0)).toBe(true)
+      expect(candidate.secretKey.every((value) => value === 0)).toBe(true)
     })
   })
 

@@ -36,7 +36,7 @@ const mockElectron = {
     close: vi.fn().mockResolvedValue(undefined),
     switch: vi.fn().mockResolvedValue(undefined),
   },
-  navigate: vi.fn().mockResolvedValue(undefined),
+  navigate: vi.fn().mockResolvedValue({ success: true }),
   settings: {
     get: vi.fn().mockResolvedValue({ homepage: 'ton://start' }),
   },
@@ -61,6 +61,14 @@ vi.stubGlobal('crypto', {
   },
 })
 
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>((done) => {
+    resolve = done
+  })
+  return { promise, resolve }
+}
+
 // Mock useBrowserStore
 vi.mock('../browser', () => ({
   useBrowserStore: {
@@ -74,6 +82,7 @@ vi.mock('../browser', () => ({
 beforeEach(() => {
   uuidCounter = 0
   vi.clearAllMocks()
+  mockElectron.navigate.mockReset().mockResolvedValue({ success: true })
   // Reset store state
   useTabsStore.setState({
     tabs: [],
@@ -144,7 +153,7 @@ describe('tabs store', () => {
       await useTabsStore.getState().addTab('http://example.ton')
 
       const tab = useTabsStore.getState().tabs[0]
-      expect(mockElectron.tabs.create).toHaveBeenCalledWith(tab.id)
+      expect(mockElectron.tabs.create).toHaveBeenCalledWith(tab.id, 'http://example.ton')
       expect(mockElectron.navigate).toHaveBeenCalledWith('http://example.ton', tab.id)
     })
 
@@ -319,6 +328,38 @@ describe('tabs store', () => {
       expect(tab.historyIndex).toBe(2)
       expect(tab.canGoBack).toBe(true)
       expect(tab.canGoForward).toBe(false)
+    })
+
+    it('restores the previous tab state when navigation is rejected', async () => {
+      await useTabsStore.getState().addTab('http://initial.ton')
+      mockElectron.navigate.mockResolvedValueOnce({ success: false })
+
+      await useTabsStore.getState().navigateActiveTab('http://rejected.ton')
+
+      const tab = useTabsStore.getState().tabs[0]
+      expect(tab.url).toBe('http://initial.ton')
+      expect(tab.history).toEqual(['http://initial.ton'])
+      expect(tab.historyIndex).toBe(0)
+      expect(tab.canGoBack).toBe(false)
+      expect(tab.canGoForward).toBe(false)
+    })
+
+    it('does not let an older failure roll back a newer navigation', async () => {
+      await useTabsStore.getState().addTab('http://initial.ton')
+      const first = deferred<{ success: boolean }>()
+      const second = deferred<{ success: boolean }>()
+      mockElectron.navigate.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise)
+
+      const firstNavigation = useTabsStore.getState().navigateActiveTab('http://second.ton')
+      const secondNavigation = useTabsStore.getState().navigateActiveTab('http://third.ton')
+      second.resolve({ success: true })
+      await secondNavigation
+      first.resolve({ success: false })
+      await firstNavigation
+
+      const tab = useTabsStore.getState().tabs[0]
+      expect(tab.url).toBe('http://third.ton')
+      expect(tab.history).toEqual(['http://initial.ton', 'http://second.ton', 'http://third.ton'])
     })
 
     it('caps history at MAX_HISTORY (10) entries', async () => {

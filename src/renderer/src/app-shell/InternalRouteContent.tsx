@@ -17,6 +17,7 @@ const views = {
   settings: lazy(() =>
     import('@/features/settings/components/SettingsPage').then((module) => ({ default: module.SettingsPage }))
   ),
+  theme: lazy(() => import('@/features/themes/components/ThemePage').then((module) => ({ default: module.ThemePage }))),
   history: lazy(() =>
     import('@/features/history/components/HistoryPage').then((module) => ({ default: module.HistoryPage }))
   ),
@@ -47,21 +48,4 @@ export function InternalRouteContent({ route, loading }: InternalRouteContentPro
 
   const View = views[route.view]
   return <View />
-}
-
-/** Warm feature chunks only after browser startup; this is a performance hint, not routing logic. */
-export function prefetchInternalRouteViews(): void {
-  void Promise.allSettled([
-    import('@/components/pages/StartPage'),
-    import('@/features/settings/components/SettingsPage'),
-    import('@/features/storage/components/StoragePage'),
-    import('@/features/history/components/HistoryPage'),
-    import('@/features/bookmarks/components/BookmarksPage'),
-    import('@/features/wallet/components/WalletPage'),
-    import('@/features/dns/components/DnsPage'),
-    import('@/features/cocoon/components/CocoonChatPage'),
-    import('@/features/messenger/components/ChatPage'),
-    import('@/features/wallet/components/WalletSidebar'),
-    import('@/features/cocoon/components/CocoonSidebar'),
-  ])
 }

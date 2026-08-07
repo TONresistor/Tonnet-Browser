@@ -4,6 +4,15 @@
  */
 
 import { z } from 'zod'
+import { THEME_TOKEN_KEYS, type ThemeColorKey } from './theme-tokens'
+import { PAGE_ZOOM } from './constants'
+
+export function hasExplicitUndefined(value: unknown): boolean {
+  if (value === undefined) return true
+  if (Array.isArray(value)) return value.some(hasExplicitUndefined)
+  if (typeof value !== 'object' || value === null) return false
+  return Object.values(value).some(hasExplicitUndefined)
+}
 
 // --- Zod Schemas ---
 
@@ -21,7 +30,6 @@ export const NetworkSettingsSchema = z.object({
   wsPort: z.number().int().min(1024).max(65535).default(8081),
   autoConnect: z.boolean().default(false),
   connectionTimeout: z.number().min(5).max(120).default(30),
-  syncCheckInterval: z.number().min(500).max(60000).default(3000),
   anonymousMode: z.boolean().default(false),
   tunnelMode: z.enum(['standard', 'maximum']).default('standard'),
 })
@@ -40,32 +48,12 @@ const LegacyThemeSchema = z.enum(['midnight-blue', 'canard-yellow'])
 const CustomThemeIdSchema = z.string().startsWith('custom:')
 export const ThemeTypeSchema = z.union([BuiltInThemeSchema, LegacyThemeSchema, CustomThemeIdSchema])
 
-export const ThemeColorsSchema = z.object({
-  background: z.string(),
-  backgroundSecondary: z.string(),
-  foreground: z.string(),
-  card: z.string(),
-  cardForeground: z.string(),
-  primary: z.string(),
-  primaryForeground: z.string(),
-  secondary: z.string(),
-  secondaryForeground: z.string(),
-  accent: z.string(),
-  accentForeground: z.string(),
-  muted: z.string(),
-  mutedForeground: z.string(),
-  destructive: z.string(),
-  destructiveForeground: z.string(),
-  success: z.string(),
-  successForeground: z.string(),
-  warning: z.string(),
-  warningForeground: z.string(),
-  info: z.string(),
-  infoForeground: z.string(),
-  border: z.string(),
-  input: z.string(),
-  ring: z.string(),
-})
+const ThemeColorShape = Object.fromEntries(THEME_TOKEN_KEYS.map((key) => [key, z.string()])) as Record<
+  ThemeColorKey,
+  z.ZodString
+>
+
+export const ThemeColorsSchema = z.object(ThemeColorShape)
 
 export const CustomThemeSchema = z.object({
   id: z.string(),
@@ -81,9 +69,7 @@ export const AppearanceSettingsSchema = z.object({
   theme: ThemeTypeSchema.default('resistance-dog'),
   customThemes: z.array(CustomThemeSchema).default([]),
   language: z.string().default('en'),
-  defaultZoom: z.number().min(25).max(500).default(100),
-  zoomMin: z.number().min(10).max(100).default(30),
-  zoomMax: z.number().min(100).max(500).default(300),
+  defaultZoom: z.number().min(PAGE_ZOOM.MIN_PERCENT).max(PAGE_ZOOM.MAX_PERCENT).default(100),
   showBookmarksBar: z.boolean().default(true),
   showStatusBar: z.boolean().default(true),
   tabOrientation: z.enum(['horizontal', 'vertical']).default('horizontal'),
@@ -113,7 +99,7 @@ export const ContentFilteringSettingsSchema = z.object({
 export const AdvancedSettingsSchema = z.object({
   proxyVerbosity: z.number().min(0).max(5).default(2),
   storageVerbosity: z.number().min(0).max(5).default(2),
-  syncTestDomain: z.string().default('tonnet-sync-check.ton'),
+  displayUnicodeDomains: z.boolean().default(false),
 })
 
 // --- Wallet Zod schemas ---
@@ -155,7 +141,7 @@ export const WalletSettingsPartialSchema = z
   .object({
     paymentMode: z.enum(['off', 'manual', 'auto']),
     notificationStyle: z.enum(['popup', 'addressbar']),
-    limits: SpendingLimitsSchema.partial(),
+    limits: SpendingLimitsSchema.partial().strict(),
     sitePolicies: z.array(SitePolicySchema),
     autoPayDomains: z.array(z.string()),
     autoLockMinutes: z.number().min(0).max(1440),
@@ -164,6 +150,7 @@ export const WalletSettingsPartialSchema = z
     indexerApiKey: z.string(),
   })
   .partial()
+  .strict()
 
 // Bridge permission system
 const BridgePermissionSchema = z.object({
@@ -188,6 +175,7 @@ export const CocoonSettingsPartialSchema = z
     autostart: z.boolean(),
   })
   .partial()
+  .strict()
 
 export type CocoonSettings = z.infer<typeof CocoonSettingsSchema>
 
@@ -202,6 +190,7 @@ export const MessengerSettingsPartialSchema = z
     networkEnabled: z.boolean(),
   })
   .partial()
+  .strict()
 
 export type MessengerSettings = z.infer<typeof MessengerSettingsSchema>
 
@@ -211,6 +200,7 @@ export const BridgeSettingsPartialSchema = z
     defaultPolicy: z.enum(['ask', 'deny']),
   })
   .partial()
+  .strict()
 
 export type BridgePermission = z.infer<typeof BridgePermissionSchema>
 export type BridgeSettings = z.infer<typeof BridgeSettingsSchema>
@@ -229,19 +219,30 @@ function withCategoryDefaults<T extends z.ZodObject<z.ZodRawShape>>(schema: T) {
   return schema.optional().transform((v) => schema.parse(v ?? {}))
 }
 
-export const AppSettingsSchema = z.object({
-  general: withCategoryDefaults(GeneralSettingsSchema),
-  network: withCategoryDefaults(NetworkSettingsSchema),
-  storage: withCategoryDefaults(StorageSettingsSchema),
-  appearance: withCategoryDefaults(AppearanceSettingsSchema),
-  privacy: withCategoryDefaults(PrivacySettingsSchema),
-  contentFiltering: withCategoryDefaults(ContentFilteringSettingsSchema),
-  advanced: withCategoryDefaults(AdvancedSettingsSchema),
-  wallet: withCategoryDefaults(WalletSettingsSchema),
-  bridge: withCategoryDefaults(BridgeSettingsSchema),
-  cocoon: withCategoryDefaults(CocoonSettingsSchema),
-  messenger: withCategoryDefaults(MessengerSettingsSchema),
-})
+export const AppSettingsSchema = z
+  .object({
+    general: withCategoryDefaults(GeneralSettingsSchema),
+    network: withCategoryDefaults(NetworkSettingsSchema),
+    storage: withCategoryDefaults(StorageSettingsSchema),
+    appearance: withCategoryDefaults(AppearanceSettingsSchema),
+    privacy: withCategoryDefaults(PrivacySettingsSchema),
+    contentFiltering: withCategoryDefaults(ContentFilteringSettingsSchema),
+    advanced: withCategoryDefaults(AdvancedSettingsSchema),
+    wallet: withCategoryDefaults(WalletSettingsSchema),
+    bridge: withCategoryDefaults(BridgeSettingsSchema),
+    cocoon: withCategoryDefaults(CocoonSettingsSchema),
+    messenger: withCategoryDefaults(MessengerSettingsSchema),
+  })
+  .superRefine((settings, context) => {
+    const ports = [settings.network.proxyPort, settings.network.storagePort, settings.network.wsPort]
+    if (new Set(ports).size !== ports.length) {
+      context.addIssue({
+        code: 'custom',
+        path: ['network'],
+        message: 'Proxy, Storage and Bridge ports must be distinct',
+      })
+    }
+  })
 
 // Partial validation schemas (no defaults) -- used to validate SETTINGS_SET updates.
 // These validate types/constraints without filling in missing fields with defaults.
@@ -256,7 +257,7 @@ function partialUpdateSchema<T extends z.ZodRawShape>(schema: z.ZodObject<T>) {
     const field = shape[key]
     stripped[key] = field instanceof z.ZodDefault ? (field.removeDefault() as z.ZodTypeAny) : field
   }
-  return z.object(stripped).partial()
+  return z.object(stripped).partial().strict()
 }
 
 export const GeneralSettingsPartialSchema = partialUpdateSchema(GeneralSettingsSchema)

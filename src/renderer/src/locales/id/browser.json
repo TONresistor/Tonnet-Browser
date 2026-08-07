@@ -74,6 +74,7 @@
     "networkStatus": "Status jaringan: {{status}}",
     "downloadSpeedAria": "Kecepatan unduh: {{speed}}",
     "uploadSpeedAria": "Kecepatan unggah: {{speed}}",
+    "zoom": "Zoom halaman",
     "walletTitle": "Saldo dompet",
     "walletAria": "Tampilan saldo dompet"
   }

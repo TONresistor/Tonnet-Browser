@@ -102,24 +102,7 @@ export async function applyBridgeDefaults(workDir: string, options: ApplyBridgeD
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === 'ENOENT') return
     log.warn('Failed to apply bridge defaults:', err)
-  }
-}
-
-export async function syncMessengerBridgeNamespaces(workDir: string, enabled: boolean): Promise<boolean> {
-  const configPath = path.join(workDir, 'config.json')
-
-  try {
-    const config = JSON.parse(await readFile(configPath, 'utf-8')) as BridgeConfigJson
-    const changed = applyMessengerNamespaceState(config, enabled)
-    if (changed) {
-      await writeSecureJsonAtomicAsync(configPath, config)
-      log.debug(`Messenger bridge namespaces ${enabled ? 'enabled' : 'disabled'}`)
-    }
-    return changed
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return false
-    log.warn('Failed to sync messenger bridge namespaces:', err)
-    return false
+    throw err
   }
 }
 
@@ -133,7 +116,7 @@ export async function writeProxyConfig(workDir: string, tunnelSections: number):
       existing.TunnelConfig.NodesPoolConfigPath = ''
       existing.TunnelConfig.TunnelSectionsNum = tunnelSections
     }
-    existing.BlockHTTP = true // always block cleartext HTTP
+    delete existing.BlockHTTP
     await writeSecureJsonAtomicAsync(configPath, existing, 2)
     log.debug(`Proxy config updated: tunnelSections=${tunnelSections}`)
     return
@@ -147,7 +130,6 @@ export async function writeProxyConfig(workDir: string, tunnelSections: number):
   const config = {
     Version: 1,
     ADNLKey: generateKey(),
-    BlockHTTP: true,
     CustomTunnelNetworkConfigPath: '',
     TunnelConfig: {
       TunnelServerKey: generateKey(),

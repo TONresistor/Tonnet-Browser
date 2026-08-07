@@ -50,6 +50,7 @@ export class NativeProcessSupervisor {
   private currentSpec: NativeProcessSpec | null = null
   private lifecycleState: NativeProcessState = 'stopped'
   private cleanupChildOutput: (() => void) | null = null
+  private recentOutput = Buffer.alloc(0)
 
   get process(): ChildProcess | null {
     return this.child
@@ -64,19 +65,23 @@ export class NativeProcessSupervisor {
   }
 
   start(spec: NativeProcessSpec): ChildProcess {
+    if (this.stopFlight) throw new Error('Cannot start native process while stop is in progress')
     if (this.child) return this.child
     this.lifecycleState = 'starting'
     this.currentSpec = spec
+    this.recentOutput = Buffer.alloc(0)
     const child = spawn(spec.command, spec.args, spec.options ?? {}) as ChildProcess
     this.child = child
     trackDaemon(spec.name, child)
 
     const nativeLogs = nativeLogRouter.createSession(spec.name, child.pid, spec.onLine, spec.onRawLine)
     const onStdout = (data: Buffer): void => {
+      this.captureOutput(data)
       nativeLogs.stdout(data)
       spec.onStdout?.(data)
     }
     const onStderr = (data: Buffer): void => {
+      this.captureOutput(data)
       nativeLogs.stderr(data)
       spec.onStderr?.(data)
     }
@@ -172,6 +177,7 @@ export class NativeProcessSupervisor {
   }
 
   async waitForReady(options: ReadinessProbeOptions): Promise<void> {
+    if (options.signal?.aborted) throw new Error('Readiness wait aborted')
     const child = this.child
     if (!child) throw new Error('Cannot wait for readiness without a running process')
     const deadline = Date.now() + options.timeoutMs
@@ -218,8 +224,10 @@ export class NativeProcessSupervisor {
   }
 
   async waitForOutput(options: OutputReadinessOptions): Promise<void> {
+    if (options.signal?.aborted) throw new Error('Readiness wait aborted')
     const child = this.child
     if (!child) throw new Error('Cannot wait for output without a running process')
+    if (options.matches(this.recentOutput)) return
     await new Promise<void>((resolve, reject) => {
       let settled = false
       const cleanup = (): void => {
@@ -237,8 +245,8 @@ export class NativeProcessSupervisor {
         if (error) reject(error)
         else resolve()
       }
-      const onData = (data: Buffer): void => {
-        if (options.matches(data)) settle()
+      const onData = (): void => {
+        if (options.matches(this.recentOutput)) settle()
       }
       const onExit = (code: number | null): void => settle(new Error(`Process exited before ready (code: ${code})`))
       const onError = (error: Error): void => settle(error)
@@ -253,6 +261,11 @@ export class NativeProcessSupervisor {
       child.once('error', onError)
       options.signal?.addEventListener('abort', onAbort, { once: true })
     })
+  }
+
+  private captureOutput(data: Buffer): void {
+    const output = Buffer.concat([this.recentOutput, data])
+    this.recentOutput = output.subarray(Math.max(0, output.length - 65_536))
   }
 }
 

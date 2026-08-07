@@ -31,15 +31,12 @@
       "description": "Buat dan kelola tema Anda sendiri",
       "basedOnDark": "Berdasarkan tema gelap",
       "basedOnLight": "Berdasarkan tema terang",
-      "deleteConfirm": "Hapus \"{{name}}\"?"
+      "deleteConfirm": "Hapus \"{{name}}\"?",
+      "deleteWarning": "Tindakan ini tidak dapat dibatalkan."
     },
     "zoom": {
       "default": "Zoom default",
-      "defaultDesc": "Tingkat zoom awal untuk halaman",
-      "min": "Zoom minimum",
-      "minDesc": "Tingkat zoom terendah yang diizinkan",
-      "max": "Zoom maksimum",
-      "maxDesc": "Tingkat zoom tertinggi yang diizinkan"
+      "defaultDesc": "Tingkat zoom awal untuk halaman"
     },
     "ui": {
       "showBookmarksBar": "Tampilkan bilah penanda",
@@ -65,6 +62,24 @@
       "portuguese": "Português (Portugis)",
       "korean": "한국어 (Korea)"
     }
+  },
+  "themePage": {
+    "description": "Pilih tema bawaan atau buat tema sendiri di ruang kerja khusus.",
+    "newTheme": "Tema baru",
+    "builtInThemes": "Tema bawaan",
+    "activeTheme": "Tema aktif",
+    "useTheme": "Gunakan tema",
+    "backToLibrary": "Kembali ke tema",
+    "chooseBase": "Pilih dasar tema. Tidak ada yang disimpan sebelum pengeditan selesai.",
+    "importDescription": "Tempel atau unggah tema, lalu tinjau sebelum menyimpan.",
+    "reviewImport": "Tinjau tema",
+    "basicColors": "Warna utama",
+    "basicColorsDescription": "Warna pokok yang menentukan tema.",
+    "advancedColors": "Warna lanjutan",
+    "advancedColorsDescription": "Atur teks, status, bidang, dan batas secara rinci.",
+    "copySuffix": "(Salinan)",
+    "openStudio": "Buka studio tema",
+    "moreActions": "Tindakan lainnya"
   },
   "general": {
     "title": "Umum",
@@ -266,6 +281,11 @@
     "verbose": "Detail",
     "syncTestDomain": "Domain tes sinkronisasi",
     "syncTestDomainDesc": "Domain yang digunakan untuk memverifikasi sinkronisasi DHT",
+    "experimental": {
+      "title": "Fitur eksperimental",
+      "unicodeDomains": "Domain Unicode (IDN)",
+      "unicodeDomainsDesc": "Tampilkan domain Rusia, emoji, dan domain internasional lainnya sebagai pengganti Punycode xn--. Punycode ditampilkan saat pengeditan."
+    },
     "resetAll": "Setel ulang semua pengaturan ke default",
     "resetAllConfirm": "Klik lagi untuk konfirmasi"
   },
@@ -332,61 +352,72 @@
   "themeEditor": {
     "colors": {
       "background": "Latar Belakang",
-      "backgroundDesc": "Latar belakang utama",
+      "backgroundDesc": "Warna dasar bilah browser dan permukaan utama aplikasi.",
       "backgroundSecondary": "Latar Belakang Sekunder",
-      "backgroundSecondaryDesc": "Sidebar, panel",
-      "foreground": "Latar Depan",
-      "foregroundDesc": "Warna teks utama",
+      "backgroundSecondaryDesc": "Warna kanvas di belakang halaman, sidebar, dan panel sekunder.",
+      "textPrimary": "Teks Utama",
+      "textPrimaryDesc": "Teks isi, nilai bidang, dan konten berprioritas tinggi pada permukaan dasar.",
+      "textSecondary": "Teks Sekunder",
+      "textSecondaryDesc": "Deskripsi, metadata, placeholder, dan konten berprioritas rendah.",
+      "heading": "Judul",
+      "headingDesc": "Judul halaman, panel, bagian, dan dialog.",
+      "chromeForeground": "Antarmuka Browser",
+      "chromeForegroundDesc": "Teks bilah alamat, tab, bookmark, bilah status, dan jam.",
+      "icon": "Ikon",
+      "iconDesc": "Warna ikon navigasi dan antarmuka mandiri di seluruh browser.",
       "card": "Kartu",
-      "cardDesc": "Latar belakang kartu",
+      "cardDesc": "Latar kartu, popover, dan kelompok permukaan yang ditinggikan.",
       "cardForeground": "Teks Kartu",
+      "cardForegroundDesc": "Warna teks dan ikon pada permukaan kartu.",
       "primary": "Primer",
-      "primaryDesc": "Tombol, tautan",
+      "primaryDesc": "Warna aksi utama untuk tombol terisi, tautan, progres, dan indikator aktif.",
       "primaryForeground": "Teks Primer",
+      "primaryForegroundDesc": "Warna teks dan ikon pada kontrol primer.",
       "secondary": "Sekunder",
+      "secondaryDesc": "Latar untuk kontrol sekunder dan aksi dengan penekanan lebih rendah.",
       "secondaryForeground": "Teks Sekunder",
+      "secondaryForegroundDesc": "Warna teks dan ikon pada kontrol sekunder.",
       "accent": "Aksen",
-      "accentDesc": "Sorotan",
+      "accentDesc": "Warna sorotan untuk status yang ditekankan dan interaktif.",
       "accentForeground": "Teks Aksen",
+      "accentForegroundDesc": "Warna teks dan ikon pada permukaan aksen.",
       "muted": "Redup",
-      "mutedDesc": "Latar belakang halus",
-      "mutedForeground": "Teks Redup",
-      "mutedForegroundDesc": "Teks sekunder",
+      "mutedDesc": "Latar berpenekanan rendah untuk area tenang atau tidak aktif.",
       "destructive": "Destruktif",
-      "destructiveDesc": "Kesalahan, hapus",
+      "destructiveDesc": "Warna untuk kesalahan, aksi hapus, dan status berbahaya.",
       "destructiveForeground": "Teks Destruktif",
+      "destructiveForegroundDesc": "Warna teks dan ikon pada permukaan destruktif.",
       "success": "Berhasil",
-      "successDesc": "Terhubung, valid",
+      "successDesc": "Warna untuk status selesai, terhubung, valid, dan berhasil.",
       "successForeground": "Teks Berhasil",
+      "successForegroundDesc": "Warna teks dan ikon pada permukaan berhasil.",
       "warning": "Peringatan",
-      "warningDesc": "Status waspada",
+      "warningDesc": "Warna untuk status peringatan, tertunda, sinkronisasi, dan perubahan yang belum disimpan.",
       "warningForeground": "Teks Peringatan",
+      "warningForegroundDesc": "Warna teks dan ikon pada permukaan peringatan.",
       "info": "Info",
-      "infoDesc": "Informasi",
+      "infoDesc": "Warna untuk informasi netral dan indikator unduhan.",
       "infoForeground": "Teks Info",
+      "infoForegroundDesc": "Warna teks dan ikon pada permukaan informasi.",
       "border": "Batas",
-      "borderDesc": "Batas default",
+      "borderDesc": "Batas solid default untuk panel, kontrol, dan pemisah.",
       "input": "Input",
-      "inputDesc": "Latar belakang input",
+      "inputDesc": "Warna latar bidang input yang dapat diedit.",
       "ring": "Cincin",
-      "ringDesc": "Cincin fokus"
+      "ringDesc": "Garis luar di sekitar kontrol saat menerima fokus keyboard."
     },
     "sections": {
-      "background": "Latar Belakang",
-      "text": "Teks",
+      "background": "Permukaan",
+      "text": "Konten",
       "primaryAccent": "Primer & Aksen",
-      "secondaryMuted": "Sekunder & Redup",
+      "secondaryMuted": "Kontrol Sekunder",
       "statusColors": "Warna Status",
-      "borderInput": "Batas & Input"
+      "borderInput": "Batas & Fokus"
     },
     "editor": {
       "themeName": "Nama Tema",
       "descriptionPlaceholder": "Deskripsi (opsional)",
-      "themeType": "Jenis Tema:",
-      "dark": "Gelap",
-      "light": "Terang",
       "preview": "Pratinjau",
-      "resetToBase": "Setel ulang ke tema dasar:",
       "cancel": "Batal",
       "saveTheme": "Simpan Tema"
     },
@@ -398,7 +429,17 @@
       "primary": "Primer",
       "secondary": "Sekunder",
       "connected": "Terhubung",
-      "syncing": "Menyinkronkan"
+      "syncing": "Menyinkronkan",
+      "modeLabel": "Mode pratinjau",
+      "browser": "Peramban",
+      "components": "Komponen",
+      "sidebar": "Navigasi",
+      "startPage": "Beranda",
+      "accent": "Aksen",
+      "focusedInput": "Cari TON atau masukkan alamat",
+      "mutedSurface": "Permukaan redup",
+      "destructive": "Kesalahan",
+      "information": "Informasi"
     },
     "list": {
       "noThemes": "Belum ada tema kustom. Buat satu untuk memulai.",
@@ -407,8 +448,7 @@
       "editTheme": "Sunting tema",
       "duplicateTheme": "Duplikat tema",
       "exportTheme": "Ekspor tema",
-      "deleteTheme": "Hapus tema",
-      "confirmDelete": "Klik lagi untuk konfirmasi"
+      "deleteTheme": "Hapus tema"
     },
     "importDialog": {
       "title": "Impor Tema",
@@ -430,6 +470,7 @@
   },
   "actions": {
     "unsavedChanges": "Ada perubahan yang belum disimpan",
+    "discardWarning": "Perubahan Anda akan hilang jika Anda melanjutkan.",
     "discard": "Buang",
     "saveChanges": "Simpan Perubahan",
     "saving": "Menyimpan..."

@@ -9,6 +9,7 @@ vi.mock('@/i18n', () => ({
         'storage.title': 'TON Storage',
         'page.title': 'Wallet',
         title: 'Settings',
+        'appearance.theme.label': 'Theme',
         appName: 'TON Browser',
       })[key] ?? key,
   },
@@ -24,6 +25,12 @@ describe('internal route registry', () => {
     expect(resolveInternalRoute('ton://wallet')).toEqual({ kind: 'wallet', view: 'wallet' })
     expect(getInternalPageTitle('ton://wallet')).toBe('Wallet')
     expect(getInternalPageFavicon('ton://wallet')).toBeTruthy()
+  })
+
+  it('registers the dedicated theme page', () => {
+    expect(resolveInternalRoute('ton://theme')).toEqual({ kind: 'theme', view: 'theme' })
+    expect(getInternalPageTitle('ton://theme')).toBe('Theme')
+    expect(getInternalPageFavicon('ton://theme')).toBeTruthy()
   })
 
   it('parses storage browse and viewer parameters', () => {

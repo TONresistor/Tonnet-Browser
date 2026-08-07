@@ -21,7 +21,7 @@ export class ElectronTonConnectApproval implements TonConnectApprovalPort {
       }
       const id = `tonconnect-approve-${++this.counter}`
       const bounds = window.getContentBounds()
-      this.overlayManager.show(
+      const shown = this.overlayManager.show(
         id,
         { x: 0, y: 0, width: bounds.width, height: bounds.height },
         content,
@@ -31,6 +31,7 @@ export class ElectronTonConnectApproval implements TonConnectApprovalPort {
         },
         { autoDismiss: false }
       )
+      if (!shown) resolve(false)
     })
   }
 }

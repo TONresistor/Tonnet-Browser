@@ -5,7 +5,6 @@
 import { errorMessage } from '../../../shared/errors'
 import { isValidNavigationUrl } from '../validation'
 import { log } from './shared'
-import { getSetting } from '../../settings'
 import { loadDataHtml } from '../../windows/page-templates'
 import type { TabManager } from '../../windows/tabs'
 import {
@@ -15,9 +14,8 @@ import {
   reloadContract,
   stopContract,
   toggleDevtoolsContract,
-  zoomInContract,
-  zoomOutContract,
-  zoomResetContract,
+  zoomGetContract,
+  zoomSetContract,
 } from '../../../shared/ipc-contract/browsing'
 import { ipcFailure, secureContractHandle } from '../contract-handler'
 
@@ -58,7 +56,7 @@ export function registerNavigationHandlers(tabManager: TabManager): void {
     // Don't load internal ton:// URLs in WebContentsView
     if (url.startsWith('ton://')) {
       log.debug('Internal URL, hiding views')
-      tabManager.hideAllViews()
+      tabManager.hideAllViews(tabId || tabManager.getActiveTabId() || undefined)
       return { success: true, internal: true }
     }
 
@@ -82,12 +80,16 @@ export function registerNavigationHandlers(tabManager: TabManager): void {
     if (currentUrl.startsWith('file:///') && currentUrl.includes('/storage/')) {
       const cached = tabManager.storage.fileBrowserCache.get(view.webContents.id)
       if (cached) {
+        const tabId = tabManager.getActiveTabId()
+        if (tabId) tabManager.cancelNavigation(tabId)
         await loadDataHtml(view.webContents, cached)
         return { success: true }
       }
     }
 
     if (view.webContents.navigationHistory.canGoBack()) {
+      const tabId = tabManager.getActiveTabId()
+      if (tabId) tabManager.cancelNavigation(tabId)
       view.webContents.navigationHistory.goBack()
       return { success: true }
     }
@@ -97,6 +99,8 @@ export function registerNavigationHandlers(tabManager: TabManager): void {
   secureContractHandle(goForwardContract, () => {
     const view = tabManager.getActiveView()
     if (view?.webContents.navigationHistory.canGoForward()) {
+      const tabId = tabManager.getActiveTabId()
+      if (tabId) tabManager.cancelNavigation(tabId)
       view.webContents.navigationHistory.goForward()
       return { success: true }
     }
@@ -106,6 +110,8 @@ export function registerNavigationHandlers(tabManager: TabManager): void {
   secureContractHandle(reloadContract, () => {
     const view = tabManager.getActiveView()
     if (view) {
+      const tabId = tabManager.getActiveTabId()
+      if (tabId) tabManager.cancelNavigation(tabId)
       view.webContents.reload()
       return { success: true }
     }
@@ -115,44 +121,22 @@ export function registerNavigationHandlers(tabManager: TabManager): void {
   secureContractHandle(stopContract, () => {
     const view = tabManager.getActiveView()
     if (view) {
+      const tabId = tabManager.getActiveTabId()
+      if (tabId) tabManager.cancelNavigation(tabId)
       view.webContents.stop()
       return { success: true }
     }
     return { success: false }
   })
 
-  secureContractHandle(zoomInContract, () => {
-    const view = tabManager.getActiveView()
-    if (view) {
-      const { zoomMax } = getSetting('appearance')
-      const maxFactor = zoomMax / 100
-      const currentZoom = view.webContents.getZoomFactor()
-      view.webContents.setZoomFactor(Math.min(currentZoom + 0.1, maxFactor))
-      return { success: true }
-    }
-    return { success: false }
+  secureContractHandle(zoomGetContract, () => {
+    const zoom = tabManager.pageZoom.get()
+    return { success: zoom !== null, zoom }
   })
 
-  secureContractHandle(zoomOutContract, () => {
-    const view = tabManager.getActiveView()
-    if (view) {
-      const { zoomMin } = getSetting('appearance')
-      const minFactor = zoomMin / 100
-      const currentZoom = view.webContents.getZoomFactor()
-      view.webContents.setZoomFactor(Math.max(currentZoom - 0.1, minFactor))
-      return { success: true }
-    }
-    return { success: false }
-  })
-
-  secureContractHandle(zoomResetContract, () => {
-    const view = tabManager.getActiveView()
-    if (view) {
-      const { defaultZoom } = getSetting('appearance')
-      view.webContents.setZoomFactor(defaultZoom / 100)
-      return { success: true }
-    }
-    return { success: false }
+  secureContractHandle(zoomSetContract, (percent) => {
+    const zoom = tabManager.pageZoom.set(percent)
+    return { success: zoom !== null, zoom }
   })
 
   secureContractHandle(toggleDevtoolsContract, () => {

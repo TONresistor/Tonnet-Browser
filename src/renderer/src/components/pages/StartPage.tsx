@@ -34,7 +34,7 @@ export function StartPage() {
     <div className="relative flex flex-col items-center justify-center h-full w-full bg-background-secondary">
       <Lottie animationData={currentExplorerAnimation} className="w-[280px] h-[280px] mb-8" loop autoplay />
 
-      <p className="text-foreground text-2xl font-bold mb-8">{t('start.subtitle')}</p>
+      <p className="text-heading text-2xl font-bold mb-8">{t('start.subtitle')}</p>
 
       <form onSubmit={handleSearch} className="w-full max-w-[700px] px-5">
         <div className="flex items-center rounded-full p-1.5 transition-all duration-300 glass-surface">
@@ -51,7 +51,7 @@ export function StartPage() {
           />
           <button
             type="submit"
-            className="w-14 h-14 flex items-center justify-center rounded-full text-2xl font-medium transition-all duration-200 hover:scale-105 bg-tonsite text-white backdrop-blur-[10px] shadow-[var(--glass-shadow)]"
+            className="w-14 h-14 flex items-center justify-center rounded-full text-2xl font-medium transition-all duration-200 hover:scale-105 bg-primary text-identity-foreground backdrop-blur-[10px] shadow-[var(--glass-shadow)]"
             aria-label={t('start.searchButton')}
           >
             →

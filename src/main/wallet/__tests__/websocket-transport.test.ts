@@ -84,6 +84,43 @@ describe('WebSocketTransport', () => {
     await vi.waitFor(() => expect(hooks.onReady).toHaveBeenLastCalledWith(true))
   })
 
+  it('cancels a scheduled reconnect when an explicit connect starts', async () => {
+    vi.useFakeTimers()
+    const { hooks, sockets, transport } = setup()
+    const connected = transport.connect()
+    sockets[0].open()
+    await connected
+    sockets[0].emit('close', 1006, Buffer.from('lost'))
+
+    const reconnecting = transport.connect()
+    expect(sockets).toHaveLength(2)
+    await vi.advanceTimersByTimeAsync(10)
+    expect(sockets).toHaveLength(2)
+
+    sockets[1].open()
+    await reconnecting
+    expect(hooks.onReady).toHaveBeenLastCalledWith(true)
+  })
+
+  it('shares the reconnect flight with explicit connect callers', async () => {
+    vi.useFakeTimers()
+    const { sockets, transport } = setup()
+    const connected = transport.connect()
+    sockets[0].open()
+    await connected
+    sockets[0].emit('close', 1006, Buffer.from('lost'))
+
+    await vi.advanceTimersByTimeAsync(10)
+    expect(sockets).toHaveLength(2)
+    const first = transport.connect()
+    const second = transport.connect()
+    expect(first).toBe(second)
+    expect(sockets).toHaveLength(2)
+
+    sockets[1].open()
+    await first
+  })
+
   it('terminates a socket that misses its heartbeat pong and stop cancels reconnect', async () => {
     vi.useFakeTimers()
     const { sockets, transport } = setup()

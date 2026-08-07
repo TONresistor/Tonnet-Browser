@@ -16,7 +16,7 @@ vi.mock('../utils/secure-fs', () => ({ writeSecureJsonAtomic: vi.fn() }))
 
 import fs from 'fs'
 import { spawnSync } from 'child_process'
-import { trackDaemon, untrackDaemon, reapStaleDaemons } from '../daemon-registry'
+import { trackDaemon, untrackDaemon, reapStaleDaemons, killAllDaemonsSync } from '../daemon-registry'
 import { writeSecureJsonAtomic } from '../utils/secure-fs'
 
 const readFileSync = fs.readFileSync as unknown as ReturnType<typeof vi.fn>
@@ -44,6 +44,27 @@ describe('trackDaemon / untrackDaemon', () => {
       schemaVersion: 1,
       records: [],
     })
+  })
+
+  it('kills every tracked daemon synchronously', () => {
+    const first = createMockProcess()
+    const second = createMockProcess()
+    second.pid = 12346
+    trackDaemon('tonutils-proxy', first as never)
+    trackDaemon('tonutils-storage', second as never)
+    const killSpy = vi.spyOn(process, 'kill').mockImplementation(() => true)
+
+    killAllDaemonsSync()
+
+    if (process.platform === 'win32') {
+      expect(spawnSyncMock).toHaveBeenCalledWith('taskkill', ['/PID', '12345', '/T', '/F'])
+      expect(spawnSyncMock).toHaveBeenCalledWith('taskkill', ['/PID', '12346', '/T', '/F'])
+    } else {
+      expect(killSpy).toHaveBeenCalledWith(12345, 'SIGKILL')
+      expect(killSpy).toHaveBeenCalledWith(12346, 'SIGKILL')
+    }
+    expect(fs.unlinkSync).toHaveBeenCalledWith('/mock/userData/daemons.json')
+    killSpy.mockRestore()
   })
 })
 

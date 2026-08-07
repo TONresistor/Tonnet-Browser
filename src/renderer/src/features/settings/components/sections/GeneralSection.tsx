@@ -38,6 +38,7 @@ export const GeneralSection = memo(function GeneralSection({ draft, setDraft }: 
             <Segmented
               value={draft.tunnelMode}
               onChange={(v) => setDraft('tunnelMode', v)}
+              ariaLabel={t('general.tunnelMode')}
               options={[
                 { value: 'standard', label: t('general.tunnelStandard') },
                 { value: 'maximum', label: t('general.tunnelMaximum') },
@@ -71,6 +72,7 @@ export const GeneralSection = memo(function GeneralSection({ draft, setDraft }: 
           <Segmented
             value={draft.homepage}
             onChange={(v) => setDraft('homepage', v)}
+            ariaLabel={t('general.homepage')}
             options={[
               { value: 'ton://start', label: t('general.startPage'), icon: <Home className="h-3.5 w-3.5" /> },
               { value: 'ton://storage', label: t('general.tonStorage'), icon: <HardDrive className="h-3.5 w-3.5" /> },

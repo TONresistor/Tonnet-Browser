@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, it, expect } from 'vitest'
-import { processNavigationInput, stripHttpPrefix, getHostname } from '../url-utils'
+import { decodePunycodeUrl, processNavigationInput, stripHttpPrefix, getHostname } from '../url-utils'
 
 describe('url-utils', () => {
   describe('processNavigationInput', () => {
@@ -47,6 +47,35 @@ describe('url-utils', () => {
 
     it('handles hostnames with port-like segments containing dots', () => {
       expect(processNavigationInput('example.ton:8080')).toBe('http://example.ton:8080')
+    })
+
+    it('canonicalizes Russian and emoji domains to Punycode', () => {
+      expect(processNavigationInput('пример.ton')).toBe('http://xn--e1afmkfd.ton')
+      expect(processNavigationInput('💩.ton')).toBe('http://xn--ls8h.ton')
+      expect(processNavigationInput('xn--e1afmkfd.ton')).toBe('http://xn--e1afmkfd.ton')
+    })
+
+    it('preserves paths, queries, and fragments while canonicalizing the hostname', () => {
+      expect(processNavigationInput('пример.ton/путь?q=1#top')).toBe('http://xn--e1afmkfd.ton/путь?q=1#top')
+      expect(processNavigationInput('💩.ton?q=1')).toBe('http://xn--ls8h.ton?q=1')
+    })
+  })
+
+  describe('decodePunycodeUrl', () => {
+    it('decodes Russian and emoji hostnames without changing the navigation URL parts', () => {
+      expect(decodePunycodeUrl('http://xn--e1afmkfd.ton/путь')).toBe('http://пример.ton/путь')
+      expect(decodePunycodeUrl('http://xn--ls8h.ton:8080/chat')).toBe('http://💩.ton:8080/chat')
+    })
+
+    it('decodes only the hostname when credentials or matching path text are present', () => {
+      expect(decodePunycodeUrl('http://xn--ls8h.ton@xn--ls8h.ton/')).toBe('http://xn--ls8h.ton@💩.ton/')
+      expect(decodePunycodeUrl('http://user@xn--ls8h.ton:8080/chat')).toBe('http://user@💩.ton:8080/chat')
+      expect(decodePunycodeUrl('http://xn--ls8h.ton/xn--ls8h.ton')).toBe('http://💩.ton/xn--ls8h.ton')
+    })
+
+    it('leaves ordinary and invalid URLs unchanged', () => {
+      expect(decodePunycodeUrl('http://example.ton/path')).toBe('http://example.ton/path')
+      expect(decodePunycodeUrl('not a url')).toBe('not a url')
     })
   })
 

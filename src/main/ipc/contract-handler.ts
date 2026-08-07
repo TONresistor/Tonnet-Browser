@@ -74,9 +74,7 @@ async function runHandler<TArgs extends readonly unknown[], TResult>(
       if (contract.errors.includes(error.code)) throw error
       throw new IpcBoundaryError('IPC_INTERNAL_ERROR', 'Operation failed', false, error)
     }
-    const code =
-      [...contract.errors].reverse().find((candidate) => candidate.endsWith('_FAILED')) ?? 'IPC_OPERATION_FAILED'
-    throw new IpcBoundaryError(code, 'Operation failed', false, error)
+    throw new IpcBoundaryError('IPC_INTERNAL_ERROR', 'Operation failed', false, error)
   }
   try {
     return contract.output.parse(result)
@@ -105,6 +103,7 @@ export function secureContractHandle<TArgs extends readonly unknown[], TResult>(
 
 export function tonsiteContractHandle<TArgs extends readonly unknown[], TResult>(
   contract: IpcRequestContract<TArgs, TResult>,
+  resolveIdentity: (event: IpcMainInvokeEvent) => string | null,
   handler: (domain: string, event: IpcMainInvokeEvent, ...args: NoInfer<TArgs>) => TResult | Promise<TResult>
 ): void {
   if (contract.caller !== 'tonsite' || contract.authorization !== 'owning-tonsite-session') {
@@ -112,7 +111,7 @@ export function tonsiteContractHandle<TArgs extends readonly unknown[], TResult>
   }
   const enforceRateLimit = createRateLimitGuard(contract)
   ownRegistration(
-    tonsiteHandle(contract.channel, async (domain, event, ...rawArgs: unknown[]) => {
+    tonsiteHandle(contract.channel, resolveIdentity, async (domain, event, ...rawArgs: unknown[]) => {
       enforceRateLimit(
         contract.rateLimit.kind === 'fixed-window' && contract.rateLimit.key === 'domain'
           ? domain

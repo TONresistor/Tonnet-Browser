@@ -64,7 +64,7 @@ export function AddBagModal({ isOpen, onClose, onBagAdded }: AddBagModalProps) {
 
   return (
     <div
-      className="fixed inset-0 bg-black/60 flex items-center justify-center z-50"
+      className="fixed inset-0 bg-scrim/60 flex items-center justify-center z-50"
       onClick={handleClose}
       onKeyDown={(e) => {
         if (e.key === 'Escape') handleClose()
@@ -87,7 +87,7 @@ export function AddBagModal({ isOpen, onClose, onBagAdded }: AddBagModalProps) {
           <X className="h-4 w-4" />
         </button>
 
-        <h3 id="add-bag-title" className="pr-8 text-[17px] font-semibold text-foreground">
+        <h3 id="add-bag-title" className="pr-8 text-[17px] font-semibold text-heading">
           {t('storage.addModal.title')}
         </h3>
         <p className="mt-1 mb-4 text-[13px] text-muted-foreground">{t('storage.addModal.bagIdDescription')}</p>

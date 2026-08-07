@@ -86,8 +86,8 @@ export function TipButton({ domain }: TipButtonProps) {
             disabled={isProcessing}
             className={cn(
               'rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors whitespace-nowrap',
-              'bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground',
-              showCheck && 'bg-green-500/15 text-green-500',
+              'bg-muted/50 text-chrome-foreground hover:bg-muted',
+              showCheck && 'bg-success/15 text-success',
               showError && 'bg-destructive/15 text-destructive',
               isProcessing && !isActive && 'opacity-40 pointer-events-none'
             )}

@@ -31,7 +31,7 @@ export function Toggle({ checked, onChange, ariaLabel, disabled }: ToggleProps) 
       <span
         aria-hidden="true"
         className={cn(
-          'absolute left-[2px] top-1/2 h-[24px] w-[39px] -translate-y-1/2 rounded-full bg-white transition-transform duration-200 ease-out',
+          'absolute left-[2px] top-1/2 h-[24px] w-[39px] -translate-y-1/2 rounded-full bg-switch-thumb transition-transform duration-200 ease-out',
           checked && 'translate-x-[21px]'
         )}
       />

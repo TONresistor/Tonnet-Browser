@@ -10,13 +10,16 @@ import { normalizeUrl } from '../../shared/utils/url'
 import { loadErrorPage } from './tabs-storage'
 import { createLogger } from '../../shared/logger'
 import { emitContractToRenderer } from '../events/renderer-events'
-import { contextOpenLinkContract, pageNavigateContract } from '../../shared/ipc-contract/browsing'
+import { BrowserUrlSchema, contextOpenLinkContract, pageNavigateContract } from '../../shared/ipc-contract/browsing'
 import { DisposableStore, onWebContents } from '../utils/disposable'
 
 const log = createLogger('tabs-security')
 
 /** Allowed URL schemes for navigation. */
 export const ALLOWED_SCHEMES = ['http:']
+
+type TopLevelNavigationHandler = (url: string) => boolean
+type NavigationDetails = Electron.Event<Electron.WebContentsWillNavigateEventParams>
 
 async function openValidatedBagFile(
   view: WebContentsView,
@@ -52,57 +55,96 @@ async function openValidatedBagFile(
   }
 }
 
+function handleNavigation(
+  view: WebContentsView,
+  details: NavigationDetails,
+  onTopLevelNavigation?: TopLevelNavigationHandler
+): void {
+  const { url } = details
+  try {
+    const normalized = normalizeUrl(url)
+    if (!BrowserUrlSchema.safeParse(normalized).success) {
+      log.event('warn', 'security.navigation.invalid', 'blocked invalid navigation URL')
+      details.preventDefault()
+      return
+    }
+    const parsed = new URL(normalized)
+
+    if (!ALLOWED_SCHEMES.includes(parsed.protocol)) {
+      log.event('warn', 'security.navigation.blocked', 'blocked navigation to unsafe scheme', {
+        scheme: parsed.protocol,
+      })
+      details.preventDefault()
+      return
+    }
+
+    if (!details.isMainFrame || details.isSameDocument) return
+    if (onTopLevelNavigation?.(normalized)) {
+      details.preventDefault()
+      return
+    }
+
+    if (normalized !== url) {
+      details.preventDefault()
+      log.debug(`Normalizing URL: ${url} -> ${normalized}`)
+      view.webContents.loadURL(normalized).catch((error) => {
+        log.error('loadURL failed (normalization):', error)
+        loadErrorPage(view, error.message, normalized)
+      })
+    }
+  } catch (error) {
+    log.debug('URL validation failed:', error)
+    log.event('warn', 'security.navigation.invalid', 'blocked invalid navigation URL')
+    details.preventDefault()
+  }
+}
+
 /** Set up security event handlers on a view (will-navigate, setWindowOpenHandler, did-create-window). */
-export function setupSecurityHandlers(view: WebContentsView, tabId: string): DisposableStore {
+export function setupSecurityHandlers(
+  view: WebContentsView,
+  tabId: string,
+  onTopLevelNavigation?: TopLevelNavigationHandler
+): DisposableStore {
   const store = new DisposableStore()
 
   // Security: Intercept navigation to validate URLs
   store.add(
-    onWebContents(view.webContents, 'will-navigate', (event: Electron.Event, url: string) => {
-      // Handle bagfile:// links from file browser
-      if (url.startsWith('bagfile://')) {
-        event.preventDefault()
-        const currentPageUrl = view.webContents.getURL()
-        if (!currentPageUrl.startsWith('data:text/html')) {
-          log.warn('Blocked bagfile:// from non-file-browser page')
-          return
-        }
-        const withoutScheme = url.slice('bagfile://'.length)
-        const slashIdx = withoutScheme.indexOf('/')
-        if (slashIdx !== -1) {
-          const bp = decodeURIComponent(withoutScheme.slice(0, slashIdx))
-          const fp = decodeURIComponent(withoutScheme.slice(slashIdx + 1))
-          void openValidatedBagFile(view, tabId, bp, fp)
-        }
-        return
-      }
-
-      try {
-        const normalized = normalizeUrl(url)
-        const parsed = new URL(normalized)
-
-        if (normalized !== url) {
-          event.preventDefault()
-          log.debug(`Normalizing URL: ${url} -> ${normalized}`)
-          view.webContents.loadURL(normalized).catch((err) => {
-            log.error('loadURL failed (normalization):', err)
-            loadErrorPage(view, err.message, normalized)
-          })
+    onWebContents(
+      view.webContents,
+      'will-navigate',
+      (details: Electron.Event<Electron.WebContentsWillNavigateEventParams>) => {
+        const { url } = details
+        if (url.startsWith('bagfile://')) {
+          details.preventDefault()
+          if (!details.isMainFrame) return
+          const currentPageUrl = view.webContents.getURL()
+          if (!currentPageUrl.startsWith('data:text/html')) {
+            log.warn('Blocked bagfile:// from non-file-browser page')
+            return
+          }
+          const withoutScheme = url.slice('bagfile://'.length)
+          const slashIdx = withoutScheme.indexOf('/')
+          if (slashIdx !== -1) {
+            const bp = decodeURIComponent(withoutScheme.slice(0, slashIdx))
+            const fp = decodeURIComponent(withoutScheme.slice(slashIdx + 1))
+            void openValidatedBagFile(view, tabId, bp, fp)
+          }
           return
         }
 
-        if (!ALLOWED_SCHEMES.includes(parsed.protocol)) {
-          log.event('warn', 'security.navigation.blocked', 'blocked navigation to unsafe scheme', {
-            scheme: parsed.protocol,
-          })
-          event.preventDefault()
-        }
-      } catch (err) {
-        log.debug('URL validation failed in will-navigate:', err)
-        log.event('warn', 'security.navigation.invalid', 'blocked invalid navigation URL')
-        event.preventDefault()
+        handleNavigation(view, details, onTopLevelNavigation)
       }
-    })
+    )
+  )
+
+  store.add(
+    onWebContents(
+      view.webContents,
+      'will-redirect',
+      (details: Electron.Event<Electron.WebContentsWillRedirectEventParams>) => {
+        handleNavigation(view, details, onTopLevelNavigation)
+      }
+    )
   )
 
   // Security: Control popup windows - open in new tab instead

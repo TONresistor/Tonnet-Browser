@@ -149,7 +149,7 @@ export function StoragePage() {
         <div className="flex flex-1 flex-col overflow-auto">
           {/* Title + search */}
           <div className="flex items-center justify-between gap-4 px-6 pb-2 pt-5">
-            <h2 className="text-[17px] font-semibold text-foreground">
+            <h2 className="text-[17px] font-semibold text-heading">
               {t('storage.bagsTitle', { defaultValue: 'Bags' })}
               <span className="ml-1.5 font-medium text-muted-foreground tabular-nums">({filteredBags.length})</span>
             </h2>

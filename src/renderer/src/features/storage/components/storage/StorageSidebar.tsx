@@ -7,7 +7,7 @@
  * compteurs). En bas : toggle de seeding + lien vers les réglages.
  */
 
-import { ArrowDownToLine, CheckCircle2, ChevronRight, HardDrive, Plus, Settings, Upload } from 'lucide-react'
+import { ArrowDownToLine, CheckCircle2, ChevronRight, HardDrive, Plus, Upload } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTranslation } from 'react-i18next'
@@ -15,19 +15,19 @@ import { useSavePreferences, useSeedingEnabled, useSetPreferenceDraft } from '@/
 import { browserNavigation } from '@/features/browser/navigation'
 import { ActionButton } from '@/components/ui/ios/ActionButton'
 import { Toggle } from '@/features/settings/components/shared/Toggle'
-import storageIcon from '@/assets/storage.svg'
+import { AppIcon } from '@/components/ui/AppIcon'
 import type { FilterType } from './bag-filter'
 
 interface FilterDef {
   id: FilterType
   icon: LucideIcon
-  color: string
+  tileClass: string
 }
 
 const FILTERS: FilterDef[] = [
-  { id: 'all', icon: HardDrive, color: '#5856D6' },
-  { id: 'downloading', icon: ArrowDownToLine, color: '#0098EA' },
-  { id: 'complete', icon: CheckCircle2, color: '#34C759' },
+  { id: 'all', icon: HardDrive, tileClass: 'bg-secondary text-secondary-foreground' },
+  { id: 'downloading', icon: ArrowDownToLine, tileClass: 'bg-info text-info-foreground' },
+  { id: 'complete', icon: CheckCircle2, tileClass: 'bg-success text-success-foreground' },
 ]
 
 interface StorageSidebarProps {
@@ -56,8 +56,8 @@ export function StorageSidebar({ filter, onFilterChange, counts, onAddBag }: Sto
     <div className="m-3 flex w-[260px] shrink-0 flex-col overflow-hidden rounded-panel border border-border-subtle bg-elevation-1 shadow-panel">
       {/* Header */}
       <div className="flex items-center justify-center gap-2 px-4 pb-3 pt-4">
-        <img src={storageIcon} alt="" className="h-6 w-6" style={{ filter: 'brightness(0) invert(1)' }} />
-        <h2 className="text-[22px] font-bold tracking-tight text-foreground">{t('storage.title')}</h2>
+        <AppIcon name="storage" className="h-6 w-6 text-icon" />
+        <h2 className="text-[22px] font-bold tracking-tight text-heading">{t('storage.title')}</h2>
       </div>
 
       <div className="flex flex-1 flex-col overflow-y-auto px-3 pb-4">
@@ -83,10 +83,9 @@ export function StorageSidebar({ filter, onFilterChange, counts, onAddBag }: Sto
                 )}
               >
                 <span
-                  className="grid h-[29px] w-[29px] shrink-0 place-items-center rounded-control"
-                  style={{ backgroundColor: def.color }}
+                  className={cn('grid h-[29px] w-[29px] shrink-0 place-items-center rounded-control', def.tileClass)}
                 >
-                  <Icon className="h-[17px] w-[17px] text-white" />
+                  <Icon className="h-[17px] w-[17px] text-identity-foreground" />
                 </span>
                 <span
                   className={cn(
@@ -114,8 +113,8 @@ export function StorageSidebar({ filter, onFilterChange, counts, onAddBag }: Sto
         {/* Bottom: seeding + settings */}
         <div className="mt-auto overflow-hidden rounded-group bg-elevation-2 pt-1">
           <div className="flex items-center gap-3 pl-3">
-            <span className="grid h-[29px] w-[29px] shrink-0 place-items-center rounded-control bg-[#FF9500]">
-              <Upload className="h-[17px] w-[17px] text-white" />
+            <span className="grid h-[29px] w-[29px] shrink-0 place-items-center rounded-control bg-warning text-warning-foreground">
+              <Upload className="h-[17px] w-[17px] text-identity-foreground" />
             </span>
             <span className="flex h-[50px] min-w-0 flex-1 items-center gap-2 pr-3">
               <span className="flex-1 truncate text-[15px] font-medium text-foreground">
@@ -133,8 +132,8 @@ export function StorageSidebar({ filter, onFilterChange, counts, onAddBag }: Sto
             onClick={navigateToSettings}
             className="flex w-full items-center gap-3 pl-3 text-left transition-colors hover:bg-surface-hover"
           >
-            <span className="grid h-[29px] w-[29px] shrink-0 place-items-center rounded-control bg-[#8E8E93]">
-              <Settings className="h-[17px] w-[17px] text-white" />
+            <span className="grid h-[29px] w-[29px] shrink-0 place-items-center rounded-control bg-secondary text-secondary-foreground">
+              <AppIcon name="settings" className="h-[17px] w-[17px] text-identity-foreground" />
             </span>
             <span className="flex h-[50px] min-w-0 flex-1 items-center gap-2 border-t border-border-subtle pr-3">
               <span className="flex-1 truncate text-[15px] font-medium text-foreground">

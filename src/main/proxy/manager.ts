@@ -14,6 +14,7 @@ import { stripAnsi } from '../utils/strip-ansi'
 import { getSetting } from '../settings'
 import { DEFAULT_SETTINGS } from '../../shared/defaults'
 import { GeneralSettings } from '../../shared/schemas'
+import type { AppSettings } from '../../shared/types'
 import { createLogger } from '../../shared/logger'
 import { TUNNEL_SECTIONS } from '../../shared/constants'
 import { writeProxyConfig } from './config-writer'
@@ -26,7 +27,13 @@ const log = createLogger('proxy')
  * Exported for unit testing.
  */
 export function buildProxyArgs(port: number, general: GeneralSettings, verbosity = 2): string[] {
-  const args: string[] = ['-addr', `127.0.0.1:${port}`, '-verbosity', String(Math.max(0, Math.min(3, verbosity)))]
+  const args: string[] = [
+    '-addr',
+    `127.0.0.1:${port}`,
+    '-no-http',
+    '-verbosity',
+    String(Math.max(0, Math.min(3, verbosity))),
+  ]
   if (general.resolveEth === false) {
     args.push('-no-eth')
   } else if (general.resolveEth === true && general.ethRpc.trim() !== '') {
@@ -41,20 +48,38 @@ export function buildProxyArgs(port: number, general: GeneralSettings, verbosity
 }
 
 export type ProxyStatus = 'stopped' | 'starting' | 'syncing' | 'connected'
+export type ProxySettingsApplyResult = { bridgeRestarted: boolean }
+
+type ProxySettingsSnapshot = {
+  port: number
+  wsPort: number
+  connectionTimeout: number
+  anonymousMode: boolean
+  tunnelMode: 'standard' | 'maximum'
+  general: GeneralSettings
+  proxyVerbosity: number
+  messengerNetworkEnabled: boolean
+}
 
 export class ProxyManager extends EventEmitter {
   private readonly supervisor = new NativeProcessSupervisor()
   private readonly bridge = new BridgeManager()
-  private port: number = 0
+  private port: number = DEFAULT_SETTINGS.proxyPort
   private wsPort: number = DEFAULT_SETTINGS.wsPort
   private status: ProxyStatus = 'stopped'
-  private anonymousMode: boolean = false
+  private anonymousMode: boolean = DEFAULT_SETTINGS.anonymousMode
   private tunnelMode: 'standard' | 'maximum' = DEFAULT_SETTINGS.tunnelMode
   private tunnelRoute: string = ''
   private resolveEth: boolean = DEFAULT_SETTINGS.resolveEth
   private ethRpc: string = DEFAULT_SETTINGS.ethRpc
   private resolveSol: boolean = DEFAULT_SETTINGS.resolveSol
   private solRpc: string = DEFAULT_SETTINGS.solRpc
+  private proxyVerbosity: number = DEFAULT_SETTINGS.proxyVerbosity
+  private messengerNetworkEnabled: boolean = DEFAULT_SETTINGS.messenger.networkEnabled
+  private lifecycleTail: Promise<void> = Promise.resolve()
+  private readonly cancellableOperations = new Set<AbortController>()
+  private sharedStart: Promise<void> | null = null
+  private shouldRun = false
 
   constructor() {
     super()
@@ -63,10 +88,15 @@ export class ProxyManager extends EventEmitter {
     // 'exit' only fires here when the proxy is already gone.
     this.bridge.on('ready', (wsPort: number) => this.emit('ws-bridge-ready', wsPort))
     this.bridge.on('log', (line: string) => this.emit('log', line))
-    this.bridge.on('error', (message: string) => this.emit('error', message))
+    this.bridge.on('error', (message: string) => {
+      this.setStatus(this.process ? 'syncing' : 'stopped')
+      this.emit('error', message)
+    })
     this.bridge.on('exit', (code: number | null) => {
       this.emit('bridge-exit', code)
-      if (!this.process) {
+      if (this.process) {
+        this.setStatus('syncing')
+      } else {
         this.setStatus('stopped')
         this.emit('exit', code)
       }
@@ -77,76 +107,172 @@ export class ProxyManager extends EventEmitter {
     return this.supervisor.process
   }
 
-  private loadSettings() {
-    const network = getSetting('network')
-    const advanced = getSetting('advanced')
-    const general = getSetting('general')
-    this.port = network.proxyPort
-    this.wsPort = validatePort(network.wsPort, DEFAULT_SETTINGS.wsPort)
-    return { network, advanced, general }
+  private readSettings(source?: AppSettings): ProxySettingsSnapshot {
+    const network = source?.network ?? getSetting('network')
+    const advanced = source?.advanced ?? getSetting('advanced')
+    const general = source?.general ?? getSetting('general')
+    const messenger = source?.messenger ?? getSetting('messenger')
+    return {
+      port: validatePort(network.proxyPort, DEFAULT_SETTINGS.proxyPort),
+      wsPort: validatePort(network.wsPort, DEFAULT_SETTINGS.wsPort),
+      connectionTimeout: network.connectionTimeout,
+      anonymousMode: network.anonymousMode,
+      tunnelMode: network.tunnelMode,
+      general: {
+        ...general,
+        ethRpc: general.ethRpc.trim(),
+        solRpc: general.solRpc.trim(),
+      },
+      proxyVerbosity: Math.max(0, Math.min(3, advanced.proxyVerbosity)),
+      messengerNetworkEnabled: messenger.networkEnabled,
+    }
+  }
+
+  private bridgeStartOptions(settings: ProxySettingsSnapshot) {
+    return {
+      verbosity: settings.proxyVerbosity,
+      messengerNetworkEnabled: settings.messengerNetworkEnabled,
+    }
+  }
+
+  private commitRuntimeSettings(settings: ProxySettingsSnapshot): void {
+    this.port = settings.port
+    this.wsPort = settings.wsPort
+    this.anonymousMode = settings.anonymousMode
+    this.tunnelMode = settings.tunnelMode
+    this.resolveEth = settings.general.resolveEth
+    this.ethRpc = settings.general.ethRpc
+    this.resolveSol = settings.general.resolveSol
+    this.solRpc = settings.general.solRpc
+    this.proxyVerbosity = settings.proxyVerbosity
+    this.messengerNetworkEnabled = settings.messengerNetworkEnabled
   }
 
   private static MAX_START_RETRIES = 3
   private static RETRY_DELAY_MS = 2000
 
-  async start(): Promise<void> {
-    await this.supervisor.runWithBackoff(
-      async () => {
-        try {
-          await this.startOnce()
-        } catch (err) {
-          await this.stopRunningProcesses()
-          throw err
-        }
-      },
-      {
-        maxAttempts: ProxyManager.MAX_START_RETRIES,
-        initialDelayMs: ProxyManager.RETRY_DELAY_MS,
-        multiplier: 1,
-        shouldRetry: (error) =>
-          (error instanceof Error ? error.message : String(error)).includes('exited before ready'),
-        onRetry: (error, attempt, delay) => {
-          const message = error instanceof Error ? error.message : String(error)
-          log.warn(`Proxy start failed (attempt ${attempt}/${ProxyManager.MAX_START_RETRIES}): ${message}`)
-          log.debug(`Retrying in ${delay}ms...`)
-        },
-      }
+  private enqueueLifecycle<TResult>(operation: () => Promise<TResult>): Promise<TResult> {
+    const result = this.lifecycleTail.then(operation)
+    this.lifecycleTail = result.then(
+      () => undefined,
+      () => undefined
     )
+    return result
   }
 
-  private async startOnce(): Promise<void> {
+  private enqueueCancellable<TResult>(operation: (signal: AbortSignal) => Promise<TResult>): Promise<TResult> {
+    const controller = new AbortController()
+    this.cancellableOperations.add(controller)
+    const result = this.enqueueLifecycle(() => operation(controller.signal))
+    result.then(
+      () => this.cancellableOperations.delete(controller),
+      () => this.cancellableOperations.delete(controller)
+    )
+    return result
+  }
+
+  private abortCancellableOperations(): void {
+    for (const controller of this.cancellableOperations) controller.abort()
+  }
+
+  start(): Promise<void> {
+    if (this.sharedStart) return this.sharedStart
+
+    this.shouldRun = true
+    const flight = this.enqueueCancellable((signal) => this.ensureStarted(signal, this.readSettings()))
+    this.sharedStart = flight
+    flight.then(
+      () => {
+        if (this.sharedStart === flight) this.sharedStart = null
+      },
+      () => {
+        if (this.sharedStart === flight) this.sharedStart = null
+      }
+    )
+    return flight
+  }
+
+  private async ensureStarted(signal: AbortSignal, settings: ProxySettingsSnapshot): Promise<void> {
+    if (signal.aborted) throw new Error('Proxy start aborted')
+    if (this.process) {
+      if (this.bridge.isRunning()) {
+        if (this.status !== 'connected') this.setStatus('connected')
+        return
+      }
+      this.setStatus('syncing')
+      try {
+        await this.bridge.start(settings.wsPort, this.bridgeStartOptions(settings), signal)
+        if (signal.aborted) throw new Error('Proxy start aborted')
+        this.wsPort = settings.wsPort
+        this.messengerNetworkEnabled = settings.messengerNetworkEnabled
+        this.setStatus('connected')
+        return
+      } catch (error) {
+        this.setStatus(this.process ? 'syncing' : 'stopped')
+        throw error
+      }
+    }
+
+    try {
+      await this.supervisor.runWithBackoff(
+        async () => {
+          try {
+            await this.startOnce(signal, settings)
+          } catch (error) {
+            await this.stopRunningProcesses()
+            throw error
+          }
+        },
+        {
+          maxAttempts: ProxyManager.MAX_START_RETRIES,
+          initialDelayMs: ProxyManager.RETRY_DELAY_MS,
+          multiplier: 1,
+          signal,
+          shouldRetry: (error) =>
+            (error instanceof Error ? error.message : String(error)).includes('exited before ready'),
+          onRetry: (error, attempt, delay) => {
+            const message = error instanceof Error ? error.message : String(error)
+            log.warn(`Proxy start failed (attempt ${attempt}/${ProxyManager.MAX_START_RETRIES}): ${message}`)
+            log.debug(`Retrying in ${delay}ms...`)
+          },
+        }
+      )
+    } catch (error) {
+      this.setStatus(this.process ? 'syncing' : 'stopped')
+      throw error
+    }
+  }
+
+  private async startOnce(signal: AbortSignal, settings: ProxySettingsSnapshot): Promise<void> {
     const startedAt = Date.now()
+    if (signal.aborted) throw new Error('Proxy start aborted')
     if (this.process) {
       throw new Error('Proxy already running')
     }
+    if (this.bridge.isRunning()) {
+      await this.bridge.stop()
+      if (signal.aborted) throw new Error('Proxy start aborted')
+    }
 
-    const { network, advanced, general } = this.loadSettings()
-
-    const safePort = validatePort(this.port)
-    this.port = safePort
-    this.anonymousMode = network.anonymousMode
-    this.tunnelMode = network.tunnelMode
-    this.resolveEth = general.resolveEth
-    this.ethRpc = general.ethRpc
-    this.resolveSol = general.resolveSol
-    this.solRpc = general.solRpc
     this.setStatus('starting')
 
     const proxyBinPath = getBinaryPath('tonutils-proxy')
     const proxyWorkDir = await this.getProxyWorkDir()
+    if (signal.aborted) throw new Error('Proxy start aborted')
 
     // Write proxy config to control tunnel mode
-    const tunnelSections = this.anonymousMode ? TUNNEL_SECTIONS[this.tunnelMode] : 0
+    const tunnelSections = settings.anonymousMode ? TUNNEL_SECTIONS[settings.tunnelMode] : 0
     await writeProxyConfig(proxyWorkDir, tunnelSections)
+    if (signal.aborted) throw new Error('Proxy start aborted')
 
     // Spawn proxy process (HTTP proxy for .ton sites)
-    if (this.anonymousMode) {
+    if (settings.anonymousMode) {
       log.debug(`Starting anonymous proxy from: ${proxyBinPath}`)
-      log.debug(`Port: ${safePort}, Mode: tunnel (DHT discovery)`)
+      log.debug(`Port: ${settings.port}, Mode: tunnel (DHT discovery)`)
       log.debug('Tunnel auto-reroute: managed by adnl-tunnel (on stall)')
     } else {
       log.debug(`Starting direct proxy from: ${proxyBinPath}`)
-      log.debug(`Port: ${safePort}, Mode: direct`)
+      log.debug(`Port: ${settings.port}, Mode: direct`)
     }
 
     // Proxy output handler
@@ -181,7 +307,7 @@ export class ProxyManager extends EventEmitter {
 
       // Parse tunnel route from Tonutils-Proxy logs
       // Raw format: route="we -> KEY1 -> KEY2 -> KEY1 -> we"
-      if (this.anonymousMode) {
+      if (settings.anonymousMode) {
         const routeMatch = message.match(/route="([^"]+)"/)
         if (routeMatch && routeMatch[1] !== this.tunnelRoute) {
           this.tunnelRoute = routeMatch[1]
@@ -195,7 +321,7 @@ export class ProxyManager extends EventEmitter {
     this.supervisor.start({
       name: 'tonutils-proxy',
       command: proxyBinPath,
-      args: buildProxyArgs(safePort, general, advanced.proxyVerbosity),
+      args: buildProxyArgs(settings.port, settings.general, settings.proxyVerbosity),
       options: { windowsHide: true, cwd: proxyWorkDir },
       onRawLine: ({ line }) => handleProxyOutput(line),
       onLine: ({ line }) => this.emit('log', line),
@@ -211,17 +337,17 @@ export class ProxyManager extends EventEmitter {
       },
     })
 
-    await this.waitForReady()
+    await this.waitForReady(signal, settings)
+    if (signal.aborted) throw new Error('Proxy start aborted')
+
+    await this.bridge.start(settings.wsPort, this.bridgeStartOptions(settings), signal)
+    if (signal.aborted) throw new Error('Proxy start aborted')
+    this.commitRuntimeSettings(settings)
     this.setStatus('connected')
     log.status('proxy.ready', `proxy ready · ${Date.now() - startedAt}ms`, {
       durationMs: Date.now() - startedAt,
-      port: safePort,
+      port: settings.port,
     })
-
-    // Start bridge AFTER proxy is ready to avoid DHT contention
-    if (!this.bridge.isRunning()) {
-      await this.bridge.start(this.wsPort)
-    }
   }
 
   private async stopRunningProcesses(): Promise<void> {
@@ -242,19 +368,22 @@ export class ProxyManager extends EventEmitter {
     log.event('debug', 'proxy.status.changed', `status ${status}`, { status })
   }
 
-  async stop(): Promise<void> {
-    if (!this.process && !this.bridge.isRunning()) return
-
+  private async stopLifecycle(): Promise<void> {
+    if (!this.process && !this.bridge.isRunning() && this.status === 'stopped') return
     log.info('Stopping proxy and bridge...')
     this.tunnelRoute = ''
-
     const promises: Promise<void>[] = [this.bridge.stop()]
-
     if (this.supervisor.isRunning) promises.push(this.supervisor.stop())
-
     await Promise.allSettled(promises)
     this.setStatus('stopped')
     this.emit('disconnected')
+  }
+
+  stop(): Promise<void> {
+    this.shouldRun = false
+    this.abortCancellableOperations()
+    this.sharedStart = null
+    return this.enqueueLifecycle(() => this.stopLifecycle())
   }
 
   getStatus() {
@@ -272,6 +401,17 @@ export class ProxyManager extends EventEmitter {
     return this.process !== null && this.bridge.isRunning()
   }
 
+  isActive(): boolean {
+    return (
+      this.shouldRun ||
+      this.status !== 'stopped' ||
+      this.process !== null ||
+      this.bridge.isRunning() ||
+      this.sharedStart !== null ||
+      this.cancellableOperations.size > 0
+    )
+  }
+
   isSynced(): boolean {
     return this.status === 'connected'
   }
@@ -280,47 +420,96 @@ export class ProxyManager extends EventEmitter {
     return `http://127.0.0.1:${this.port}`
   }
 
-  async restart(): Promise<void> {
+  restart(): Promise<void> {
     log.info('Restarting proxy...')
-    await this.stop()
-    await this.start()
+    this.shouldRun = true
+    this.sharedStart = null
+    return this.enqueueCancellable(async (signal) => {
+      if (signal.aborted) throw new Error('Proxy restart aborted')
+      await this.stopLifecycle()
+      if (signal.aborted) throw new Error('Proxy restart aborted')
+      await this.ensureStarted(signal, this.readSettings())
+    })
   }
 
-  async restartBridge(): Promise<void> {
-    if (!this.process) {
-      throw new Error('Cannot restart bridge: proxy is not running')
-    }
-    log.info('Restarting bridge (keeping proxy)...')
-    await this.bridge.stop()
-    await this.bridge.start(this.wsPort)
+  restartBridge(source?: AppSettings): Promise<void> {
+    this.sharedStart = null
+    return this.enqueueCancellable(async (signal) => {
+      if (signal.aborted) throw new Error('Bridge restart aborted')
+      if (!this.process) {
+        throw new Error('Cannot restart bridge: proxy is not running')
+      }
+      log.info('Restarting bridge (keeping proxy)...')
+      const settings = this.readSettings(source)
+      this.setStatus('syncing')
+      await this.bridge.stop()
+      if (signal.aborted) throw new Error('Bridge restart aborted')
+      await this.bridge.start(settings.wsPort, this.bridgeStartOptions(settings), signal)
+      if (signal.aborted) throw new Error('Bridge restart aborted')
+      this.wsPort = settings.wsPort
+      this.messengerNetworkEnabled = settings.messengerNetworkEnabled
+      this.setStatus('connected')
+    })
   }
 
-  async applySettingsChange(): Promise<void> {
-    const { network, general } = this.loadSettings()
-    const needsRestart =
-      network.anonymousMode !== this.anonymousMode ||
-      network.tunnelMode !== this.tunnelMode ||
-      general.resolveEth !== this.resolveEth ||
-      general.ethRpc !== this.ethRpc ||
-      general.resolveSol !== this.resolveSol ||
-      general.solRpc !== this.solRpc
+  applySettingsChange(source?: AppSettings): Promise<ProxySettingsApplyResult> {
+    this.sharedStart = null
+    return this.enqueueCancellable(async (signal) => {
+      if (signal.aborted) throw new Error('Settings apply aborted')
+      const settings = this.readSettings(source)
+      const proxyChanged =
+        settings.port !== this.port ||
+        settings.anonymousMode !== this.anonymousMode ||
+        settings.tunnelMode !== this.tunnelMode ||
+        settings.general.resolveEth !== this.resolveEth ||
+        settings.general.ethRpc !== this.ethRpc ||
+        settings.general.resolveSol !== this.resolveSol ||
+        settings.general.solRpc !== this.solRpc ||
+        settings.proxyVerbosity !== this.proxyVerbosity
+      const bridgeChanged =
+        settings.wsPort !== this.wsPort || settings.messengerNetworkEnabled !== this.messengerNetworkEnabled
 
-    if (needsRestart) {
-      log.info(`Settings changed, restarting proxy...`)
-      this.tunnelRoute = ''
-      if (this.supervisor.isRunning) await this.supervisor.stop()
-      this.setStatus('stopped')
-      await this.start()
-    }
+      if (!this.process) {
+        if (this.shouldRun) {
+          await this.ensureStarted(signal, settings)
+          return { bridgeRestarted: true }
+        }
+        return { bridgeRestarted: false }
+      }
+
+      if (proxyChanged) {
+        log.info(`Settings changed, restarting proxy...`)
+        this.tunnelRoute = ''
+        await this.stopLifecycle()
+        if (signal.aborted) throw new Error('Settings apply aborted')
+        await this.ensureStarted(signal, settings)
+        return { bridgeRestarted: true }
+      }
+
+      if (bridgeChanged || !this.bridge.isRunning()) {
+        this.setStatus('syncing')
+        await this.bridge.stop()
+        if (signal.aborted) throw new Error('Settings apply aborted')
+        const wsPort = bridgeChanged ? settings.wsPort : this.wsPort
+        await this.bridge.start(wsPort, this.bridgeStartOptions(settings), signal)
+        if (signal.aborted) throw new Error('Settings apply aborted')
+        if (bridgeChanged) {
+          this.wsPort = settings.wsPort
+          this.messengerNetworkEnabled = settings.messengerNetworkEnabled
+        }
+        this.setStatus('connected')
+        return { bridgeRestarted: true }
+      }
+      return { bridgeRestarted: false }
+    })
   }
 
-  private async waitForReady(): Promise<void> {
-    const { network } = this.loadSettings()
-    const baseTimeout = network.connectionTimeout
-    const maxAttempts = this.anonymousMode ? baseTimeout * 3 : baseTimeout
+  private async waitForReady(signal: AbortSignal, settings: ProxySettingsSnapshot): Promise<void> {
+    const maxAttempts = settings.anonymousMode ? settings.connectionTimeout * 3 : settings.connectionTimeout
 
     await this.supervisor.waitForOutput({
       timeoutMs: maxAttempts * 1000,
+      signal,
       matches: (data) => {
         const raw = data.toString()
         const output = stripAnsi(raw).toLowerCase()
