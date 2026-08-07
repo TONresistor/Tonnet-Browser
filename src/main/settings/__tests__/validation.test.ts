@@ -169,6 +169,17 @@ describe('isValidSettingsObject', () => {
         expect(isValidSettingsObject({ messenger: { networkEnabled: 1 } })).toBe(false)
       })
     })
+
+    describe('advanced settings', () => {
+      it('accepts a boolean Unicode-domain display preference', () => {
+        expect(isValidSettingsObject({ advanced: { displayUnicodeDomains: true } })).toBe(true)
+        expect(isValidSettingsObject({ advanced: { displayUnicodeDomains: false } })).toBe(true)
+      })
+
+      it('rejects a non-boolean Unicode-domain display preference', () => {
+        expect(isValidSettingsObject({ advanced: { displayUnicodeDomains: 'true' } })).toBe(false)
+      })
+    })
   })
 
   describe('unknown categories', () => {
@@ -189,6 +200,7 @@ describe('validateSettings', () => {
       expect(result.data.privacy.clearOnExit).toBe(true)
       expect(result.data.wallet.paymentMode).toBe('off')
       expect(result.data.messenger.networkEnabled).toBe(false)
+      expect(result.data.advanced.displayUnicodeDomains).toBe(false)
     }
   })
 
@@ -323,6 +335,11 @@ describe('validateCategoryValues', () => {
       const result = validateCategoryValues('appearance', { theme: 'resistance-dog' })
       expect(result.valid).toBe(true)
     })
+
+    it('accepts the Unicode-domain display preference', () => {
+      const result = validateCategoryValues('advanced', { displayUnicodeDomains: true })
+      expect(result.valid).toBe(true)
+    })
   })
 
   describe('invalid inputs', () => {
@@ -351,6 +368,11 @@ describe('validateCategoryValues', () => {
 
     it('rejects invalid theme in appearance', () => {
       const result = validateCategoryValues('appearance', { theme: 'invalid-theme' })
+      expect(result.valid).toBe(false)
+    })
+
+    it('rejects an invalid Unicode-domain display preference', () => {
+      const result = validateCategoryValues('advanced', { displayUnicodeDomains: 'true' })
       expect(result.valid).toBe(false)
     })
   })

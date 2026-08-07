@@ -151,6 +151,12 @@ export function isValidSettingsObject(obj: unknown): obj is Partial<AppSettings>
     if (appearance.customThemes !== undefined && !Array.isArray(appearance.customThemes)) return false
   }
 
+  const advanced = settings.advanced as Record<string, unknown> | undefined
+  if (advanced) {
+    if (advanced.displayUnicodeDomains !== undefined && typeof advanced.displayUnicodeDomains !== 'boolean')
+      return false
+  }
+
   const messenger = settings.messenger as Record<string, unknown> | undefined
   if (messenger) {
     if (messenger.attachWalletIdentity !== undefined && typeof messenger.attachWalletIdentity !== 'boolean')

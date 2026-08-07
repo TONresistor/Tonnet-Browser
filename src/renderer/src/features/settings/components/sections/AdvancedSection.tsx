@@ -152,6 +152,16 @@ export const AdvancedSection = memo(function AdvancedSection({
             ariaLabel={t('advanced.experimental.messenger')}
           />
         </SettingRow>
+        <SettingRow
+          label={t('advanced.experimental.unicodeDomains')}
+          description={t('advanced.experimental.unicodeDomainsDesc')}
+        >
+          <Toggle
+            checked={draft.displayUnicodeDomains}
+            onChange={(v) => setDraft('displayUnicodeDomains', v)}
+            ariaLabel={t('advanced.experimental.unicodeDomains')}
+          />
+        </SettingRow>
         <Http402ExperimentalPanel onDirtyChange={onHttp402DirtyChange} sectionRef={http402SectionRef} />
       </div>
 

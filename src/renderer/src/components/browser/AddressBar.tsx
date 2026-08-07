@@ -12,7 +12,7 @@ import { useBrowserStore } from '@/stores/browser'
 import { useBookmarksStore } from '@/features/bookmarks/store'
 import { useTabsStore } from '@/stores/tabs'
 import { cn } from '@/lib/utils'
-import { processNavigationInput, stripHttpPrefix, getHostname } from '@/lib/url-utils'
+import { decodePunycodeUrl, processNavigationInput, stripHttpPrefix, getHostname } from '@/lib/url-utils'
 import { clampToViewport } from '@/lib/overlay-position'
 import type { OverlayMenuItem } from '@shared/types'
 import tonIcon from '@/assets/ton.png'
@@ -117,6 +117,7 @@ export const AddressBar = memo(function AddressBar() {
   const notificationStyle = useWalletStore((s) => s.notificationStyle)
   const resolveEth = usePreferencesStore((s) => s.saved.resolveEth)
   const resolveSol = usePreferencesStore((s) => s.saved.resolveSol)
+  const displayUnicodeDomains = usePreferencesStore((s) => s.saved.displayUnicodeDomains)
   const [chainDisabledError, setChainDisabledError] = useState<string | null>(null)
   const { t: tw } = useTranslation('wallet')
   const show402 = useMemo(() => {
@@ -126,6 +127,11 @@ export const AddressBar = memo(function AddressBar() {
   }, [pending402Notification, hostname, notificationStyle])
 
   const showTipButton = isTonDomain && walletCreated && !show402
+  const rawAddressValue = useMemo(() => (isTonSite ? stripHttpPrefix(currentUrl) : currentUrl), [currentUrl, isTonSite])
+  const displayAddressValue = useMemo(() => {
+    if (!isTonSite || !displayUnicodeDomains) return rawAddressValue
+    return stripHttpPrefix(decodePunycodeUrl(currentUrl))
+  }, [currentUrl, displayUnicodeDomains, isTonSite, rawAddressValue])
 
   // Display URL without http:// for TON sites, and friendly names for bag files
   useEffect(() => {
@@ -151,11 +157,11 @@ export const AddressBar = memo(function AddressBar() {
         setInput(fileName)
       }
     } else if (isTonSite) {
-      setInput(stripHttpPrefix(currentUrl))
+      setInput(displayAddressValue)
     } else {
       setInput(currentUrl)
     }
-  }, [currentUrl, isTonSite, t])
+  }, [currentUrl, displayAddressValue, isTonSite, t])
 
   // Fetch history suggestions when input changes
   useEffect(() => {
@@ -325,11 +331,17 @@ export const AddressBar = memo(function AddressBar() {
             id="address-bar-input"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onFocus={(e) => {
-              e.target.select()
+            onFocus={() => {
+              if (input === displayAddressValue && displayAddressValue !== rawAddressValue) {
+                setInput(rawAddressValue)
+              }
               setIsFocused(true)
+              window.requestAnimationFrame(() => inputRef.current?.select())
             }}
             onBlur={() => {
+              if (input === rawAddressValue && displayAddressValue !== rawAddressValue) {
+                setInput(displayAddressValue)
+              }
               // Delay to allow suggestion click to register
               setTimeout(() => setIsFocused(false), 200)
             }}

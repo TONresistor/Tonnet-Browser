@@ -460,6 +460,8 @@
       "title": "Experimental features",
       "messenger": "Messenger",
       "messengerDesc": "Enable experimental chat. This automatically enables ADNL, Overlay and DHT on the bridge.",
+      "unicodeDomains": "Unicode domains (IDN)",
+      "unicodeDomainsDesc": "Show Russian, emoji, and other international domains instead of xn-- Punycode. The Punycode is revealed while editing.",
       "http402": "HTTP 402 payments",
       "http402Desc": "Enable experimental x402 payments for .ton sites. Starts in manual approval mode.",
       "http402Behavior": "Payment behavior",

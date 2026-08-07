@@ -67,6 +67,7 @@ export interface AppPreferences {
   // Advanced
   proxyVerbosity: number
   storageVerbosity: number
+  displayUnicodeDomains: boolean
 
   // Cocoon AI
   cocoonAutostart: boolean
@@ -144,6 +145,7 @@ export const defaultPreferences: AppPreferences = {
   // Advanced
   proxyVerbosity: DEFAULT_SETTINGS.proxyVerbosity,
   storageVerbosity: DEFAULT_SETTINGS.storageVerbosity,
+  displayUnicodeDomains: DEFAULT_SETTINGS.displayUnicodeDomains,
 
   // Cocoon AI
   cocoonAutostart: DEFAULT_SETTINGS.cocoon.autostart,
@@ -199,6 +201,7 @@ const prefToCategory: Record<keyof AppPreferences, PreferenceMapping> = {
   whitelistedDomains: { category: 'contentFiltering', field: 'whitelistedDomains' },
   proxyVerbosity: { category: 'advanced', field: 'proxyVerbosity' },
   storageVerbosity: { category: 'advanced', field: 'storageVerbosity' },
+  displayUnicodeDomains: { category: 'advanced', field: 'displayUnicodeDomains' },
   cocoonAutostart: { category: 'cocoon', field: 'autostart' },
   messengerNetworkEnabled: { category: 'messenger', field: 'networkEnabled' },
 }

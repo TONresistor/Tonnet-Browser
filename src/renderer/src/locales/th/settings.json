@@ -281,6 +281,11 @@
     "verbose": "รายละเอียด",
     "syncTestDomain": "โดเมนทดสอบการซิงค์",
     "syncTestDomainDesc": "โดเมนที่ใช้ตรวจสอบการซิงค์ DHT",
+    "experimental": {
+      "title": "ฟีเจอร์ทดลอง",
+      "unicodeDomains": "โดเมน Unicode (IDN)",
+      "unicodeDomainsDesc": "แสดงโดเมนภาษารัสเซีย อีโมจิ และโดเมนสากลอื่นๆ แทน Punycode xn-- โดยจะแสดง Punycode ขณะแก้ไข"
+    },
     "resetAll": "รีเซ็ตการตั้งค่าทั้งหมดเป็นค่าเริ่มต้น",
     "resetAllConfirm": "คลิกอีกครั้งเพื่อยืนยัน"
   },

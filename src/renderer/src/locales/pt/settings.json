@@ -281,6 +281,11 @@
     "verbose": "Detalhado",
     "syncTestDomain": "Domínio de teste de sincronização",
     "syncTestDomainDesc": "Domínio usado para verificar sincronização DHT",
+    "experimental": {
+      "title": "Recursos experimentais",
+      "unicodeDomains": "Domínios Unicode (IDN)",
+      "unicodeDomainsDesc": "Exibe domínios russos, com emojis e outros domínios internacionais em vez do Punycode xn--. O Punycode é exibido durante a edição."
+    },
     "resetAll": "Redefinir todas as configurações para padrões",
     "resetAllConfirm": "Clique novamente para confirmar"
   },

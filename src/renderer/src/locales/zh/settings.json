@@ -281,6 +281,11 @@
     "verbose": "详细",
     "syncTestDomain": "同步测试域名",
     "syncTestDomainDesc": "用于验证 DHT 同步的域名",
+    "experimental": {
+      "title": "实验性功能",
+      "unicodeDomains": "Unicode 域名（IDN）",
+      "unicodeDomainsDesc": "显示俄语、表情符号和其他国际化域名，而不是 xn-- Punycode。编辑时会显示 Punycode。"
+    },
     "resetAll": "将所有设置重置为默认值",
     "resetAllConfirm": "再次点击确认"
   },

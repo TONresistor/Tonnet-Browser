@@ -281,6 +281,11 @@
     "verbose": "Detail",
     "syncTestDomain": "Domain tes sinkronisasi",
     "syncTestDomainDesc": "Domain yang digunakan untuk memverifikasi sinkronisasi DHT",
+    "experimental": {
+      "title": "Fitur eksperimental",
+      "unicodeDomains": "Domain Unicode (IDN)",
+      "unicodeDomainsDesc": "Tampilkan domain Rusia, emoji, dan domain internasional lainnya sebagai pengganti Punycode xn--. Punycode ditampilkan saat pengeditan."
+    },
     "resetAll": "Setel ulang semua pengaturan ke default",
     "resetAllConfirm": "Klik lagi untuk konfirmasi"
   },

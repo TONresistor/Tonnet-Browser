@@ -281,6 +281,11 @@
     "verbose": "상세",
     "syncTestDomain": "동기화 테스트 도메인",
     "syncTestDomainDesc": "DHT 동기화를 확인하는 데 사용되는 도메인",
+    "experimental": {
+      "title": "실험적 기능",
+      "unicodeDomains": "유니코드 도메인(IDN)",
+      "unicodeDomainsDesc": "xn-- Punycode 대신 러시아어, 이모지 및 기타 국제 도메인을 표시합니다. 편집 중에는 Punycode가 표시됩니다."
+    },
     "resetAll": "모든 설정을 기본값으로 재설정",
     "resetAllConfirm": "확인하려면 다시 클릭하세요"
   },

@@ -68,4 +68,22 @@ describe('preferences store', () => {
     expect(usePreferencesStore.getState().hasChanges).toBe(true)
     expect(usePreferencesStore.getState().isSaving).toBe(false)
   })
+
+  it('persists the Unicode-domain display preference under advanced settings', async () => {
+    mocks.apply.mockResolvedValueOnce(AppSettingsSchema.parse({ advanced: { displayUnicodeDomains: true } }))
+    const { defaultPreferences, usePreferencesStore } = await import('../preferences-store')
+    usePreferencesStore.setState({
+      saved: { ...defaultPreferences },
+      draft: { ...defaultPreferences, displayUnicodeDomains: true },
+      isLoaded: true,
+      hasChanges: true,
+      isSaving: false,
+    })
+
+    await usePreferencesStore.getState().save()
+
+    expect(mocks.apply).toHaveBeenCalledWith({ advanced: { displayUnicodeDomains: true } })
+    expect(usePreferencesStore.getState().saved.displayUnicodeDomains).toBe(true)
+    expect(usePreferencesStore.getState().hasChanges).toBe(false)
+  })
 })

@@ -281,6 +281,11 @@
     "verbose": "Подробный",
     "syncTestDomain": "Домен проверки синхронизации",
     "syncTestDomainDesc": "Домен для проверки синхронизации DHT",
+    "experimental": {
+      "title": "Экспериментальные функции",
+      "unicodeDomains": "Unicode-домены (IDN)",
+      "unicodeDomainsDesc": "Показывать русские, emoji и другие международные домены вместо Punycode xn--. При редактировании отображается Punycode."
+    },
     "resetAll": "Сбросить все настройки на значения по умолчанию",
     "resetAllConfirm": "Нажмите ещё раз для подтверждения"
   },

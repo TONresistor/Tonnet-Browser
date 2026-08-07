@@ -70,6 +70,7 @@ export const DEFAULT_SETTINGS = {
   // Advanced
   proxyVerbosity: 2,
   storageVerbosity: 2,
+  displayUnicodeDomains: false,
 
   // Wallet
   wallet: {
