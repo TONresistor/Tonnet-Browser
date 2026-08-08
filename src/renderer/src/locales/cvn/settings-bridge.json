@@ -1,0 +1,82 @@
+{
+  "bridge": {
+    "title": "Caud noib",
+    "description": "Caub hihl val qyld cuaz caud noib magr TON.",
+    "loading": "Dagp taiz...",
+    "restartRequired": "Caub hihl caud noib das thay doiq. Koiv dogf lair deq ap zugr.",
+    "restartNow": "Koiv dogf lair way",
+    "restarting": "Dagp koiv dogf lair...",
+    "defaultPolicy": "Chihj sakj mach dihr",
+    "defaultPolicyDesc": "Cakj caud noib xuv lij iwy caud tuk tragp chuao bidb.",
+    "policyAsk": "Hoiz",
+    "policyDeny": "Tuk choib",
+    "namespaces": {
+      "title": "Namespace",
+      "description": "Batf hash tatx cac namespace API cuaz bridge. Namespace batx busf kogy theq tatx.",
+      "required": "Batx busf",
+      "optional": "Tyl chonr",
+      "labels": {
+        "lite": "Lite Client",
+        "wallet": "Vij",
+        "subscribe": "Dago cij",
+        "dns": "Bof fany jaiz DNS",
+        "jetton": "Jetton",
+        "nft": "NFT",
+        "sbt": "SBT",
+        "payment": "Cehy thahp tolj",
+        "network": "Thogy tin magr",
+        "adnl": "ADNL",
+        "overlay": "Overlay",
+        "dht": "DHT",
+        "subscribe_trace": "Theo zaub jao zikr"
+      },
+      "descriptions": {
+        "lite": "Try vanb blockchain: tail kolz, jao zikr, block",
+        "wallet": "Try vanb seqno val koaj cogy kai cuaz vij",
+        "subscribe": "Dago cij thoik jan thuch cho tail kolz val jao zikr",
+        "dns": "Fany jaiz teny mild TON DNS",
+        "jetton": "Zuw liwf token Jetton val diar chiz vij",
+        "nft": "Zuw liwf item val collection NFT",
+        "sbt": "Try vanb token soul-bound",
+        "payment": "Try vanb tragr thaij cehy thahp tolj",
+        "network": "Tragr thaij magr val thogy tin cetb noib",
+        "adnl": "Cetb noib ADNL wagp hagl",
+        "overlay": "Tham ja magr Overlay",
+        "dht": "Tra cuux bagz bamo fany tanj",
+        "subscribe_trace": "Dago cij theo zaub sauy jao zikr"
+      }
+    },
+    "security": {
+      "title": "Baoz matf",
+      "ssrfProtection": "Baoz vef SSRF",
+      "ssrfProtectionDesc": "Chanh cetb noib ADNL toix diar chiz IP rizy val loopback.",
+      "dhtWriteAccess": "Qyld gi DHT",
+      "dhtWriteAccessDesc": "Cho fep zapp luuo zuw liwf vaol DHT. Mach dihr tatx vil baoz matf."
+    },
+    "advanced": {
+      "title": "Nagy cao",
+      "maxClients": "Sob client toib da",
+      "maxClientsDesc": "Sob cetb noib WebSocket dogd thoik toib da.",
+      "maxInflight": "Iwy caud dagp xuv lij toib da",
+      "maxInflightDesc": "Sob iwy caud dogd thoik toib da moig client.",
+      "maxMessageSize": "Cikj thusx tin nhanx toib da",
+      "maxMessageSizeDesc": "Cikj thusx thogy diff JSON-RPC toib da."
+    },
+    "sitePermissions": {
+      "title": "Qyld cuaz tragp",
+      "description": "Qyld try capf bridge theo tugk teny mild capb cho tragp TON.",
+      "empty": "Chuao coj qyld tragp."
+    },
+    "scopes": {
+      "blockchain": "Blockchain",
+      "p2p": "Magr P2P",
+      "write": "Gi/Fat"
+    },
+    "decisions": {
+      "granted": "Luly cho fep",
+      "denied": "Das tuk choib",
+      "session": "Fily"
+    },
+    "revoke": "Thu hoid"
+  }
+}
