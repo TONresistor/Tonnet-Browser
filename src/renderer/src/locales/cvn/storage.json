@@ -1,0 +1,60 @@
+{
+  "title": "TON Storage",
+  "description": "Luuo truw val try xadb tepf fi tapf trugp",
+  "tabs": {
+    "active": "Dagp hodr dogf",
+    "completed": "Das holl tatb",
+    "info": "Thogy tin"
+  },
+  "filters": {
+    "all": "Tatb caz",
+    "downloading": "Dagp taiz xuzb",
+    "seeding": "Dagp seed",
+    "paused": "Das tamr zugk"
+  },
+  "actions": {
+    "addTorrent": "Themy torrent",
+    "pause": "Tamr zugk",
+    "resume": "Tifb tucr",
+    "remove": "Xoaj",
+    "openFolder": "Mov thuo mucr"
+  },
+  "table": {
+    "name": "Teny",
+    "size": "Cikj thusx",
+    "progress": "Tilb dof",
+    "download": "Taiz xuzb",
+    "upload": "Taiz leny",
+    "peers": "Nut wagp hagl",
+    "status": "Tragr thaij"
+  },
+  "status": {
+    "downloading": "Dagp taiz xuzb",
+    "seeding": "Dagp seed",
+    "paused": "Das tamr zugk",
+    "completed": "Das holl tatb",
+    "error": "Loig",
+    "checking": "Dagp civq tra"
+  },
+  "addModal": {
+    "title": "Themy torrent TON Storage",
+    "bagIdLabel": "ID Bag",
+    "bagIdPlaceholder": "Nhapf ID bag...",
+    "downloadPathLabel": "Duzk zang taiz xuzb",
+    "autoStartLabel": "Tuh dogf batx daud taiz xuzb",
+    "cancel": "Hyz",
+    "add": "Themy"
+  },
+  "info": {
+    "totalDownload": "Togq taiz xuzb",
+    "totalUpload": "Togq taiz leny",
+    "activeTorrents": "Torrent dagp hodr dogf",
+    "downloadSpeed": "Tocb dof taiz xuzb",
+    "uploadSpeed": "Tocb dof taiz leny"
+  },
+  "empty": {
+    "title": "Kogy coj ludh taiz dagp hodr dogf",
+    "description": "Themy torrent bagk ID Bag deq batx daud",
+    "action": "Themy torrent"
+  }
+}
