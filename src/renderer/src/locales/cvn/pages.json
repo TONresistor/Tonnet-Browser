@@ -1,0 +1,181 @@
+{
+  "start": {
+    "title": "Chaol mugk denb BilaNet",
+    "subtitle": "Zydf tonsite treny Magr TON motf cakj rizy tuo",
+    "searchPlaceholder": "Timl civb hash nhapf diar chiz .ton",
+    "searchButton": "Di",
+    "quickLinks": "Lily cetb nhahp",
+    "recentlyVisited": "Das try capf gand dayy",
+    "noRecent": "Chuao coj tragp naol dush try capf gand dayy"
+  },
+  "storage": {
+    "title": "TON Storage",
+    "description": "Luuo truw val try xadb tepf fi tapf trugp",
+    "tabs": {
+      "active": "Dagp hodr dogf",
+      "completed": "Das holl tatb",
+      "info": "Thogy tin",
+      "files": "Tepf"
+    },
+    "filters": {
+      "all": "Tatb caz",
+      "downloading": "Dagp taiz xuzb",
+      "complete": "Holl tatb",
+      "seeding": "Dagp seed",
+      "paused": "Das tamr zugk"
+    },
+    "actions": {
+      "addBag": "Themy Bag",
+      "addTorrent": "Themy torrent",
+      "pause": "Tamr zugk",
+      "resume": "Tifb tucr",
+      "remove": "Xoaj",
+      "openFolder": "Mov thuo mucr",
+      "copyBagId": "Sao chep ID Bag",
+      "details": "Chi tidb",
+      "settings": "Cail dath",
+      "seeding": "Dagp seed",
+      "browseFiles": "Zydf tepf"
+    },
+    "table": {
+      "name": "Teny",
+      "size": "Cikj thusx",
+      "progress": "Tilb dof",
+      "download": "Taiz xuzb",
+      "upload": "Taiz leny",
+      "peers": "Nut wagp hagl",
+      "status": "Tragr thaij",
+      "files": "Tepf",
+      "added": "Das themy"
+    },
+    "status": {
+      "downloading": "dagp taiz xuzb",
+      "seeding": "Dagp seed",
+      "paused": "das tamr zugk",
+      "completed": "das holl tatb",
+      "error": "loig",
+      "checking": "Dagp civq tra",
+      "queued": "Dagp xepb hagl"
+    },
+    "addModal": {
+      "title": "Themy Bag",
+      "bagIdLabel": "ID Bag",
+      "bagIdPlaceholder": "Zanj ID bag (64 cij tuh hex)...",
+      "bagIdDescription": "Nhapf ID Bag deq batx daud taiz xuzb. Banr coj theq timl ID bag treny cac tragp TON hash tuk wujk zugl kac.",
+      "downloadPathLabel": "Duzk zang taiz xuzb",
+      "autoStartLabel": "Tuh dogf batx daud taiz xuzb",
+      "cancel": "Hyz",
+      "add": "Themy Bag",
+      "adding": "Dagp themy...",
+      "browse": "Zydf"
+    },
+    "info": {
+      "title": "Thogb cey luuo truw",
+      "totalDownload": "Togq taiz xuzb",
+      "totalUpload": "Togq taiz leny",
+      "activeTorrents": "Torrent dagp hodr dogf",
+      "downloadSpeed": "Tocb dof taiz xuzb",
+      "uploadSpeed": "Tocb dof taiz leny",
+      "ratio": "Tiz lef chia sez",
+      "connectedPeers": "Nut wagp hagl das cetb noib",
+      "diskSpace": "Zugp luzh dias",
+      "id": "ID",
+      "size": "Cikj thusx",
+      "downloaded": "Das taiz xuzb",
+      "status": "Tragr thaij",
+      "peers": "Nut wagp hagl",
+      "files": "Tepf",
+      "download": "Taiz xuzb",
+      "upload": "Taiz leny",
+      "path": "Duzk zang"
+    },
+    "searchBags": "Timl bag...",
+    "empty": {
+      "title": "Chuao coj bag",
+      "description": "Nhanb \"+ Themy Bag\" deq batx daud",
+      "action": "Themy torrent"
+    },
+    "loadingFiles": "Dagp taiz tepf...",
+    "noFiles": "Kogy timl thayb tepf hash metadata chuao dush taiz",
+    "errors": {
+      "invalidBagId": "ID Bag kogy hoph lef. Faiz gomd 64 cij tuh thapf lucr fany.",
+      "downloadFailed": "Taiz xuzb thatb bair",
+      "addFailed": "Kogy theq themy bag. Vui logl thuv lair.",
+      "removeFailed": "Kogy theq xoaj",
+      "noSpace": "Kogy duz zugp luzh dias"
+    }
+  },
+  "history": {
+    "title": "Likr suv zydf web",
+    "description": "Likr suv zydf web val cac land try capf cuaz banr",
+    "search": "Timl likr suv...",
+    "loading": "Dagp taiz likr suv...",
+    "filters": {
+      "all": "Toll bof likr suv",
+      "today": "Homy nay",
+      "yesterday": "Homy qa",
+      "thisWeek": "Tald nayl",
+      "thisMonth": "Thagj nayl",
+      "older": "Cus hono"
+    },
+    "actions": {
+      "clearAll": "Xoaj tatb caz",
+      "clearLastHour": "Xoaj jok vuak qa",
+      "clearLastDay": "Xoaj wayl vuak qa",
+      "clearToday": "Xoaj homy nay",
+      "clearSelected": "Xoaj mucr das chonr",
+      "export": "Xadb likr suv",
+      "openInNewTab": "Mov trogp tab moix",
+      "copyUrl": "Sao chep URL",
+      "delete": "Xoaj"
+    },
+    "table": {
+      "title": "Tiwy ded",
+      "url": "URL",
+      "visits": "Ludh try capf",
+      "lastVisit": "Land try capf cujb"
+    },
+    "empty": {
+      "title": "Chuao coj likr suv",
+      "noResults": "Kogy timl thayb cetb qaz",
+      "description": "Cac tragp banr try capf ses xadb hilf ov dayy",
+      "tryDifferent": "Thuv tuk koaj timl civb kac",
+      "allCleared": "Das xoaj toll bof likr suv"
+    },
+    "clearConfirm": {
+      "title": "Xoaj likr suv?",
+      "message": "Xoaj toll bof likr suv? Hahl dogf nayl kogy theq holl tac.",
+      "clearAll": "Thao tac nayl ses xoaj toll bof likr suv zydf web.",
+      "clearRange": "Xoaj {{count}} {{entries}} trogp {{range}} vuak qa?",
+      "clearSelected": "Thao tac nayl ses xoaj {{count}} mucr das chonr.",
+      "cancel": "Hyz",
+      "confirm": "Xoaj"
+    },
+    "copied": "Das sao chep!",
+    "visitsCount": "({{count}} ludh try capf)",
+    "entries": {
+      "singular": "mucr",
+      "plural": "mucr"
+    },
+    "timeRange": {
+      "hour": "jok",
+      "day": "wayl",
+      "week": "tald"
+    },
+    "stats": {
+      "totalVisits": "Togq ludh try capf",
+      "uniqueSites": "Tragp zy nhatb",
+      "todayVisits": "Ludh try capf homy nay",
+      "averageDaily": "Trugp bihl moig wayl"
+    },
+    "timeFormat": {
+      "justNow": "Vuak xogp",
+      "minuteAgo": "{{count}} fut trusx",
+      "hourAgo": "{{count}} jok trusx",
+      "minutesAgo": "{{count}} fut trusx",
+      "hoursAgo": "{{count}} jok trusx",
+      "yesterday": "Homy qa",
+      "daysAgo": "{{count}} wayl trusx"
+    }
+  }
+}
