@@ -1,0 +1,24 @@
+{
+  "title": "BilaNet",
+  "subtitle": "Kamj faj Magr TON fi tapf trugp.",
+  "description": "BilaNet lal trihl zydf tapf trugp vaol qyld rizy tuo deq try capf an toll cac tragp .ton qa magr fi tapf trugp.",
+  "connectionSteps": {
+    "startingProxy": "Dagp koiv dogf proxy...",
+    "loadingConfig": "Dagp taiz caub hihl...",
+    "syncingDHT": "Dagp dogd bof ZHT...",
+    "connectingNetwork": "Dagp cetb noib magr...",
+    "ready": "Sanw sagl!"
+  },
+  "features": {
+    "privacy": "Qyld rizy tuo trusx tily",
+    "privacyDesc": "Luuo luzh cuaz banr dush dihr tylb qa cac makr nhiwd chagh dush mas hoaj",
+    "decentralized": "Fi tapf trugp",
+    "decentralizedDesc": "Try capf noif zugp qa Magr TON",
+    "secure": "An toll",
+    "secureDesc": "Mas hoaj daud cujb val zydf web an toll"
+  },
+  "footer": {
+    "peerToPeer": "Wagp hagl - Chogb civq zydf - Kogy theo zois",
+    "version": "v{{version}}"
+  }
+}
