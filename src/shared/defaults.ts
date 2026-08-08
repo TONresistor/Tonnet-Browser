@@ -40,7 +40,7 @@ export const DEFAULT_SETTINGS = {
   // Appearance
   theme: 'resistance-dog' as ThemeType,
   customThemes: [] as CustomTheme[],
-  language: 'en',
+  language: 'cvn',
   defaultZoom: 100,
   showBookmarksBar: true,
   showStatusBar: true,
