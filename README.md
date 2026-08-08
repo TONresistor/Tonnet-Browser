@@ -163,10 +163,9 @@ Có thể bật resolver ngoài TON cho `.eth` (ENS) và `.sol` (SNS). Các endp
 
 Icon mới dùng chữ **B** đặt trong một mạng lục giác 6 nút — gợi ý ba khái niệm: browser, P2P network và privacy boundary.
 
-- `resources/icons/bilanet.svg` — nguồn vector.
-- `resources/icons/icon.png` — Linux/Electron.
-- `resources/icons/icon.ico` — Windows.
-- `resources/icons/icon.icns` — macOS.
+- `resources/icons/bilanet.svg` — **nguồn vector duy nhất dùng khi build**.
+- Electron Builder tự rasterize/chuyển đổi SVG sang định dạng icon phù hợp cho Windows, macOS và Linux.
+- Gói tải về kèm thêm `icon.png`, `icon.ico`, `icon.icns` để dùng thủ công hoặc kiểm thử.
 
 ## 🧪 Demo HTML offline
 
