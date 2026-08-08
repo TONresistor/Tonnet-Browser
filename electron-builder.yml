@@ -1,5 +1,5 @@
-appId: com.tonbrowser.app
-productName: TON Browser
+appId: com.bilanet.app
+productName: BilaNet
 directories:
   output: release
 
@@ -7,8 +7,8 @@ afterPack: "./scripts/afterPack.cjs"
 
 publish:
   provider: github
-  owner: TONresistor
-  repo: Tonnet-Browser
+  owner: xulytiengviet
+  repo: Bilanet
 
 files:
   - "out/**/*"
@@ -38,7 +38,7 @@ linux:
     - deb
   category: Network
   icon: resources/icons/icon.png
-  artifactName: "TON-Browser-${version}-${arch}.${ext}"
+  artifactName: "BilaNet-${version}-${arch}.${ext}"
 
 win:
   extraResources:
@@ -52,10 +52,10 @@ win:
   icon: resources/icons/icon.ico
 
 nsis:
-  artifactName: "TON-Browser-Setup-${version}.${ext}"
+  artifactName: "BilaNet-Setup-${version}.${ext}"
 
 portable:
-  artifactName: "TON-Browser-Portable-${version}.${ext}"
+  artifactName: "BilaNet-Portable-${version}.${ext}"
 
 mac:
   extraResources:
@@ -67,7 +67,7 @@ mac:
     - target: dmg
       arch: universal
   icon: resources/icons/icon.icns
-  artifactName: "TON-Browser-${version}-${arch}.${ext}"
+  artifactName: "BilaNet-${version}-${arch}.${ext}"
   hardenedRuntime: true
   gatekeeperAssess: false
   x64ArchFiles: "Contents/Resources/bin/*"
