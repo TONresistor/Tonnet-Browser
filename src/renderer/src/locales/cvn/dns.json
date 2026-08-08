@@ -1,0 +1,29 @@
+{
+  "title": "Tra cuux DNS",
+  "searchPlaceholder": "Nhapf teny mild .ton...",
+  "searching": "Dagp fany jaiz...",
+  "empty": "Nhapf teny mild .ton deq tra cuux banz gi",
+  "notFound": "Kogy timl thayb teny mild hash kogy coj banz gi",
+  "error": "Kogy theq fany jaiz teny mild",
+  "fields": {
+    "adnl": "ADNL (tonsite)",
+    "storage": "Luuo truw",
+    "storageBagId": "ID Bag luuo truw",
+    "nextResolver": "Bof fany jaiz tifb theo",
+    "wallet": "Vij",
+    "textRecords": "TXT"
+  },
+  "values": {
+    "yes": "Coj",
+    "no": "Kogy",
+    "none": "Chuao dath"
+  },
+  "copied": "Das sao chep!",
+  "visit": "Try capf tragp",
+  "browseStorage": "Zydf tepf",
+  "send": "Guiv",
+  "actions": {
+    "visit": "Try capf",
+    "sendTo": "Guiv toix diar chiz nayl"
+  }
+}

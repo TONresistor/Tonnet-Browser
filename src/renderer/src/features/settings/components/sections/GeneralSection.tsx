@@ -55,6 +55,7 @@ export const GeneralSection = memo(function GeneralSection({ draft, setDraft }: 
             value={draft.language}
             onChange={(v) => setDraft('language', v)}
             options={[
+              { value: 'cvn', label: t('appearance.language.cvnss') },
               { value: 'en', label: t('appearance.language.english') },
               { value: 'ru', label: t('appearance.language.russian') },
               { value: 'zh', label: t('appearance.language.chinese') },

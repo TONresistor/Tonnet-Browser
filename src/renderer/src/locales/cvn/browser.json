@@ -1,0 +1,81 @@
+{
+  "addressBar": {
+    "placeholder": "Nhapf diar chiz .ton...",
+    "ariaLabel": "Nhapf URL hash diar chiz TON",
+    "addBookmarkAria": "Themy vaol zaub tragp",
+    "removeBookmarkAria": "Xoaj koiz zaub tragp",
+    "addBookmarkTitle": "Themy zaub tragp",
+    "removeBookmarkTitle": "Xoaj zaub tragp",
+    "fileBrowser": "Trihl zydf tepf",
+    "cut": "Catx",
+    "copy": "Sao chep",
+    "paste": "Zanj",
+    "selectAll": "Chonr tatb caz"
+  },
+  "navigation": {
+    "back": "Qay lair",
+    "forward": "Tilb toix",
+    "home": "Tragp chuz",
+    "reload": "Taiz lair",
+    "stop": "Zugk taiz",
+    "pageNavigation": "Diwd huzx tragp",
+    "goBackAria": "Qay lair tragp trusx",
+    "goForwardAria": "Di toix tragp sau",
+    "stopLoadingAria": "Zugk taiz tragp",
+    "reloadAria": "Taiz lair tragp hilf tair",
+    "goHomeAria": "Di toix tragp chuz"
+  },
+  "tabs": {
+    "newTab": "Tab moix",
+    "closeTab": "Dogj tab",
+    "browserTabs": "Cac tab trihl zydf",
+    "openNewTab": "Mov tab moix",
+    "duplicateTab": "Nhany doiy tab",
+    "closeOtherTabs": "Dogj cac tab kac",
+    "pickedUp": "Das chonr tab: {{title}}",
+    "dragOver": "Tab {{activeTitle}} dagp ov treny {{overTitle}}",
+    "reordered": "Tab {{title}} das dush sapx xepb lair",
+    "dragCancelled": "Das hyz ceoj",
+    "dragCancelledFull": "Das hyz ceoj. Tab {{title}} trov ved vir trij ban daud."
+  },
+  "windowControls": {
+    "group": "Diwd kilq cuav soq",
+    "minimize": "Thu nhoz",
+    "maximize": "Fogj to",
+    "close": "Dogj"
+  },
+  "tip": {
+    "resolveError": "Kogy theq fany jaiz teny mild",
+    "title": "Boa {{amount}} GRAM cho {{domain}}"
+  },
+  "dnd": {
+    "pickedUp": "Das chonr {{type}}: {{name}}",
+    "movedOver": "{{name}} dagp ov treny {{target}}",
+    "droppedOn": "{{name}} das thaz vaol {{target}}",
+    "cancelled": "Das hyz ceoj",
+    "folderAriaLabel": "Thuo mucr: {{name}}. Nhanb fimj cakj deq batx daud ceoj.",
+    "bookmarkAriaLabel": "Zaub tragp: {{name}}. Nhanb fimj cakj deq batx daud ceoj."
+  },
+  "bookmarksBar": {
+    "title": "Zaub tragp"
+  },
+  "statusBar": {
+    "connected": "Das cetb noib Magr TON",
+    "disconnected": "Das watx cetb noib",
+    "syncing": "Dagp dogd bof...",
+    "syncingMultiHop": "Dagp timl nut duzk hamd...",
+    "garlicRouting": "Dihr tylb duzk hamd ({{hops}} chagh)",
+    "buildingCircuit": "Dagp taor makr...",
+    "storage": "Luuo truw:",
+    "bag": "bag",
+    "bags": "bag",
+    "seeding": "dagp seed",
+    "session": "Fily:",
+    "networkStatus": "Tragr thaij magr: {{status}}",
+    "downloadSpeedAria": "Tocb dof taiz xuzb: {{speed}}",
+    "uploadSpeedAria": "Tocb dof taiz leny: {{speed}}",
+    "zoom": "Thu fogj tragp",
+    "walletTitle": "Sob zuo vij",
+    "walletAria": "Hilq thir sob zuo vij"
+  }
+}

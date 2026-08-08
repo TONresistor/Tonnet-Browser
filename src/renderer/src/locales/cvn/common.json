@@ -1,0 +1,50 @@
+{
+  "appName": "BilaNet",
+  "buttons": {
+    "connect": "Cetb noib Magr TON",
+    "disconnect": "Watx cetb noib",
+    "connecting": "Dagp cetb noib...",
+    "cancel": "Hyz",
+    "save": "Luuo",
+    "delete": "Xoaj",
+    "edit": "Suav",
+    "close": "Dogj",
+    "back": "Qay lair",
+    "next": "Tifb",
+    "done": "Xogp",
+    "retry": "Thuv lair",
+    "ok": "Dogd ij",
+    "create": "Taor",
+    "import": "Nhapf",
+    "export": "Xadb"
+  },
+  "status": {
+    "connected": "Das cetb noib",
+    "disconnected": "Das watx cetb noib",
+    "connecting": "Dagp cetb noib",
+    "error": "Loig",
+    "syncing": "Dagp dogd bof",
+    "synced": "Das dogd bof"
+  },
+  "loading": {
+    "settings": "Dagp taiz cail dath..."
+  },
+  "errors": {
+    "generic": "Das xayz ra loig",
+    "network": "Loig magr",
+    "timeout": "Hetb thoik jan cetb noib",
+    "notFound": "Kogy timl thayb",
+    "unauthorized": "Kogy dush fep"
+  },
+  "tooltips": {
+    "storage": "Luuo truw",
+    "cocoon": "Cocoon AI",
+    "messenger": "Nhanx tin",
+    "settings": "Cail dath"
+  },
+  "error": {
+    "title": "Das xayz ra suh cob",
+    "description": "Ugx zugr gaph loig kogy mogp doih. Hays taiz lair deq koiy fucr.",
+    "reload": "Taiz lair ugx zugr"
+  }
+}

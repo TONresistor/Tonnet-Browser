@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="BilaNet B browser icon">
+  <defs>
+    <linearGradient id="g" x1="120" y1="100" x2="900" y2="930" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#00D4FF"/>
+      <stop offset="0.52" stop-color="#3388FF"/>
+      <stop offset="1" stop-color="#7A5CFF"/>
+    </linearGradient>
+    <radialGradient id="bg" cx="42%" cy="30%" r="85%">
+      <stop offset="0" stop-color="#19273A"/>
+      <stop offset="1" stop-color="#070A0E"/>
+    </radialGradient>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="18" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect x="32" y="32" width="960" height="960" rx="232" fill="url(#bg)"/>
+  <path d="M512 126 824 304v360L512 842 200 664V304Z" fill="none" stroke="url(#g)" stroke-width="34" opacity=".96" filter="url(#glow)"/>
+  <circle cx="512" cy="126" r="23" fill="#EAFBFF"/>
+  <circle cx="824" cy="304" r="23" fill="#EAFBFF"/>
+  <circle cx="824" cy="664" r="23" fill="#EAFBFF"/>
+  <circle cx="512" cy="842" r="23" fill="#EAFBFF"/>
+  <circle cx="200" cy="664" r="23" fill="#EAFBFF"/>
+  <circle cx="200" cy="304" r="23" fill="#EAFBFF"/>
+  <path d="M364 286h186c125 0 203 57 203 151 0 64-37 111-96 132 73 18 118 67 118 143 0 107-87 171-229 171H364V286Zm126 104v132h65c47 0 75-23 75-65 0-43-29-67-79-67h-61Zm0 228v158h72c58 0 89-28 89-78 0-52-34-80-96-80h-65Z" fill="#F7FCFF"/>
+  <path d="M330 243c70-58 145-87 225-87 79 0 151 25 218 76" fill="none" stroke="#8BEAFF" stroke-width="13" stroke-linecap="round" opacity=".7"/>
+</svg>

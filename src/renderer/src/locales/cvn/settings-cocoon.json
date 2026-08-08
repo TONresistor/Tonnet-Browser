@@ -1,0 +1,151 @@
+{
+  "cocoon": {
+    "title": "Cocoon AI",
+    "description": "Sy lalf AI bij matf treny TON",
+    "autostart": "Tuh koiv dogf ki mov",
+    "autostartDesc": "Tuh dogf koiv dogf Cocoon runner ki trihl zydf mov, sau ki proxy, bridge val storage das cetb noib. Mach dihr tatx.",
+    "stake": {
+      "sectionTitle": "Stake & tild",
+      "loading": "Dagp taiz thogy tin stake…",
+      "noActiveStake": "Kogy coj stake dagp hodr dogf. Koiv dogf runner tuk tragp AI deq dago cij hoph dogd kakj.",
+      "status": "Tragr thaij",
+      "staked": "Das stake",
+      "scBalance": "Sob zuo hoph dogd",
+      "cocoonResidual": "Sob zuo conl lair vij Cocoon",
+      "unlocksIn": "Mov koaj sau",
+      "cooldownHint": "Ki thoik jan chok cetb thuc, nhanf holl tild deq guiv stake trov lair vij Cocoon.",
+      "refundReady": "Thoik jan chok das hetb. Nhanf holl tild deq dogj hoph dogd.",
+      "refundReadyHint": "Sob tild stake ses dush traz ved vij Cocoon. Sau doj banr coj theq rut ved vij chuz.",
+      "unstake": "Boz stake",
+      "claimRefund": "Nhanf holl tild",
+      "cashout": "Rut ved vij chuz",
+      "confirm": "Xac nhanf",
+      "confirmUnstake": "Boz stake ses batx daud thoik jan chok. Runner vang dush traz fij cho denb ki banr xac nhanf holl tild sau ki thoik jan chok cetb thuc.",
+      "confirmClaim": "Nhanf holl tild val dogj hoph dogd. Stake ses dush traz ved vij Cocoon.",
+      "confirmCashout": "Zugk runner val guiv {{amount}} GRAM tuk vij Cocoon ved vij chuz?",
+      "unstakeSent": "Das guiv iwy caud boz stake. Dagp chok xac nhanf treny chujg.",
+      "cashoutDone": "Das rut {{amount}} GRAM ved vij chuz.",
+      "runnerOffline": "Runner dagp wojr tylb.",
+      "runnerOfflineHint": "Koiv dogf runner deq boz stake hash nhanf holl tild. Bof demb vang chayr treny chujg.",
+      "startRunner": "Koiv dogf runner",
+      "starting": "Dagp koiv dogf…",
+      "startFailed": "Kogy theq koiv dogf runner.",
+      "walletsTitle": "Cac vij",
+      "mainWallet": "Vij W5 chihj",
+      "ownerWallet": "Vij chuz Cocoon V4R2",
+      "cocoonWallet": "Vij nut Cocoon",
+      "startCocoon": "Koiv dogf Cocoon (dago cij stake)",
+      "fundCocoonHint": "Napr vij Cocoon (≥ 5 GRAM) deq dago cij hoph dogd kakj moix.",
+      "statusActive": "Stake dagp hodr dogf",
+      "activeDesc": "Das stake {{stake}} GRAM. Cocoon dagp chayr.",
+      "statusReady": "Sanw sagl napr cehy",
+      "readyDesc": "Vij Cocoon das coj tild. Nhanb Koiv dogf deq dago cij val batx daud trol chylf.",
+      "statusReadyFund": "Sanw sagl napr cehy (tuh dogf napr)",
+      "readyFundDesc": "Vij chihj coj duz GRAM. Nhanb Cikj hodr deq napr vij Cocoon moix val koiv dogf.",
+      "statusFundOwner": "Napr vij chihj",
+      "fundOwnerDesc": "Juw it nhatb 20.1 GRAM trogp vij chihj deq cikj hodr Cocoon, hash rut sob zuo conl lair ved vij chihj.",
+      "withdrawTitle": "Dagp rut",
+      "actionWithdrawTitle": "Tatx & rut tatb caz",
+      "actionWithdrawDesc": "Zugk Cocoon val tuh dogf traz tild trogp cehy ved vij chihj.",
+      "actionWithdrawingDesc": "Qaj trihl rut dagp chayr. Kogy cand thao tac themy.",
+      "actionActivateTitle": "Cikj hodr Cocoon",
+      "actionStartDesc": "Koiv dogf Cocoon bagk sob tild das coj trogp vij Cocoon.",
+      "actionFundAndStartDesc": "Napr vij Cocoon moix tuk vij chihj, roid koiv dogf Cocoon.",
+      "actionTopUpTitle": "Napr vij chihj",
+      "actionTopUpDesc": "Juw it nhatb 20.1 GRAM trogp vij chihj trusx ki cikj hodr Cocoon.",
+      "currentStep": "Busx hilf tair",
+      "withdrawAutoDesc": "Juw vij cetb noib. Ugx zugr ses tuh dogf nhanf val guiv tild trov lair.",
+      "flow": {
+        "stake": "Cikj hodr Cocoon",
+        "stakeBusy": "Dagp cikj hodr…",
+        "unstake": "Tatx & rut tatb caz",
+        "unstakeBusy": "Dagp koiy fucr tild…",
+        "unstakeSent": "Das batx daud koiy fucr. Tild ses trov ved vij chihj.",
+        "cashout": "Rut tild",
+        "cashoutDone": "{{amount}} GRAM das trov ved vij chihj.",
+        "stakeSuccess": "Cocoon dagp chayr.",
+        "stakeFailed": "Cikj hodr thatb bair.",
+        "unstakeFailed": "Rut thatb bair."
+      },
+      "stage": {
+        "requesting": "Dagp guiv iwy caud",
+        "requestingDesc": "Dagp guiv iwy caud holl tild treny chujg…",
+        "confirming": "Xac nhanf treny chujg",
+        "confirmingDesc": "Das guiv jao zikr. Dagp chok tragr thaij hoph dogd xac nhanf mov koaj.",
+        "cooldown": "Dagp mov koaj",
+        "cooldownDesc": "Hoph dogd traz ved mocb mov koaj trogp tuzo lai. Tild ses dush nhanf val guiv tuh dogf somx nhatb coj theq.",
+        "claiming": "Dagp nhanf holl tild",
+        "claimingDesc": "Das hetb thoik jan koaj. Dagp nhanf holl tild val dogj hoph dogd.",
+        "cashingOut": "Dagp guiv ved vij cuaz banr",
+        "cashingOutDesc": "Das nhanf holl tild. Dagp guiv sob zuo cujb ved vij chihj.",
+        "finalizing": "Dagp holl tatb",
+        "finalizingDesc": "Dagp holl tatb qaj trihl rut."
+      }
+    },
+    "unstake": {
+      "cta": "Mov bagz stake",
+      "noStake": {
+        "title": "Kogy coj stake hodr dogf",
+        "description": "Koiv dogf Cocoon deq dago cij hoph dogd kakj, hash rut vij Cocoon ved vij chuz."
+      },
+      "closing": {
+        "title": "Dagp dogj stake",
+        "description": "Das guiv iwy caud boz stake. Chok mov koaj treny chujg roid nhanf holl tild."
+      },
+      "cooldown": {
+        "title": "Dagp mov koaj",
+        "description": "Sy lalf tamr zugk trogp ki qaj trihl mov koaj treny chujg chayr. Holl tild ses dush nhanf ki cetb thuc."
+      },
+      "refundable": {
+        "title": "Sanw sagl holl tild",
+        "description": "Das mov koaj. Nhanf holl tild deq traz stake ved vij Cocoon."
+      },
+      "closed": {
+        "title": "Stake das dogj",
+        "description": "Stake das dogj. Stake lair deq trol chylf tifb hash rut sob zuo conl lair ved vij chuz."
+      },
+      "withdrawing": {
+        "title": "Dagp rut stake",
+        "description": "Cocoon dagp tuh dogf di qa mov koaj, holl tild val rut. Banr coj theq deq mov hash qay lair sau."
+      }
+    },
+    "recovery": {
+      "sectionTitle": "Koiy fucr GRAM bir koaj",
+      "sectionDesc": "Koiy fucr GRAM tuk vij Cocoon hilf tair val das luuo truw. Ugx zugr chiz baoj bir koaj neub chihj hoph dogd traz ved tragr thaij koaj treny chujg.",
+      "loading": "Dagp taiz tragr thaij koiy fucr…",
+      "empty": "Kogy coj GRAM bir koaj deq koiy fucr.",
+      "entryTitle": "Dagp koiy fucr",
+      "primaryTitle": "Koiy fucr GRAM Cocoon",
+      "primaryDesc": "Zugk Cocoon, civq tra cac vij Cocoon hilf tair val das luuo, nhanf moir kolz kakj coj theq thu hoid way, roid guiv sob zuo ved vij chihj.",
+      "recoverNow": "Koiy fucr GRAM cuaz toiy way",
+      "orphanTitle": "Zahp tihj das luuo",
+      "archivedOwner": "Vij chuz das luuo",
+      "orphanDesc": "Motf zahp tihj Cocoon cus dush luuo mal kogy bidb diar chiz hoph dogd kakj. Zanj diar chiz hoph dogd (coj theq thayb trogp likr suv vij ki napr stake) deq batx daud holl tild.",
+      "clientSCLabel": "Diar chiz hoph dogd kakj",
+      "refresh": "Laml moix",
+      "enqueue": "Batx daud koiy fucr",
+      "remove": "Xoaj koiz hagl doih",
+      "enqueueSuccess": "Das batx daud koiy fucr. Backend ses civq tra hoph dogd val koiy fucr moir thux coj theq way.",
+      "recoverSuccess": "Hahl dogf koiy fucr das guiv {{txs}} jao zikr. {{locked}} hoph dogd baoj koaj treny chujg.",
+      "resultTitle": "Cetb qaz koiy fucr gand nhatb",
+      "resultTxs": "jao zikr",
+      "resultLocked": "bir koaj",
+      "resultSkipped": "boz qa",
+      "lockedHint": "Motf mucr bir koaj wias lal hoph dogd kakj traz ved mocb mov koaj tuzo lai treny chujg.",
+      "phase": {
+        "refundPending": "Das iwy caud holl tild",
+        "refundPendingDesc": "Das guiv iwy caud holl tild treny chujg. Dagp chok hoph dogd vaol jai dolr mov koaj.",
+        "cooldown": "Dagp mov koaj",
+        "cooldownDesc": "Mov koaj treny chujg dagp chayr. Tild ses dush nhanf val guiv ved tuh dogf.",
+        "claimPending": "Dagp nhanf",
+        "claimPendingDesc": "Das mov koaj. Dagp nhanf holl tild val dogj hoph dogd.",
+        "drainPending": "Dagp rut sakr",
+        "drainPendingDesc": "Das nhanf holl tild. Dagp rut vij Cocoon ved vij chihj.",
+        "done": "Holl tatb",
+        "doneDesc": "Koiy fucr holl tatb. GRAM das trov ved vij chihj.",
+        "failed": "Thatb bair",
+        "failedDesc": "Koiy fucr thatb bair. Civq tra loig val xoaj mucr hash thuv lair."
+      }
+    }
+  }
+}
