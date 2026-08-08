@@ -1,0 +1,240 @@
+{
+  "page": {
+    "title": "Vij",
+    "refresh": "Laml moix",
+    "noWalletTitle": "Chuao coj vij",
+    "noWalletDesc": "Taor vij moix hash nhapf vij hilf coj deq batx daud.",
+    "createWallet": "Taor vij"
+  },
+  "tabs": {
+    "send": "Guiv",
+    "receive": "Nhanf",
+    "history": "Likr suv"
+  },
+  "send": {
+    "recipientLabel": "Diar chiz wujk nhanf",
+    "recipientPlaceholder": "EQ... hash 0:...",
+    "amountLabel": "Sob tild",
+    "feeNote": "Fij magr: {{fee}} GRAM",
+    "reviewButton": "Xem lair jao zikr",
+    "confirm": "Xac nhanf jao zikr",
+    "to": "Denb",
+    "amount": "Sob tild",
+    "fee": "Fij",
+    "back": "Qay lair",
+    "sending": "Dagp guiv...",
+    "success": "Das guiv jao zikr!",
+    "successDesc": "Jao zikr cuaz banr das dush fat leny magr.",
+    "error": "Jao zikr thatb bair",
+    "invalidAddress": "Diar chiz TON kogy hoph lef",
+    "invalidAmount": "Sob tild kogy hoph lef",
+    "insufficientBalance": "Sob zuo kogy duz",
+    "max": "Toib da",
+    "estimatedFee": "~0.01 GRAM",
+    "commentLabel": "Gi chuj (tyl chonr)",
+    "comment": "Gi chuj",
+    "commentPlaceholder": "Noif zugp gi nhox",
+    "commentNote": "Dush luuo cogy kai treny chujg"
+  },
+  "receive": {
+    "addressLabel": "Diar chiz vij cuaz banr",
+    "copyButton": "Sao chep diar chiz",
+    "copied": "Das sao chep!",
+    "copyTitle": "Sao chep vaol bof nhox tamr",
+    "copyAria": "Sao chep diar chiz vij vaol bof nhox tamr"
+  },
+  "history": {
+    "empty": "Chuao coj jao zikr",
+    "clear": "Xoaj likr suv",
+    "types": {
+      "send": "Das guiv",
+      "receive": "Das nhanf",
+      "x402": "Thahp tolj HTTP 402"
+    },
+    "status": {
+      "pending": "Dagp chok",
+      "confirmed": "Das xac nhanf",
+      "failed": "Thatb bair"
+    },
+    "x402Payment": "Thahp tolj HTTP 402"
+  },
+  "dropdown": {
+    "title": "Vij",
+    "balance": "Sob zuo",
+    "address": "Diar chiz",
+    "send": "Guiv",
+    "receive": "Nhanf",
+    "openWallet": "Mov vij",
+    "copyAddress": "Sao chep diar chiz",
+    "copyAddressAria": "Sao chep diar chiz vij vaol bof nhox tamr",
+    "copied": "Das sao chep!",
+    "noWallet": "Chuao coj vij. Hays taor motf vij deq batx daud.",
+    "createWallet": "Taor vij",
+    "ariaLabel": "Trihl dono vij"
+  },
+  "import": {
+    "title": "Nhapf vij",
+    "description": "Nhapf cumr tuk koiy fucr 24 tuk cuaz banr",
+    "placeholder": "Nhapf 24 tuk cakj nhau bagk kozz tragx...",
+    "button": "Nhapf vij",
+    "importing": "Dagp nhapf...",
+    "success": "Das nhapf vij thahl cogy",
+    "error": "Cumr tuk koiy fucr kogy hoph lef",
+    "confirm": "Thao tac nayl ses thay theb vij hilf tair. Banr coj chacx kogy?",
+    "confirmButton": "Coj, thay theb",
+    "cancelButton": "Hyz"
+  },
+  "export": {
+    "title": "Cumr tuk koiy fucr",
+    "warning": "Kogy bao jok chia sez cac tuk nayl. Batb cil ai coj chugj deud coj theq try capf tild cuaz banr.",
+    "showButton": "Hilf cumr tuk koiy fucr",
+    "hideButton": "Anq",
+    "copied": "Das sao chep vaol bof nhox tamr"
+  },
+  "backup": {
+    "title": "Luuo cumr tuk koiy fucr",
+    "warning": "Gi lair 24 tuk nayl val juw chugj an toll.",
+    "warningDesc": "Dayy lal cakj zy nhatb deq koiy fucr vij. Neub matb cac tuk nayl, tild cuaz banr ses matb vihs vilg. Kogy bao jok chia sez chugj voix batb cil ai.",
+    "yourPhrase": "Cumr tuk koiy fucr 24 tuk cuaz banr",
+    "copy": "Sao chep vaol bof nhox tamr",
+    "acknowledgement": "Toiy xac nhanf das gi lair an toll cumr tuk koiy fucr 24 tuk. Toiy hiwq ragk neub kogy coj cumr tuk nayl thil kogy coj cakj naol koiy fucr vij hash tild cuaz toiy.",
+    "confirm": "Tifb tucr"
+  },
+  "create": {
+    "title": "Taor vij",
+    "description": "Taor vij TON moix deq guiv, nhanf val thahp tolj noif zugp.",
+    "button": "Taor vij",
+    "creating": "Dagp taor...",
+    "orImport": "hash nhapf vij hilf coj"
+  },
+  "statusBar": {
+    "balance": "{{amount}} GRAM"
+  },
+  "settings": {
+    "title": "Cail dath vij",
+    "walletManagement": "Qanz lij vij",
+    "paymentMode": "Cheb dof thahp tolj mach dihr",
+    "paymentModeDescription": "Cakj xuv lij iwy caud thahp tolj HTTP 402",
+    "modes": {
+      "off": "Tatx",
+      "manual": "Thuz cogy",
+      "auto": "Tuh dogf"
+    },
+    "notificationStyle": "Ciwq thogy baoj",
+    "notificationStyleDescription": "Cakj hilq thir iwy caud thahp tolj",
+    "notifPopup": "Cuav soq batf leny",
+    "notifAddressbar": "Thahp diar chiz",
+    "styles": {
+      "banner": "Biwq wuw",
+      "modal": "Hopf thojr",
+      "toast": "Thogy baoj noiq",
+      "panel": "Bagz"
+    },
+    "limits": {
+      "title": "Joix hanr chi tiwy",
+      "perRequest": "Moig iwy caud",
+      "perDay": "Moig wayl",
+      "perSitePerMonth": "Moig tragp / thagj",
+      "placeholder": "0 = kogy joix hanr",
+      "unit": "GRAM",
+      "perRequestDesc": "Sob tild toib da cho motf thahp tolj 402",
+      "perDayDesc": "Togq chi tiwy toib da trogp cuav soq 24 jok lily tucr",
+      "perSitePerMonthDesc": "Chi tiwy toib da cho moig teny mild trogp cuav soq 30 wayl lily tucr",
+      "unlimitedNote": "Dath 0 deq kogy joix hanr. Joix hanr dush ap zugr treny moir tab."
+    },
+    "sites": {
+      "title": "Qyld cuaz tragp",
+      "empty": "Chuao caub hihl qyld rizy cho tragp",
+      "remove": "Xoaj",
+      "spent": "Das chi: {{amount}} GRAM",
+      "removePolicy": "Xoaj chihj sakj tragp"
+    }
+  },
+  "recovery": {
+    "title": "Cand koiy fucr vij",
+    "description": "Ko koaj hef thogb das thay doiq. Zuw liwf vij vang conl treny dias nhugo kogy theq jaiz mas. Hays nhapf cumr tuk koiy fucr 24 tuk deq layb lair qyld try capf.",
+    "importButton": "Nhapf vij",
+    "orCreateNew": "hash taor vij moix",
+    "weakEncryption": "Mas hoaj iwb: kogy fat hilf ko koaj hef thogb. Vij cuaz banr chiz dush baoz vef bagk mas hoaj coo banz."
+  },
+  "payment": {
+    "title": "Iwy caud thahp tolj",
+    "domain": "Tragp",
+    "amount": "Sob tild",
+    "recipient": "Wujk nhanf",
+    "approve": "Thahp tolj",
+    "reject": "Tuk choib",
+    "success": "Thahp tolj thahl cogy",
+    "failed": "Thahp tolj thatb bair",
+    "limitReached": "Das datr joix hanr chi tiwy",
+    "required": "Iwy caud thahp tolj HTTP 402"
+  },
+  "delete": {
+    "button": "Xoaj vij",
+    "title": "Xoaj vij",
+    "warning": "Thao tac nayl ses xoaj vihs vilg vij koiz thidb bir. Hays chacx chanx banr das sao luuo cumr tuk koiy fucr 24 tuk. Neub kogy coj noj, tild cuaz banr ses matb vihs vilg.",
+    "description": "Xoaj vihs vilg vij koiz thidb bir. Hays chacx chanx banr coj cumr tuk koiy fucr trusx ki tifb tucr."
+  },
+  "overview": {
+    "recent": "Gand dayy"
+  },
+  "account": {
+    "toggleLabel": "Chylq tail kolz",
+    "main": "Vij",
+    "cocoon": "Cocoon",
+    "activating": "Dagp cikj hodr…",
+    "openChat": "Mov trol chylf",
+    "status": {
+      "loading": "Dagp taiz…",
+      "unavailable": "Kogy kaz zugr treny nend tagz nayl",
+      "idle": "Kogy hodr dogf",
+      "activating": "Dagp cikj hodr…",
+      "active": "Dagp hodr dogf",
+      "withdrawing": "Dagp rut…"
+    },
+    "actions": {
+      "activate": "Cikj hodr Cocoon (20 GRAM)",
+      "withdrawAll": "Rut",
+      "withdraw": "Rut tuk Cocoon",
+      "withdrawing": "Dagp rut…"
+    },
+    "errors": {
+      "activateFailed": "Cikj hodr thatb bair.",
+      "withdrawFailed": "Rut thatb bair."
+    },
+    "notice": {
+      "unavailable": "Cocoon kogy kaz zugr treny nend tagz nayl."
+    },
+    "withdrawHint": "Tild ses tuh dogf trov lair vij cuaz banr.",
+    "withdrawStage": {
+      "requesting": "Dagp guiv iwy caud holl tild",
+      "cooldown": "Dagp trogp thoik jan chok",
+      "claiming": "Dagp nhanf holl tild",
+      "cashingOut": "Dagp traz tild ved vij cuaz banr",
+      "finalizing": "Dagp holl tatb"
+    },
+    "chatNotice": {
+      "cta": "Di toix cikj hodr",
+      "loading": {
+        "title": "Dagp taiz Cocoon",
+        "description": "Dagp civq tra tragr thaij tail kolz Cocoon cuaz banr."
+      },
+      "unavailable": {
+        "title": "Cocoon kogy kaz zugr",
+        "description": "Cocoon kogy kaz zugr treny nend tagz nayl."
+      },
+      "idle": {
+        "title": "Cocoon chuao hodr dogf",
+        "description": "Cikj hodr Cocoon tuk vij deq batx daud trol chylf."
+      },
+      "activating": {
+        "title": "Dagp cikj hodr Cocoon",
+        "description": "Cocoon dagp dush cikj hodr. Trol chylf ses mov way ki runner sanw sagl."
+      },
+      "withdrawing": {
+        "title": "Dagp rut",
+        "description": "Motf land rut dagp zilg ra. Tild ses tuh dogf trov lair vij cuaz banr."
+      }
+    }
+  }
+}
