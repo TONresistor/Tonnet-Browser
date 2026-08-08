@@ -15,7 +15,6 @@ files:
   - "package.json"
   - "resources/overlay/**/*"
   - "resources/preload/**/*"
-  - "resources/icons/icon.png"
 
 extraResources:
   - from: "resources/config"
@@ -37,7 +36,7 @@ linux:
     - AppImage
     - deb
   category: Network
-  icon: resources/icons/icon.png
+  icon: resources/icons/bilanet.svg
   artifactName: "BilaNet-${version}-${arch}.${ext}"
 
 win:
@@ -49,7 +48,7 @@ win:
   target:
     - nsis
     - portable
-  icon: resources/icons/icon.ico
+  icon: resources/icons/bilanet.svg
 
 nsis:
   artifactName: "BilaNet-Setup-${version}.${ext}"
@@ -66,7 +65,7 @@ mac:
   target:
     - target: dmg
       arch: universal
-  icon: resources/icons/icon.icns
+  icon: resources/icons/bilanet.svg
   artifactName: "BilaNet-${version}-${arch}.${ext}"
   hardenedRuntime: true
   gatekeeperAssess: false
