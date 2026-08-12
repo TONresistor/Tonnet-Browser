@@ -18,6 +18,7 @@ import {
 import { CONTEXT_MENU_WIDTH } from './constants'
 import { clipboard } from 'electron'
 import { DisposableStore, onWebContents } from '../utils/disposable'
+import { inspectElementAt, isDevToolsShortcut, toggleDevTools } from './devtools'
 import type { HistoryManager } from '../history/manager'
 import type { OverlayManager } from './overlay-manager'
 import type { OverlayMenuItem } from '../../shared/types'
@@ -46,7 +47,15 @@ export function setupViewEventListeners(view: WebContentsView, tabId: string, de
 
   store.add(
     onWebContents(view.webContents, 'before-input-event', (event: Electron.Event, input: Electron.Input) => {
-      if (deps.handleZoomInput(input)) event.preventDefault()
+      if (deps.handleZoomInput(input)) {
+        event.preventDefault()
+        return
+      }
+      // The main window stops seeing keystrokes once the page has focus.
+      if (isDevToolsShortcut(input)) {
+        event.preventDefault()
+        toggleDevTools(view.webContents)
+      }
     })
   )
 
@@ -193,6 +202,12 @@ export function setupViewEventListeners(view: WebContentsView, tabId: string, de
         { id: 'reload', label: 'Reload' }
       )
 
+      // Coordinates are relative to the view, which is what inspectElement() expects.
+      items.push(
+        { id: '_sep5', label: '', separator: true },
+        { id: 'inspect', label: 'Inspect Element', data: { x: String(params.x), y: String(params.y) } }
+      )
+
       if (items.length === 0) return
 
       // Calculate menu height: ~36px per item, 1px per separator, 8px padding
@@ -249,6 +264,9 @@ export function setupViewEventListeners(view: WebContentsView, tabId: string, de
             case 'reload':
               deps.cancelNavigation(tabId)
               view.webContents.reload()
+              break
+            case 'inspect':
+              inspectElementAt(view.webContents, Number(d.x), Number(d.y))
               break
             case 'dismiss':
               break

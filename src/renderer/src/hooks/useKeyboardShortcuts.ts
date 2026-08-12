@@ -78,11 +78,8 @@ export function useKeyboardShortcuts(openOrSwitchToTab: (url: string) => void): 
       else if (e.key === 'Escape') {
         browserClient.stop()
       }
-      // F12: Toggle DevTools (Ctrl+Shift+I is handled in main process)
-      else if (e.key === 'F12') {
-        e.preventDefault()
-        browserClient.toggleDevTools()
-      }
+      // F12 and Ctrl+Shift+I / Cmd+Option+I are handled in the main process, which
+      // sees them whether the chrome or the page has keyboard focus.
     }
 
     window.addEventListener('keydown', handleKeyDown)

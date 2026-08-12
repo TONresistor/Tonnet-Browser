@@ -7,7 +7,6 @@ export const browserClient = {
   stop: () => window.electron.stop(),
   getZoom: () => window.electron.zoom.get(),
   setZoom: (percent: number) => window.electron.zoom.set(percent),
-  toggleDevTools: () => window.electron.toggleDevTools(),
   createTab: (tabId: string, initialUrl: string) => window.electron.tabs.create(tabId, initialUrl),
   closeTab: (tabId: string) => window.electron.tabs.close(tabId),
   switchTab: (tabId: string) => window.electron.tabs.switch(tabId),
