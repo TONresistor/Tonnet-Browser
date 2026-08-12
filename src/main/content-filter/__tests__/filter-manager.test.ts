@@ -145,6 +145,39 @@ describe('ContentFilterManager', () => {
     })
   })
 
+  describe('First-party requests', () => {
+    it('should not block a tonsite own analytics API as a tracker', () => {
+      const url = 'http://webdom.ton/api/analytics/statistics/price_history'
+
+      expect(filter.isBlocked(url, 'xhr')).toBe(true)
+      expect(filter.isBlocked(url, 'xhr', 'webdom.ton')).toBe(false)
+    })
+
+    it('should not block first-party ads/annoyance paths', () => {
+      expect(filter.isBlocked('http://site.ton/ads/banner.jpg', 'image', 'site.ton')).toBe(false)
+      expect(filter.isBlocked('http://site.ton/modal/dialog.js', 'script', 'site.ton')).toBe(false)
+    })
+
+    it('should treat subdomains of the visited site as first-party', () => {
+      expect(filter.isBlocked('http://api.webdom.ton/stats/x.json', 'xhr', 'webdom.ton')).toBe(false)
+      expect(filter.isBlocked('http://webdom.ton/stats/x.json', 'xhr', 'api.webdom.ton')).toBe(false)
+    })
+
+    it('should still block third-party trackers on a tonsite', () => {
+      expect(filter.isBlocked('http://tracker.other.ton/analytics/x.js', 'script', 'webdom.ton')).toBe(true)
+    })
+
+    it('should not treat a shared registry suffix as a common owner', () => {
+      expect(filter.isBlocked('http://other.ton/analytics/x.js', 'script', 'ton')).toBe(true)
+      expect(filter.isBlocked('http://someone.t.me/analytics/x.js', 'script', 't.me')).toBe(true)
+    })
+
+    it('should still block first-party miners and malware', () => {
+      expect(filter.isBlocked('http://site.ton/miner/cryptonight.js', 'script', 'site.ton')).toBe(true)
+      expect(filter.isBlocked('http://site.ton/malware/x.js', 'script', 'site.ton')).toBe(true)
+    })
+  })
+
   describe('Enable/disable', () => {
     it('should allow everything when disabled', () => {
       filter.applySettings({ ...ALL_ENABLED, enabled: false })

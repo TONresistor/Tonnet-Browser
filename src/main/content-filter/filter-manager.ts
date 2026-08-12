@@ -6,12 +6,36 @@
 import { createLogger } from '../../shared/logger'
 const log = createLogger('filter')
 import type { ContentFilteringSettings } from '../../shared/types'
+import { SUPPORTED_TLDS } from '../../shared/tlds'
 
 export interface FilterRule {
   pattern: RegExp
   category: 'ads' | 'trackers' | 'miners' | 'malware' | 'annoyances'
   resourceTypes: Set<string>
   description: string
+}
+
+/**
+ * Categories that only ever describe third-party resources. The rules below are
+ * generic path heuristics, so on a first-party request they produce false
+ * positives against ordinary API routes (e.g. /api/analytics/statistics/...).
+ * Miners and malware stay enforced first-party: a compromised tonsite serving
+ * a miner from its own origin is exactly the case worth blocking.
+ */
+const THIRD_PARTY_ONLY_CATEGORIES: ReadonlySet<FilterRule['category']> = new Set(['ads', 'trackers', 'annoyances'])
+
+/** Registry suffixes that are never a site of their own, only a parent of one. */
+const PUBLIC_SUFFIXES = new Set(SUPPORTED_TLDS.map((tld) => tld.slice(1)))
+
+/** True when the request targets the site being browsed, or a subdomain of it. */
+function isFirstParty(requestHost: string, firstPartyHost: string): boolean {
+  if (!requestHost || !firstPartyHost) return false
+  if (requestHost === firstPartyHost) return true
+  // A shared registry suffix (ton, t.me) is not a common owner: every tonsite
+  // ends with it, so matching on it would make the whole network first-party.
+  if (requestHost.endsWith(`.${firstPartyHost}`)) return !PUBLIC_SUFFIXES.has(firstPartyHost)
+  if (firstPartyHost.endsWith(`.${requestHost}`)) return !PUBLIC_SUFFIXES.has(requestHost)
+  return false
 }
 
 export class ContentFilterManager {
@@ -147,9 +171,13 @@ export class ContentFilterManager {
   }
 
   /**
-   * Check if URL should be blocked
+   * Check if URL should be blocked.
+   *
+   * `firstPartyHost` is the host of the top-level document the request belongs
+   * to. When it is known, ad/tracker/annoyance rules are skipped for same-site
+   * requests so a tonsite's own API and assets are never mistaken for trackers.
    */
-  isBlocked(url: string, resourceType: string): boolean {
+  isBlocked(url: string, resourceType: string, firstPartyHost?: string | null): boolean {
     if (!this.enabled) {
       return false
     }
@@ -161,10 +189,17 @@ export class ContentFilterManager {
       return false
     }
 
+    const firstParty = !!firstPartyHost && isFirstParty(domain, firstPartyHost.toLowerCase())
+
     // Check each rule
     for (const rule of this.rules) {
       // Check if category is enabled
       if (!this.categoryEnabled[rule.category]) {
+        continue
+      }
+
+      // Third-party heuristics must not fire on the site's own resources
+      if (firstParty && THIRD_PARTY_ONLY_CATEGORIES.has(rule.category)) {
         continue
       }
 
