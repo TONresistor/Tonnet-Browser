@@ -30,16 +30,20 @@ function createHarness() {
     getTitle: vi.fn(() => 'Whitepaper'),
     getURL: vi.fn(() => 'http://whitepaper.ton'),
     isDestroyed: vi.fn(() => false),
+    isDevToolsOpened: vi.fn(() => false),
+    openDevTools: vi.fn(),
+    closeDevTools: vi.fn(),
   })
   const historyManager = { addEntry: vi.fn() }
+  const handleZoomInput = vi.fn(() => false)
   const listeners = setupViewEventListeners({ webContents } as never, 'tab-1', {
     historyManager: historyManager as never,
     overlayManager: {} as never,
     storage: {} as never,
     cancelNavigation: vi.fn(),
-    handleZoomInput: vi.fn(),
+    handleZoomInput,
   })
-  return { historyManager, listeners, webContents }
+  return { handleZoomInput, historyManager, listeners, webContents }
 }
 
 describe('tab navigation events', () => {
@@ -80,6 +84,56 @@ describe('tab navigation events', () => {
     expect(mocks.emitContractToRenderer).toHaveBeenCalledOnce()
     expect(historyManager.addEntry).toHaveBeenCalledWith('http://whitepaper.ton', 'Whitepaper')
 
+    listeners.dispose()
+  })
+})
+
+describe('tab DevTools shortcuts', () => {
+  it('toggles the focused page DevTools once', () => {
+    const { listeners, webContents } = createHarness()
+    const event = { preventDefault: vi.fn() }
+    const input = {
+      type: 'keyDown',
+      key: 'i',
+      code: 'KeyI',
+      isAutoRepeat: false,
+      isComposing: false,
+      control: true,
+      shift: true,
+      alt: false,
+      meta: false,
+      location: 0,
+      modifiers: [],
+    }
+
+    webContents.emit('before-input-event', event, input)
+
+    expect(event.preventDefault).toHaveBeenCalledOnce()
+    expect(webContents.openDevTools).toHaveBeenCalledExactlyOnceWith({ mode: 'detach' })
+    listeners.dispose()
+  })
+
+  it('gives zoom handling priority over DevTools', () => {
+    const { handleZoomInput, listeners, webContents } = createHarness()
+    handleZoomInput.mockReturnValue(true)
+    const event = { preventDefault: vi.fn() }
+
+    webContents.emit('before-input-event', event, {
+      type: 'keyDown',
+      key: 'F12',
+      code: 'F12',
+      isAutoRepeat: false,
+      isComposing: false,
+      control: false,
+      shift: false,
+      alt: false,
+      meta: false,
+      location: 0,
+      modifiers: [],
+    })
+
+    expect(event.preventDefault).toHaveBeenCalledOnce()
+    expect(webContents.openDevTools).not.toHaveBeenCalled()
     listeners.dispose()
   })
 })

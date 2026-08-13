@@ -10,7 +10,7 @@ import { chmodSync, existsSync, mkdirSync, renameSync, rmSync } from 'fs'
 import { migrateUserData } from './utils/migrate-userdata'
 import { EventEmitter } from 'events'
 import { pathToFileURL } from 'url'
-import { electronApp, optimizer, is } from '@electron-toolkit/utils'
+import { electronApp, is } from '@electron-toolkit/utils'
 import { registerIpcHandlers } from './ipc/handlers'
 import { emitContractToRenderer } from './events/renderer-events'
 import { setMainWindow } from './windows/main'
@@ -387,41 +387,6 @@ app.whenReady().then(async () => {
   }
 
   electronApp.setAppUserModelId('com.tonbrowser.app')
-
-  app.on('browser-window-created', (_, window) => {
-    optimizer.watchWindowShortcuts(window)
-
-    // Intercept Ctrl+Shift+I (or Cmd+Option+I on macOS) to open DevTools for active WebContentsView (not main window)
-    // This prevents DevTools from appearing under the WebContentsView overlay
-    window.webContents.on('before-input-event', (event, input) => {
-      if (services?.tabManager.pageZoom.handleInput(input)) {
-        event.preventDefault()
-        return
-      }
-      const isDevToolsShortcut =
-        (input.control && input.shift && input.key.toLowerCase() === 'i') ||
-        (process.platform === 'darwin' && input.meta && input.alt && input.key.toLowerCase() === 'i')
-      if (isDevToolsShortcut) {
-        event.preventDefault()
-        const view = services?.tabManager.getActiveView()
-        if (view) {
-          // Toggle DevTools for the website's WebContentsView
-          if (view.webContents.isDevToolsOpened()) {
-            view.webContents.closeDevTools()
-          } else {
-            view.webContents.openDevTools({ mode: 'detach' })
-          }
-        } else {
-          // No active WebContentsView, open DevTools for main window (system pages)
-          if (window.webContents.isDevToolsOpened()) {
-            window.webContents.closeDevTools()
-          } else {
-            window.webContents.openDevTools({ mode: 'detach' })
-          }
-        }
-      }
-    })
-  })
 
   // Serve files via app:// protocol in production
   // Replaces file:// which is blocked by grantFileProtocolExtraPrivileges fuse

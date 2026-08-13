@@ -68,7 +68,6 @@ import type {
   tabCloseContract,
   tabCreateContract,
   tabSwitchContract,
-  toggleDevtoolsContract,
   viewHideContract,
   viewShowContract,
   zoomGetContract,
@@ -217,7 +216,6 @@ const electronAPI = {
     get: () => invokeChannel<typeof zoomGetContract>(IPC_CHANNELS.ZOOM_GET),
     set: (percent: number) => invokeChannel<typeof zoomSetContract>(IPC_CHANNELS.ZOOM_SET, percent),
   },
-  toggleDevTools: () => invokeChannel<typeof toggleDevtoolsContract>(IPC_CHANNELS.TOGGLE_DEVTOOLS),
 
   // Storage
   storage: {

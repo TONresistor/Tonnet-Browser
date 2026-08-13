@@ -78,11 +78,6 @@ export function useKeyboardShortcuts(openOrSwitchToTab: (url: string) => void): 
       else if (e.key === 'Escape') {
         browserClient.stop()
       }
-      // F12: Toggle DevTools (Ctrl+Shift+I is handled in main process)
-      else if (e.key === 'F12') {
-        e.preventDefault()
-        browserClient.toggleDevTools()
-      }
     }
 
     window.addEventListener('keydown', handleKeyDown)
