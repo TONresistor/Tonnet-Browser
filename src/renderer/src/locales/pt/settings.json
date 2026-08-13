@@ -284,7 +284,9 @@
     "experimental": {
       "title": "Recursos experimentais",
       "unicodeDomains": "Domínios Unicode (IDN)",
-      "unicodeDomainsDesc": "Exibe domínios russos, com emojis e outros domínios internacionais em vez do Punycode xn--. O Punycode é exibido durante a edição."
+      "unicodeDomainsDesc": "Exibe domínios russos, com emojis e outros domínios internacionais em vez do Punycode xn--. O Punycode é exibido durante a edição.",
+      "tonConnect": "Carteira TON Connect integrada",
+      "tonConnectDesc": "Oferece o conector experimental do navegador aos sites .ton."
     },
     "resetAll": "Redefinir todas as configurações para padrões",
     "resetAllConfirm": "Clique novamente para confirmar"

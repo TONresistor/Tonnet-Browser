@@ -179,6 +179,15 @@ describe('isValidSettingsObject', () => {
       it('rejects a non-boolean Unicode-domain display preference', () => {
         expect(isValidSettingsObject({ advanced: { displayUnicodeDomains: 'true' } })).toBe(false)
       })
+
+      it('accepts a boolean experimental TON Connect preference', () => {
+        expect(isValidSettingsObject({ advanced: { tonConnectEnabled: true } })).toBe(true)
+        expect(isValidSettingsObject({ advanced: { tonConnectEnabled: false } })).toBe(true)
+      })
+
+      it('rejects a non-boolean experimental TON Connect preference', () => {
+        expect(isValidSettingsObject({ advanced: { tonConnectEnabled: 'true' } })).toBe(false)
+      })
     })
   })
 
@@ -201,6 +210,7 @@ describe('validateSettings', () => {
       expect(result.data.wallet.paymentMode).toBe('off')
       expect(result.data.messenger.networkEnabled).toBe(false)
       expect(result.data.advanced.displayUnicodeDomains).toBe(false)
+      expect(result.data.advanced.tonConnectEnabled).toBe(false)
     }
   })
 
@@ -340,6 +350,11 @@ describe('validateCategoryValues', () => {
       const result = validateCategoryValues('advanced', { displayUnicodeDomains: true })
       expect(result.valid).toBe(true)
     })
+
+    it('accepts the experimental TON Connect preference', () => {
+      const result = validateCategoryValues('advanced', { tonConnectEnabled: true })
+      expect(result.valid).toBe(true)
+    })
   })
 
   describe('invalid inputs', () => {
@@ -373,6 +388,11 @@ describe('validateCategoryValues', () => {
 
     it('rejects an invalid Unicode-domain display preference', () => {
       const result = validateCategoryValues('advanced', { displayUnicodeDomains: 'true' })
+      expect(result.valid).toBe(false)
+    })
+
+    it('rejects an invalid experimental TON Connect preference', () => {
+      const result = validateCategoryValues('advanced', { tonConnectEnabled: 'true' })
       expect(result.valid).toBe(false)
     })
   })

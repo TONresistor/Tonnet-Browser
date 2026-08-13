@@ -167,6 +167,7 @@ export function createServices(): ServiceRegistry {
     historyManager,
     contentFilterManager,
     walletManager,
+    tonConnectService,
     bridgePermissionStore,
     bridgeInterceptor,
     tabManager,

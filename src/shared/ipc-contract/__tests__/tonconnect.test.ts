@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  tonConnectAvailabilityContract,
   tonConnectDisconnectSessionContract,
   tonConnectEventContract,
   tonConnectRequestContract,
@@ -16,6 +17,11 @@ describe('TonConnect IPC contracts', () => {
     expect(tonConnectDisconnectSessionContract).toMatchObject({
       caller: 'main-renderer',
       authorization: 'main-window',
+    })
+    expect(tonConnectAvailabilityContract).toMatchObject({
+      caller: 'tonsite',
+      authorization: 'owning-tonsite-session',
+      rateLimit: { kind: 'none' },
     })
   })
 

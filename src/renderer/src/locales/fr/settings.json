@@ -306,6 +306,8 @@
       "messengerDesc": "Active le chat expérimental. ADNL, Overlay et DHT sont activés automatiquement sur le bridge.",
       "unicodeDomains": "Domaines Unicode (IDN)",
       "unicodeDomainsDesc": "Affiche les domaines russes, emoji et internationaux au lieu du Punycode xn--. Le Punycode réapparaît pendant la modification.",
+      "tonConnect": "Wallet TON Connect intégré",
+      "tonConnectDesc": "Propose le connecteur wallet expérimental du navigateur aux sites .ton.",
       "http402": "Paiements HTTP 402",
       "http402Desc": "Active les paiements x402 expérimentaux pour les sites .ton. Démarre en mode manuel.",
       "http402Behavior": "Comportement des paiements",

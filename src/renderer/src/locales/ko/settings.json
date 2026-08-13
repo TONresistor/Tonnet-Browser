@@ -284,7 +284,9 @@
     "experimental": {
       "title": "실험적 기능",
       "unicodeDomains": "유니코드 도메인(IDN)",
-      "unicodeDomainsDesc": "xn-- Punycode 대신 러시아어, 이모지 및 기타 국제 도메인을 표시합니다. 편집 중에는 Punycode가 표시됩니다."
+      "unicodeDomainsDesc": "xn-- Punycode 대신 러시아어, 이모지 및 기타 국제 도메인을 표시합니다. 편집 중에는 Punycode가 표시됩니다.",
+      "tonConnect": "내장 TON Connect 지갑",
+      "tonConnectDesc": "브라우저의 실험적 지갑 커넥터를 .ton 사이트에 제공합니다."
     },
     "resetAll": "모든 설정을 기본값으로 재설정",
     "resetAllConfirm": "확인하려면 다시 클릭하세요"

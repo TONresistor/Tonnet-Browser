@@ -284,7 +284,9 @@
     "experimental": {
       "title": "ฟีเจอร์ทดลอง",
       "unicodeDomains": "โดเมน Unicode (IDN)",
-      "unicodeDomainsDesc": "แสดงโดเมนภาษารัสเซีย อีโมจิ และโดเมนสากลอื่นๆ แทน Punycode xn-- โดยจะแสดง Punycode ขณะแก้ไข"
+      "unicodeDomainsDesc": "แสดงโดเมนภาษารัสเซีย อีโมจิ และโดเมนสากลอื่นๆ แทน Punycode xn-- โดยจะแสดง Punycode ขณะแก้ไข",
+      "tonConnect": "กระเป๋า TON Connect ในตัว",
+      "tonConnectDesc": "เสนอการเชื่อมต่อกระเป๋าทดลองของเบราว์เซอร์ให้เว็บไซต์ .ton"
     },
     "resetAll": "รีเซ็ตการตั้งค่าทั้งหมดเป็นค่าเริ่มต้น",
     "resetAllConfirm": "คลิกอีกครั้งเพื่อยืนยัน"

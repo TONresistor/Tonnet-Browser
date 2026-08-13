@@ -100,6 +100,7 @@ export const AdvancedSettingsSchema = z.object({
   proxyVerbosity: z.number().min(0).max(5).default(2),
   storageVerbosity: z.number().min(0).max(5).default(2),
   displayUnicodeDomains: z.boolean().default(false),
+  tonConnectEnabled: z.boolean().default(false),
 })
 
 // --- Wallet Zod schemas ---

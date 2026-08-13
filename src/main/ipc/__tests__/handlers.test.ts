@@ -21,6 +21,9 @@ const loggingMocks = vi.hoisted(() => ({
   flushNativeLogs: vi.fn(() => Promise.resolve()),
   clipboardWriteText: vi.fn(),
 }))
+const settingsMocks = vi.hoisted(() => ({
+  getSetting: vi.fn(),
+}))
 const { createTab, closeTab, switchTab, getActiveView, hideAllViews, showActiveView, navigateInTab, getActiveTabId } =
   tabsMocks
 
@@ -94,7 +97,7 @@ vi.mock('../../storage/daemon', () => ({
 vi.mock('../../settings', () => ({
   SettingsRuntimeApplyError: class SettingsRuntimeApplyError extends Error {},
   loadSettings: vi.fn(() => ({ general: {}, network: {}, storage: {} })),
-  getSetting: vi.fn(() => ({})),
+  getSetting: settingsMocks.getSetting,
   setSetting: vi.fn(),
   resetSettings: vi.fn(),
   getDownloadPath: vi.fn(() => '/mock/downloads'),
@@ -416,6 +419,7 @@ function createMockRegistry(): ServiceRegistry {
       updateWalletSidebarWidth: vi.fn(),
       onAppearanceSettingsChanged: vi.fn(),
       updateProxyPort: vi.fn(() => Promise.resolve()),
+      resolveSenderIdentity: vi.fn(() => null),
       initialize: vi.fn(),
       dispose: vi.fn(),
     } as any,
@@ -467,6 +471,9 @@ function resetHandlersTestEnv(): void {
     getBounds: vi.fn(() => ({ x: 0, y: 0, width: 1024, height: 768 })),
     setTitle: vi.fn(),
   }
+  settingsMocks.getSetting.mockImplementation((category: string) =>
+    category === 'advanced' ? { tonConnectEnabled: false } : {}
+  )
   mockRegistry = createMockRegistry()
   registerIpcHandlers(mockRegistry)
 }
@@ -492,6 +499,49 @@ describe('IPC Handlers', () => {
     expect(mockProxyManager.listenerCount('status')).toBe(1)
     expect(mockStorageManager.listenerCount('bags-updated')).toBe(1)
     replacement.ipcRegistrations.dispose()
+  })
+
+  describe('TON Connect experimental gate', () => {
+    const tonsiteEvent = { sender: { id: 42 } } as any
+
+    beforeEach(() => {
+      vi.mocked(mockRegistry.tabManager.resolveSenderIdentity).mockReturnValue('webdom.ton')
+    })
+
+    it('reports the feature as disabled by default and blocks connect requests', async () => {
+      const availability = mockHandlers.get(IPC_CHANNELS.TONCONNECT_AVAILABILITY)!
+      const request = mockHandlers.get(IPC_CHANNELS.TONCONNECT_REQUEST)!
+
+      await expect(availability(tonsiteEvent)).resolves.toEqual({ enabled: false })
+      await expect(
+        request(tonsiteEvent, {
+          method: 'connect',
+          protocolVersion: 2,
+          request: { manifestUrl: 'https://webdom.ton/tonconnect-manifest.json', items: [{ name: 'ton_addr' }] },
+        })
+      ).resolves.toMatchObject({ event: 'connect_error', payload: { message: 'Experimental feature disabled' } })
+      expect(mockRegistry.tonConnectService.handleRequest).not.toHaveBeenCalled()
+    })
+
+    it('forwards requests when the experimental feature is enabled', async () => {
+      settingsMocks.getSetting.mockImplementation((category: string) =>
+        category === 'advanced' ? { tonConnectEnabled: true } : {}
+      )
+      vi.mocked(mockRegistry.tonConnectService.handleRequest).mockResolvedValueOnce({
+        event: 'connect_error',
+        id: 0,
+        payload: { code: 0, message: 'No wallet available' },
+      })
+      const request = mockHandlers.get(IPC_CHANNELS.TONCONNECT_REQUEST)!
+
+      await request(tonsiteEvent, {
+        method: 'connect',
+        protocolVersion: 2,
+        request: { manifestUrl: 'https://webdom.ton/tonconnect-manifest.json', items: [{ name: 'ton_addr' }] },
+      })
+
+      expect(mockRegistry.tonConnectService.handleRequest).toHaveBeenCalledOnce()
+    })
   })
 
   describe('Proxy Handlers', () => {

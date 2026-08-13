@@ -284,7 +284,9 @@
     "experimental": {
       "title": "Экспериментальные функции",
       "unicodeDomains": "Unicode-домены (IDN)",
-      "unicodeDomainsDesc": "Показывать русские, emoji и другие международные домены вместо Punycode xn--. При редактировании отображается Punycode."
+      "unicodeDomainsDesc": "Показывать русские, emoji и другие международные домены вместо Punycode xn--. При редактировании отображается Punycode.",
+      "tonConnect": "Встроенный кошелёк TON Connect",
+      "tonConnectDesc": "Предлагать экспериментальный коннектор кошелька браузера сайтам .ton."
     },
     "resetAll": "Сбросить все настройки на значения по умолчанию",
     "resetAllConfirm": "Нажмите ещё раз для подтверждения"

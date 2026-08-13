@@ -105,6 +105,18 @@ export const tonConnectRequestContract = defineRequest({
   redaction: 'secret',
 })
 
+export const tonConnectAvailabilityContract = defineRequest({
+  channel: TONCONNECT_CHANNELS.availability,
+  direction: 'request',
+  caller: 'tonsite',
+  authorization: 'owning-tonsite-session',
+  rateLimit: { kind: 'none' },
+  input: z.tuple([]),
+  output: z.object({ enabled: z.boolean() }),
+  errors: ['TONCONNECT_AVAILABILITY_FAILED'],
+  redaction: 'public',
+})
+
 export const tonConnectGetSessionsContract = defineRequest({
   channel: TONCONNECT_CHANNELS.getSessions,
   direction: 'request',

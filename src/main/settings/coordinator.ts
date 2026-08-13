@@ -6,6 +6,7 @@ import type { StorageManager } from '../storage/daemon'
 import type { HistoryManager } from '../history/manager'
 import type { ContentFilterManager } from '../content-filter/filter-manager'
 import type { WalletManager } from '../wallet/manager'
+import type { TonConnectService } from '../tonconnect/service'
 import type { BridgePermissionStore } from '../bridge/permission-store'
 import type { BridgePermissionInterceptor } from '../bridge/permission-interceptor'
 import type { TabManager } from '../windows/tabs'
@@ -18,6 +19,7 @@ export interface SettingsRuntimeDependencies {
   historyManager: HistoryManager
   contentFilterManager: ContentFilterManager
   walletManager: WalletManager
+  tonConnectService: TonConnectService
   bridgePermissionStore: BridgePermissionStore
   bridgeInterceptor: BridgePermissionInterceptor
   tabManager: TabManager
@@ -147,6 +149,9 @@ export class SettingsCoordinator {
       await this.dependencies.historyManager.applySettings(current.privacy)
     }
     if (force) this.dependencies.bridgePermissionStore.clearSessionGrants()
+    if (previous.advanced.tonConnectEnabled && !current.advanced.tonConnectEnabled) {
+      await this.dependencies.tonConnectService.clearSessions()
+    }
   }
 
   private guardChat(

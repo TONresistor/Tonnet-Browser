@@ -284,7 +284,9 @@
     "experimental": {
       "title": "实验性功能",
       "unicodeDomains": "Unicode 域名（IDN）",
-      "unicodeDomainsDesc": "显示俄语、表情符号和其他国际化域名，而不是 xn-- Punycode。编辑时会显示 Punycode。"
+      "unicodeDomainsDesc": "显示俄语、表情符号和其他国际化域名，而不是 xn-- Punycode。编辑时会显示 Punycode。",
+      "tonConnect": "内置 TON Connect 钱包",
+      "tonConnectDesc": "向 .ton 网站提供浏览器的实验性钱包连接器。"
     },
     "resetAll": "将所有设置重置为默认值",
     "resetAllConfirm": "再次点击确认"

@@ -71,6 +71,7 @@ export const DEFAULT_SETTINGS = {
   proxyVerbosity: 2,
   storageVerbosity: 2,
   displayUnicodeDomains: false,
+  tonConnectEnabled: false,
 
   // Wallet
   wallet: {

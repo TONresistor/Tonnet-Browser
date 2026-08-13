@@ -437,6 +437,7 @@ app.whenReady().then(async () => {
     () => services.proxyManager.isRunning()
   )
   await services.tonConnectService.init()
+  if (!getSetting('advanced').tonConnectEnabled) await services.tonConnectService.clearSessions()
 
   // Defer wallet + bridge interceptor init until WS bridge is ready (proxy must be running first)
   services.proxyManager.once('ws-bridge-ready', () => {

@@ -25,6 +25,7 @@ export const WALLET_CONTRACT_CHANNELS = {
 } as const
 export const TONCONNECT_CHANNELS = {
   request: 'tonconnect:request',
+  availability: 'tonconnect:availability',
   event: 'tonconnect:event',
   getSessions: 'tonconnect:get-sessions',
   disconnectSession: 'tonconnect:disconnect-session',

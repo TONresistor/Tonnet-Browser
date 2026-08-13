@@ -1,5 +1,6 @@
 import { BOOKMARKS_IPC_CONTRACTS } from './bookmarks'
 import {
+  tonConnectAvailabilityContract,
   tonConnectDisconnectSessionContract,
   tonConnectEventContract,
   tonConnectGetSessionsContract,
@@ -21,6 +22,7 @@ import { UPDATER_REQUEST_CONTRACTS } from './updater'
 export const IPC_REQUEST_CONTRACTS = [
   ...BOOKMARKS_IPC_CONTRACTS,
   ...WALLET_REQUEST_CONTRACTS,
+  tonConnectAvailabilityContract,
   tonConnectRequestContract,
   tonConnectGetSessionsContract,
   tonConnectDisconnectSessionContract,
