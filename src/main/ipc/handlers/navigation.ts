@@ -1,5 +1,5 @@
 /**
- * IPC handlers for page navigation, zoom, and devtools.
+ * IPC handlers for page navigation and zoom.
  */
 
 import { errorMessage } from '../../../shared/errors'
@@ -13,7 +13,6 @@ import {
   navigateContract,
   reloadContract,
   stopContract,
-  toggleDevtoolsContract,
   zoomGetContract,
   zoomSetContract,
 } from '../../../shared/ipc-contract/browsing'
@@ -137,18 +136,5 @@ export function registerNavigationHandlers(tabManager: TabManager): void {
   secureContractHandle(zoomSetContract, (percent) => {
     const zoom = tabManager.pageZoom.set(percent)
     return { success: zoom !== null, zoom }
-  })
-
-  secureContractHandle(toggleDevtoolsContract, () => {
-    const view = tabManager.getActiveView()
-    if (view) {
-      if (view.webContents.isDevToolsOpened()) {
-        view.webContents.closeDevTools()
-      } else {
-        view.webContents.openDevTools({ mode: 'detach' })
-      }
-      return { success: true }
-    }
-    return { success: false }
   })
 }

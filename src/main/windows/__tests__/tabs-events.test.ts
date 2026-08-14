@@ -30,16 +30,24 @@ function createHarness() {
     getTitle: vi.fn(() => 'Whitepaper'),
     getURL: vi.fn(() => 'http://whitepaper.ton'),
     isDestroyed: vi.fn(() => false),
+    isDevToolsOpened: vi.fn(() => false),
+    openDevTools: vi.fn(),
+    inspectElement: vi.fn(),
   })
   const historyManager = { addEntry: vi.fn() }
-  const listeners = setupViewEventListeners({ webContents } as never, 'tab-1', {
-    historyManager: historyManager as never,
-    overlayManager: {} as never,
-    storage: {} as never,
-    cancelNavigation: vi.fn(),
-    handleZoomInput: vi.fn(),
-  })
-  return { historyManager, listeners, webContents }
+  const overlayManager = { show: vi.fn(), hide: vi.fn() }
+  const listeners = setupViewEventListeners(
+    { webContents, getBounds: () => ({ x: 0, y: 80, width: 1200, height: 800 }) } as never,
+    'tab-1',
+    {
+      historyManager: historyManager as never,
+      overlayManager: overlayManager as never,
+      storage: {} as never,
+      cancelNavigation: vi.fn(),
+      handleZoomInput: vi.fn(() => false),
+    }
+  )
+  return { historyManager, listeners, overlayManager, webContents }
 }
 
 describe('tab navigation events', () => {
@@ -79,6 +87,42 @@ describe('tab navigation events', () => {
 
     expect(mocks.emitContractToRenderer).toHaveBeenCalledOnce()
     expect(historyManager.addEntry).toHaveBeenCalledWith('http://whitepaper.ton', 'Whitepaper')
+
+    listeners.dispose()
+  })
+})
+
+describe('DevTools access from a focused page', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('handles the shortcut the main window no longer sees, and nothing else', () => {
+    const { listeners, webContents } = createHarness()
+    const shortcut = { preventDefault: vi.fn() }
+    const typing = { preventDefault: vi.fn() }
+    const input = { type: 'keyDown', key: 'i', code: 'KeyI', control: true, shift: true, alt: false, meta: false }
+
+    webContents.emit('before-input-event', shortcut, input)
+    webContents.emit('before-input-event', typing, { ...input, control: false, shift: false })
+
+    expect(shortcut.preventDefault).toHaveBeenCalled()
+    expect(webContents.openDevTools).toHaveBeenCalledExactlyOnceWith({ mode: 'detach' })
+    expect(typing.preventDefault).not.toHaveBeenCalled()
+
+    listeners.dispose()
+  })
+
+  it('inspects the element the context menu was opened on', () => {
+    const { listeners, overlayManager, webContents } = createHarness()
+
+    webContents.emit('context-menu', {}, { x: 120, y: 240, editFlags: {} })
+    const [, , content, onAction] = overlayManager.show.mock.calls[0]
+    const inspect = content.items.find((item: { id: string }) => item.id === 'inspect')
+    onAction('inspect', inspect.data)
+    webContents.emit('devtools-opened')
+
+    expect(webContents.inspectElement).toHaveBeenCalledWith(120, 240)
 
     listeners.dispose()
   })

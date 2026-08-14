@@ -67,7 +67,6 @@ export const zoomSetContract = defineRequest({
   output: ZoomResultSchema,
   errors: ['BROWSING_COMMAND_FAILED'],
 })
-export const toggleDevtoolsContract = command(BROWSING_CHANNELS.toggleDevtools)
 export const pageLoadingContract = defineEvent({
   channel: BROWSING_CHANNELS.pageLoading,
   direction: 'event',
@@ -133,7 +132,6 @@ export const BROWSING_REQUEST_CONTRACTS = [
   stopContract,
   zoomGetContract,
   zoomSetContract,
-  toggleDevtoolsContract,
 ] as const
 export const BROWSING_EVENT_CONTRACTS = [
   pageLoadingContract,

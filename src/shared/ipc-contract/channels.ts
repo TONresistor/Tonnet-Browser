@@ -75,7 +75,6 @@ export const BROWSING_CHANNELS = {
   stop: 'stop',
   zoomGet: 'zoom:get',
   zoomSet: 'zoom:set',
-  toggleDevtools: 'devtools:toggle',
   pageLoading: 'page:loading',
   pageNavigate: 'page:navigate',
   pageTitle: 'page:title',
