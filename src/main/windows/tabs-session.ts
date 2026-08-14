@@ -87,7 +87,12 @@ export class TabSessionManager {
       return existing
     }
 
-    const session = await createTonSession(this.deps, proxyPort, partitionForIdentity(domain))
+    const session = await createTonSession(
+      this.deps,
+      proxyPort,
+      partitionForIdentity(domain),
+      domain.startsWith('bag:') ? null : domain.toLowerCase()
+    )
     this.domainSessions.set(domain, session)
     this.updateDomainActivity(domain)
     log.debug(`Created isolated session for domain: ${domain}`)

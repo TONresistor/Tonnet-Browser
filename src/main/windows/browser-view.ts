@@ -36,8 +36,30 @@ function installPermissionHandlers(ses: Electron.Session): void {
   ses.setDevicePermissionHandler(() => false)
 }
 
+/**
+ * Host of the top-level document a request belongs to, used to tell the site's
+ * own resources apart from third-party ones. Falls back to the session's domain
+ * when the frame is gone (destroyed or cross-process teardown).
+ */
+function resolveFirstPartyHost(details: Electron.OnBeforeRequestListenerDetails, sessionHost: string | null) {
+  try {
+    const topUrl = details.frame?.top?.url
+    if (topUrl) {
+      const host = new URL(topUrl).hostname
+      if (host) return host.toLowerCase()
+    }
+  } catch {
+    // Frame already destroyed — fall back to the session domain below.
+  }
+  return sessionHost
+}
+
 /** Cancel loopback (SSRF) and content-filtered requests. */
-function installRequestFilter(ses: Electron.Session, contentFilterManager: ContentFilterManager): void {
+function installRequestFilter(
+  ses: Electron.Session,
+  contentFilterManager: ContentFilterManager,
+  sessionHost: string | null
+): void {
   ses.webRequest.onBeforeRequest((details, callback) => {
     const { url, resourceType } = details
 
@@ -54,7 +76,7 @@ function installRequestFilter(ses: Electron.Session, contentFilterManager: Conte
     }
 
     // Check if request should be blocked by content filter
-    if (contentFilterManager.isBlocked(url, resourceType)) {
+    if (contentFilterManager.isBlocked(url, resourceType, resolveFirstPartyHost(details, sessionHost))) {
       callback({ cancel: true })
       return
     }
@@ -119,7 +141,8 @@ function installResponseSecurity(ses: Electron.Session): void {
 export async function createTonSession(
   deps: SessionDeps,
   proxyPort: number,
-  partitionName: string = SESSION_PARTITION
+  partitionName: string = SESSION_PARTITION,
+  sessionHost: string | null = null
 ) {
   const { contentFilterManager, paymentInterceptor } = deps
 
@@ -130,7 +153,7 @@ export async function createTonSession(
   ses.setUserAgent(USER_AGENT)
   // Sync content filter settings from user preferences before the request filter runs
   contentFilterManager.applySettings(getSetting('contentFiltering'))
-  installRequestFilter(ses, contentFilterManager)
+  installRequestFilter(ses, contentFilterManager, sessionHost)
   installHeaderPrivacy(ses, paymentInterceptor)
   // Register 402 payment interceptor on this session
   paymentInterceptor.registerOnSession(ses)
