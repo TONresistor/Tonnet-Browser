@@ -16,6 +16,10 @@ Blocks ads, trackers, cryptominers, and malicious content on .ton sites.
 ```
 HTTP Request → onBeforeRequest → ContentFilterManager.isBlocked()
                                           ↓
+                                    [Whitelist check]
+                                          ↓
+                                 [First-party check] ──→ skip ads/trackers/annoyances
+                                          ↓
                                     [Check patterns]
                                           ↓
                                     Block or Allow
@@ -47,6 +51,24 @@ HTTP Request → onBeforeRequest → ContentFilterManager.isBlocked()
 - Intrusive overlays: `/modal/`, `/overlay/`, `/interstitial/`
 - Push notifications: `/notification/`, `/push-notify/`
 
+## First-party requests
+
+The patterns above are generic path heuristics written for third-party URLs, so they
+also fire on a site's own routes: `/api/analytics/...`, `/api/stats/...` and
+`/api/v1/track/...` are ordinary API paths, and cancelling them leaves a page loading
+its shell and then sitting empty with no visible error.
+
+So `isBlocked` takes the host of the top-level document, and skips the
+**third-party-only** categories — `ads`, `trackers`, `annoyances` — when the request
+is same-site.
+
+- **Miners and malware stay enforced first-party.** A compromised tonsite serving a
+  miner from its own origin is exactly the case worth blocking.
+- Subdomains count as same-site in both directions (`api.site.ton` ↔ `site.ton`), but
+  shared registry suffixes (`ton`, `t.me`, … — taken from `SUPPORTED_TLDS`) are
+  excluded from the parent match, or every tonsite would be first-party to every other.
+- Omitting the argument, or passing `null`, blocks exactly as before.
+
 ## Usage
 
 ```typescript
@@ -56,8 +78,8 @@ const { contentFilterManager } = registry
 // Sync configuration from user settings (enabled state, whitelist, category toggles)
 contentFilterManager.applySettings(getSetting('contentFiltering'))
 
-// Check if a URL should be blocked
-const blocked = contentFilterManager.isBlocked('http://site.ton/ads/banner.jpg', 'image')
+// Third argument is the top-level document's host; without it every rule applies.
+const blocked = contentFilterManager.isBlocked('http://site.ton/ads/banner.jpg', 'image', 'site.ton')
 ```
 
 ## Integration
@@ -65,14 +87,19 @@ const blocked = contentFilterManager.isBlocked('http://site.ton/ads/banner.jpg',
 The filter is integrated into `browser-view.ts` via `session.webRequest.onBeforeRequest`:
 
 ```typescript
-ses.webRequest.onBeforeRequest({ urls: ['http://*/*'] }, (details, callback) => {
-  if (contentFilterManager.isBlocked(details.url, details.resourceType)) {
+ses.webRequest.onBeforeRequest((details, callback) => {
+  if (contentFilterManager.isBlocked(details.url, details.resourceType, resolveFirstPartyHost(details, sessionHost))) {
     callback({ cancel: true }) // Block request
     return
   }
   callback({}) // Allow request
 })
 ```
+
+`resolveFirstPartyHost` reads `details.frame?.top?.url`, falling back to the isolated
+session's own domain when the frame is already gone (destroyed, or cross-process
+teardown). Sessions are created per domain in `tabs-session.ts`, which is where that
+fallback host comes from; bag sessions pass `null`, having no domain of their own.
 
 ## Testing
 
