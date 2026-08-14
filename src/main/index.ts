@@ -10,7 +10,7 @@ import { chmodSync, existsSync, mkdirSync, renameSync, rmSync } from 'fs'
 import { migrateUserData } from './utils/migrate-userdata'
 import { EventEmitter } from 'events'
 import { pathToFileURL } from 'url'
-import { electronApp, optimizer, is } from '@electron-toolkit/utils'
+import { electronApp, is } from '@electron-toolkit/utils'
 import { registerIpcHandlers } from './ipc/handlers'
 import { emitContractToRenderer } from './events/renderer-events'
 import { setMainWindow } from './windows/main'
@@ -31,7 +31,7 @@ import { runCleanup, isCleanupInProgress } from './app-cleanup'
 import { reapStaleDaemons, installDaemonSignalHandlers, killAllDaemonsSync } from './daemon-registry'
 import { configureNativeLogging } from './logging/native-log-router'
 import { attachWindowScope } from './windows/window-scope'
-import { isDevToolsShortcut, toggleDevTools } from './windows/devtools'
+import { isDevToolsShortcut, isBlockedChromeShortcut, toggleDevTools } from './windows/devtools'
 import { ProxyAutoConnector } from './proxy/auto-connect'
 import type { IDisposable } from './utils/disposable'
 import { reconcileHistoryModeAtStartup } from './history/startup'
@@ -390,20 +390,25 @@ app.whenReady().then(async () => {
   electronApp.setAppUserModelId('com.tonbrowser.app')
 
   app.on('browser-window-created', (_, window) => {
-    optimizer.watchWindowShortcuts(window)
-
-    // DevTools open for the active tab, or for the window itself when a system
-    // page is showing. Tab views handle the same shortcut (see tabs-events.ts).
+    // Deliberately not optimizer.watchWindowShortcuts: in dev it toggles the
+    // window's own DevTools on F12, and this handler toggles the same
+    // webContents whenever no tab view is active, so the two cancel out and F12
+    // does nothing on system pages. isBlockedChromeShortcut carries its
+    // remaining guards.
     window.webContents.on('before-input-event', (event, input) => {
       if (services?.tabManager.pageZoom.handleInput(input)) {
         event.preventDefault()
         return
       }
+      // DevTools open for the active tab, or for the window itself when a system
+      // page is showing. Tab views handle the same shortcut (see tabs-events.ts).
       if (isDevToolsShortcut(input)) {
         event.preventDefault()
         const view = services?.tabManager.getActiveView()
         toggleDevTools(view ? view.webContents : window.webContents)
+        return
       }
+      if (isBlockedChromeShortcut(input, is.dev)) event.preventDefault()
     })
   })
 

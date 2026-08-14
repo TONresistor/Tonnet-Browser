@@ -1,6 +1,6 @@
 import { EventEmitter } from 'node:events'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { inspectElementAt, isDevToolsShortcut, toggleDevTools } from '../devtools'
+import { inspectElementAt, isBlockedChromeShortcut, isDevToolsShortcut, toggleDevTools } from '../devtools'
 
 const originalPlatform = process.platform
 
@@ -100,5 +100,44 @@ describe('opening DevTools', () => {
 
     contents.emit('devtools-opened')
     expect(contents.inspectElement).toHaveBeenCalledWith(12, 34)
+  })
+})
+
+describe('Chrome shortcut guards (replacing optimizer.watchWindowShortcuts)', () => {
+  it('never claims the DevTools shortcut, so the two handlers cannot cancel out', () => {
+    // The regression this guards: the toolkit toggled the window's DevTools on
+    // F12 in dev while the window handler toggled the same webContents on a
+    // system page, so F12 opened and closed them in one press and appeared dead.
+    for (const isDev of [true, false]) {
+      expect(isBlockedChromeShortcut(keyDown({ key: 'F12', code: 'F12' }), isDev)).toBe(false)
+      expect(isBlockedChromeShortcut(keyDown({ control: true, shift: true }), isDev)).toBe(false)
+      expect(isBlockedChromeShortcut(keyDown({ meta: true, alt: true }), isDev)).toBe(false)
+    }
+  })
+
+  it('blocks chrome reload in production but leaves it for dev HMR recovery', () => {
+    const reload = keyDown({ key: 'r', code: 'KeyR', control: true })
+    expect(isBlockedChromeShortcut(reload, false)).toBe(true)
+    expect(isBlockedChromeShortcut(reload, true)).toBe(false)
+    expect(isBlockedChromeShortcut(keyDown({ key: 'r', code: 'KeyR', meta: true }), false)).toBe(true)
+  })
+
+  it('blocks chrome zoom on both platforms and in both modes', () => {
+    for (const isDev of [true, false]) {
+      expect(isBlockedChromeShortcut(keyDown({ key: '-', code: 'Minus', control: true }), isDev)).toBe(true)
+      expect(isBlockedChromeShortcut(keyDown({ key: '-', code: 'Minus', meta: true }), isDev)).toBe(true)
+      expect(isBlockedChromeShortcut(keyDown({ key: '+', code: 'Equal', control: true, shift: true }), isDev)).toBe(
+        true
+      )
+    }
+  })
+
+  it('ignores unmodified keys, plain Equal, and keyUp', () => {
+    expect(isBlockedChromeShortcut(keyDown({ key: 'r', code: 'KeyR' }), false)).toBe(false)
+    expect(isBlockedChromeShortcut(keyDown({ key: '-', code: 'Minus' }), false)).toBe(false)
+    expect(isBlockedChromeShortcut(keyDown({ key: '=', code: 'Equal', control: true }), false)).toBe(false)
+    expect(
+      isBlockedChromeShortcut({ ...keyDown({ key: 'r', code: 'KeyR', control: true }), type: 'keyUp' }, false)
+    ).toBe(false)
   })
 })

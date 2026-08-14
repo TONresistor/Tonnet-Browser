@@ -29,6 +29,28 @@ export function toggleDevTools(contents: WebContents): void {
   }
 }
 
+/**
+ * Chrome-level keystrokes the window must swallow.
+ *
+ * These came from `optimizer.watchWindowShortcuts` (@electron-toolkit/utils), which
+ * this app no longer installs: in dev that helper also toggles the *window's*
+ * DevTools on F12, which cancels out `toggleDevTools` above whenever a system page
+ * is showing, because both then target the same webContents. It offers no way to
+ * give up F12 and does not check `event.defaultPrevented`, so its remaining guards
+ * are reproduced here instead.
+ *
+ * Reload is blocked in production only: dev needs Ctrl+R to recover from a stale HMR
+ * state, and reloading the chrome there is harmless.
+ */
+export function isBlockedChromeShortcut(input: Electron.Input, isDev: boolean): boolean {
+  if (input.type !== 'keyDown') return false
+  const mod = input.control || input.meta
+  if (!mod) return false
+  if (!isDev && input.code === 'KeyR') return true
+  if (input.code === 'Minus') return true
+  return input.code === 'Equal' && input.shift
+}
+
 /** Open DevTools (detached) on the element at page coordinates (x, y). */
 export function inspectElementAt(contents: WebContents, x: number, y: number): void {
   if (contents.isDevToolsOpened()) {
