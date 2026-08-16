@@ -24,7 +24,7 @@ export function SettingsSidebar({ activeSection, onSectionChange }: SettingsSide
   const navRef = useRef<HTMLDivElement>(null)
 
   const getSectionLabel = (section: SectionInfo): string => {
-    // kebab-case id -> camelCase i18n key (e.g. 'content-filtering' -> 'contentFiltering')
+    // kebab-case id -> camelCase i18n key
     const key = section.id.replace(/-([a-z])/g, (g) => g[1].toUpperCase())
     return t(`sections.${key}`, { defaultValue: section.label })
   }

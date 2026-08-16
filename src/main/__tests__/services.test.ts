@@ -139,7 +139,6 @@ vi.mock('../settings', () => ({
       privacy: { historyMode: 'memory' },
       wallet: { paymentMode: 'manual' },
       bridge: { permissions: [] },
-      contentFiltering: { enabled: false },
     }
     return defaults[key] ?? {}
   }),

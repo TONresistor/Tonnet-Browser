@@ -173,7 +173,6 @@ function getTabDeps() {
     proxyManager: services.proxyManager,
     storageManager: services.storageManager,
     historyManager: services.historyManager,
-    contentFilterManager: services.contentFilterManager,
     paymentInterceptor: services.paymentInterceptor,
   }
 }

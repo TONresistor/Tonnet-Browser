@@ -86,16 +86,6 @@ export const PrivacySettingsSchema = z.object({
   historyMaxEntries: z.number().min(100).max(100000).default(100),
 })
 
-export const ContentFilteringSettingsSchema = z.object({
-  enabled: z.boolean().default(true),
-  blockAds: z.boolean().default(true),
-  blockTrackers: z.boolean().default(true),
-  blockMiners: z.boolean().default(true),
-  blockMalware: z.boolean().default(true),
-  blockAnnoyances: z.boolean().default(true),
-  whitelistedDomains: z.array(z.string()).default([]),
-})
-
 export const AdvancedSettingsSchema = z.object({
   proxyVerbosity: z.number().min(0).max(5).default(2),
   storageVerbosity: z.number().min(0).max(5).default(2),
@@ -227,7 +217,6 @@ export const AppSettingsSchema = z
     storage: withCategoryDefaults(StorageSettingsSchema),
     appearance: withCategoryDefaults(AppearanceSettingsSchema),
     privacy: withCategoryDefaults(PrivacySettingsSchema),
-    contentFiltering: withCategoryDefaults(ContentFilteringSettingsSchema),
     advanced: withCategoryDefaults(AdvancedSettingsSchema),
     wallet: withCategoryDefaults(WalletSettingsSchema),
     bridge: withCategoryDefaults(BridgeSettingsSchema),
@@ -271,8 +260,6 @@ export const AppearanceSettingsPartialSchema = partialUpdateSchema(AppearanceSet
 
 export const PrivacySettingsPartialSchema = partialUpdateSchema(PrivacySettingsSchema)
 
-export const ContentFilteringSettingsPartialSchema = partialUpdateSchema(ContentFilteringSettingsSchema)
-
 export const AdvancedSettingsPartialSchema = partialUpdateSchema(AdvancedSettingsSchema)
 
 // Derived TypeScript types from Zod schemas
@@ -283,7 +270,6 @@ export type NetworkSettings = z.infer<typeof NetworkSettingsSchema>
 export type StorageSettings = z.infer<typeof StorageSettingsSchema>
 export type AppearanceSettings = z.infer<typeof AppearanceSettingsSchema>
 export type PrivacySettings = z.infer<typeof PrivacySettingsSchema>
-export type ContentFilteringSettings = z.infer<typeof ContentFilteringSettingsSchema>
 export type AdvancedSettings = z.infer<typeof AdvancedSettingsSchema>
 export type AppSettings = z.infer<typeof AppSettingsSchema>
 

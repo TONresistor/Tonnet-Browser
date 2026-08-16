@@ -115,15 +115,6 @@ vi.mock('../../windows/tabs', () => ({
   fileBrowserCache: new Map(),
 }))
 
-// Mock content filter manager
-vi.mock('../../content-filter/filter-manager', () => ({
-  contentFilterManager: {
-    setEnabled: vi.fn(),
-    setWhitelist: vi.fn(),
-    setCategoryEnabled: vi.fn(),
-  },
-}))
-
 // Mock history manager
 vi.mock('../../history/manager', () => ({
   historyManager: {
@@ -355,12 +346,6 @@ function createMockRegistry(): ServiceRegistry {
       clear: vi.fn(),
       getStats: vi.fn(() => ({ total: 0, mode: 'memory', isLocked: false })),
       hasPersistentFile: vi.fn(() => false),
-    } as any,
-    contentFilterManager: {
-      setEnabled: vi.fn(),
-      setWhitelist: vi.fn(),
-      setCategoryEnabled: vi.fn(),
-      applySettings: vi.fn(),
     } as any,
     cocoonManager: (() => {
       const emitter = new EventEmitter()

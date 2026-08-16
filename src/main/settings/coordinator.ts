@@ -4,7 +4,6 @@ import { emitContractToRenderer } from '../events/renderer-events'
 import type { ProxyManager } from '../proxy/manager'
 import type { StorageManager } from '../storage/daemon'
 import type { HistoryManager } from '../history/manager'
-import type { ContentFilterManager } from '../content-filter/filter-manager'
 import type { WalletManager } from '../wallet/manager'
 import type { TonConnectService } from '../tonconnect/service'
 import type { BridgePermissionStore } from '../bridge/permission-store'
@@ -17,7 +16,6 @@ export interface SettingsRuntimeDependencies {
   proxyManager: ProxyManager
   storageManager: StorageManager
   historyManager: HistoryManager
-  contentFilterManager: ContentFilterManager
   walletManager: WalletManager
   tonConnectService: TonConnectService
   bridgePermissionStore: BridgePermissionStore
@@ -126,9 +124,6 @@ export class SettingsCoordinator {
         walletManager.applyBridgePort(current.network.wsPort),
         bridgeInterceptor.applyBridgePort(current.network.wsPort),
       ])
-    }
-    if (force || categoryChanged(previous, current, 'contentFiltering')) {
-      this.dependencies.contentFilterManager.applySettings(current.contentFiltering)
     }
     if (force || categoryChanged(previous, current, 'wallet')) {
       walletManager.setAutoLockMinutes(current.wallet.autoLockMinutes)

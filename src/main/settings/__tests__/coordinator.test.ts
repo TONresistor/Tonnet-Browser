@@ -39,7 +39,6 @@ function createDependencies() {
       isActive: vi.fn(() => true),
     },
     historyManager: { applySettings: vi.fn(() => Promise.resolve()) },
-    contentFilterManager: { applySettings: vi.fn() },
     walletManager: { setAutoLockMinutes: vi.fn(), applyBridgePort: vi.fn(() => Promise.resolve()) },
     tonConnectService: { clearSessions: vi.fn(() => Promise.resolve()) },
     bridgePermissionStore: { clearSessionGrants: vi.fn() },

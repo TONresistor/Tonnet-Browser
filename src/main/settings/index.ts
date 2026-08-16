@@ -17,7 +17,6 @@ import type {
   PrivacySettings,
   AdvancedSettings,
   AppSettings,
-  ContentFilteringSettings,
 } from '../../shared/types'
 import { AppSettingsSchema, NetworkSettingsSchema } from '../../shared/types'
 import { hasExplicitUndefined } from '../../shared/schemas'
@@ -35,7 +34,6 @@ export type {
   PrivacySettings,
   AdvancedSettings,
   AppSettings,
-  ContentFilteringSettings,
   ThemeType,
 }
 

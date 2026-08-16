@@ -18,7 +18,6 @@ import { BridgePermissionStore } from './bridge/permission-store'
 import { TonConnectService } from './tonconnect/service'
 import { TonConnectSessionStore } from './tonconnect/session-store'
 import { HistoryManager } from './history/manager'
-import { ContentFilterManager } from './content-filter/filter-manager'
 import { CocoonManager } from './cocoon/manager'
 import { WithdrawDriver } from './cocoon/withdraw-driver'
 import { RecoveryDriver } from './cocoon/recovery-driver'
@@ -62,7 +61,6 @@ export interface ServiceRegistry {
   tonConnectService: TonConnectService
   tonConnectSessionStore: TonConnectSessionStore
   historyManager: HistoryManager
-  contentFilterManager: ContentFilterManager
   cocoonManager: CocoonManager
   withdrawDriver: WithdrawDriver
   recoveryDriver: RecoveryDriver
@@ -90,7 +88,6 @@ export function createServices(): ServiceRegistry {
     stakeCache: new StakeCacheStore(),
   }
   const historyManager = new HistoryManager()
-  const contentFilterManager = new ContentFilterManager()
   const bridgePermissionStore = new BridgePermissionStore()
   const walletHistoryManager = new WalletHistoryManager()
   const paymentPolicyStore = new PaymentPolicyStore()
@@ -165,7 +162,6 @@ export function createServices(): ServiceRegistry {
     proxyManager,
     storageManager,
     historyManager,
-    contentFilterManager,
     walletManager,
     tonConnectService,
     bridgePermissionStore,
@@ -190,7 +186,6 @@ export function createServices(): ServiceRegistry {
     tonConnectService,
     tonConnectSessionStore,
     historyManager,
-    contentFilterManager,
     cocoonManager,
     withdrawDriver,
     recoveryDriver,

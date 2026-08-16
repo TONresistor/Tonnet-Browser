@@ -7,15 +7,15 @@ import { WebContentsView, session } from 'electron'
 import { join } from 'path'
 import { USER_AGENT, FAVICON_MAX_SIZE_BYTES, SESSION_PARTITION } from './constants'
 import { getSetting } from '../settings'
-import type { ContentFilterManager } from '../content-filter/filter-manager'
 import type { PaymentInterceptor } from '../wallet/payment-interceptor'
 import { createLogger } from '../../shared/logger'
+import { cleanNavigationUrl } from '../../shared/utils/url'
 import { isPrivateHost } from '../utils/private-host'
 const log = createLogger('browser-view')
+const BROWSER_CSP = "object-src 'none'; base-uri 'none'; frame-ancestors 'none'"
 
 /** Dependencies needed by createTonSession */
 export interface SessionDeps {
-  contentFilterManager: ContentFilterManager
   paymentInterceptor: PaymentInterceptor
 }
 
@@ -36,10 +36,10 @@ function installPermissionHandlers(ses: Electron.Session): void {
   ses.setDevicePermissionHandler(() => false)
 }
 
-/** Cancel loopback (SSRF) and content-filtered requests. */
-function installRequestFilter(ses: Electron.Session, contentFilterManager: ContentFilterManager): void {
+/** Cancel loopback requests. */
+function installRequestFilter(ses: Electron.Session): void {
   ses.webRequest.onBeforeRequest((details, callback) => {
-    const { url, resourceType } = details
+    const { url } = details
 
     // Block ALL requests to loopback addresses (SSRF protection)
     try {
@@ -50,13 +50,16 @@ function installRequestFilter(ses: Electron.Session, contentFilterManager: Conte
         return
       }
     } catch {
-      // Invalid URL, fall through to content filter
+      callback({})
+      return
     }
 
-    // Check if request should be blocked by content filter
-    if (contentFilterManager.isBlocked(url, resourceType)) {
-      callback({ cancel: true })
-      return
+    if (details.method === 'GET' && details.resourceType === 'mainFrame') {
+      const cleanedUrl = cleanNavigationUrl(url)
+      if (cleanedUrl !== url) {
+        callback({ redirectURL: cleanedUrl })
+        return
+      }
     }
 
     callback({})
@@ -99,7 +102,7 @@ function installHeaderPrivacy(ses: Electron.Session, paymentInterceptor: Payment
   })
 }
 
-/** Enforce no-referrer policy, strip ETag, and set the response CSP. */
+/** Enforce no-referrer policy, strip ETag, and add browser CSP restrictions. */
 function installResponseSecurity(ses: Electron.Session): void {
   ses.webRequest.onHeadersReceived({ urls: ['http://*/*', 'https://*/*'] }, (details, callback) => {
     const headers = { ...details.responseHeaders }
@@ -107,11 +110,13 @@ function installResponseSecurity(ses: Electron.Session): void {
     // Strip ETag to prevent tracking identifiers
     delete headers['ETag']
     delete headers['etag']
-    // CSP: block object embeds, base-uri hijacking, and clickjacking
-    // Intentionally does NOT restrict script-src/default-src to avoid breaking .ton sites
-    headers['Content-Security-Policy'] = [
-      "script-src * 'unsafe-inline' 'unsafe-eval'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
-    ]
+    const sitePolicies: string[] = []
+    for (const key of Object.keys(headers)) {
+      if (key.toLowerCase() !== 'content-security-policy') continue
+      sitePolicies.push(...(headers[key] ?? []))
+      delete headers[key]
+    }
+    headers['Content-Security-Policy'] = [...sitePolicies, BROWSER_CSP]
     callback({ responseHeaders: headers })
   })
 }
@@ -121,16 +126,14 @@ export async function createTonSession(
   proxyPort: number,
   partitionName: string = SESSION_PARTITION
 ) {
-  const { contentFilterManager, paymentInterceptor } = deps
+  const { paymentInterceptor } = deps
 
   const ses = session.fromPartition(partitionName)
 
   await installProxy(ses, proxyPort)
   installPermissionHandlers(ses)
   ses.setUserAgent(USER_AGENT)
-  // Sync content filter settings from user preferences before the request filter runs
-  contentFilterManager.applySettings(getSetting('contentFiltering'))
-  installRequestFilter(ses, contentFilterManager)
+  installRequestFilter(ses)
   installHeaderPrivacy(ses, paymentInterceptor)
   // Register 402 payment interceptor on this session
   paymentInterceptor.registerOnSession(ses)

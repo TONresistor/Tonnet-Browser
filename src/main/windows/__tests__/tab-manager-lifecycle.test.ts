@@ -112,7 +112,6 @@ const deps = {
   proxyManager: {},
   storageManager: {},
   historyManager: {},
-  contentFilterManager: {},
   paymentInterceptor: {},
 } as never
 
