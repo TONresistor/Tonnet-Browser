@@ -24,7 +24,7 @@ Tonnet Browser requires five binary components:
 
 ### Automated Build (all platforms)
 
-Use the unified build script, which clones each pinned Go repo and builds for the target platform:
+Use the unified build script, which fetches each pinned Go commit and builds for the target platform:
 
 ```bash
 # From the project root. Auto-detects OS if no argument is given.
@@ -47,7 +47,7 @@ The project includes a GitHub Actions workflow that automatically builds binarie
 
 ### Prerequisites
 
-- Go 1.25 or later
+- Go 1.26 or later
 - Git
 - For macOS universal binaries: Xcode Command Line Tools (provides `lipo`)
 

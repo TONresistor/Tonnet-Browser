@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build all Go binaries from source using pinned tags from binary-versions.json.
+# Build all Go binaries from source using pinned commits from binary-versions.json.
 # Usage: ./scripts/build-binaries-from-source.sh [linux|mac|win] [amd64|arm64]
 # Requires: go, git, python3, jq (optional, uses python3 fallback)
 # On macOS builds: also requires lipo for universal binaries.
@@ -117,16 +117,19 @@ for i in $(seq 0 $((BINARY_COUNT - 1))); do
     continue
   fi
 
-  # Shallow clone at pinned tag
+  # Fetch only the pinned commit so development builds stay reproducible.
   CLONE_DIR="$TMPDIR_BASE/$NAME"
-  echo "Cloning https://github.com/$REPO.git @ $VERSION"
-  git clone --depth 1 --branch "$VERSION" "https://github.com/$REPO.git" "$CLONE_DIR" 2>&1 | tail -2
+  echo "Fetching https://github.com/$REPO.git @ $EXPECTED_COMMIT ($VERSION)"
+  git init --quiet "$CLONE_DIR"
+  git -C "$CLONE_DIR" remote add origin "https://github.com/$REPO.git"
+  git -C "$CLONE_DIR" fetch --quiet --depth 1 origin "$EXPECTED_COMMIT"
+  git -C "$CLONE_DIR" checkout --quiet --detach FETCH_HEAD
 
   # Log exact commit for transparency
   COMMIT_SHA=$(git -C "$CLONE_DIR" rev-parse HEAD)
   echo "Commit: $COMMIT_SHA"
   if [ "$COMMIT_SHA" != "$EXPECTED_COMMIT" ]; then
-    echo "ERROR: $NAME tag $VERSION resolved to $COMMIT_SHA, expected immutable pin $EXPECTED_COMMIT"
+    echo "ERROR: $NAME resolved to $COMMIT_SHA, expected immutable pin $EXPECTED_COMMIT"
     exit 1
   fi
 
