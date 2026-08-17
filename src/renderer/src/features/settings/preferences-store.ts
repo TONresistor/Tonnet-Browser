@@ -200,11 +200,6 @@ function mainSettingsToPrefs(settings: AppSettings): AppPreferences {
   return result as AppPreferences
 }
 
-/**
- * Value-equality for a single preference. Arrays (e.g. whitelistedDomains) are
- * compared by content, everything else by identity. Used by BOTH the dirty
- * check and the save() diff so they can never disagree.
- */
 function prefValueChanged(a: unknown, b: unknown): boolean {
   if (Array.isArray(a) && Array.isArray(b)) {
     return JSON.stringify(a) !== JSON.stringify(b)
