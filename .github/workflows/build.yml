@@ -126,6 +126,7 @@ jobs:
 
       - name: Read Go version
         id: go-version
+        shell: bash
         run: node -e "console.log('version=' + require('./scripts/binary-versions.json').go_version)" >> "$GITHUB_OUTPUT"
 
       - name: Setup Go

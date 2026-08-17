@@ -122,12 +122,12 @@ jobs:
           retention-days: 30
 
   # ─────────────────────────────────────────────
-  # Notify: Telegram (one summary per push, any branch)
+  # Notify: Telegram (one summary per push to dev or main)
   # ─────────────────────────────────────────────
   notify:
     needs: validate
     runs-on: ubuntu-latest
-    if: always() && github.event_name == 'push'
+    if: always() && github.event_name == 'push' && (github.ref_name == 'dev' || github.ref_name == 'main')
     steps:
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4
@@ -152,7 +152,7 @@ jobs:
           NULL_SHA="0000000000000000000000000000000000000000"
           REPO_URL="${{ github.server_url }}/${{ github.repository }}"
 
-          # One summary notification per push for every branch (avoid per-commit spam)
+          # One summary notification per push (avoid per-commit spam)
           if [ -n "$BRANCH" ]; then
             if [ "$BEFORE_SHA" = "$NULL_SHA" ]; then
               RANGE="$AFTER_SHA"
