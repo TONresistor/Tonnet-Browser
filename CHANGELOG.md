@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- Experimental setting to advertise the built-in TON Connect wallet to .ton sites.
+
+### Changed
+
+- Tracking protection is simplified; the path-based content filter is gone.
+- Bundled TON binaries updated: storage v1.5.3, proxy aligned to that storage lib and adnl-tunnel v0.2.1, Go 1.26.
+- `ton://storage` opens bag details in the left sidebar (back to filters) instead of a floating bar, with more compact bag rows.
+
+### Fixed
+
+- DevTools shortcut works while a page has focus.
+
 ## [2.5.0] - 2026-08-07
 
 ### Added
