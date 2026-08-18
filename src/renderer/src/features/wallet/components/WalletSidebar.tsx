@@ -54,8 +54,10 @@ export function WalletSidebar({ onClose }: WalletSidebarProps) {
     isLoading,
     isSending,
     error,
+    isLocked,
+    needsPasswordSetup,
+    backupVerified,
     init,
-    create,
     send,
     loadHistory,
     refreshBalance,
@@ -68,8 +70,10 @@ export function WalletSidebar({ onClose }: WalletSidebarProps) {
       isLoading: s.isLoading,
       isSending: s.isSending,
       error: s.error,
+      isLocked: s.isLocked,
+      needsPasswordSetup: s.needsPasswordSetup,
+      backupVerified: s.backupVerified,
       init: s.init,
-      create: s.create,
       send: s.send,
       loadHistory: s.loadHistory,
       refreshBalance: s.refreshBalance,
@@ -118,9 +122,9 @@ export function WalletSidebar({ onClose }: WalletSidebarProps) {
   }, [refreshBalance, loadHistory])
 
   const handleCreate = useCallback(async () => {
-    const words = await create()
-    if (words) setNewMnemonic(words)
-  }, [create])
+    openOrSwitchToTab(TON_WALLET_PAGE)
+    onClose()
+  }, [openOrSwitchToTab, onClose])
 
   const handleCopyMnemonic = useCallback(() => {
     if (!newMnemonic) return
@@ -247,6 +251,34 @@ export function WalletSidebar({ onClose }: WalletSidebarProps) {
                 className="w-full max-w-[200px]"
               >
                 {t('page.createWallet')}
+              </ActionButton>
+            }
+          />
+        </div>
+      </div>
+    )
+  }
+
+  if (isLocked || needsPasswordSetup || !backupVerified) {
+    return (
+      <div className="flex h-full flex-col bg-[hsl(var(--elevation-1))] border-l border-border">
+        <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <AppIcon name="wallet" className="h-4 w-4 text-icon" />
+            <span className="text-sm font-semibold text-heading">{t('page.title')}</span>
+          </div>
+          <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full" onClick={onClose}>
+            <X className="h-3.5 w-3.5" aria-hidden="true" />
+          </Button>
+        </div>
+        <div className="flex flex-1 items-center justify-center p-4">
+          <EmptyState
+            icon={<AppIcon name="wallet" className="h-7 w-7 text-icon opacity-70" />}
+            title={needsPasswordSetup ? 'Protect wallet' : isLocked ? 'Wallet locked' : 'Verify wallet backup'}
+            description="Open the wallet page to continue securely."
+            action={
+              <ActionButton variant="filled" onClick={handleOpenWallet} className="w-full max-w-[200px]">
+                Open wallet
               </ActionButton>
             }
           />

@@ -16,6 +16,13 @@ import { createLogger } from '../../shared/logger'
 import { isEnoent } from '../utils/errors'
 import { writeSecureFileAtomic } from '../utils/secure-fs'
 import { z } from 'zod'
+import {
+  PasswordEnvelopeSchema,
+  decryptWalletSecret,
+  encryptWalletSecret,
+  type PasswordEnvelope,
+  type WalletSecret,
+} from './password-vault'
 const log = createLogger('wallet:keys')
 
 const ENCRYPTED_MARKER = Buffer.from('SENC')
@@ -38,15 +45,16 @@ interface SeedStorageData {
   seed: string
 }
 
-type StorageData = MnemonicStorageData | SeedStorageData
+type StorageData = MnemonicStorageData | SeedStorageData | PasswordEnvelope
 
-const StorageDataSchema = z.discriminatedUnion('type', [
+const LegacyStorageDataSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('mnemonic'), mnemonic: z.array(z.string().min(1)).length(24) }),
   z.object({ type: z.literal('seed'), seed: z.string().regex(/^[a-fA-F0-9]{64}$/) }),
 ])
+const StorageDataSchema = z.union([LegacyStorageDataSchema, PasswordEnvelopeSchema])
 
 const StorageDocumentSchema = z.object({
-  schemaVersion: z.literal(WALLET_KEY_SCHEMA_VERSION),
+  schemaVersion: z.union([z.literal(WALLET_KEY_SCHEMA_VERSION), z.literal(2)]),
   data: StorageDataSchema,
 })
 
@@ -58,7 +66,10 @@ function parseStorageData(raw: unknown): StorageData {
 
 function encodeStorageData(data: StorageData): string {
   const validated = StorageDataSchema.parse(data)
-  return JSON.stringify({ schemaVersion: WALLET_KEY_SCHEMA_VERSION, data: validated })
+  return JSON.stringify({
+    schemaVersion: validated.type === 'password' ? 2 : WALLET_KEY_SCHEMA_VERSION,
+    data: validated,
+  })
 }
 
 export class WalletKeyStorage {
@@ -78,6 +89,10 @@ export class WalletKeyStorage {
   /** Path used to back up the legacy seed file before migration overwrites it. */
   get bakPath(): string {
     return `${this.filePath}.pre-migration.bak`
+  }
+
+  get passwordBakPath(): string {
+    return `${this.filePath}.pre-password.bak`
   }
 
   /**
@@ -101,21 +116,24 @@ export class WalletKeyStorage {
   /**
    * Generate a 24-word mnemonic, derive keypair, store both encrypted.
    */
-  async generateFromMnemonic(): Promise<{ keypair: { publicKey: Buffer; secretKey: Buffer }; mnemonic: string[] }> {
+  async generateFromMnemonic(
+    password?: string
+  ): Promise<{ keypair: { publicKey: Buffer; secretKey: Buffer }; mnemonic: string[] }> {
     if (await this.exists()) {
       throw new Error('Wallet already exists')
     }
 
     this.ensureEncryptionAvailable()
 
-    if (this.isBasicTextBackend()) {
+    if (this.isBasicTextBackend() && !password) {
       log.warn('Linux basic_text backend detected: mnemonic stored with weak encryption')
     }
 
     const mnemonic = await mnemonicNew(24)
     const keypair = await mnemonicToPrivateKey(mnemonic)
 
-    const data: MnemonicStorageData = { type: 'mnemonic', mnemonic }
+    const secret: MnemonicStorageData = { type: 'mnemonic', mnemonic }
+    const data = password ? await encryptWalletSecret(secret, password, keypair.publicKey) : secret
     await this.storeData(data)
 
     this.cachedPublicKey = keypair.publicKey
@@ -128,7 +146,7 @@ export class WalletKeyStorage {
   /**
    * Import a wallet from an existing 24-word mnemonic.
    */
-  async importFromMnemonic(words: string[]): Promise<{ publicKey: Buffer; secretKey: Buffer }> {
+  async importFromMnemonic(words: string[], password?: string): Promise<{ publicKey: Buffer; secretKey: Buffer }> {
     this.ensureEncryptionAvailable()
 
     const valid = await mnemonicValidate(words)
@@ -136,12 +154,13 @@ export class WalletKeyStorage {
       throw new Error('Invalid mnemonic phrase')
     }
 
-    if (this.isBasicTextBackend()) {
+    if (this.isBasicTextBackend() && !password) {
       log.warn('Linux basic_text backend detected: mnemonic stored with weak encryption')
     }
 
     const keypair = await mnemonicToPrivateKey(words)
-    const data: MnemonicStorageData = { type: 'mnemonic', mnemonic: words }
+    const secret: MnemonicStorageData = { type: 'mnemonic', mnemonic: words }
+    const data = password ? await encryptWalletSecret(secret, password, keypair.publicKey, true) : secret
     try {
       await this.storeData(data)
     } catch (error) {
@@ -161,8 +180,9 @@ export class WalletKeyStorage {
    * Retrieve the stored mnemonic words (for export/backup).
    * Returns null for legacy seed-based wallets.
    */
-  async getMnemonic(): Promise<{ mnemonic: string[] } | null> {
-    const data = await this.readData()
+  async getMnemonic(password?: string): Promise<{ mnemonic: string[] } | null> {
+    const stored = await this.readData()
+    const data = stored?.type === 'password' ? await this.decryptEnvelope(stored, password) : stored
     if (!data) {
       throw new Error('No wallet data found')
     }
@@ -176,15 +196,16 @@ export class WalletKeyStorage {
    * Load the keypair from encrypted storage.
    * Handles both legacy hex-seed format and new JSON mnemonic format.
    */
-  async load(): Promise<{ publicKey: Buffer; secretKey: Buffer }> {
+  async load(password?: string): Promise<{ publicKey: Buffer; secretKey: Buffer }> {
     if (this.cachedPublicKey && this.cachedSecretKey) {
       return { publicKey: this.cachedPublicKey, secretKey: this.cachedSecretKey }
     }
 
-    const data = await this.readData()
-    if (!data) {
+    const stored = await this.readData()
+    if (!stored) {
       throw new Error('No wallet data found')
     }
+    const data = stored.type === 'password' ? await this.decryptEnvelope(stored, password) : stored
 
     let keypair: { publicKey: Buffer; secretKey: Buffer }
     if (data.type === 'mnemonic') {
@@ -199,6 +220,73 @@ export class WalletKeyStorage {
     this.cachedSecretKey = keypair.secretKey
     this.resetLockTimer()
     return { publicKey: this.cachedPublicKey!, secretKey: this.cachedSecretKey! }
+  }
+
+  async inspect(): Promise<{
+    publicKey: Buffer | null
+    passwordProtected: boolean
+    backupVerified: boolean
+  } | null> {
+    const data = await this.readData()
+    if (!data) return null
+    if (data.type === 'password') {
+      const publicKey = Buffer.from(data.publicKey, 'hex')
+      this.cachedPublicKey = Buffer.from(publicKey)
+      return {
+        publicKey,
+        passwordProtected: true,
+        backupVerified: data.backupVerified,
+      }
+    }
+    return { publicKey: null, passwordProtected: false, backupVerified: false }
+  }
+
+  async protectWithPassword(password: string): Promise<void> {
+    const stored = await this.readData()
+    if (!stored) throw new Error('No wallet data found')
+    if (stored.type === 'password') throw new Error('Wallet is already password protected')
+    const keypair = await this.load()
+    const envelope = await encryptWalletSecret(stored, password, keypair.publicKey)
+    await fs.copyFile(this.filePath, this.passwordBakPath)
+    if (process.platform !== 'win32') await fs.chmod(this.passwordBakPath, 0o600)
+    try {
+      await this.storeData(envelope)
+      const verified = await this.readData()
+      if (!verified || verified.type !== 'password') throw new Error('Password vault verification failed')
+      await this.decryptEnvelope(verified, password)
+      await fs.unlink(this.passwordBakPath)
+    } catch (error) {
+      await fs.copyFile(this.passwordBakPath, this.filePath).catch(() => undefined)
+      throw error
+    }
+  }
+
+  async markBackupVerified(): Promise<void> {
+    const stored = await this.readData()
+    if (!stored || stored.type !== 'password') throw new Error('Password-protected wallet required')
+    await this.storeData({ ...stored, backupVerified: true })
+  }
+
+  private async decryptEnvelope(envelope: PasswordEnvelope, password?: string): Promise<WalletSecret> {
+    if (!password) throw new WalletDecryptionError('Wallet is locked')
+    try {
+      const secret = await decryptWalletSecret(envelope, password)
+      const keypair =
+        secret.type === 'mnemonic'
+          ? await mnemonicToPrivateKey(secret.mnemonic)
+          : keyPairFromSeed(Buffer.from(secret.seed, 'hex'))
+      if (!keypair.publicKey.equals(Buffer.from(envelope.publicKey, 'hex'))) {
+        keypair.publicKey.fill(0)
+        keypair.secretKey.fill(0)
+        throw new Error('Wallet public key mismatch')
+      }
+      keypair.publicKey.fill(0)
+      keypair.secretKey.fill(0)
+      return secret
+    } catch (error) {
+      if (error instanceof WalletDecryptionError) throw error
+      throw new WalletDecryptionError('Invalid wallet password or corrupted vault')
+    }
   }
 
   /**

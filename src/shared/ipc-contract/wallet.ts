@@ -12,6 +12,8 @@ export const WalletStateSchema = z.object({
   decryptFailed: z.boolean().optional(),
   weakEncryption: z.boolean().optional(),
   isLocked: z.boolean().optional(),
+  needsPasswordSetup: z.boolean().optional(),
+  backupVerified: z.boolean().optional(),
 })
 
 export type WalletState = z.infer<typeof WalletStateSchema>
@@ -64,6 +66,7 @@ export const PaymentNotificationSchema = z.object({
 export type PaymentNotification = z.infer<typeof PaymentNotificationSchema>
 
 const MnemonicSchema = z.array(z.string().min(1).max(32)).length(24)
+const WalletPasswordSchema = z.string().min(10).max(256)
 const MutationSchema = z.object({ success: z.literal(true) })
 const mainBase = {
   direction: 'request' as const,
@@ -76,7 +79,7 @@ const mainBase = {
 export const walletCreateContract = defineRequest({
   ...mainBase,
   channel: WALLET_CONTRACT_CHANNELS.create,
-  input: z.tuple([]),
+  input: z.tuple([WalletPasswordSchema]),
   output: WalletStateSchema.extend({ mnemonic: MnemonicSchema }),
   errors: ['WALLET_ALREADY_EXISTS', 'WALLET_CREATE_FAILED'],
   redaction: 'secret',
@@ -128,6 +131,10 @@ export const walletSendContract = defineRequest({
     'INVALID_AMOUNT',
     'COMMENT_TOO_LONG',
     'INSUFFICIENT_BALANCE',
+    'WALLET_LOCKED',
+    'WALLET_PASSWORD_REQUIRED',
+    'WALLET_BACKUP_REQUIRED',
+    'USER_CANCELLED',
     'SIGNING_FAILED',
   ],
   redaction: 'secret',
@@ -189,7 +196,7 @@ export const walletPayForXhrContract = defineRequest({
 export const walletImportContract = defineRequest({
   ...mainBase,
   channel: WALLET_CONTRACT_CHANNELS.importWallet,
-  input: z.tuple([MnemonicSchema]),
+  input: z.tuple([MnemonicSchema, WalletPasswordSchema]),
   output: WalletStateSchema,
   errors: ['INVALID_MNEMONIC', 'WALLET_IMPORT_FAILED'],
   redaction: 'secret',
@@ -197,7 +204,7 @@ export const walletImportContract = defineRequest({
 export const walletExportMnemonicContract = defineRequest({
   ...mainBase,
   channel: WALLET_CONTRACT_CHANNELS.exportMnemonic,
-  input: z.tuple([]),
+  input: z.tuple([WalletPasswordSchema]),
   output: z.object({ mnemonic: MnemonicSchema }),
   errors: ['USER_CANCELLED', 'MNEMONIC_UNAVAILABLE'],
   redaction: 'secret',
@@ -209,6 +216,37 @@ export const walletDeleteContract = defineRequest({
   output: WalletStateSchema,
   errors: ['WALLET_NOT_FOUND', 'WALLET_DELETE_FAILED'],
   redaction: 'secret',
+})
+export const walletUnlockContract = defineRequest({
+  ...mainBase,
+  channel: WALLET_CONTRACT_CHANNELS.unlock,
+  input: z.tuple([WalletPasswordSchema]),
+  output: WalletStateSchema,
+  errors: ['WALLET_NOT_FOUND', 'INVALID_PASSWORD', 'WALLET_UNLOCK_FAILED'],
+  redaction: 'secret',
+})
+export const walletLockContract = defineRequest({
+  ...mainBase,
+  channel: WALLET_CONTRACT_CHANNELS.lock,
+  input: z.tuple([]),
+  output: WalletStateSchema,
+  errors: ['WALLET_NOT_FOUND'],
+})
+export const walletSetupPasswordContract = defineRequest({
+  ...mainBase,
+  channel: WALLET_CONTRACT_CHANNELS.setupPassword,
+  input: z.tuple([WalletPasswordSchema]),
+  output: WalletStateSchema,
+  errors: ['WALLET_NOT_FOUND', 'WALLET_PASSWORD_SETUP_FAILED'],
+  redaction: 'secret',
+})
+export const walletMarkBackupVerifiedContract = defineRequest({
+  ...mainBase,
+  channel: WALLET_CONTRACT_CHANNELS.markBackupVerified,
+  input: z.tuple([]),
+  output: WalletStateSchema,
+  errors: ['WALLET_NOT_FOUND', 'BACKUP_VERIFICATION_FAILED'],
+  redaction: 'sensitive',
 })
 export const dnsResolveContract = defineRequest({
   ...mainBase,
@@ -278,5 +316,9 @@ export const WALLET_REQUEST_CONTRACTS = [
   walletImportContract,
   walletExportMnemonicContract,
   walletDeleteContract,
+  walletUnlockContract,
+  walletLockContract,
+  walletSetupPasswordContract,
+  walletMarkBackupVerifiedContract,
   dnsResolveContract,
 ] as const

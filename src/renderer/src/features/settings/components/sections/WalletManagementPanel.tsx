@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { useWalletManagement } from '@/features/wallet/public'
 import { useOverlay } from '@/hooks/useOverlay'
 import { cn } from '@/lib/utils'
+import { WalletPasswordFields } from '@/features/wallet/components/WalletPasswordFields'
 
 const MNEMONIC_CLEAR_TIMEOUT = 60_000
 
@@ -22,6 +23,8 @@ export function WalletManagementPanel() {
   const [importInput, setImportInput] = useState('')
   const [importError, setImportError] = useState<string | null>(null)
   const [showConfirm, setShowConfirm] = useState(false)
+  const [walletPassword, setWalletPassword] = useState('')
+  const [walletPasswordConfirm, setWalletPasswordConfirm] = useState('')
 
   const deleteOverlayHideRef = useRef<(() => void) | null>(null)
 
@@ -67,7 +70,7 @@ export function WalletManagementPanel() {
     setExportLoading(true)
     setExportError(null)
     try {
-      const mnemonic = await exportMnemonic()
+      const mnemonic = await exportMnemonic(walletPassword)
       setWords(mnemonic)
       setIsRevealed(true)
       setTimeout(() => {
@@ -79,7 +82,7 @@ export function WalletManagementPanel() {
     } finally {
       setExportLoading(false)
     }
-  }, [isRevealed, exportMnemonic])
+  }, [isRevealed, exportMnemonic, walletPassword])
 
   const handleCopy = useCallback(() => {
     if (!words) return
@@ -102,6 +105,10 @@ export function WalletManagementPanel() {
       setImportError(t('import.error'))
       return
     }
+    if (walletPassword.length < 10 || walletPassword !== walletPasswordConfirm) {
+      setImportError('Choose and confirm a wallet password of at least 10 characters.')
+      return
+    }
     if (isCreated && !showConfirm) {
       setShowConfirm(true)
       return
@@ -109,13 +116,13 @@ export function WalletManagementPanel() {
     setImportError(null)
     setShowConfirm(false)
     try {
-      await importWallet(parsed)
+      await importWallet(parsed, walletPassword)
       setImportInput('')
       setShowImport(false)
     } catch (err) {
       setImportError(errorMessage(err))
     }
-  }, [importInput, isCreated, showConfirm, importWallet, t])
+  }, [importInput, isCreated, showConfirm, importWallet, t, walletPassword, walletPasswordConfirm])
 
   return (
     <div className="mt-6 settings-group px-4 py-4 space-y-4">
@@ -124,6 +131,11 @@ export function WalletManagementPanel() {
       {/* Export mnemonic */}
       {isCreated && (
         <div className="space-y-3">
+          <WalletPasswordFields
+            password={walletPassword}
+            onPasswordChange={setWalletPassword}
+            disabled={exportLoading}
+          />
           <div className="flex items-center justify-between">
             <span className="text-sm text-muted-foreground flex items-center gap-2">
               <KeyRound className="h-3.5 w-3.5" aria-hidden="true" />
@@ -216,6 +228,13 @@ export function WalletManagementPanel() {
               </button>
             </div>
             <p className="text-xs text-muted-foreground">{t('import.description')}</p>
+            <WalletPasswordFields
+              password={walletPassword}
+              confirmation={walletPasswordConfirm}
+              onPasswordChange={setWalletPassword}
+              onConfirmationChange={setWalletPasswordConfirm}
+              disabled={isLoading}
+            />
             <textarea
               className={cn(
                 'w-full h-24 p-3 text-sm rounded-lg border bg-background text-foreground resize-none',

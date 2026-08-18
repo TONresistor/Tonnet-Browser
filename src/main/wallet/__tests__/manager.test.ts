@@ -434,7 +434,7 @@ describe('WalletManager.importWallet', () => {
       },
     }
 
-    const importing = manager.importWallet(input)
+    const importing = manager.importWallet(input, 'correct horse battery staple')
     await Promise.resolve()
     const signing = manager.signData('example.ton', { type: 'text', text: 'Approve' })
     await Promise.resolve()
@@ -466,7 +466,7 @@ describe('WalletManager.importWallet', () => {
       },
     }
 
-    const importing = manager.importWallet(input)
+    const importing = manager.importWallet(input, 'correct horse battery staple')
     await Promise.resolve()
     const signing = manager.signData('example.ton', { type: 'text', text: 'Approve' }, approvedAddress)
     resolveImport(nextKeypair)

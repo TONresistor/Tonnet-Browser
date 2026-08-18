@@ -21,15 +21,22 @@ interface WalletStore {
   error: string | null
   decryptFailed: boolean
   weakEncryption: boolean
+  isLocked: boolean
+  needsPasswordSetup: boolean
+  backupVerified: boolean
   notificationStyle: NotificationStyle
   pending402Notification: PaymentNotificationData | null
   setPending402Notification: (data: PaymentNotificationData | null) => void
   approvePending402: () => Promise<void>
   rejectPending402: () => Promise<void>
   init: () => Promise<void>
-  create: () => Promise<string[] | null>
-  importWallet: (mnemonic: string[]) => Promise<void>
-  exportMnemonic: () => Promise<string[]>
+  create: (password: string) => Promise<string[] | null>
+  importWallet: (mnemonic: string[], password: string) => Promise<void>
+  exportMnemonic: (password: string) => Promise<string[]>
+  unlock: (password: string) => Promise<void>
+  lock: () => Promise<void>
+  setupPassword: (password: string) => Promise<void>
+  markBackupVerified: () => Promise<void>
   refreshBalance: () => Promise<void>
   send: (to: string, amount: string, comment?: string) => Promise<void>
   loadHistory: (limit?: number) => Promise<void>
@@ -78,6 +85,9 @@ export const useWalletStore = create<WalletStore>((set, get) => {
           balance: state.balance ?? get().balance,
           decryptFailed: state.decryptFailed ?? get().decryptFailed,
           weakEncryption: state.weakEncryption ?? get().weakEncryption,
+          isLocked: state.isLocked ?? get().isLocked,
+          needsPasswordSetup: state.needsPasswordSetup ?? get().needsPasswordSetup,
+          backupVerified: state.backupVerified ?? get().backupVerified,
         })
       }
     })
@@ -97,6 +107,9 @@ export const useWalletStore = create<WalletStore>((set, get) => {
     error: null,
     decryptFailed: false,
     weakEncryption: false,
+    isLocked: false,
+    needsPasswordSetup: false,
+    backupVerified: false,
     notificationStyle: 'popup',
     pending402Notification: null,
 
@@ -140,6 +153,9 @@ export const useWalletStore = create<WalletStore>((set, get) => {
             balance: state.balance ?? '0',
             decryptFailed: state.decryptFailed ?? false,
             weakEncryption: state.weakEncryption ?? false,
+            isLocked: state.isLocked ?? false,
+            needsPasswordSetup: state.needsPasswordSetup ?? false,
+            backupVerified: state.backupVerified ?? false,
           })
         }
         const walletSettings = await walletClient.getSettings()
@@ -153,10 +169,10 @@ export const useWalletStore = create<WalletStore>((set, get) => {
       }
     },
 
-    create: async () => {
+    create: async (password: string) => {
       set({ isLoading: true, error: null })
       try {
-        const result = await walletClient.create()
+        const result = await walletClient.create(password)
         if (result) {
           set({
             isCreated: result.isCreated ?? true,
@@ -164,6 +180,9 @@ export const useWalletStore = create<WalletStore>((set, get) => {
             addressRaw: result.addressRaw ?? '',
             publicKey: result.publicKey ?? '',
             balance: result.balance ?? '0',
+            isLocked: result.isLocked ?? false,
+            needsPasswordSetup: result.needsPasswordSetup ?? false,
+            backupVerified: result.backupVerified ?? false,
           })
           return result.mnemonic ?? null
         }
@@ -176,10 +195,10 @@ export const useWalletStore = create<WalletStore>((set, get) => {
       }
     },
 
-    importWallet: async (mnemonic: string[]) => {
+    importWallet: async (mnemonic: string[], password: string) => {
       set({ isLoading: true, error: null })
       try {
-        const result = await walletClient.importWallet(mnemonic)
+        const result = await walletClient.importWallet(mnemonic, password)
         set({
           isCreated: result.isCreated ?? true,
           address: result.address ?? '',
@@ -188,6 +207,9 @@ export const useWalletStore = create<WalletStore>((set, get) => {
           balance: result.balance ?? '0',
           decryptFailed: false,
           weakEncryption: false,
+          isLocked: result.isLocked ?? false,
+          needsPasswordSetup: result.needsPasswordSetup ?? false,
+          backupVerified: result.backupVerified ?? true,
         })
       } catch (err) {
         set({ error: errorMessage(err) })
@@ -197,9 +219,29 @@ export const useWalletStore = create<WalletStore>((set, get) => {
       }
     },
 
-    exportMnemonic: async () => {
-      const result = await walletClient.exportMnemonic()
+    exportMnemonic: async (password: string) => {
+      const result = await walletClient.exportMnemonic(password)
       return result.mnemonic
+    },
+
+    unlock: async (password: string) => {
+      const state = await walletClient.unlock(password)
+      set({ isLocked: state.isLocked ?? false, error: null })
+    },
+
+    lock: async () => {
+      const state = await walletClient.lock()
+      set({ isLocked: state.isLocked ?? true })
+    },
+
+    setupPassword: async (password: string) => {
+      const state = await walletClient.setupPassword(password)
+      set({ needsPasswordSetup: false, weakEncryption: false, isLocked: state.isLocked ?? false })
+    },
+
+    markBackupVerified: async () => {
+      const state = await walletClient.markBackupVerified()
+      set({ backupVerified: state.backupVerified ?? true })
     },
 
     refreshBalance: async () => {
@@ -250,6 +292,9 @@ export const useWalletStore = create<WalletStore>((set, get) => {
           transactions: [],
           decryptFailed: false,
           weakEncryption: false,
+          isLocked: false,
+          needsPasswordSetup: false,
+          backupVerified: false,
           error: null,
         })
       } catch (err) {

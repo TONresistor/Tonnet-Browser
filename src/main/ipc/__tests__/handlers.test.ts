@@ -454,6 +454,7 @@ function resetHandlersTestEnv(): void {
   mockMainWindow = {
     webContents: { send: vi.fn() },
     getBounds: vi.fn(() => ({ x: 0, y: 0, width: 1024, height: 768 })),
+    getContentBounds: vi.fn(() => ({ x: 0, y: 0, width: 1024, height: 768 })),
     setTitle: vi.fn(),
   }
   settingsMocks.getSetting.mockImplementation((category: string) =>
@@ -706,12 +707,13 @@ describe('IPC Handlers', () => {
   describe('Wallet Handlers', () => {
     it('clears account-scoped state after a wallet import succeeds', async () => {
       const mnemonic = Array.from({ length: 24 }, (_, index) => `word${index + 1}`)
+      const password = 'correct horse battery staple'
       const handler = mockHandlers.get(IPC_CHANNELS.WALLET_IMPORT)!
 
-      const result = await handler(createMockEvent(), mnemonic)
+      const result = await handler(createMockEvent(), mnemonic, password)
 
       expect(result).toMatchObject({ isCreated: true, address: 'UQImported' })
-      expect(mockRegistry.walletManager.importWallet).toHaveBeenCalledWith(mnemonic)
+      expect(mockRegistry.walletManager.importWallet).toHaveBeenCalledWith(mnemonic, password)
       expect(mockRegistry.walletHistoryManager.clear).toHaveBeenCalledOnce()
       expect(mockRegistry.tonConnectService.clearSessions).toHaveBeenCalledOnce()
       expect(vi.mocked(mockRegistry.walletManager.importWallet).mock.invocationCallOrder[0]).toBeLessThan(
@@ -725,9 +727,10 @@ describe('IPC Handlers', () => {
     it('keeps account-scoped state when wallet import fails', async () => {
       vi.mocked(mockRegistry.walletManager.importWallet).mockRejectedValueOnce(new Error('Invalid mnemonic phrase'))
       const mnemonic = Array.from({ length: 24 }, (_, index) => `word${index + 1}`)
+      const password = 'correct horse battery staple'
       const handler = mockHandlers.get(IPC_CHANNELS.WALLET_IMPORT)!
 
-      const result = await handler(createMockEvent(), mnemonic)
+      const result = await handler(createMockEvent(), mnemonic, password)
 
       expect(result).toEqual({
         ok: false,
@@ -738,7 +741,12 @@ describe('IPC Handlers', () => {
     })
 
     it('reports an insufficient balance as a stable business failure', async () => {
-      vi.mocked(mockRegistry.walletManager.getState).mockReturnValueOnce({ isCreated: true } as never)
+      vi.mocked(mockRegistry.walletManager.getState).mockReturnValueOnce({
+        isCreated: true,
+        isLocked: false,
+        needsPasswordSetup: false,
+        backupVerified: true,
+      } as never)
       vi.mocked(mockRegistry.walletManager.getTonBridge).mockReturnValueOnce({} as never)
       vi.mocked(mockRegistry.walletManager.getBalance).mockResolvedValueOnce('10')
       const handler = mockHandlers.get(IPC_CHANNELS.WALLET_SEND)!
@@ -750,6 +758,44 @@ describe('IPC Handlers', () => {
         error: { code: 'INSUFFICIENT_BALANCE', message: 'Insufficient balance', retryable: false },
       })
       expect(mockRegistry.walletManager.send).not.toHaveBeenCalled()
+    })
+
+    it('requires a main-process approval before a renderer transfer', async () => {
+      vi.mocked(mockRegistry.walletManager.getState).mockReturnValue({
+        isCreated: true,
+        isLocked: false,
+        needsPasswordSetup: false,
+        backupVerified: true,
+      } as never)
+      vi.mocked(mockRegistry.walletManager.getTonBridge).mockReturnValue({} as never)
+      vi.mocked(mockRegistry.walletManager.getBalance).mockResolvedValue('100')
+      vi.mocked(mockRegistry.walletManager.resolveRecipient).mockResolvedValue({
+        address: 'EQRecipient',
+        domain: 'example.ton',
+      })
+      vi.mocked(mockRegistry.walletManager.send).mockResolvedValue({
+        id: 'tx-1',
+        type: 'send',
+        amount: '10',
+        address: 'EQRecipient',
+        timestamp: 1,
+        status: 'pending',
+      })
+      vi.mocked(mockRegistry.overlayManager.show).mockImplementation((_id, _bounds, _content, callback) => {
+        callback?.('approve', {})
+        return true
+      })
+
+      const handler = mockHandlers.get(IPC_CHANNELS.WALLET_SEND)!
+      await expect(handler(createMockEvent(), 'example.ton', '10')).resolves.toMatchObject({ id: 'tx-1' })
+      expect(mockRegistry.overlayManager.show).toHaveBeenCalledWith(
+        expect.stringContaining('wallet-transfer-'),
+        expect.any(Object),
+        expect.objectContaining({ title: 'Confirm wallet transfer', amount: '0.00000001 GRAM' }),
+        expect.any(Function),
+        { autoDismiss: false }
+      )
+      expect(mockRegistry.walletManager.send).toHaveBeenCalledWith('EQRecipient', '10', undefined)
     })
   })
 
