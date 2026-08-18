@@ -1,4 +1,9 @@
 import { usePreferencesStore } from './preferences-store'
+import { useUIStore } from './ui-store'
+
+export function openStorageSettings() {
+  useUIStore.getState().setSettingsActiveSection('storage')
+}
 
 export const useSeedingEnabled = () => usePreferencesStore((state) => state.draft.seedingEnabled)
 export const useSetPreferenceDraft = () => usePreferencesStore((state) => state.setDraft)

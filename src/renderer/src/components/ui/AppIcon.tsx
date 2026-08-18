@@ -3,6 +3,9 @@ import { ArrowLeft, ArrowRight, RotateCw, Settings, X } from 'lucide-react'
 import homeIcon from '@/assets/home.svg'
 import walletIcon from '@/assets/wallet.svg'
 import storageIcon from '@/assets/storage.svg'
+import storageFilterAllIcon from '@/assets/storage-filter-all.svg'
+import storageFilterDownloadIcon from '@/assets/storage-filter-download.svg'
+import storageFilterCompleteIcon from '@/assets/storage-filter-complete.svg'
 import messengerIcon from '@/assets/messenger.svg'
 import cocoonIcon from '@/assets/cocoon.png'
 import appearanceIcon from '@/assets/appearance.svg'
@@ -30,6 +33,9 @@ const MASK_ICONS = {
   home: homeIcon,
   wallet: walletIcon,
   storage: storageIcon,
+  storageFilterAll: storageFilterAllIcon,
+  storageFilterDownload: storageFilterDownloadIcon,
+  storageFilterComplete: storageFilterCompleteIcon,
   messenger: messengerIcon,
   cocoon: cocoonIcon,
   appearance: appearanceIcon,
