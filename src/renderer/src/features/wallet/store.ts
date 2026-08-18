@@ -24,6 +24,7 @@ interface WalletStore {
   weakEncryption: boolean
   isLocked: boolean
   needsPasswordSetup: boolean
+  passwordProtected: boolean
   backupVerified: boolean
   notificationStyle: NotificationStyle
   pending402Notification: PaymentNotificationData | null
@@ -31,20 +32,20 @@ interface WalletStore {
   approvePending402: () => Promise<void>
   rejectPending402: () => Promise<void>
   init: () => Promise<void>
-  create: (password: string) => Promise<string[] | null>
+  create: (password?: string) => Promise<string[] | null>
   discoverAccounts: (mnemonic: string[]) => Promise<WalletAccountCandidate[]>
   importWallet: (
     mnemonic: string[],
-    password: string,
+    password: string | undefined,
     walletVersion: WalletAccountCandidate['version'],
     mnemonicScheme: WalletAccountCandidate['scheme']
   ) => Promise<void>
-  exportMnemonic: (password: string) => Promise<string[]>
+  exportMnemonic: (password?: string) => Promise<string[]>
   unlock: (password: string) => Promise<void>
   lock: () => Promise<void>
   setupPassword: (password: string) => Promise<void>
-  createBackupChallenge: (password: string) => Promise<{ challengeId: string; indexes: number[] }>
-  markBackupVerified: (challengeId: string, password: string, answers: string[]) => Promise<void>
+  createBackupChallenge: (password?: string) => Promise<{ challengeId: string; indexes: number[] }>
+  markBackupVerified: (challengeId: string, password: string | undefined, answers: string[]) => Promise<void>
   changePassword: (currentPassword: string, nextPassword: string) => Promise<void>
   refreshBalance: () => Promise<void>
   send: (to: string, amount: string, comment?: string) => Promise<void>
@@ -96,6 +97,7 @@ export const useWalletStore = create<WalletStore>((set, get) => {
           weakEncryption: state.weakEncryption ?? get().weakEncryption,
           isLocked: state.isLocked ?? get().isLocked,
           needsPasswordSetup: state.needsPasswordSetup ?? get().needsPasswordSetup,
+          passwordProtected: state.passwordProtected ?? get().passwordProtected,
           backupVerified: state.backupVerified ?? get().backupVerified,
         })
       }
@@ -118,6 +120,7 @@ export const useWalletStore = create<WalletStore>((set, get) => {
     weakEncryption: false,
     isLocked: false,
     needsPasswordSetup: false,
+    passwordProtected: false,
     backupVerified: false,
     notificationStyle: 'popup',
     pending402Notification: null,
@@ -164,6 +167,7 @@ export const useWalletStore = create<WalletStore>((set, get) => {
             weakEncryption: state.weakEncryption ?? false,
             isLocked: state.isLocked ?? false,
             needsPasswordSetup: state.needsPasswordSetup ?? false,
+            passwordProtected: state.passwordProtected ?? false,
             backupVerified: state.backupVerified ?? false,
           })
         }
@@ -178,7 +182,7 @@ export const useWalletStore = create<WalletStore>((set, get) => {
       }
     },
 
-    create: async (password: string) => {
+    create: async (password?: string) => {
       set({ isLoading: true, error: null })
       try {
         const result = await walletClient.create(password)
@@ -191,6 +195,7 @@ export const useWalletStore = create<WalletStore>((set, get) => {
             balance: result.balance ?? '0',
             isLocked: result.isLocked ?? false,
             needsPasswordSetup: result.needsPasswordSetup ?? false,
+            passwordProtected: result.passwordProtected ?? false,
             backupVerified: result.backupVerified ?? false,
           })
           return result.mnemonic ?? null
@@ -198,7 +203,7 @@ export const useWalletStore = create<WalletStore>((set, get) => {
         return null
       } catch (err) {
         set({ error: errorMessage(err) })
-        return null
+        throw err
       } finally {
         set({ isLoading: false })
       }
@@ -208,7 +213,7 @@ export const useWalletStore = create<WalletStore>((set, get) => {
 
     importWallet: async (
       mnemonic: string[],
-      password: string,
+      password: string | undefined,
       walletVersion: WalletAccountCandidate['version'],
       mnemonicScheme: WalletAccountCandidate['scheme']
     ) => {
@@ -225,6 +230,7 @@ export const useWalletStore = create<WalletStore>((set, get) => {
           weakEncryption: false,
           isLocked: result.isLocked ?? false,
           needsPasswordSetup: result.needsPasswordSetup ?? false,
+          passwordProtected: result.passwordProtected ?? false,
           backupVerified: result.backupVerified ?? true,
         })
       } catch (err) {
@@ -235,7 +241,7 @@ export const useWalletStore = create<WalletStore>((set, get) => {
       }
     },
 
-    exportMnemonic: async (password: string) => {
+    exportMnemonic: async (password?: string) => {
       const result = await walletClient.exportMnemonic(password)
       return result.mnemonic
     },
@@ -252,12 +258,17 @@ export const useWalletStore = create<WalletStore>((set, get) => {
 
     setupPassword: async (password: string) => {
       const state = await walletClient.setupPassword(password)
-      set({ needsPasswordSetup: false, weakEncryption: false, isLocked: state.isLocked ?? false })
+      set({
+        needsPasswordSetup: false,
+        passwordProtected: true,
+        weakEncryption: false,
+        isLocked: state.isLocked ?? false,
+      })
     },
 
-    createBackupChallenge: (password: string) => walletClient.createBackupChallenge(password),
+    createBackupChallenge: (password?: string) => walletClient.createBackupChallenge(password),
 
-    markBackupVerified: async (challengeId: string, password: string, answers: string[]) => {
+    markBackupVerified: async (challengeId: string, password: string | undefined, answers: string[]) => {
       const state = await walletClient.markBackupVerified(challengeId, password, answers)
       set({ backupVerified: state.backupVerified ?? true })
     },
@@ -317,6 +328,7 @@ export const useWalletStore = create<WalletStore>((set, get) => {
           weakEncryption: false,
           isLocked: false,
           needsPasswordSetup: false,
+          passwordProtected: false,
           backupVerified: false,
           error: null,
         })

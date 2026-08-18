@@ -21,7 +21,7 @@ export function WalletPasswordFields({
         type="password"
         value={password}
         onChange={(event) => onPasswordChange(event.target.value)}
-        placeholder="Wallet password (10+ characters)"
+        placeholder="Wallet password"
         autoComplete="new-password"
         disabled={disabled}
       />

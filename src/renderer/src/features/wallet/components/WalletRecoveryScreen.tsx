@@ -4,13 +4,14 @@ import type { WalletAccountCandidate } from '@shared/ipc-contract/wallet'
 import { AppIcon } from '@/components/ui/AppIcon'
 import { ActionButton } from '@/components/ui/ios/ActionButton'
 import { cn } from '@/lib/utils'
-import { WalletPasswordFields } from './WalletPasswordFields'
 import { WalletAccountCandidates } from './WalletAccountCandidates'
+import { WalletPasswordFields } from './WalletPasswordFields'
 
 export function WalletRecoveryScreen(props: {
   recoveryInput: string
   recoveryError: string | null
   isLoading: boolean
+  passwordRequired: boolean
   password: string
   confirmation: string
   candidates: WalletAccountCandidate[]
@@ -61,13 +62,15 @@ export function WalletRecoveryScreen(props: {
               </span>
               {props.recoveryError && <span className="text-xs text-destructive">{props.recoveryError}</span>}
             </div>
-            <WalletPasswordFields
-              password={props.password}
-              confirmation={props.confirmation}
-              onPasswordChange={props.onPassword}
-              onConfirmationChange={props.onConfirmation}
-              disabled={props.isLoading}
-            />
+            {props.passwordRequired && (
+              <WalletPasswordFields
+                password={props.password}
+                confirmation={props.confirmation}
+                onPasswordChange={props.onPassword}
+                onConfirmationChange={props.onConfirmation}
+                disabled={props.isLoading}
+              />
+            )}
             <WalletAccountCandidates
               candidates={props.candidates}
               selected={props.selected}

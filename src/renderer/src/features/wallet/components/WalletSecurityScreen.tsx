@@ -11,6 +11,7 @@ interface WalletSecurityScreenProps {
   onPasswordChange: (value: string) => void
   onConfirmationChange?: (value: string) => void
   onSubmit: () => void | Promise<void>
+  showPassword?: boolean
 }
 
 const COPY: Record<SecurityMode, { title: string; description: string; action: string; warning?: boolean }> = {
@@ -26,8 +27,8 @@ const COPY: Record<SecurityMode, { title: string; description: string; action: s
   },
   backup: {
     title: 'Verify wallet backup',
-    description: 'Re-enter your wallet password to resume the recovery-word check.',
-    action: 'Continue verification',
+    description: 'Continue to save and confirm your recovery phrase.',
+    action: 'Continue',
     warning: true,
   },
 }
@@ -40,6 +41,7 @@ export function WalletSecurityScreen({
   onPasswordChange,
   onConfirmationChange,
   onSubmit,
+  showPassword = true,
 }: WalletSecurityScreenProps) {
   const copy = COPY[mode]
   return (
@@ -53,12 +55,14 @@ export function WalletSecurityScreen({
           <h2 className="font-semibold text-heading">{copy.title}</h2>
           <p className="mt-1 text-xs text-muted-foreground">{copy.description}</p>
         </div>
-        <WalletPasswordFields
-          password={password}
-          confirmation={confirmation}
-          onPasswordChange={onPasswordChange}
-          onConfirmationChange={onConfirmationChange}
-        />
+        {showPassword && (
+          <WalletPasswordFields
+            password={password}
+            confirmation={confirmation}
+            onPasswordChange={onPasswordChange}
+            onConfirmationChange={onConfirmationChange}
+          />
+        )}
         {error && <p className="text-xs text-destructive">{error}</p>}
         <ActionButton variant="filled" className="w-full" onClick={onSubmit}>
           {copy.action}

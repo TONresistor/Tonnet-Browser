@@ -29,7 +29,7 @@ export function WalletChangePassword() {
         type="password"
         value={nextPassword}
         onChange={(event) => setNextPassword(event.target.value)}
-        placeholder="New password (10+ characters)"
+        placeholder="New password"
         autoComplete="new-password"
         disabled={isPending}
       />

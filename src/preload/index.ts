@@ -312,7 +312,7 @@ const electronAPI = {
 
   // Wallet
   wallet: {
-    create: (password: string) => invokeChannel<typeof walletCreateContract>(IPC_CHANNELS.WALLET_CREATE, password),
+    create: (password?: string) => invokeChannel<typeof walletCreateContract>(IPC_CHANNELS.WALLET_CREATE, password),
     getState: () => invokeChannel<typeof walletGetStateContract>(IPC_CHANNELS.WALLET_GET_STATE),
     getBalance: () => invokeChannel<typeof walletGetBalanceContract>(IPC_CHANNELS.WALLET_GET_BALANCE),
     send: (to: string, amount: string, comment?: string) =>
@@ -331,7 +331,7 @@ const electronAPI = {
       invokeChannel<typeof walletDiscoverAccountsContract>(IPC_CHANNELS.WALLET_DISCOVER_ACCOUNTS, mnemonic),
     importWallet: (
       mnemonic: string[],
-      password: string,
+      password: string | undefined,
       walletVersion: 'v3R1' | 'v3R2' | 'v4R2' | 'v5R1',
       mnemonicScheme: 'ton' | 'bip39'
     ) =>
@@ -342,16 +342,16 @@ const electronAPI = {
         walletVersion,
         mnemonicScheme
       ),
-    exportMnemonic: (password: string) =>
+    exportMnemonic: (password?: string) =>
       invokeChannel<typeof walletExportMnemonicContract>(IPC_CHANNELS.WALLET_EXPORT_MNEMONIC, password),
     deleteWallet: () => invokeChannel<typeof walletDeleteContract>(IPC_CHANNELS.WALLET_DELETE),
     unlock: (password: string) => invokeChannel<typeof walletUnlockContract>(IPC_CHANNELS.WALLET_UNLOCK, password),
     lock: () => invokeChannel<typeof walletLockContract>(IPC_CHANNELS.WALLET_LOCK),
     setupPassword: (password: string) =>
       invokeChannel<typeof walletSetupPasswordContract>(IPC_CHANNELS.WALLET_SETUP_PASSWORD, password),
-    createBackupChallenge: (password: string) =>
+    createBackupChallenge: (password?: string) =>
       invokeChannel<typeof walletCreateBackupChallengeContract>(IPC_CHANNELS.WALLET_CREATE_BACKUP_CHALLENGE, password),
-    markBackupVerified: (challengeId: string, password: string, answers: string[]) =>
+    markBackupVerified: (challengeId: string, password: string | undefined, answers: string[]) =>
       invokeChannel<typeof walletMarkBackupVerifiedContract>(
         IPC_CHANNELS.WALLET_MARK_BACKUP_VERIFIED,
         challengeId,

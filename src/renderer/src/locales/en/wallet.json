@@ -98,7 +98,14 @@
     "yourPhrase": "Your 12-word recovery phrase",
     "copy": "Copy to Clipboard",
     "acknowledgement": "I confirm that I have securely recorded my recovery phrase. I understand that without it, there is no way to recover my wallet or funds.",
-    "confirm": "Continue"
+    "confirm": "Continue",
+    "continueVerification": "I saved it — continue",
+    "preparing": "Preparing verification…",
+    "verifyTitle": "Confirm your backup",
+    "verifyDescription": "Use the recovery phrase you saved. It is no longer displayed on this page.",
+    "wordNumber": "Word #{{number}}",
+    "verifyButton": "Verify backup",
+    "verifying": "Verifying…"
   },
   "create": {
     "title": "Create Wallet",

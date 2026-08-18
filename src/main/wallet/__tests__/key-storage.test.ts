@@ -132,8 +132,14 @@ describe('WalletKeyStorage', () => {
       expect(buf.subarray(0, 4).toString()).toBe('SENC')
       const document = JSON.parse(storage.decrypt(buf.subarray(4)))
       expect(document).toMatchObject({
-        schemaVersion: 1,
-        data: { type: 'mnemonic', mnemonic: Array(24).fill('test') },
+        schemaVersion: 3,
+        data: {
+          type: 'device',
+          backupVerified: false,
+          walletVersion: 'v5R1',
+          mnemonicScheme: 'ton',
+          secret: { type: 'mnemonic', mnemonic: Array(24).fill('test') },
+        },
       })
     })
 
@@ -404,7 +410,7 @@ describe('WalletKeyStorage', () => {
 
       ks.lock()
 
-      expect(ks.isLocked()).toBe(true)
+      expect(ks.isLocked()).toBe(false)
       // Public key retained, secret key gone
       expect(ks.getPublicKey()).not.toBeNull()
     })
@@ -420,7 +426,7 @@ describe('WalletKeyStorage', () => {
       ks.lock()
       ks.lock() // second call on an already-locked wallet must be a safe no-op
 
-      expect(ks.isLocked()).toBe(true) // still locked, not corrupted
+      expect(ks.isLocked()).toBe(false)
       expect(ks.getPublicKey()).toEqual(publicKey) // public key retained
     })
   })
@@ -438,6 +444,8 @@ describe('WalletKeyStorage', () => {
     it('locks wallet after auto-lock timeout', async () => {
       const data = { type: 'mnemonic', mnemonic: Array(24).fill('test') }
       vi.mocked(fs.readFile).mockResolvedValue(makeEncryptedBuffer(data, storage))
+      const onLock = vi.fn()
+      ks.setOnLock(onLock)
 
       await ks.load()
       expect(ks.isLocked()).toBe(false)
@@ -445,7 +453,8 @@ describe('WalletKeyStorage', () => {
       // Default auto-lock is 5 minutes (300000ms)
       vi.advanceTimersByTime(5 * 60 * 1000)
 
-      expect(ks.isLocked()).toBe(true)
+      expect(ks.isLocked()).toBe(false)
+      expect(onLock).toHaveBeenCalledOnce()
     })
 
     it('setAutoLockMinutes(0) disables auto-lock', async () => {
@@ -469,7 +478,7 @@ describe('WalletKeyStorage', () => {
 
       vi.advanceTimersByTime(60 * 1000)
 
-      expect(ks.isLocked()).toBe(true)
+      expect(ks.isLocked()).toBe(false)
     })
   })
 

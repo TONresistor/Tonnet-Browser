@@ -3,6 +3,7 @@
  */
 
 import type { DnsResolveResult, WalletState, WalletTransaction } from '../../../shared/types'
+import { systemPreferences } from 'electron'
 import { toError, log } from './shared'
 import { emitContractToRenderer } from '../../events/renderer-events'
 import { getMainWindow } from '../../windows/main'
@@ -77,13 +78,17 @@ export function registerWalletHandlers(registry: ServiceRegistry): void {
     })
   })
 
-  secureContractHandle(walletCreateContract, async (password) => {
+  secureContractHandle(walletCreateContract, async (password?: string) => {
     if (walletManager.getState().isCreated) ipcFailure('WALLET_ALREADY_EXISTS', 'Wallet already exists')
     try {
       return await walletManager.create(password)
     } catch (error) {
-      if (toError(error).message === 'Wallet already exists') {
+      const message = toError(error).message
+      if (message === 'Wallet already exists') {
         ipcFailure('WALLET_ALREADY_EXISTS', 'Wallet already exists', false, error)
+      }
+      if (message.includes('application password is required')) {
+        ipcFailure('WALLET_PASSWORD_REQUIRED', 'An app password is required on this system', false, error)
       }
       ipcFailure('WALLET_CREATE_FAILED', 'Unable to create wallet', false, error)
     }
@@ -293,10 +298,20 @@ export function registerWalletHandlers(registry: ServiceRegistry): void {
     try {
       result = await walletManager.importWallet(mnemonic, password, walletVersion, mnemonicScheme)
     } catch (error) {
-      const code = toError(error).message === 'Invalid mnemonic phrase' ? 'INVALID_MNEMONIC' : 'WALLET_IMPORT_FAILED'
+      const message = toError(error).message
+      const code =
+        message === 'Invalid mnemonic phrase'
+          ? 'INVALID_MNEMONIC'
+          : message.includes('application password is required')
+            ? 'WALLET_PASSWORD_REQUIRED'
+            : 'WALLET_IMPORT_FAILED'
       ipcFailure(
         code,
-        code === 'INVALID_MNEMONIC' ? 'Invalid mnemonic phrase' : 'Unable to import wallet',
+        code === 'INVALID_MNEMONIC'
+          ? 'Invalid mnemonic phrase'
+          : code === 'WALLET_PASSWORD_REQUIRED'
+            ? 'An app password is required on this system'
+            : 'Unable to import wallet',
         false,
         code === 'INVALID_MNEMONIC' ? undefined : error
       )
@@ -323,51 +338,14 @@ export function registerWalletHandlers(registry: ServiceRegistry): void {
     return result
   })
 
-  secureContractHandle(walletExportMnemonicContract, async (password) => {
-    const confirmed = await new Promise<boolean>((resolve) => {
-      const win = getMainWindow()
-      if (!win) {
-        resolve(false)
-        return
+  secureContractHandle(walletExportMnemonicContract, async (password?: string) => {
+    const state = walletManager.getState()
+    if (!state.passwordProtected && process.platform === 'darwin' && systemPreferences.canPromptTouchID()) {
+      try {
+        await systemPreferences.promptTouchID('Show TON wallet recovery phrase')
+      } catch (error) {
+        ipcFailure('USER_CANCELLED', 'Recovery phrase export cancelled', false, error)
       }
-
-      const bounds = win.getContentBounds()
-      const w = 420
-      const h = 260
-      const x = Math.round(bounds.width / 2 - w / 2)
-      const y = Math.round(bounds.height / 3)
-      const overlayId = 'wallet-export-confirm'
-
-      const shown = overlayManager.show(
-        overlayId,
-        { x, y, width: w, height: h },
-        {
-          type: 'form',
-          title: 'Export Seed Phrase',
-          fields: [
-            {
-              id: '_warning',
-              label: 'Your recovery phrase will be displayed.',
-              value:
-                'Anyone who sees these words can take full control of your wallet. Only proceed if you are in a safe environment.',
-              readonly: true,
-            },
-          ],
-          actions: [
-            { id: 'cancel', label: 'Cancel' },
-            { id: 'show', label: 'Show Seed Phrase', primary: true },
-          ],
-        },
-        (actionType) => {
-          overlayManager.hide(overlayId)
-          resolve(actionType === 'show')
-        }
-      )
-      if (!shown) resolve(false)
-    })
-
-    if (!confirmed) {
-      ipcFailure('USER_CANCELLED', 'Export cancelled')
     }
     try {
       return await walletManager.exportMnemonic(password)
@@ -399,7 +377,7 @@ export function registerWalletHandlers(registry: ServiceRegistry): void {
     }
   })
 
-  secureContractHandle(walletCreateBackupChallengeContract, async (password) => {
+  secureContractHandle(walletCreateBackupChallengeContract, async (password?: string) => {
     const state = walletManager.getState()
     if (!state.isCreated || !state.publicKey) ipcFailure('WALLET_NOT_FOUND', 'No wallet exists')
     try {

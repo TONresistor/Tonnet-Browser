@@ -51,6 +51,7 @@ describe('wallet IPC contract', () => {
 
   it('accepts exactly 24 mnemonic words only on explicit secret flows', () => {
     const mnemonic = Array.from({ length: 24 }, (_, index) => `word${index}`)
+    expect(walletCreateContract.input.parse([undefined])).toEqual([undefined])
     expect(walletCreateContract.input.parse(['correct horse battery staple'])).toBeDefined()
     expect(() => walletCreateContract.input.parse(['short'])).toThrow()
     expect(walletCreateContract.output.parse({ ...state, mnemonic }).mnemonic).toEqual(mnemonic)

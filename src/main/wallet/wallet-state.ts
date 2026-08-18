@@ -9,6 +9,7 @@ export function buildWalletState(input: {
   decryptFailed: boolean
   weakEncryption: boolean
   needsPasswordSetup: boolean
+  passwordProtected: boolean
   backupVerified: boolean
   walletVersion: WalletVersion
   mnemonicScheme: MnemonicScheme
@@ -19,6 +20,7 @@ export function buildWalletState(input: {
     decryptFailed: input.decryptFailed,
     weakEncryption: input.weakEncryption,
     needsPasswordSetup: input.needsPasswordSetup,
+    passwordProtected: input.passwordProtected,
     backupVerified: input.backupVerified,
     walletVersion: input.walletVersion,
     mnemonicScheme: input.mnemonicScheme,

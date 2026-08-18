@@ -17,6 +17,10 @@ class TestSecureStorage implements ISecureStorage {
   getBackendName = () => 'basic_text'
 }
 
+class DeviceSecureStorage extends TestSecureStorage {
+  getBackendName = () => 'keychain'
+}
+
 describe('WalletKeyStorage password protection', () => {
   const directories: string[] = []
   afterEach(async () => {
@@ -31,11 +35,53 @@ describe('WalletKeyStorage password protection', () => {
     expect(created.mnemonic).toHaveLength(12)
     expect(created.mnemonicScheme).toBe('bip39')
     const expectedPublicKey = Buffer.from(created.keypair.publicKey)
+    keyStorage.lock()
+    expect(keyStorage.isLocked()).toBe(true)
     await expect(keyStorage.inspect()).resolves.toMatchObject({ mnemonicScheme: 'bip39', walletVersion: 'v5R1' })
     keyStorage.destroy()
     const reopened = new WalletKeyStorage(new TestSecureStorage(), directory)
     const unlocked = await reopened.load('correct horse battery staple')
     expect(unlocked.publicKey).toEqual(expectedPublicKey)
+    reopened.destroy()
+  })
+
+  it('uses device protection without an app password and persists backup verification', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'ton-browser-device-'))
+    directories.push(directory)
+    const storage = new DeviceSecureStorage()
+    const keyStorage = new WalletKeyStorage(storage, directory)
+    const created = await keyStorage.generateFromMnemonic()
+    const expectedPublicKey = Buffer.from(created.keypair.publicKey)
+    await expect(keyStorage.inspect()).resolves.toMatchObject({
+      passwordProtected: false,
+      backupVerified: false,
+      mnemonicScheme: 'bip39',
+    })
+
+    await keyStorage.markBackupVerified()
+    keyStorage.destroy()
+    const reopened = new WalletKeyStorage(storage, directory)
+    await expect(reopened.inspect()).resolves.toMatchObject({ passwordProtected: false, backupVerified: true })
+    await expect(reopened.load()).resolves.toMatchObject({ publicKey: expectedPublicKey })
+    reopened.destroy()
+  })
+
+  it('rejects a device envelope whose public key does not match its secret', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'ton-browser-device-'))
+    directories.push(directory)
+    const storage = new DeviceSecureStorage()
+    const keyStorage = new WalletKeyStorage(storage, directory)
+    await keyStorage.generateFromMnemonic()
+    keyStorage.destroy()
+
+    const file = join(directory, 'wallet-key.dat')
+    const raw = await readFile(file)
+    const document = JSON.parse(storage.decrypt(raw.subarray(4)))
+    document.data.publicKey = '00'.repeat(32)
+    await writeFile(file, Buffer.concat([Buffer.from('SENC'), storage.encrypt(JSON.stringify(document))]))
+
+    const reopened = new WalletKeyStorage(storage, directory)
+    await expect(reopened.load()).rejects.toThrow(WalletDecryptionError)
     reopened.destroy()
   })
 

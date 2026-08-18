@@ -98,7 +98,14 @@
     "yourPhrase": "Ta phrase de récupération de 12 mots",
     "copy": "Copier dans le presse-papiers",
     "acknowledgement": "Je confirme avoir enregistré ma phrase de récupération en lieu sûr. Je comprends que sans elle, il sera impossible de récupérer mon portefeuille ou mes fonds.",
-    "confirm": "Continuer"
+    "confirm": "Continuer",
+    "continueVerification": "Je l'ai sauvegardée — continuer",
+    "preparing": "Préparation de la vérification…",
+    "verifyTitle": "Confirme ta sauvegarde",
+    "verifyDescription": "Utilise la phrase de récupération que tu as sauvegardée. Elle n'est plus affichée sur cette page.",
+    "wordNumber": "Mot n°{{number}}",
+    "verifyButton": "Vérifier la sauvegarde",
+    "verifying": "Vérification…"
   },
   "create": {
     "title": "Créer un portefeuille",

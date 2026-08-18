@@ -38,6 +38,8 @@ import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { TON_WALLET_PAGE, UI_COPY_FEEDBACK_MS } from '@shared/constants'
 import { copySensitiveText } from '@/features/wallet/sensitive-clipboard'
+import { WalletSidebarGate } from './WalletSidebarGate'
+import { errorMessage } from '@shared/errors'
 
 type SidebarView = 'overview' | 'send' | 'receive'
 
@@ -62,6 +64,8 @@ export function WalletSidebar({ onClose }: WalletSidebarProps) {
     send,
     loadHistory,
     refreshBalance,
+    unlock,
+    setupPassword,
   } = useWalletStore(
     useShallow((s) => ({
       isCreated: s.isCreated,
@@ -78,6 +82,8 @@ export function WalletSidebar({ onClose }: WalletSidebarProps) {
       send: s.send,
       loadHistory: s.loadHistory,
       refreshBalance: s.refreshBalance,
+      unlock: s.unlock,
+      setupPassword: s.setupPassword,
     }))
   )
   const openOrSwitchToTab = useOpenOrSwitchBrowserTab()
@@ -87,6 +93,10 @@ export function WalletSidebar({ onClose }: WalletSidebarProps) {
   const [newMnemonic, setNewMnemonic] = useState<string[] | null>(null)
   const [backupAcknowledged, setBackupAcknowledged] = useState(false)
   const [mnemonicRevealed, setMnemonicRevealed] = useState(false)
+  const [walletPassword, setWalletPassword] = useState('')
+  const [walletPasswordConfirm, setWalletPasswordConfirm] = useState('')
+  const [securityError, setSecurityError] = useState<string | null>(null)
+  const [securityPending, setSecurityPending] = useState(false)
   const mnemonicTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Auto-clear mnemonic from memory after 60s
@@ -138,6 +148,21 @@ export function WalletSidebar({ onClose }: WalletSidebarProps) {
     openOrSwitchToTab(TON_WALLET_PAGE)
     onClose()
   }, [openOrSwitchToTab, onClose])
+
+  const handleSecuritySubmit = useCallback(async () => {
+    setSecurityPending(true)
+    setSecurityError(null)
+    try {
+      if (needsPasswordSetup) await setupPassword(walletPassword)
+      else await unlock(walletPassword)
+      setWalletPassword('')
+      setWalletPasswordConfirm('')
+    } catch (error) {
+      setSecurityError(errorMessage(error))
+    } finally {
+      setSecurityPending(false)
+    }
+  }, [needsPasswordSetup, setupPassword, unlock, walletPassword])
 
   // Mnemonic backup screen after wallet creation
   if (newMnemonic) {
@@ -261,29 +286,18 @@ export function WalletSidebar({ onClose }: WalletSidebarProps) {
 
   if (isLocked || needsPasswordSetup || !backupVerified) {
     return (
-      <div className="flex h-full flex-col bg-[hsl(var(--elevation-1))] border-l border-border">
-        <div className="px-4 py-3 border-b border-border flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <AppIcon name="wallet" className="h-4 w-4 text-icon" />
-            <span className="text-sm font-semibold text-heading">{t('page.title')}</span>
-          </div>
-          <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full" onClick={onClose}>
-            <X className="h-3.5 w-3.5" aria-hidden="true" />
-          </Button>
-        </div>
-        <div className="flex flex-1 items-center justify-center p-4">
-          <EmptyState
-            icon={<AppIcon name="wallet" className="h-7 w-7 text-icon opacity-70" />}
-            title={needsPasswordSetup ? 'Protect wallet' : isLocked ? 'Wallet locked' : 'Verify wallet backup'}
-            description="Open the wallet page to continue securely."
-            action={
-              <ActionButton variant="filled" onClick={handleOpenWallet} className="w-full max-w-[200px]">
-                Open wallet
-              </ActionButton>
-            }
-          />
-        </div>
-      </div>
+      <WalletSidebarGate
+        mode={needsPasswordSetup ? 'setup' : isLocked ? 'unlock' : 'backup'}
+        password={walletPassword}
+        confirmation={needsPasswordSetup ? walletPasswordConfirm : undefined}
+        pending={securityPending}
+        error={securityError}
+        onPassword={setWalletPassword}
+        onConfirmation={needsPasswordSetup ? setWalletPasswordConfirm : undefined}
+        onSubmit={handleSecuritySubmit}
+        onOpenFull={handleOpenWallet}
+        onClose={onClose}
+      />
     )
   }
 
@@ -357,7 +371,7 @@ export function WalletSidebar({ onClose }: WalletSidebarProps) {
                 transition-colors font-medium"
             >
               <ExternalLink className="h-3 w-3" />
-              {t('page.title')}
+              {t('page.openFull', { defaultValue: 'Open full wallet' })}
             </button>
           </div>
         </>

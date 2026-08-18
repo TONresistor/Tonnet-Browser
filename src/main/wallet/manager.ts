@@ -56,6 +56,7 @@ export class WalletManager extends EventEmitter {
   private weakEncryption: boolean = false
   private needsPasswordSetup: boolean = false
   private backupVerified: boolean = false
+  private passwordProtected: boolean = false
   private operationTail: Promise<void> = Promise.resolve()
   private queryService: WalletQueryService
   private signingService: WalletSigningService
@@ -105,6 +106,7 @@ export class WalletManager extends EventEmitter {
     if (await this.keyStorage.exists()) {
       try {
         const metadata = await this.keyStorage.inspect()
+        this.passwordProtected = metadata?.passwordProtected ?? false
         if (metadata?.passwordProtected && metadata.publicKey) {
           this.publicKey = Buffer.from(metadata.publicKey)
           this.walletVersion = metadata.walletVersion
@@ -114,8 +116,10 @@ export class WalletManager extends EventEmitter {
         } else {
           this.keypair = await this.keyStorage.load()
           this.publicKey = Buffer.from(this.keypair.publicKey)
+          this.walletVersion = metadata?.walletVersion ?? 'v5R1'
+          this.mnemonicScheme = metadata?.mnemonicScheme ?? 'ton'
           this.walletContract = createWalletContract(this.walletVersion, this.keypair.publicKey)
-          this.needsPasswordSetup = true
+          this.backupVerified = metadata?.backupVerified ?? false
         }
         await Promise.allSettled([
           warmupWalletBridge(() => this.getBalance()).then((ready) => {
@@ -126,7 +130,8 @@ export class WalletManager extends EventEmitter {
         this.subscribeAccount()
         const walletSettings = getSetting('wallet')
         this.keyStorage.setAutoLockMinutes(walletSettings.autoLockMinutes)
-        this.weakEncryption = this.needsPasswordSetup && this.keyStorage.isBasicTextBackend()
+        this.weakEncryption = !this.passwordProtected && this.keyStorage.isBasicTextBackend()
+        this.needsPasswordSetup = this.weakEncryption
         log.status('wallet.ready', `wallet ready · ${Date.now() - startedAt}ms`, {
           durationMs: Date.now() - startedAt,
         })
@@ -169,7 +174,8 @@ export class WalletManager extends EventEmitter {
       this.walletContract = createWalletContract(this.walletVersion, this.keypair.publicKey)
       this.localSeqno = 0
       this.weakEncryption = !password && this.keyStorage.isBasicTextBackend()
-      this.needsPasswordSetup = !password
+      this.passwordProtected = Boolean(password)
+      this.needsPasswordSetup = this.weakEncryption
       this.backupVerified = false
       this.subscribeAccount()
 
@@ -224,7 +230,8 @@ export class WalletManager extends EventEmitter {
         this.currentBalance = '0'
         this.decryptFailed = false
         this.weakEncryption = !password && this.keyStorage.isBasicTextBackend()
-        this.needsPasswordSetup = !password
+        this.passwordProtected = Boolean(password)
+        this.needsPasswordSetup = this.weakEncryption
         this.backupVerified = true
         this.subscribeAccount()
 
@@ -260,6 +267,7 @@ export class WalletManager extends EventEmitter {
       this.weakEncryption = false
       this.needsPasswordSetup = false
       this.backupVerified = false
+      this.passwordProtected = false
 
       const state = this.getState()
       this.emit('state-changed', state)
@@ -267,7 +275,6 @@ export class WalletManager extends EventEmitter {
       return state
     })
   }
-
   async exportMnemonic(password?: string): Promise<{ mnemonic: string[] }> {
     const result = await this.keyStorage.getMnemonic(password)
     if (!result) {
@@ -275,7 +282,6 @@ export class WalletManager extends EventEmitter {
     }
     return result
   }
-
   async unlock(password: string): Promise<WalletState> {
     return this.runExclusive(() => this.unlockUnlocked(password))
   }
@@ -290,13 +296,13 @@ export class WalletManager extends EventEmitter {
       const metadata = await this.keyStorage.inspect()
       this.needsPasswordSetup = false
       this.weakEncryption = false
+      this.passwordProtected = true
       this.backupVerified = metadata?.backupVerified ?? false
       this.lock()
       return this.unlockUnlocked(password)
     })
   }
-
-  async markBackupVerified(password: string, expectedPublicKey: string): Promise<WalletState> {
+  async markBackupVerified(password: string | undefined, expectedPublicKey: string): Promise<WalletState> {
     return this.runExclusive(async () => {
       if (!this.publicKey || this.publicKey.toString('hex') !== expectedPublicKey) {
         throw new Error('Wallet identity changed during backup verification')
@@ -308,7 +314,6 @@ export class WalletManager extends EventEmitter {
       return state
     })
   }
-
   async changePassword(currentPassword: string, nextPassword: string): Promise<WalletState> {
     return this.runExclusive(async () => {
       await this.keyStorage.changePassword(currentPassword, nextPassword)
@@ -316,7 +321,6 @@ export class WalletManager extends EventEmitter {
       return this.unlockUnlocked(nextPassword)
     })
   }
-
   getState(): WalletState {
     return buildWalletState({
       publicKey: this.publicKey,
@@ -326,20 +330,18 @@ export class WalletManager extends EventEmitter {
       decryptFailed: this.decryptFailed,
       weakEncryption: this.weakEncryption,
       needsPasswordSetup: this.needsPasswordSetup,
+      passwordProtected: this.passwordProtected,
       backupVerified: this.backupVerified,
       walletVersion: this.walletVersion,
       mnemonicScheme: this.mnemonicScheme,
     })
   }
-
   getTonBridge(): TonBridgePort | null {
     return this.wsBridge
   }
-
   getMessengerBridge(): MessengerBridgePort | null {
     return this.wsBridge
   }
-
   async getBalance(): Promise<string> {
     const address = this.walletContract?.address.toString() ?? null
     const fetched = await this.queryService.getBalance(address, this.currentBalance)
@@ -349,7 +351,6 @@ export class WalletManager extends EventEmitter {
     }
     return this.currentBalance
   }
-
   async fetchOnChainHistory(limit: number = WALLET_HISTORY_DEFAULT_LIMIT): Promise<WalletTransaction[]> {
     return this.queryService.fetchOnChainHistory(this.walletContract?.address.toString() ?? null, limit)
   }
