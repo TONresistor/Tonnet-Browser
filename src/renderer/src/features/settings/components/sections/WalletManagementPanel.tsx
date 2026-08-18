@@ -1,19 +1,23 @@
 import { errorMessage } from '@shared/errors'
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { UI_COPY_FEEDBACK_MS } from '@shared/constants'
 import { LoaderCircle, Eye, EyeOff, Upload, KeyRound, Copy, Check, AlertTriangle, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useWalletManagement } from '@/features/wallet/public'
-import { useOverlay } from '@/hooks/useOverlay'
 import { cn } from '@/lib/utils'
 import { WalletPasswordFields } from '@/features/wallet/components/WalletPasswordFields'
+import { WalletAccountCandidates } from '@/features/wallet/components/WalletAccountCandidates'
+import { copySensitiveText } from '@/features/wallet/sensitive-clipboard'
+import { WalletChangePassword } from '@/features/wallet/components/WalletChangePassword'
+import type { WalletAccountCandidate } from '@shared/ipc-contract/wallet'
+import { walletClient } from '@/features/wallet/client'
 
 const MNEMONIC_CLEAR_TIMEOUT = 60_000
 
 export function WalletManagementPanel() {
   const { t } = useTranslation('wallet')
-  const { isCreated, importWallet, exportMnemonic, deleteWallet, isLoading } = useWalletManagement()
+  const { isCreated, discoverAccounts, importWallet, exportMnemonic, deleteWallet, isLoading } = useWalletManagement()
   const [words, setWords] = useState<string[] | null>(null)
   const [isRevealed, setIsRevealed] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -25,46 +29,23 @@ export function WalletManagementPanel() {
   const [showConfirm, setShowConfirm] = useState(false)
   const [walletPassword, setWalletPassword] = useState('')
   const [walletPasswordConfirm, setWalletPasswordConfirm] = useState('')
+  const [accountCandidates, setAccountCandidates] = useState<WalletAccountCandidate[]>([])
+  const [selectedAccount, setSelectedAccount] = useState<WalletAccountCandidate | null>(null)
 
-  const deleteOverlayHideRef = useRef<(() => void) | null>(null)
+  useEffect(() => {
+    void walletClient.setSensitiveDisplay(Boolean(words))
+    return () => {
+      void walletClient.setSensitiveDisplay(false)
+    }
+  }, [words])
 
-  const handleDeleteAction = useCallback(
-    async (actionType: string) => {
-      deleteOverlayHideRef.current?.()
-      if (actionType === 'confirm-delete') {
-        await deleteWallet()
-      }
-    },
-    [deleteWallet]
-  )
-
-  const deleteOverlay = useOverlay('wallet-delete-confirm', handleDeleteAction)
-  deleteOverlayHideRef.current = deleteOverlay.hide
-
-  const showDeleteOverlay = useCallback(() => {
-    const w = 380
-    const h = 280
-    const x = Math.round((window.innerWidth - w) / 2)
-    const y = Math.max(8, Math.round((window.innerHeight - h) / 2))
-    deleteOverlay.show(
-      { x, y, width: w, height: h },
-      {
-        type: 'form',
-        title: t('delete.title'),
-        fields: [{ id: '_warning', label: '', value: t('delete.warning'), readonly: true }],
-        actions: [
-          { id: 'dismiss', label: t('import.cancelButton') },
-          { id: 'confirm-delete', label: t('delete.button'), primary: true },
-        ],
-      },
-      { autoDismiss: true }
-    )
-  }, [deleteOverlay, t])
+  const handleDelete = useCallback(() => void deleteWallet(), [deleteWallet])
 
   const handleReveal = useCallback(async () => {
     if (isRevealed) {
       setIsRevealed(false)
       setWords(null)
+      setWalletPassword('')
       return
     }
     setExportLoading(true)
@@ -73,6 +54,7 @@ export function WalletManagementPanel() {
       const mnemonic = await exportMnemonic(walletPassword)
       setWords(mnemonic)
       setIsRevealed(true)
+      setWalletPassword('')
       setTimeout(() => {
         setWords(null)
         setIsRevealed(false)
@@ -86,8 +68,7 @@ export function WalletManagementPanel() {
 
   const handleCopy = useCallback(() => {
     if (!words) return
-    navigator.clipboard.writeText(words.join(' '))
-    setTimeout(() => navigator.clipboard.writeText(''), 30_000)
+    void copySensitiveText(words.join(' '))
     setCopied(true)
     setTimeout(() => setCopied(false), UI_COPY_FEEDBACK_MS)
   }, [words])
@@ -101,8 +82,20 @@ export function WalletManagementPanel() {
 
   const handleImport = useCallback(async () => {
     const parsed = parseWords(importInput)
-    if (parsed.length !== 24) {
+    if (parsed.length !== 12 && parsed.length !== 24) {
       setImportError(t('import.error'))
+      return
+    }
+    if (accountCandidates.length === 0) {
+      try {
+        setAccountCandidates(await discoverAccounts(parsed))
+      } catch (err) {
+        setImportError(errorMessage(err))
+      }
+      return
+    }
+    if (!selectedAccount) {
+      setImportError('Select the wallet account you want to import.')
       return
     }
     if (walletPassword.length < 10 || walletPassword !== walletPasswordConfirm) {
@@ -116,13 +109,28 @@ export function WalletManagementPanel() {
     setImportError(null)
     setShowConfirm(false)
     try {
-      await importWallet(parsed, walletPassword)
+      await importWallet(parsed, walletPassword, selectedAccount.version, selectedAccount.scheme)
       setImportInput('')
       setShowImport(false)
+      setWalletPassword('')
+      setWalletPasswordConfirm('')
+      setAccountCandidates([])
+      setSelectedAccount(null)
     } catch (err) {
       setImportError(errorMessage(err))
     }
-  }, [importInput, isCreated, showConfirm, importWallet, t, walletPassword, walletPasswordConfirm])
+  }, [
+    importInput,
+    isCreated,
+    showConfirm,
+    importWallet,
+    discoverAccounts,
+    t,
+    walletPassword,
+    walletPasswordConfirm,
+    accountCandidates.length,
+    selectedAccount,
+  ])
 
   return (
     <div className="mt-6 settings-group px-4 py-4 space-y-4">
@@ -175,6 +183,7 @@ export function WalletManagementPanel() {
               </Button>
             </div>
           )}
+          <WalletChangePassword />
         </div>
       )}
 
@@ -206,7 +215,16 @@ export function WalletManagementPanel() {
                 {isLoading && <LoaderCircle className="h-4 w-4 mr-2 animate-spin" aria-hidden="true" />}
                 {t('import.confirmButton')}
               </Button>
-              <Button type="button" variant="outline" onClick={() => setShowConfirm(false)} className="flex-1">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setShowConfirm(false)
+                  setWalletPassword('')
+                  setWalletPasswordConfirm('')
+                }}
+                className="flex-1"
+              >
                 {t('import.cancelButton')}
               </Button>
             </div>
@@ -222,6 +240,10 @@ export function WalletManagementPanel() {
                   setShowImport(false)
                   setImportInput('')
                   setImportError(null)
+                  setWalletPassword('')
+                  setWalletPasswordConfirm('')
+                  setAccountCandidates([])
+                  setSelectedAccount(null)
                 }}
               >
                 {t('import.cancelButton')}
@@ -245,23 +267,44 @@ export function WalletManagementPanel() {
               onChange={(e) => {
                 setImportInput(e.target.value)
                 setImportError(null)
+                setAccountCandidates([])
+                setSelectedAccount(null)
               }}
               spellCheck={false}
               autoComplete="off"
             />
+            <WalletAccountCandidates
+              candidates={accountCandidates}
+              selected={selectedAccount}
+              onSelect={setSelectedAccount}
+            />
             <div className="flex items-center justify-between">
-              <span className={cn('text-xs', wordCount === 24 ? 'text-success' : 'text-muted-foreground')}>
-                {wordCount}/24
+              <span
+                className={cn(
+                  'text-xs',
+                  wordCount === 12 || wordCount === 24 ? 'text-success' : 'text-muted-foreground'
+                )}
+              >
+                {wordCount} words
               </span>
               {importError && <span className="text-xs text-destructive">{importError}</span>}
             </div>
-            <Button type="button" onClick={handleImport} disabled={isLoading || wordCount !== 24} className="w-full">
+            <Button
+              type="button"
+              onClick={handleImport}
+              disabled={isLoading || (wordCount !== 12 && wordCount !== 24)}
+              className="w-full"
+            >
               {isLoading ? (
                 <LoaderCircle className="h-4 w-4 mr-2 animate-spin" aria-hidden="true" />
               ) : (
                 <Upload className="h-4 w-4 mr-2" aria-hidden="true" />
               )}
-              {isLoading ? t('import.importing') : t('import.button')}
+              {isLoading
+                ? t('import.importing')
+                : accountCandidates.length === 0
+                  ? 'Find wallet accounts'
+                  : 'Import selected account'}
             </Button>
           </div>
         )}
@@ -273,7 +316,7 @@ export function WalletManagementPanel() {
           <button
             type="button"
             className="text-sm text-destructive hover:underline flex items-center gap-2"
-            onClick={showDeleteOverlay}
+            onClick={handleDelete}
           >
             <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
             {t('delete.button')}

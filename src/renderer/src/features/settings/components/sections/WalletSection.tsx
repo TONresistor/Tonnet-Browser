@@ -108,6 +108,7 @@ export const WalletSection = memo(function WalletSection({ onDirtyChange, sectio
   const saveToMain = useCallback(async () => {
     try {
       await walletClient.updateSettings({
+        autoLockMinutes: draft.autoLockMinutes,
         indexerEnabled: draft.indexerEnabled,
         indexerEndpoint: draft.indexerEndpoint,
         indexerApiKey: draft.indexerApiKey,
@@ -146,6 +147,30 @@ export const WalletSection = memo(function WalletSection({ onDirtyChange, sectio
       <WalletManagementPanel />
 
       <ConnectedAppsPanel />
+
+      <div className="mt-6">
+        <h3 className="mb-2 px-1 text-[13px] font-medium uppercase tracking-wide text-muted-foreground">
+          Wallet security
+        </h3>
+        <div className="settings-group px-4">
+          <SettingRow
+            label="Auto-lock"
+            description="Clear the decrypted signing key after this many minutes. Use 0 only if you understand the risk."
+          >
+            <TextInput
+              value={String(draft.autoLockMinutes)}
+              onChange={(value) => {
+                const minutes = Number.parseInt(value, 10)
+                if (Number.isInteger(minutes) && minutes >= 0 && minutes <= 1440) {
+                  updateDraft({ autoLockMinutes: minutes })
+                }
+              }}
+              placeholder="5"
+              ariaLabel="Wallet auto-lock minutes"
+            />
+          </SettingRow>
+        </div>
+      </div>
 
       <div className="mt-6">
         <h3 className="mb-2 px-1 text-[13px] font-medium uppercase tracking-wide text-muted-foreground">

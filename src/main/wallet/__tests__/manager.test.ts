@@ -270,6 +270,88 @@ describe('WalletManager.resolveRecipient', () => {
   })
 })
 
+describe('WalletManager recovery safety', () => {
+  it('never deletes an unreadable wallet when create is requested', async () => {
+    const manager = new WalletManager(new InMemorySecureStorage())
+    const state = manager as unknown as {
+      initialized: boolean
+      decryptFailed: boolean
+      keyStorage: { deleteFile: ReturnType<typeof vi.fn> }
+    }
+    state.initialized = true
+    state.decryptFailed = true
+    state.keyStorage = { deleteFile: vi.fn() }
+
+    await expect(manager.create('correct horse battery staple')).rejects.toThrow('Recover or explicitly delete')
+    expect(state.keyStorage.deleteFile).not.toHaveBeenCalled()
+  })
+})
+
+describe('WalletManager vault mutation safety', () => {
+  function prepareVaultMutation(manager: WalletManager) {
+    const keypair = { publicKey: Buffer.alloc(32, 7), secretKey: Buffer.alloc(64, 8) }
+    const keyStorage = {
+      protectWithPassword: vi.fn().mockResolvedValue(undefined),
+      inspect: vi.fn().mockResolvedValue({ backupVerified: false }),
+      changePassword: vi.fn().mockResolvedValue(undefined),
+      load: vi.fn().mockResolvedValue(keypair),
+      lock: vi.fn(),
+      isLocked: vi.fn(() => false),
+    }
+    const state = manager as unknown as {
+      operationTail: Promise<void>
+      publicKey: Buffer
+      keypair: TestKeypair | null
+      keyStorage: typeof keyStorage
+    }
+    state.publicKey = Buffer.from(keypair.publicKey)
+    state.keypair = keypair
+    state.keyStorage = keyStorage
+    return { state, keyStorage }
+  }
+
+  it('queues password setup behind active wallet operations', async () => {
+    const manager = new WalletManager(new InMemorySecureStorage())
+    const { state, keyStorage } = prepareVaultMutation(manager)
+    let release: () => void = () => {}
+    state.operationTail = new Promise<void>((resolve) => {
+      release = resolve
+    })
+
+    const setup = manager.setupPassword('correct horse battery staple')
+    await Promise.resolve()
+    expect(keyStorage.protectWithPassword).not.toHaveBeenCalled()
+
+    release()
+    await setup
+    expect(keyStorage.protectWithPassword).toHaveBeenCalledOnce()
+  })
+
+  it('serializes concurrent password changes', async () => {
+    const manager = new WalletManager(new InMemorySecureStorage())
+    const { keyStorage } = prepareVaultMutation(manager)
+    let releaseFirst: () => void = () => {}
+    keyStorage.changePassword
+      .mockReturnValueOnce(
+        new Promise<void>((resolve) => {
+          releaseFirst = resolve
+        })
+      )
+      .mockResolvedValueOnce(undefined)
+
+    const first = manager.changePassword('current password value', 'next password value')
+    await Promise.resolve()
+    const second = manager.changePassword('next password value', 'final password value')
+    await Promise.resolve()
+    expect(keyStorage.changePassword).toHaveBeenCalledOnce()
+
+    releaseFirst()
+    await first
+    await second
+    expect(keyStorage.changePassword).toHaveBeenCalledTimes(2)
+  })
+})
+
 type TestKeypair = { publicKey: Buffer; secretKey: Buffer }
 
 interface WalletManagerImportState {

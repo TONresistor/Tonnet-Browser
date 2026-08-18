@@ -37,6 +37,7 @@ import { AddressChip } from '@/components/ui/ios/AddressChip'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { TON_WALLET_PAGE, UI_COPY_FEEDBACK_MS } from '@shared/constants'
+import { copySensitiveText } from '@/features/wallet/sensitive-clipboard'
 
 type SidebarView = 'overview' | 'send' | 'receive'
 
@@ -128,8 +129,7 @@ export function WalletSidebar({ onClose }: WalletSidebarProps) {
 
   const handleCopyMnemonic = useCallback(() => {
     if (!newMnemonic) return
-    navigator.clipboard.writeText(newMnemonic.join(' '))
-    setTimeout(() => navigator.clipboard.writeText(''), 30_000)
+    void copySensitiveText(newMnemonic.join(' '))
     setMnemonicCopied(true)
     setTimeout(() => setMnemonicCopied(false), UI_COPY_FEEDBACK_MS)
   }, [newMnemonic])

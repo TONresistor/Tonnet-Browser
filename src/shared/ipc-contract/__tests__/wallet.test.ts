@@ -4,6 +4,12 @@ import {
   WALLET_EVENT_CONTRACTS,
   walletCreateContract,
   walletGetStateContract,
+  walletImportContract,
+  walletUnlockContract,
+  walletExportMnemonicContract,
+  walletChangePasswordContract,
+  walletCreateBackupChallengeContract,
+  walletMarkBackupVerifiedContract,
   walletPayForXhrContract,
   walletSendContract,
   WalletStateSchema,
@@ -48,8 +54,11 @@ describe('wallet IPC contract', () => {
     expect(walletCreateContract.input.parse(['correct horse battery staple'])).toBeDefined()
     expect(() => walletCreateContract.input.parse(['short'])).toThrow()
     expect(walletCreateContract.output.parse({ ...state, mnemonic }).mnemonic).toEqual(mnemonic)
+    expect(walletCreateContract.output.parse({ ...state, mnemonic: mnemonic.slice(0, 12) }).mnemonic).toHaveLength(12)
     expect(() => walletCreateContract.output.parse({ ...state, mnemonic: mnemonic.slice(1) })).toThrow()
     expect(walletCreateContract.redaction).toBe('secret')
+    expect(walletImportContract.input.parse([mnemonic, 'correct horse battery staple', 'v4R2', 'ton'])).toBeDefined()
+    expect(() => walletImportContract.input.parse([mnemonic, 'correct horse battery staple', 'v4R1', 'ton'])).toThrow()
   })
 
   it('enforces the wallet comment limit in UTF-8 bytes rather than characters', () => {
@@ -67,6 +76,19 @@ describe('wallet IPC contract', () => {
       key: 'sender',
     })
     expect(() => walletPayForXhrContract.input.parse([{ url: 'file:///etc/passwd' }])).toThrow()
+  })
+
+  it('rate-limits password-authenticated operations in the main process', () => {
+    for (const contract of [
+      walletUnlockContract,
+      walletExportMnemonicContract,
+      walletChangePasswordContract,
+      walletCreateBackupChallengeContract,
+      walletMarkBackupVerifiedContract,
+    ]) {
+      expect(contract.rateLimit).toEqual({ kind: 'fixed-window', maxRequests: 5, windowMs: 60_000, key: 'sender' })
+      expect(contract.redaction).toBe('secret')
+    }
   })
 
   it('validates payment notifications before renderer delivery', () => {

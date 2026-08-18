@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm } from 'node:fs/promises'
+import { access, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { mnemonicNew } from '@ton/crypto'
@@ -23,6 +23,22 @@ describe('WalletKeyStorage password protection', () => {
     await Promise.all(directories.splice(0).map((directory) => rm(directory, { recursive: true, force: true })))
   })
 
+  it('creates new wallets with the recommended 12-word multichain mnemonic', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'ton-browser-vault-'))
+    directories.push(directory)
+    const keyStorage = new WalletKeyStorage(new TestSecureStorage(), directory)
+    const created = await keyStorage.generateFromMnemonic('correct horse battery staple')
+    expect(created.mnemonic).toHaveLength(12)
+    expect(created.mnemonicScheme).toBe('bip39')
+    const expectedPublicKey = Buffer.from(created.keypair.publicKey)
+    await expect(keyStorage.inspect()).resolves.toMatchObject({ mnemonicScheme: 'bip39', walletVersion: 'v5R1' })
+    keyStorage.destroy()
+    const reopened = new WalletKeyStorage(new TestSecureStorage(), directory)
+    const unlocked = await reopened.load('correct horse battery staple')
+    expect(unlocked.publicKey).toEqual(expectedPublicKey)
+    reopened.destroy()
+  })
+
   it('keeps the mnemonic confidential even when Electron falls back to basic_text', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'ton-browser-vault-'))
     directories.push(directory)
@@ -41,5 +57,49 @@ describe('WalletKeyStorage password protection', () => {
     const unlocked = await reopened.load(password)
     expect(unlocked.publicKey).toEqual(imported.publicKey)
     reopened.destroy()
+  })
+
+  it('preserves the previous encrypted wallet when importing a replacement version', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'ton-browser-vault-'))
+    directories.push(directory)
+    const storage = new TestSecureStorage()
+    const keyStorage = new WalletKeyStorage(storage, directory)
+    const password = 'correct horse battery staple'
+    await keyStorage.importFromMnemonic(await mnemonicNew(24), password, 'v5R1')
+    keyStorage.lock()
+    await keyStorage.importFromMnemonic(await mnemonicNew(24), password, 'v3R1')
+
+    await expect(access(join(directory, 'wallet-key.dat.pre-import.bak'))).resolves.toBeUndefined()
+    const reopened = new WalletKeyStorage(storage, directory)
+    await expect(reopened.inspect()).resolves.toMatchObject({ walletVersion: 'v3R1', mnemonicScheme: 'ton' })
+    reopened.destroy()
+  })
+
+  it('rotates the password without changing the wallet identity', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'ton-browser-vault-'))
+    directories.push(directory)
+    const storage = new TestSecureStorage()
+    const keyStorage = new WalletKeyStorage(storage, directory)
+    const original = await keyStorage.importFromMnemonic(await mnemonicNew(24), 'correct horse battery staple', 'v5R1')
+    keyStorage.lock()
+    await keyStorage.changePassword('correct horse battery staple', 'a newer and stronger wallet password')
+
+    const reopened = new WalletKeyStorage(storage, directory)
+    await expect(reopened.load('correct horse battery staple')).rejects.toThrow(WalletDecryptionError)
+    const unlocked = await reopened.load('a newer and stronger wallet password')
+    expect(unlocked.publicKey).toEqual(original.publicKey)
+    reopened.destroy()
+  })
+
+  it('grandfathers a legacy raw seed as backed up during password migration', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'ton-browser-vault-'))
+    directories.push(directory)
+    await writeFile(join(directory, 'wallet-key.dat'), Buffer.alloc(32, 9), { mode: 0o600 })
+    const storage = new TestSecureStorage()
+    const keyStorage = new WalletKeyStorage(storage, directory)
+    await keyStorage.load()
+    await keyStorage.protectWithPassword('correct horse battery staple')
+    await expect(keyStorage.inspect()).resolves.toMatchObject({ passwordProtected: true, backupVerified: true })
+    keyStorage.destroy()
   })
 })

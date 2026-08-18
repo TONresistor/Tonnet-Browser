@@ -7,13 +7,24 @@ export const walletClient = {
   isAvailable: () => typeof window !== 'undefined' && Boolean(window.electron),
   getState: () => window.electron.wallet.getState(),
   create: (password: string) => window.electron.wallet.create(password),
-  importWallet: (mnemonic: string[], password: string) => window.electron.wallet.importWallet(mnemonic, password),
+  discoverAccounts: (mnemonic: string[]) => window.electron.wallet.discoverAccounts(mnemonic),
+  importWallet: (
+    mnemonic: string[],
+    password: string,
+    walletVersion: 'v3R1' | 'v3R2' | 'v4R2' | 'v5R1',
+    mnemonicScheme: 'ton' | 'bip39'
+  ) => window.electron.wallet.importWallet(mnemonic, password, walletVersion, mnemonicScheme),
   exportMnemonic: (password: string) => window.electron.wallet.exportMnemonic(password),
   deleteWallet: () => window.electron.wallet.deleteWallet(),
   unlock: (password: string) => window.electron.wallet.unlock(password),
   lock: () => window.electron.wallet.lock(),
   setupPassword: (password: string) => window.electron.wallet.setupPassword(password),
-  markBackupVerified: () => window.electron.wallet.markBackupVerified(),
+  createBackupChallenge: (password: string) => window.electron.wallet.createBackupChallenge(password),
+  markBackupVerified: (challengeId: string, password: string, answers: string[]) =>
+    window.electron.wallet.markBackupVerified(challengeId, password, answers),
+  changePassword: (currentPassword: string, nextPassword: string) =>
+    window.electron.wallet.changePassword(currentPassword, nextPassword),
+  setSensitiveDisplay: (active: boolean) => window.electron.wallet.setSensitiveDisplay(active),
   getBalance: () => window.electron.wallet.getBalance(),
   send: (to: string, amount: string, comment?: string) => window.electron.wallet.send(to, amount, comment),
   resolveRecipient: (recipient: string) => window.electron.wallet.resolveRecipient(recipient),

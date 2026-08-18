@@ -115,7 +115,7 @@ describe('WalletKeyStorage', () => {
   // 1. generateFromMnemonic() produces 24 words and stores encrypted
   describe('generateFromMnemonic()', () => {
     it('produces 24-word mnemonic and writes encrypted file', async () => {
-      const { keypair } = await ks.generateFromMnemonic()
+      const { keypair } = await ks.generateFromMnemonic(undefined, 'ton')
 
       expect(keypair.publicKey).toBeInstanceOf(Buffer)
       expect(keypair.publicKey.length).toBe(32)
@@ -138,7 +138,7 @@ describe('WalletKeyStorage', () => {
     })
 
     it('returns mnemonic array of length 24', async () => {
-      const { mnemonic, keypair } = await ks.generateFromMnemonic()
+      const { mnemonic, keypair } = await ks.generateFromMnemonic(undefined, 'ton')
 
       expect(mnemonic).toHaveLength(24)
       expect(keypair.publicKey).toBeInstanceOf(Buffer)
@@ -146,12 +146,12 @@ describe('WalletKeyStorage', () => {
 
     it('throws if wallet already exists', async () => {
       vi.mocked(fs.access).mockResolvedValue(undefined)
-      await expect(ks.generateFromMnemonic()).rejects.toThrow('Wallet already exists')
+      await expect(ks.generateFromMnemonic(undefined, 'ton')).rejects.toThrow('Wallet already exists')
     })
 
     it('throws if encryption is unavailable', async () => {
       storage.setAvailable(false)
-      await expect(ks.generateFromMnemonic()).rejects.toThrow('Secure storage is not available')
+      await expect(ks.generateFromMnemonic(undefined, 'ton')).rejects.toThrow('Secure storage is not available')
     })
   })
 
@@ -504,7 +504,15 @@ describe('WalletKeyStorage', () => {
     it('deleteFile calls unlink', async () => {
       vi.mocked(fs.unlink).mockResolvedValue(undefined)
       await ks.deleteFile()
-      expect(fs.unlink).toHaveBeenCalledOnce()
+      expect(fs.unlink).toHaveBeenCalledTimes(5)
+      expect(vi.mocked(fs.unlink).mock.calls.map(([path]) => String(path))).toEqual(
+        expect.arrayContaining([
+          expect.stringContaining('wallet-key.dat'),
+          expect.stringContaining('wallet-key.dat.pre-migration.bak'),
+          expect.stringContaining('wallet-key.dat.pre-password.bak'),
+          expect.stringContaining('wallet-key.dat.pre-import.bak'),
+        ])
+      )
     })
 
     it('deleteFile ignores ENOENT', async () => {

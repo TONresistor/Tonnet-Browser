@@ -74,8 +74,8 @@
   },
   "import": {
     "title": "Import Wallet",
-    "description": "Enter your 24-word recovery phrase",
-    "placeholder": "Enter 24 words separated by spaces...",
+    "description": "Enter your 12- or 24-word recovery phrase",
+    "placeholder": "Enter 12 or 24 words separated by spaces...",
     "button": "Import Wallet",
     "importing": "Importing...",
     "success": "Wallet imported successfully",
@@ -93,11 +93,11 @@
   },
   "backup": {
     "title": "Save Your Recovery Phrase",
-    "warning": "Write down these 24 words and keep them safe.",
+    "warning": "Write down these 12 words and keep them safe.",
     "warningDesc": "This is the only way to recover your wallet. If you lose these words, your funds are lost forever. Never share them with anyone.",
-    "yourPhrase": "Your 24-word recovery phrase",
+    "yourPhrase": "Your 12-word recovery phrase",
     "copy": "Copy to Clipboard",
-    "acknowledgement": "I confirm that I have securely recorded my 24-word recovery phrase. I understand that without it, there is no way to recover my wallet or funds.",
+    "acknowledgement": "I confirm that I have securely recorded my recovery phrase. I understand that without it, there is no way to recover my wallet or funds.",
     "confirm": "Continue"
   },
   "create": {
@@ -152,7 +152,7 @@
   },
   "recovery": {
     "title": "Wallet Recovery Required",
-    "description": "Your system keyring has changed. Your wallet data is still on disk but cannot be decrypted. Import your 24-word recovery phrase to restore access.",
+    "description": "Your system keyring has changed. Your wallet data is still on disk but cannot be decrypted. Import your 12- or 24-word recovery phrase to restore access.",
     "importButton": "Import Wallet",
     "orCreateNew": "or create a new wallet",
     "weakEncryption": "Weak encryption: no system keyring detected. Your wallet is protected with basic encryption only."
@@ -172,7 +172,7 @@
   "delete": {
     "button": "Delete Wallet",
     "title": "Delete Wallet",
-    "warning": "This will permanently delete your wallet from this device. Make sure you have backed up your 24-word recovery phrase. Without it, your funds will be lost forever.",
+    "warning": "This will permanently delete your wallet and local backups from this device. Make sure you have recorded your recovery phrase.",
     "description": "Permanently removes the wallet from this device. Make sure you have your recovery phrase before proceeding."
   },
   "overview": {

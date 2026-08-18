@@ -8,6 +8,7 @@ import { create } from 'zustand'
 import type { WalletTransaction, PaymentNotificationData, NotificationStyle } from '@shared/types'
 import { WALLET_TX_DISPLAY_CAP } from '@shared/constants'
 import { walletClient } from '@/features/wallet/client'
+import type { WalletAccountCandidate } from '@shared/ipc-contract/wallet'
 
 interface WalletStore {
   isCreated: boolean
@@ -31,12 +32,20 @@ interface WalletStore {
   rejectPending402: () => Promise<void>
   init: () => Promise<void>
   create: (password: string) => Promise<string[] | null>
-  importWallet: (mnemonic: string[], password: string) => Promise<void>
+  discoverAccounts: (mnemonic: string[]) => Promise<WalletAccountCandidate[]>
+  importWallet: (
+    mnemonic: string[],
+    password: string,
+    walletVersion: WalletAccountCandidate['version'],
+    mnemonicScheme: WalletAccountCandidate['scheme']
+  ) => Promise<void>
   exportMnemonic: (password: string) => Promise<string[]>
   unlock: (password: string) => Promise<void>
   lock: () => Promise<void>
   setupPassword: (password: string) => Promise<void>
-  markBackupVerified: () => Promise<void>
+  createBackupChallenge: (password: string) => Promise<{ challengeId: string; indexes: number[] }>
+  markBackupVerified: (challengeId: string, password: string, answers: string[]) => Promise<void>
+  changePassword: (currentPassword: string, nextPassword: string) => Promise<void>
   refreshBalance: () => Promise<void>
   send: (to: string, amount: string, comment?: string) => Promise<void>
   loadHistory: (limit?: number) => Promise<void>
@@ -195,10 +204,17 @@ export const useWalletStore = create<WalletStore>((set, get) => {
       }
     },
 
-    importWallet: async (mnemonic: string[], password: string) => {
+    discoverAccounts: (mnemonic: string[]) => walletClient.discoverAccounts(mnemonic),
+
+    importWallet: async (
+      mnemonic: string[],
+      password: string,
+      walletVersion: WalletAccountCandidate['version'],
+      mnemonicScheme: WalletAccountCandidate['scheme']
+    ) => {
       set({ isLoading: true, error: null })
       try {
-        const result = await walletClient.importWallet(mnemonic, password)
+        const result = await walletClient.importWallet(mnemonic, password, walletVersion, mnemonicScheme)
         set({
           isCreated: result.isCreated ?? true,
           address: result.address ?? '',
@@ -239,9 +255,16 @@ export const useWalletStore = create<WalletStore>((set, get) => {
       set({ needsPasswordSetup: false, weakEncryption: false, isLocked: state.isLocked ?? false })
     },
 
-    markBackupVerified: async () => {
-      const state = await walletClient.markBackupVerified()
+    createBackupChallenge: (password: string) => walletClient.createBackupChallenge(password),
+
+    markBackupVerified: async (challengeId: string, password: string, answers: string[]) => {
+      const state = await walletClient.markBackupVerified(challengeId, password, answers)
       set({ backupVerified: state.backupVerified ?? true })
+    },
+
+    changePassword: async (currentPassword: string, nextPassword: string) => {
+      const state = await walletClient.changePassword(currentPassword, nextPassword)
+      set({ isLocked: state.isLocked ?? false, error: null })
     },
 
     refreshBalance: async () => {

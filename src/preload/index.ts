@@ -23,8 +23,12 @@ import type {
   walletGetHistoryContract,
   walletGetStateContract,
   walletImportContract,
+  walletDiscoverAccountsContract,
   walletLockContract,
   walletMarkBackupVerifiedContract,
+  walletCreateBackupChallengeContract,
+  walletChangePasswordContract,
+  walletSensitiveDisplayContract,
   walletRejectPaymentContract,
   walletResolveRecipientContract,
   walletSendContract,
@@ -323,8 +327,21 @@ const electronAPI = {
       invokeChannel<typeof walletApprovePaymentContract>(IPC_CHANNELS.WALLET_APPROVE_PAYMENT, paymentId),
     rejectPayment: (paymentId: string) =>
       invokeChannel<typeof walletRejectPaymentContract>(IPC_CHANNELS.WALLET_REJECT_PAYMENT, paymentId),
-    importWallet: (mnemonic: string[], password: string) =>
-      invokeChannel<typeof walletImportContract>(IPC_CHANNELS.WALLET_IMPORT, mnemonic, password),
+    discoverAccounts: (mnemonic: string[]) =>
+      invokeChannel<typeof walletDiscoverAccountsContract>(IPC_CHANNELS.WALLET_DISCOVER_ACCOUNTS, mnemonic),
+    importWallet: (
+      mnemonic: string[],
+      password: string,
+      walletVersion: 'v3R1' | 'v3R2' | 'v4R2' | 'v5R1',
+      mnemonicScheme: 'ton' | 'bip39'
+    ) =>
+      invokeChannel<typeof walletImportContract>(
+        IPC_CHANNELS.WALLET_IMPORT,
+        mnemonic,
+        password,
+        walletVersion,
+        mnemonicScheme
+      ),
     exportMnemonic: (password: string) =>
       invokeChannel<typeof walletExportMnemonicContract>(IPC_CHANNELS.WALLET_EXPORT_MNEMONIC, password),
     deleteWallet: () => invokeChannel<typeof walletDeleteContract>(IPC_CHANNELS.WALLET_DELETE),
@@ -332,8 +349,23 @@ const electronAPI = {
     lock: () => invokeChannel<typeof walletLockContract>(IPC_CHANNELS.WALLET_LOCK),
     setupPassword: (password: string) =>
       invokeChannel<typeof walletSetupPasswordContract>(IPC_CHANNELS.WALLET_SETUP_PASSWORD, password),
-    markBackupVerified: () =>
-      invokeChannel<typeof walletMarkBackupVerifiedContract>(IPC_CHANNELS.WALLET_MARK_BACKUP_VERIFIED),
+    createBackupChallenge: (password: string) =>
+      invokeChannel<typeof walletCreateBackupChallengeContract>(IPC_CHANNELS.WALLET_CREATE_BACKUP_CHALLENGE, password),
+    markBackupVerified: (challengeId: string, password: string, answers: string[]) =>
+      invokeChannel<typeof walletMarkBackupVerifiedContract>(
+        IPC_CHANNELS.WALLET_MARK_BACKUP_VERIFIED,
+        challengeId,
+        password,
+        answers
+      ),
+    changePassword: (currentPassword: string, nextPassword: string) =>
+      invokeChannel<typeof walletChangePasswordContract>(
+        IPC_CHANNELS.WALLET_CHANGE_PASSWORD,
+        currentPassword,
+        nextPassword
+      ),
+    setSensitiveDisplay: (active: boolean) =>
+      invokeChannel<typeof walletSensitiveDisplayContract>(IPC_CHANNELS.WALLET_SENSITIVE_DISPLAY, active),
   },
 
   // Bridge

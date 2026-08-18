@@ -1,8 +1,8 @@
 import { beginCell, SendMode, storeMessage, type Cell, type MessageRelaxed } from '@ton/core'
-import type { WalletContractV5R1 } from '@ton/ton'
+import type { WalletContractShape } from './wallet-versions'
 
 export function buildExternalWalletBoc(options: {
-  walletContract: WalletContractV5R1
+  walletContract: WalletContractShape
   secretKey: Buffer
   messages: MessageRelaxed[]
   seqno: number
@@ -17,7 +17,7 @@ export function buildExternalWalletBoc(options: {
     messages,
     sendMode: SendMode.PAY_GAS_SEPARATELY + SendMode.IGNORE_ERRORS,
     timeout: validUntil,
-  } as Parameters<typeof walletContract.createTransfer>[0]) as Cell
+  }) as Cell
   const externalMessage = beginCell()
     .store(
       storeMessage({

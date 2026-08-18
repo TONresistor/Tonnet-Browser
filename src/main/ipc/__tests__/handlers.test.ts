@@ -4,6 +4,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { EventEmitter } from 'events'
+import { mnemonicNew } from '@ton/crypto'
 
 const tabsMocks = vi.hoisted(() => ({
   createTab: vi.fn(() => Promise.resolve(true)),
@@ -706,14 +707,14 @@ describe('IPC Handlers', () => {
 
   describe('Wallet Handlers', () => {
     it('clears account-scoped state after a wallet import succeeds', async () => {
-      const mnemonic = Array.from({ length: 24 }, (_, index) => `word${index + 1}`)
+      const mnemonic = await mnemonicNew(24)
       const password = 'correct horse battery staple'
       const handler = mockHandlers.get(IPC_CHANNELS.WALLET_IMPORT)!
 
-      const result = await handler(createMockEvent(), mnemonic, password)
+      const result = await handler(createMockEvent(), mnemonic, password, 'v5R1', 'ton')
 
       expect(result).toMatchObject({ isCreated: true, address: 'UQImported' })
-      expect(mockRegistry.walletManager.importWallet).toHaveBeenCalledWith(mnemonic, password)
+      expect(mockRegistry.walletManager.importWallet).toHaveBeenCalledWith(mnemonic, password, 'v5R1', 'ton')
       expect(mockRegistry.walletHistoryManager.clear).toHaveBeenCalledOnce()
       expect(mockRegistry.tonConnectService.clearSessions).toHaveBeenCalledOnce()
       expect(vi.mocked(mockRegistry.walletManager.importWallet).mock.invocationCallOrder[0]).toBeLessThan(
@@ -730,7 +731,7 @@ describe('IPC Handlers', () => {
       const password = 'correct horse battery staple'
       const handler = mockHandlers.get(IPC_CHANNELS.WALLET_IMPORT)!
 
-      const result = await handler(createMockEvent(), mnemonic, password)
+      const result = await handler(createMockEvent(), mnemonic, password, 'v5R1', 'ton')
 
       expect(result).toEqual({
         ok: false,
@@ -738,6 +739,36 @@ describe('IPC Handlers', () => {
       })
       expect(mockRegistry.walletHistoryManager.clear).not.toHaveBeenCalled()
       expect(mockRegistry.tonConnectService.clearSessions).not.toHaveBeenCalled()
+    })
+
+    it('requires native confirmation before replacing an existing wallet', async () => {
+      vi.mocked(mockRegistry.walletManager.getState).mockReturnValue({ isCreated: true, address: 'UQCurrent' } as never)
+      vi.mocked(mockRegistry.overlayManager.show).mockImplementation((_id, _bounds, _content, callback) => {
+        callback?.('deny', {})
+        return true
+      })
+      const handler = mockHandlers.get(IPC_CHANNELS.WALLET_IMPORT)!
+      const mnemonic = await mnemonicNew(24)
+      await expect(
+        handler(createMockEvent(), mnemonic, 'correct horse battery staple', 'v5R1', 'ton')
+      ).resolves.toEqual({
+        ok: false,
+        error: { code: 'USER_CANCELLED', message: 'Wallet import cancelled', retryable: false },
+      })
+      expect(mockRegistry.overlayManager.show).toHaveBeenCalledWith(
+        expect.stringContaining('wallet-replace-'),
+        expect.any(Object),
+        expect.objectContaining({
+          rows: expect.arrayContaining([
+            { label: 'Current wallet', value: 'UQCurrent' },
+            expect.objectContaining({ label: 'New wallet' }),
+            { label: 'New account type', value: 'v5R1 · ton' },
+          ]),
+        }),
+        expect.any(Function),
+        { autoDismiss: false }
+      )
+      expect(mockRegistry.walletManager.importWallet).not.toHaveBeenCalled()
     })
 
     it('reports an insufficient balance as a stable business failure', async () => {
@@ -760,6 +791,23 @@ describe('IPC Handlers', () => {
       expect(mockRegistry.walletManager.send).not.toHaveBeenCalled()
     })
 
+    it('reserves network fees in the main-process balance check', async () => {
+      vi.mocked(mockRegistry.walletManager.getState).mockReturnValueOnce({
+        isCreated: true,
+        isLocked: false,
+        needsPasswordSetup: false,
+        backupVerified: true,
+      } as never)
+      vi.mocked(mockRegistry.walletManager.getTonBridge).mockReturnValueOnce({} as never)
+      vi.mocked(mockRegistry.walletManager.getBalance).mockResolvedValueOnce('10000009')
+      const handler = mockHandlers.get(IPC_CHANNELS.WALLET_SEND)!
+      await expect(handler(createMockEvent(), 'EQRecipient', '10')).resolves.toEqual({
+        ok: false,
+        error: { code: 'INSUFFICIENT_BALANCE', message: 'Insufficient balance', retryable: false },
+      })
+      expect(mockRegistry.walletManager.send).not.toHaveBeenCalled()
+    })
+
     it('requires a main-process approval before a renderer transfer', async () => {
       vi.mocked(mockRegistry.walletManager.getState).mockReturnValue({
         isCreated: true,
@@ -768,7 +816,7 @@ describe('IPC Handlers', () => {
         backupVerified: true,
       } as never)
       vi.mocked(mockRegistry.walletManager.getTonBridge).mockReturnValue({} as never)
-      vi.mocked(mockRegistry.walletManager.getBalance).mockResolvedValue('100')
+      vi.mocked(mockRegistry.walletManager.getBalance).mockResolvedValue('100000000')
       vi.mocked(mockRegistry.walletManager.resolveRecipient).mockResolvedValue({
         address: 'EQRecipient',
         domain: 'example.ton',

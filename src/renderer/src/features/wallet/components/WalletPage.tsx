@@ -18,16 +18,14 @@ import {
   Check,
   Copy,
   ArrowLeft,
-  Upload,
   Eye,
   EyeOff,
+  LockKeyhole,
 } from 'lucide-react'
 import Lottie from 'lottie-react'
 import explorerAnimation from '@/assets/explorer.json'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { AppIcon } from '@/components/ui/AppIcon'
-import { cn } from '@/lib/utils'
 import { useWalletStore } from '@/features/wallet/store'
 import { formatTonAmount } from '@/lib/ton-utils'
 import { SendForm } from '@/features/wallet/components/SendForm'
@@ -43,6 +41,11 @@ import { UI_COPY_FEEDBACK_MS } from '@shared/constants'
 import { useTranslation } from 'react-i18next'
 import { WalletPasswordFields } from './WalletPasswordFields'
 import { WalletSecurityScreen } from './WalletSecurityScreen'
+import type { WalletAccountCandidate } from '@shared/ipc-contract/wallet'
+import { WalletBackupChallenge } from './WalletBackupChallenge'
+import { copySensitiveText } from '../sensitive-clipboard'
+import { WalletRecoveryScreen } from './WalletRecoveryScreen'
+import { walletClient } from '@/features/wallet/client'
 
 type ActionView = 'send' | 'receive' | null
 
@@ -64,13 +67,17 @@ export function WalletPage() {
     init,
     create,
     importWallet,
+    discoverAccounts,
     send,
     loadHistory,
     refreshBalance,
     unlock,
     setupPassword,
     markBackupVerified,
+    createBackupChallenge,
     exportMnemonic,
+    lock,
+    deleteWallet,
   } = useWalletStore(
     useShallow((s) => ({
       isCreated: s.isCreated,
@@ -88,13 +95,17 @@ export function WalletPage() {
       init: s.init,
       create: s.create,
       importWallet: s.importWallet,
+      discoverAccounts: s.discoverAccounts,
       send: s.send,
       loadHistory: s.loadHistory,
       refreshBalance: s.refreshBalance,
       unlock: s.unlock,
       setupPassword: s.setupPassword,
       markBackupVerified: s.markBackupVerified,
+      createBackupChallenge: s.createBackupChallenge,
       exportMnemonic: s.exportMnemonic,
+      lock: s.lock,
+      deleteWallet: s.deleteWallet,
     }))
   )
   const [newMnemonic, setNewMnemonic] = useState<string[] | null>(null)
@@ -108,7 +119,9 @@ export function WalletPage() {
   const [walletPasswordConfirm, setWalletPasswordConfirm] = useState('')
   const [securityError, setSecurityError] = useState<string | null>(null)
   const [backupAnswers, setBackupAnswers] = useState<Record<number, string>>({})
-  const backupIndexes = [2, 11, 19]
+  const [backupChallenge, setBackupChallenge] = useState<{ challengeId: string; indexes: number[] } | null>(null)
+  const [accountCandidates, setAccountCandidates] = useState<WalletAccountCandidate[]>([])
+  const [selectedAccount, setSelectedAccount] = useState<WalletAccountCandidate | null>(null)
   const mnemonicTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Auto-clear mnemonic from memory after 60s
@@ -121,6 +134,13 @@ export function WalletPage() {
     }
     return () => {
       if (mnemonicTimerRef.current) clearTimeout(mnemonicTimerRef.current)
+    }
+  }, [newMnemonic])
+
+  useEffect(() => {
+    void walletClient.setSensitiveDisplay(Boolean(newMnemonic))
+    return () => {
+      void walletClient.setSensitiveDisplay(false)
     }
   }, [newMnemonic])
 
@@ -140,22 +160,41 @@ export function WalletPage() {
 
   const handleRecoveryImport = useCallback(async () => {
     const parsed = parseWords(recoveryInput)
-    if (parsed.length !== 24) {
+    if (parsed.length !== 12 && parsed.length !== 24) {
       setRecoveryError(t('import.error'))
       return
     }
     setRecoveryError(null)
     try {
+      if (accountCandidates.length === 0) {
+        setAccountCandidates(await discoverAccounts(parsed))
+        return
+      }
+      if (!selectedAccount) {
+        setRecoveryError('Select the wallet account you want to import.')
+        return
+      }
       if (walletPassword.length < 10 || walletPassword !== walletPasswordConfirm) {
         setRecoveryError('Choose and confirm a wallet password of at least 10 characters.')
         return
       }
-      await importWallet(parsed, walletPassword)
+      await importWallet(parsed, walletPassword, selectedAccount.version, selectedAccount.scheme)
       setRecoveryInput('')
+      setWalletPassword('')
+      setWalletPasswordConfirm('')
     } catch (err) {
       setRecoveryError(errorMessage(err))
     }
-  }, [recoveryInput, importWallet, t, walletPassword, walletPasswordConfirm])
+  }, [
+    recoveryInput,
+    importWallet,
+    discoverAccounts,
+    t,
+    walletPassword,
+    walletPasswordConfirm,
+    accountCandidates.length,
+    selectedAccount,
+  ])
 
   useEffect(() => {
     init()
@@ -174,8 +213,13 @@ export function WalletPage() {
     }
     setSecurityError(null)
     const words = await create(walletPassword)
-    if (words) setNewMnemonic(words)
-  }, [create, walletPassword, walletPasswordConfirm])
+    if (words) {
+      setNewMnemonic(words)
+      setBackupChallenge(await createBackupChallenge(walletPassword))
+      setWalletPassword('')
+      setWalletPasswordConfirm('')
+    }
+  }, [create, createBackupChallenge, walletPassword, walletPasswordConfirm])
 
   const handleUnlock = useCallback(async () => {
     setSecurityError(null)
@@ -203,8 +247,7 @@ export function WalletPage() {
 
   const handleCopyMnemonic = useCallback(() => {
     if (!newMnemonic) return
-    navigator.clipboard.writeText(newMnemonic.join(' '))
-    setTimeout(() => navigator.clipboard.writeText(''), 30_000)
+    void copySensitiveText(newMnemonic.join(' '))
     setCopied(true)
     setTimeout(() => setCopied(false), UI_COPY_FEEDBACK_MS)
   }, [newMnemonic])
@@ -222,95 +265,27 @@ export function WalletPage() {
 
   // Recovery screen when system keyring changed and wallet cannot be decrypted
   if (decryptFailed) {
-    const recoveryWordCount = parseWords(recoveryInput).length
     return (
-      <div className="h-full bg-background-secondary overflow-auto" style={{ fontFamily: 'Inter, sans-serif' }}>
-        <div className="p-8 max-w-4xl mx-auto">
-          <div className="mb-8">
-            <div className="flex items-center gap-3">
-              <AppIcon name="wallet" className="h-6 w-6 text-icon" />
-              <h1 className="text-xl font-semibold text-heading">{t('page.title')}</h1>
-            </div>
-          </div>
-
-          <div className="max-w-lg mx-auto space-y-6">
-            <div className="flex items-start gap-3 p-4 bg-muted border border-border rounded-card">
-              <AlertTriangle className="h-5 w-5 text-warning mt-0.5 shrink-0" aria-hidden="true" />
-              <div>
-                <p className="text-sm font-semibold text-heading">{t('recovery.title')}</p>
-                <p className="text-xs text-muted-foreground mt-1">{t('recovery.description')}</p>
-              </div>
-            </div>
-
-            <div className="space-y-3 rounded-card border border-border-subtle bg-elevation-2 p-5">
-              <textarea
-                className={cn(
-                  'w-full h-24 p-3 text-sm rounded-lg border bg-background text-foreground resize-none',
-                  'focus:outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground'
-                )}
-                placeholder={t('import.placeholder')}
-                value={recoveryInput}
-                onChange={(e) => {
-                  setRecoveryInput(e.target.value)
-                  setRecoveryError(null)
-                }}
-                spellCheck={false}
-                autoComplete="off"
-              />
-              <div className="flex items-center justify-between">
-                <span className={cn('text-xs', recoveryWordCount === 24 ? 'text-success' : 'text-muted-foreground')}>
-                  {recoveryWordCount}/24
-                </span>
-                {recoveryError && <span className="text-xs text-destructive">{recoveryError}</span>}
-              </div>
-              <WalletPasswordFields
-                password={walletPassword}
-                confirmation={walletPasswordConfirm}
-                onPasswordChange={setWalletPassword}
-                onConfirmationChange={setWalletPasswordConfirm}
-                disabled={isLoading}
-              />
-              <ActionButton
-                variant="filled"
-                onClick={handleRecoveryImport}
-                disabled={isLoading || recoveryWordCount !== 24}
-                className="w-full"
-                icon={
-                  isLoading ? (
-                    <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
-                  ) : (
-                    <Upload className="h-4 w-4" aria-hidden="true" />
-                  )
-                }
-              >
-                {isLoading ? t('import.importing') : t('recovery.importButton')}
-              </ActionButton>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <div className="flex-1 h-px bg-border" />
-              <span className="text-xs text-muted-foreground">{t('recovery.orCreateNew')}</span>
-              <div className="flex-1 h-px bg-border" />
-            </div>
-
-            <ActionButton
-              variant="gray"
-              onClick={handleCreate}
-              disabled={isLoading}
-              className="w-full"
-              icon={
-                isLoading ? (
-                  <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
-                ) : (
-                  <Plus className="h-4 w-4" aria-hidden="true" />
-                )
-              }
-            >
-              {t('page.createWallet')}
-            </ActionButton>
-          </div>
-        </div>
-      </div>
+      <WalletRecoveryScreen
+        recoveryInput={recoveryInput}
+        recoveryError={recoveryError}
+        isLoading={isLoading}
+        password={walletPassword}
+        confirmation={walletPasswordConfirm}
+        candidates={accountCandidates}
+        selected={selectedAccount}
+        onRecoveryInput={(value) => {
+          setRecoveryInput(value)
+          setRecoveryError(null)
+          setAccountCandidates([])
+          setSelectedAccount(null)
+        }}
+        onPassword={setWalletPassword}
+        onConfirmation={setWalletPasswordConfirm}
+        onSelect={setSelectedAccount}
+        onImport={handleRecoveryImport}
+        onDelete={deleteWallet}
+      />
     )
   }
 
@@ -368,30 +343,56 @@ export function WalletPage() {
               </ActionButton>
             </div>
 
-            <div className="space-y-2 rounded-card border border-border-subtle bg-elevation-2 p-4">
-              <p className="text-xs text-muted-foreground">Confirm these recovery words before continuing.</p>
-              {backupIndexes.map((index) => (
-                <Input
-                  key={index}
-                  value={backupAnswers[index] ?? ''}
-                  onChange={(event) =>
-                    setBackupAnswers((current) => ({ ...current, [index]: event.target.value.trim().toLowerCase() }))
+            <WalletBackupChallenge
+              indexes={backupChallenge?.indexes ?? []}
+              answers={backupAnswers}
+              onChange={(index, value) => setBackupAnswers((current) => ({ ...current, [index]: value }))}
+            />
+            <WalletPasswordFields password={walletPassword} onPasswordChange={setWalletPassword} />
+            {!backupChallenge && (
+              <ActionButton
+                variant="gray"
+                className="w-full"
+                disabled={walletPassword.length < 10}
+                onClick={async () => {
+                  try {
+                    setBackupChallenge(await createBackupChallenge(walletPassword))
+                    setBackupAnswers({})
+                    setSecurityError(null)
+                  } catch (error) {
+                    setSecurityError(errorMessage(error))
                   }
-                  placeholder={`Word #${index + 1}`}
-                  autoComplete="off"
-                  spellCheck={false}
-                />
-              ))}
-            </div>
+                }}
+              >
+                Generate verification challenge
+              </ActionButton>
+            )}
+            {securityError && <p className="text-xs text-destructive">{securityError}</p>}
 
             <ActionButton
               variant="filled"
               onClick={async () => {
-                await markBackupVerified()
-                setNewMnemonic(null)
-                setBackupAnswers({})
+                if (!backupChallenge) return
+                try {
+                  await markBackupVerified(
+                    backupChallenge.challengeId,
+                    walletPassword,
+                    backupChallenge.indexes.map((index) => backupAnswers[index] ?? '')
+                  )
+                  setNewMnemonic(null)
+                  setBackupAnswers({})
+                  setBackupChallenge(null)
+                  setWalletPassword('')
+                  setSecurityError(null)
+                } catch (error) {
+                  setBackupChallenge(null)
+                  setBackupAnswers({})
+                  setSecurityError(errorMessage(error))
+                }
               }}
-              disabled={!backupIndexes.every((index) => backupAnswers[index] === newMnemonic[index])}
+              disabled={
+                !backupChallenge || walletPassword.length < 10 || backupChallenge.indexes.some((i) => !backupAnswers[i])
+              }
               className="w-full"
             >
               {t('backup.confirm')}
@@ -426,6 +427,7 @@ export function WalletPage() {
         onSubmit={async () => {
           try {
             setNewMnemonic(await exportMnemonic(walletPassword))
+            setBackupChallenge(await createBackupChallenge(walletPassword))
             setWalletPassword('')
             setSecurityError(null)
           } catch (err) {
@@ -466,17 +468,30 @@ export function WalletPage() {
           <AppIcon name="wallet" className="h-5 w-5 text-icon" />
           <h1 className="text-xl font-semibold text-heading">{t('page.title')}</h1>
           {isCreated && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="ml-1 h-6 w-6"
-              onClick={handleRefresh}
-              title={t('page.refresh')}
-              aria-label={t('page.refresh')}
-            >
-              <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
-            </Button>
+            <div className="ml-1 flex items-center gap-1">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6"
+                onClick={handleRefresh}
+                title={t('page.refresh')}
+                aria-label={t('page.refresh')}
+              >
+                <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6"
+                onClick={() => void lock()}
+                title="Lock wallet"
+                aria-label="Lock wallet"
+              >
+                <LockKeyhole className="h-3.5 w-3.5" aria-hidden="true" />
+              </Button>
+            </div>
           )}
         </div>
 

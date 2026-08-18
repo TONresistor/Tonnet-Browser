@@ -19,6 +19,7 @@ export const DEFAULT_BOOKMARKS = [
 export const UI_COPY_FEEDBACK_MS = 2_000
 export const UI_NOTIFICATION_TIMEOUT_MS = 3_000
 export const UI_ERROR_TIMEOUT_MS = 5_000
+export const WALLET_TX_FEE_RESERVE_NANO = 10_000_000n
 
 // UI dimensions (used by main process for view bounds calculation AND shared with renderer)
 export const UI_DIMENSIONS = {

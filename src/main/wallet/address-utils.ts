@@ -12,3 +12,12 @@ export function rawToFriendly(raw: string): string | undefined {
     return undefined
   }
 }
+
+export function parseTransferTarget(value: string): { address: Address; bounce: boolean } {
+  try {
+    const parsed = Address.parseFriendly(value)
+    return { address: parsed.address, bounce: parsed.isBounceable }
+  } catch {
+    return { address: Address.parseRaw(value), bounce: false }
+  }
+}
