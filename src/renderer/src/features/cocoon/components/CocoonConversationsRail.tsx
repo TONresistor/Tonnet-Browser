@@ -5,7 +5,7 @@
  * the Cocoon Wallet view toggle + the Think switch.
  */
 
-import { Brain, Plus, Trash2, Wallet } from 'lucide-react'
+import { Brain, Plus, Trash2 } from 'lucide-react'
 import { ActionButton } from '@/components/ui/ios/ActionButton'
 import { AppIcon } from '@/components/ui/AppIcon'
 import { Toggle } from '@/features/settings/components/shared/Toggle'
@@ -94,7 +94,7 @@ export function CocoonConversationsRail({
 
       <div className="shrink-0 px-3 pb-2 pt-1">
         <ActionButton
-          variant="gray"
+          variant="filled"
           className="w-full"
           icon={<Plus className="h-4 w-4" />}
           onClick={() => {
@@ -118,7 +118,7 @@ export function CocoonConversationsRail({
               : 'text-muted-foreground hover:bg-surface-hover'
           )}
         >
-          <Wallet className="h-3.5 w-3.5 shrink-0" />
+          <AppIcon name="wallet" className="h-3.5 w-3.5 shrink-0" />
           <span className="truncate">Cocoon Wallet</span>
         </button>
         <label className="flex cursor-pointer select-none items-center justify-between gap-2 px-2 py-1">

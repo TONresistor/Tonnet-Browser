@@ -61,4 +61,10 @@ describe('semantic theme-role contract', () => {
     expect(landingPage).toContain('shadow-tonsite')
     expect(globalStyles).toContain('--shadow-tonsite:')
   })
+
+  it('keeps the Cocoon new-chat action on the active theme color', () => {
+    const conversationsRail = readRendererFile('features/cocoon/components/CocoonConversationsRail.tsx')
+
+    expect(conversationsRail).toMatch(/<ActionButton\s+variant="filled"[\s\S]*?>\s*New chat\s*<\/ActionButton>/)
+  })
 })
