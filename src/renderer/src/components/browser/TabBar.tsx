@@ -247,7 +247,7 @@ export const TabBar = memo(function TabBar({ sidebarWidth }: TabBarProps) {
               const activeTab = tabs.find((t) => t.id === activeId)
               return activeTab ? (
                 <div
-                  className={`px-2.5 py-1.5 ${isVertical ? 'rounded-lg' : 'rounded-full'} text-sm bg-surface text-chrome-foreground shadow-2xl opacity-90 border border-border-medium flex items-center gap-2 ${isVertical ? 'w-full' : 'max-w-[200px]'}`}
+                  className={`px-2.5 py-1.5 ${isVertical ? 'rounded-lg' : 'rounded-full'} text-sm bg-card text-heading shadow-2xl opacity-90 border border-border-subtle flex items-center gap-2 ${isVertical ? 'w-full' : 'max-w-[200px]'}`}
                 >
                   {activeTab.favicon ? (
                     <img src={activeTab.favicon} alt="" className="w-5 h-5 flex-shrink-0 object-contain" />

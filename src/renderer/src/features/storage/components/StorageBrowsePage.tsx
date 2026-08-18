@@ -199,13 +199,13 @@ export function StorageBrowsePage({ bagId }: { bagId: string }) {
             </div>
 
             {/* Search */}
-            <div className="mb-4 flex h-9 items-center gap-2 rounded-full bg-surface px-3.5">
+            <div className="mb-4 flex h-9 items-center gap-2 rounded-full border border-border-subtle bg-card px-3.5">
               <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder={t('storage.browse.searchFiles', { defaultValue: 'Search files' })}
-                className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground/50"
+                className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
               />
             </div>
 
