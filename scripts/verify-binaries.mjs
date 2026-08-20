@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import fs from 'node:fs'
+import crypto from 'node:crypto'
 import os from 'node:os'
 import path from 'node:path'
 import process from 'node:process'
@@ -114,7 +115,13 @@ const expectedElfMachine = getExpectedElfMachine(platform, arch)
 for (const binary of config.binaries) {
   const binaryPath = path.join(binDir, `${binary.name}${extension}`)
   const versionPath = path.join(binDir, `.${binary.name}.version`)
-  const expectedMarker = `${binary.version}@${binary.commit}/${arch === 'universal' ? 'universal' : arch === 'x64' ? 'amd64' : arch}`
+  const patchSuffix = binary.patch
+    ? `+patch.${crypto
+        .createHash('sha256')
+        .update(fs.readFileSync(path.join(root, binary.patch)))
+        .digest('hex')}`
+    : ''
+  const expectedMarker = `${binary.version}@${binary.commit}/${arch === 'universal' ? 'universal' : arch === 'x64' ? 'amd64' : arch}${patchSuffix}`
 
   if (!fs.existsSync(binaryPath)) {
     missing.push(path.relative(root, binaryPath))

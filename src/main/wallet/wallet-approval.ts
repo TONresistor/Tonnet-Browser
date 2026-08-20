@@ -10,7 +10,7 @@ function formatGram(nano: string): string {
 
 export function requestWalletTransferApproval(
   overlayManager: OverlayManager,
-  transfer: { address: string; amount: string; domain?: string; comment?: string }
+  transfer: { address: string; amount: string; domain?: string; comment?: string; estimatedFee: string }
 ): Promise<boolean> {
   return new Promise((resolve) => {
     const window = getMainWindow()
@@ -28,8 +28,9 @@ export function requestWalletTransferApproval(
         amount: `${formatGram(transfer.amount)} GRAM`,
         rows: [
           { label: 'To', value: transfer.address },
-          { label: 'Fee reserve', value: '0.01 GRAM reserved (not an estimate)' },
+          { label: 'Estimated fee', value: `~${formatGram(transfer.estimatedFee)} GRAM` },
           ...(transfer.comment ? [{ label: 'Comment', value: transfer.comment }] : []),
+          ...(!transfer.comment ? [{ label: 'Memo', value: 'None — verify whether the recipient requires one' }] : []),
         ],
         actions: [
           { id: 'deny', label: 'Cancel' },
@@ -49,7 +50,7 @@ export function requestWalletTransferApproval(
 export function requestWalletReplacementApproval(
   overlayManager: OverlayManager,
   currentAddress: string,
-  replacement: { address: string; version: string; scheme: string }
+  replacement: { address: string; version: string }
 ): Promise<boolean> {
   return new Promise((resolve) => {
     const window = getMainWindow()
@@ -67,7 +68,7 @@ export function requestWalletReplacementApproval(
         rows: [
           { label: 'Current wallet', value: currentAddress || 'Unreadable wallet file' },
           { label: 'New wallet', value: replacement.address },
-          { label: 'New account type', value: `${replacement.version} · ${replacement.scheme}` },
+          { label: 'New account type', value: `${replacement.version} · TON` },
         ],
         actions: [
           { id: 'deny', label: 'Cancel' },

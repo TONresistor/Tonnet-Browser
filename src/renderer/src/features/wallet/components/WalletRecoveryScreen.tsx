@@ -21,14 +21,13 @@ export function WalletRecoveryScreen(props: {
   onConfirmation: (value: string) => void
   onSelect: (candidate: WalletAccountCandidate) => void
   onImport: () => void | Promise<void>
-  onDelete: () => void | Promise<void>
 }) {
   const { t } = useTranslation('wallet')
   const wordCount = props.recoveryInput
     .trim()
     .split(/[\s,]+/)
     .filter(Boolean).length
-  const validCount = wordCount === 12 || wordCount === 24
+  const validCount = wordCount === 24
   return (
     <div className="h-full bg-background-secondary overflow-auto" style={{ fontFamily: 'Inter, sans-serif' }}>
       <div className="p-8 max-w-4xl mx-auto">
@@ -96,9 +95,6 @@ export function WalletRecoveryScreen(props: {
                   : 'Import selected account'}
             </ActionButton>
           </div>
-          <ActionButton variant="gray" className="w-full text-destructive" onClick={props.onDelete}>
-            Delete unreadable wallet and backups
-          </ActionButton>
         </div>
       </div>
     </div>

@@ -50,6 +50,8 @@ import { PaymentInterceptor } from '../payment-interceptor'
 
 const VALID_ADDRESS = '0:' + 'a'.repeat(64)
 const OTHER_ADDRESS = '0:' + 'b'.repeat(64)
+const WALLET_A = { publicKey: 'aa'.repeat(32), addressRaw: VALID_ADDRESS, revision: 1 }
+const WALLET_B = { publicKey: 'bb'.repeat(32), addressRaw: OTHER_ADDRESS, revision: 2 }
 
 function makePaymentReq(overrides: Partial<PaymentRequirements> = {}): PaymentRequirements {
   return {
@@ -69,7 +71,9 @@ function createMockWalletManager() {
       isCreated: true,
       addressRaw: VALID_ADDRESS,
       address: 'EQ...',
+      publicKey: WALLET_A.publicKey,
     })),
+    getIdentitySnapshot: vi.fn(() => WALLET_A),
     signX402Payment: vi.fn().mockResolvedValue({
       signedBoc: 'base64boc',
       walletPublicKey: 'pubkey',
@@ -124,6 +128,8 @@ function createMockSession(fetchResponse?: Partial<Response>) {
   return {
     fetch: vi.fn().mockResolvedValue({ ...defaultResponse, ...fetchResponse }),
     webRequest: {
+      onBeforeRequest: vi.fn(),
+      onErrorOccurred: vi.fn(),
       onCompleted: vi.fn(),
     },
   }
@@ -307,7 +313,7 @@ describe('PaymentInterceptor', () => {
     })
 
     it('rejects when wallet not created', async () => {
-      walletManager.getState.mockReturnValue({ isCreated: false, addressRaw: '', address: '' })
+      walletManager.getState.mockReturnValue({ isCreated: false, addressRaw: '', address: '', publicKey: '' })
       const req = makePaymentReq()
       const session = setupHandle402(req)
       await triggerHandle402(session)
@@ -401,7 +407,7 @@ describe('PaymentInterceptor', () => {
       // Escalated: not signed/executed silently, surfaced as a pending approval.
       expect(walletManager.signX402Payment).not.toHaveBeenCalled()
       expect(mockEmitToRenderer).toHaveBeenCalledWith(
-        expect.objectContaining({ status: 'pending', domain: 'example.com' })
+        expect.objectContaining({ status: 'pending', domain: 'https://example.com' })
       )
     })
 
@@ -511,7 +517,7 @@ describe('PaymentInterceptor', () => {
       expect(walletManager.signX402Payment).not.toHaveBeenCalled()
       // Should emit pending notification
       expect(mockEmitToRenderer).toHaveBeenCalledWith(
-        expect.objectContaining({ status: 'pending', domain: 'example.com' })
+        expect.objectContaining({ status: 'pending', domain: 'https://example.com' })
       )
     })
 
@@ -558,6 +564,31 @@ describe('PaymentInterceptor', () => {
 
       expect(walletManager.signX402Payment).toHaveBeenCalled()
       expect(policyStore.confirmPayment).toHaveBeenCalledWith('reservation-1')
+    })
+
+    it('rejects a queued payment when the active wallet identity changed', async () => {
+      const session = setupManualMode()
+      await trigger402(session)
+      const pendingCall = mockEmitToRenderer.mock.calls.find((call) => call[0].status === 'pending')
+      walletManager.getIdentitySnapshot.mockReturnValue(WALLET_B)
+
+      await interceptor.approvePayment(pendingCall![0].id)
+
+      expect(walletManager.signX402Payment).not.toHaveBeenCalled()
+      expect(policyStore.rollbackPayment).toHaveBeenCalledWith('reservation-1')
+      expect(mockEmitToRenderer).toHaveBeenCalledWith(
+        expect.objectContaining({ status: 'failed', error: 'Wallet changed before approval' })
+      )
+    })
+
+    it('clears pending approvals and reservations on wallet replacement', async () => {
+      const session = setupManualMode()
+      await trigger402(session)
+      policyStore.rollbackPayment.mockClear()
+
+      interceptor.clearAccountState()
+
+      expect(policyStore.rollbackPayment).toHaveBeenCalledWith('reservation-1')
     })
 
     it('rejectPayment rolls back and notifies', async () => {
@@ -697,6 +728,32 @@ describe('PaymentInterceptor', () => {
   // =========================================================================
 
   describe('registerOnSession', () => {
+    it('forces manual approval when a navigation redirects to a different exact origin', async () => {
+      const session = createMockSession()
+      interceptor.registerOnSession(session as any)
+      const beforeRequest = session.webRequest.onBeforeRequest.mock.calls[0][1]
+      const completed = session.webRequest.onCompleted.mock.calls[0][1]
+
+      beforeRequest(
+        {
+          url: 'https://good.co.uk/start',
+          resourceType: 'mainFrame',
+          webContentsId: 1,
+        },
+        vi.fn()
+      )
+      await completed({
+        url: 'https://evil.co.uk/pay',
+        statusCode: 402,
+        resourceType: 'mainFrame',
+        webContentsId: 1,
+      })
+      await vi.runAllTimersAsync()
+
+      expect(walletManager.signX402Payment).not.toHaveBeenCalled()
+      expect(mockEmitToRenderer).toHaveBeenCalledWith(expect.objectContaining({ status: 'pending' }))
+    })
+
     it('ignores non-mainFrame resources', async () => {
       const session = createMockSession()
       interceptor.registerOnSession(session as any)
@@ -835,6 +892,37 @@ describe('PaymentInterceptor', () => {
       expect(token).not.toBeNull()
     })
 
+    it('manual mode – does not register a token when the wallet changes during signing', async () => {
+      setupXhrWc()
+      policyStore.getSiteMode.mockReturnValue('manual')
+      let finishSigning!: (value: Awaited<ReturnType<typeof walletManager.signX402Payment>>) => void
+      walletManager.signX402Payment.mockReturnValueOnce(new Promise((resolve) => (finishSigning = resolve)))
+
+      const resultPromise = interceptor.requestXhrPayment(WC_ID, XHR_URL)
+      await flushPromises()
+      const pendingCall = mockEmitToRenderer.mock.calls.find((c) => c[0].status === 'pending')
+      const approval = interceptor.approvePayment(pendingCall![0].id)
+      await flushPromises()
+
+      walletManager.getIdentitySnapshot.mockReturnValue(WALLET_B)
+      interceptor.clearAccountState()
+      finishSigning({
+        signedBoc: 'base64boc',
+        walletPublicKey: WALLET_A.publicKey,
+        walletAddress: WALLET_A.addressRaw,
+        seqno: 1,
+        validUntil: Math.floor(Date.now() / 1000) + 60,
+      })
+      await approval
+
+      await expect(resultPromise).resolves.toEqual({
+        success: false,
+        error: 'Wallet changed before payment token registration',
+      })
+      expect(interceptor.consumeXhrPaymentToken(WC_ID, XHR_URL)).toBeNull()
+      expect(policyStore.confirmPayment).not.toHaveBeenCalled()
+    })
+
     it('manual mode – rejected: Promise resolves to user-rejected error', async () => {
       setupXhrWc()
       policyStore.getSiteMode.mockReturnValue('manual')
@@ -873,23 +961,23 @@ describe('PaymentInterceptor', () => {
 
   describe('xhrTokens map', () => {
     it('roundtrip: first consume returns token, second returns null; re-register past TTL returns null', () => {
-      interceptor.registerXhrPaymentToken(1, 'https://example.com/api', 'TOKEN', 1_000)
+      interceptor.registerXhrPaymentToken(1, 'https://example.com/api', 'TOKEN', 1_000, WALLET_A)
       expect(interceptor.consumeXhrPaymentToken(1, 'https://example.com/api')).toBe('TOKEN')
       expect(interceptor.consumeXhrPaymentToken(1, 'https://example.com/api')).toBeNull()
 
-      interceptor.registerXhrPaymentToken(1, 'https://example.com/api', 'TOKEN2', 1_000)
+      interceptor.registerXhrPaymentToken(1, 'https://example.com/api', 'TOKEN2', 1_000, WALLET_A)
       vi.advanceTimersByTime(1_001)
       expect(interceptor.consumeXhrPaymentToken(1, 'https://example.com/api')).toBeNull()
     })
 
     it('cross-tab isolation: consume with different webContentsId returns null', () => {
-      interceptor.registerXhrPaymentToken(1, 'https://example.com/api', 'TOKEN', 5_000)
+      interceptor.registerXhrPaymentToken(1, 'https://example.com/api', 'TOKEN', 5_000, WALLET_A)
       expect(interceptor.consumeXhrPaymentToken(2, 'https://example.com/api')).toBeNull()
       expect(interceptor.consumeXhrPaymentToken(1, 'https://example.com/api')).toBe('TOKEN')
     })
 
     it('destroy() clears xhrTokens', () => {
-      interceptor.registerXhrPaymentToken(1, 'https://example.com/api', 'TOKEN', 5_000)
+      interceptor.registerXhrPaymentToken(1, 'https://example.com/api', 'TOKEN', 5_000, WALLET_A)
       interceptor.destroy()
       expect(interceptor.consumeXhrPaymentToken(1, 'https://example.com/api')).toBeNull()
     })

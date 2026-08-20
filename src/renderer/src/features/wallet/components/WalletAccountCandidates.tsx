@@ -16,19 +16,17 @@ export function WalletAccountCandidates({
     <div className="space-y-2">
       {candidates.map((candidate) => (
         <button
-          key={`${candidate.scheme}:${candidate.version}`}
+          key={candidate.version}
           type="button"
           onClick={() => onSelect(candidate)}
           className={cn(
             'w-full rounded-control border px-3 py-2 text-left text-xs transition-colors',
-            selected?.scheme === candidate.scheme && selected.version === candidate.version
+            selected?.version === candidate.version
               ? 'border-primary bg-primary/10'
               : 'border-border-subtle bg-elevation-1 hover:bg-surface-hover'
           )}
         >
-          <span className="font-semibold text-foreground">
-            {candidate.version} · {candidate.scheme === 'ton' ? 'TON mnemonic' : 'BIP-39'}
-          </span>
+          <span className="font-semibold text-foreground">{candidate.version} · TON wallet</span>
           <span className="ml-2 text-muted-foreground">
             {candidate.balance === null ? 'Balance unavailable' : `${formatTonAmount(candidate.balance)} GRAM`}
           </span>

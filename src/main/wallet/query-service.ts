@@ -1,8 +1,8 @@
-import { Address } from '@ton/core'
 import type { DnsResolveResult, WalletTransaction } from '../../shared/types'
 import { TON_DOMAIN_REGEX } from '../../shared/utils/ton'
 import { createLogger } from '../../shared/logger'
 import { decodeCommentBody } from './comment'
+import { parseMainnetAddress } from './address-utils'
 import type { BridgeTransaction } from './bridge-codecs'
 
 const log = createLogger('wallet:queries')
@@ -59,7 +59,7 @@ export class WalletQueryService {
     const normalized = trimmed.toLowerCase()
 
     if (!(normalized.endsWith('.ton') && normalized.length <= 126)) {
-      const parsed = Address.parse(trimmed)
+      const parsed = parseMainnetAddress(trimmed)
       if (parsed.workChain === -1) throw new Error('Masterchain addresses not supported')
       return { address: trimmed }
     }
@@ -84,7 +84,7 @@ export class WalletQueryService {
 
     const address = result.wallet || result.owner
     if (!address) throw new Error('Domain has no wallet or owner')
-    const parsed = Address.parse(address)
+    const parsed = parseMainnetAddress(address)
     if (parsed.workChain === -1) throw new Error('Masterchain addresses not supported')
     return { address, domain: normalized }
   }

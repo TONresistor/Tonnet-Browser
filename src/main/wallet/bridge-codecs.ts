@@ -19,6 +19,27 @@ export const AccountBalanceResultSchema = z.object({
   balance: z.string().regex(/^\d+$/),
 })
 
+export const AccountInformationResultSchema = z.object({
+  balance: z.string().regex(/^\d+$/),
+  status: z.enum(['active', 'uninit', 'frozen']),
+})
+export type AccountInformationResult = z.infer<typeof AccountInformationResultSchema>
+
+const EmulationFeesSchema = z.object({
+  storage_fee: z.string().regex(/^\d+$/),
+  gas_fee: z.string().regex(/^\d+$/),
+  fwd_fee: z.string().regex(/^\d+$/),
+  action_fee: z.string().regex(/^\d+$/),
+})
+export const EmulateTransactionResultSchema = z.object({
+  accepted: z.boolean(),
+  success: z.boolean(),
+  exit_code: z.number().int(),
+  total_fees: z.string().regex(/^\d+$/),
+  fees: EmulationFeesSchema.optional(),
+})
+export type EmulateTransactionResult = z.infer<typeof EmulateTransactionResultSchema>
+
 export const SeqnoResultSchema = z.object({
   seqno: z.union([z.number().int().nonnegative(), z.string().regex(/^\d+$/)]).transform((value) => Number(value)),
 })
@@ -35,10 +56,12 @@ export const SubscriptionResultSchema = z.object({
 const DecimalSchema = z.string().regex(/^\d+$/)
 
 export const BridgeAccountStateSchema = z.object({
+  address: z.string().min(1),
   balance: DecimalSchema,
-  last_transaction_lt: z.string(),
-  last_transaction_hash: z.string(),
-  seqno: z.number().int().nonnegative(),
+  status: z.enum(['active', 'uninit', 'frozen']),
+  last_tx_lt: z.string(),
+  last_tx_hash: z.string(),
+  block_seqno: z.number().int().nonnegative(),
 })
 export type BridgeAccountState = z.infer<typeof BridgeAccountStateSchema>
 
@@ -55,7 +78,7 @@ export const BridgeTransactionSchema = z.object({
   now: z.number().int().nonnegative(),
   total_fees: DecimalSchema.optional(),
   in_msg: BridgeMessageSchema.optional(),
-  out_msgs: z.array(BridgeMessageSchema).optional(),
+  out_msgs: z.array(BridgeMessageSchema).nullable().optional(),
 })
 export type BridgeTransaction = z.infer<typeof BridgeTransactionSchema>
 

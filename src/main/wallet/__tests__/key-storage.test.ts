@@ -98,6 +98,10 @@ function makeEncryptedBuffer(data: object, storage: InMemorySecureStorage): Buff
   return Buffer.concat([SENC_MARKER, encrypted]) as Buffer<ArrayBuffer>
 }
 
+function getLastAtomicWrite(): Buffer<ArrayBuffer> {
+  return Buffer.from(atomicHandleWriteFile.mock.calls.at(-1)?.[0] as Uint8Array)
+}
+
 // --- Tests ---
 
 describe('WalletKeyStorage', () => {
@@ -115,7 +119,8 @@ describe('WalletKeyStorage', () => {
   // 1. generateFromMnemonic() produces 24 words and stores encrypted
   describe('generateFromMnemonic()', () => {
     it('produces 24-word mnemonic and writes encrypted file', async () => {
-      const { keypair } = await ks.generateFromMnemonic(undefined, 'ton')
+      vi.mocked(fs.readFile).mockImplementation(async () => getLastAtomicWrite())
+      const { keypair } = await ks.generateFromMnemonic()
 
       expect(keypair.publicKey).toBeInstanceOf(Buffer)
       expect(keypair.publicKey.length).toBe(32)
@@ -144,7 +149,8 @@ describe('WalletKeyStorage', () => {
     })
 
     it('returns mnemonic array of length 24', async () => {
-      const { mnemonic, keypair } = await ks.generateFromMnemonic(undefined, 'ton')
+      vi.mocked(fs.readFile).mockImplementation(async () => getLastAtomicWrite())
+      const { mnemonic, keypair } = await ks.generateFromMnemonic()
 
       expect(mnemonic).toHaveLength(24)
       expect(keypair.publicKey).toBeInstanceOf(Buffer)
@@ -152,12 +158,26 @@ describe('WalletKeyStorage', () => {
 
     it('throws if wallet already exists', async () => {
       vi.mocked(fs.access).mockResolvedValue(undefined)
-      await expect(ks.generateFromMnemonic(undefined, 'ton')).rejects.toThrow('Wallet already exists')
+      await expect(ks.generateFromMnemonic()).rejects.toThrow('Wallet already exists')
     })
 
     it('throws if encryption is unavailable', async () => {
       storage.setAvailable(false)
-      await expect(ks.generateFromMnemonic(undefined, 'ton')).rejects.toThrow('Secure storage is not available')
+      await expect(ks.generateFromMnemonic()).rejects.toThrow('Secure storage is not available')
+    })
+
+    it('removes a newly written wallet when persisted identity verification fails', async () => {
+      const generated = { publicKey: Buffer.alloc(32, 7), secretKey: Buffer.alloc(64, 8) }
+      const reopened = { publicKey: Buffer.alloc(32, 9), secretKey: Buffer.alloc(64, 10) }
+      vi.mocked(mnemonicToPrivateKey).mockResolvedValueOnce(generated).mockResolvedValueOnce(reopened)
+      vi.mocked(fs.readFile).mockImplementation(async () => getLastAtomicWrite())
+      vi.mocked(fs.unlink).mockResolvedValue(undefined)
+
+      await expect(ks.generateFromMnemonic()).rejects.toThrow('identity mismatch')
+
+      expect(fs.unlink).toHaveBeenCalledWith('/tmp/test/wallet-key.dat')
+      expect(generated.secretKey.every((byte) => byte === 0)).toBe(true)
+      expect(reopened.secretKey.every((byte) => byte === 0)).toBe(true)
     })
   })
 
@@ -290,6 +310,7 @@ describe('WalletKeyStorage', () => {
       vi.mocked(fs.readFile)
         .mockResolvedValueOnce(rawSeed) // initial read
         .mockResolvedValueOnce(rawSeed) // verify read: still raw = verification fails
+        .mockResolvedValue(rawSeed)
 
       vi.mocked(fs.access).mockRejectedValue(Object.assign(new Error(), { code: 'ENOENT' })) // no bak
       vi.mocked(fs.copyFile).mockResolvedValue(undefined)
@@ -298,12 +319,10 @@ describe('WalletKeyStorage', () => {
       vi.mocked(fs.rename).mockResolvedValue(undefined)
       vi.mocked(fs.unlink).mockResolvedValue(undefined)
 
-      // load() still returns the seed (from memory), migration failure is logged but non-fatal
-      const result = await ks.load()
-      expect(result.publicKey.length).toBe(32)
+      await expect(ks.load()).rejects.toThrow('Legacy wallet migration failed')
 
       // backup was created but NOT deleted (verification failed)
-      expect(fs.copyFile).toHaveBeenCalledOnce()
+      expect(fs.copyFile).toHaveBeenCalledTimes(2)
       // unlink may be called for tmp cleanup but never for the bak path
       const unlinkCalls = vi.mocked(fs.unlink).mock.calls.map(([p]) => p as string)
       expect(unlinkCalls.every((p) => !p.endsWith('.pre-migration.bak'))).toBe(true)
@@ -326,6 +345,7 @@ describe('WalletKeyStorage', () => {
       vi.mocked(fs.readFile)
         .mockResolvedValueOnce(rawSeed) // initial readData read
         .mockResolvedValueOnce(encryptedBuf) // verifySeedFile read (main file already valid)
+        .mockResolvedValue(encryptedBuf)
 
       // bak file exists
       vi.mocked(fs.access).mockResolvedValue(undefined)
@@ -363,6 +383,7 @@ describe('WalletKeyStorage', () => {
         .mockResolvedValueOnce(rawSeed) // readData initial
         .mockResolvedValueOnce(rawSeed) // verifySeedFile after bak detected → fail (still raw)
         .mockResolvedValueOnce(encryptedBuf) // verifySeedFile after write → success
+        .mockResolvedValue(encryptedBuf)
 
       vi.mocked(fs.access).mockResolvedValue(undefined) // bak exists
       vi.mocked(fs.copyFile).mockResolvedValue(undefined)

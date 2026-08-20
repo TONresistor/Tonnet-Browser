@@ -14,10 +14,27 @@ export function rawToFriendly(raw: string): string | undefined {
 }
 
 export function parseTransferTarget(value: string): { address: Address; bounce: boolean } {
+  const friendly = tryParseFriendly(value)
+  if (friendly) {
+    if (friendly.isTestOnly) throw new Error('Testnet address not allowed on mainnet')
+    return { address: friendly.address, bounce: friendly.isBounceable }
+  }
+  return { address: Address.parseRaw(value), bounce: false }
+}
+
+export function parseMainnetAddress(value: string): Address {
+  const friendly = tryParseFriendly(value)
+  if (friendly) {
+    if (friendly.isTestOnly) throw new Error('Testnet address not allowed on mainnet')
+    return friendly.address
+  }
+  return Address.parseRaw(value)
+}
+
+function tryParseFriendly(value: string): ReturnType<typeof Address.parseFriendly> | null {
   try {
-    const parsed = Address.parseFriendly(value)
-    return { address: parsed.address, bounce: parsed.isBounceable }
+    return Address.parseFriendly(value)
   } catch {
-    return { address: Address.parseRaw(value), bounce: false }
+    return null
   }
 }

@@ -11,7 +11,7 @@ const SCRYPT_MAXMEM = 128 * 1024 * 1024
 export const WalletSecretSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('mnemonic'),
-    mnemonic: z.array(z.string().min(1)).refine((words) => words.length === 12 || words.length === 24),
+    mnemonic: z.array(z.string().min(1)).length(24),
   }),
   z.object({ type: z.literal('seed'), seed: z.string().regex(/^[a-fA-F0-9]{64}$/) }),
 ])

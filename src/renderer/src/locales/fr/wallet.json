@@ -74,8 +74,8 @@
   },
   "import": {
     "title": "Importer un portefeuille",
-    "description": "Entre ta phrase de récupération de 12 ou 24 mots",
-    "placeholder": "Entre 12 ou 24 mots séparés par des espaces...",
+    "description": "Entre ta phrase de récupération TON de 24 mots",
+    "placeholder": "Entre 24 mots séparés par des espaces...",
     "button": "Importer le portefeuille",
     "importing": "Importation...",
     "success": "Portefeuille importé avec succès",
@@ -93,9 +93,9 @@
   },
   "backup": {
     "title": "Sauvegarde ta phrase de récupération",
-    "warning": "Note ces 12 mots et conserve-les en lieu sûr.",
+    "warning": "Note ces {{count}} mots et conserve-les en lieu sûr.",
     "warningDesc": "C'est le seul moyen de récupérer ton portefeuille. Si tu perds ces mots, tes fonds seront perdus définitivement. Ne les partage jamais avec personne.",
-    "yourPhrase": "Ta phrase de récupération de 12 mots",
+    "yourPhrase": "Ta phrase de récupération de {{count}} mots",
     "copy": "Copier dans le presse-papiers",
     "acknowledgement": "Je confirme avoir enregistré ma phrase de récupération en lieu sûr. Je comprends que sans elle, il sera impossible de récupérer mon portefeuille ou mes fonds.",
     "confirm": "Continuer",
@@ -171,7 +171,7 @@
   },
   "recovery": {
     "title": "Récupération du portefeuille requise",
-    "description": "Votre trousseau système a changé. Vos données sont toujours sur le disque mais ne peuvent pas être déchiffrées. Importez votre phrase de 12 ou 24 mots pour restaurer l'accès.",
+    "description": "Votre trousseau système a changé. Vos données sont toujours sur le disque mais ne peuvent pas être déchiffrées. Importez votre phrase TON de 24 mots pour restaurer l'accès.",
     "importButton": "Restaurer le portefeuille",
     "orCreateNew": "ou créer un nouveau portefeuille",
     "weakEncryption": "Chiffrement faible : aucun trousseau système détecté. Votre portefeuille n'est protégé que par un chiffrement basique."

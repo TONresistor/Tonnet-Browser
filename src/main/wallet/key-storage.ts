@@ -9,9 +9,8 @@ import { ElectronSafeStorageAdapter } from '../adapters/electron-secure-storage'
 import { createLogger } from '../../shared/logger'
 import { isEnoent } from '../utils/errors'
 import { writeSecureFileAtomic } from '../utils/secure-fs'
-import { generateMnemonic } from 'bip39'
 import { decryptWalletSecret, encryptWalletSecret, type PasswordEnvelope, type WalletSecret } from './password-vault'
-import { deriveWalletKeyPair, detectMnemonicSchemes, type MnemonicScheme, type WalletVersion } from './wallet-versions'
+import { deriveWalletKeyPair, validateTonMnemonic, type MnemonicScheme, type WalletVersion } from './wallet-versions'
 import { createDeviceEnvelope, encodeStorageData, parseStorageData, type StorageData } from './wallet-storage-format'
 const log = createLogger('wallet:keys')
 
@@ -66,62 +65,64 @@ export class WalletKeyStorage {
     }
   }
 
-  async generateFromMnemonic(
-    password?: string,
-    mnemonicScheme: MnemonicScheme = 'bip39'
-  ): Promise<{
+  async generateFromMnemonic(password?: string): Promise<{
     keypair: { publicKey: Buffer; secretKey: Buffer }
     mnemonic: string[]
-    mnemonicScheme: MnemonicScheme
   }> {
     if (await this.exists()) {
       throw new Error('Wallet already exists')
     }
-
     this.ensureEncryptionAvailable()
-
     if (this.isBasicTextBackend() && !password) {
       throw new Error('An application password is required because secure system storage is unavailable')
     }
-
-    const mnemonic = mnemonicScheme === 'ton' ? await mnemonicNew(24) : generateMnemonic(128).split(' ')
-    const keypair = await deriveWalletKeyPair(mnemonic, mnemonicScheme)
-
+    const mnemonic = await mnemonicNew(24)
+    const keypair = await deriveWalletKeyPair(mnemonic)
     const secret: WalletSecret = { type: 'mnemonic', mnemonic }
-    const data = password
-      ? await encryptWalletSecret(secret, password, keypair.publicKey, false, 'v5R1', mnemonicScheme)
-      : createDeviceEnvelope(secret, keypair.publicKey, false, 'v5R1', mnemonicScheme)
-    await this.storeData(data)
-
-    this.passwordProtected = Boolean(password)
-    this.cachedPublicKey = keypair.publicKey
-    this.cachedSecretKey = keypair.secretKey
-    this.resetLockTimer()
-    log.info('Generated new mnemonic-based wallet keypair')
-    return { keypair, mnemonic, mnemonicScheme }
+    const expectedPublicKey = Buffer.from(keypair.publicKey)
+    try {
+      const data = password
+        ? await encryptWalletSecret(secret, password, keypair.publicKey, false, 'v5R1', 'ton')
+        : createDeviceEnvelope(secret, keypair.publicKey, false, 'v5R1', 'ton')
+      await this.storeData(data)
+      keypair.publicKey.fill(0)
+      keypair.secretKey.fill(0)
+      this.passwordProtected = Boolean(password)
+      const persistedKeypair = await this.load(password)
+      if (!persistedKeypair.publicKey.equals(expectedPublicKey)) {
+        throw new WalletDecryptionError('Persisted wallet identity mismatch')
+      }
+      log.info('Generated and verified new mnemonic-based wallet keypair')
+      return { keypair: persistedKeypair, mnemonic }
+    } catch (error) {
+      keypair.publicKey.fill(0)
+      keypair.secretKey.fill(0)
+      mnemonic.fill('')
+      this.destroy()
+      await fs.unlink(this.filePath).catch(() => undefined)
+      throw error
+    } finally {
+      expectedPublicKey.fill(0)
+    }
   }
 
   async importFromMnemonic(
     words: string[],
     password?: string,
-    walletVersion: WalletVersion = 'v5R1',
-    mnemonicScheme: MnemonicScheme = 'ton'
+    walletVersion: WalletVersion = 'v5R1'
   ): Promise<{ publicKey: Buffer; secretKey: Buffer }> {
     this.ensureEncryptionAvailable()
-
-    if (!(await detectMnemonicSchemes(words)).includes(mnemonicScheme)) {
+    if (!(await validateTonMnemonic(words))) {
       throw new Error('Invalid mnemonic phrase')
     }
-
     if (this.isBasicTextBackend() && !password) {
       throw new Error('An application password is required because secure system storage is unavailable')
     }
-
-    const keypair = await deriveWalletKeyPair(words, mnemonicScheme)
+    const keypair = await deriveWalletKeyPair(words)
     const secret: WalletSecret = { type: 'mnemonic', mnemonic: words }
     const data = password
-      ? await encryptWalletSecret(secret, password, keypair.publicKey, true, walletVersion, mnemonicScheme)
-      : createDeviceEnvelope(secret, keypair.publicKey, true, walletVersion, mnemonicScheme)
+      ? await encryptWalletSecret(secret, password, keypair.publicKey, true, walletVersion, 'ton')
+      : createDeviceEnvelope(secret, keypair.publicKey, true, walletVersion, 'ton')
     const replacing = await this.exists()
     if (replacing) {
       await fs.copyFile(this.filePath, this.importBakPath)
@@ -134,7 +135,6 @@ export class WalletKeyStorage {
       keypair.publicKey.fill(0)
       throw error
     }
-
     this.passwordProtected = Boolean(password)
     this.cachedPublicKey = keypair.publicKey
     this.cachedSecretKey = keypair.secretKey
@@ -180,8 +180,7 @@ export class WalletKeyStorage {
 
     let keypair: { publicKey: Buffer; secretKey: Buffer }
     if (data.type === 'mnemonic') {
-      const scheme = stored.type === 'password' || stored.type === 'device' ? stored.mnemonicScheme : 'ton'
-      keypair = await deriveWalletKeyPair(data.mnemonic, scheme)
+      keypair = await deriveWalletKeyPair(data.mnemonic)
     } else {
       const seed = Buffer.from(data.seed, 'hex')
       keypair = keyPairFromSeed(seed)
@@ -324,13 +323,23 @@ export class WalletKeyStorage {
     }
   }
 
+  async authenticatePassword(password: string): Promise<void> {
+    const stored = await this.readData()
+    if (!stored || stored.type !== 'password') {
+      throw new WalletDecryptionError('Password-protected wallet required')
+    }
+    const secret = await this.decryptEnvelope(stored, password)
+    if (secret.type === 'mnemonic') secret.mnemonic.fill('')
+    else secret.seed = ''
+  }
+
   private async decryptEnvelope(envelope: PasswordEnvelope, password?: string): Promise<WalletSecret> {
     if (!password) throw new WalletDecryptionError('Wallet is locked')
     try {
       const secret = await decryptWalletSecret(envelope, password)
       const keypair =
         secret.type === 'mnemonic'
-          ? await deriveWalletKeyPair(secret.mnemonic, envelope.mnemonicScheme)
+          ? await deriveWalletKeyPair(secret.mnemonic)
           : keyPairFromSeed(Buffer.from(secret.seed, 'hex'))
       if (!keypair.publicKey.equals(Buffer.from(envelope.publicKey, 'hex'))) {
         keypair.publicKey.fill(0)
@@ -382,7 +391,6 @@ export class WalletKeyStorage {
   isLocked(): boolean {
     return this.passwordProtected && this.cachedPublicKey !== null && this.cachedSecretKey === null
   }
-
   getPublicKey(): Buffer | null {
     return this.cachedPublicKey
   }
@@ -415,7 +423,6 @@ export class WalletKeyStorage {
       }
     }
   }
-
   private resetLockTimer(): void {
     if (this.lockTimer) {
       clearTimeout(this.lockTimer)
@@ -424,19 +431,6 @@ export class WalletKeyStorage {
       this.lockTimer = setTimeout(() => this.lock(), this.autoLockMs)
     }
   }
-
-  /**
-   * Atomically migrate a legacy 32-byte raw seed to the encrypted format.
-   *
-   * Steps:
-   *   1. Copy the original file to <filePath>.pre-migration.bak (chmod 0o600, overwrite-safe).
-   *   2. Write the new encrypted file via tmp+rename (atomic).
-   *   3. Decrypt the new file and verify the seed round-trips correctly.
-   *   4. Delete the backup only after verification succeeds.
-   *
-   * On any failure the backup is left on disk.  The next call to readData()
-   * will detect the bak file and attempt recovery before re-running migration.
-   */
   private async migrateRawSeedSafe(seedHex: string): Promise<void> {
     const bak = this.bakPath
     const tmp = `${this.filePath}.tmp`
@@ -472,7 +466,7 @@ export class WalletKeyStorage {
         if (process.platform !== 'win32') await fs.chmod(this.filePath, 0o600)
       } catch (restoreErr) {
         log.error('Failed to restore from backup; leaving backup in place:', restoreErr)
-        return
+        throw new WalletDecryptionError('Legacy wallet migration restore failed')
       }
     }
 
@@ -500,12 +494,17 @@ export class WalletKeyStorage {
       log.info('Migrated legacy unencrypted seed to encrypted format')
     } catch (err) {
       log.error('Failed to migrate legacy seed (backup preserved at', bak, '):', err)
-      // Clean up any partial tmp file
+      await fs.unlink(tmp).catch(() => undefined)
       try {
-        await fs.unlink(tmp)
-      } catch {
-        /* tmp may not exist */
+        await fs.copyFile(bak, this.filePath)
+        if (process.platform !== 'win32') await fs.chmod(this.filePath, 0o600)
+        const restored = await fs.readFile(this.filePath)
+        if (restored.length !== 32 || restored.toString('hex') !== seedHex) throw new Error('Restored seed mismatch')
+      } catch (restoreError) {
+        log.error('Failed to restore raw seed after migration error:', restoreError)
+        throw new WalletDecryptionError('Legacy wallet migration failed and restore could not be verified')
       }
+      throw new WalletDecryptionError('Legacy wallet migration failed; raw backup preserved')
     }
   }
 
@@ -582,6 +581,7 @@ export class WalletKeyStorage {
         const seedHex = buffer.toString('hex')
         if (this.storage.isAvailable() && !this.isBasicTextBackend()) {
           await this.migrateRawSeedSafe(seedHex)
+          return this.readData()
         }
         return { type: 'seed', seed: seedHex }
       }

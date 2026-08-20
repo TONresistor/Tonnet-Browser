@@ -35,6 +35,10 @@ export function WalletManagementPanel() {
   const [importPasswordConfirm, setImportPasswordConfirm] = useState('')
   const [accountCandidates, setAccountCandidates] = useState<WalletAccountCandidate[]>([])
   const [selectedAccount, setSelectedAccount] = useState<WalletAccountCandidate | null>(null)
+  const [showDelete, setShowDelete] = useState(false)
+  const [deletePassword, setDeletePassword] = useState('')
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [deleteLoading, setDeleteLoading] = useState(false)
 
   useEffect(() => {
     void walletClient.setSensitiveDisplay(Boolean(words))
@@ -43,7 +47,20 @@ export function WalletManagementPanel() {
     }
   }, [words])
 
-  const handleDelete = useCallback(() => void deleteWallet(), [deleteWallet])
+  const handleDelete = useCallback(async () => {
+    setDeleteLoading(true)
+    setDeleteError(null)
+    try {
+      await deleteWallet(deletePassword)
+      setDeletePassword('')
+      setShowDelete(false)
+    } catch (error) {
+      setDeleteError(errorMessage(error))
+      setDeletePassword('')
+    } finally {
+      setDeleteLoading(false)
+    }
+  }, [deletePassword, deleteWallet])
 
   const handleReveal = useCallback(async () => {
     if (isRevealed) {
@@ -86,7 +103,7 @@ export function WalletManagementPanel() {
 
   const handleImport = useCallback(async () => {
     const parsed = parseWords(importInput)
-    if (parsed.length !== 12 && parsed.length !== 24) {
+    if (parsed.length !== 24) {
       setImportError(t('import.error'))
       return
     }
@@ -113,12 +130,7 @@ export function WalletManagementPanel() {
     setImportError(null)
     setShowConfirm(false)
     try {
-      await importWallet(
-        parsed,
-        importPasswordRequired ? importPassword : undefined,
-        selectedAccount.version,
-        selectedAccount.scheme
-      )
+      await importWallet(parsed, importPasswordRequired ? importPassword : undefined, selectedAccount.version)
       setImportInput('')
       setShowImport(false)
       setWalletPassword('')
@@ -306,22 +318,12 @@ export function WalletManagementPanel() {
               onSelect={setSelectedAccount}
             />
             <div className="flex items-center justify-between">
-              <span
-                className={cn(
-                  'text-xs',
-                  wordCount === 12 || wordCount === 24 ? 'text-success' : 'text-muted-foreground'
-                )}
-              >
+              <span className={cn('text-xs', wordCount === 24 ? 'text-success' : 'text-muted-foreground')}>
                 {wordCount} words
               </span>
               {importError && <span className="text-xs text-destructive">{importError}</span>}
             </div>
-            <Button
-              type="button"
-              onClick={handleImport}
-              disabled={isLoading || (wordCount !== 12 && wordCount !== 24)}
-              className="w-full"
-            >
+            <Button type="button" onClick={handleImport} disabled={isLoading || wordCount !== 24} className="w-full">
               {isLoading ? (
                 <LoaderCircle className="h-4 w-4 mr-2 animate-spin" aria-hidden="true" />
               ) : (
@@ -338,17 +340,60 @@ export function WalletManagementPanel() {
       </div>
 
       {/* Delete wallet */}
-      {isCreated && (
+      {isCreated && passwordProtected && (
         <div className="border-t border-border pt-4">
-          <button
-            type="button"
-            className="text-sm text-destructive hover:underline flex items-center gap-2"
-            onClick={handleDelete}
-          >
-            <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-            {t('delete.button')}
-          </button>
-          <p className="text-xs text-muted-foreground mt-1">{t('delete.description')}</p>
+          {!showDelete ? (
+            <button
+              type="button"
+              className="text-sm text-destructive hover:underline flex items-center gap-2"
+              onClick={() => {
+                setShowDelete(true)
+                setDeleteError(null)
+              }}
+            >
+              <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+              {t('delete.button')}
+            </button>
+          ) : (
+            <div className="space-y-3">
+              <p className="text-xs text-destructive">{t('delete.warning')}</p>
+              <WalletPasswordFields
+                password={deletePassword}
+                onPasswordChange={(password) => {
+                  setDeletePassword(password)
+                  setDeleteError(null)
+                }}
+                disabled={deleteLoading}
+              />
+              {deleteError && <p className="text-xs text-destructive">{deleteError}</p>}
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="destructive"
+                  onClick={() => void handleDelete()}
+                  disabled={deleteLoading || deletePassword.length < 10}
+                  className="flex-1"
+                >
+                  {deleteLoading && <LoaderCircle className="h-4 w-4 mr-2 animate-spin" aria-hidden="true" />}
+                  {t('delete.button')}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setShowDelete(false)
+                    setDeletePassword('')
+                    setDeleteError(null)
+                  }}
+                  disabled={deleteLoading}
+                  className="flex-1"
+                >
+                  {t('import.cancelButton')}
+                </Button>
+              </div>
+            </div>
+          )}
+          {!showDelete && <p className="text-xs text-muted-foreground mt-1">{t('delete.description')}</p>}
         </div>
       )}
     </div>

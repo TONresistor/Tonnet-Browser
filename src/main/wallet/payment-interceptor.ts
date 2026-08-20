@@ -1,12 +1,6 @@
-/**
- * HTTP 402 payment interceptor.
- * Registers on Electron sessions to intercept 402 responses,
- * validate PaymentRequirements, and handle auto/manual payment flows.
- */
-
 import { errorMessage } from '../../shared/errors'
 import { webContents } from 'electron'
-import { normalizeToSecondLevel } from './payment-policy'
+import { normalizePaymentOrigin } from './payment-policy'
 import { getSetting } from '../settings'
 import { X402_VERSION, DEFAULT_APPROVAL_TIMEOUT_S } from './constants'
 import { ERROR_TRUNCATE_LENGTH } from '../../shared/constants'
@@ -24,9 +18,10 @@ import {
 import type { PaymentHistoryPort, PaymentPolicyPort, PaymentWalletPort } from './payment-ports'
 import { XhrPaymentTokenStore } from './xhr-payment-tokens'
 import type { InterceptedRequest, PaymentNotificationSink, PendingPaymentApproval } from './payment-interceptor-types'
+import { sameWalletIdentity, type WalletIdentitySnapshot } from './wallet-identity'
+import { registerPaymentSessionListener } from './payment-session-listener'
 const log = createLogger('payment-interceptor')
 export type { PaymentNotificationSink } from './payment-interceptor-types'
-
 export class PaymentInterceptor {
   private walletManager: PaymentWalletPort
   private paymentPolicyStore: PaymentPolicyPort
@@ -37,8 +32,8 @@ export class PaymentInterceptor {
     string,
     { promise: Promise<{ success: boolean; error?: string }>; count: number }
   >()
-  /** Pending manual approval requests, keyed by payment ID */
   private pendingApprovals = new Map<string, PendingPaymentApproval>()
+  private accountGeneration = 0
 
   constructor(
     walletManager: PaymentWalletPort,
@@ -55,35 +50,26 @@ export class PaymentInterceptor {
   private emitPaymentNotification(notification: PaymentNotificationData): void {
     this.notificationSink(notification)
   }
-
   registerOnSession(session: Electron.Session): void {
-    session.webRequest.onCompleted({ urls: ['*://*/*'] }, (details) => {
-      if (details.resourceType !== 'mainFrame') return
-      if (details.statusCode !== 402) return
-      if (details.webContentsId == null) return
-
-      const request: InterceptedRequest = {
-        url: details.url,
-        webContentsId: details.webContentsId,
-        session,
+    registerPaymentSessionListener(session, async (request) => {
+      try {
+        await this.handle402(request)
+      } catch (error) {
+        log.error('Error handling 402:', error)
       }
-
-      this.handle402(request).catch((err) => {
-        log.error('Error handling 402:', err)
-      })
     })
   }
-
   private async handle402(request: InterceptedRequest): Promise<void> {
     const walletState = this.walletManager.getState()
     if (!walletState.isCreated) {
       log.warn('402 received but no wallet created, ignoring')
       return
     }
-
+    const walletIdentity = this.walletManager.getIdentitySnapshot()
+    if (!walletIdentity) return
+    const accountGeneration = this.accountGeneration
     const session = request.session
 
-    // Re-fetch through session with timeout
     let response: Response
     try {
       response = await sessionFetch(session, request.url)
@@ -113,27 +99,23 @@ export class PaymentInterceptor {
       return
     }
 
-    const finalDomain = normalizeToSecondLevel(new URL(request.url).hostname)
+    const finalDomain = normalizePaymentOrigin(request.url)
 
-    // FIX 2: Use the page's actual URL (what the user navigated to) for cross-domain detection.
-    // request.referrer is always empty due to privacy stripping.
-    let originalDomain = finalDomain
+    let originalDomain = request.originalOrigin ?? finalDomain
     try {
       const allWc = webContents.getAllWebContents()
       for (const wc of allWc) {
         if (wc.id === request.webContentsId) {
           const pageUrl = wc.getURL()
           if (pageUrl) {
-            originalDomain = normalizeToSecondLevel(new URL(pageUrl).hostname)
+            if (!request.originalOrigin) originalDomain = normalizePaymentOrigin(pageUrl)
           }
           break
         }
       }
     } catch {
-      // Fall back to finalDomain if webContents lookup fails
+      void 0
     }
-
-    // Cross-domain redirect = force manual
     const isCrossDomain = finalDomain !== originalDomain
     const baseMode = isCrossDomain ? 'manual' : this.paymentPolicyStore.getSiteMode(originalDomain)
     const walletSettings = getSetting('wallet')
@@ -173,11 +155,10 @@ export class PaymentInterceptor {
     }
 
     if (mode === 'auto') {
-      await this.executePayment(request, paymentReq, originalDomain, reservationId)
+      await this.executePayment(request, paymentReq, originalDomain, walletIdentity, accountGeneration, reservationId)
     } else {
       const paymentId = crypto.randomUUID()
 
-      // FIX 6: Auto-reject pending approvals after TTL
       const ttlTimeout = setTimeout(
         () => {
           const pending = this.pendingApprovals.get(paymentId)
@@ -197,6 +178,8 @@ export class PaymentInterceptor {
         request,
         paymentReq,
         domain: originalDomain,
+        walletIdentity,
+        accountGeneration,
         ttl: ttlTimeout,
         reservationId,
       })
@@ -209,13 +192,14 @@ export class PaymentInterceptor {
     request: InterceptedRequest,
     paymentReq: PaymentRequirements,
     domain: string,
+    walletIdentity: WalletIdentitySnapshot,
+    accountGeneration: number,
     reservationId?: string
   ): Promise<void> {
     const paymentId = crypto.randomUUID()
     const session = request.session
 
     try {
-      // Persist pending payment to history before sending
       const pendingTx: WalletTransaction = {
         id: paymentId,
         type: 'x402',
@@ -228,10 +212,11 @@ export class PaymentInterceptor {
       }
       await this.walletHistoryManager.add(pendingTx)
 
-      // Sign BOC
-      const payload = await this.walletManager.signX402Payment(paymentReq)
+      const payload = await this.walletManager.signX402Payment(paymentReq, walletIdentity)
+      if (accountGeneration !== this.accountGeneration || !this.isCurrentIdentity(walletIdentity)) {
+        throw new Error('Wallet changed before payment retry')
+      }
 
-      // Build X-PAYMENT header (JSON.stringify, NOT base64)
       const xPaymentHeader = JSON.stringify({
         x402Version: X402_VERSION,
         payload,
@@ -253,7 +238,6 @@ export class PaymentInterceptor {
 
         this.emitPaymentNotification(buildNotification(paymentId, domain, request.url, paymentReq, 'completed'))
 
-        // Navigate the original webContents to reload with payment header
         const allWebContents = webContents.getAllWebContents()
         for (const wc of allWebContents) {
           if (wc.id === request.webContentsId) {
@@ -297,10 +281,6 @@ export class PaymentInterceptor {
     }
   }
 
-  /**
-   * Approve a pending manual payment.
-   * Called from IPC when the user clicks "Approve" in the renderer.
-   */
   async approvePayment(paymentId: string): Promise<void> {
     const pending = this.pendingApprovals.get(paymentId)
     if (!pending) {
@@ -311,16 +291,36 @@ export class PaymentInterceptor {
     clearTimeout(pending.ttl)
     this.pendingApprovals.delete(paymentId)
 
+    if (!this.isCurrentIdentity(pending.walletIdentity)) {
+      if (pending.reservationId) this.paymentPolicyStore.rollbackPayment(pending.reservationId)
+      this.emitPaymentNotification(
+        buildNotification(
+          paymentId,
+          pending.domain,
+          pending.request.url,
+          pending.paymentReq,
+          'failed',
+          'Wallet changed before approval'
+        )
+      )
+      pending.xhrResolver?.({ success: false, error: 'wallet-changed' })
+      return
+    }
+
     if (pending.xhrResolver) {
       try {
-        const payload = await this.walletManager.signX402Payment(pending.paymentReq)
+        const payload = await this.walletManager.signX402Payment(pending.paymentReq, pending.walletIdentity)
+        if (pending.accountGeneration !== this.accountGeneration || !this.isCurrentIdentity(pending.walletIdentity)) {
+          throw new Error('Wallet changed before payment token registration')
+        }
         const xPaymentHeader = JSON.stringify({ x402Version: X402_VERSION, payload })
         // SECURITY: NEVER log xPaymentHeader
         this.registerXhrPaymentToken(
           pending.request.webContentsId,
           pending.request.url,
           xPaymentHeader,
-          pending.paymentReq.maxTimeoutSeconds * 1_000
+          pending.paymentReq.maxTimeoutSeconds * 1_000,
+          pending.walletIdentity
         )
         if (pending.reservationId) this.paymentPolicyStore.confirmPayment(pending.reservationId)
 
@@ -358,13 +358,17 @@ export class PaymentInterceptor {
         pending.xhrResolver({ success: false, error: errorMessage(err) })
       }
     } else {
-      await this.executePayment(pending.request, pending.paymentReq, pending.domain, pending.reservationId)
+      await this.executePayment(
+        pending.request,
+        pending.paymentReq,
+        pending.domain,
+        pending.walletIdentity,
+        this.accountGeneration,
+        pending.reservationId
+      )
     }
   }
 
-  /**
-   * Reject a pending manual payment.
-   */
   rejectPayment(paymentId: string): void {
     const pending = this.pendingApprovals.get(paymentId)
     if (!pending) return
@@ -382,33 +386,20 @@ export class PaymentInterceptor {
     }
   }
 
-  /**
-   * Store a signed X-PAYMENT token for a pending XHR retry.
-   * Called by requestXhrPayment (auto) and approvePayment (manual XHR path).
-   */
   registerXhrPaymentToken(
     webContentsId: number,
     url: string,
     xPaymentHeader: string,
     ttlMs: number,
+    walletIdentity: WalletIdentitySnapshot,
     uses: number = 1
   ): void {
-    this.xhrTokens.register(webContentsId, url, xPaymentHeader, ttlMs, uses)
+    this.xhrTokens.register(webContentsId, url, xPaymentHeader, ttlMs, walletIdentity, uses)
   }
 
-  /**
-   * Retrieve and remove a stored XHR token for use in onBeforeSendHeaders.
-   * Returns null if the key is missing or the token has expired.
-   */
   consumeXhrPaymentToken(webContentsId: number, url: string): string | null {
-    return this.xhrTokens.consume(webContentsId, url)
+    return this.xhrTokens.consume(webContentsId, url, this.walletManager.getIdentitySnapshot())
   }
-
-  /**
-   * Handle a 402 from an XHR request.
-   * Signs and registers a token (auto mode) or prompts the user (manual mode).
-   * Does NOT do wc.loadURL — the preload shim retries with the injected header.
-   */
   async requestXhrPayment(webContentsId: number, url: string): Promise<{ success: boolean; error?: string }> {
     const key = `${webContentsId}|${url}`
     const existing = this.inflightXhrPayments.get(key)
@@ -436,6 +427,9 @@ export class PaymentInterceptor {
     if (!walletState.isCreated) {
       return { success: false, error: 'wallet-not-created' }
     }
+    const walletIdentity = this.walletManager.getIdentitySnapshot()
+    if (!walletIdentity) return { success: false, error: 'wallet-not-created' }
+    const accountGeneration = this.accountGeneration
 
     const wc = webContents.fromId(webContentsId)
     if (!wc) {
@@ -468,7 +462,7 @@ export class PaymentInterceptor {
     let finalDomain: string
     let originalDomain: string
     try {
-      finalDomain = normalizeToSecondLevel(new URL(url).hostname)
+      finalDomain = normalizePaymentOrigin(url)
       originalDomain = finalDomain
     } catch {
       return { success: false, error: 'invalid-url' }
@@ -476,7 +470,7 @@ export class PaymentInterceptor {
     try {
       const pageUrl = wc.getURL()
       if (pageUrl) {
-        originalDomain = normalizeToSecondLevel(new URL(pageUrl).hostname)
+        originalDomain = normalizePaymentOrigin(pageUrl)
       }
     } catch {
       // fall back to finalDomain
@@ -511,7 +505,10 @@ export class PaymentInterceptor {
     if (mode === 'auto') {
       const paymentId = crypto.randomUUID()
       try {
-        const payload = await this.walletManager.signX402Payment(paymentReq)
+        const payload = await this.walletManager.signX402Payment(paymentReq, walletIdentity)
+        if (accountGeneration !== this.accountGeneration || !this.isCurrentIdentity(walletIdentity)) {
+          throw new Error('Wallet changed before payment token registration')
+        }
         const xPaymentHeader = JSON.stringify({ x402Version: X402_VERSION, payload })
         // SECURITY: NEVER log xPaymentHeader
         this.registerXhrPaymentToken(
@@ -519,6 +516,7 @@ export class PaymentInterceptor {
           url,
           xPaymentHeader,
           paymentReq.maxTimeoutSeconds * 1_000,
+          walletIdentity,
           getUsesCount()
         )
         this.paymentPolicyStore.confirmPayment(reservationId)
@@ -568,6 +566,8 @@ export class PaymentInterceptor {
         request: { url, webContentsId, session },
         paymentReq,
         domain: originalDomain,
+        walletIdentity,
+        accountGeneration,
         ttl: ttlTimeout,
         reservationId,
         xhrResolver: resolve,
@@ -577,20 +577,23 @@ export class PaymentInterceptor {
     })
   }
 
-  /**
-   * Clean up all pending approvals and their TTL timers.
-   * Called on app exit via destroyServices().
-   */
   destroy(): void {
+    this.clearAccountState()
+  }
+  clearAccountState(): void {
+    this.accountGeneration++
     for (const [, pending] of this.pendingApprovals) {
       clearTimeout(pending.ttl)
       if (pending.reservationId) {
         this.paymentPolicyStore.rollbackPayment(pending.reservationId)
       }
+      pending.xhrResolver?.({ success: false, error: 'wallet-changed' })
     }
     this.pendingApprovals.clear()
     this.xhrTokens.clear()
+    this.inflightXhrPayments.clear()
+  }
+  private isCurrentIdentity(expected: WalletIdentitySnapshot): boolean {
+    return sameWalletIdentity(this.walletManager.getIdentitySnapshot(), expected)
   }
 }
-
-// Singleton removed: use ServiceRegistry from services.ts

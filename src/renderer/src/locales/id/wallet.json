@@ -74,7 +74,7 @@
   },
   "import": {
     "title": "Impor Dompet",
-    "description": "Masukkan 24 kata frasa pemulihan Anda",
+    "description": "Masukkan frasa pemulihan TON 24 kata Anda",
     "placeholder": "Masukkan 24 kata dipisahkan dengan spasi...",
     "button": "Impor Dompet",
     "importing": "Mengimpor...",
@@ -93,11 +93,11 @@
   },
   "backup": {
     "title": "Simpan Frasa Pemulihan Anda",
-    "warning": "Tulis 24 kata ini dan simpan dengan aman.",
+    "warning": "Tulis {{count}} kata ini dan simpan dengan aman.",
     "warningDesc": "Ini satu-satunya cara untuk memulihkan dompet Anda. Jika Anda kehilangan kata-kata ini, dana Anda hilang selamanya. Jangan pernah membagikannya.",
-    "yourPhrase": "24 kata frasa pemulihan Anda",
+    "yourPhrase": "Frasa pemulihan {{count}} kata Anda",
     "copy": "Salin ke Clipboard",
-    "acknowledgement": "Saya mengonfirmasi telah menyimpan 24 kata frasa pemulihan dengan aman. Saya memahami bahwa tanpa frasa ini, dompet dan dana saya tidak dapat dipulihkan.",
+    "acknowledgement": "Saya mengonfirmasi telah menyimpan frasa pemulihan {{count}} kata dengan aman. Saya memahami bahwa tanpa frasa ini, dompet dan dana saya tidak dapat dipulihkan.",
     "confirm": "Lanjutkan"
   },
   "create": {
@@ -164,7 +164,7 @@
   },
   "recovery": {
     "title": "Pemulihan Dompet Diperlukan",
-    "description": "Gantungan kunci sistem Anda telah berubah. Data dompet masih ada di disk tetapi tidak dapat didekripsi. Impor 24 kata frasa pemulihan untuk memulihkan akses.",
+    "description": "Gantungan kunci sistem Anda telah berubah. Data dompet masih ada di disk tetapi tidak dapat didekripsi. Impor frasa TON 24 kata untuk memulihkan akses.",
     "importButton": "Pulihkan Dompet",
     "orCreateNew": "atau buat dompet baru",
     "weakEncryption": "Enkripsi lemah: tidak ada gantungan kunci sistem yang terdeteksi. Dompet Anda hanya dilindungi dengan enkripsi dasar."
@@ -172,7 +172,7 @@
   "delete": {
     "button": "Hapus Dompet",
     "title": "Hapus Dompet",
-    "warning": "Dompet akan dihapus secara permanen dari perangkat ini. Pastikan Anda telah mencadangkan 24 kata frasa pemulihan. Tanpa frasa tersebut, dana Anda tidak dapat dipulihkan.",
+    "warning": "Dompet akan dihapus secara permanen dari perangkat ini. Pastikan frasa pemulihan Anda telah dicadangkan.",
     "description": "Menghapus dompet secara permanen dari perangkat ini. Pastikan Anda memiliki frasa pemulihan sebelum melanjutkan."
   },
   "overview": {

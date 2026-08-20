@@ -1,7 +1,8 @@
 {
   "helper": "tonutils-bridge",
-  "version": "v0.4.0+dev.39f3a0b",
+  "version": "v0.4.0+dev.39f3a0b.tonnet2",
   "commit": "39f3a0beae50a782ccb2fbdbbfdc1d90f62acd1e",
+  "patch": "scripts/patches/tonutils-bridge-uninit-emulation.patch",
   "requests": [
     { "method": "dns.resolve", "params": { "domain": "site.ton" } },
     { "method": "adnl.connectByADNL", "params": { "adnl_id": "anchor" } },
@@ -11,7 +12,11 @@
     { "method": "overlay.leave", "params": { "overlay_id": "overlay" } },
     { "method": "adnl.disconnect", "params": { "peer_id": "peer" } },
     { "method": "dht.findValue", "params": { "key_id": "key", "name": "address", "index": 0 } },
-    { "method": "subscribe.unsubscribe", "params": { "subscription_id": "sub" } }
+    { "method": "subscribe.unsubscribe", "params": { "subscription_id": "sub" } },
+    {
+      "method": "lite.emulateTransaction",
+      "params": { "address": "0:abc", "boc": "te6ccg==", "ignore_chksig": true }
+    }
   ],
   "responses": {
     "dns.resolve": {
@@ -25,7 +30,14 @@
     },
     "adnl.connectByADNL": { "connected": true, "peer_id": "peer", "remote_addr": "1.2.3.4:5" },
     "dht.findValue": { "data": "dmFsdWU=", "ttl": 2000000000 },
-    "subscribe": { "subscription_id": "sub" }
+    "subscribe": { "subscription_id": "sub" },
+    "lite.emulateTransaction": {
+      "accepted": true,
+      "success": true,
+      "exit_code": 0,
+      "total_fees": "42",
+      "fees": { "storage_fee": "1", "gas_fee": "2", "fwd_fee": "3", "action_fee": "4" }
+    }
   },
   "events": {
     "overlay.message": { "overlay_id": "overlay", "message": "payload", "trusted": true }

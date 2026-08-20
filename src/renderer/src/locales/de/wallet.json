@@ -74,8 +74,8 @@
   },
   "import": {
     "title": "Geldbörse importieren",
-    "description": "Geben Sie Ihre 24-Wort-Wiederherstellungsphrase ein",
-    "placeholder": "24 Wörter durch Leerzeichen getrennt eingeben...",
+    "description": "Geben Sie Ihre TON-Wiederherstellungsphrase mit 24 Wörtern ein",
+    "placeholder": "24 durch Leerzeichen getrennte Wörter eingeben...",
     "button": "Geldbörse importieren",
     "importing": "Importieren...",
     "success": "Geldbörse erfolgreich importiert",
@@ -93,11 +93,11 @@
   },
   "backup": {
     "title": "Wiederherstellungsphrase speichern",
-    "warning": "Schreiben Sie diese 24 Wörter auf und bewahren Sie sie sicher auf.",
+    "warning": "Schreiben Sie diese {{count}} Wörter auf und bewahren Sie sie sicher auf.",
     "warningDesc": "Dies ist die einzige Möglichkeit, Ihre Geldbörse wiederherzustellen. Wenn Sie diese Wörter verlieren, ist Ihr Guthaben unwiederbringlich verloren. Teilen Sie sie niemals mit jemandem.",
-    "yourPhrase": "Ihre 24-Wort-Wiederherstellungsphrase",
+    "yourPhrase": "Ihre Wiederherstellungsphrase mit {{count}} Wörtern",
     "copy": "In Zwischenablage kopieren",
-    "acknowledgement": "Ich bestätige, dass ich meine 24-Wort-Wiederherstellungsphrase sicher aufbewahrt habe. Mir ist bewusst, dass ohne sie meine Geldbörse und mein Guthaben nicht wiederhergestellt werden können.",
+    "acknowledgement": "Ich bestätige, dass ich meine Wiederherstellungsphrase mit {{count}} Wörtern sicher aufbewahrt habe. Mir ist bewusst, dass ohne sie meine Geldbörse und mein Guthaben nicht wiederhergestellt werden können.",
     "confirm": "Weiter"
   },
   "create": {
@@ -164,7 +164,7 @@
   },
   "recovery": {
     "title": "Wiederherstellung der Geldbörse erforderlich",
-    "description": "Ihr System-Schlüsselbund hat sich geändert. Ihre Geldbörsen-Daten sind noch auf dem Datenträger, können aber nicht entschlüsselt werden. Importieren Sie Ihre 24-Wort-Phrase, um den Zugang wiederherzustellen.",
+    "description": "Ihr System-Schlüsselbund hat sich geändert. Ihre Geldbörsen-Daten sind noch auf dem Datenträger, können aber nicht entschlüsselt werden. Importieren Sie Ihre TON-Phrase mit 24 Wörtern, um den Zugang wiederherzustellen.",
     "importButton": "Geldbörse wiederherstellen",
     "orCreateNew": "oder eine neue Geldbörse erstellen",
     "weakEncryption": "Schwache Verschlüsselung: kein System-Schlüsselbund gefunden. Ihre Geldbörse ist nur mit einfacher Verschlüsselung geschützt."
@@ -172,7 +172,7 @@
   "delete": {
     "button": "Geldbörse löschen",
     "title": "Geldbörse löschen",
-    "warning": "Ihre Geldbörse wird dauerhaft von diesem Gerät gelöscht. Stellen Sie sicher, dass Sie Ihre 24-Wort-Wiederherstellungsphrase gesichert haben. Ohne sie können Ihre Mittel nicht wiederhergestellt werden.",
+    "warning": "Ihre Geldbörse wird dauerhaft von diesem Gerät gelöscht. Stellen Sie sicher, dass Ihre Wiederherstellungsphrase gesichert ist.",
     "description": "Löscht die Geldbörse dauerhaft von diesem Gerät. Stellen Sie sicher, dass Sie Ihre Wiederherstellungsphrase haben, bevor Sie fortfahren."
   },
   "overview": {

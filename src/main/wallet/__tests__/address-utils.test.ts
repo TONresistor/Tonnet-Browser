@@ -15,4 +15,9 @@ describe('parseTransferTarget', () => {
     expect(target.address.equals(address)).toBe(true)
     expect(target.bounce).toBe(false)
   })
+
+  it('rejects friendly addresses marked for testnet', () => {
+    const testOnly = address.toString({ bounceable: false, testOnly: true })
+    expect(() => parseTransferTarget(testOnly)).toThrow('Testnet address not allowed')
+  })
 })

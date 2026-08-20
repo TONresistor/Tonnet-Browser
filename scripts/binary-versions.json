@@ -12,8 +12,9 @@
     {
       "name": "tonutils-bridge",
       "repo": "TONresistor/tonutils-bridge",
-      "version": "v0.4.0+dev.39f3a0b",
+      "version": "v0.4.0+dev.39f3a0b.tonnet2",
       "commit": "39f3a0beae50a782ccb2fbdbbfdc1d90f62acd1e",
+      "patch": "scripts/patches/tonutils-bridge-uninit-emulation.patch",
       "entry_point": ".",
       "ldflags": "-s -w"
     },

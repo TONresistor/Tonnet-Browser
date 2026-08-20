@@ -38,23 +38,29 @@ const SpendingFileSchema = z.record(
 type SpendingFile = z.infer<typeof SpendingFileSchema>
 const SPENDING_SCHEMA_VERSION = 1
 
-/**
- * Normalize a hostname to its second-level domain.
- * Ensures subdomains share the same spending bucket as their parent.
- * e.g. sub.boards.ton -> boards.ton, api.evil.com -> evil.com, localhost -> localhost
- * IP addresses are returned as-is to avoid collisions (127.0.0.1 must not become 0.1).
- */
-export function normalizeToSecondLevel(hostname: string): string {
-  const host = hostname.replace(/^https?:\/\//, '').split('/')[0]
-  // IP addresses: return as-is (IPv4 dotted quad or IPv6 bracket notation)
-  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(host) || host.startsWith('[')) {
-    return host
+export function normalizePaymentOrigin(value: string): string {
+  const trimmed = value.trim()
+  try {
+    const hasScheme = /^[a-z][a-z\d+.-]*:/i.test(trimmed)
+    const url = new URL(hasScheme ? trimmed : `https://${trimmed}`)
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') throw new Error('Unsupported payment protocol')
+    return url.origin.toLowerCase()
+  } catch {
+    throw new Error('Invalid payment origin')
   }
-  const parts = host.split('.')
-  if (parts.length >= 2) {
-    return parts.slice(-2).join('.')
-  }
-  return host
+}
+
+function hasExplicitScheme(value: string): boolean {
+  return /^[a-z][a-z\d+.-]*:/i.test(value.trim())
+}
+
+function legacySpendingKey(value: string): string {
+  if (value.startsWith('legacy:')) return value
+  return `legacy:${new URL(`https://${value.trim()}`).hostname.toLowerCase()}`
+}
+
+function legacyKeyForOrigin(origin: string): string {
+  return `legacy:${new URL(origin).hostname.toLowerCase()}`
 }
 
 export class PaymentPolicyStore {
@@ -80,7 +86,15 @@ export class PaymentPolicyStore {
       const saved = await this.storage.read()
       if (saved) {
         for (const [domain, records] of Object.entries(saved)) {
-          this.spending.set(domain, records)
+          try {
+            const key =
+              domain.startsWith('legacy:') || !hasExplicitScheme(domain)
+                ? legacySpendingKey(domain)
+                : normalizePaymentOrigin(domain)
+            this.spending.set(key, [...(this.spending.get(key) ?? []), ...records])
+          } catch (error) {
+            log.warn(`Ignoring invalid legacy spending key: ${domain}`, error)
+          }
         }
       }
     } catch (err) {
@@ -157,12 +171,27 @@ export class PaymentPolicyStore {
   }
 
   getSiteMode(domain: string): PaymentMode {
-    const normalized = normalizeToSecondLevel(domain)
+    const normalized = normalizePaymentOrigin(domain)
 
     // Check site-specific policy from settings
     const walletSettings = getSetting('wallet')
-    const sitePolicy = walletSettings.sitePolicies.find((p: SitePolicy) => p.domain === normalized)
+    const sitePolicy = walletSettings.sitePolicies.find((p: SitePolicy) => {
+      try {
+        return hasExplicitScheme(p.domain) && normalizePaymentOrigin(p.domain) === normalized
+      } catch {
+        return false
+      }
+    })
     if (sitePolicy) return sitePolicy.mode
+
+    const legacyPolicy = walletSettings.sitePolicies.find((policy: SitePolicy) => {
+      try {
+        return !hasExplicitScheme(policy.domain) && legacySpendingKey(policy.domain) === legacyKeyForOrigin(normalized)
+      } catch {
+        return false
+      }
+    })
+    if (legacyPolicy) return legacyPolicy.mode === 'auto' ? 'manual' : legacyPolicy.mode
 
     // Check in-memory override
     const override = this.siteModes.get(normalized)
@@ -173,13 +202,13 @@ export class PaymentPolicyStore {
   }
 
   setSiteMode(domain: string, mode: PaymentMode): void {
-    const normalized = normalizeToSecondLevel(domain)
+    const normalized = normalizePaymentOrigin(domain)
     this.siteModes.set(normalized, mode)
     log.event('info', 'payment.policy.updated', 'payment policy updated', { mode })
   }
 
   canPay(domain: string, amount: string): boolean {
-    const normalized = normalizeToSecondLevel(domain)
+    const normalized = normalizePaymentOrigin(domain)
     const walletSettings = getSetting('wallet')
     const limits = walletSettings.limits
 
@@ -195,7 +224,7 @@ export class PaymentPolicyStore {
       return false
     }
 
-    const records = this.spending.get(normalized) || []
+    const records = this.getRecords(normalized)
     const now = Date.now()
 
     // Per-day limit: rolling 24h
@@ -229,7 +258,7 @@ export class PaymentPolicyStore {
   reservePayment(domain: string, amount: string): string | null {
     if (!this.canPay(domain, amount)) return null
 
-    const normalized = normalizeToSecondLevel(domain)
+    const normalized = normalizePaymentOrigin(domain)
     const now = Date.now()
     const reservationId = `${normalized}:${now}:${crypto.randomUUID()}`
     const record: SpendingRecord = { amount, timestamp: now }
@@ -286,8 +315,8 @@ export class PaymentPolicyStore {
   }
 
   getSpending(domain: string): { day: string; month: string } {
-    const normalized = normalizeToSecondLevel(domain)
-    const records = this.spending.get(normalized) || []
+    const normalized = normalizePaymentOrigin(domain)
+    const records = this.getRecords(normalized)
     const now = Date.now()
 
     const dayAgo = now - ONE_DAY_MS
@@ -304,6 +333,13 @@ export class PaymentPolicyStore {
       .toString()
 
     return { day, month }
+  }
+
+  private getRecords(normalizedOrigin: string): SpendingRecord[] {
+    return [
+      ...(this.spending.get(normalizedOrigin) ?? []),
+      ...(this.spending.get(legacyKeyForOrigin(normalizedOrigin)) ?? []),
+    ]
   }
 
   private checkRateLimit(domain: string): boolean {

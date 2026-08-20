@@ -74,8 +74,8 @@
   },
   "import": {
     "title": "Import Wallet",
-    "description": "Enter your 12- or 24-word recovery phrase",
-    "placeholder": "Enter 12 or 24 words separated by spaces...",
+    "description": "Enter your 24-word TON recovery phrase",
+    "placeholder": "Enter 24 words separated by spaces...",
     "button": "Import Wallet",
     "importing": "Importing...",
     "success": "Wallet imported successfully",
@@ -93,9 +93,9 @@
   },
   "backup": {
     "title": "Save Your Recovery Phrase",
-    "warning": "Write down these 12 words and keep them safe.",
+    "warning": "Write down these {{count}} words and keep them safe.",
     "warningDesc": "This is the only way to recover your wallet. If you lose these words, your funds are lost forever. Never share them with anyone.",
-    "yourPhrase": "Your 12-word recovery phrase",
+    "yourPhrase": "Your {{count}}-word recovery phrase",
     "copy": "Copy to Clipboard",
     "acknowledgement": "I confirm that I have securely recorded my recovery phrase. I understand that without it, there is no way to recover my wallet or funds.",
     "confirm": "Continue",
@@ -159,7 +159,7 @@
   },
   "recovery": {
     "title": "Wallet Recovery Required",
-    "description": "Your system keyring has changed. Your wallet data is still on disk but cannot be decrypted. Import your 12- or 24-word recovery phrase to restore access.",
+    "description": "Your system keyring has changed. Your wallet data is still on disk but cannot be decrypted. Import your 24-word TON recovery phrase to restore access.",
     "importButton": "Import Wallet",
     "orCreateNew": "or create a new wallet",
     "weakEncryption": "Weak encryption: no system keyring detected. Your wallet is protected with basic encryption only."

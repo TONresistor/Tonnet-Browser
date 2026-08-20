@@ -312,7 +312,8 @@ const electronAPI = {
 
   // Wallet
   wallet: {
-    create: (password?: string) => invokeChannel<typeof walletCreateContract>(IPC_CHANNELS.WALLET_CREATE, password),
+    create: (options: { password?: string }) =>
+      invokeChannel<typeof walletCreateContract>(IPC_CHANNELS.WALLET_CREATE, options),
     getState: () => invokeChannel<typeof walletGetStateContract>(IPC_CHANNELS.WALLET_GET_STATE),
     getBalance: () => invokeChannel<typeof walletGetBalanceContract>(IPC_CHANNELS.WALLET_GET_BALANCE),
     send: (to: string, amount: string, comment?: string) =>
@@ -332,19 +333,12 @@ const electronAPI = {
     importWallet: (
       mnemonic: string[],
       password: string | undefined,
-      walletVersion: 'v3R1' | 'v3R2' | 'v4R2' | 'v5R1',
-      mnemonicScheme: 'ton' | 'bip39'
-    ) =>
-      invokeChannel<typeof walletImportContract>(
-        IPC_CHANNELS.WALLET_IMPORT,
-        mnemonic,
-        password,
-        walletVersion,
-        mnemonicScheme
-      ),
+      walletVersion: 'v3R1' | 'v3R2' | 'v4R2' | 'v5R1'
+    ) => invokeChannel<typeof walletImportContract>(IPC_CHANNELS.WALLET_IMPORT, mnemonic, password, walletVersion),
     exportMnemonic: (password?: string) =>
       invokeChannel<typeof walletExportMnemonicContract>(IPC_CHANNELS.WALLET_EXPORT_MNEMONIC, password),
-    deleteWallet: () => invokeChannel<typeof walletDeleteContract>(IPC_CHANNELS.WALLET_DELETE),
+    deleteWallet: (password: string) =>
+      invokeChannel<typeof walletDeleteContract>(IPC_CHANNELS.WALLET_DELETE, password),
     unlock: (password: string) => invokeChannel<typeof walletUnlockContract>(IPC_CHANNELS.WALLET_UNLOCK, password),
     lock: () => invokeChannel<typeof walletLockContract>(IPC_CHANNELS.WALLET_LOCK),
     setupPassword: (password: string) =>

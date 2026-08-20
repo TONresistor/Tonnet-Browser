@@ -5,6 +5,7 @@ import {
   AdnlConnectionResultSchema,
   DhtValueResultSchema,
   DnsResolveResultSchema,
+  EmulateTransactionResultSchema,
   OverlayMessageEventSchema,
   SubscriptionResultSchema,
 } from '../bridge-codecs'
@@ -14,6 +15,7 @@ interface HelperPin {
   name: string
   version: string
   commit: string
+  patch?: string
 }
 
 describe('pinned tonutils-bridge compatibility fixture', () => {
@@ -27,6 +29,7 @@ describe('pinned tonutils-bridge compatibility fixture', () => {
       name: fixture.helper,
       version: fixture.version,
       commit: fixture.commit,
+      patch: fixture.patch,
     })
   })
 
@@ -41,6 +44,10 @@ describe('pinned tonutils-bridge compatibility fixture', () => {
       { method: 'adnl.disconnect', params: { peer_id: 'peer' } },
       { method: 'dht.findValue', params: { key_id: 'key', name: 'address', index: 0 } },
       { method: 'subscribe.unsubscribe', params: { subscription_id: 'sub' } },
+      {
+        method: 'lite.emulateTransaction',
+        params: { address: '0:abc', boc: 'te6ccg==', ignore_chksig: true },
+      },
     ])
   })
 
@@ -52,6 +59,10 @@ describe('pinned tonutils-bridge compatibility fixture', () => {
       ttl: 2000000000,
     })
     expect(SubscriptionResultSchema.parse(fixture.responses.subscribe)).toEqual({ subscription_id: 'sub' })
+    expect(EmulateTransactionResultSchema.parse(fixture.responses['lite.emulateTransaction'])).toMatchObject({
+      accepted: true,
+      total_fees: '42',
+    })
     expect(OverlayMessageEventSchema.parse(fixture.events['overlay.message'])).toEqual({
       overlay_id: 'overlay',
       message: 'payload',

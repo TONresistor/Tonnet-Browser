@@ -23,7 +23,7 @@ describe('buildExternalWalletBoc', () => {
       nowSeconds: 1_000,
     })
     expect(Buffer.from(result.boc, 'base64').length).toBeGreaterThan(0)
-    expect(result.validUntil).toBe(0xffffffff)
+    expect(result.validUntil).toBe(1_300)
     keypair.publicKey.fill(0)
     keypair.secretKey.fill(0)
   })

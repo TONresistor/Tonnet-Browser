@@ -271,6 +271,13 @@ describe('WalletManager.resolveRecipient', () => {
 })
 
 describe('WalletManager recovery safety', () => {
+  it('requires an application password for every newly created wallet', async () => {
+    const manager = new WalletManager(new InMemorySecureStorage())
+    const state = manager as unknown as { initialized: boolean }
+    state.initialized = true
+    await expect(manager.create({})).rejects.toThrow('wallet password is required')
+  })
+
   it('never deletes an unreadable wallet when create is requested', async () => {
     const manager = new WalletManager(new InMemorySecureStorage())
     const state = manager as unknown as {
@@ -282,7 +289,9 @@ describe('WalletManager recovery safety', () => {
     state.decryptFailed = true
     state.keyStorage = { deleteFile: vi.fn() }
 
-    await expect(manager.create('correct horse battery staple')).rejects.toThrow('Recover or explicitly delete')
+    await expect(manager.create({ password: 'correct horse battery staple' })).rejects.toThrow(
+      'Recover or explicitly delete'
+    )
     expect(state.keyStorage.deleteFile).not.toHaveBeenCalled()
   })
 })
@@ -369,8 +378,9 @@ interface WalletManagerImportState {
     load: ReturnType<typeof vi.fn>
     lock: ReturnType<typeof vi.fn>
   }
-  subscriptionService: {
-    stop: ReturnType<typeof vi.fn>
+  runtime: {
+    balance: string
+    resetAccount: ReturnType<typeof vi.fn>
   }
 }
 
@@ -395,11 +405,19 @@ function prepareWalletImport(manager: WalletManager, importFromMnemonic: ReturnT
     address: { toString: () => 'UQOld', toRawString: () => '0:old' },
   }
   state.keyStorage = keyStorage
-  state.subscriptionService = { stop }
+  state.runtime = { balance: '0', resetAccount: stop }
   return { state, oldKeypair, oldPublicKey, keyStorage, stop }
 }
 
 describe('WalletManager.importWallet', () => {
+  it('requires an application password before replacing or importing an account', async () => {
+    const manager = new WalletManager(new InMemorySecureStorage())
+    const input = Array(24).fill('word')
+    const setup = prepareWalletImport(manager, vi.fn())
+    await expect(manager.importWallet(input)).rejects.toThrow('wallet password is required')
+    expect(setup.keyStorage.importFromMnemonic).not.toHaveBeenCalled()
+  })
+
   it.each(['Invalid mnemonic phrase', 'Disk write failed'])(
     'preserves the current wallet when import fails: %s',
     async (message) => {
@@ -407,7 +425,7 @@ describe('WalletManager.importWallet', () => {
       const input = Array(24).fill('word')
       const setup = prepareWalletImport(manager, vi.fn().mockRejectedValue(new Error(message)))
 
-      await expect(manager.importWallet(input)).rejects.toThrow(message)
+      await expect(manager.importWallet(input, 'correct horse battery staple')).rejects.toThrow(message)
 
       expect(setup.state.keypair).toBe(setup.oldKeypair)
       expect(setup.state.publicKey).toBe(setup.oldPublicKey)
@@ -428,7 +446,7 @@ describe('WalletManager.importWallet', () => {
     const importFromMnemonic = vi.fn().mockResolvedValue(nextKeypair)
     const setup = prepareWalletImport(manager, importFromMnemonic)
 
-    const result = await manager.importWallet(input)
+    const result = await manager.importWallet(input, 'correct horse battery staple')
 
     expect(importFromMnemonic).toHaveBeenCalledOnce()
     expect(setup.stop).toHaveBeenCalledOnce()
@@ -455,7 +473,7 @@ describe('WalletManager.importWallet', () => {
       release = resolve
     })
 
-    const result = manager.importWallet(input)
+    const result = manager.importWallet(input, 'correct horse battery staple')
     await Promise.resolve()
 
     expect(importFromMnemonic).not.toHaveBeenCalled()
@@ -479,9 +497,9 @@ describe('WalletManager.importWallet', () => {
     const importFromMnemonic = vi.fn().mockReturnValueOnce(firstImport).mockResolvedValueOnce(secondKeypair)
     const setup = prepareWalletImport(manager, importFromMnemonic)
 
-    const firstResult = manager.importWallet(firstInput)
+    const firstResult = manager.importWallet(firstInput, 'correct horse battery staple')
     await Promise.resolve()
-    const secondResult = manager.importWallet(secondInput)
+    const secondResult = manager.importWallet(secondInput, 'correct horse battery staple')
     await Promise.resolve()
 
     expect(importFromMnemonic).toHaveBeenCalledOnce()

@@ -29,9 +29,6 @@ describe('password wallet vault', () => {
       decryptWalletSecret({ ...envelope, walletVersion: 'v3R1' }, 'correct horse battery staple')
     ).rejects.toThrow()
     await expect(
-      decryptWalletSecret({ ...envelope, mnemonicScheme: 'bip39' }, 'correct horse battery staple')
-    ).rejects.toThrow()
-    await expect(
       decryptWalletSecret({ ...envelope, backupVerified: true }, 'correct horse battery staple')
     ).rejects.toThrow()
   })

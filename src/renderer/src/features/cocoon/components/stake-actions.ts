@@ -30,6 +30,7 @@ export interface StakePanelContext {
   cocoonBalance: bigint
   stakeInfo: CocoonStakeInfo | null
   pendingWithdraw: CocoonPendingWithdraw | null
+  nativeWalletIdentity?: { publicKey: string; addressRaw: string } | null
   /** Now in seconds, used for cooldown countdown. Pass Math.floor(Date.now()/1000). */
   nowSec: number
 }
@@ -41,7 +42,7 @@ export interface StakePanelContext {
  */
 export type StakeView =
   /** Pending full withdraw is in progress. Sub-state describes what stage. */
-  | { kind: 'withdrawing'; stage: WithdrawStage; secondsRemaining: number; startedAt: number }
+  | { kind: 'withdrawing'; stage: WithdrawStage; secondsRemaining: number; startedAt: number; needsRebind: boolean }
   /** Active stake — chat is available. UI can offer Unstake as a secondary. */
   | { kind: 'active'; stake: bigint; cocoonBalance: bigint }
   /** No stake, cocoon wallet has enough funds → primary "Start Cocoon". */
@@ -96,6 +97,14 @@ export function deriveStakeView(ctx: StakePanelContext): StakeView {
       stage,
       secondsRemaining,
       startedAt: ctx.pendingWithdraw.startedAt,
+      needsRebind:
+        !ctx.pendingWithdraw.nativeWalletPublicKey ||
+        !ctx.pendingWithdraw.nativeWalletAddress ||
+        Boolean(
+          ctx.nativeWalletIdentity &&
+          (ctx.pendingWithdraw.nativeWalletPublicKey !== ctx.nativeWalletIdentity.publicKey ||
+            ctx.pendingWithdraw.nativeWalletAddress !== ctx.nativeWalletIdentity.addressRaw)
+        ),
     }
   }
 

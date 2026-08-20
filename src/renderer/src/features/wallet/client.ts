@@ -6,16 +6,12 @@ import type { WalletSettings } from '@shared/types'
 export const walletClient = {
   isAvailable: () => typeof window !== 'undefined' && Boolean(window.electron),
   getState: () => window.electron.wallet.getState(),
-  create: (password?: string) => window.electron.wallet.create(password),
+  create: (options: { password?: string }) => window.electron.wallet.create(options),
   discoverAccounts: (mnemonic: string[]) => window.electron.wallet.discoverAccounts(mnemonic),
-  importWallet: (
-    mnemonic: string[],
-    password: string | undefined,
-    walletVersion: 'v3R1' | 'v3R2' | 'v4R2' | 'v5R1',
-    mnemonicScheme: 'ton' | 'bip39'
-  ) => window.electron.wallet.importWallet(mnemonic, password, walletVersion, mnemonicScheme),
+  importWallet: (mnemonic: string[], password: string | undefined, walletVersion: 'v3R1' | 'v3R2' | 'v4R2' | 'v5R1') =>
+    window.electron.wallet.importWallet(mnemonic, password, walletVersion),
   exportMnemonic: (password?: string) => window.electron.wallet.exportMnemonic(password),
-  deleteWallet: () => window.electron.wallet.deleteWallet(),
+  deleteWallet: (password: string) => window.electron.wallet.deleteWallet(password),
   unlock: (password: string) => window.electron.wallet.unlock(password),
   lock: () => window.electron.wallet.lock(),
   setupPassword: (password: string) => window.electron.wallet.setupPassword(password),

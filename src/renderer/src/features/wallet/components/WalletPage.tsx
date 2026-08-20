@@ -66,7 +66,6 @@ export function WalletPage() {
     createBackupChallenge,
     exportMnemonic,
     lock,
-    deleteWallet,
   } = useWalletStore(
     useShallow((s) => ({
       isCreated: s.isCreated,
@@ -95,7 +94,6 @@ export function WalletPage() {
       createBackupChallenge: s.createBackupChallenge,
       exportMnemonic: s.exportMnemonic,
       lock: s.lock,
-      deleteWallet: s.deleteWallet,
     }))
   )
   const [newMnemonic, setNewMnemonic] = useState<string[] | null>(null)
@@ -104,7 +102,6 @@ export function WalletPage() {
   const [selectedTx, setSelectedTx] = useState<WalletTransaction | null>(null)
   const [recoveryInput, setRecoveryInput] = useState('')
   const [recoveryError, setRecoveryError] = useState<string | null>(null)
-  const [recoveryPasswordRequired, setRecoveryPasswordRequired] = useState(false)
   const [mnemonicRevealed, setMnemonicRevealed] = useState(false)
   const [walletPassword, setWalletPassword] = useState('')
   const [walletPasswordConfirm, setWalletPasswordConfirm] = useState('')
@@ -113,7 +110,6 @@ export function WalletPage() {
   const [backupChallenge, setBackupChallenge] = useState<{ challengeId: string; indexes: number[] } | null>(null)
   const [backupStep, setBackupStep] = useState<BackupFlowStep>('idle')
   const [backupPending, setBackupPending] = useState(false)
-  const [createPasswordRequired, setCreatePasswordRequired] = useState(false)
   const [accountCandidates, setAccountCandidates] = useState<WalletAccountCandidate[]>([])
   const [selectedAccount, setSelectedAccount] = useState<WalletAccountCandidate | null>(null)
   const mnemonicTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -140,7 +136,6 @@ export function WalletPage() {
       void walletClient.setSensitiveDisplay(false)
     }
   }, [newMnemonic])
-  // Wipe mnemonic on component unmount
   useEffect(() => {
     return () => {
       pendingBackupPasswordRef.current = undefined
@@ -162,10 +157,9 @@ export function WalletPage() {
       .trim()
       .split(/[\s,]+/)
       .filter((w) => w.length > 0)
-
   const handleRecoveryImport = useCallback(async () => {
     const parsed = parseWords(recoveryInput)
-    if (parsed.length !== 12 && parsed.length !== 24) {
+    if (parsed.length !== 24) {
       setRecoveryError(t('import.error'))
       return
     }
@@ -179,23 +173,16 @@ export function WalletPage() {
         setRecoveryError('Select the wallet account you want to import.')
         return
       }
-      if (recoveryPasswordRequired && (walletPassword.length < 10 || walletPassword !== walletPasswordConfirm)) {
+      if (walletPassword.length < 10 || walletPassword !== walletPasswordConfirm) {
         setRecoveryError('Choose and confirm an app password of at least 10 characters.')
         return
       }
-      await importWallet(
-        parsed,
-        recoveryPasswordRequired ? walletPassword : undefined,
-        selectedAccount.version,
-        selectedAccount.scheme
-      )
+      await importWallet(parsed, walletPassword, selectedAccount.version)
       setRecoveryInput('')
-      setRecoveryPasswordRequired(false)
       setWalletPassword('')
       setWalletPasswordConfirm('')
     } catch (err) {
       const message = errorMessage(err)
-      if (message.toLowerCase().includes('password')) setRecoveryPasswordRequired(true)
       setRecoveryError(message)
     }
   }, [
@@ -205,11 +192,9 @@ export function WalletPage() {
     t,
     accountCandidates.length,
     selectedAccount,
-    recoveryPasswordRequired,
     walletPassword,
     walletPasswordConfirm,
   ])
-
   useEffect(() => {
     init()
     loadHistory()
@@ -230,21 +215,19 @@ export function WalletPage() {
     setWalletPasswordConfirm('')
   }, [])
   const handleCreate = useCallback(async () => {
-    if (createPasswordRequired && (walletPassword.length < 10 || walletPassword !== walletPasswordConfirm)) {
+    if (walletPassword.length < 10 || walletPassword !== walletPasswordConfirm) {
       setSecurityError('Choose and confirm a wallet password of at least 10 characters.')
       return
     }
-    const password = createPasswordRequired ? walletPassword : undefined
+    const password = walletPassword
     setSecurityError(null)
     try {
-      const words = await create(password)
+      const words = await create({ password })
       if (words) openBackupPhrase(password, words)
     } catch (err) {
-      const message = errorMessage(err)
-      if (message.toLowerCase().includes('password')) setCreatePasswordRequired(true)
-      setSecurityError(message)
+      setSecurityError(errorMessage(err))
     }
-  }, [create, createPasswordRequired, openBackupPhrase, walletPassword, walletPasswordConfirm])
+  }, [create, openBackupPhrase, walletPassword, walletPasswordConfirm])
   const handleUnlock = useCallback(async () => {
     setSecurityError(null)
     const password = walletPassword
@@ -352,7 +335,7 @@ export function WalletPage() {
         recoveryInput={recoveryInput}
         recoveryError={recoveryError}
         isLoading={isLoading}
-        passwordRequired={recoveryPasswordRequired}
+        passwordRequired={accountCandidates.length > 0}
         password={walletPassword}
         confirmation={walletPasswordConfirm}
         candidates={accountCandidates}
@@ -367,7 +350,6 @@ export function WalletPage() {
         onConfirmation={setWalletPasswordConfirm}
         onSelect={setSelectedAccount}
         onImport={handleRecoveryImport}
-        onDelete={deleteWallet}
       />
     )
   }
@@ -508,17 +490,15 @@ export function WalletPage() {
               <p className="mt-1 max-w-xs text-sm text-muted-foreground">{t('page.noWalletDesc')}</p>
             </div>
             {error && <p className="text-sm text-destructive">{error}</p>}
-            {createPasswordRequired && (
-              <div className="w-full max-w-xs">
-                <WalletPasswordFields
-                  password={walletPassword}
-                  confirmation={walletPasswordConfirm}
-                  onPasswordChange={setWalletPassword}
-                  onConfirmationChange={setWalletPasswordConfirm}
-                  disabled={isLoading}
-                />
-              </div>
-            )}
+            <div className="w-full max-w-xs">
+              <WalletPasswordFields
+                password={walletPassword}
+                confirmation={walletPasswordConfirm}
+                onPasswordChange={setWalletPassword}
+                onConfirmationChange={setWalletPasswordConfirm}
+                disabled={isLoading}
+              />
+            </div>
             {securityError && <p className="text-xs text-destructive">{securityError}</p>}
             <ActionButton
               variant="filled"

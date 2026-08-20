@@ -597,6 +597,7 @@
         "stakeBusy": "Activation en cours…",
         "unstake": "Désactiver et tout retirer",
         "unstakeBusy": "Récupération des fonds…",
+        "rebind": "Lier le wallet actuel et reprendre",
         "unstakeSent": "Récupération démarrée. Vos fonds reviendront vers votre wallet principal.",
         "cashout": "Récupérer mes fonds",
         "cashoutDone": "{{amount}} GRAM renvoyés vers votre wallet principal.",

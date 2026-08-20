@@ -131,10 +131,10 @@ export function createServices(): ServiceRegistry {
   const withdrawDriver = new WithdrawDriver(
     cocoonManager,
     () => walletManager.getTonBridge(),
-    () => walletManager.getState().address || null,
+    () => walletManager.getIdentitySnapshot(),
     cocoonPersistence,
-    async (nodeAddress, amountNano) => {
-      await walletManager.send(nodeAddress, amountNano.toString())
+    async (nodeAddress, amountNano, expectedIdentity) => {
+      await walletManager.send(nodeAddress, amountNano.toString(), undefined, expectedIdentity)
     }
   )
   // React to runner state changes so refundable transitions are picked up
@@ -153,9 +153,9 @@ export function createServices(): ServiceRegistry {
   const cocoonActivation: CocoonActivationPorts = {
     cocoonManager,
     getBridge: () => walletManager.getTonBridge(),
-    getNativeAddress: () => walletManager.getState().address || null,
-    getNativeBalance: () => walletManager.getBalance(),
-    sendNative: (to, amount) => walletManager.send(to, amount),
+    getNativeIdentity: () => walletManager.getIdentitySnapshot(),
+    getNativeBalance: (expectedIdentity) => walletManager.getBalance(expectedIdentity),
+    sendNative: (to, amount, expectedIdentity) => walletManager.send(to, amount, undefined, expectedIdentity),
     persistence: cocoonPersistence,
   }
   const settingsCoordinator = new SettingsCoordinator({

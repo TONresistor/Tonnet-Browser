@@ -1,5 +1,5 @@
 import type { WalletState } from '../../shared/types'
-import type { MnemonicScheme, SupportedWalletContract, WalletVersion } from './wallet-versions'
+import type { SupportedWalletContract, WalletVersion } from './wallet-versions'
 
 export function buildWalletState(input: {
   publicKey: Buffer | null
@@ -12,7 +12,6 @@ export function buildWalletState(input: {
   passwordProtected: boolean
   backupVerified: boolean
   walletVersion: WalletVersion
-  mnemonicScheme: MnemonicScheme
 }): WalletState {
   const common = {
     balance: input.balance,
@@ -23,7 +22,6 @@ export function buildWalletState(input: {
     passwordProtected: input.passwordProtected,
     backupVerified: input.backupVerified,
     walletVersion: input.walletVersion,
-    mnemonicScheme: input.mnemonicScheme,
   }
   if (!input.publicKey || !input.contract) {
     return { ...common, isCreated: false, address: '', addressRaw: '', publicKey: '' }

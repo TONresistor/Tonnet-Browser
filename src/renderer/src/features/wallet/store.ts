@@ -32,13 +32,12 @@ interface WalletStore {
   approvePending402: () => Promise<void>
   rejectPending402: () => Promise<void>
   init: () => Promise<void>
-  create: (password?: string) => Promise<string[] | null>
+  create: (options: { password?: string }) => Promise<string[] | null>
   discoverAccounts: (mnemonic: string[]) => Promise<WalletAccountCandidate[]>
   importWallet: (
     mnemonic: string[],
     password: string | undefined,
-    walletVersion: WalletAccountCandidate['version'],
-    mnemonicScheme: WalletAccountCandidate['scheme']
+    walletVersion: WalletAccountCandidate['version']
   ) => Promise<void>
   exportMnemonic: (password?: string) => Promise<string[]>
   unlock: (password: string) => Promise<void>
@@ -51,7 +50,7 @@ interface WalletStore {
   send: (to: string, amount: string, comment?: string) => Promise<void>
   loadHistory: (limit?: number) => Promise<void>
   clearHistory: () => Promise<void>
-  deleteWallet: () => Promise<void>
+  deleteWallet: (password: string) => Promise<void>
   setError: (error: string | null) => void
 }
 
@@ -182,10 +181,10 @@ export const useWalletStore = create<WalletStore>((set, get) => {
       }
     },
 
-    create: async (password?: string) => {
+    create: async (options: { password?: string }) => {
       set({ isLoading: true, error: null })
       try {
-        const result = await walletClient.create(password)
+        const result = await walletClient.create(options)
         if (result) {
           set({
             isCreated: result.isCreated ?? true,
@@ -214,12 +213,11 @@ export const useWalletStore = create<WalletStore>((set, get) => {
     importWallet: async (
       mnemonic: string[],
       password: string | undefined,
-      walletVersion: WalletAccountCandidate['version'],
-      mnemonicScheme: WalletAccountCandidate['scheme']
+      walletVersion: WalletAccountCandidate['version']
     ) => {
       set({ isLoading: true, error: null })
       try {
-        const result = await walletClient.importWallet(mnemonic, password, walletVersion, mnemonicScheme)
+        const result = await walletClient.importWallet(mnemonic, password, walletVersion)
         set({
           isCreated: result.isCreated ?? true,
           address: result.address ?? '',
@@ -314,9 +312,9 @@ export const useWalletStore = create<WalletStore>((set, get) => {
       }
     },
 
-    deleteWallet: async () => {
+    deleteWallet: async (password: string) => {
       try {
-        await walletClient.deleteWallet()
+        await walletClient.deleteWallet(password)
         set({
           isCreated: false,
           address: '',
@@ -334,6 +332,7 @@ export const useWalletStore = create<WalletStore>((set, get) => {
         })
       } catch (err) {
         set({ error: errorMessage(err) })
+        throw err
       }
     },
 

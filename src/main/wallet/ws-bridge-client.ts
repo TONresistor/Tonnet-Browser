@@ -8,6 +8,10 @@ import { createLogger, RepetitionAggregator } from '../../shared/logger'
 import { JsonRpcRequestTracker, type JsonRpcResponse } from './json-rpc-peer'
 import {
   AccountBalanceResultSchema,
+  AccountInformationResultSchema,
+  type AccountInformationResult,
+  EmulateTransactionResultSchema,
+  type EmulateTransactionResult,
   BridgeAccountStateSchema,
   type BridgeAccountState,
   BridgeTransactionsResultSchema,
@@ -61,9 +65,7 @@ export class WsBridgeClient {
     timer: ReturnType<typeof setTimeout>
   }> = []
   private cachedBalance: AddressScoped<string> | null = null
-  private cachedSeqno: AddressScoped<number> | null = null
   private balanceDegraded = false
-  private seqnoDegraded = false
   private dns: BridgeDnsClient
   private overlay: BridgeOverlayClient
   private dht: BridgeDhtClient
@@ -147,25 +149,20 @@ export class WsBridgeClient {
     }
   }
 
+  async getAccountInformation(address: string): Promise<AccountInformationResult> {
+    return AccountInformationResultSchema.parse(await this.request('lite.getAccountState', { address }))
+  }
+
+  async emulateTransaction(address: string, boc: string): Promise<EmulateTransactionResult> {
+    return EmulateTransactionResultSchema.parse(
+      await this.request('lite.emulateTransaction', { address, boc, ignore_chksig: true })
+    )
+  }
+
   async getSeqno(address: string): Promise<number> {
-    try {
-      const raw = await this.request('wallet.getSeqno', { address })
-      const { seqno } = SeqnoResultSchema.parse(raw)
-      this.cachedSeqno = { address, value: seqno }
-      this.seqnoDegraded = false
-      return seqno
-    } catch (err) {
-      if (this.cachedSeqno && this.cachedSeqno.address === address) {
-        if (this.seqnoDegraded) {
-          log.debug('getSeqno still failing, returning cached value')
-        } else {
-          log.warn('getSeqno failed, returning cached value')
-          this.seqnoDegraded = true
-        }
-        return this.cachedSeqno.value
-      }
-      throw err
-    }
+    const raw = await this.request('wallet.getSeqno', { address })
+    const { seqno } = SeqnoResultSchema.parse(raw)
+    return seqno
   }
 
   async broadcast(boc: Buffer): Promise<void> {

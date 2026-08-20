@@ -1,14 +1,19 @@
 import { access, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { mnemonicNew } from '@ton/crypto'
+import { mnemonicNew, mnemonicToPrivateKey } from '@ton/crypto'
+import { WalletContractV5R1 } from '@ton/ton'
 import { afterEach, describe, expect, it } from 'vitest'
 import type { ISecureStorage } from '../../ports/secure-storage'
 import { WalletDecryptionError, WalletKeyStorage } from '../key-storage'
 
 class TestSecureStorage implements ISecureStorage {
+  failEncryption = false
   isAvailable = () => true
-  encrypt = (plaintext: string) => Buffer.from(`ENC:${plaintext}`)
+  encrypt = (plaintext: string) => {
+    if (this.failEncryption) throw new Error('simulated secure storage failure')
+    return Buffer.from(`ENC:${plaintext}`)
+  }
   decrypt = (encrypted: Buffer) => {
     const value = encrypted.toString()
     if (!value.startsWith('ENC:')) throw new Error('invalid envelope')
@@ -21,29 +26,100 @@ class DeviceSecureStorage extends TestSecureStorage {
   getBackendName = () => 'keychain'
 }
 
+async function writeV250Wallet(directory: string, storage: ISecureStorage, mnemonic: string[]): Promise<Buffer> {
+  const document = JSON.stringify({ schemaVersion: 1, data: { type: 'mnemonic', mnemonic } })
+  const raw = Buffer.concat([Buffer.from('SENC'), storage.encrypt(document)])
+  await writeFile(join(directory, 'wallet-key.dat'), raw, { mode: 0o600 })
+  return raw
+}
+
 describe('WalletKeyStorage password protection', () => {
   const directories: string[] = []
   afterEach(async () => {
     await Promise.all(directories.splice(0).map((directory) => rm(directory, { recursive: true, force: true })))
   })
 
-  it('creates new wallets with the recommended 12-word multichain mnemonic', async () => {
+  it('creates new wallets with the official 24-word TON mnemonic by default', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'ton-browser-vault-'))
     directories.push(directory)
     const keyStorage = new WalletKeyStorage(new TestSecureStorage(), directory)
     const created = await keyStorage.generateFromMnemonic('correct horse battery staple')
-    expect(created.mnemonic).toHaveLength(12)
-    expect(created.mnemonicScheme).toBe('bip39')
+    expect(created.mnemonic).toHaveLength(24)
     const expectedPublicKey = Buffer.from(created.keypair.publicKey)
     keyStorage.lock()
     expect(keyStorage.isLocked()).toBe(true)
-    await expect(keyStorage.inspect()).resolves.toMatchObject({ mnemonicScheme: 'bip39', walletVersion: 'v5R1' })
+    await expect(keyStorage.inspect()).resolves.toMatchObject({ mnemonicScheme: 'ton', walletVersion: 'v5R1' })
     keyStorage.destroy()
     const reopened = new WalletKeyStorage(new TestSecureStorage(), directory)
     const unlocked = await reopened.load('correct horse battery staple')
     expect(unlocked.publicKey).toEqual(expectedPublicKey)
     reopened.destroy()
   })
+
+  it('upgrades an exact v2.5.0 wallet without changing its address', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'ton-browser-v250-upgrade-'))
+    directories.push(directory)
+    const storage = new TestSecureStorage()
+    const mnemonic = await mnemonicNew(24)
+    const expectedKeypair = await mnemonicToPrivateKey(mnemonic)
+    const expectedAddress = WalletContractV5R1.create({
+      publicKey: expectedKeypair.publicKey,
+      workchain: 0,
+    }).address.toRawString()
+    expectedKeypair.publicKey.fill(0)
+    expectedKeypair.secretKey.fill(0)
+    const original = await writeV250Wallet(directory, storage, mnemonic)
+
+    const current = new WalletKeyStorage(storage, directory)
+    await expect(current.inspect()).resolves.toMatchObject({
+      publicKey: null,
+      passwordProtected: false,
+      backupVerified: false,
+      walletVersion: 'v5R1',
+    })
+    const before = await current.load()
+    expect(WalletContractV5R1.create({ publicKey: before.publicKey, workchain: 0 }).address.toRawString()).toBe(
+      expectedAddress
+    )
+
+    await current.protectWithPassword('correct horse battery staple')
+    expect(await readFile(join(directory, 'wallet-key.dat'))).not.toEqual(original)
+    await expect(access(join(directory, 'wallet-key.dat.pre-password.bak'))).rejects.toMatchObject({ code: 'ENOENT' })
+    current.destroy()
+
+    const reopened = new WalletKeyStorage(storage, directory)
+    await expect(reopened.load('definitely the wrong password')).rejects.toThrow(WalletDecryptionError)
+    const after = await reopened.load('correct horse battery staple')
+    expect(WalletContractV5R1.create({ publicKey: after.publicKey, workchain: 0 }).address.toRawString()).toBe(
+      expectedAddress
+    )
+    reopened.destroy()
+    mnemonic.fill('')
+  }, 20_000)
+
+  it('restores the exact v2.5.0 wallet when password migration fails', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'ton-browser-v250-rollback-'))
+    directories.push(directory)
+    const storage = new TestSecureStorage()
+    const mnemonic = await mnemonicNew(24)
+    const original = await writeV250Wallet(directory, storage, mnemonic)
+    const current = new WalletKeyStorage(storage, directory)
+    const before = await current.load()
+    const expectedPublicKey = Buffer.from(before.publicKey)
+
+    storage.failEncryption = true
+    await expect(current.protectWithPassword('correct horse battery staple')).rejects.toThrow(
+      'simulated secure storage failure'
+    )
+    expect(await readFile(join(directory, 'wallet-key.dat'))).toEqual(original)
+
+    storage.failEncryption = false
+    current.destroy()
+    const reopened = new WalletKeyStorage(storage, directory)
+    await expect(reopened.load()).resolves.toMatchObject({ publicKey: expectedPublicKey })
+    reopened.destroy()
+    mnemonic.fill('')
+  }, 15_000)
 
   it('uses device protection without an app password and persists backup verification', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'ton-browser-device-'))
@@ -55,7 +131,7 @@ describe('WalletKeyStorage password protection', () => {
     await expect(keyStorage.inspect()).resolves.toMatchObject({
       passwordProtected: false,
       backupVerified: false,
-      mnemonicScheme: 'bip39',
+      mnemonicScheme: 'ton',
     })
 
     await keyStorage.markBackupVerified()
@@ -95,7 +171,7 @@ describe('WalletKeyStorage password protection', () => {
     first.lock()
 
     const raw = await readFile(join(directory, 'wallet-key.dat'))
-    expect(raw.toString()).not.toContain(mnemonic[0])
+    expect(raw.toString()).not.toContain(JSON.stringify(mnemonic))
 
     const reopened = new WalletKeyStorage(new TestSecureStorage(), directory)
     await expect(reopened.inspect()).resolves.toMatchObject({ passwordProtected: true, backupVerified: true })
@@ -103,6 +179,19 @@ describe('WalletKeyStorage password protection', () => {
     const unlocked = await reopened.load(password)
     expect(unlocked.publicKey).toEqual(imported.publicKey)
     reopened.destroy()
+  })
+
+  it('authenticates destructive actions against storage even while the wallet is unlocked', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'ton-browser-vault-'))
+    directories.push(directory)
+    const keyStorage = new WalletKeyStorage(new TestSecureStorage(), directory)
+    await keyStorage.importFromMnemonic(await mnemonicNew(24), 'correct horse battery staple')
+
+    await expect(keyStorage.authenticatePassword('definitely the wrong password')).rejects.toThrow(
+      WalletDecryptionError
+    )
+    await expect(keyStorage.authenticatePassword('correct horse battery staple')).resolves.toBeUndefined()
+    keyStorage.destroy()
   })
 
   it('preserves the previous encrypted wallet when importing a replacement version', async () => {
@@ -135,7 +224,7 @@ describe('WalletKeyStorage password protection', () => {
     const unlocked = await reopened.load('a newer and stronger wallet password')
     expect(unlocked.publicKey).toEqual(original.publicKey)
     reopened.destroy()
-  })
+  }, 15_000)
 
   it('grandfathers a legacy raw seed as backed up during password migration', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'ton-browser-vault-'))

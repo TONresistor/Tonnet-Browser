@@ -1,4 +1,3 @@
-import { generateMnemonic } from 'bip39'
 import { describe, expect, it, vi } from 'vitest'
 import { createWalletContract, discoverWalletAccounts, WalletVersionSchema } from '../wallet-versions'
 
@@ -46,12 +45,5 @@ describe('wallet version discovery', () => {
     expect(candidates).toHaveLength(4)
     expect(candidates.filter(({ balance }) => balance === null)).toHaveLength(1)
     expect(getBalance).toHaveBeenCalledTimes(4)
-  })
-
-  it('discovers BIP-39 accounts from a 12-word multichain mnemonic', async () => {
-    const mnemonic = generateMnemonic(128).split(' ')
-    const candidates = await discoverWalletAccounts(mnemonic, { getBalance: async () => '0' })
-    expect(candidates).toHaveLength(4)
-    expect(candidates.every(({ scheme }) => scheme === 'bip39')).toBe(true)
   })
 })

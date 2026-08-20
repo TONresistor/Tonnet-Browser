@@ -74,7 +74,7 @@
   },
   "import": {
     "title": "Importar carteira",
-    "description": "Digite sua frase de recuperação de 24 palavras",
+    "description": "Digite sua frase de recuperação TON de 24 palavras",
     "placeholder": "Digite 24 palavras separadas por espaços...",
     "button": "Importar carteira",
     "importing": "Importando...",
@@ -93,11 +93,11 @@
   },
   "backup": {
     "title": "Salve sua frase de recuperação",
-    "warning": "Anote essas 24 palavras e guarde-as em segurança.",
+    "warning": "Anote essas {{count}} palavras e guarde-as em segurança.",
     "warningDesc": "Esta é a única forma de recuperar sua carteira. Se você perder essas palavras, seus fundos serão perdidos para sempre. Nunca compartilhe com ninguém.",
-    "yourPhrase": "Sua frase de recuperação de 24 palavras",
+    "yourPhrase": "Sua frase de recuperação de {{count}} palavras",
     "copy": "Copiar para a área de transferência",
-    "acknowledgement": "Confirmo que guardei a minha frase de recuperação de 24 palavras em segurança. Compreendo que sem ela não será possível recuperar a minha carteira nem os meus fundos.",
+    "acknowledgement": "Confirmo que guardei a minha frase de recuperação de {{count}} palavras em segurança. Compreendo que sem ela não será possível recuperar a minha carteira nem os meus fundos.",
     "confirm": "Continuar"
   },
   "create": {
@@ -164,7 +164,7 @@
   },
   "recovery": {
     "title": "Recuperação de carteira necessária",
-    "description": "Seu chaveiro do sistema mudou. Os dados da sua carteira ainda estão no disco, mas não podem ser descriptografados. Importe sua frase de 24 palavras para restaurar o acesso.",
+    "description": "Seu chaveiro do sistema mudou. Os dados da sua carteira ainda estão no disco, mas não podem ser descriptografados. Importe sua frase TON de 24 palavras para restaurar o acesso.",
     "importButton": "Restaurar carteira",
     "orCreateNew": "ou criar uma nova carteira",
     "weakEncryption": "Criptografia fraca: nenhum chaveiro do sistema detectado. Sua carteira está protegida apenas com criptografia básica."
@@ -172,7 +172,7 @@
   "delete": {
     "button": "Excluir carteira",
     "title": "Excluir carteira",
-    "warning": "A carteira será permanentemente removida deste dispositivo. Certifique-se de ter guardado a frase de recuperação de 24 palavras. Sem ela, seus fundos serão perdidos para sempre.",
+    "warning": "A carteira será permanentemente removida deste dispositivo. Certifique-se de ter guardado a frase de recuperação.",
     "description": "Remove permanentemente a carteira deste dispositivo. Certifique-se de ter sua frase de recuperação antes de continuar."
   },
   "overview": {

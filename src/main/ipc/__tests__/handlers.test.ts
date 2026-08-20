@@ -288,6 +288,11 @@ function createMockRegistry(): ServiceRegistry {
       const emitter = new EventEmitter()
       return Object.assign(emitter, {
         getState: vi.fn(() => ({ isCreated: false })),
+        getIdentitySnapshot: vi.fn(() => ({
+          publicKey: '01'.repeat(32),
+          addressRaw: `0:${'02'.repeat(32)}`,
+          revision: 1,
+        })),
         importWallet: vi.fn(() =>
           Promise.resolve({
             isCreated: true,
@@ -297,8 +302,15 @@ function createMockRegistry(): ServiceRegistry {
             balance: '0',
           })
         ),
+        authenticatePassword: vi.fn(() => Promise.resolve()),
+        deleteWallet: vi.fn(() =>
+          Promise.resolve({ isCreated: false, address: '', addressRaw: '', publicKey: '', balance: '0' })
+        ),
         resolveRecipient: vi.fn((input: string) => Promise.resolve({ address: input })),
         getBalance: vi.fn(() => Promise.resolve('100')),
+        preflightTransfer: vi.fn(() =>
+          Promise.resolve({ estimatedFee: '1', destinationStatus: 'active', walletBalance: '100' })
+        ),
         send: vi.fn(),
         setAutoLockMinutes: vi.fn(),
         getTonBridge: vi.fn(() => null),
@@ -312,7 +324,12 @@ function createMockRegistry(): ServiceRegistry {
       reconcile: vi.fn((tx) => tx),
       clear: vi.fn(),
     } as any,
-    paymentInterceptor: { approvePayment: vi.fn(), rejectPayment: vi.fn(), registerOnSession: vi.fn() } as any,
+    paymentInterceptor: {
+      approvePayment: vi.fn(),
+      rejectPayment: vi.fn(),
+      registerOnSession: vi.fn(),
+      clearAccountState: vi.fn(),
+    } as any,
     paymentPolicyStore: { destroy: vi.fn(), init: vi.fn() } as any,
     overlayManager: {
       show: vi.fn(),
@@ -418,7 +435,7 @@ function createMockRegistry(): ServiceRegistry {
     cocoonActivation: {
       cocoonManager: null as any,
       getBridge: vi.fn(() => null),
-      getNativeAddress: vi.fn(() => null),
+      getNativeIdentity: vi.fn(() => null),
       getNativeBalance: vi.fn(() => Promise.resolve('0')),
       sendNative: vi.fn(() => Promise.resolve()),
       persistence: null as any,
@@ -706,17 +723,60 @@ describe('IPC Handlers', () => {
   })
 
   describe('Wallet Handlers', () => {
+    it('rejects wallet deletion before confirmation when the password is invalid', async () => {
+      vi.mocked(mockRegistry.walletManager.getState).mockReturnValue({
+        isCreated: true,
+        address: 'UQCurrent',
+        passwordProtected: true,
+      } as never)
+      vi.mocked(mockRegistry.walletManager.authenticatePassword).mockRejectedValueOnce(new Error('invalid password'))
+      const handler = mockHandlers.get(IPC_CHANNELS.WALLET_DELETE)!
+
+      await expect(handler(createMockEvent(), 'definitely the wrong password')).resolves.toEqual({
+        ok: false,
+        error: { code: 'INVALID_PASSWORD', message: 'Invalid wallet password', retryable: false },
+      })
+      expect(mockRegistry.overlayManager.show).not.toHaveBeenCalled()
+      expect(mockRegistry.walletManager.deleteWallet).not.toHaveBeenCalled()
+    })
+
+    it('revalidates the password and wallet identity after deletion confirmation', async () => {
+      const identity = {
+        publicKey: '01'.repeat(32),
+        addressRaw: `0:${'02'.repeat(32)}`,
+        revision: 1,
+      }
+      vi.mocked(mockRegistry.walletManager.getState).mockReturnValue({
+        isCreated: true,
+        address: 'UQCurrent',
+        passwordProtected: true,
+      } as never)
+      vi.mocked(mockRegistry.walletManager.getIdentitySnapshot).mockReturnValue(identity)
+      vi.mocked(mockRegistry.overlayManager.show).mockImplementation((_id, _bounds, _content, callback) => {
+        callback?.('approve', {})
+        return true
+      })
+      const handler = mockHandlers.get(IPC_CHANNELS.WALLET_DELETE)!
+
+      await expect(handler(createMockEvent(), 'correct horse battery staple')).resolves.toMatchObject({
+        isCreated: false,
+      })
+      expect(mockRegistry.walletManager.authenticatePassword).toHaveBeenCalledWith('correct horse battery staple')
+      expect(mockRegistry.walletManager.deleteWallet).toHaveBeenCalledWith('correct horse battery staple', identity)
+    })
+
     it('clears account-scoped state after a wallet import succeeds', async () => {
       const mnemonic = await mnemonicNew(24)
       const password = 'correct horse battery staple'
       const handler = mockHandlers.get(IPC_CHANNELS.WALLET_IMPORT)!
 
-      const result = await handler(createMockEvent(), mnemonic, password, 'v5R1', 'ton')
+      const result = await handler(createMockEvent(), mnemonic, password, 'v5R1')
 
       expect(result).toMatchObject({ isCreated: true, address: 'UQImported' })
-      expect(mockRegistry.walletManager.importWallet).toHaveBeenCalledWith(mnemonic, password, 'v5R1', 'ton')
+      expect(mockRegistry.walletManager.importWallet).toHaveBeenCalledWith(mnemonic, password, 'v5R1')
       expect(mockRegistry.walletHistoryManager.clear).toHaveBeenCalledOnce()
       expect(mockRegistry.tonConnectService.clearSessions).toHaveBeenCalledOnce()
+      expect(mockRegistry.paymentInterceptor.clearAccountState).toHaveBeenCalledOnce()
       expect(vi.mocked(mockRegistry.walletManager.importWallet).mock.invocationCallOrder[0]).toBeLessThan(
         vi.mocked(mockRegistry.walletHistoryManager.clear).mock.invocationCallOrder[0]
       )
@@ -731,7 +791,7 @@ describe('IPC Handlers', () => {
       const password = 'correct horse battery staple'
       const handler = mockHandlers.get(IPC_CHANNELS.WALLET_IMPORT)!
 
-      const result = await handler(createMockEvent(), mnemonic, password, 'v5R1', 'ton')
+      const result = await handler(createMockEvent(), mnemonic, password, 'v5R1')
 
       expect(result).toEqual({
         ok: false,
@@ -749,9 +809,7 @@ describe('IPC Handlers', () => {
       })
       const handler = mockHandlers.get(IPC_CHANNELS.WALLET_IMPORT)!
       const mnemonic = await mnemonicNew(24)
-      await expect(
-        handler(createMockEvent(), mnemonic, 'correct horse battery staple', 'v5R1', 'ton')
-      ).resolves.toEqual({
+      await expect(handler(createMockEvent(), mnemonic, 'correct horse battery staple', 'v5R1')).resolves.toEqual({
         ok: false,
         error: { code: 'USER_CANCELLED', message: 'Wallet import cancelled', retryable: false },
       })
@@ -762,7 +820,7 @@ describe('IPC Handlers', () => {
           rows: expect.arrayContaining([
             { label: 'Current wallet', value: 'UQCurrent' },
             expect.objectContaining({ label: 'New wallet' }),
-            { label: 'New account type', value: 'v5R1 · ton' },
+            { label: 'New account type', value: 'v5R1 · TON' },
           ]),
         }),
         expect.any(Function),
@@ -779,7 +837,11 @@ describe('IPC Handlers', () => {
         backupVerified: true,
       } as never)
       vi.mocked(mockRegistry.walletManager.getTonBridge).mockReturnValueOnce({} as never)
-      vi.mocked(mockRegistry.walletManager.getBalance).mockResolvedValueOnce('10')
+      vi.mocked(mockRegistry.walletManager.preflightTransfer).mockResolvedValueOnce({
+        estimatedFee: '1',
+        destinationStatus: 'active',
+        walletBalance: '10',
+      })
       const handler = mockHandlers.get(IPC_CHANNELS.WALLET_SEND)!
 
       const result = await handler(createMockEvent(), 'EQRecipient', '11')
@@ -799,7 +861,11 @@ describe('IPC Handlers', () => {
         backupVerified: true,
       } as never)
       vi.mocked(mockRegistry.walletManager.getTonBridge).mockReturnValueOnce({} as never)
-      vi.mocked(mockRegistry.walletManager.getBalance).mockResolvedValueOnce('10000009')
+      vi.mocked(mockRegistry.walletManager.preflightTransfer).mockResolvedValueOnce({
+        estimatedFee: '10000000',
+        destinationStatus: 'active',
+        walletBalance: '10000009',
+      })
       const handler = mockHandlers.get(IPC_CHANNELS.WALLET_SEND)!
       await expect(handler(createMockEvent(), 'EQRecipient', '10')).resolves.toEqual({
         ok: false,
@@ -843,7 +909,12 @@ describe('IPC Handlers', () => {
         expect.any(Function),
         { autoDismiss: false }
       )
-      expect(mockRegistry.walletManager.send).toHaveBeenCalledWith('EQRecipient', '10', undefined)
+      expect(mockRegistry.walletManager.send).toHaveBeenCalledWith(
+        'EQRecipient',
+        '10',
+        undefined,
+        expect.objectContaining({ publicKey: expect.any(String), addressRaw: expect.any(String) })
+      )
     })
   })
 

@@ -1,3 +1,4 @@
+import { Address } from '@ton/core'
 import { describe, expect, it, vi } from 'vitest'
 import type { DnsResolveResult } from '../../../shared/types'
 import { WalletQueryService, type WalletQueryBridge } from '../query-service'
@@ -49,6 +50,15 @@ describe('WalletQueryService', () => {
     )
     await expect(service.resolveRecipient('alice.ton')).rejects.toThrow('Domain has no wallet or owner')
     await expect(service.resolveRecipient('café.ton')).rejects.toThrow('Non-ASCII')
+  })
+
+  it('rejects testnet-only addresses returned directly or through DNS', async () => {
+    const testOnly = Address.parseRaw(RAW).toString({ bounceable: false, testOnly: true })
+    const service = new WalletQueryService(() =>
+      bridge({ resolveDomain: vi.fn(() => Promise.resolve(dns({ wallet: testOnly }))) })
+    )
+    await expect(service.resolveRecipient(testOnly)).rejects.toThrow('Testnet address not allowed')
+    await expect(service.resolveRecipient('alice.ton')).rejects.toThrow('Testnet address not allowed')
   })
 
   it('converts bridge transactions and rejects malformed timestamps', () => {

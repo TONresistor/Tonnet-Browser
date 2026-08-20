@@ -38,14 +38,14 @@ export function WalletBackupPhraseScreen({
           <div className="flex items-start gap-3 rounded-card border border-warning/20 bg-warning/10 p-4">
             <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-warning" aria-hidden="true" />
             <div>
-              <p className="text-sm font-medium text-foreground">{t('backup.warning')}</p>
+              <p className="text-sm font-medium text-foreground">{t('backup.warning', { count: words.length })}</p>
               <p className="mt-1 text-xs text-muted-foreground">{t('backup.warningDesc')}</p>
             </div>
           </div>
 
           <div className="rounded-card border border-border-subtle bg-elevation-2 p-5">
             <div className="mb-4 flex items-center justify-between">
-              <p className="text-sm font-medium text-foreground">{t('backup.yourPhrase')}</p>
+              <p className="text-sm font-medium text-foreground">{t('backup.yourPhrase', { count: words.length })}</p>
               <Button type="button" variant="ghost" size="sm" onClick={onReveal}>
                 {revealed ? (
                   <EyeOff className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
@@ -82,7 +82,9 @@ export function WalletBackupPhraseScreen({
               onChange={(event) => setAcknowledged(event.target.checked)}
               className="mt-0.5 h-4 w-4 shrink-0 rounded border-border accent-primary"
             />
-            <span className="text-xs leading-relaxed text-muted-foreground">{t('backup.acknowledgement')}</span>
+            <span className="text-xs leading-relaxed text-muted-foreground">
+              {t('backup.acknowledgement', { count: words.length })}
+            </span>
           </label>
 
           {error && <p className="text-xs text-destructive">{error}</p>}

@@ -29,6 +29,30 @@ function snapshot(status: CocoonStakeInfo['status'], overrides: Partial<CocoonSt
 const NOW_SEC = 1_700_000_000
 
 describe('deriveStakeView — withdrawing branches', () => {
+  it('marks a legacy or different-wallet intent as requiring explicit rebind', () => {
+    const legacy = deriveStakeView({
+      ownerBalance: 0n,
+      nativeBalance: 0n,
+      cocoonBalance: 0n,
+      stakeInfo: snapshot('active'),
+      pendingWithdraw: { startedAt: 1 },
+      nativeWalletIdentity: { publicKey: 'aa', addressRaw: '0:aa' },
+      nowSec: NOW_SEC,
+    })
+    expect(legacy.kind === 'withdrawing' && legacy.needsRebind).toBe(true)
+
+    const mismatch = deriveStakeView({
+      ownerBalance: 0n,
+      nativeBalance: 0n,
+      cocoonBalance: 0n,
+      stakeInfo: snapshot('active'),
+      pendingWithdraw: { startedAt: 1, nativeWalletPublicKey: 'bb', nativeWalletAddress: '0:bb' },
+      nativeWalletIdentity: { publicKey: 'aa', addressRaw: '0:aa' },
+      nowSec: NOW_SEC,
+    })
+    expect(mismatch.kind === 'withdrawing' && mismatch.needsRebind).toBe(true)
+  })
+
   it('returns withdrawing/cooldown when pending + cooldown status', () => {
     const view = deriveStakeView({
       ownerBalance: 0n,

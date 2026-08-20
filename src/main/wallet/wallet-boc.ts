@@ -7,10 +7,11 @@ export function buildExternalWalletBoc(options: {
   messages: MessageRelaxed[]
   seqno: number
   maxTimeout: number
+  validUntil?: number
   nowSeconds?: number
 }): { boc: string; seqno: number; validUntil: number } {
   const { walletContract, secretKey, messages, seqno, maxTimeout, nowSeconds = Math.floor(Date.now() / 1000) } = options
-  const validUntil = seqno === 0 ? 0xffffffff : nowSeconds + maxTimeout
+  const validUntil = options.validUntil ?? nowSeconds + maxTimeout
   const transfer = walletContract.createTransfer({
     seqno,
     secretKey,

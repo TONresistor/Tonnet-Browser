@@ -1,0 +1,48 @@
+diff --git a/wsbridge/lite.go b/wsbridge/lite.go
+--- a/wsbridge/lite.go
++++ b/wsbridge/lite.go
+@@ -358,2 +358,3 @@
+-		Address string `json:"address"`
+-		BOC     string `json:"boc"`
++		Address      string `json:"address"`
++		BOC          string `json:"boc"`
++		IgnoreChkSig bool   `json:"ignore_chksig"`
+@@ -397,2 +398,2 @@
+-	if acc.Code == nil || acc.Data == nil {
+-		b.sendError(client, req.ID, "account is not initialized, cannot emulate", -32602)
++	if acc.State == nil || !acc.State.IsValid {
++		b.sendError(client, req.ID, "account does not exist, cannot emulate", -32602)
+@@ -453,1 +456,3 @@
+-	res, err := tvm.NewTVM().EmulateTransaction(blockCtx, preparedAccount, preparedMessage, tvm.TransactionOptions{})
++	res, err := tvm.NewTVM().EmulateTransaction(blockCtx, preparedAccount, preparedMessage, tvm.TransactionOptions{
++		SignatureCheckAlwaysSucceed: params.IgnoreChkSig,
++	})
+diff --git a/wsbridge/tonnet_preflight_patch_test.go b/wsbridge/tonnet_preflight_patch_test.go
+new file mode 100644
+--- /dev/null
++++ b/wsbridge/tonnet_preflight_patch_test.go
+@@ -0,0 +1,24 @@
++package wsbridge
++
++import (
++	"os"
++	"strings"
++	"testing"
++)
++
++func TestTonnetPreflightPatchWiring(t *testing.T) {
++	source, err := os.ReadFile("lite.go")
++	if err != nil {
++		t.Fatalf("read lite.go: %v", err)
++	}
++	text := string(source)
++	for _, required := range []string{
++		`IgnoreChkSig bool   ` + "`json:\"ignore_chksig\"`",
++		"SignatureCheckAlwaysSucceed: params.IgnoreChkSig",
++		"acc.State == nil || !acc.State.IsValid",
++	} {
++		if !strings.Contains(text, required) {
++			t.Fatalf("patched preflight wiring missing %q", required)
++		}
++	}
++}
