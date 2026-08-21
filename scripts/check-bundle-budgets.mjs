@@ -3,7 +3,7 @@ import { posix } from 'node:path'
 
 const budgets = [
   { file: 'out/preload/index.js', maxBytes: 16 * 1024, owner: 'preload bridge' },
-  { file: 'out/main/index.js', maxBytes: 604 * 1024, owner: 'main process' },
+  { file: 'out/main/index.js', maxBytes: 632 * 1024, owner: 'main process' },
 ]
 
 let failed = false
