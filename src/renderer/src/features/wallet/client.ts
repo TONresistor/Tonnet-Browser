@@ -8,10 +8,11 @@ export const walletClient = {
   getState: () => window.electron.wallet.getState(),
   create: (options: { password?: string }) => window.electron.wallet.create(options),
   discoverAccounts: (mnemonic: string[]) => window.electron.wallet.discoverAccounts(mnemonic),
-  importWallet: (mnemonic: string[], password: string | undefined, walletVersion: 'v3R1' | 'v3R2' | 'v4R2' | 'v5R1') =>
+  importWallet: (mnemonic: string[], password: string, walletVersion: 'v3R1' | 'v3R2' | 'v4R2' | 'v5R1') =>
     window.electron.wallet.importWallet(mnemonic, password, walletVersion),
   exportMnemonic: (password?: string) => window.electron.wallet.exportMnemonic(password),
   deleteWallet: (password: string) => window.electron.wallet.deleteWallet(password),
+  forgetWallet: () => window.electron.wallet.forgetWallet(),
   unlock: (password: string) => window.electron.wallet.unlock(password),
   lock: () => window.electron.wallet.lock(),
   setupPassword: (password: string) => window.electron.wallet.setupPassword(password),

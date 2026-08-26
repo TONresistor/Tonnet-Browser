@@ -13,6 +13,7 @@ import { WalletChangePassword } from '@/features/wallet/components/WalletChangeP
 import { WalletAddPassword } from '@/features/wallet/components/WalletAddPassword'
 import type { WalletAccountCandidate } from '@shared/ipc-contract/wallet'
 import { walletClient } from '@/features/wallet/client'
+import { useUIStore } from '@/features/settings/ui-store'
 
 const MNEMONIC_CLEAR_TIMEOUT = 60_000
 
@@ -30,7 +31,6 @@ export function WalletManagementPanel() {
   const [importError, setImportError] = useState<string | null>(null)
   const [showConfirm, setShowConfirm] = useState(false)
   const [walletPassword, setWalletPassword] = useState('')
-  const [importPasswordRequired, setImportPasswordRequired] = useState(false)
   const [importPassword, setImportPassword] = useState('')
   const [importPasswordConfirm, setImportPasswordConfirm] = useState('')
   const [accountCandidates, setAccountCandidates] = useState<WalletAccountCandidate[]>([])
@@ -39,6 +39,14 @@ export function WalletManagementPanel() {
   const [deletePassword, setDeletePassword] = useState('')
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
+  const walletManagementIntent = useUIStore((state) => state.walletManagementIntent)
+  const setWalletManagementIntent = useUIStore((state) => state.setWalletManagementIntent)
+
+  useEffect(() => {
+    if (walletManagementIntent !== 'import') return
+    setShowImport(true)
+    setWalletManagementIntent(null)
+  }, [setWalletManagementIntent, walletManagementIntent])
 
   useEffect(() => {
     void walletClient.setSensitiveDisplay(Boolean(words))
@@ -119,7 +127,7 @@ export function WalletManagementPanel() {
       setImportError('Select the wallet account you want to import.')
       return
     }
-    if (importPasswordRequired && (importPassword.length < 10 || importPassword !== importPasswordConfirm)) {
+    if (importPassword.length < 10 || importPassword !== importPasswordConfirm) {
       setImportError('Choose and confirm an app password of at least 10 characters.')
       return
     }
@@ -130,18 +138,16 @@ export function WalletManagementPanel() {
     setImportError(null)
     setShowConfirm(false)
     try {
-      await importWallet(parsed, importPasswordRequired ? importPassword : undefined, selectedAccount.version)
+      await importWallet(parsed, importPassword, selectedAccount.version)
       setImportInput('')
       setShowImport(false)
       setWalletPassword('')
-      setImportPasswordRequired(false)
       setImportPassword('')
       setImportPasswordConfirm('')
       setAccountCandidates([])
       setSelectedAccount(null)
     } catch (err) {
       const message = errorMessage(err)
-      if (message.toLowerCase().includes('password')) setImportPasswordRequired(true)
       setImportError(message)
     }
   }, [
@@ -153,7 +159,6 @@ export function WalletManagementPanel() {
     t,
     importPassword,
     importPasswordConfirm,
-    importPasswordRequired,
     accountCandidates.length,
     selectedAccount,
   ])
@@ -276,7 +281,6 @@ export function WalletManagementPanel() {
                   setImportInput('')
                   setImportError(null)
                   setWalletPassword('')
-                  setImportPasswordRequired(false)
                   setImportPassword('')
                   setImportPasswordConfirm('')
                   setAccountCandidates([])
@@ -287,15 +291,19 @@ export function WalletManagementPanel() {
               </button>
             </div>
             <p className="text-xs text-muted-foreground">{t('import.description')}</p>
-            {importPasswordRequired && (
-              <WalletPasswordFields
-                password={importPassword}
-                confirmation={importPasswordConfirm}
-                onPasswordChange={setImportPassword}
-                onConfirmationChange={setImportPasswordConfirm}
-                disabled={isLoading}
-              />
-            )}
+            <WalletPasswordFields
+              password={importPassword}
+              confirmation={importPasswordConfirm}
+              onPasswordChange={(value) => {
+                setImportPassword(value)
+                setImportError(null)
+              }}
+              onConfirmationChange={(value) => {
+                setImportPasswordConfirm(value)
+                setImportError(null)
+              }}
+              disabled={isLoading}
+            />
             <textarea
               className={cn(
                 'w-full h-24 p-3 text-sm rounded-lg border bg-background text-foreground resize-none',
@@ -355,7 +363,13 @@ export function WalletManagementPanel() {
               {t('delete.button')}
             </button>
           ) : (
-            <div className="space-y-3">
+            <form
+              className="space-y-3"
+              onSubmit={(event) => {
+                event.preventDefault()
+                void handleDelete()
+              }}
+            >
               <p className="text-xs text-destructive">{t('delete.warning')}</p>
               <WalletPasswordFields
                 password={deletePassword}
@@ -365,12 +379,10 @@ export function WalletManagementPanel() {
                 }}
                 disabled={deleteLoading}
               />
-              {deleteError && <p className="text-xs text-destructive">{deleteError}</p>}
               <div className="flex gap-2">
                 <Button
-                  type="button"
+                  type="submit"
                   variant="destructive"
-                  onClick={() => void handleDelete()}
                   disabled={deleteLoading || deletePassword.length < 10}
                   className="flex-1"
                 >
@@ -391,7 +403,12 @@ export function WalletManagementPanel() {
                   {t('import.cancelButton')}
                 </Button>
               </div>
-            </div>
+              {deleteError && (
+                <p role="alert" className="text-xs text-destructive">
+                  {deleteError}
+                </p>
+              )}
+            </form>
           )}
           {!showDelete && <p className="text-xs text-muted-foreground mt-1">{t('delete.description')}</p>}
         </div>

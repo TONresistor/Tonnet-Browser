@@ -12,6 +12,7 @@ import { writeSecureFileAtomic } from '../utils/secure-fs'
 import { decryptWalletSecret, encryptWalletSecret, type PasswordEnvelope, type WalletSecret } from './password-vault'
 import { deriveWalletKeyPair, validateTonMnemonic, type MnemonicScheme, type WalletVersion } from './wallet-versions'
 import { createDeviceEnvelope, encodeStorageData, parseStorageData, type StorageData } from './wallet-storage-format'
+import { deleteWalletStorage, getWalletStorageFingerprint, quarantineWalletStorage } from './wallet-storage-quarantine'
 const log = createLogger('wallet:keys')
 
 const ENCRYPTED_MARKER = Buffer.from('SENC')
@@ -409,19 +410,20 @@ export class WalletKeyStorage {
     }
   }
   async deleteFile(): Promise<void> {
-    for (const path of [
+    await deleteWalletStorage([
       this.filePath,
       this.bakPath,
       this.passwordBakPath,
       this.importBakPath,
       `${this.filePath}.tmp`,
-    ]) {
-      try {
-        await fs.unlink(path)
-      } catch (error) {
-        if (!isEnoent(error)) throw error
-      }
-    }
+    ])
+  }
+  async getStorageFingerprint(): Promise<string | null> {
+    return getWalletStorageFingerprint(this.filePath)
+  }
+  async quarantine(expectedFingerprint: string): Promise<{ recoveryId: string }> {
+    const candidates = [this.filePath, this.bakPath, this.passwordBakPath, this.importBakPath, `${this.filePath}.tmp`]
+    return quarantineWalletStorage(this.filePath, candidates, expectedFingerprint)
   }
   private resetLockTimer(): void {
     if (this.lockTimer) {

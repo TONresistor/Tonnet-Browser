@@ -21,6 +21,7 @@ import {
   walletClearHistoryContract,
   walletCreateContract,
   walletDeleteContract,
+  walletForgetContract,
   walletExportKeyContract,
   walletExportMnemonicContract,
   walletGetBalanceContract,
@@ -43,6 +44,7 @@ import {
 import { ipcFailure, ownIpcEmitterListener, secureContractHandle, tonsiteContractHandle } from '../contract-handler'
 import {
   requestWalletDeletionApproval,
+  requestWalletForgetApproval,
   requestWalletReplacementApproval,
   requestWalletTransferApproval,
 } from '../../wallet/wallet-approval'
@@ -351,6 +353,25 @@ export function registerWalletHandlers(registry: ServiceRegistry): void {
         ipcFailure('INVALID_PASSWORD', 'Invalid wallet password', false, error)
       }
       ipcFailure('WALLET_DELETE_FAILED', 'Unable to delete wallet', false, error)
+    }
+    await clearAccountScopedState()
+    return result
+  })
+
+  secureContractHandle(walletForgetContract, async () => {
+    const state = walletManager.getState()
+    if (!state.isCreated && !state.decryptFailed) ipcFailure('WALLET_NOT_FOUND', 'No wallet to remove')
+    const snapshot = await walletManager.getForgetSnapshot()
+    if (!snapshot) ipcFailure('WALLET_NOT_FOUND', 'No wallet data to remove')
+    if (!(await requestWalletForgetApproval(overlayManager, state.address))) {
+      ipcFailure('USER_CANCELLED', 'Wallet removal cancelled')
+    }
+    paymentInterceptor.clearAccountState()
+    let result: WalletState
+    try {
+      result = await walletManager.forgetWallet(snapshot.fingerprint)
+    } catch (error) {
+      ipcFailure('WALLET_FORGET_FAILED', 'Unable to remove wallet from this device', false, error)
     }
     await clearAccountScopedState()
     return result

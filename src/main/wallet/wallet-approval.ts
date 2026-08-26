@@ -114,3 +114,36 @@ export function requestWalletDeletionApproval(overlayManager: OverlayManager, ad
     if (!shown) resolve(false)
   })
 }
+
+export function requestWalletForgetApproval(overlayManager: OverlayManager, address: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    const window = getMainWindow()
+    if (!window) return resolve(false)
+    const id = `wallet-forget-${crypto.randomUUID()}`
+    const bounds = window.getContentBounds()
+    const shown = overlayManager.show(
+      id,
+      { x: 0, y: 0, width: bounds.width, height: bounds.height },
+      {
+        type: 'approval',
+        iconTon: true,
+        title: 'Remove wallet from this device?',
+        warning: 'You may permanently lose access to its funds without the password or recovery phrase.',
+        rows: [
+          { label: 'Wallet', value: address || 'Unreadable wallet file' },
+          { label: 'Recovery', value: 'Encrypted local copy will be preserved' },
+        ],
+        actions: [
+          { id: 'deny', label: 'Cancel' },
+          { id: 'approve', label: 'Remove', primary: true },
+        ],
+      },
+      (actionType) => {
+        overlayManager.hide(id)
+        resolve(actionType === 'approve')
+      },
+      { autoDismiss: false }
+    )
+    if (!shown) resolve(false)
+  })
+}

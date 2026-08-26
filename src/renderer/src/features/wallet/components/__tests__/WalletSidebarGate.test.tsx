@@ -27,15 +27,18 @@ describe('WalletSidebarGate', () => {
 
   it('unlocks inline and keeps a full-page footer action', async () => {
     const onOpenFull = vi.fn()
+    const onSubmit = vi.fn()
+    const onForgotPassword = vi.fn()
     await act(async () => {
       root.render(
         <WalletSidebarGate
           mode="unlock"
-          password=""
+          password="wrong password"
           pending={false}
-          error={null}
+          error="Invalid wallet password"
           onPassword={vi.fn()}
-          onSubmit={vi.fn()}
+          onSubmit={onSubmit}
+          onForgotPassword={onForgotPassword}
           onOpenFull={onOpenFull}
           onClose={vi.fn()}
         />
@@ -44,6 +47,26 @@ describe('WalletSidebarGate', () => {
 
     expect(container.querySelector('input[type="password"]')).not.toBeNull()
     expect(container.textContent).toContain('Unlock')
+    const form = container.querySelector('form')
+    const unlockButton = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent === 'Unlock'
+    )
+    const error = container.querySelector('[role="alert"]')
+    expect(form).not.toBeNull()
+    expect(unlockButton?.type).toBe('submit')
+    expect(error).not.toBeNull()
+    if (!form || !unlockButton || !error) throw new Error('Expected unlock form, submit button, and error message')
+    expect(unlockButton.compareDocumentPosition(error) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    await act(async () => form.requestSubmit())
+    expect(onSubmit).toHaveBeenCalledOnce()
+
+    const forgotPassword = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent === 'Forgot password?'
+    )
+    expect(forgotPassword).toBeDefined()
+    await act(async () => forgotPassword?.click())
+    expect(onForgotPassword).toHaveBeenCalledOnce()
+
     const fullPage = Array.from(container.querySelectorAll('button')).find((button) =>
       button.textContent?.includes('Open full wallet')
     )

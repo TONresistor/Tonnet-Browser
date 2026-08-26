@@ -36,7 +36,7 @@ interface WalletStore {
   discoverAccounts: (mnemonic: string[]) => Promise<WalletAccountCandidate[]>
   importWallet: (
     mnemonic: string[],
-    password: string | undefined,
+    password: string,
     walletVersion: WalletAccountCandidate['version']
   ) => Promise<void>
   exportMnemonic: (password?: string) => Promise<string[]>
@@ -51,6 +51,7 @@ interface WalletStore {
   loadHistory: (limit?: number) => Promise<void>
   clearHistory: () => Promise<void>
   deleteWallet: (password: string) => Promise<void>
+  forgetWallet: () => Promise<void>
   setError: (error: string | null) => void
 }
 
@@ -210,11 +211,7 @@ export const useWalletStore = create<WalletStore>((set, get) => {
 
     discoverAccounts: (mnemonic: string[]) => walletClient.discoverAccounts(mnemonic),
 
-    importWallet: async (
-      mnemonic: string[],
-      password: string | undefined,
-      walletVersion: WalletAccountCandidate['version']
-    ) => {
+    importWallet: async (mnemonic: string[], password: string, walletVersion: WalletAccountCandidate['version']) => {
       set({ isLoading: true, error: null })
       try {
         const result = await walletClient.importWallet(mnemonic, password, walletVersion)
@@ -315,6 +312,30 @@ export const useWalletStore = create<WalletStore>((set, get) => {
     deleteWallet: async (password: string) => {
       try {
         await walletClient.deleteWallet(password)
+        set({
+          isCreated: false,
+          address: '',
+          addressRaw: '',
+          publicKey: '',
+          balance: '0',
+          transactions: [],
+          decryptFailed: false,
+          weakEncryption: false,
+          isLocked: false,
+          needsPasswordSetup: false,
+          passwordProtected: false,
+          backupVerified: false,
+          error: null,
+        })
+      } catch (err) {
+        set({ error: errorMessage(err) })
+        throw err
+      }
+    },
+
+    forgetWallet: async () => {
+      try {
+        await walletClient.forgetWallet()
         set({
           isCreated: false,
           address: '',

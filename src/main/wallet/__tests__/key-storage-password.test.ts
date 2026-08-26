@@ -210,6 +210,21 @@ describe('WalletKeyStorage password protection', () => {
     reopened.destroy()
   })
 
+  it('quarantines the active vault without requiring its password', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'ton-browser-vault-'))
+    directories.push(directory)
+    const storage = new TestSecureStorage()
+    const keyStorage = new WalletKeyStorage(storage, directory)
+    await keyStorage.importFromMnemonic(await mnemonicNew(24), 'correct horse battery staple', 'v5R1')
+    const fingerprint = await keyStorage.getStorageFingerprint()
+
+    expect(fingerprint).not.toBeNull()
+    const { recoveryId } = await keyStorage.quarantine(fingerprint!)
+
+    await expect(access(join(directory, 'wallet-key.dat'))).rejects.toMatchObject({ code: 'ENOENT' })
+    await expect(access(join(directory, 'wallet-recovery', recoveryId, 'wallet-key.dat'))).resolves.toBeUndefined()
+  })
+
   it('rotates the password without changing the wallet identity', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'ton-browser-vault-'))
     directories.push(directory)

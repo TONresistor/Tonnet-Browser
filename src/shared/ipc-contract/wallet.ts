@@ -212,7 +212,7 @@ export const walletPayForXhrContract = defineRequest({
 export const walletImportContract = defineRequest({
   ...mainBase,
   channel: WALLET_CONTRACT_CHANNELS.importWallet,
-  input: z.tuple([RecoveryMnemonicSchema, WalletPasswordSchema.optional(), WalletVersionSchema]),
+  input: z.tuple([RecoveryMnemonicSchema, WalletPasswordSchema, WalletVersionSchema]),
   output: WalletStateSchema,
   errors: ['INVALID_MNEMONIC', 'WALLET_PASSWORD_REQUIRED', 'WALLET_IMPORT_FAILED', 'USER_CANCELLED'],
   redaction: 'secret',
@@ -248,6 +248,14 @@ export const walletDeleteContract = defineRequest({
     'USER_CANCELLED',
   ],
   redaction: 'secret',
+})
+export const walletForgetContract = defineRequest({
+  ...mainBase,
+  channel: WALLET_CONTRACT_CHANNELS.forgetWallet,
+  input: z.tuple([]),
+  output: WalletStateSchema,
+  errors: ['WALLET_NOT_FOUND', 'WALLET_FORGET_FAILED', 'USER_CANCELLED'],
+  redaction: 'sensitive',
 })
 export const walletUnlockContract = defineRequest({
   ...mainBase,
@@ -380,6 +388,7 @@ export const WALLET_REQUEST_CONTRACTS = [
   walletDiscoverAccountsContract,
   walletExportMnemonicContract,
   walletDeleteContract,
+  walletForgetContract,
   walletUnlockContract,
   walletLockContract,
   walletSetupPasswordContract,

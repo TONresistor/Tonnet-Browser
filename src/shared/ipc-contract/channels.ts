@@ -16,6 +16,7 @@ export const WALLET_CONTRACT_CHANNELS = {
   discoverAccounts: 'wallet:discover-accounts',
   exportMnemonic: 'wallet:export-mnemonic',
   deleteWallet: 'wallet:delete',
+  forgetWallet: 'wallet:forget',
   unlock: 'wallet:unlock',
   lock: 'wallet:lock',
   setupPassword: 'wallet:setup-password',

@@ -1,8 +1,9 @@
-import { LoaderCircle, Upload, AlertTriangle } from 'lucide-react'
+import { LoaderCircle, Upload, AlertTriangle, ArrowLeft } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { WalletAccountCandidate } from '@shared/ipc-contract/wallet'
 import { AppIcon } from '@/components/ui/AppIcon'
 import { ActionButton } from '@/components/ui/ios/ActionButton'
+import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { WalletAccountCandidates } from './WalletAccountCandidates'
 import { WalletPasswordFields } from './WalletPasswordFields'
@@ -21,6 +22,8 @@ export function WalletRecoveryScreen(props: {
   onConfirmation: (value: string) => void
   onSelect: (candidate: WalletAccountCandidate) => void
   onImport: () => void | Promise<void>
+  onBack?: () => void
+  onRemoveFromDevice?: () => void
 }) {
   const { t } = useTranslation('wallet')
   const wordCount = props.recoveryInput
@@ -44,6 +47,18 @@ export function WalletRecoveryScreen(props: {
             </div>
           </div>
           <div className="space-y-3 rounded-card border border-border-subtle bg-elevation-2 p-5">
+            {props.onBack && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={props.onBack}
+                className="-ml-2 text-muted-foreground"
+              >
+                <ArrowLeft className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                Back to unlock
+              </Button>
+            )}
             <textarea
               className={cn(
                 'w-full h-24 p-3 text-sm rounded-lg border bg-background text-foreground resize-none',
@@ -94,6 +109,17 @@ export function WalletRecoveryScreen(props: {
                   ? 'Find wallet accounts'
                   : 'Import selected account'}
             </ActionButton>
+            {props.onRemoveFromDevice && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={props.onRemoveFromDevice}
+                className="w-full text-destructive hover:bg-destructive/10 hover:text-destructive"
+              >
+                Remove this wallet from this device
+              </Button>
+            )}
           </div>
         </div>
       </div>

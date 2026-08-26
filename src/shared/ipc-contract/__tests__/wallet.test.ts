@@ -4,6 +4,7 @@ import {
   WALLET_EVENT_CONTRACTS,
   walletCreateContract,
   walletDeleteContract,
+  walletForgetContract,
   walletGetStateContract,
   walletImportContract,
   walletUnlockContract,
@@ -60,6 +61,7 @@ describe('wallet IPC contract', () => {
     expect(() => walletCreateContract.output.parse({ ...state, mnemonic: mnemonic.slice(1) })).toThrow()
     expect(walletCreateContract.redaction).toBe('secret')
     expect(walletImportContract.input.parse([mnemonic, 'correct horse battery staple', 'v4R2'])).toBeDefined()
+    expect(() => walletImportContract.input.parse([mnemonic, undefined, 'v4R2'])).toThrow()
     expect(() => walletImportContract.input.parse([mnemonic, 'correct horse battery staple', 'v4R1'])).toThrow()
   })
 
@@ -98,6 +100,12 @@ describe('wallet IPC contract', () => {
     expect(() => walletDeleteContract.input.parse([])).toThrow()
     expect(() => walletDeleteContract.input.parse(['short'])).toThrow()
     expect(walletDeleteContract.redaction).toBe('secret')
+  })
+
+  it('allows a confirmed local reset without sending a password', () => {
+    expect(walletForgetContract.input.parse([])).toEqual([])
+    expect(() => walletForgetContract.input.parse(['password'])).toThrow()
+    expect(walletForgetContract.redaction).toBe('sensitive')
   })
 
   it('validates payment notifications before renderer delivery', () => {

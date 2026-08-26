@@ -237,27 +237,26 @@ export class WalletManager extends EventEmitter {
     return this.runExclusive(() => this.keyStorage.authenticatePassword(password))
   }
 
+  async getForgetSnapshot(): Promise<{ fingerprint: string } | null> {
+    const fingerprint = await this.keyStorage.getStorageFingerprint()
+    return fingerprint ? { fingerprint } : null
+  }
+
+  async forgetWallet(expectedFingerprint: string): Promise<WalletState> {
+    return this.runExclusive(async () => {
+      const { recoveryId } = await this.keyStorage.quarantine(expectedFingerprint)
+      const state = this.resetWalletAfterRemoval()
+      log.info(`Wallet removed from this device; encrypted recovery preserved as ${recoveryId}`)
+      return state
+    })
+  }
+
   async deleteWallet(password: string, expectedIdentity: WalletIdentitySnapshot): Promise<WalletState> {
     return this.runExclusive(async () => {
       this.assertWalletIdentity(expectedIdentity)
       await this.keyStorage.authenticatePassword(password)
       await this.keyStorage.deleteFile()
-      wipeKeypair(this.keypair)
-      wipePublicKey(this.publicKey)
-      this.keypair = null
-      this.publicKey = null
-      this.keyStorage.destroy()
-      this.walletContract = null
-      this.runtime.resetAccount()
-      this.decryptFailed = false
-      this.weakEncryption = false
-      this.needsPasswordSetup = false
-      this.backupVerified = false
-      this.passwordProtected = false
-      this.identity.advance()
-
-      const state = this.getState()
-      this.emit('state-changed', state)
+      const state = this.resetWalletAfterRemoval()
       log.info('Wallet deleted')
       return state
     })
@@ -321,6 +320,24 @@ export class WalletManager extends EventEmitter {
       backupVerified: this.backupVerified,
       walletVersion: this.walletVersion,
     })
+  }
+  private resetWalletAfterRemoval(): WalletState {
+    wipeKeypair(this.keypair)
+    wipePublicKey(this.publicKey)
+    this.keypair = null
+    this.publicKey = null
+    this.keyStorage.destroy()
+    this.walletContract = null
+    this.runtime.resetAccount()
+    this.decryptFailed = false
+    this.weakEncryption = false
+    this.needsPasswordSetup = false
+    this.backupVerified = false
+    this.passwordProtected = false
+    this.identity.advance()
+    const state = this.getState()
+    this.emit('state-changed', state)
+    return state
   }
   getTonBridge(): TonBridgePort | null {
     return this.wsBridge

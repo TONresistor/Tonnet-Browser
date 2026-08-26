@@ -39,7 +39,9 @@ import { Button } from '@/components/ui/button'
 import { TON_WALLET_PAGE, UI_COPY_FEEDBACK_MS } from '@shared/constants'
 import { copySensitiveText } from '@/features/wallet/sensitive-clipboard'
 import { WalletSidebarGate } from './WalletSidebarGate'
+import { WalletForgotPasswordScreen } from './WalletForgotPasswordScreen'
 import { errorMessage } from '@shared/errors'
+import { openWalletRecoverySettings } from '@/features/settings/public'
 
 type SidebarView = 'overview' | 'send' | 'receive'
 
@@ -66,6 +68,7 @@ export function WalletSidebar({ onClose }: WalletSidebarProps) {
     refreshBalance,
     unlock,
     setupPassword,
+    forgetWallet,
   } = useWalletStore(
     useShallow((s) => ({
       isCreated: s.isCreated,
@@ -84,6 +87,7 @@ export function WalletSidebar({ onClose }: WalletSidebarProps) {
       refreshBalance: s.refreshBalance,
       unlock: s.unlock,
       setupPassword: s.setupPassword,
+      forgetWallet: s.forgetWallet,
     }))
   )
   const openOrSwitchToTab = useOpenOrSwitchBrowserTab()
@@ -97,6 +101,7 @@ export function WalletSidebar({ onClose }: WalletSidebarProps) {
   const [walletPasswordConfirm, setWalletPasswordConfirm] = useState('')
   const [securityError, setSecurityError] = useState<string | null>(null)
   const [securityPending, setSecurityPending] = useState(false)
+  const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false)
   const mnemonicTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Auto-clear mnemonic from memory after 60s
@@ -163,6 +168,12 @@ export function WalletSidebar({ onClose }: WalletSidebarProps) {
       setSecurityPending(false)
     }
   }, [needsPasswordSetup, setupPassword, unlock, walletPassword])
+
+  const handleRecoverWallet = useCallback(() => {
+    openWalletRecoverySettings()
+    openOrSwitchToTab('ton://settings')
+    onClose()
+  }, [onClose, openOrSwitchToTab])
 
   // Mnemonic backup screen after wallet creation
   if (newMnemonic) {
@@ -285,6 +296,17 @@ export function WalletSidebar({ onClose }: WalletSidebarProps) {
   }
 
   if (isLocked || needsPasswordSetup || !backupVerified) {
+    if (forgotPasswordOpen) {
+      return (
+        <WalletForgotPasswordScreen
+          compact
+          onRecover={handleRecoverWallet}
+          onForget={forgetWallet}
+          onBack={() => setForgotPasswordOpen(false)}
+          onClose={onClose}
+        />
+      )
+    }
     return (
       <WalletSidebarGate
         mode={needsPasswordSetup ? 'setup' : isLocked ? 'unlock' : 'backup'}
@@ -292,9 +314,13 @@ export function WalletSidebar({ onClose }: WalletSidebarProps) {
         confirmation={needsPasswordSetup ? walletPasswordConfirm : undefined}
         pending={securityPending}
         error={securityError}
-        onPassword={setWalletPassword}
+        onPassword={(value) => {
+          setWalletPassword(value)
+          setSecurityError(null)
+        }}
         onConfirmation={needsPasswordSetup ? setWalletPasswordConfirm : undefined}
         onSubmit={handleSecuritySubmit}
+        onForgotPassword={isLocked ? () => setForgotPasswordOpen(true) : undefined}
         onOpenFull={handleOpenWallet}
         onClose={onClose}
       />

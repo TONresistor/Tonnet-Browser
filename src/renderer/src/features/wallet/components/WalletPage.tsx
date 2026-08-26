@@ -34,6 +34,7 @@ import { copySensitiveText } from '../sensitive-clipboard'
 import { WalletRecoveryScreen } from './WalletRecoveryScreen'
 import { walletClient } from '@/features/wallet/client'
 import { WalletBackupPhraseScreen } from './WalletBackupPhraseScreen'
+import { WalletForgotPasswordScreen } from './WalletForgotPasswordScreen'
 
 type ActionView = 'send' | 'receive' | null
 type BackupFlowStep = 'idle' | 'phrase' | 'challenge'
@@ -66,6 +67,7 @@ export function WalletPage() {
     createBackupChallenge,
     exportMnemonic,
     lock,
+    forgetWallet,
   } = useWalletStore(
     useShallow((s) => ({
       isCreated: s.isCreated,
@@ -94,6 +96,7 @@ export function WalletPage() {
       createBackupChallenge: s.createBackupChallenge,
       exportMnemonic: s.exportMnemonic,
       lock: s.lock,
+      forgetWallet: s.forgetWallet,
     }))
   )
   const [newMnemonic, setNewMnemonic] = useState<string[] | null>(null)
@@ -112,6 +115,8 @@ export function WalletPage() {
   const [backupPending, setBackupPending] = useState(false)
   const [accountCandidates, setAccountCandidates] = useState<WalletAccountCandidate[]>([])
   const [selectedAccount, setSelectedAccount] = useState<WalletAccountCandidate | null>(null)
+  const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false)
+  const [manualRecovery, setManualRecovery] = useState(false)
   const mnemonicTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pendingBackupPasswordRef = useRef<string | undefined>(undefined)
   useEffect(() => {
@@ -178,6 +183,7 @@ export function WalletPage() {
         return
       }
       await importWallet(parsed, walletPassword, selectedAccount.version)
+      setManualRecovery(false)
       setRecoveryInput('')
       setWalletPassword('')
       setWalletPasswordConfirm('')
@@ -328,14 +334,23 @@ export function WalletPage() {
     )
   }
 
-  // Recovery screen when system keyring changed and wallet cannot be decrypted
-  if (decryptFailed) {
+  if (forgotPasswordOpen) {
+    return (
+      <WalletForgotPasswordScreen
+        onRecover={() => setManualRecovery(true)}
+        onForget={forgetWallet}
+        onBack={() => setForgotPasswordOpen(false)}
+      />
+    )
+  }
+
+  if (decryptFailed || manualRecovery) {
     return (
       <WalletRecoveryScreen
         recoveryInput={recoveryInput}
         recoveryError={recoveryError}
         isLoading={isLoading}
-        passwordRequired={accountCandidates.length > 0}
+        passwordRequired
         password={walletPassword}
         confirmation={walletPasswordConfirm}
         candidates={accountCandidates}
@@ -350,6 +365,8 @@ export function WalletPage() {
         onConfirmation={setWalletPasswordConfirm}
         onSelect={setSelectedAccount}
         onImport={handleRecoveryImport}
+        onBack={manualRecovery ? () => setManualRecovery(false) : undefined}
+        onRemoveFromDevice={() => setForgotPasswordOpen(true)}
       />
     )
   }
@@ -395,9 +412,13 @@ export function WalletPage() {
         password={walletPassword}
         confirmation={needsPasswordSetup ? walletPasswordConfirm : undefined}
         error={securityError}
-        onPasswordChange={setWalletPassword}
+        onPasswordChange={(value) => {
+          setWalletPassword(value)
+          setSecurityError(null)
+        }}
         onConfirmationChange={needsPasswordSetup ? setWalletPasswordConfirm : undefined}
         onSubmit={needsPasswordSetup ? handlePasswordSetup : handleUnlock}
+        onForgotPassword={!needsPasswordSetup ? () => setForgotPasswordOpen(true) : undefined}
       />
     )
   }

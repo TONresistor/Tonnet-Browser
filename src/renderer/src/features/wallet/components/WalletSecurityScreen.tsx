@@ -1,5 +1,6 @@
 import { ActionButton } from '@/components/ui/ios/ActionButton'
 import { WalletPasswordFields } from './WalletPasswordFields'
+import { useEffect, useRef } from 'react'
 
 type SecurityMode = 'setup' | 'unlock' | 'backup'
 
@@ -12,6 +13,7 @@ interface WalletSecurityScreenProps {
   onConfirmationChange?: (value: string) => void
   onSubmit: () => void | Promise<void>
   showPassword?: boolean
+  onForgotPassword?: () => void
 }
 
 const COPY: Record<SecurityMode, { title: string; description: string; action: string; warning?: boolean }> = {
@@ -42,11 +44,22 @@ export function WalletSecurityScreen({
   onConfirmationChange,
   onSubmit,
   showPassword = true,
+  onForgotPassword,
 }: WalletSecurityScreenProps) {
   const copy = COPY[mode]
+  const passwordInputRef = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    if (!error) return
+    passwordInputRef.current?.focus()
+    passwordInputRef.current?.select()
+  }, [error])
   return (
     <div className="flex h-full items-center justify-center bg-background-secondary p-6">
-      <div
+      <form
+        onSubmit={(event) => {
+          event.preventDefault()
+          void onSubmit()
+        }}
         className={`w-full max-w-sm space-y-4 rounded-card border bg-elevation-2 p-5 ${
           copy.warning ? 'border-warning/20' : 'border-border-subtle'
         }`}
@@ -61,13 +74,28 @@ export function WalletSecurityScreen({
             confirmation={confirmation}
             onPasswordChange={onPasswordChange}
             onConfirmationChange={onConfirmationChange}
+            passwordInputRef={passwordInputRef}
+            autoFocus={mode === 'unlock'}
           />
         )}
-        {error && <p className="text-xs text-destructive">{error}</p>}
-        <ActionButton variant="filled" className="w-full" onClick={onSubmit}>
+        <ActionButton type="submit" variant="filled" className="w-full">
           {copy.action}
         </ActionButton>
-      </div>
+        {error && (
+          <p role="alert" className="text-xs text-destructive">
+            {error}
+          </p>
+        )}
+        {mode === 'unlock' && onForgotPassword && (
+          <button
+            type="button"
+            onClick={onForgotPassword}
+            className="w-full text-center text-xs font-medium text-primary hover:text-primary/80"
+          >
+            Forgot password?
+          </button>
+        )}
+      </form>
     </div>
   )
 }

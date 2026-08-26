@@ -10,9 +10,13 @@ import type { SettingsSection } from '@/features/settings/components/types'
 interface UIState {
   settingsActiveSection: SettingsSection
   setSettingsActiveSection: (section: SettingsSection) => void
+  walletManagementIntent: 'import' | null
+  setWalletManagementIntent: (intent: 'import' | null) => void
 }
 
 export const useUIStore = create<UIState>((set) => ({
   settingsActiveSection: 'general',
   setSettingsActiveSection: (section) => set({ settingsActiveSection: section }),
+  walletManagementIntent: null,
+  setWalletManagementIntent: (walletManagementIntent) => set({ walletManagementIntent }),
 }))

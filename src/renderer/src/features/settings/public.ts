@@ -5,6 +5,12 @@ export function openStorageSettings() {
   useUIStore.getState().setSettingsActiveSection('storage')
 }
 
+export function openWalletRecoverySettings() {
+  const state = useUIStore.getState()
+  state.setSettingsActiveSection('wallet')
+  state.setWalletManagementIntent('import')
+}
+
 export const useSeedingEnabled = () => usePreferencesStore((state) => state.draft.seedingEnabled)
 export const useSetPreferenceDraft = () => usePreferencesStore((state) => state.setDraft)
 export const useSavePreferences = () => usePreferencesStore((state) => state.save)

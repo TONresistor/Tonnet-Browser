@@ -17,6 +17,7 @@ import type {
   walletClearHistoryContract,
   walletCreateContract,
   walletDeleteContract,
+  walletForgetContract,
   walletExportKeyContract,
   walletExportMnemonicContract,
   walletGetBalanceContract,
@@ -330,15 +331,13 @@ const electronAPI = {
       invokeChannel<typeof walletRejectPaymentContract>(IPC_CHANNELS.WALLET_REJECT_PAYMENT, paymentId),
     discoverAccounts: (mnemonic: string[]) =>
       invokeChannel<typeof walletDiscoverAccountsContract>(IPC_CHANNELS.WALLET_DISCOVER_ACCOUNTS, mnemonic),
-    importWallet: (
-      mnemonic: string[],
-      password: string | undefined,
-      walletVersion: 'v3R1' | 'v3R2' | 'v4R2' | 'v5R1'
-    ) => invokeChannel<typeof walletImportContract>(IPC_CHANNELS.WALLET_IMPORT, mnemonic, password, walletVersion),
+    importWallet: (mnemonic: string[], password: string, walletVersion: 'v3R1' | 'v3R2' | 'v4R2' | 'v5R1') =>
+      invokeChannel<typeof walletImportContract>(IPC_CHANNELS.WALLET_IMPORT, mnemonic, password, walletVersion),
     exportMnemonic: (password?: string) =>
       invokeChannel<typeof walletExportMnemonicContract>(IPC_CHANNELS.WALLET_EXPORT_MNEMONIC, password),
     deleteWallet: (password: string) =>
       invokeChannel<typeof walletDeleteContract>(IPC_CHANNELS.WALLET_DELETE, password),
+    forgetWallet: () => invokeChannel<typeof walletForgetContract>(IPC_CHANNELS.WALLET_FORGET),
     unlock: (password: string) => invokeChannel<typeof walletUnlockContract>(IPC_CHANNELS.WALLET_UNLOCK, password),
     lock: () => invokeChannel<typeof walletLockContract>(IPC_CHANNELS.WALLET_LOCK),
     setupPassword: (password: string) =>

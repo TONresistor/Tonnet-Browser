@@ -303,6 +303,10 @@ function createMockRegistry(): ServiceRegistry {
           })
         ),
         authenticatePassword: vi.fn(() => Promise.resolve()),
+        getForgetSnapshot: vi.fn(() => Promise.resolve({ fingerprint: 'wallet-fingerprint' })),
+        forgetWallet: vi.fn(() =>
+          Promise.resolve({ isCreated: false, address: '', addressRaw: '', publicKey: '', balance: '0' })
+        ),
         deleteWallet: vi.fn(() =>
           Promise.resolve({ isCreated: false, address: '', addressRaw: '', publicKey: '', balance: '0' })
         ),
@@ -763,6 +767,43 @@ describe('IPC Handlers', () => {
       })
       expect(mockRegistry.walletManager.authenticatePassword).toHaveBeenCalledWith('correct horse battery staple')
       expect(mockRegistry.walletManager.deleteWallet).toHaveBeenCalledWith('correct horse battery staple', identity)
+    })
+
+    it('forgets a locked wallet without its password after confirmation', async () => {
+      vi.mocked(mockRegistry.walletManager.getState).mockReturnValue({
+        isCreated: true,
+        address: 'UQCurrent',
+        passwordProtected: true,
+        isLocked: true,
+      } as never)
+      vi.mocked(mockRegistry.overlayManager.show).mockImplementation((_id, _bounds, _content, callback) => {
+        callback?.('approve', {})
+        return true
+      })
+      const handler = mockHandlers.get(IPC_CHANNELS.WALLET_FORGET)!
+
+      await expect(handler(createMockEvent())).resolves.toMatchObject({ isCreated: false })
+      expect(mockRegistry.walletManager.authenticatePassword).not.toHaveBeenCalled()
+      expect(mockRegistry.walletManager.forgetWallet).toHaveBeenCalledWith('wallet-fingerprint')
+      expect(mockRegistry.walletHistoryManager.clear).toHaveBeenCalledOnce()
+    })
+
+    it('forgets an unreadable wallet without requiring a loaded identity', async () => {
+      vi.mocked(mockRegistry.walletManager.getState).mockReturnValue({
+        isCreated: false,
+        address: '',
+        passwordProtected: false,
+        decryptFailed: true,
+      } as never)
+      vi.mocked(mockRegistry.overlayManager.show).mockImplementation((_id, _bounds, _content, callback) => {
+        callback?.('approve', {})
+        return true
+      })
+      const handler = mockHandlers.get(IPC_CHANNELS.WALLET_FORGET)!
+
+      await expect(handler(createMockEvent())).resolves.toMatchObject({ isCreated: false })
+      expect(mockRegistry.walletManager.getIdentitySnapshot).not.toHaveBeenCalled()
+      expect(mockRegistry.walletManager.forgetWallet).toHaveBeenCalledWith('wallet-fingerprint')
     })
 
     it('clears account-scoped state after a wallet import succeeds', async () => {

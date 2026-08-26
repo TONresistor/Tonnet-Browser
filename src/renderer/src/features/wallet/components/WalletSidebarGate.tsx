@@ -4,6 +4,7 @@ import { AppIcon } from '@/components/ui/AppIcon'
 import { Button } from '@/components/ui/button'
 import { ActionButton } from '@/components/ui/ios/ActionButton'
 import { WalletPasswordFields } from './WalletPasswordFields'
+import { useEffect, useRef } from 'react'
 
 type SidebarGateMode = 'unlock' | 'setup' | 'backup'
 
@@ -33,6 +34,7 @@ export function WalletSidebarGate({
   onPassword,
   onConfirmation,
   onSubmit,
+  onForgotPassword,
   onOpenFull,
   onClose,
 }: {
@@ -44,12 +46,19 @@ export function WalletSidebarGate({
   onPassword: (value: string) => void
   onConfirmation?: (value: string) => void
   onSubmit: () => void | Promise<void>
+  onForgotPassword?: () => void
   onOpenFull: () => void
   onClose: () => void
 }) {
   const { t } = useTranslation('wallet')
   const copy = COPY[mode]
   const ready = password.length >= 10 && (mode !== 'setup' || password === confirmation)
+  const passwordInputRef = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    if (!error) return
+    passwordInputRef.current?.focus()
+    passwordInputRef.current?.select()
+  }, [error])
 
   return (
     <div className="flex h-full flex-col border-l border-border bg-[hsl(var(--elevation-1))]">
@@ -70,19 +79,40 @@ export function WalletSidebarGate({
             <p className="mt-1 text-xs text-muted-foreground">{copy.description}</p>
           </div>
           {mode !== 'backup' && (
-            <>
+            <form
+              className="space-y-4"
+              onSubmit={(event) => {
+                event.preventDefault()
+                void onSubmit()
+              }}
+            >
               <WalletPasswordFields
                 password={password}
                 confirmation={confirmation}
                 onPasswordChange={onPassword}
                 onConfirmationChange={onConfirmation}
                 disabled={pending}
+                passwordInputRef={passwordInputRef}
+                autoFocus={mode === 'unlock'}
               />
-              {error && <p className="text-xs text-destructive">{error}</p>}
-              <ActionButton variant="filled" className="w-full" disabled={!ready || pending} onClick={onSubmit}>
+              <ActionButton type="submit" variant="filled" className="w-full" disabled={!ready || pending}>
                 {pending ? 'Please wait…' : copy.action}
               </ActionButton>
-            </>
+              {error && (
+                <p role="alert" className="text-xs text-destructive">
+                  {error}
+                </p>
+              )}
+              {mode === 'unlock' && onForgotPassword && (
+                <button
+                  type="button"
+                  onClick={onForgotPassword}
+                  className="w-full text-center text-xs font-medium text-primary hover:text-primary/80"
+                >
+                  Forgot password?
+                </button>
+              )}
+            </form>
           )}
         </div>
       </div>
