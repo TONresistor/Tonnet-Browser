@@ -47,7 +47,7 @@ interface WalletStore {
   markBackupVerified: (challengeId: string, password: string | undefined, answers: string[]) => Promise<void>
   changePassword: (currentPassword: string, nextPassword: string) => Promise<void>
   refreshBalance: () => Promise<void>
-  send: (to: string, amount: string, comment?: string) => Promise<void>
+  send: (to: string, amount: string, comment?: string, encryptedComment?: boolean) => Promise<void>
   loadHistory: (limit?: number) => Promise<void>
   clearHistory: () => Promise<void>
   deleteWallet: (password: string) => Promise<void>
@@ -284,10 +284,10 @@ export const useWalletStore = create<WalletStore>((set, get) => {
       }
     },
 
-    send: async (to: string, amount: string, comment?: string) => {
+    send: async (to: string, amount: string, comment?: string, encryptedComment?: boolean) => {
       set({ isSending: true, error: null })
       try {
-        await walletClient.send(to, amount, comment)
+        await walletClient.send(to, amount, comment, encryptedComment)
         await get().refreshBalance()
         await get().loadHistory()
       } catch (err) {

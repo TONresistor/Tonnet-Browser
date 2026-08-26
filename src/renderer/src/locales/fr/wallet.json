@@ -34,7 +34,11 @@
     "commentLabel": "Commentaire (optionnel)",
     "comment": "Commentaire",
     "commentPlaceholder": "Mémo ou note",
-    "commentNote": "Stocké en clair sur la blockchain"
+    "commentNote": "Stocké en clair sur la blockchain",
+    "encryptedLabel": "Chiffré",
+    "encryptedAria": "Chiffrer le commentaire",
+    "encryptedNote": "Seuls l'expéditeur et le destinataire peuvent le lire",
+    "privacy": "Confidentialité"
   },
   "receive": {
     "addressLabel": "Ton adresse de portefeuille",

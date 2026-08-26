@@ -33,7 +33,6 @@ import { buildWalletState } from './wallet-state'
 import { WalletIdentityTracker, type WalletIdentitySnapshot } from './wallet-identity'
 import { WalletRuntimeState } from './wallet-runtime-state'
 import { wipeKeypair, wipePublicKey } from './key-memory'
-import type { TransferPreflightResult } from './transfer-preflight'
 const log = createLogger('wallet')
 export class WalletManager extends EventEmitter {
   private keyStorage: WalletKeyStorage
@@ -56,6 +55,10 @@ export class WalletManager extends EventEmitter {
   private signingService: WalletSigningService
   private transferService: WalletTransferService
   private accountService: WalletAccountService
+  readonly send: WalletTransferService['send']
+  readonly signTransfer: WalletTransferService['signTransfer']
+  readonly preflightTransfer: WalletTransferService['preflightTransfer']
+  readonly prepareEncryptedComment: WalletTransferService['prepareEncryptedComment']
   constructor(secureStorage?: ISecureStorage) {
     super()
     this.keyStorage = secureStorage ? new WalletKeyStorage(secureStorage) : new WalletKeyStorage()
@@ -79,6 +82,10 @@ export class WalletManager extends EventEmitter {
         if (!this.wsBridge) throw new Error('Bridge not connected')
         return this.wsBridge.emulateTransaction(address, boc)
       },
+      runMethod: (address, method) => {
+        if (!this.wsBridge) throw new Error('Bridge not connected')
+        return this.wsBridge.runMethod(address, method)
+      },
       buildBoc: (messages, maxTimeout, expectedAddress, expectedIdentity) =>
         this.buildBoc(messages, maxTimeout, expectedAddress, expectedIdentity),
       withPreflightState: (expectedIdentity, operation) =>
@@ -88,8 +95,21 @@ export class WalletManager extends EventEmitter {
           await this.syncSeqnoUnlocked(true)
           return operation(this.walletContract, this.runtime.seqno)
         }),
+      withSigningState: (expectedIdentity, operation) =>
+        this.runExclusive(async () => {
+          this.assertWalletIdentity(expectedIdentity)
+          if (!this.walletContract) throw new Error('Wallet not initialized')
+          const senderAddress = this.walletContract.address
+          const result = await this.signWithKeyUnlocked((secretKey) => operation(senderAddress, secretKey))
+          this.assertWalletIdentity(expectedIdentity)
+          return result
+        }),
       notifyStateChanged: () => this.emit('state-changed', this.getState()),
     })
+    this.send = this.transferService.send.bind(this.transferService)
+    this.signTransfer = this.transferService.signTransfer.bind(this.transferService)
+    this.preflightTransfer = this.transferService.preflightTransfer.bind(this.transferService)
+    this.prepareEncryptedComment = this.transferService.prepareEncryptedComment.bind(this.transferService)
     this.accountService = new WalletAccountService({
       getPublicKey: () => this.publicKey,
       getContract: () => this.walletContract,
@@ -356,32 +376,6 @@ export class WalletManager extends EventEmitter {
   async fetchOnChainHistory(limit: number = WALLET_HISTORY_DEFAULT_LIMIT): Promise<WalletTransaction[]> {
     return this.queryService.fetchOnChainHistory(this.walletContract?.address.toString() ?? null, limit)
   }
-  async send(
-    to: string,
-    amount: string,
-    comment?: string,
-    expectedIdentity?: WalletIdentitySnapshot
-  ): Promise<WalletTransaction> {
-    return this.transferService.send(to, amount, comment, expectedIdentity)
-  }
-  async signTransfer(
-    to: string,
-    amount: string,
-    comment?: string,
-    expectedIdentity?: WalletIdentitySnapshot
-  ): Promise<string> {
-    return this.transferService.signTransfer(to, amount, comment, expectedIdentity)
-  }
-
-  async preflightTransfer(
-    to: string,
-    amount: string,
-    comment: string | undefined,
-    expectedIdentity: WalletIdentitySnapshot
-  ): Promise<TransferPreflightResult> {
-    return this.transferService.preflightTransfer(to, amount, comment, expectedIdentity)
-  }
-
   async signX402Payment(
     paymentReq: PaymentRequirements,
     expectedIdentity: WalletIdentitySnapshot

@@ -34,7 +34,11 @@
     "commentLabel": "Comentário (opcional)",
     "comment": "Comentário",
     "commentPlaceholder": "Memo ou nota",
-    "commentNote": "Armazenado em texto puro na blockchain"
+    "commentNote": "Armazenado em texto puro na blockchain",
+    "encryptedLabel": "Criptografado",
+    "encryptedAria": "Criptografar comentário",
+    "encryptedNote": "Apenas o remetente e o destinatário podem ler",
+    "privacy": "Privacidade"
   },
   "receive": {
     "addressLabel": "Seu endereço de carteira",

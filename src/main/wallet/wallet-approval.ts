@@ -10,7 +10,14 @@ function formatGram(nano: string): string {
 
 export function requestWalletTransferApproval(
   overlayManager: OverlayManager,
-  transfer: { address: string; amount: string; domain?: string; comment?: string; estimatedFee: string }
+  transfer: {
+    address: string
+    amount: string
+    domain?: string
+    comment?: string
+    commentEncrypted?: boolean
+    estimatedFee: string
+  }
 ): Promise<boolean> {
   return new Promise((resolve) => {
     const window = getMainWindow()
@@ -30,6 +37,7 @@ export function requestWalletTransferApproval(
           { label: 'To', value: transfer.address },
           { label: 'Estimated fee', value: `~${formatGram(transfer.estimatedFee)} GRAM` },
           ...(transfer.comment ? [{ label: 'Comment', value: transfer.comment }] : []),
+          ...(transfer.commentEncrypted ? [{ label: 'Privacy', value: 'Encrypted comment' }] : []),
           ...(!transfer.comment ? [{ label: 'Memo', value: 'None — verify whether the recipient requires one' }] : []),
         ],
         actions: [

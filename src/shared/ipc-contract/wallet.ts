@@ -31,6 +31,7 @@ export const WalletTransactionSchema = z.object({
   lt: z.string().optional(),
   fee: z.string().optional(),
   comment: z.string().optional(),
+  commentEncrypted: z.boolean().optional(),
   x402Domain: z.string().optional(),
   x402Url: z.string().optional(),
 })
@@ -135,6 +136,7 @@ export const walletSendContract = defineRequest({
       .string()
       .refine((value) => new TextEncoder().encode(value).length <= WALLET_MAX_COMMENT_BYTES)
       .optional(),
+    z.boolean().optional(),
   ]),
   output: WalletTransactionSchema,
   errors: [
@@ -146,6 +148,7 @@ export const walletSendContract = defineRequest({
     'TRANSFER_PREFLIGHT_FAILED',
     'INVALID_AMOUNT',
     'COMMENT_TOO_LONG',
+    'ENCRYPTED_COMMENT_UNAVAILABLE',
     'INSUFFICIENT_BALANCE',
     'WALLET_LOCKED',
     'WALLET_PASSWORD_REQUIRED',

@@ -6,7 +6,7 @@
 import { errorMessage } from '@shared/errors'
 import { useState, useEffect, memo } from 'react'
 import { UI_NOTIFICATION_TIMEOUT_MS, WALLET_MAX_COMMENT_BYTES } from '@shared/constants'
-import { Send, ArrowLeft, LoaderCircle, CheckCircle2 } from 'lucide-react'
+import { Send, ArrowLeft, LoaderCircle, CheckCircle2, LockKeyhole } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
@@ -14,6 +14,7 @@ import { tonToNano, formatTonAmount } from '@/lib/ton-utils'
 import { walletClient } from '@/features/wallet/client'
 import { isValidTonAddress, isValidRecipientInput, TX_FEE_RESERVE_NANO, utf8ByteLength } from '@/lib/ton-utils'
 import { useTranslation } from 'react-i18next'
+import { Toggle } from '@/features/settings/components/shared/Toggle'
 
 type ResolveState =
   | { status: 'idle' }
@@ -28,7 +29,7 @@ function truncateAddress(addr: string | undefined): string {
 }
 
 interface SendFormProps {
-  onSend: (to: string, amount: string, comment?: string) => Promise<void>
+  onSend: (to: string, amount: string, comment?: string, encryptedComment?: boolean) => Promise<void>
   isSending: boolean
   error: string | null
   balance: string // nanoTON
@@ -51,6 +52,7 @@ export const SendForm = memo(function SendForm({ onSend, isSending, error, balan
   const [to, setTo] = useState('')
   const [amount, setAmount] = useState('')
   const [comment, setComment] = useState('')
+  const [encryptedComment, setEncryptedComment] = useState(false)
   const [confirming, setConfirming] = useState(false)
   const [success, setSuccess] = useState(false)
   const [resolve, setResolve] = useState<ResolveState>({ status: 'idle' })
@@ -126,12 +128,13 @@ export const SendForm = memo(function SendForm({ onSend, isSending, error, balan
   const handleSend = async () => {
     try {
       const nanoAmount = tonToNano(amount)
-      await onSend(to, nanoAmount, trimmedComment || undefined)
+      await onSend(to, nanoAmount, trimmedComment || undefined, encryptedComment && Boolean(trimmedComment))
       setSuccess(true)
       setConfirming(false)
       setTo('')
       setAmount('')
       setComment('')
+      setEncryptedComment(false)
       setTimeout(() => setSuccess(false), UI_NOTIFICATION_TIMEOUT_MS)
     } catch {
       setConfirming(false)
@@ -170,6 +173,15 @@ export const SendForm = memo(function SendForm({ onSend, isSending, error, balan
               <div className="flex justify-between gap-3">
                 <span className="text-muted-foreground shrink-0">{t('send.comment')}</span>
                 <span className="text-foreground text-xs break-words text-right max-w-[200px]">{trimmedComment}</span>
+              </div>
+            )}
+            {trimmedComment && encryptedComment && (
+              <div className="flex justify-between gap-3">
+                <span className="text-muted-foreground shrink-0">{t('send.privacy')}</span>
+                <span className="inline-flex items-center gap-1 text-xs text-foreground">
+                  <LockKeyhole className="h-3 w-3" aria-hidden="true" />
+                  {t('send.encryptedLabel')}
+                </span>
               </div>
             )}
           </div>
@@ -263,9 +275,15 @@ export const SendForm = memo(function SendForm({ onSend, isSending, error, balan
       </div>
 
       <div className="space-y-2">
-        <label className="text-sm font-medium text-foreground" htmlFor="send-comment">
-          {t('send.commentLabel')}
-        </label>
+        <div className="flex items-center justify-between gap-3">
+          <label className="text-sm font-medium text-foreground" htmlFor="send-comment">
+            {t('send.commentLabel')}
+          </label>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">{t('send.encryptedLabel')}</span>
+            <Toggle checked={encryptedComment} onChange={setEncryptedComment} ariaLabel={t('send.encryptedAria')} />
+          </div>
+        </div>
         <textarea
           id="send-comment"
           value={comment}
@@ -283,7 +301,9 @@ export const SendForm = memo(function SendForm({ onSend, isSending, error, balan
           aria-invalid={commentTooLong || undefined}
         />
         <div className="flex items-center justify-between gap-2">
-          <p className="text-xs text-muted-foreground">{t('send.commentNote')}</p>
+          <p className="text-xs text-muted-foreground">
+            {t(encryptedComment ? 'send.encryptedNote' : 'send.commentNote')}
+          </p>
           <span
             className={cn(
               'text-xs tabular-nums shrink-0',

@@ -133,7 +133,7 @@ export function registerWalletHandlers(registry: ServiceRegistry): void {
     }
   })
 
-  secureContractHandle(walletSendContract, async (to, amount, comment?: string) => {
+  secureContractHandle(walletSendContract, async (to, amount, comment?: string, encryptedComment = false) => {
     const state = walletManager.getState()
     if (!state.isCreated) ipcFailure('WALLET_UNAVAILABLE', 'Wallet is not initialized')
     if (state.needsPasswordSetup) ipcFailure('WALLET_PASSWORD_REQUIRED', 'Set a wallet password before sending')
@@ -155,9 +155,17 @@ export function registerWalletHandlers(registry: ServiceRegistry): void {
         domainFailure ? error : undefined
       )
     }
+    let commentBody: Awaited<ReturnType<typeof walletManager.prepareEncryptedComment>> | undefined
+    if (encryptedComment && comment) {
+      try {
+        commentBody = await walletManager.prepareEncryptedComment(resolved.address, comment, walletIdentity)
+      } catch (error) {
+        ipcFailure('ENCRYPTED_COMMENT_UNAVAILABLE', 'Recipient does not support encrypted comments', false, error)
+      }
+    }
     let preflight: Awaited<ReturnType<typeof walletManager.preflightTransfer>>
     try {
-      preflight = await walletManager.preflightTransfer(resolved.address, amount, comment, walletIdentity)
+      preflight = await walletManager.preflightTransfer(resolved.address, amount, comment, walletIdentity, commentBody)
     } catch (error) {
       ipcFailure('TRANSFER_PREFLIGHT_FAILED', 'Unable to verify transaction fees and recipient', true, error)
     }
@@ -169,12 +177,15 @@ export function registerWalletHandlers(registry: ServiceRegistry): void {
       amount,
       domain: resolved.domain,
       comment,
+      commentEncrypted: Boolean(commentBody),
       estimatedFee: preflight.estimatedFee,
     })
     if (!approved) ipcFailure('USER_CANCELLED', 'Transfer cancelled')
     let tx: WalletTransaction
     try {
-      tx = await walletManager.send(resolved.address, amount, comment, walletIdentity)
+      tx = commentBody
+        ? await walletManager.send(resolved.address, amount, comment, walletIdentity, commentBody, true)
+        : await walletManager.send(resolved.address, amount, comment, walletIdentity)
     } catch (error) {
       ipcFailure('SIGNING_FAILED', 'Unable to sign or send transaction', false, error)
     }

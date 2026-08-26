@@ -34,7 +34,11 @@
     "commentLabel": "메모 (선택)",
     "comment": "메모",
     "commentPlaceholder": "메모 또는 노트",
-    "commentNote": "온체인에 평문으로 저장됨"
+    "commentNote": "온체인에 평문으로 저장됨",
+    "encryptedLabel": "암호화됨",
+    "encryptedAria": "댓글 암호화",
+    "encryptedNote": "보낸 사람과 받는 사람만 읽을 수 있습니다",
+    "privacy": "개인정보"
   },
   "receive": {
     "addressLabel": "내 지갑 주소",

@@ -23,7 +23,8 @@ export const walletClient = {
     window.electron.wallet.changePassword(currentPassword, nextPassword),
   setSensitiveDisplay: (active: boolean) => window.electron.wallet.setSensitiveDisplay(active),
   getBalance: () => window.electron.wallet.getBalance(),
-  send: (to: string, amount: string, comment?: string) => window.electron.wallet.send(to, amount, comment),
+  send: (to: string, amount: string, comment?: string, encryptedComment?: boolean) =>
+    window.electron.wallet.send(to, amount, comment, encryptedComment),
   resolveRecipient: (recipient: string) => window.electron.wallet.resolveRecipient(recipient),
   getHistory: (limit?: number) => window.electron.wallet.getHistory(limit),
   clearHistory: () => window.electron.wallet.clearHistory(),

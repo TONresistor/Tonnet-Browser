@@ -34,7 +34,11 @@
     "commentLabel": "备注（可选）",
     "comment": "备注",
     "commentPlaceholder": "备注或留言",
-    "commentNote": "以明文形式存储在链上"
+    "commentNote": "以明文形式存储在链上",
+    "encryptedLabel": "已加密",
+    "encryptedAria": "加密备注",
+    "encryptedNote": "只有发送者和接收者可以阅读",
+    "privacy": "隐私"
   },
   "receive": {
     "addressLabel": "您的钱包地址",

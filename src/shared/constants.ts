@@ -48,7 +48,7 @@ export const WALLET_TX_DISPLAY_CAP = 100
 
 /**
  * Max UTF-8 byte length of an outgoing transfer comment (memo).
- * On-chain comments are stored in clear text as a snake-encoded string and
+ * On-chain comments are stored as plaintext or encrypted snake cells and
  * inflate the external message and fees, so we bound them. 256 bytes
  * comfortably covers exchange memos and short notes. Enforced byte-accurately
  * (not by JS string length) in both the SendForm UI and the WALLET_SEND IPC

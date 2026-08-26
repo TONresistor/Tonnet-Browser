@@ -5,6 +5,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { EventEmitter } from 'events'
 import { mnemonicNew } from '@ton/crypto'
+import { beginCell } from '@ton/core'
 
 const tabsMocks = vi.hoisted(() => ({
   createTab: vi.fn(() => Promise.resolve(true)),
@@ -315,6 +316,7 @@ function createMockRegistry(): ServiceRegistry {
         preflightTransfer: vi.fn(() =>
           Promise.resolve({ estimatedFee: '1', destinationStatus: 'active', walletBalance: '100' })
         ),
+        prepareEncryptedComment: vi.fn(() => Promise.resolve(beginCell().storeUint(1, 1).endCell())),
         send: vi.fn(),
         setAutoLockMinutes: vi.fn(),
         getTonBridge: vi.fn(() => null),
@@ -955,6 +957,67 @@ describe('IPC Handlers', () => {
         '10',
         undefined,
         expect.objectContaining({ publicKey: expect.any(String), addressRaw: expect.any(String) })
+      )
+    })
+
+    it('reuses the prepared encrypted comment for preflight and send', async () => {
+      const encryptedBody = beginCell().storeUint(0x2167da4b, 32).endCell()
+      vi.mocked(mockRegistry.walletManager.getState).mockReturnValue({
+        isCreated: true,
+        isLocked: false,
+        needsPasswordSetup: false,
+        backupVerified: true,
+      } as never)
+      vi.mocked(mockRegistry.walletManager.getTonBridge).mockReturnValue({} as never)
+      vi.mocked(mockRegistry.walletManager.resolveRecipient).mockResolvedValue({ address: 'EQRecipient' })
+      vi.mocked(mockRegistry.walletManager.prepareEncryptedComment).mockResolvedValue(encryptedBody)
+      vi.mocked(mockRegistry.walletManager.send).mockResolvedValue({
+        id: 'tx-encrypted',
+        type: 'send',
+        amount: '10',
+        address: 'EQRecipient',
+        timestamp: 1,
+        status: 'pending',
+        comment: 'private memo',
+        commentEncrypted: true,
+      })
+      vi.mocked(mockRegistry.overlayManager.show).mockImplementation((_id, _bounds, _content, callback) => {
+        callback?.('approve', {})
+        return true
+      })
+
+      const handler = mockHandlers.get(IPC_CHANNELS.WALLET_SEND)!
+      await expect(handler(createMockEvent(), 'EQRecipient', '10', 'private memo', true)).resolves.toMatchObject({
+        id: 'tx-encrypted',
+      })
+
+      const identity = expect.objectContaining({ publicKey: expect.any(String), addressRaw: expect.any(String) })
+      expect(mockRegistry.walletManager.prepareEncryptedComment).toHaveBeenCalledWith(
+        'EQRecipient',
+        'private memo',
+        identity
+      )
+      expect(mockRegistry.walletManager.preflightTransfer).toHaveBeenCalledWith(
+        'EQRecipient',
+        '10',
+        'private memo',
+        identity,
+        encryptedBody
+      )
+      expect(mockRegistry.walletManager.send).toHaveBeenCalledWith(
+        'EQRecipient',
+        '10',
+        'private memo',
+        identity,
+        encryptedBody,
+        true
+      )
+      expect(mockRegistry.overlayManager.show).toHaveBeenCalledWith(
+        expect.stringContaining('wallet-transfer-'),
+        expect.any(Object),
+        expect.objectContaining({ rows: expect.arrayContaining([{ label: 'Privacy', value: 'Encrypted comment' }]) }),
+        expect.any(Function),
+        { autoDismiss: false }
       )
     })
   })

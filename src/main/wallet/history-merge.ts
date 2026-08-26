@@ -33,6 +33,18 @@ function contentMatch(a: WalletTransaction, b: WalletTransaction): boolean {
   return a.address === b.address && a.amount === b.amount && Math.abs(a.timestamp - b.timestamp) < MATCH_WINDOW_MS
 }
 
+function carryLocalMetadata(local: WalletTransaction, onChain: WalletTransaction): void {
+  if (local.type === 'x402') {
+    onChain.type = 'x402'
+    onChain.x402Domain = local.x402Domain
+    onChain.x402Url = local.x402Url
+  }
+  if (local.commentEncrypted) {
+    onChain.commentEncrypted = true
+    onChain.comment ??= local.comment
+  }
+}
+
 /**
  * Merge on-chain txs onto the cached list.
  *
@@ -58,21 +70,13 @@ export function mergeHistory(
 
     // Same tx re-fetched: carry an existing x402 label forward.
     const exact = byKey.get(onKey)
-    if (exact?.type === 'x402') {
-      onCopy.type = 'x402'
-      onCopy.x402Domain = exact.x402Domain
-      onCopy.x402Url = exact.x402Url
-    }
+    if (exact) carryLocalMetadata(exact, onCopy)
 
     // Content-match a local optimistic (i:) tx of a different key.
     for (const [k, local] of byKey) {
       if (!k.startsWith('i:') || supersededLocalKeys.has(k) || k === onKey) continue
       if (!contentMatch(local, onCopy)) continue
-      if (local.type === 'x402' && onCopy.type !== 'x402') {
-        onCopy.type = 'x402'
-        onCopy.x402Domain = local.x402Domain
-        onCopy.x402Url = local.x402Url
-      }
+      carryLocalMetadata(local, onCopy)
       supersededLocalKeys.add(k)
       break // one local per on-chain tx
     }

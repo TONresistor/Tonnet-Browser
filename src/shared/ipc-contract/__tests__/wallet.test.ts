@@ -67,6 +67,12 @@ describe('wallet IPC contract', () => {
 
   it('enforces the wallet comment limit in UTF-8 bytes rather than characters', () => {
     expect(walletSendContract.input.parse(['UQ-recipient', '1', 'a'.repeat(123)])).toBeDefined()
+    expect(walletSendContract.input.parse(['UQ-recipient', '1', 'private memo', true])).toEqual([
+      'UQ-recipient',
+      '1',
+      'private memo',
+      true,
+    ])
     expect(() => walletSendContract.input.parse(['UQ-recipient', '1', '😀'.repeat(65)])).toThrow()
   })
 

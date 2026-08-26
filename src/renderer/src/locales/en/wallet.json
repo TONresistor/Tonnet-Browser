@@ -34,7 +34,11 @@
     "commentLabel": "Comment (optional)",
     "comment": "Comment",
     "commentPlaceholder": "Memo or note",
-    "commentNote": "Stored on-chain in clear text"
+    "commentNote": "Stored on-chain in clear text",
+    "encryptedLabel": "Encrypted",
+    "encryptedAria": "Encrypt comment",
+    "encryptedNote": "Only the sender and recipient can read it",
+    "privacy": "Privacy"
   },
   "receive": {
     "addressLabel": "Your Wallet Address",

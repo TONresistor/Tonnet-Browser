@@ -34,7 +34,11 @@
     "commentLabel": "Kommentar (optional)",
     "comment": "Kommentar",
     "commentPlaceholder": "Memo oder Notiz",
-    "commentNote": "Wird unverschlüsselt on-chain gespeichert"
+    "commentNote": "Wird unverschlüsselt on-chain gespeichert",
+    "encryptedLabel": "Verschlüsselt",
+    "encryptedAria": "Kommentar verschlüsseln",
+    "encryptedNote": "Nur Absender und Empfänger können ihn lesen",
+    "privacy": "Datenschutz"
   },
   "receive": {
     "addressLabel": "Ihre Geldbörsen-Adresse",

@@ -8,6 +8,7 @@ import { createTonTransferMessage } from './transfer-message'
 import { preflightTonTransfer, type TransferPreflightResult } from './transfer-preflight'
 import type { AccountInformationResult } from './bridge-codecs'
 import type { EmulateTransactionResult } from './bridge-codecs'
+import { createEncryptedCommentBody, parseRecipientPublicKey } from './encrypted-comment'
 
 export interface WalletBroadcastPort {
   sendAndWatch(boc: Buffer): Promise<string>
@@ -18,6 +19,7 @@ export interface WalletTransferContext {
   getBridge(): WalletBroadcastPort | null
   getAccountInformation(address: string): Promise<AccountInformationResult>
   emulateTransaction(address: string, boc: string): Promise<EmulateTransactionResult>
+  runMethod(address: string, method: string): Promise<unknown>
   buildBoc(
     messages: MessageRelaxed[],
     maxTimeout: number,
@@ -27,6 +29,10 @@ export interface WalletTransferContext {
   withPreflightState<T>(
     expectedIdentity: WalletIdentitySnapshot,
     operation: (walletContract: WalletContractShape, seqno: number) => Promise<T>
+  ): Promise<T>
+  withSigningState<T>(
+    expectedIdentity: WalletIdentitySnapshot,
+    operation: (senderAddress: Address, secretKey: Buffer) => Promise<T>
   ): Promise<T>
   notifyStateChanged(): void
 }
@@ -51,13 +57,27 @@ export class WalletTransferService {
     return boc
   }
 
+  async prepareEncryptedComment(
+    recipientAddress: string,
+    comment: string,
+    expectedIdentity: WalletIdentitySnapshot
+  ): Promise<Cell> {
+    const recipient = Address.parse(recipientAddress).toString({ bounceable: false })
+    const result = await this.context.runMethod(recipient, 'get_public_key')
+    const recipientPublicKey = parseRecipientPublicKey(result)
+    return this.context.withSigningState(expectedIdentity, (senderAddress, secretKey) =>
+      createEncryptedCommentBody({ senderAddress, senderSecretKey: secretKey, recipientPublicKey, comment })
+    )
+  }
+
   async signTransfer(
     to: string,
     amount: string,
     comment?: string,
-    expectedIdentity?: WalletIdentitySnapshot
+    expectedIdentity?: WalletIdentitySnapshot,
+    commentBody?: Cell
   ): Promise<string> {
-    const { message } = createTonTransferMessage(to, amount, comment)
+    const { message } = createTonTransferMessage(to, amount, comment, commentBody)
     const { boc } = await this.context.buildBoc([message], WALLET_MAX_TIMEOUT_S, undefined, expectedIdentity)
     return boc
   }
@@ -66,12 +86,14 @@ export class WalletTransferService {
     to: string,
     amount: string,
     comment?: string,
-    expectedIdentity?: WalletIdentitySnapshot
+    expectedIdentity?: WalletIdentitySnapshot,
+    commentBody?: Cell,
+    commentEncrypted = false
   ): Promise<WalletTransaction> {
     const bridge = this.context.getBridge()
     if (!bridge) throw new Error('Bridge not connected')
     const normalized = createTonTransferMessage(to, amount, comment).comment
-    const boc = await this.signTransfer(to, amount, normalized, expectedIdentity)
+    const boc = await this.signTransfer(to, amount, normalized, expectedIdentity, commentBody)
     const bytes = Buffer.from(boc, 'base64')
     let hash: string | undefined
     let status: 'pending' | 'confirmed' = 'pending'
@@ -90,6 +112,7 @@ export class WalletTransferService {
       status,
       hash,
       comment: normalized,
+      commentEncrypted: normalized && commentEncrypted ? true : undefined,
     }
     this.context.notifyStateChanged()
     return transaction
@@ -99,10 +122,11 @@ export class WalletTransferService {
     to: string,
     amount: string,
     comment: string | undefined,
-    expectedIdentity: WalletIdentitySnapshot
+    expectedIdentity: WalletIdentitySnapshot,
+    commentBody?: Cell
   ): Promise<TransferPreflightResult> {
     return this.context.withPreflightState(expectedIdentity, async (walletContract, seqno) => {
-      const { message, bounce } = createTonTransferMessage(to, amount, comment)
+      const { message, bounce } = createTonTransferMessage(to, amount, comment, commentBody)
       const destinationAddress = Address.parse(to).toString({ bounceable: false })
       const walletAddress = walletContract.address.toString({ bounceable: false })
       const [destination, wallet] = await Promise.all([

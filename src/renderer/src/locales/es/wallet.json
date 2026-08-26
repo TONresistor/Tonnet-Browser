@@ -34,7 +34,11 @@
     "commentLabel": "Comentario (opcional)",
     "comment": "Comentario",
     "commentPlaceholder": "Memo o nota",
-    "commentNote": "Se guarda en texto plano en la blockchain"
+    "commentNote": "Se guarda en texto plano en la blockchain",
+    "encryptedLabel": "Cifrado",
+    "encryptedAria": "Cifrar comentario",
+    "encryptedNote": "Solo el remitente y el destinatario pueden leerlo",
+    "privacy": "Privacidad"
   },
   "receive": {
     "addressLabel": "Tu dirección de cartera",

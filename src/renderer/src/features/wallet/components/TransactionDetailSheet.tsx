@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { X, ArrowUp, ArrowDown, Globe } from 'lucide-react'
+import { X, ArrowUp, ArrowDown, Globe, LockKeyhole } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatTonAmount } from '@/lib/ton-utils'
 import { InsetGroup } from '@/components/ui/ios/InsetGroup'
@@ -106,6 +106,14 @@ export function TransactionDetailSheet({ tx, selfAddress, onClose }: Transaction
               <DetailRow label={t('detail.site', { defaultValue: 'Site' })}>{tx.x402Domain}</DetailRow>
             )}
             {tx.comment && <DetailRow label={t('detail.comment', { defaultValue: 'Comment' })}>{tx.comment}</DetailRow>}
+            {tx.commentEncrypted && (
+              <DetailRow label={t('detail.privacy', { defaultValue: 'Privacy' })}>
+                <span className="inline-flex items-center gap-1">
+                  <LockKeyhole className="h-3.5 w-3.5" aria-hidden="true" />
+                  {t('send.encryptedLabel')}
+                </span>
+              </DetailRow>
+            )}
           </InsetGroup>
 
           <InsetGroup>

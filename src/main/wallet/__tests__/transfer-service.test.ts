@@ -1,4 +1,4 @@
-import { Address, beginCell } from '@ton/core'
+import { Address, beginCell, type MessageRelaxed } from '@ton/core'
 import { describe, expect, it, vi } from 'vitest'
 import { WalletContractV5R1 } from '@ton/ton'
 import { WalletTransferService } from '../transfer-service'
@@ -11,8 +11,12 @@ function setup(sendAndWatch: () => Promise<string> = async () => 'hash') {
     getBridge: () => bridge,
     getAccountInformation: vi.fn(),
     emulateTransaction: vi.fn(),
-    buildBoc: vi.fn(async () => ({ boc: beginCell().storeUint(1, 1).endCell().toBoc().toString('base64') })),
+    runMethod: vi.fn(),
+    buildBoc: vi.fn(async (_messages: MessageRelaxed[], _maxTimeout: number) => ({
+      boc: beginCell().storeUint(1, 1).endCell().toBoc().toString('base64'),
+    })),
     withPreflightState: vi.fn(),
+    withSigningState: vi.fn(),
     notifyStateChanged: vi.fn(),
   }
   return { bridge, context, service: new WalletTransferService(context) }
@@ -34,6 +38,20 @@ describe('WalletTransferService', () => {
 
     expect(context.buildBoc).toHaveBeenCalledWith(expect.any(Array), 300, undefined, identity)
     expect(bridge.sendAndWatch).toHaveBeenCalledOnce()
+  })
+
+  it('signs the prepared encrypted body and marks the local transaction', async () => {
+    const { service, context } = setup()
+    const identity = { publicKey: 'aa'.repeat(32), addressRaw: `0:${'11'.repeat(32)}`, revision: 1 }
+    const encryptedBody = beginCell().storeUint(0x2167da4b, 32).endCell()
+
+    await expect(service.send(recipient, '42', 'private memo', identity, encryptedBody, true)).resolves.toMatchObject({
+      comment: 'private memo',
+      commentEncrypted: true,
+    })
+
+    const message = context.buildBoc.mock.calls[0]![0][0]
+    expect(message.body?.equals(encryptedBody)).toBe(true)
   })
 
   it('builds and watches a TonConnect transaction', async () => {
@@ -90,8 +108,10 @@ describe('WalletTransferService', () => {
       getBridge: () => null,
       getAccountInformation: vi.fn(),
       emulateTransaction: vi.fn(),
+      runMethod: vi.fn(),
       buildBoc: async () => ({ boc: '' }),
       withPreflightState: vi.fn(),
+      withSigningState: vi.fn(),
       notifyStateChanged: () => {},
     })
     await expect(service.signTonConnectTransaction([{ address: recipient, amount: '1' }])).rejects.toThrow(

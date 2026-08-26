@@ -34,7 +34,11 @@
     "commentLabel": "Komentar (opsional)",
     "comment": "Komentar",
     "commentPlaceholder": "Memo atau catatan",
-    "commentNote": "Disimpan dalam teks biasa di blockchain"
+    "commentNote": "Disimpan dalam teks biasa di blockchain",
+    "encryptedLabel": "Terenkripsi",
+    "encryptedAria": "Enkripsi komentar",
+    "encryptedNote": "Hanya pengirim dan penerima yang dapat membacanya",
+    "privacy": "Privasi"
   },
   "receive": {
     "addressLabel": "Alamat Dompet Anda",
