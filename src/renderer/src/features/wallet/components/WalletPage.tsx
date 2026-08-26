@@ -5,10 +5,9 @@
  */
 
 import { errorMessage } from '@shared/errors'
-import type { WalletTransaction } from '@shared/types'
 import { useEffect, useRef, useState, useCallback, memo } from 'react'
 import { useShallow } from 'zustand/react/shallow'
-import { ArrowUp, ArrowDown, RefreshCw, Plus, LoaderCircle, AlertTriangle, ArrowLeft, LockKeyhole } from 'lucide-react'
+import { ArrowUp, ArrowDown, RefreshCw, Plus, LoaderCircle, AlertTriangle, ArrowLeft } from 'lucide-react'
 import Lottie from 'lottie-react'
 import explorerAnimation from '@/assets/explorer.json'
 import { Button } from '@/components/ui/button'
@@ -18,7 +17,8 @@ import { formatTonAmount } from '@/lib/ton-utils'
 import { SendForm } from '@/features/wallet/components/SendForm'
 import { ReceivePanel } from '@/features/wallet/components/ReceivePanel'
 import { TransactionList } from '@/features/wallet/components/TransactionList'
-import { TransactionDetailSheet } from '@/features/wallet/components/TransactionDetailSheet'
+import { TransactionDetailView } from '@/features/wallet/components/TransactionDetailView'
+import { useWalletContentView } from '@/features/wallet/components/wallet-view-state'
 import { ActionButton } from '@/components/ui/ios/ActionButton'
 import { ActionTile } from '@/components/ui/ios/ActionTile'
 import { BalanceHero } from '@/components/ui/ios/BalanceHero'
@@ -35,8 +35,8 @@ import { WalletRecoveryScreen } from './WalletRecoveryScreen'
 import { walletClient } from '@/features/wallet/client'
 import { WalletBackupPhraseScreen } from './WalletBackupPhraseScreen'
 import { WalletForgotPasswordScreen } from './WalletForgotPasswordScreen'
+import { EncryptedIcon } from './EncryptedIcon'
 
-type ActionView = 'send' | 'receive' | null
 type BackupFlowStep = 'idle' | 'phrase' | 'challenge'
 export function WalletPage() {
   const { t } = useTranslation('wallet')
@@ -101,8 +101,6 @@ export function WalletPage() {
   )
   const [newMnemonic, setNewMnemonic] = useState<string[] | null>(null)
   const [copied, setCopied] = useState(false)
-  const [actionView, setActionView] = useState<ActionView>(null)
-  const [selectedTx, setSelectedTx] = useState<WalletTransaction | null>(null)
   const [recoveryInput, setRecoveryInput] = useState('')
   const [recoveryError, setRecoveryError] = useState<string | null>(null)
   const [mnemonicRevealed, setMnemonicRevealed] = useState(false)
@@ -119,6 +117,10 @@ export function WalletPage() {
   const [manualRecovery, setManualRecovery] = useState(false)
   const mnemonicTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pendingBackupPasswordRef = useRef<string | undefined>(undefined)
+  const { view, selectedTransaction, showOverview, showSend, showReceive, showTransaction } = useWalletContentView(
+    transactions,
+    isCreated && !isLocked && !needsPasswordSetup && backupVerified
+  )
   useEffect(() => {
     if (newMnemonic) {
       mnemonicTimerRef.current = setTimeout(() => {
@@ -443,23 +445,25 @@ export function WalletPage() {
     )
   }
 
-  // Send/Receive inline view
-  if (actionView) {
+  if (view.kind !== 'overview' && (view.kind !== 'transaction' || selectedTransaction)) {
     return (
       <div className="h-full bg-background-secondary overflow-auto" style={{ fontFamily: 'Inter, sans-serif' }}>
         <div className="p-5 max-w-md mx-auto">
           <div className="mb-4">
             <button
               type="button"
-              onClick={() => setActionView(null)}
+              onClick={showOverview}
               className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
               <ArrowLeft className="h-4 w-4" />
               {t('send.back')}
             </button>
           </div>
-          {actionView === 'send' && <SendForm onSend={send} isSending={isSending} error={error} balance={balance} />}
-          {actionView === 'receive' && <ReceivePanel address={address} />}
+          {view.kind === 'send' && <SendForm onSend={send} isSending={isSending} error={error} balance={balance} />}
+          {view.kind === 'receive' && <ReceivePanel address={address} />}
+          {view.kind === 'transaction' && selectedTransaction && (
+            <TransactionDetailView transaction={selectedTransaction} selfAddress={address} onBack={showOverview} />
+          )}
         </div>
       </div>
     )
@@ -495,7 +499,7 @@ export function WalletPage() {
                   title="Lock wallet"
                   aria-label="Lock wallet"
                 >
-                  <LockKeyhole className="h-3.5 w-3.5" aria-hidden="true" />
+                  <EncryptedIcon className="h-3.5 w-3.5" />
                 </Button>
               )}
             </div>
@@ -547,19 +551,11 @@ export function WalletPage() {
               </div>
             )}
 
-            <AccountPanel
-              balance={balance}
-              address={address}
-              onSend={() => setActionView('send')}
-              onReceive={() => setActionView('receive')}
-              t={t}
-            />
+            <AccountPanel balance={balance} address={address} onSend={showSend} onReceive={showReceive} t={t} />
 
             <InsetGroup title={t('overview.recent')} bodyClassName="py-1">
-              <TransactionList transactions={transactions} onSelect={setSelectedTx} />
+              <TransactionList transactions={transactions} onSelect={showTransaction} />
             </InsetGroup>
-
-            <TransactionDetailSheet tx={selectedTx} selfAddress={address} onClose={() => setSelectedTx(null)} />
           </div>
         )}
       </div>

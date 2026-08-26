@@ -27,7 +27,8 @@ import { useOpenOrSwitchBrowserTab } from '@/features/browser/navigation'
 import { TransactionList } from '@/features/wallet/components/TransactionList'
 import { SendForm } from '@/features/wallet/components/SendForm'
 import { ReceivePanel } from '@/features/wallet/components/ReceivePanel'
-import { TransactionDetailSheet } from '@/features/wallet/components/TransactionDetailSheet'
+import { TransactionDetailView } from '@/features/wallet/components/TransactionDetailView'
+import { useWalletContentView } from '@/features/wallet/components/wallet-view-state'
 import { ActionButton } from '@/components/ui/ios/ActionButton'
 import { ActionTile } from '@/components/ui/ios/ActionTile'
 import { BalanceHero } from '@/components/ui/ios/BalanceHero'
@@ -42,8 +43,6 @@ import { WalletSidebarGate } from './WalletSidebarGate'
 import { WalletForgotPasswordScreen } from './WalletForgotPasswordScreen'
 import { errorMessage } from '@shared/errors'
 import { openWalletRecoverySettings } from '@/features/settings/public'
-
-type SidebarView = 'overview' | 'send' | 'receive'
 
 interface WalletSidebarProps {
   onClose: () => void
@@ -92,8 +91,6 @@ export function WalletSidebar({ onClose }: WalletSidebarProps) {
   )
   const openOrSwitchToTab = useOpenOrSwitchBrowserTab()
   const [mnemonicCopied, setMnemonicCopied] = useState(false)
-  const [view, setView] = useState<SidebarView>('overview')
-  const [selectedTx, setSelectedTx] = useState<WalletTransaction | null>(null)
   const [newMnemonic, setNewMnemonic] = useState<string[] | null>(null)
   const [backupAcknowledged, setBackupAcknowledged] = useState(false)
   const [mnemonicRevealed, setMnemonicRevealed] = useState(false)
@@ -103,6 +100,10 @@ export function WalletSidebar({ onClose }: WalletSidebarProps) {
   const [securityPending, setSecurityPending] = useState(false)
   const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false)
   const mnemonicTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const { view, selectedTransaction, showOverview, showSend, showReceive, showTransaction } = useWalletContentView(
+    transactions,
+    isCreated && !isLocked && !needsPasswordSetup && backupVerified
+  )
 
   // Auto-clear mnemonic from memory after 60s
   useEffect(() => {
@@ -332,12 +333,12 @@ export function WalletSidebar({ onClose }: WalletSidebarProps) {
       {/* Header */}
       <div className="px-4 py-3 border-b border-border flex items-center justify-between">
         <div className="flex items-center gap-2">
-          {view !== 'overview' ? (
+          {view.kind !== 'overview' ? (
             <Button
               variant="ghost"
               size="icon"
               className="h-6 w-6 rounded-full"
-              onClick={() => setView('overview')}
+              onClick={showOverview}
               title={t('send.back')}
               aria-label={t('send.back')}
             >
@@ -347,11 +348,19 @@ export function WalletSidebar({ onClose }: WalletSidebarProps) {
             <AppIcon name="wallet" className="h-4 w-4 text-icon" />
           )}
           <span className="text-sm font-semibold text-heading">
-            {view === 'overview' ? t('page.title') : view === 'send' ? t('tabs.send') : t('tabs.receive')}
+            {view.kind === 'overview'
+              ? t('page.title')
+              : view.kind === 'send'
+                ? t('tabs.send')
+                : view.kind === 'receive'
+                  ? t('tabs.receive')
+                  : selectedTransaction
+                    ? t(`history.types.${selectedTransaction.type}`)
+                    : t('page.title')}
           </span>
         </div>
         <div className="flex items-center gap-1">
-          {view === 'overview' && (
+          {view.kind === 'overview' && (
             <Button
               variant="ghost"
               size="icon"
@@ -376,15 +385,15 @@ export function WalletSidebar({ onClose }: WalletSidebarProps) {
         </div>
       </div>
 
-      {view === 'overview' && (
+      {view.kind === 'overview' && (
         <>
           <SidebarOverviewBody
             balance={balance}
             address={address}
-            onSend={() => setView('send')}
-            onReceive={() => setView('receive')}
+            onSend={showSend}
+            onReceive={showReceive}
             transactions={transactions}
-            onSelect={setSelectedTx}
+            onSelect={showTransaction}
             t={t}
           />
 
@@ -403,19 +412,28 @@ export function WalletSidebar({ onClose }: WalletSidebarProps) {
         </>
       )}
 
-      {view === 'send' && (
+      {view.kind === 'send' && (
         <div className="flex-1 overflow-auto p-4">
           <SendForm onSend={send} isSending={isSending} error={error} balance={balance} />
         </div>
       )}
 
-      {view === 'receive' && (
+      {view.kind === 'receive' && (
         <div className="flex-1 overflow-auto p-4">
           <ReceivePanel address={address} />
         </div>
       )}
 
-      <TransactionDetailSheet tx={selectedTx} selfAddress={address} onClose={() => setSelectedTx(null)} />
+      {view.kind === 'transaction' && selectedTransaction && (
+        <div className="min-h-0 flex-1 overflow-auto p-4">
+          <TransactionDetailView
+            transaction={selectedTransaction}
+            selfAddress={address}
+            onBack={showOverview}
+            density="compact"
+          />
+        </div>
+      )}
     </div>
   )
 }
