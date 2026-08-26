@@ -4,6 +4,7 @@ import { AppIcon } from '@/components/ui/AppIcon'
 import { Button } from '@/components/ui/button'
 import { ActionButton } from '@/components/ui/ios/ActionButton'
 import { WalletPasswordFields } from './WalletPasswordFields'
+import { EncryptedIcon } from './EncryptedIcon'
 import { useEffect, useRef } from 'react'
 
 type SidebarGateMode = 'unlock' | 'setup' | 'backup'
@@ -95,7 +96,13 @@ export function WalletSidebarGate({
                 passwordInputRef={passwordInputRef}
                 autoFocus={mode === 'unlock'}
               />
-              <ActionButton type="submit" variant="filled" className="w-full" disabled={!ready || pending}>
+              <ActionButton
+                type="submit"
+                variant="filled"
+                className="w-full"
+                disabled={!ready || pending}
+                icon={<EncryptedIcon className="h-4 w-4" />}
+              >
                 {pending ? 'Please wait…' : copy.action}
               </ActionButton>
               {error && (

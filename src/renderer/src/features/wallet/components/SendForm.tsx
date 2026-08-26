@@ -6,7 +6,7 @@
 import { errorMessage } from '@shared/errors'
 import { useState, useEffect, memo } from 'react'
 import { UI_NOTIFICATION_TIMEOUT_MS, WALLET_MAX_COMMENT_BYTES } from '@shared/constants'
-import { Send, ArrowLeft, LoaderCircle, CheckCircle2, LockKeyhole } from 'lucide-react'
+import { ArrowLeft, LoaderCircle, CheckCircle2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
@@ -15,6 +15,8 @@ import { walletClient } from '@/features/wallet/client'
 import { isValidTonAddress, isValidRecipientInput, TX_FEE_RESERVE_NANO, utf8ByteLength } from '@/lib/ton-utils'
 import { useTranslation } from 'react-i18next'
 import { Toggle } from '@/features/settings/components/shared/Toggle'
+import { SendActionIcon } from '@/features/wallet/components/SendActionIcon'
+import { EncryptedIcon } from '@/features/wallet/components/EncryptedIcon'
 
 type ResolveState =
   | { status: 'idle' }
@@ -179,7 +181,7 @@ export const SendForm = memo(function SendForm({ onSend, isSending, error, balan
               <div className="flex justify-between gap-3">
                 <span className="text-muted-foreground shrink-0">{t('send.privacy')}</span>
                 <span className="inline-flex items-center gap-1 text-xs text-foreground">
-                  <LockKeyhole className="h-3 w-3" aria-hidden="true" />
+                  <EncryptedIcon className="h-3 w-3" />
                   {t('send.encryptedLabel')}
                 </span>
               </div>
@@ -204,7 +206,7 @@ export const SendForm = memo(function SendForm({ onSend, isSending, error, balan
             {isSending ? (
               <LoaderCircle className="h-4 w-4 mr-1.5 animate-spin" aria-hidden="true" />
             ) : (
-              <Send className="h-4 w-4 mr-1.5" aria-hidden="true" />
+              <SendActionIcon className="h-4 w-4 mr-1.5" />
             )}
             {isSending ? t('send.sending') : t('send.confirm')}
           </Button>
@@ -318,7 +320,7 @@ export const SendForm = memo(function SendForm({ onSend, isSending, error, balan
       {error && <p className="text-sm text-destructive">{error}</p>}
 
       <Button type="button" onClick={handleConfirm} disabled={!canProceed} className="w-full">
-        <Send className="h-4 w-4 mr-1.5" aria-hidden="true" />
+        <SendActionIcon className="h-4 w-4 mr-1.5" />
         {t('send.reviewButton')}
       </Button>
     </div>

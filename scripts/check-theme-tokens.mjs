@@ -49,6 +49,8 @@ const exceptions = [
     'history.svg',
     'messenger-device.svg',
     'messenger-reset.svg',
+    'telegram-lockedstickers.svg',
+    'telegram-send.svg',
     'messenger.svg',
     'settings.svg',
     'storage.svg',
@@ -57,7 +59,7 @@ const exceptions = [
   ].map((file) => ({
     path: `src/renderer/src/assets/${file}`,
     rules: ['raw-color'],
-    reason: 'Fixed source paint is used only as an AppIcon mask or an internal-page favicon.',
+    reason: 'Fixed source paint is used only as a CSS mask, AppIcon mask, or an internal-page favicon.',
   })),
 ]
 

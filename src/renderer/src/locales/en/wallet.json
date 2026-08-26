@@ -13,7 +13,7 @@
   },
   "send": {
     "recipientLabel": "Recipient Address",
-    "recipientPlaceholder": "EQ... or 0:...",
+    "recipientPlaceholder": "EQ.., UQ.. or .ton",
     "amountLabel": "Amount",
     "feeNote": "Network fee: {{fee}} GRAM",
     "reviewButton": "Review Transaction",
