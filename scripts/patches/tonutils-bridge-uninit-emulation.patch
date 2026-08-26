@@ -1,18 +1,18 @@
 diff --git a/wsbridge/lite.go b/wsbridge/lite.go
 --- a/wsbridge/lite.go
 +++ b/wsbridge/lite.go
-@@ -358,2 +358,3 @@
+@@ -375,2 +375,3 @@
 -		Address string `json:"address"`
 -		BOC     string `json:"boc"`
 +		Address      string `json:"address"`
 +		BOC          string `json:"boc"`
 +		IgnoreChkSig bool   `json:"ignore_chksig"`
-@@ -397,2 +398,2 @@
+@@ -419,2 +420,2 @@
 -	if acc.Code == nil || acc.Data == nil {
 -		b.sendError(client, req.ID, "account is not initialized, cannot emulate", -32602)
 +	if acc.State == nil || !acc.State.IsValid {
 +		b.sendError(client, req.ID, "account does not exist, cannot emulate", -32602)
-@@ -453,1 +456,3 @@
+@@ -465,1 +466,3 @@
 -	res, err := tvm.NewTVM().EmulateTransaction(blockCtx, preparedAccount, preparedMessage, tvm.TransactionOptions{})
 +	res, err := tvm.NewTVM().EmulateTransaction(blockCtx, preparedAccount, preparedMessage, tvm.TransactionOptions{
 +		SignatureCheckAlwaysSucceed: params.IgnoreChkSig,

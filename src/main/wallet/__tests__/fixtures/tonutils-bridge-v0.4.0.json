@@ -1,7 +1,7 @@
 {
   "helper": "tonutils-bridge",
-  "version": "v0.4.0+dev.39f3a0b.tonnet2",
-  "commit": "39f3a0beae50a782ccb2fbdbbfdc1d90f62acd1e",
+  "version": "v0.4.0+dev.9669272.tonnet3",
+  "commit": "9669272d8c6a9080cb1f0c3bb54707976ebaf0b5",
   "patch": "scripts/patches/tonutils-bridge-uninit-emulation.patch",
   "requests": [
     { "method": "dns.resolve", "params": { "domain": "site.ton" } },
