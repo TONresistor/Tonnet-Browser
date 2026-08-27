@@ -48,7 +48,11 @@ describe('WalletKeyStorage password protection', () => {
     const expectedPublicKey = Buffer.from(created.keypair.publicKey)
     keyStorage.lock()
     expect(keyStorage.isLocked()).toBe(true)
-    await expect(keyStorage.inspect()).resolves.toMatchObject({ mnemonicScheme: 'ton', walletVersion: 'v5R1' })
+    await expect(keyStorage.inspect()).resolves.toMatchObject({
+      backupVerified: false,
+      mnemonicScheme: 'ton',
+      walletVersion: 'v5R1',
+    })
     keyStorage.destroy()
     const reopened = new WalletKeyStorage(new TestSecureStorage(), directory)
     const unlocked = await reopened.load('correct horse battery staple')
@@ -85,6 +89,7 @@ describe('WalletKeyStorage password protection', () => {
     await current.protectWithPassword('correct horse battery staple')
     expect(await readFile(join(directory, 'wallet-key.dat'))).not.toEqual(original)
     await expect(access(join(directory, 'wallet-key.dat.pre-password.bak'))).rejects.toMatchObject({ code: 'ENOENT' })
+    await expect(current.inspect()).resolves.toMatchObject({ passwordProtected: true, backupVerified: true })
     current.destroy()
 
     const reopened = new WalletKeyStorage(storage, directory)

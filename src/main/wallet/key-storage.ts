@@ -248,7 +248,7 @@ export class WalletKeyStorage {
     if (stored.type === 'password') throw new Error('Wallet is already password protected')
     const keypair = await this.load()
     const secret = stored.type === 'device' ? stored.secret : stored
-    const backupVerified = stored.type === 'device' ? stored.backupVerified : stored.type === 'seed'
+    const backupVerified = stored.type === 'device' ? stored.backupVerified : true
     const walletVersion = stored.type === 'device' ? stored.walletVersion : 'v5R1'
     const mnemonicScheme = stored.type === 'device' ? stored.mnemonicScheme : 'ton'
     const envelope = await encryptWalletSecret(
