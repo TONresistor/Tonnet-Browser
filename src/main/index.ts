@@ -39,6 +39,7 @@ import {
   proxyProgressEventContract,
   proxyStatusEventContract,
 } from '../shared/ipc-contract/proxy'
+import { WALLET_SYSTEM_STORAGE_RETRY_TOKEN } from '../shared/constants'
 
 // Initialize electron-log IPC bridge so renderer can also log via electron-log
 log.initialize()
@@ -166,6 +167,15 @@ app.commandLine.appendSwitch(
 let services: ServiceRegistry
 let windowScope: IDisposable | null = null
 let autoConnector: ProxyAutoConnector
+let openWalletAfterSystemStorageRetry = process.argv.includes(`--${WALLET_SYSTEM_STORAGE_RETRY_TOKEN}`)
+
+function rendererEntryUrl(baseUrl: string): string {
+  if (!openWalletAfterSystemStorageRetry) return baseUrl
+  openWalletAfterSystemStorageRetry = false
+  const url = new URL(baseUrl)
+  url.searchParams.set(WALLET_SYSTEM_STORAGE_RETRY_TOKEN, '1')
+  return url.toString()
+}
 
 function getTabDeps() {
   return {
@@ -297,11 +307,9 @@ function createWindow(): void {
   })
 
   // HMR for renderer in development
-  if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-    mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
-  } else {
-    mainWindow.loadURL('app://bundle/index.html')
-  }
+  const rendererUrl =
+    is.dev && process.env['ELECTRON_RENDERER_URL'] ? process.env['ELECTRON_RENDERER_URL'] : 'app://bundle/index.html'
+  mainWindow.loadURL(rendererEntryUrl(rendererUrl))
 }
 
 // Single-instance lock: a second launch would spawn duplicate daemons that

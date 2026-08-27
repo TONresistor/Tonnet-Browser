@@ -7,7 +7,7 @@ import type {
   SignDataPayloadInput,
   SignDataResult,
 } from '../tonconnect/types'
-import { WalletKeyStorage, WalletDecryptionError } from './key-storage'
+import { WalletKeyStorage, WalletDecryptionError, WalletSystemStorageError } from './key-storage'
 import type { ISecureStorage } from '../ports/secure-storage'
 import type { MessengerBridgePort, TonBridgePort } from '../ports/ton-bridge'
 import { WsBridgeClient } from './ws-bridge-client'
@@ -44,6 +44,7 @@ export class WalletManager extends EventEmitter {
   private publicKey: Buffer | null = null
   private initialized: boolean = false
   private decryptFailed: boolean = false
+  private systemStorageBlocked: boolean = false
   private weakEncryption: boolean = false
   private needsPasswordSetup: boolean = false
   private backupVerified: boolean = false
@@ -164,7 +165,11 @@ export class WalletManager extends EventEmitter {
           durationMs: Date.now() - startedAt,
         })
       } catch (error) {
-        if (error instanceof WalletDecryptionError) {
+        if (error instanceof WalletSystemStorageError) {
+          log.error('System secure storage is unavailable:', error)
+          this.systemStorageBlocked = true
+          this.emit('state-changed', this.getState())
+        } else if (error instanceof WalletDecryptionError) {
           log.error('Wallet decryption failed (keyring backend may have changed):', error)
           this.decryptFailed = true
           this.emit('state-changed', this.getState())
@@ -190,6 +195,9 @@ export class WalletManager extends EventEmitter {
       }
       if (this.decryptFailed) {
         throw new Error('Recover or explicitly delete the unreadable wallet before creating a new one')
+      }
+      if (this.systemStorageBlocked) {
+        throw new Error('Unlock system secure storage before creating a wallet')
       }
       const { keypair, mnemonic } = await this.keyStorage.generateFromMnemonic(password)
       this.keypair = keypair
@@ -221,6 +229,9 @@ export class WalletManager extends EventEmitter {
       if (!this.initialized) {
         await this.init()
       }
+      if (this.systemStorageBlocked) {
+        throw new Error('Unlock system secure storage before importing a wallet')
+      }
       return await this.runExclusive(async () => {
         if (!password) throw new Error('A wallet password is required')
         const importedKeypair = await this.keyStorage.importFromMnemonic(mnemonic, password, walletVersion)
@@ -235,6 +246,7 @@ export class WalletManager extends EventEmitter {
         wipePublicKey(previousPublicKey)
         this.runtime.resetAccount()
         this.decryptFailed = false
+        this.systemStorageBlocked = false
         this.weakEncryption = false
         this.passwordProtected = true
         this.needsPasswordSetup = false
@@ -334,6 +346,7 @@ export class WalletManager extends EventEmitter {
       balance: this.runtime.balance,
       isLocked: this.keyStorage.isLocked(),
       decryptFailed: this.decryptFailed,
+      systemStorageBlocked: this.systemStorageBlocked,
       weakEncryption: this.weakEncryption,
       needsPasswordSetup: this.needsPasswordSetup,
       passwordProtected: this.passwordProtected,
@@ -350,6 +363,7 @@ export class WalletManager extends EventEmitter {
     this.walletContract = null
     this.runtime.resetAccount()
     this.decryptFailed = false
+    this.systemStorageBlocked = false
     this.weakEncryption = false
     this.needsPasswordSetup = false
     this.backupVerified = false

@@ -7,6 +7,7 @@ export function buildWalletState(input: {
   balance: string
   isLocked: boolean
   decryptFailed: boolean
+  systemStorageBlocked: boolean
   weakEncryption: boolean
   needsPasswordSetup: boolean
   passwordProtected: boolean
@@ -17,6 +18,7 @@ export function buildWalletState(input: {
     balance: input.balance,
     isLocked: input.isLocked,
     decryptFailed: input.decryptFailed,
+    systemStorageBlocked: input.systemStorageBlocked,
     weakEncryption: input.weakEncryption,
     needsPasswordSetup: input.needsPasswordSetup,
     passwordProtected: input.passwordProtected,

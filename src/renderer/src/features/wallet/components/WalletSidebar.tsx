@@ -43,6 +43,7 @@ import { WalletSidebarGate } from './WalletSidebarGate'
 import { WalletForgotPasswordScreen } from './WalletForgotPasswordScreen'
 import { errorMessage } from '@shared/errors'
 import { openWalletRecoverySettings } from '@/features/settings/public'
+import { WalletSystemStorageGate } from './WalletSystemStorageGate'
 
 interface WalletSidebarProps {
   onClose: () => void
@@ -58,6 +59,7 @@ export function WalletSidebar({ onClose }: WalletSidebarProps) {
     isLoading,
     isSending,
     error,
+    systemStorageBlocked,
     isLocked,
     needsPasswordSetup,
     backupVerified,
@@ -77,6 +79,7 @@ export function WalletSidebar({ onClose }: WalletSidebarProps) {
       isLoading: s.isLoading,
       isSending: s.isSending,
       error: s.error,
+      systemStorageBlocked: s.systemStorageBlocked,
       isLocked: s.isLocked,
       needsPasswordSetup: s.needsPasswordSetup,
       backupVerified: s.backupVerified,
@@ -251,6 +254,12 @@ export function WalletSidebar({ onClose }: WalletSidebarProps) {
           </Button>
         </div>
       </div>
+    )
+  }
+
+  if (systemStorageBlocked) {
+    return (
+      <WalletSystemStorageGate variant="sidebar" onDismiss={onClose} onOpenFull={handleOpenWallet} onClose={onClose} />
     )
   }
 

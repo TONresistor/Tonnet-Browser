@@ -9,6 +9,7 @@ export const APP_VERSION: string = __APP_VERSION__
 
 // Internal pages
 export const TON_WALLET_PAGE = 'ton://wallet'
+export const WALLET_SYSTEM_STORAGE_RETRY_TOKEN = 'wallet-system-storage-retry'
 
 // Default bookmarks shown on first run
 export const DEFAULT_BOOKMARKS = [

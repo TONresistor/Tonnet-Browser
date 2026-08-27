@@ -18,6 +18,7 @@ import { WalletManagementPanel } from './WalletManagementPanel'
 import { ConnectedAppsPanel } from './ConnectedAppsPanel'
 import { useSectionHandle } from '@/hooks/useSectionHandle'
 import { settingsClient } from '@/features/settings/client'
+import { usePreferencesStore } from '@/features/settings/preferences-store'
 
 const log = createLogger('wallet-settings')
 
@@ -46,6 +47,7 @@ interface WalletSectionProps {
 
 export const WalletSection = memo(function WalletSection({ onDirtyChange, sectionRef }: WalletSectionProps) {
   const { t } = useTranslation('settings')
+  const tonConnectEnabled = usePreferencesStore((state) => state.saved.tonConnectEnabled)
   const [saved, setSaved] = useState<WalletSettings>(DEFAULT_WALLET_SETTINGS)
   const [draft, setDraft] = useState<WalletSettings>(DEFAULT_WALLET_SETTINGS)
   const [isLoading, setIsLoading] = useState(true)
@@ -146,7 +148,7 @@ export const WalletSection = memo(function WalletSection({ onDirtyChange, sectio
       {/* Wallet management: export / import */}
       <WalletManagementPanel />
 
-      <ConnectedAppsPanel />
+      {tonConnectEnabled && <ConnectedAppsPanel />}
 
       <div className="mt-6">
         <h3 className="mb-2 px-1 text-[13px] font-medium uppercase tracking-wide text-muted-foreground">

@@ -21,6 +21,7 @@ interface WalletStore {
   isSending: boolean
   error: string | null
   decryptFailed: boolean
+  systemStorageBlocked: boolean
   weakEncryption: boolean
   isLocked: boolean
   needsPasswordSetup: boolean
@@ -94,6 +95,7 @@ export const useWalletStore = create<WalletStore>((set, get) => {
           publicKey: state.publicKey ?? get().publicKey,
           balance: state.balance ?? get().balance,
           decryptFailed: state.decryptFailed ?? get().decryptFailed,
+          systemStorageBlocked: state.systemStorageBlocked ?? get().systemStorageBlocked,
           weakEncryption: state.weakEncryption ?? get().weakEncryption,
           isLocked: state.isLocked ?? get().isLocked,
           needsPasswordSetup: state.needsPasswordSetup ?? get().needsPasswordSetup,
@@ -117,6 +119,7 @@ export const useWalletStore = create<WalletStore>((set, get) => {
     isSending: false,
     error: null,
     decryptFailed: false,
+    systemStorageBlocked: false,
     weakEncryption: false,
     isLocked: false,
     needsPasswordSetup: false,
@@ -164,6 +167,7 @@ export const useWalletStore = create<WalletStore>((set, get) => {
             publicKey: state.publicKey ?? '',
             balance: state.balance ?? '0',
             decryptFailed: state.decryptFailed ?? false,
+            systemStorageBlocked: state.systemStorageBlocked ?? false,
             weakEncryption: state.weakEncryption ?? false,
             isLocked: state.isLocked ?? false,
             needsPasswordSetup: state.needsPasswordSetup ?? false,
@@ -193,6 +197,7 @@ export const useWalletStore = create<WalletStore>((set, get) => {
             addressRaw: result.addressRaw ?? '',
             publicKey: result.publicKey ?? '',
             balance: result.balance ?? '0',
+            systemStorageBlocked: false,
             isLocked: result.isLocked ?? false,
             needsPasswordSetup: result.needsPasswordSetup ?? false,
             passwordProtected: result.passwordProtected ?? false,
@@ -222,6 +227,7 @@ export const useWalletStore = create<WalletStore>((set, get) => {
           publicKey: result.publicKey ?? '',
           balance: result.balance ?? '0',
           decryptFailed: false,
+          systemStorageBlocked: false,
           weakEncryption: false,
           isLocked: result.isLocked ?? false,
           needsPasswordSetup: result.needsPasswordSetup ?? false,
@@ -320,6 +326,7 @@ export const useWalletStore = create<WalletStore>((set, get) => {
           balance: '0',
           transactions: [],
           decryptFailed: false,
+          systemStorageBlocked: false,
           weakEncryption: false,
           isLocked: false,
           needsPasswordSetup: false,
@@ -344,6 +351,7 @@ export const useWalletStore = create<WalletStore>((set, get) => {
           balance: '0',
           transactions: [],
           decryptFailed: false,
+          systemStorageBlocked: false,
           weakEncryption: false,
           isLocked: false,
           needsPasswordSetup: false,

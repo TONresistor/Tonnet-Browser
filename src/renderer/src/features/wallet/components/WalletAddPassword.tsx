@@ -13,10 +13,31 @@ export function WalletAddPassword() {
   const pendingRef = useRef(false)
   const valid = password.length >= 10 && password === confirmation
 
+  const handleSubmit = async () => {
+    if (pendingRef.current || !valid) return
+    pendingRef.current = true
+    setPending(true)
+    try {
+      await setupPassword(password)
+      setPassword('')
+      setConfirmation('')
+      setStatus('App password added.')
+    } catch (error) {
+      setStatus(errorMessage(error))
+    } finally {
+      pendingRef.current = false
+      setPending(false)
+    }
+  }
+
   return (
-    <div className="space-y-2 border-t border-border pt-4">
-      <p className="text-sm font-medium text-foreground">Optional app password</p>
-      <p className="text-xs text-muted-foreground">Your wallet is already protected by the system Keychain.</p>
+    <form
+      className="space-y-2"
+      onSubmit={(event) => {
+        event.preventDefault()
+        void handleSubmit()
+      }}
+    >
       <WalletPasswordFields
         password={password}
         confirmation={confirmation}
@@ -25,31 +46,9 @@ export function WalletAddPassword() {
         disabled={pending}
       />
       {status && <p className="text-xs text-muted-foreground">{status}</p>}
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        className="w-full"
-        disabled={!valid || pending}
-        onClick={async () => {
-          if (pendingRef.current) return
-          pendingRef.current = true
-          setPending(true)
-          try {
-            await setupPassword(password)
-            setPassword('')
-            setConfirmation('')
-            setStatus('App password added.')
-          } catch (error) {
-            setStatus(errorMessage(error))
-          } finally {
-            pendingRef.current = false
-            setPending(false)
-          }
-        }}
-      >
+      <Button type="submit" variant="outline" size="sm" className="w-full" disabled={!valid || pending}>
         Add app password
       </Button>
-    </div>
+    </form>
   )
 }

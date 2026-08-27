@@ -10,6 +10,7 @@ export const WalletStateSchema = z.object({
   publicKey: z.string(),
   balance: z.string().regex(/^\d+$/),
   decryptFailed: z.boolean().optional(),
+  systemStorageBlocked: z.boolean().optional(),
   weakEncryption: z.boolean().optional(),
   isLocked: z.boolean().optional(),
   needsPasswordSetup: z.boolean().optional(),
@@ -111,6 +112,13 @@ export const walletGetStateContract = defineRequest({
   output: WalletStateSchema,
   errors: ['WALLET_STATE_UNAVAILABLE'],
   redaction: 'sensitive',
+})
+export const walletRetrySystemStorageContract = defineRequest({
+  ...mainBase,
+  channel: WALLET_CONTRACT_CHANNELS.retrySystemStorage,
+  input: z.tuple([]),
+  output: MutationSchema,
+  errors: ['WALLET_SYSTEM_STORAGE_AVAILABLE'],
 })
 export const walletGetBalanceContract = defineRequest({
   ...mainBase,
@@ -378,6 +386,7 @@ export const WALLET_EVENT_CONTRACTS = [
 export const WALLET_REQUEST_CONTRACTS = [
   walletCreateContract,
   walletGetStateContract,
+  walletRetrySystemStorageContract,
   walletGetBalanceContract,
   walletResolveRecipientContract,
   walletSendContract,

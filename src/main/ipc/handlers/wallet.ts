@@ -3,7 +3,7 @@
  */
 
 import type { DnsResolveResult, WalletState, WalletTransaction } from '../../../shared/types'
-import { systemPreferences } from 'electron'
+import { app, systemPreferences } from 'electron'
 import { toError, log } from './shared'
 import { emitContractToRenderer } from '../../events/renderer-events'
 import { getMainWindow } from '../../windows/main'
@@ -15,6 +15,7 @@ import type { ServiceRegistry } from '../../services'
 import {
   walletBalanceUpdatedContract,
   walletGetStateContract,
+  walletRetrySystemStorageContract,
   walletNewTransactionContract,
   walletStateChangedContract,
   walletApprovePaymentContract,
@@ -41,6 +42,7 @@ import {
   walletSensitiveDisplayContract,
   dnsResolveContract,
 } from '../../../shared/ipc-contract/wallet'
+import { WALLET_SYSTEM_STORAGE_RETRY_TOKEN } from '../../../shared/constants'
 import { ipcFailure, ownIpcEmitterListener, secureContractHandle, tonsiteContractHandle } from '../contract-handler'
 import {
   requestWalletDeletionApproval,
@@ -98,6 +100,17 @@ export function registerWalletHandlers(registry: ServiceRegistry): void {
 
   secureContractHandle(walletGetStateContract, () => {
     return walletManager.getState()
+  })
+
+  secureContractHandle(walletRetrySystemStorageContract, () => {
+    if (!walletManager.getState().systemStorageBlocked) {
+      ipcFailure('WALLET_SYSTEM_STORAGE_AVAILABLE', 'System secure storage is already available')
+    }
+    const retryArgument = `--${WALLET_SYSTEM_STORAGE_RETRY_TOKEN}`
+    const args = [...process.argv.slice(1).filter((argument) => argument !== retryArgument), retryArgument]
+    app.relaunch({ args })
+    app.quit()
+    return { success: true as const }
   })
 
   secureContractHandle(walletGetBalanceContract, async () => {

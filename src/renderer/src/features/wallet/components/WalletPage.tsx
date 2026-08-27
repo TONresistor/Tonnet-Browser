@@ -36,6 +36,8 @@ import { walletClient } from '@/features/wallet/client'
 import { WalletBackupPhraseScreen } from './WalletBackupPhraseScreen'
 import { WalletForgotPasswordScreen } from './WalletForgotPasswordScreen'
 import { EncryptedIcon } from './EncryptedIcon'
+import { WalletSystemStorageGate } from './WalletSystemStorageGate'
+import { useNavigateActiveBrowserTab } from '@/features/browser/navigation'
 
 type BackupFlowStep = 'idle' | 'phrase' | 'challenge'
 export function WalletPage() {
@@ -49,6 +51,7 @@ export function WalletPage() {
     isSending,
     error,
     decryptFailed,
+    systemStorageBlocked,
     weakEncryption,
     isLocked,
     needsPasswordSetup,
@@ -78,6 +81,7 @@ export function WalletPage() {
       isSending: s.isSending,
       error: s.error,
       decryptFailed: s.decryptFailed,
+      systemStorageBlocked: s.systemStorageBlocked,
       weakEncryption: s.weakEncryption,
       isLocked: s.isLocked,
       needsPasswordSetup: s.needsPasswordSetup,
@@ -99,6 +103,7 @@ export function WalletPage() {
       forgetWallet: s.forgetWallet,
     }))
   )
+  const navigateActiveTab = useNavigateActiveBrowserTab()
   const [newMnemonic, setNewMnemonic] = useState<string[] | null>(null)
   const [copied, setCopied] = useState(false)
   const [recoveryInput, setRecoveryInput] = useState('')
@@ -334,6 +339,10 @@ export function WalletPage() {
         <LoaderCircle className="h-8 w-8 text-muted-foreground animate-spin" aria-hidden="true" />
       </div>
     )
+  }
+
+  if (systemStorageBlocked) {
+    return <WalletSystemStorageGate onDismiss={() => void navigateActiveTab('ton://start')} />
   }
 
   if (forgotPasswordOpen) {

@@ -23,6 +23,13 @@ export class WalletDecryptionError extends Error {
   }
 }
 
+export class WalletSystemStorageError extends WalletDecryptionError {
+  constructor(message: string) {
+    super(message)
+    this.name = 'WalletSystemStorageError'
+  }
+}
+
 export class WalletKeyStorage {
   private storage: ISecureStorage
   private filePath: string
@@ -557,6 +564,9 @@ export class WalletKeyStorage {
           decrypted = this.storage.decrypt(buffer.subarray(4))
         } catch (err) {
           log.error('safeStorage.decryptString failed:', err)
+          if (!this.storage.isAvailable()) {
+            throw new WalletSystemStorageError(errorMessage(err))
+          }
           throw new WalletDecryptionError(errorMessage(err))
         }
 

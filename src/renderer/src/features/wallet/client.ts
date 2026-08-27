@@ -6,6 +6,7 @@ import type { WalletSettings } from '@shared/types'
 export const walletClient = {
   isAvailable: () => typeof window !== 'undefined' && Boolean(window.electron),
   getState: () => window.electron.wallet.getState(),
+  retrySystemStorage: () => window.electron.wallet.retrySystemStorage(),
   create: (options: { password?: string }) => window.electron.wallet.create(options),
   discoverAccounts: (mnemonic: string[]) => window.electron.wallet.discoverAccounts(mnemonic),
   importWallet: (mnemonic: string[], password: string, walletVersion: 'v3R1' | 'v3R2' | 'v4R2' | 'v5R1') =>

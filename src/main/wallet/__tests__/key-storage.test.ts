@@ -85,7 +85,7 @@ vi.mock('electron', () => ({
 }))
 
 // Import after mocks
-import { WalletKeyStorage, WalletDecryptionError } from '../key-storage'
+import { WalletKeyStorage, WalletDecryptionError, WalletSystemStorageError } from '../key-storage'
 import { mnemonicToPrivateKey } from '@ton/crypto'
 
 // --- Helpers ---
@@ -411,6 +411,14 @@ describe('WalletKeyStorage', () => {
       vi.mocked(fs.readFile).mockResolvedValue(garbled)
 
       await expect(ks.load()).rejects.toThrow(WalletDecryptionError)
+    })
+
+    it('reports unavailable system storage separately', async () => {
+      storage.setAvailable(false)
+      const garbled = Buffer.concat([SENC_MARKER, Buffer.from('not-encrypted-data')])
+      vi.mocked(fs.readFile).mockResolvedValue(garbled)
+
+      await expect(ks.load()).rejects.toThrow(WalletSystemStorageError)
     })
 
     it('throws on missing wallet file', async () => {

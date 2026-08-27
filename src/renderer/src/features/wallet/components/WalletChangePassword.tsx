@@ -14,9 +14,33 @@ export function WalletChangePassword() {
   const pendingRef = useRef(false)
 
   const valid = currentPassword.length >= 10 && nextPassword.length >= 10 && nextPassword === confirmation
+
+  const handleSubmit = async () => {
+    if (pendingRef.current || !valid) return
+    pendingRef.current = true
+    setIsPending(true)
+    try {
+      await changePassword(currentPassword, nextPassword)
+      setCurrentPassword('')
+      setNextPassword('')
+      setConfirmation('')
+      setStatus('Wallet password changed.')
+    } catch (error) {
+      setStatus(errorMessage(error))
+    } finally {
+      pendingRef.current = false
+      setIsPending(false)
+    }
+  }
+
   return (
-    <div className="space-y-2 border-t border-border pt-4">
-      <p className="text-sm font-medium text-foreground">Change wallet password</p>
+    <form
+      className="space-y-2"
+      onSubmit={(event) => {
+        event.preventDefault()
+        void handleSubmit()
+      }}
+    >
       <Input
         type="password"
         value={currentPassword}
@@ -42,32 +66,9 @@ export function WalletChangePassword() {
         disabled={isPending}
       />
       {status && <p className="text-xs text-muted-foreground">{status}</p>}
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        className="w-full"
-        disabled={!valid || isPending}
-        onClick={async () => {
-          if (pendingRef.current) return
-          pendingRef.current = true
-          setIsPending(true)
-          try {
-            await changePassword(currentPassword, nextPassword)
-            setCurrentPassword('')
-            setNextPassword('')
-            setConfirmation('')
-            setStatus('Wallet password changed.')
-          } catch (error) {
-            setStatus(errorMessage(error))
-          } finally {
-            pendingRef.current = false
-            setIsPending(false)
-          }
-        }}
-      >
+      <Button type="submit" variant="outline" size="sm" className="w-full" disabled={!valid || isPending}>
         {isPending ? 'Changing password…' : 'Change password'}
       </Button>
-    </div>
+    </form>
   )
 }

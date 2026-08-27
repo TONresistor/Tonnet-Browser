@@ -294,6 +294,23 @@ describe('WalletManager recovery safety', () => {
     )
     expect(state.keyStorage.deleteFile).not.toHaveBeenCalled()
   })
+
+  it('never replaces a wallet while system storage is blocked', async () => {
+    const manager = new WalletManager(new InMemorySecureStorage())
+    const state = manager as unknown as {
+      initialized: boolean
+      systemStorageBlocked: boolean
+      keyStorage: { deleteFile: ReturnType<typeof vi.fn> }
+    }
+    state.initialized = true
+    state.systemStorageBlocked = true
+    state.keyStorage = { deleteFile: vi.fn() }
+
+    await expect(manager.create({ password: 'correct horse battery staple' })).rejects.toThrow(
+      'Unlock system secure storage'
+    )
+    expect(state.keyStorage.deleteFile).not.toHaveBeenCalled()
+  })
 })
 
 describe('WalletManager vault mutation safety', () => {
