@@ -56,20 +56,20 @@ All traffic goes through ADNL, either peer-to-peer or via multi-hop tunnels. A W
 
 | ![Windows](https://img.shields.io/badge/Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white) | ![macOS](https://img.shields.io/badge/macOS-000000?style=for-the-badge&logo=apple&logoColor=white) | ![Linux](https://img.shields.io/badge/Linux-FCC624?style=for-the-badge&logo=linux&logoColor=white) |
 |:---:|:---:|:---:|
-| [Installer](https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON-Browser-Setup-2.5.0.exe) | [DMG (Universal)](https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON-Browser-2.5.0-universal.dmg) | [AppImage x64](https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON-Browser-2.5.0-x86_64.AppImage) · [.deb x64](https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON-Browser-2.5.0-amd64.deb) |
+| [Installer](https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON-Browser-Setup-2.6.0.exe) | [DMG (Universal)](https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON-Browser-2.6.0-universal.dmg) | [AppImage x64](https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON-Browser-2.6.0-x86_64.AppImage) · [.deb x64](https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON-Browser-2.6.0-amd64.deb) |
 
 ### Windows
 
 Your browser may warn that the file is from an unknown source. Click **"Keep"** to download.
 
-1. Download and run **TON-Browser-Setup-2.5.0.exe**
+1. Download and run **TON-Browser-Setup-2.6.0.exe**
 2. Follow the installation prompts
 3. Launch **TON Browser** from the Start menu
 
 **One-line install:** Open PowerShell and run:
 
 ```powershell
-irm https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON-Browser-Setup-2.5.0.exe -OutFile TonBrowser.exe; Unblock-File TonBrowser.exe; .\TonBrowser.exe
+irm https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON-Browser-Setup-2.6.0.exe -OutFile TonBrowser.exe; Unblock-File TonBrowser.exe; .\TonBrowser.exe
 ```
 
 ### macOS
@@ -86,7 +86,7 @@ xattr -cr /Applications/TON\ Browser.app
 **One-line install:** Open Terminal and run:
 
 ```bash
-curl -LO https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON-Browser-2.5.0-universal.dmg && hdiutil attach TON-Browser-2.5.0-universal.dmg && cp -R "/Volumes/TON Browser 2.5.0-universal/TON Browser.app" /Applications/ && hdiutil detach "/Volumes/TON Browser 2.5.0-universal" && xattr -cr /Applications/TON\ Browser.app && open /Applications/TON\ Browser.app
+curl -LO https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON-Browser-2.6.0-universal.dmg && hdiutil attach TON-Browser-2.6.0-universal.dmg && cp -R "/Volumes/TON Browser 2.6.0-universal/TON Browser.app" /Applications/ && hdiutil detach "/Volumes/TON Browser 2.6.0-universal" && xattr -cr /Applications/TON\ Browser.app && open /Applications/TON\ Browser.app
 ```
 
 > **Still crashes on launch (Apple Silicon)?** Older builds (≤ 2.2.0) shipped
@@ -100,24 +100,24 @@ curl -LO https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/
 
 ```bash
 # AppImage
-chmod +x TON-Browser-2.5.0-x86_64.AppImage
-./TON-Browser-2.5.0-x86_64.AppImage
+chmod +x TON-Browser-2.6.0-x86_64.AppImage
+./TON-Browser-2.6.0-x86_64.AppImage
 
 # Debian/Ubuntu
-sudo dpkg -i TON-Browser-2.5.0-amd64.deb
+sudo dpkg -i TON-Browser-2.6.0-amd64.deb
 ```
 
 **One-line install:** Open Terminal and run:
 
 ```bash
 # AppImage
-curl -LO https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON-Browser-2.5.0-x86_64.AppImage && chmod +x TON-Browser-2.5.0-x86_64.AppImage && ./TON-Browser-2.5.0-x86_64.AppImage
+curl -LO https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON-Browser-2.6.0-x86_64.AppImage && chmod +x TON-Browser-2.6.0-x86_64.AppImage && ./TON-Browser-2.6.0-x86_64.AppImage
 
 # Debian/Ubuntu
-curl -LO https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON-Browser-2.5.0-amd64.deb && sudo dpkg -i TON-Browser-2.5.0-amd64.deb
+curl -LO https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON-Browser-2.6.0-amd64.deb && sudo dpkg -i TON-Browser-2.6.0-amd64.deb
 ```
 
-ARM64 Linux builds are also published as `TON-Browser-2.5.0-arm64.AppImage` and `TON-Browser-2.5.0-arm64.deb`.
+ARM64 Linux builds are also published as `TON-Browser-2.6.0-arm64.AppImage` and `TON-Browser-2.6.0-arm64.deb`.
 
 ## Building
 
