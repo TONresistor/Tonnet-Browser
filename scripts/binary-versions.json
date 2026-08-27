@@ -4,7 +4,7 @@
     {
       "name": "tonutils-proxy",
       "repo": "TONresistor/Tonutils-Proxy",
-      "version": "v1.10.0+dev.e43ef6d",
+      "version": "v1.10.1",
       "commit": "e43ef6d765b50ac1df0ec9becad9d8780a7bdf18",
       "entry_point": "./cmd/proxy-cli/",
       "ldflags": "-s -w -X main.GitCommit=${VERSION}"
@@ -12,9 +12,8 @@
     {
       "name": "tonutils-bridge",
       "repo": "TONresistor/tonutils-bridge",
-      "version": "v0.4.0+dev.9669272.tonnet3",
-      "commit": "9669272d8c6a9080cb1f0c3bb54707976ebaf0b5",
-      "patch": "scripts/patches/tonutils-bridge-uninit-emulation.patch",
+      "version": "v0.5.0",
+      "commit": "2cd73c52cf47ba33e2d3efbc4285fac05e0b1e2b",
       "entry_point": ".",
       "ldflags": "-s -w"
     },

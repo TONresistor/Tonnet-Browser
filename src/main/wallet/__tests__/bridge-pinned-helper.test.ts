@@ -9,7 +9,7 @@ import {
   OverlayMessageEventSchema,
   SubscriptionResultSchema,
 } from '../bridge-codecs'
-import fixture from './fixtures/tonutils-bridge-v0.4.0.json'
+import fixture from './fixtures/tonutils-bridge-v0.5.0.json'
 
 interface HelperPin {
   name: string
@@ -29,8 +29,8 @@ describe('pinned tonutils-bridge compatibility fixture', () => {
       name: fixture.helper,
       version: fixture.version,
       commit: fixture.commit,
-      patch: fixture.patch,
     })
+    expect(pin).not.toHaveProperty('patch')
   })
 
   it('keeps every browser capability method and parameter name byte-stable', () => {
