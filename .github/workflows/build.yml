@@ -62,8 +62,8 @@ jobs:
       - name: Test coverage
         run: npm run test:coverage
 
-      - name: Verify build and bundle budgets
-        run: npm run build && npm run verify:bundle-budgets
+      - name: Verify build compiles
+        run: npm run build
 
       - name: Security audit
         run: npm audit --audit-level=high

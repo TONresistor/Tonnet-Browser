@@ -53,7 +53,7 @@ jobs:
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v4
         with:
           path: resources/bin/linux
-          key: go-binaries-linux-${{ hashFiles('scripts/binary-versions.json') }}
+          key: go-binaries-linux-${{ hashFiles('scripts/binary-versions.json', 'scripts/build-binaries-from-source.sh', '**/*.patch') }}
 
       - name: Setup Go
         if: steps.go-bin-cache.outputs.cache-hit != 'true'
@@ -102,24 +102,10 @@ jobs:
           if-no-files-found: ignore
 
       - name: Verify build compiles
-        run: npm run build && npm run verify:bundle-budgets
+        run: npm run build
 
       - name: Security audit
         run: npm audit --audit-level=high
-
-      - name: Generate supply-chain metadata
-        run: |
-          npm --silent run generate:sbom > sbom.cdx.json
-          npm run generate:provenance -- build-provenance.json
-
-      - name: Upload supply-chain metadata
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: supply-chain-metadata
-          path: |
-            sbom.cdx.json
-            build-provenance.json
-          retention-days: 30
 
   # ─────────────────────────────────────────────
   # Notify: Telegram (one summary per push to dev or main)

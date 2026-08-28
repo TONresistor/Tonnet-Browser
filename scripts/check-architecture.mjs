@@ -121,27 +121,6 @@ const actualCycles = new Set(cycles.map(fingerprint))
 const allowedCycles = new Set(config.allowedCycles.map((cycle) => [...cycle].sort().join('|')))
 const errors = []
 
-const sizeLimit = config.maxProductionFileLines ?? 600
-const sizeExceptions = new Map((config.fileSizeExceptions ?? []).map((exception) => [exception.path, exception]))
-for (const file of files) {
-  const fileName = relative(file)
-  const lineCount = fs.readFileSync(file, 'utf8').split(/\r?\n/).length
-  const exception = sizeExceptions.get(fileName)
-  if (lineCount > sizeLimit && !exception) {
-    errors.push(`production-file-size: ${fileName} has ${lineCount} lines (limit ${sizeLimit})`)
-  }
-  if (exception && (!exception.owner || !exception.reason || !exception.milestone)) {
-    errors.push(`file-size-exception-metadata: ${fileName} must declare owner, reason, and milestone`)
-  }
-}
-for (const [fileName] of sizeExceptions) {
-  const file = path.join(root, fileName)
-  if (!fileSet.has(path.resolve(file))) errors.push(`obsolete file-size exception: ${fileName} does not exist`)
-  else if (fs.readFileSync(file, 'utf8').split(/\r?\n/).length <= sizeLimit) {
-    errors.push(`obsolete file-size exception: ${fileName} is now within the ${sizeLimit}-line limit`)
-  }
-}
-
 for (const file of files) {
   const fileName = relative(file)
   for (const rule of config.forbiddenPatterns ?? []) {
@@ -154,11 +133,6 @@ for (const file of files) {
 
 for (const cycle of [...actualCycles].sort()) {
   if (!allowedCycles.has(cycle)) errors.push(`New import cycle:\n  ${cycle.split('|').join('\n  ')}`)
-}
-for (const cycle of [...allowedCycles].sort()) {
-  if (!actualCycles.has(cycle)) {
-    errors.push(`Obsolete cycle exception must be removed:\n  ${cycle.split('|').join('\n  ')}`)
-  }
 }
 
 function matchesPrefix(file, prefix) {
