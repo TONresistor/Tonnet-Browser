@@ -22,6 +22,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('@/features/settings/client', () => ({
   settingsClient: {
+    isAvailable: () => true,
     onChanged: vi.fn((listener: (event: SettingsChangedEvent) => void) => {
       mocks.settingsListeners.add(listener)
       return () => mocks.settingsListeners.delete(listener)

@@ -433,4 +433,9 @@ describe('WalletSettingsPartialSchema drift guard', () => {
       })
     }
   })
+
+  it('requires HTTPS for remote indexers but permits a local HTTP indexer', () => {
+    expect(validateCategoryValues('wallet', { indexerEndpoint: 'http://indexer.example/api/v3' }).valid).toBe(false)
+    expect(validateCategoryValues('wallet', { indexerEndpoint: 'http://localhost:8080/api/v3' }).valid).toBe(true)
+  })
 })

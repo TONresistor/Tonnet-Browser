@@ -5,7 +5,7 @@
 
 import { z } from 'zod'
 import { THEME_TOKEN_KEYS, type ThemeColorKey } from './theme-tokens'
-import { PAGE_ZOOM } from './constants'
+import { DEFAULT_TON_INDEXER_ENDPOINT, PAGE_ZOOM } from './constants'
 
 export function hasExplicitUndefined(value: unknown): boolean {
   if (value === undefined) return true
@@ -109,6 +109,25 @@ export const SitePolicySchema = z.object({
   lastPayment: z.number().optional(),
 })
 
+const LOOPBACK_INDEXER_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]', '::1'])
+
+export function isAllowedTonIndexerEndpoint(endpoint: URL): boolean {
+  return (
+    endpoint.protocol === 'https:' || (endpoint.protocol === 'http:' && LOOPBACK_INDEXER_HOSTS.has(endpoint.hostname))
+  )
+}
+
+const TonIndexerEndpointSchema = z
+  .string()
+  .url()
+  .refine((value) => {
+    try {
+      return isAllowedTonIndexerEndpoint(new URL(value))
+    } catch {
+      return false
+    }
+  }, 'Remote indexer endpoints must use HTTPS')
+
 export const WalletSettingsSchema = z.object({
   paymentMode: z.enum(['off', 'manual', 'auto']).default('off'),
   notificationStyle: z.enum(['popup', 'addressbar']).default('popup'),
@@ -121,7 +140,7 @@ export const WalletSettingsSchema = z.object({
   autoPayDomains: z.array(z.string()).default([]),
   autoLockMinutes: z.number().min(0).max(1440).default(5),
   indexerEnabled: z.boolean().default(false),
-  indexerEndpoint: z.string().default('https://toncenter.com/api/v3'),
+  indexerEndpoint: TonIndexerEndpointSchema.default(DEFAULT_TON_INDEXER_ENDPOINT),
   indexerApiKey: z.string().default(''),
 })
 
@@ -137,7 +156,7 @@ export const WalletSettingsPartialSchema = z
     autoPayDomains: z.array(z.string()),
     autoLockMinutes: z.number().min(0).max(1440),
     indexerEnabled: z.boolean(),
-    indexerEndpoint: z.string(),
+    indexerEndpoint: TonIndexerEndpointSchema,
     indexerApiKey: z.string(),
   })
   .partial()

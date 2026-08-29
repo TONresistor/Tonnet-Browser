@@ -330,6 +330,11 @@ function createMockRegistry(): ServiceRegistry {
       reconcile: vi.fn((tx) => tx),
       clear: vi.fn(),
     } as any,
+    tonIndexerClient: {
+      isEnabled: vi.fn(() => false),
+      getTransactions: vi.fn(() => Promise.resolve([])),
+      getNftItems: vi.fn(() => Promise.resolve([])),
+    } as any,
     paymentInterceptor: {
       approvePayment: vi.fn(),
       rejectPayment: vi.fn(),

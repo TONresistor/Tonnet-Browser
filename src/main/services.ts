@@ -42,6 +42,7 @@ import { DisposableStore, onEmitter } from './utils/disposable'
 import { SettingsCoordinator } from './settings/coordinator'
 import { createLogger } from '../shared/logger'
 import { getSetting } from './settings'
+import { TonIndexerClient } from './indexer/client'
 
 const log = createLogger('services')
 
@@ -53,6 +54,7 @@ export interface ServiceRegistry {
   storageManager: StorageManager
   walletManager: WalletManager
   walletHistoryManager: WalletHistoryManager
+  tonIndexerClient: TonIndexerClient
   paymentInterceptor: PaymentInterceptor
   paymentPolicyStore: PaymentPolicyStore
   overlayManager: OverlayManager
@@ -90,6 +92,14 @@ export function createServices(): ServiceRegistry {
   const historyManager = new HistoryManager()
   const bridgePermissionStore = new BridgePermissionStore()
   const walletHistoryManager = new WalletHistoryManager()
+  const tonIndexerClient = new TonIndexerClient(() => {
+    const settings = getSetting('wallet')
+    return {
+      enabled: settings.indexerEnabled,
+      endpoint: settings.indexerEndpoint,
+      apiKey: settings.indexerApiKey,
+    }
+  })
   const paymentPolicyStore = new PaymentPolicyStore()
   const walletManager = new WalletManager(secureStorage)
   const paymentInterceptor = new PaymentInterceptor(
@@ -178,6 +188,7 @@ export function createServices(): ServiceRegistry {
     storageManager,
     walletManager,
     walletHistoryManager,
+    tonIndexerClient,
     paymentInterceptor,
     paymentPolicyStore,
     overlayManager,

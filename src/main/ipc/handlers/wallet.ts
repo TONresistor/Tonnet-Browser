@@ -9,7 +9,6 @@ import { emitContractToRenderer } from '../../events/renderer-events'
 import { getMainWindow } from '../../windows/main'
 import { WALLET_HISTORY_DEFAULT_LIMIT } from '../../wallet/constants'
 import { fetchHistoryViaIndexer } from '../../wallet/indexer-client'
-import { getSetting } from '../../settings'
 import { isTonDomain } from '../../../shared/utils/ton'
 import type { ServiceRegistry } from '../../services'
 import {
@@ -55,7 +54,14 @@ import { WalletBackupVerifier } from '../../wallet/backup-verifier'
 import { WalletDecryptionError } from '../../wallet/key-storage'
 
 export function registerWalletHandlers(registry: ServiceRegistry): void {
-  const { walletManager, walletHistoryManager, paymentInterceptor, overlayManager, tonConnectService } = registry
+  const {
+    walletManager,
+    walletHistoryManager,
+    tonIndexerClient,
+    paymentInterceptor,
+    overlayManager,
+    tonConnectService,
+  } = registry
   const backupVerifier = new WalletBackupVerifier()
   const clearAccountScopedState = async (): Promise<void> => {
     backupVerifier.clear()
@@ -216,16 +222,10 @@ export function registerWalletHandlers(registry: ServiceRegistry): void {
       const onChain = await walletManager.fetchOnChainHistory(safeLimit)
       return await walletHistoryManager.reconcile(onChain)
     } catch (error) {
-      const walletSettings = getSetting('wallet')
-      if (walletSettings.indexerEnabled) {
+      if (tonIndexerClient.isEnabled()) {
         try {
           const address = walletManager.getState().address
-          const viaIndexer = await fetchHistoryViaIndexer(
-            address,
-            safeLimit,
-            walletSettings.indexerEndpoint,
-            walletSettings.indexerApiKey
-          )
+          const viaIndexer = await fetchHistoryViaIndexer(tonIndexerClient, address, safeLimit)
           if (viaIndexer.length > 0) {
             return await walletHistoryManager.reconcile(viaIndexer)
           }

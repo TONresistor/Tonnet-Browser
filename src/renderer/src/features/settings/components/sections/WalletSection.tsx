@@ -19,6 +19,7 @@ import { ConnectedAppsPanel } from './ConnectedAppsPanel'
 import { useSectionHandle } from '@/hooks/useSectionHandle'
 import { settingsClient } from '@/features/settings/client'
 import { usePreferencesStore } from '@/features/settings/preferences-store'
+import { DEFAULT_TON_INDEXER_ENDPOINT } from '@shared/constants'
 
 const log = createLogger('wallet-settings')
 
@@ -30,7 +31,7 @@ const DEFAULT_WALLET_SETTINGS: WalletSettings = {
   autoPayDomains: [],
   autoLockMinutes: 5,
   indexerEnabled: false,
-  indexerEndpoint: 'https://toncenter.com/api/v3',
+  indexerEndpoint: DEFAULT_TON_INDEXER_ENDPOINT,
   indexerApiKey: '',
 }
 
@@ -176,19 +177,20 @@ export const WalletSection = memo(function WalletSection({ onDirtyChange, sectio
 
       <div className="mt-6">
         <h3 className="mb-2 px-1 text-[13px] font-medium uppercase tracking-wide text-muted-foreground">
-          {t('wallet.historyGroup', { defaultValue: 'Transaction history' })}
+          {t('wallet.historyGroup', { defaultValue: 'Blockchain data' })}
         </h3>
         <div className="settings-group px-4">
           <SettingRow
-            label={t('wallet.indexerEnabled', { defaultValue: 'Full history via indexer' })}
+            label={t('wallet.indexerEnabled', { defaultValue: 'HTTP indexer fallback' })}
             description={t('wallet.indexerEnabledDesc', {
-              defaultValue: 'Recover full history via an HTTP indexer (clearnet, exposes your address).',
+              defaultValue:
+                'Use a clearnet indexer when the local Bridge cannot provide older history. Queried addresses are exposed.',
             })}
           >
             <Toggle
               checked={draft.indexerEnabled}
               onChange={(v) => updateDraft({ indexerEnabled: v })}
-              ariaLabel={t('wallet.indexerEnabled', { defaultValue: 'Full history via indexer' })}
+              ariaLabel={t('wallet.indexerEnabled', { defaultValue: 'HTTP indexer fallback' })}
             />
           </SettingRow>
           {draft.indexerEnabled && (
@@ -202,7 +204,7 @@ export const WalletSection = memo(function WalletSection({ onDirtyChange, sectio
                 <TextInput
                   value={draft.indexerEndpoint}
                   onChange={(v) => updateDraft({ indexerEndpoint: v })}
-                  placeholder="https://toncenter.com/api/v3"
+                  placeholder={DEFAULT_TON_INDEXER_ENDPOINT}
                   ariaLabel={t('wallet.indexerEndpoint', { defaultValue: 'Indexer endpoint' })}
                 />
               </SettingRow>

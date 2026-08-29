@@ -386,7 +386,7 @@ async function connectRoom(
 }
 
 export function registerChatHandlers(registry: ServiceRegistry): void {
-  const { walletManager, chatSessionController } = registry
+  const { walletManager, chatSessionController, tonIndexerClient } = registry
   const identity = new ChatIdentityManager(walletManager)
   const membership = new ChatMembership()
   const recentGrants = new Map<string, number>()
@@ -566,9 +566,11 @@ export function registerChatHandlers(registry: ServiceRegistry): void {
   secureContractHandle(chatDetectDomainsContract, async () => {
     const own = await identity.ownIdentity()
     if (!own.address) return { domains: [] }
-    const wallet = getSetting('wallet')
+    if (!tonIndexerClient.isEnabled()) {
+      ipcFailure('DOMAIN_DETECTION_FAILED', 'Enable HTTP indexer fallback in Wallet settings to detect domains')
+    }
     try {
-      return { domains: await ownedDomains(own.address, wallet.indexerEndpoint, wallet.indexerApiKey || undefined) }
+      return { domains: await ownedDomains(tonIndexerClient, own.address) }
     } catch (err) {
       log.warn(`chat: domain detection failed: ${toError(err).message}`)
       ipcFailure('DOMAIN_DETECTION_FAILED', 'Unable to detect owned domains', true, err)
