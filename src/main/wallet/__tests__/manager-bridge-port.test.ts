@@ -26,7 +26,7 @@ const bridgeState = vi.hoisted(() => {
   return { Client, failures, instances }
 })
 
-vi.mock('../ws-bridge-client', () => ({ WsBridgeClient: bridgeState.Client }))
+vi.mock('../../ton-bridge/ws-bridge-client', () => ({ WsBridgeClient: bridgeState.Client }))
 vi.mock('../../settings', () => ({ getSetting: vi.fn(() => ({ wsPort: 8081 })) }))
 vi.mock('electron', () => ({ app: { getPath: vi.fn(() => '/tmp/test') } }))
 vi.mock('../../../shared/logger', () => ({

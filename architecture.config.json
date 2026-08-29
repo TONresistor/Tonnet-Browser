@@ -13,12 +13,12 @@
     },
     {
       "id": "bridge-facade-must-delegate-capability-methods",
-      "from": ["src/main/wallet/ws-bridge-client.ts"],
+      "from": ["src/main/ton-bridge/ws-bridge-client.ts"],
       "pattern": "['\"](?:dns\\.resolve|dht\\.findValue|overlay\\.(?:join|sendMessage|sendRaw|leave)|adnl\\.(?:connectByADNL|disconnect|ping))['\"]"
     },
     {
       "id": "websocket-transport-must-not-contain-ton-capabilities",
-      "from": ["src/main/wallet/websocket-transport.ts"],
+      "from": ["src/main/ton-bridge/websocket-transport.ts"],
       "pattern": "['\"](?:lite|wallet|dns|dht|overlay|adnl|subscribe)\\."
     },
     {
@@ -202,7 +202,7 @@
     {
       "id": "cocoon-must-use-ton-bridge-port",
       "from": ["src/main/cocoon"],
-      "to": ["src/main/wallet/ws-bridge-client.ts"]
+      "to": ["src/main/ton-bridge/ws-bridge-client.ts"]
     },
     {
       "id": "proxy-startup-must-not-own-window-scope",
@@ -227,7 +227,7 @@
     {
       "id": "messenger-and-cocoon-adapters-must-use-bridge-ports",
       "from": ["src/main/ipc/handlers/chat.ts", "src/main/ipc/handlers/cocoon.ts"],
-      "to": ["src/main/wallet/ws-bridge-client.ts"]
+      "to": ["src/main/ton-bridge/ws-bridge-client.ts"]
     },
     {
       "id": "renderer-features-must-use-browser-navigation-facade",

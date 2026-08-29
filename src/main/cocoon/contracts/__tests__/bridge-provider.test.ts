@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { Address, beginCell, Cell, SendMode } from '@ton/core'
 import { BridgeProvider, bridgeItemToTupleItem, bridgeStackToTupleReader, openBridgeContract } from '../bridge-provider'
-import type { WsBridgeClient } from '../../../wallet/ws-bridge-client'
+import type { WsBridgeClient } from '../../../ton-bridge/ws-bridge-client'
 import { CocoonWallet } from '../wrappers/CocoonWallet'
 
 // ---------------------------------------------------------------------------

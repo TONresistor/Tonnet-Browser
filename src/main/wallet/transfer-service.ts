@@ -6,8 +6,8 @@ import type { WalletIdentitySnapshot } from './wallet-identity'
 import type { WalletContractShape } from './wallet-versions'
 import { createTonTransferMessage } from './transfer-message'
 import { preflightTonTransfer, type TransferPreflightResult } from './transfer-preflight'
-import type { AccountInformationResult } from './bridge-codecs'
-import type { EmulateTransactionResult } from './bridge-codecs'
+import type { AccountInformationResult } from '../ton-bridge/bridge-codecs'
+import type { EmulateTransactionResult } from '../ton-bridge/bridge-codecs'
 import { createEncryptedCommentBody, parseRecipientPublicKey } from './encrypted-comment'
 
 export interface WalletBroadcastPort {

@@ -35,7 +35,7 @@ import { sendFromCocoonWallet } from '../contracts'
 import { loadCocoonWallet } from '../wallet'
 import { getStakeInfo } from '../unstake'
 import type { CocoonManager } from '../manager'
-import type { WsBridgeClient } from '../../wallet/ws-bridge-client'
+import type { WsBridgeClient } from '../../ton-bridge/ws-bridge-client'
 
 const OWNER_ADDR = 'EQCRmGZ3mistR-W0wJ8eb2OfYh9ZM78o6I656kITu8W8Sx1L'
 const NODE_ADDR = 'EQAgAIQvjaMw_t1fbEWmmj46bKk1FAHtd6-F_zYtXVlTq9mv'
