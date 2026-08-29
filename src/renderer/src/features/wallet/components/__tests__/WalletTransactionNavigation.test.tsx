@@ -24,6 +24,7 @@ vi.mock('@/features/wallet/client', () => ({
 }))
 
 vi.mock('@/features/browser/navigation', () => ({
+  useNavigateActiveBrowserTab: () => vi.fn(),
   useOpenOrSwitchBrowserTab: () => vi.fn(),
 }))
 
