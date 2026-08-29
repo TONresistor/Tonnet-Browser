@@ -56,6 +56,7 @@ import { WalletDecryptionError } from '../../wallet/key-storage'
 export function registerWalletHandlers(registry: ServiceRegistry): void {
   const {
     walletManager,
+    tonBridgeProviders,
     walletHistoryManager,
     tonIndexerClient,
     paymentInterceptor,
@@ -158,7 +159,7 @@ export function registerWalletHandlers(registry: ServiceRegistry): void {
     if (state.needsPasswordSetup) ipcFailure('WALLET_PASSWORD_REQUIRED', 'Set a wallet password before sending')
     if (state.isLocked) ipcFailure('WALLET_LOCKED', 'Unlock the wallet before sending')
     if (!state.backupVerified) ipcFailure('WALLET_BACKUP_REQUIRED', 'Verify the wallet backup before sending')
-    if (!walletManager.getTonBridge()) ipcFailure('BRIDGE_DISCONNECTED', 'Bridge not connected')
+    if (!tonBridgeProviders.wallet.getBridge()) ipcFailure('BRIDGE_DISCONNECTED', 'Bridge not connected')
     const walletIdentity = walletManager.getIdentitySnapshot()
     if (!walletIdentity) ipcFailure('WALLET_UNAVAILABLE', 'Wallet identity is unavailable')
     if (BigInt(amount) <= 0n) ipcFailure('INVALID_AMOUNT', 'Amount must be greater than zero')
@@ -293,7 +294,7 @@ export function registerWalletHandlers(registry: ServiceRegistry): void {
   )
 
   secureContractHandle(walletDiscoverAccountsContract, async (mnemonic) => {
-    const bridge = walletManager.getTonBridge()
+    const bridge = tonBridgeProviders.wallet.getBridge()
     if (!bridge) ipcFailure('BRIDGE_DISCONNECTED', 'Bridge not connected')
     try {
       return await discoverWalletAccounts(mnemonic, bridge)

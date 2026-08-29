@@ -3,7 +3,7 @@ import { TON_DOMAIN_REGEX } from '../../shared/utils/ton'
 import { createLogger } from '../../shared/logger'
 import { decodeCommentBody } from './comment'
 import { parseMainnetAddress } from './address-utils'
-import type { BridgeTransaction } from '../ton-bridge/bridge-codecs'
+import type { BridgeTransaction } from '../ports/ton-bridge'
 
 const log = createLogger('wallet:queries')
 

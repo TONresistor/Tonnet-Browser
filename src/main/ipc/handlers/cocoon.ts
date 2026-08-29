@@ -68,7 +68,7 @@ export function registerCocoonHandlers(registry: ServiceRegistry): void {
   const { cocoonManager, withdrawDriver, recoveryDriver, cocoonActivation } = registry
 
   const requireBridge = (): TonBridgePort => {
-    const bridge = registry.walletManager.getTonBridge()
+    const bridge = registry.tonBridgeProviders.ton.getBridge()
     if (!bridge) ipcFailure('BRIDGE_DISCONNECTED', 'Bridge not connected')
     return bridge
   }

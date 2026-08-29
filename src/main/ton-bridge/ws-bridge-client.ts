@@ -9,24 +9,26 @@ import { JsonRpcRequestTracker, type JsonRpcResponse } from './json-rpc-peer'
 import {
   AccountBalanceResultSchema,
   AccountInformationResultSchema,
-  type AccountInformationResult,
   EmulateTransactionResultSchema,
-  type EmulateTransactionResult,
   BridgeAccountStateSchema,
-  type BridgeAccountState,
   BridgeTransactionsResultSchema,
   BridgeTransactionSchema,
-  type BridgeTransaction,
   JsonRpcInboundSchema,
   SeqnoResultSchema,
 } from './bridge-codecs'
+import type {
+  AccountInformationResult,
+  BridgeAccountState,
+  BridgeTransaction,
+  EmulateTransactionResult,
+} from '../ports/ton-bridge'
 import type { BridgeEventCallback } from './bridge-event-bus'
 import { BridgeSubscriptions } from './bridge-subscriptions'
 import { BridgeDhtClient, BridgeDnsClient, BridgeOverlayClient } from './bridge-capabilities'
 import { BridgeTransactionWatcher } from './bridge-transaction-watcher'
 import { WebSocketTransport } from './websocket-transport'
 
-const log = createLogger('wallet:ws-bridge')
+const log = createLogger('ton-bridge:client')
 
 export { isContractNotDeployedError } from '../ports/ton-bridge'
 
@@ -85,7 +87,7 @@ export class WsBridgeClient {
       onReady: (reconnected) => {
         this.drainQueue()
         if (reconnected) void this.subscriptions.resubscribeAll()
-        this.reconnectLogs.recovered('connection', 'wallet.bridge.restored', 'wallet bridge restored')
+        this.reconnectLogs.recovered('connection', 'ton.bridge.restored', 'TON bridge restored')
         log.debug(`Connected to bridge on port ${this.wsPort}`)
       },
       onDisconnect: (error) => {
@@ -93,14 +95,9 @@ export class WsBridgeClient {
         this.transactionWatcher.rejectAll(error)
       },
       onError: (error) =>
-        this.reconnectLogs.record(
-          'connection',
-          'wallet.bridge.unavailable',
-          'wallet bridge unavailable · reconnecting',
-          {
-            error,
-          }
-        ),
+        this.reconnectLogs.record('connection', 'ton.bridge.unavailable', 'TON bridge unavailable · reconnecting', {
+          error,
+        }),
       onReconnectScheduled: (delay, attempt) => log.debug(`Reconnecting in ${delay}ms (attempt ${attempt})`),
     })
   }

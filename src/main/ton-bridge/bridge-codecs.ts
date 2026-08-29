@@ -1,4 +1,11 @@
 import { z } from 'zod'
+import type {
+  AccountInformationResult,
+  BridgeAccountState,
+  BridgeMessage,
+  BridgeTransaction,
+  EmulateTransactionResult,
+} from '../ports/ton-bridge'
 
 const JsonRpcIdSchema = z.union([z.string(), z.number()])
 
@@ -19,11 +26,10 @@ export const AccountBalanceResultSchema = z.object({
   balance: z.string().regex(/^\d+$/),
 })
 
-export const AccountInformationResultSchema = z.object({
+export const AccountInformationResultSchema: z.ZodType<AccountInformationResult> = z.object({
   balance: z.string().regex(/^\d+$/),
   status: z.enum(['active', 'uninit', 'frozen']),
 })
-export type AccountInformationResult = z.infer<typeof AccountInformationResultSchema>
 
 const EmulationFeesSchema = z.object({
   storage_fee: z.string().regex(/^\d+$/),
@@ -31,14 +37,13 @@ const EmulationFeesSchema = z.object({
   fwd_fee: z.string().regex(/^\d+$/),
   action_fee: z.string().regex(/^\d+$/),
 })
-export const EmulateTransactionResultSchema = z.object({
+export const EmulateTransactionResultSchema: z.ZodType<EmulateTransactionResult> = z.object({
   accepted: z.boolean(),
   success: z.boolean(),
   exit_code: z.number().int(),
   total_fees: z.string().regex(/^\d+$/),
   fees: EmulationFeesSchema.optional(),
 })
-export type EmulateTransactionResult = z.infer<typeof EmulateTransactionResultSchema>
 
 export const SeqnoResultSchema = z.object({
   seqno: z.union([z.number().int().nonnegative(), z.string().regex(/^\d+$/)]).transform((value) => Number(value)),
@@ -55,7 +60,7 @@ export const SubscriptionResultSchema = z.object({
 
 const DecimalSchema = z.string().regex(/^\d+$/)
 
-export const BridgeAccountStateSchema = z.object({
+export const BridgeAccountStateSchema: z.ZodType<BridgeAccountState> = z.object({
   address: z.string().min(1),
   balance: DecimalSchema,
   status: z.enum(['active', 'uninit', 'frozen']),
@@ -63,16 +68,15 @@ export const BridgeAccountStateSchema = z.object({
   last_tx_hash: z.string(),
   block_seqno: z.number().int().nonnegative(),
 })
-export type BridgeAccountState = z.infer<typeof BridgeAccountStateSchema>
 
-const BridgeMessageSchema = z.object({
+const BridgeMessageSchema: z.ZodType<BridgeMessage> = z.object({
   source: z.string(),
   destination: z.string(),
   value: DecimalSchema,
   body: z.string().optional(),
 })
 
-export const BridgeTransactionSchema = z.object({
+export const BridgeTransactionSchema: z.ZodType<BridgeTransaction> = z.object({
   hash: z.string().min(1),
   lt: z.string().min(1),
   now: z.number().int().nonnegative(),
@@ -80,7 +84,6 @@ export const BridgeTransactionSchema = z.object({
   in_msg: BridgeMessageSchema.optional(),
   out_msgs: z.array(BridgeMessageSchema).nullable().optional(),
 })
-export type BridgeTransaction = z.infer<typeof BridgeTransactionSchema>
 
 export const BridgeTransactionsResultSchema = z.object({
   transactions: z.array(BridgeTransactionSchema).optional(),

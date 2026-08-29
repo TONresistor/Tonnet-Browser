@@ -386,7 +386,7 @@ async function connectRoom(
 }
 
 export function registerChatHandlers(registry: ServiceRegistry): void {
-  const { walletManager, chatSessionController, tonIndexerClient } = registry
+  const { walletManager, tonBridgeProviders, chatSessionController, tonIndexerClient } = registry
   const identity = new ChatIdentityManager(walletManager)
   const membership = new ChatMembership()
   const recentGrants = new Map<string, number>()
@@ -409,7 +409,7 @@ export function registerChatHandlers(registry: ServiceRegistry): void {
       if (!getSetting('messenger').networkEnabled) {
         ipcFailure('MESSENGER_DISABLED', 'Messenger networking is disabled')
       }
-      const bridge = walletManager.getMessengerBridge()
+      const bridge = tonBridgeProviders.messenger.getBridge()
       if (!bridge) ipcFailure('BRIDGE_DISCONNECTED', 'Bridge not connected')
 
       return connectRoom(
@@ -428,7 +428,7 @@ export function registerChatHandlers(registry: ServiceRegistry): void {
   })
 
   secureContractHandle(chatSendContract, async (text) => {
-    const bridge = walletManager.getMessengerBridge()
+    const bridge = tonBridgeProviders.messenger.getBridge()
     const session = chatSessionController.session
     if (!bridge || !session) ipcFailure('CHAT_DISCONNECTED', 'Chat not connected')
     if (session.gated && !session.cert) {
@@ -485,7 +485,7 @@ export function registerChatHandlers(registry: ServiceRegistry): void {
   })
 
   secureContractHandle(chatDmSendContract, async (peerKeyArg, text) => {
-    const bridge = walletManager.getMessengerBridge()
+    const bridge = tonBridgeProviders.messenger.getBridge()
     const session = chatSessionController.session
     if (!bridge || !session) ipcFailure('CHAT_DISCONNECTED', 'Chat not connected')
     const peerKey = String(peerKeyArg ?? '').toLowerCase()

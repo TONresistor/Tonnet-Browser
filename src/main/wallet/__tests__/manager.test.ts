@@ -1,6 +1,6 @@
 /**
  * Unit tests for WalletManager.resolveRecipient.
- * The wsBridge is injected directly; no network or Go binary required.
+ * The bridge is injected through its provider; no network or Go binary required.
  */
 
 import type { ISecureStorage } from '../../ports/secure-storage'
@@ -123,12 +123,16 @@ function makeDnsResult(overrides: Partial<DnsResolveResult> = {}): DnsResolveRes
 describe('WalletManager.resolveRecipient', () => {
   let manager: WalletManager
   let mockResolveDomain: ReturnType<typeof vi.fn>
+  let bridge: { resolveDomain: ReturnType<typeof vi.fn> } | null
 
   beforeEach(() => {
     vi.clearAllMocks()
-    manager = new WalletManager(new InMemorySecureStorage())
     mockResolveDomain = vi.fn()
-    ;(manager as unknown as Record<string, unknown>).wsBridge = { resolveDomain: mockResolveDomain }
+    bridge = { resolveDomain: mockResolveDomain }
+    manager = new WalletManager(new InMemorySecureStorage(), {
+      getBridge: () => bridge as never,
+      onBridgeChanged: () => () => {},
+    })
   })
 
   // --- Raw address pass-through ---
@@ -259,8 +263,8 @@ describe('WalletManager.resolveRecipient', () => {
 
   // --- Bridge disconnected ---
 
-  it('throws Bridge not connected when wsBridge is null', async () => {
-    ;(manager as unknown as Record<string, unknown>).wsBridge = null
+  it('throws Bridge not connected when the provider has no bridge', async () => {
+    bridge = null
     await expect(manager.resolveRecipient('alice.ton')).rejects.toThrow('Bridge not connected')
   })
 

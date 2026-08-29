@@ -9,9 +9,8 @@ import type {
 } from '../tonconnect/types'
 import { WalletKeyStorage, WalletDecryptionError, WalletSystemStorageError } from './key-storage'
 import type { ISecureStorage } from '../ports/secure-storage'
-import type { MessengerBridgePort, TonBridgePort } from '../ports/ton-bridge'
-import { WsBridgeClient } from '../ton-bridge/ws-bridge-client'
 import { isContractNotDeployedError } from '../ports/ton-bridge'
+import type { BridgeProvider } from '../ports/bridge-provider'
 import { getSetting } from '../settings'
 import { WALLET_HISTORY_DEFAULT_LIMIT } from './constants'
 import type {
@@ -26,7 +25,8 @@ import { WalletQueryService } from './query-service'
 import { WalletSigningService } from './signing-service'
 import { WalletTransferService } from './transfer-service'
 import { WalletAccountService } from './account-service'
-import { connectWalletBridge, prepareWalletBridge, warmupWalletBridge } from '../ton-bridge/bridge-lifecycle'
+import { warmupWalletBridge } from './bridge-warmup'
+import type { WalletBridgePort } from './bridge-port'
 import { buildExternalWalletBoc } from './wallet-boc'
 import { createWalletContract, type SupportedWalletContract, type WalletVersion } from './wallet-versions'
 import { buildWalletState } from './wallet-state'
@@ -34,10 +34,15 @@ import { WalletIdentityTracker, type WalletIdentitySnapshot } from './wallet-ide
 import { WalletRuntimeState } from './wallet-runtime-state'
 import { wipeKeypair, wipePublicKey } from './key-memory'
 const log = createLogger('wallet')
+
+const disconnectedBridgeProvider: BridgeProvider<WalletBridgePort> = {
+  getBridge: () => null,
+  onBridgeChanged: () => () => {},
+}
+
 export class WalletManager extends EventEmitter {
   private keyStorage: WalletKeyStorage
-  private wsBridge: WsBridgeClient | null = null
-  private wsBridgePort: number | null = null
+  private readonly disposeBridgeChanged: () => void
   private walletContract: SupportedWalletContract | null = null
   private walletVersion: WalletVersion = 'v5R1'
   private keypair: { publicKey: Buffer; secretKey: Buffer } | null = null
@@ -60,32 +65,38 @@ export class WalletManager extends EventEmitter {
   readonly signTransfer: WalletTransferService['signTransfer']
   readonly preflightTransfer: WalletTransferService['preflightTransfer']
   readonly prepareEncryptedComment: WalletTransferService['prepareEncryptedComment']
-  constructor(secureStorage?: ISecureStorage) {
+  constructor(
+    secureStorage?: ISecureStorage,
+    private readonly bridgeProvider: BridgeProvider<WalletBridgePort> = disconnectedBridgeProvider
+  ) {
     super()
     this.keyStorage = secureStorage ? new WalletKeyStorage(secureStorage) : new WalletKeyStorage()
     this.keyStorage.setOnLock(() => {
       this.keypair = null
       this.emit('state-changed', this.getState())
     })
-    this.queryService = new WalletQueryService(() => this.wsBridge)
+    this.queryService = new WalletQueryService(() => this.getBridge())
     this.signingService = new WalletSigningService({
       getAddress: () => this.walletContract?.address ?? null,
       nowSeconds: () => Math.floor(Date.now() / 1000),
       signDigest: (digest) => this.signWithKeyUnlocked((secretKey) => Buffer.from(sign(digest, secretKey))),
     })
     this.transferService = new WalletTransferService({
-      getBridge: () => this.wsBridge,
+      getBridge: () => this.getBridge(),
       getAccountInformation: (address) => {
-        if (!this.wsBridge) throw new Error('Bridge not connected')
-        return this.wsBridge.getAccountInformation(address)
+        const bridge = this.getBridge()
+        if (!bridge) throw new Error('Bridge not connected')
+        return bridge.getAccountInformation(address)
       },
       emulateTransaction: (address, boc) => {
-        if (!this.wsBridge) throw new Error('Bridge not connected')
-        return this.wsBridge.emulateTransaction(address, boc)
+        const bridge = this.getBridge()
+        if (!bridge) throw new Error('Bridge not connected')
+        return bridge.emulateTransaction(address, boc)
       },
       runMethod: (address, method) => {
-        if (!this.wsBridge) throw new Error('Bridge not connected')
-        return this.wsBridge.runMethod(address, method)
+        const bridge = this.getBridge()
+        if (!bridge) throw new Error('Bridge not connected')
+        return bridge.runMethod(address, method)
       },
       buildBoc: (messages, maxTimeout, expectedAddress, expectedIdentity) =>
         this.buildBoc(messages, maxTimeout, expectedAddress, expectedIdentity),
@@ -115,20 +126,16 @@ export class WalletManager extends EventEmitter {
       getPublicKey: () => this.publicKey,
       getContract: () => this.walletContract,
     })
+    this.disposeBridgeChanged = this.bridgeProvider.onBridgeChanged((bridge) => {
+      this.unsubscribeAccount()
+      if (!bridge || !this.initialized || !this.walletContract) return
+      this.subscribeAccount()
+      void this.refreshBridgeState()
+    })
   }
   async init(): Promise<void> {
     if (this.initialized) return
     const startedAt = Date.now()
-    const network = getSetting('network')
-    const bridge = new WsBridgeClient(network.wsPort)
-    try {
-      await connectWalletBridge(bridge)
-    } catch (error) {
-      bridge.disconnect()
-      throw error
-    }
-    this.wsBridge = bridge
-    this.wsBridgePort = network.wsPort
     if (await this.keyStorage.exists()) {
       try {
         const metadata = await this.keyStorage.inspect()
@@ -146,13 +153,6 @@ export class WalletManager extends EventEmitter {
           this.backupVerified = metadata?.backupVerified ?? false
         }
         this.identity.advance()
-        await Promise.allSettled([
-          warmupWalletBridge(() => this.getBalance()).then((ready) => {
-            if (!ready) log.warn('Liteserver pool warmup: shard did not respond, proceeding with cached balance')
-          }),
-          this.syncSeqno(),
-        ])
-        this.subscribeAccount()
         const walletSettings = getSetting('wallet')
         this.keyStorage.setAutoLockMinutes(walletSettings.autoLockMinutes)
         this.weakEncryption = !this.passwordProtected && this.keyStorage.isBasicTextBackend()
@@ -161,9 +161,6 @@ export class WalletManager extends EventEmitter {
           this.keyStorage.lock()
           this.keypair = null
         }
-        log.status('wallet.ready', `wallet ready · ${Date.now() - startedAt}ms`, {
-          durationMs: Date.now() - startedAt,
-        })
       } catch (error) {
         if (error instanceof WalletSystemStorageError) {
           log.error('System secure storage is unavailable:', error)
@@ -181,6 +178,15 @@ export class WalletManager extends EventEmitter {
       log.info('No wallet found, waiting for creation')
     }
     this.initialized = true
+    if (this.walletContract && this.getBridge()) {
+      this.subscribeAccount()
+      await this.refreshBridgeState()
+    }
+    if (this.walletContract) {
+      log.status('wallet.ready', `wallet ready · ${Date.now() - startedAt}ms`, {
+        durationMs: Date.now() - startedAt,
+      })
+    }
     this.emit('state-changed', this.getState())
   }
   async create(options: { password?: string }): Promise<WalletState & { mnemonic: string[] }> {
@@ -373,12 +379,6 @@ export class WalletManager extends EventEmitter {
     this.emit('state-changed', state)
     return state
   }
-  getTonBridge(): TonBridgePort | null {
-    return this.wsBridge
-  }
-  getMessengerBridge(): MessengerBridgePort | null {
-    return this.wsBridge
-  }
   async getBalance(expectedIdentity?: WalletIdentitySnapshot): Promise<string> {
     if (expectedIdentity) this.assertWalletIdentity(expectedIdentity)
     const address = this.walletContract?.address.toString() ?? null
@@ -530,41 +530,24 @@ export class WalletManager extends EventEmitter {
     this.keyStorage.setAutoLockMinutes(minutes)
   }
 
-  applyBridgePort(wsPort: number): Promise<void> {
-    return this.runExclusive(async () => {
-      const previous = this.wsBridge
-      if (!previous) return
-      const next = await prepareWalletBridge(previous, this.wsBridgePort, wsPort)
-      if (next === previous) return
-      this.unsubscribeAccount()
-      this.wsBridge = next
-      this.wsBridgePort = wsPort
-      previous.disconnect()
-      this.subscribeAccount()
-    })
-  }
-
   destroy(): void {
     this.runtime.stopSubscription()
+    this.disposeBridgeChanged()
     this.keyStorage.destroy()
     wipeKeypair(this.keypair)
     wipePublicKey(this.publicKey)
     this.keypair = null
     this.publicKey = null
-    if (this.wsBridge) {
-      this.wsBridge.disconnect()
-      this.wsBridge = null
-    }
-    this.wsBridgePort = null
     this.walletContract = null
     this.initialized = false
     log.info('Wallet manager destroyed')
   }
 
   private subscribeAccount(): void {
-    if (!this.wsBridge || !this.walletContract) return
+    const bridge = this.getBridge()
+    if (!bridge || !this.walletContract) return
     const address = this.walletContract.address.toString()
-    this.runtime.startSubscription(this.wsBridge, address, {
+    this.runtime.startSubscription(bridge, address, {
       currentBalance: () => this.runtime.balance,
       balanceChanged: (balance) => {
         this.runtime.setBalance(balance)
@@ -580,19 +563,30 @@ export class WalletManager extends EventEmitter {
   private unsubscribeAccount(): void {
     this.runtime.stopSubscription()
   }
+
+  private async refreshBridgeState(): Promise<void> {
+    await Promise.allSettled([
+      warmupWalletBridge(() => this.getBalance()).then((ready) => {
+        if (!ready) log.warn('Liteserver pool warmup: shard did not respond, proceeding with cached balance')
+      }),
+      this.syncSeqno(),
+    ])
+  }
+
   private syncSeqno(): Promise<void> {
     return this.runExclusive(() => this.syncSeqnoUnlocked(false))
   }
 
   private async syncSeqnoUnlocked(waitForPending: boolean): Promise<void> {
-    if (!this.wsBridge || !this.walletContract) return
+    const bridge = this.getBridge()
+    if (!bridge || !this.walletContract) return
     const address = this.getState().address
     const addressRaw = this.walletContract.address.toRawString()
     await this.runtime.syncSeqno(
       addressRaw,
       async () => {
         try {
-          return await this.wsBridge!.getSeqno(address)
+          return await bridge.getSeqno(address)
         } catch (error) {
           if (!isContractNotDeployedError(error)) throw error
           log.debug('Seqno sync: contract not yet deployed, using local seqno')
@@ -601,5 +595,9 @@ export class WalletManager extends EventEmitter {
       },
       waitForPending
     )
+  }
+
+  private getBridge(): WalletBridgePort | null {
+    return this.bridgeProvider.getBridge()
   }
 }

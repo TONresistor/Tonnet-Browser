@@ -5,9 +5,9 @@ import type { ProxyManager } from '../proxy/manager'
 import type { StorageManager } from '../storage/daemon'
 import type { HistoryManager } from '../history/manager'
 import type { WalletManager } from '../wallet/manager'
+import type { TonBridgeCoordinator } from '../ton-bridge/coordinator'
 import type { TonConnectService } from '../tonconnect/service'
 import type { BridgePermissionStore } from '../bridge/permission-store'
-import type { BridgePermissionInterceptor } from '../bridge/permission-interceptor'
 import type { TabManager } from '../windows/tabs'
 import type { ChatRuntimeSession, ChatSessionController } from '../chat/session-controller'
 import { getDefaultSettings, mergeSettingsPatch, transactSettings, type SettingsPatch } from './index'
@@ -17,9 +17,9 @@ export interface SettingsRuntimeDependencies {
   storageManager: StorageManager
   historyManager: HistoryManager
   walletManager: WalletManager
+  tonBridgeCoordinator: TonBridgeCoordinator
   tonConnectService: TonConnectService
   bridgePermissionStore: BridgePermissionStore
-  bridgeInterceptor: BridgePermissionInterceptor
   tabManager: TabManager
   chatSessionController: ChatSessionController<ChatRuntimeSession>
 }
@@ -84,7 +84,7 @@ export class SettingsCoordinator {
   }
 
   private async reconcile(previous: AppSettings, current: AppSettings, force = false): Promise<void> {
-    const { proxyManager, storageManager, tabManager, walletManager, bridgeInterceptor } = this.dependencies
+    const { proxyManager, storageManager, tabManager, walletManager, tonBridgeCoordinator } = this.dependencies
     const proxyChanged =
       force ||
       fieldsChanged(previous.network, current.network, ['proxyPort', 'wsPort', 'anonymousMode', 'tunnelMode']) ||
@@ -120,10 +120,7 @@ export class SettingsCoordinator {
     if (failures.length > 0) throw new AggregateError(failures.map((failure) => failure.reason))
 
     if (bridgeRestarted && proxyManager.isRunning()) {
-      await Promise.all([
-        walletManager.applyBridgePort(current.network.wsPort),
-        bridgeInterceptor.applyBridgePort(current.network.wsPort),
-      ])
+      await tonBridgeCoordinator.waitUntilReady(current.network.wsPort)
     }
     if (force || categoryChanged(previous, current, 'wallet')) {
       walletManager.setAutoLockMinutes(current.wallet.autoLockMinutes)

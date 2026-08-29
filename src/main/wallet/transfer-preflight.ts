@@ -1,5 +1,5 @@
 import type { MessageRelaxed } from '@ton/core'
-import type { EmulateTransactionResult } from '../ton-bridge/bridge-codecs'
+import type { EmulateTransactionResult } from '../ports/ton-bridge'
 import { buildExternalWalletBoc } from './wallet-boc'
 import type { WalletContractShape } from './wallet-versions'
 

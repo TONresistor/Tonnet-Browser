@@ -97,6 +97,11 @@
       "pattern": "window\\.electron\\.wallet"
     },
     {
+      "id": "bridge-consumers-must-use-narrow-providers",
+      "from": ["src/main/index.ts", "src/main/ipc", "src/main/settings"],
+      "pattern": "\\btonBridgeRuntime\\b|\\b(?:applyPort|applyBridgePort)\\s*\\("
+    },
+    {
       "id": "renderer-code-must-use-owned-clients",
       "from": [
         "src/renderer/src/App.tsx",
@@ -203,6 +208,15 @@
       "id": "cocoon-must-use-ton-bridge-port",
       "from": ["src/main/cocoon"],
       "to": ["src/main/ton-bridge/ws-bridge-client.ts"]
+    },
+    {
+      "id": "wallet-must-use-ton-bridge-provider",
+      "from": ["src/main/wallet"],
+      "to": [
+        "src/main/ton-bridge/runtime.ts",
+        "src/main/ton-bridge/ws-bridge-client.ts",
+        "src/main/ton-bridge/bridge-codecs.ts"
+      ]
     },
     {
       "id": "proxy-startup-must-not-own-window-scope",

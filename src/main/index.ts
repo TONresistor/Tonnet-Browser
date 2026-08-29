@@ -68,8 +68,7 @@ const applicationStartedAt = Date.now()
 /**
  * Run a deferred startup step (sync or async), logging on failure instead of
  * throwing, so one service failing to init/start cannot abort the rest of the
- * boot sequence. DRY: unifies the bare calls and ad-hoc .catch() at the
- * ws-bridge-ready hook into one guarded path.
+ * boot sequence.
  */
 function safeStartup(label: string, run: () => void | Promise<unknown>): void {
   try {
@@ -446,16 +445,23 @@ app.whenReady().then(async () => {
   await services.tonConnectService.init()
   if (!getSetting('advanced').tonConnectEnabled) await services.tonConnectService.clearSessions()
 
-  // Defer wallet + bridge interceptor init until WS bridge is ready (proxy must be running first)
-  services.proxyManager.once('ws-bridge-ready', () => {
-    safeStartup('Wallet init', () => services.walletManager.init())
-    safeStartup('Payment policy init', () => services.paymentPolicyStore.init())
-    safeStartup('Bridge interceptor init', () => services.bridgeInterceptor.init())
-    // Cocoon drivers need the bridge to do work, so start them here rather than
-    // at construction (avoids an immediate disk-reading tick before bridge ready).
-    safeStartup('Withdraw driver start', () => services.withdrawDriver.start())
-    safeStartup('Recovery driver start', () => services.recoveryDriver.start())
-    safeStartup('Cocoon autostart', () => autostartCocoonIfEnabled(services.cocoonManager))
+  safeStartup('Wallet init', () => services.walletManager.init())
+  safeStartup('Payment policy init', () => services.paymentPolicyStore.init())
+  safeStartup('Bridge interceptor init', async () => {
+    await services.tonBridgeCoordinator.whenReady()
+    services.bridgeInterceptor.init()
+  })
+  safeStartup('Withdraw driver start', async () => {
+    await services.tonBridgeCoordinator.whenReady()
+    await services.withdrawDriver.start()
+  })
+  safeStartup('Recovery driver start', async () => {
+    await services.tonBridgeCoordinator.whenReady()
+    await services.recoveryDriver.start()
+  })
+  safeStartup('Cocoon autostart', async () => {
+    await services.tonBridgeCoordinator.whenReady()
+    await autostartCocoonIfEnabled(services.cocoonManager)
   })
   createWindow()
 

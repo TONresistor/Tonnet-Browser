@@ -39,10 +39,10 @@ function createDependencies() {
       isActive: vi.fn(() => true),
     },
     historyManager: { applySettings: vi.fn(() => Promise.resolve()) },
-    walletManager: { setAutoLockMinutes: vi.fn(), applyBridgePort: vi.fn(() => Promise.resolve()) },
+    walletManager: { setAutoLockMinutes: vi.fn() },
+    tonBridgeCoordinator: { waitUntilReady: vi.fn(() => Promise.resolve()) },
     tonConnectService: { clearSessions: vi.fn(() => Promise.resolve()) },
     bridgePermissionStore: { clearSessionGrants: vi.fn() },
-    bridgeInterceptor: { applyBridgePort: vi.fn(() => Promise.resolve()) },
     tabManager: {
       updateProxyPort: vi.fn(() => Promise.resolve()),
       onAppearanceSettingsChanged: vi.fn(),

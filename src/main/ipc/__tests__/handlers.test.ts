@@ -319,11 +319,19 @@ function createMockRegistry(): ServiceRegistry {
         prepareEncryptedComment: vi.fn(() => Promise.resolve(beginCell().storeUint(1, 1).endCell())),
         send: vi.fn(),
         setAutoLockMinutes: vi.fn(),
-        getTonBridge: vi.fn(() => null),
-        getMessengerBridge: vi.fn(() => null),
         fetchOnChainHistory: vi.fn(() => []),
       })
     })() as any,
+    tonBridgeCoordinator: {
+      whenReady: vi.fn(() => Promise.resolve()),
+      waitUntilReady: vi.fn(() => Promise.resolve()),
+      destroy: vi.fn(() => Promise.resolve()),
+    } as any,
+    tonBridgeProviders: {
+      wallet: { getBridge: vi.fn(() => null), onBridgeChanged: vi.fn() },
+      ton: { getBridge: vi.fn(() => null), onBridgeChanged: vi.fn() },
+      messenger: { getBridge: vi.fn(() => null), onBridgeChanged: vi.fn() },
+    } as any,
     walletHistoryManager: {
       add: vi.fn(),
       getAll: vi.fn(() => []),
@@ -884,7 +892,7 @@ describe('IPC Handlers', () => {
         needsPasswordSetup: false,
         backupVerified: true,
       } as never)
-      vi.mocked(mockRegistry.walletManager.getTonBridge).mockReturnValueOnce({} as never)
+      vi.mocked(mockRegistry.tonBridgeProviders.wallet.getBridge).mockReturnValueOnce({} as never)
       vi.mocked(mockRegistry.walletManager.preflightTransfer).mockResolvedValueOnce({
         estimatedFee: '1',
         destinationStatus: 'active',
@@ -908,7 +916,7 @@ describe('IPC Handlers', () => {
         needsPasswordSetup: false,
         backupVerified: true,
       } as never)
-      vi.mocked(mockRegistry.walletManager.getTonBridge).mockReturnValueOnce({} as never)
+      vi.mocked(mockRegistry.tonBridgeProviders.wallet.getBridge).mockReturnValueOnce({} as never)
       vi.mocked(mockRegistry.walletManager.preflightTransfer).mockResolvedValueOnce({
         estimatedFee: '10000000',
         destinationStatus: 'active',
@@ -929,7 +937,7 @@ describe('IPC Handlers', () => {
         needsPasswordSetup: false,
         backupVerified: true,
       } as never)
-      vi.mocked(mockRegistry.walletManager.getTonBridge).mockReturnValue({} as never)
+      vi.mocked(mockRegistry.tonBridgeProviders.wallet.getBridge).mockReturnValue({} as never)
       vi.mocked(mockRegistry.walletManager.getBalance).mockResolvedValue('100000000')
       vi.mocked(mockRegistry.walletManager.resolveRecipient).mockResolvedValue({
         address: 'EQRecipient',
@@ -973,7 +981,7 @@ describe('IPC Handlers', () => {
         needsPasswordSetup: false,
         backupVerified: true,
       } as never)
-      vi.mocked(mockRegistry.walletManager.getTonBridge).mockReturnValue({} as never)
+      vi.mocked(mockRegistry.tonBridgeProviders.wallet.getBridge).mockReturnValue({} as never)
       vi.mocked(mockRegistry.walletManager.resolveRecipient).mockResolvedValue({ address: 'EQRecipient' })
       vi.mocked(mockRegistry.walletManager.prepareEncryptedComment).mockResolvedValue(encryptedBody)
       vi.mocked(mockRegistry.walletManager.send).mockResolvedValue({
@@ -1155,7 +1163,7 @@ describe('IPC Handlers', () => {
         if (category === 'messenger') return { networkEnabled: true, attachWalletIdentity: false }
         return {}
       }) as typeof getSetting)
-      vi.mocked(mockRegistry.walletManager.getMessengerBridge).mockReturnValue(bridge as any)
+      vi.mocked(mockRegistry.tonBridgeProviders.messenger.getBridge).mockReturnValue(bridge as any)
 
       const connect = mockHandlers.get(IPC_CHANNELS.CHAT_CONNECT)!
       const disconnect = mockHandlers.get(IPC_CHANNELS.CHAT_DISCONNECT)!
@@ -1452,7 +1460,7 @@ describe('Cocoon AI Handlers', () => {
   describe('COCOON_SETUP_OWNER_BALANCE', () => {
     it('returns the balance as a decimal nano-TON string', async () => {
       const mockBridge = { getBalance: vi.fn() }
-      vi.mocked(mockRegistry.walletManager.getTonBridge).mockReturnValueOnce(mockBridge as any)
+      vi.mocked(mockRegistry.tonBridgeProviders.ton.getBridge).mockReturnValueOnce(mockBridge as any)
       vi.mocked(getOwnerBalance).mockResolvedValueOnce(1_000_000_000n)
       const handler = mockHandlers.get(IPC_CHANNELS.COCOON_SETUP_OWNER_BALANCE)!
 
@@ -1463,7 +1471,7 @@ describe('Cocoon AI Handlers', () => {
     })
 
     it('returns error when bridge is not connected', async () => {
-      // getTonBridge returns null by default
+      // The shared Bridge runtime returns null by default.
       const handler = mockHandlers.get(IPC_CHANNELS.COCOON_SETUP_OWNER_BALANCE)!
 
       const result = await handler(createMockEvent())
@@ -1480,7 +1488,7 @@ describe('Cocoon AI Handlers', () => {
   describe('COCOON_SETUP_COCOON_BALANCE', () => {
     it('returns the cocoon node wallet balance as a decimal nano-TON string', async () => {
       const mockBridge = { getBalance: vi.fn() }
-      vi.mocked(mockRegistry.walletManager.getTonBridge).mockReturnValueOnce(mockBridge as any)
+      vi.mocked(mockRegistry.tonBridgeProviders.ton.getBridge).mockReturnValueOnce(mockBridge as any)
       vi.mocked(getCocoonWalletBalance).mockResolvedValueOnce(19_500_000_000n)
       const handler = mockHandlers.get(IPC_CHANNELS.COCOON_SETUP_COCOON_BALANCE)!
 
@@ -1507,7 +1515,7 @@ describe('Cocoon AI Handlers', () => {
   describe('COCOON_SETUP_FUND_COCOON', () => {
     it("'max' branch: passes 'max' to fundCocoonFromOwner and stringifies sentAmount", async () => {
       const mockBridge = {}
-      vi.mocked(mockRegistry.walletManager.getTonBridge).mockReturnValueOnce(mockBridge as any)
+      vi.mocked(mockRegistry.tonBridgeProviders.ton.getBridge).mockReturnValueOnce(mockBridge as any)
       vi.mocked(fundCocoonFromOwner).mockResolvedValueOnce({
         bocHash: 'abc123',
         seqno: 5,
@@ -1523,7 +1531,7 @@ describe('Cocoon AI Handlers', () => {
 
     it('explicit amount: converts decimal string to BigInt before delegating', async () => {
       const mockBridge = {}
-      vi.mocked(mockRegistry.walletManager.getTonBridge).mockReturnValueOnce(mockBridge as any)
+      vi.mocked(mockRegistry.tonBridgeProviders.ton.getBridge).mockReturnValueOnce(mockBridge as any)
       vi.mocked(fundCocoonFromOwner).mockResolvedValueOnce({
         bocHash: 'def456',
         seqno: 3,
@@ -1539,7 +1547,7 @@ describe('Cocoon AI Handlers', () => {
 
     it('returns error for a non-numeric amount string', async () => {
       const mockBridge = {}
-      vi.mocked(mockRegistry.walletManager.getTonBridge).mockReturnValueOnce(mockBridge as any)
+      vi.mocked(mockRegistry.tonBridgeProviders.ton.getBridge).mockReturnValueOnce(mockBridge as any)
       const handler = mockHandlers.get(IPC_CHANNELS.COCOON_SETUP_FUND_COCOON)!
 
       const result = await handler(createMockEvent(), { amount: 'not-a-number' })
@@ -1551,7 +1559,7 @@ describe('Cocoon AI Handlers', () => {
     })
 
     it('returns error when bridge is not connected', async () => {
-      // getTonBridge returns null by default
+      // The shared Bridge runtime returns null by default.
       const handler = mockHandlers.get(IPC_CHANNELS.COCOON_SETUP_FUND_COCOON)!
 
       const result = await handler(createMockEvent(), { amount: 'max' })
