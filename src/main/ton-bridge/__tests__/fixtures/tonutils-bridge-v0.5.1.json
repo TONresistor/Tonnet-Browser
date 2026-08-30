@@ -1,7 +1,7 @@
 {
   "helper": "tonutils-bridge",
-  "version": "v0.5.0",
-  "commit": "2cd73c52cf47ba33e2d3efbc4285fac05e0b1e2b",
+  "version": "v0.5.1",
+  "commit": "6b313f2f7773221b16b6394e99460e91382b3d79",
   "requests": [
     { "method": "dns.resolve", "params": { "domain": "site.ton" } },
     { "method": "adnl.connectByADNL", "params": { "adnl_id": "anchor" } },
