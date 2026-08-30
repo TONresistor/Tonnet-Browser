@@ -23,7 +23,7 @@
 ---
 
 <p align="center">
-  <img src="assets/screenshot.jpg" width="800">
+  <img src="assets/2-6-0.jpg" width="800">
 </p>
 
 > [!CAUTION]
@@ -125,7 +125,7 @@ ARM64 Linux builds are also published as `TON-Browser-2.6.0-arm64.AppImage` and 
 
 - Node.js 22+
 - npm 9+
-- Go 1.24+
+- The Go version declared in [`scripts/binary-versions.json`](scripts/binary-versions.json) (currently 1.26)
 
 ### Development
 
@@ -136,6 +136,12 @@ npm install
 bash scripts/build-binaries-from-source.sh
 npm run dev
 ```
+
+## Documentation
+
+- [Architecture](docs/ARCHITECTURE.md)
+- [Experimental features](docs/EXPERIMENTAL.md)
+- [Dependencies](docs/DEPENDENCIES.md)
 
 ## Tech Stack
 

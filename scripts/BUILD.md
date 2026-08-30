@@ -217,6 +217,4 @@ The GitHub Actions workflow (`.github/workflows/build.yml`) handles:
 3. Uploading binaries as artifacts
 4. Creating releases with all binaries attached
 
-To trigger a build:
-1. Create and push a tag: `git tag v1.0.0 && git push origin v1.0.0`
-2. Or use "Run workflow" in GitHub Actions for manual builds
+To publish, create an annotated `v*` tag on `main` and push it. A manual workflow run builds packages without creating a GitHub release.
