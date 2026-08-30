@@ -5,10 +5,12 @@ import type {
   WalletState,
   WalletTransaction,
 } from '../../shared/types'
+import type { WalletIdentitySnapshot } from './wallet-identity'
 
 export interface PaymentWalletPort {
   getState(): WalletState
-  signX402Payment(requirements: PaymentRequirements): Promise<ExactTonPayload>
+  getIdentitySnapshot(): WalletIdentitySnapshot | null
+  signX402Payment(requirements: PaymentRequirements, expectedIdentity: WalletIdentitySnapshot): Promise<ExactTonPayload>
 }
 
 export interface PaymentPolicyPort {

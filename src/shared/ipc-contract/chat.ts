@@ -35,19 +35,40 @@ const sendResult = z.object({
   pendingMembership: z.boolean().optional(),
   identity: OwnChatIdentitySchema.optional(),
 })
+const publicSendResult = z.discriminatedUnion('sent', [
+  z.object({
+    sent: z.literal(true),
+    id: z.string().regex(/^[0-9a-f]{64}$/),
+    ts: z.number().finite(),
+    identity: OwnChatIdentitySchema.optional(),
+  }),
+  z.object({
+    sent: z.literal(false),
+    needsLink: z.boolean().optional(),
+    pendingMembership: z.boolean().optional(),
+    identity: OwnChatIdentitySchema.optional(),
+  }),
+])
 
 export const chatConnectContract = defineRequest({
   ...mainBase,
   channel: CHAT_CHANNELS.connect,
   input: z.tuple([optionalInput, optionalInput]),
   output: z.object({ connected: z.literal(true), room: z.string().min(1), via: z.enum(['node', 'dht']) }),
-  errors: ['INVALID_ROOM', 'INVALID_NODE_ID', 'MESSENGER_DISABLED', 'BRIDGE_DISCONNECTED', 'ROOM_UNAVAILABLE'],
+  errors: [
+    'INVALID_ROOM',
+    'INVALID_NODE_ID',
+    'MESSENGER_DISABLED',
+    'BRIDGE_DISCONNECTED',
+    'ROOM_UNAVAILABLE',
+    'EXPERIMENTAL_FEATURE_DISABLED',
+  ],
 })
 export const chatSendContract = defineRequest({
   ...mainBase,
   channel: CHAT_CHANNELS.send,
   input: z.tuple([z.string().max(16_384)]),
-  output: sendResult,
+  output: publicSendResult,
   errors: ['CHAT_DISCONNECTED', 'SEND_FAILED'],
   redaction: 'secret',
 })
@@ -64,7 +85,7 @@ export const chatCreateRoomContract = defineRequest({
   channel: CHAT_CHANNELS.createRoom,
   input: z.tuple([z.string().min(1).max(512)]),
   output: z.object({ room: z.string().min(1) }),
-  errors: ['INVALID_ROOM', 'ROOM_CREATE_FAILED'],
+  errors: ['INVALID_ROOM', 'ROOM_CREATE_FAILED', 'EXPERIMENTAL_FEATURE_DISABLED'],
 })
 export const chatDisconnectContract = defineRequest({
   ...mainBase,
@@ -132,6 +153,19 @@ export const chatDmMessageContract = defineEvent({
   payload: z.tuple([ChatDmMessageSchema]),
   redaction: 'secret',
 })
+export const chatConnectionContract = defineEvent({
+  channel: CHAT_CHANNELS.connection,
+  direction: 'event',
+  recipient: 'main-renderer',
+  payload: z.tuple([
+    z.object({
+      room: z.string().min(1),
+      status: z.enum(['reconnecting', 'connected', 'error']),
+      attempt: z.number().int().positive().optional(),
+    }),
+  ]),
+  redaction: 'public',
+})
 
 export const CHAT_REQUEST_CONTRACTS = [
   chatConnectContract,
@@ -146,4 +180,4 @@ export const CHAT_REQUEST_CONTRACTS = [
   chatDetectDomainsContract,
   chatResetIdentityContract,
 ] as const
-export const CHAT_EVENT_CONTRACTS = [chatMessageContract, chatDmMessageContract] as const
+export const CHAT_EVENT_CONTRACTS = [chatMessageContract, chatDmMessageContract, chatConnectionContract] as const

@@ -5,7 +5,7 @@
 
 import { z } from 'zod'
 import { THEME_TOKEN_KEYS, type ThemeColorKey } from './theme-tokens'
-import { PAGE_ZOOM } from './constants'
+import { DEFAULT_TON_INDEXER_ENDPOINT, PAGE_ZOOM } from './constants'
 
 export function hasExplicitUndefined(value: unknown): boolean {
   if (value === undefined) return true
@@ -86,20 +86,11 @@ export const PrivacySettingsSchema = z.object({
   historyMaxEntries: z.number().min(100).max(100000).default(100),
 })
 
-export const ContentFilteringSettingsSchema = z.object({
-  enabled: z.boolean().default(true),
-  blockAds: z.boolean().default(true),
-  blockTrackers: z.boolean().default(true),
-  blockMiners: z.boolean().default(true),
-  blockMalware: z.boolean().default(true),
-  blockAnnoyances: z.boolean().default(true),
-  whitelistedDomains: z.array(z.string()).default([]),
-})
-
 export const AdvancedSettingsSchema = z.object({
   proxyVerbosity: z.number().min(0).max(5).default(2),
   storageVerbosity: z.number().min(0).max(5).default(2),
   displayUnicodeDomains: z.boolean().default(false),
+  tonConnectEnabled: z.boolean().default(false),
 })
 
 // --- Wallet Zod schemas ---
@@ -118,6 +109,25 @@ export const SitePolicySchema = z.object({
   lastPayment: z.number().optional(),
 })
 
+const LOOPBACK_INDEXER_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]', '::1'])
+
+export function isAllowedTonIndexerEndpoint(endpoint: URL): boolean {
+  return (
+    endpoint.protocol === 'https:' || (endpoint.protocol === 'http:' && LOOPBACK_INDEXER_HOSTS.has(endpoint.hostname))
+  )
+}
+
+const TonIndexerEndpointSchema = z
+  .string()
+  .url()
+  .refine((value) => {
+    try {
+      return isAllowedTonIndexerEndpoint(new URL(value))
+    } catch {
+      return false
+    }
+  }, 'Remote indexer endpoints must use HTTPS')
+
 export const WalletSettingsSchema = z.object({
   paymentMode: z.enum(['off', 'manual', 'auto']).default('off'),
   notificationStyle: z.enum(['popup', 'addressbar']).default('popup'),
@@ -130,7 +140,7 @@ export const WalletSettingsSchema = z.object({
   autoPayDomains: z.array(z.string()).default([]),
   autoLockMinutes: z.number().min(0).max(1440).default(5),
   indexerEnabled: z.boolean().default(false),
-  indexerEndpoint: z.string().default('https://toncenter.com/api/v3'),
+  indexerEndpoint: TonIndexerEndpointSchema.default(DEFAULT_TON_INDEXER_ENDPOINT),
   indexerApiKey: z.string().default(''),
 })
 
@@ -146,7 +156,7 @@ export const WalletSettingsPartialSchema = z
     autoPayDomains: z.array(z.string()),
     autoLockMinutes: z.number().min(0).max(1440),
     indexerEnabled: z.boolean(),
-    indexerEndpoint: z.string(),
+    indexerEndpoint: TonIndexerEndpointSchema,
     indexerApiKey: z.string(),
   })
   .partial()
@@ -226,7 +236,6 @@ export const AppSettingsSchema = z
     storage: withCategoryDefaults(StorageSettingsSchema),
     appearance: withCategoryDefaults(AppearanceSettingsSchema),
     privacy: withCategoryDefaults(PrivacySettingsSchema),
-    contentFiltering: withCategoryDefaults(ContentFilteringSettingsSchema),
     advanced: withCategoryDefaults(AdvancedSettingsSchema),
     wallet: withCategoryDefaults(WalletSettingsSchema),
     bridge: withCategoryDefaults(BridgeSettingsSchema),
@@ -270,8 +279,6 @@ export const AppearanceSettingsPartialSchema = partialUpdateSchema(AppearanceSet
 
 export const PrivacySettingsPartialSchema = partialUpdateSchema(PrivacySettingsSchema)
 
-export const ContentFilteringSettingsPartialSchema = partialUpdateSchema(ContentFilteringSettingsSchema)
-
 export const AdvancedSettingsPartialSchema = partialUpdateSchema(AdvancedSettingsSchema)
 
 // Derived TypeScript types from Zod schemas
@@ -282,7 +289,6 @@ export type NetworkSettings = z.infer<typeof NetworkSettingsSchema>
 export type StorageSettings = z.infer<typeof StorageSettingsSchema>
 export type AppearanceSettings = z.infer<typeof AppearanceSettingsSchema>
 export type PrivacySettings = z.infer<typeof PrivacySettingsSchema>
-export type ContentFilteringSettings = z.infer<typeof ContentFilteringSettingsSchema>
 export type AdvancedSettings = z.infer<typeof AdvancedSettingsSchema>
 export type AppSettings = z.infer<typeof AppSettingsSchema>
 

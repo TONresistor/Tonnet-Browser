@@ -60,14 +60,16 @@ export const StakePanel = memo(function StakePanel() {
       return
     }
     setWalletMissing(false)
-    const [stakeRes, walletInfoRes, nativeRes, ownerRes, cocoonRes, pendingRes] = await Promise.allSettled([
-      cocoonClient.stakeInfo(),
-      cocoonClient.walletInfo(),
-      walletClient.getBalance(),
-      cocoonClient.getOwnerBalance(),
-      cocoonClient.getCocoonWalletBalance(),
-      cocoonClient.flowPending(),
-    ])
+    const [stakeRes, walletInfoRes, nativeRes, nativeStateRes, ownerRes, cocoonRes, pendingRes] =
+      await Promise.allSettled([
+        cocoonClient.stakeInfo(),
+        cocoonClient.walletInfo(),
+        walletClient.getBalance(),
+        walletClient.getState(),
+        cocoonClient.getOwnerBalance(),
+        cocoonClient.getCocoonWalletBalance(),
+        cocoonClient.flowPending(),
+      ])
 
     const stakeInfo =
       stakeRes.status === 'fulfilled' ? (stakeRes.value as Parameters<typeof deriveStakeView>[0]['stakeInfo']) : null
@@ -76,9 +78,13 @@ export const StakePanel = memo(function StakePanel() {
         ? (walletInfoRes.value as { ownerAddress: string; nodeAddress: string })
         : null
     const nativeBalance = nativeRes.status === 'fulfilled' ? BigInt(nativeRes.value as string) : 0n
+    const nativeState = nativeStateRes.status === 'fulfilled' ? nativeStateRes.value : null
     const ownerBalance = ownerRes.status === 'fulfilled' ? BigInt(ownerRes.value as string) : 0n
     const cocoonBalance = cocoonRes.status === 'fulfilled' ? BigInt(cocoonRes.value as string) : 0n
-    const pending = pendingRes.status === 'fulfilled' ? (pendingRes.value as { startedAt: number } | null) : null
+    const pending =
+      pendingRes.status === 'fulfilled'
+        ? (pendingRes.value as Parameters<typeof deriveStakeView>[0]['pendingWithdraw'])
+        : null
 
     if (walletInfo) {
       const stakeBalance = stakeInfo && stakeInfo.status !== 'closed' ? BigInt(stakeInfo.stake) : 0n
@@ -96,6 +102,9 @@ export const StakePanel = memo(function StakePanel() {
         cocoonBalance,
         stakeInfo,
         pendingWithdraw: pending,
+        nativeWalletIdentity: nativeState
+          ? { publicKey: nativeState.publicKey, addressRaw: nativeState.addressRaw }
+          : null,
         nowSec: Math.floor(Date.now() / 1000),
       })
     )
@@ -302,7 +311,9 @@ function ViewBody({ view, actionPending, onStake, onUnstake, onCashout, t }: Vie
   const busy = actionPending !== null
   switch (view.kind) {
     case 'withdrawing':
-      return <WithdrawingView view={view} t={t} />
+      return (
+        <WithdrawingView view={view} busy={busy} pending={actionPending === 'unstake'} onRebind={onUnstake} t={t} />
+      )
 
     case 'active':
       return (
@@ -387,9 +398,15 @@ function ViewBody({ view, actionPending, onStake, onUnstake, onCashout, t }: Vie
 
 function WithdrawingView({
   view,
+  busy,
+  pending,
+  onRebind,
   t,
 }: {
   view: Extract<StakeView, { kind: 'withdrawing' }>
+  busy: boolean
+  pending: boolean
+  onRebind: () => void
   t: ReturnType<typeof useTranslation>['t']
 }) {
   const stageLabel = stageLabelKey(view.stage)
@@ -407,6 +424,17 @@ function WithdrawingView({
       <div className="rounded-card bg-elevation-3 px-3 py-2">
         <p className="text-xs text-muted-foreground">{t('cocoon.stake.withdrawAutoDesc')}</p>
       </div>
+      {view.needsRebind && (
+        <ActionButton
+          variant="gray"
+          className="w-full"
+          disabled={busy}
+          onClick={onRebind}
+          icon={pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowDownCircle className="h-4 w-4" />}
+        >
+          {t('cocoon.stake.flow.rebind')}
+        </ActionButton>
+      )}
     </div>
   )
 }

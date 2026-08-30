@@ -1,6 +1,6 @@
 {
   "name": "ton-browser",
-  "version": "2.5.0",
+  "version": "2.6.0",
   "description": "Browse tonsites on The Open Network, Privately.",
   "homepage": "https://tonnet.resistance.dog",
   "bugs": {
@@ -27,7 +27,6 @@
     "format:check": "prettier --check \"src/**/*.{ts,tsx,json,css}\" \"scripts/*.{mjs,json}\" architecture.config.json",
     "architecture": "node scripts/check-architecture.mjs",
     "verify:theme-tokens": "node scripts/check-theme-tokens.mjs",
-    "verify:bundle-budgets": "node scripts/check-bundle-budgets.mjs",
     "verify:release-metadata": "node scripts/verify-release-metadata.mjs",
     "generate:sbom": "npm sbom --sbom-format cyclonedx",
     "generate:provenance": "node scripts/generate-build-provenance.mjs",

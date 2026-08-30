@@ -19,6 +19,7 @@ import { Cell } from '@ton/core'
 import { createLogger } from '../../shared/logger'
 import { CocoonKeyStorage, type CocoonWalletData } from './wallet-storage'
 import { getCocoonBinaryPath, getCocoonResource } from './paths'
+import { toCocoonFundingAddress } from './funding-address'
 
 const log = createLogger('cocoon:wallet')
 const execFileAsync = promisify(execFile)
@@ -70,7 +71,11 @@ export async function generateCocoonWallet(): Promise<{
   await storage.save(data)
   log.info(`Generated Cocoon wallet: owner=${data.ownerAddress.slice(0, 8)}… node=${data.nodeAddress.slice(0, 8)}…`)
 
-  return { ownerAddress: data.ownerAddress, nodeAddress: data.nodeAddress, mnemonic: data.ownerMnemonic }
+  return {
+    ownerAddress: toCocoonFundingAddress(data.ownerAddress),
+    nodeAddress: data.nodeAddress,
+    mnemonic: data.ownerMnemonic,
+  }
 }
 
 /**
@@ -166,7 +171,7 @@ export async function getCocoonWalletInfo(): Promise<{
   const data = await loadCocoonWallet()
   if (!data) return null
   return {
-    ownerAddress: data.ownerAddress,
+    ownerAddress: toCocoonFundingAddress(data.ownerAddress),
     nodeAddress: data.nodeAddress,
     nodePublicKeyHex: data.nodePublicKeyHex,
     createdAt: data.createdAt,

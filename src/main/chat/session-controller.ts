@@ -16,6 +16,8 @@ export interface ChatRuntimeSession extends ManagedChatSession {
   via: 'node' | 'dht'
   bootstrap?: string
   peerId: string
+  clockOffsetSec: number
+  bindingChallenge: string
   gated: boolean
   ownerKey?: Buffer
   cert: Buffer | null

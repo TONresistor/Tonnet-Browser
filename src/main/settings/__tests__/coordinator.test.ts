@@ -39,10 +39,10 @@ function createDependencies() {
       isActive: vi.fn(() => true),
     },
     historyManager: { applySettings: vi.fn(() => Promise.resolve()) },
-    contentFilterManager: { applySettings: vi.fn() },
-    walletManager: { setAutoLockMinutes: vi.fn(), applyBridgePort: vi.fn(() => Promise.resolve()) },
+    walletManager: { setAutoLockMinutes: vi.fn() },
+    tonBridgeCoordinator: { waitUntilReady: vi.fn(() => Promise.resolve()) },
+    tonConnectService: { clearSessions: vi.fn(() => Promise.resolve()) },
     bridgePermissionStore: { clearSessionGrants: vi.fn() },
-    bridgeInterceptor: { applyBridgePort: vi.fn(() => Promise.resolve()) },
     tabManager: {
       updateProxyPort: vi.fn(() => Promise.resolve()),
       onAppearanceSettingsChanged: vi.fn(),
@@ -100,6 +100,16 @@ describe('SettingsCoordinator', () => {
     await coordinator.apply({ appearance: { defaultZoom: 150 } })
 
     expect(dependencies.tabManager.applyDefaultZoom).toHaveBeenCalledWith(150)
+  })
+
+  it('clears custom TON Connect sessions when the experimental feature is disabled', async () => {
+    current = AppSettingsSchema.parse({ advanced: { tonConnectEnabled: true } })
+    const dependencies = createDependencies()
+    const coordinator = new SettingsCoordinator(dependencies)
+
+    await coordinator.apply({ advanced: { tonConnectEnabled: false } })
+
+    expect(dependencies.tonConnectService.clearSessions).toHaveBeenCalledOnce()
   })
 
   it('waits for every runtime before publishing a batch', async () => {
@@ -198,6 +208,8 @@ describe('SettingsCoordinator', () => {
       overlayId: 'overlay',
       via: 'node',
       peerId: 'peer',
+      clockOffsetSec: 0,
+      bindingChallenge: '00'.repeat(32),
       gated: false,
       cert: null,
       dispose,
@@ -221,6 +233,8 @@ describe('SettingsCoordinator', () => {
       overlayId: 'overlay',
       via: 'node',
       peerId: 'peer',
+      clockOffsetSec: 0,
+      bindingChallenge: '00'.repeat(32),
       gated: false,
       cert: null,
       dispose,

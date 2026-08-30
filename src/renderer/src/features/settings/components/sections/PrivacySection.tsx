@@ -11,7 +11,6 @@ import { Segmented } from '@/components/ui/ios/Segmented'
 import { StepperInput } from '../shared/StepperInput'
 import { OpenPageButton } from '../shared/OpenPageButton'
 import { useAddBrowserTab } from '@/features/browser/navigation'
-import { ContentProtectionPanel } from './ContentProtectionPanel'
 import type { SectionProps } from '../types'
 import { useTranslation } from 'react-i18next'
 
@@ -120,10 +119,6 @@ export const PrivacySection = memo(function PrivacySection({
             </SettingRow>
           </div>
         )}
-      </div>
-
-      <div className="mt-6">
-        <ContentProtectionPanel draft={draft} setDraft={setDraft} />
       </div>
 
       {/* History */}

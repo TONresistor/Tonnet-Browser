@@ -71,6 +71,13 @@ export interface IpcEventMap {
       identity: import('./types').ChatIdentityInfo
     },
   ]
+  'chat:connection': [
+    event: {
+      room: string
+      status: 'reconnecting' | 'connected' | 'error'
+      attempt?: number
+    },
+  ]
   'cocoon:state-changed': [state: CocoonState]
   'cocoon:log': [event: CocoonLogEvent]
   'cocoon:withdraw:event': [event: WithdrawDriverEvent]

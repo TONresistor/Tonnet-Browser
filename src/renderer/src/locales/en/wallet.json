@@ -13,7 +13,7 @@
   },
   "send": {
     "recipientLabel": "Recipient Address",
-    "recipientPlaceholder": "EQ... or 0:...",
+    "recipientPlaceholder": "EQ.., UQ.. or .ton",
     "amountLabel": "Amount",
     "feeNote": "Network fee: {{fee}} GRAM",
     "reviewButton": "Review Transaction",
@@ -34,7 +34,11 @@
     "commentLabel": "Comment (optional)",
     "comment": "Comment",
     "commentPlaceholder": "Memo or note",
-    "commentNote": "Stored on-chain in clear text"
+    "commentNote": "Stored on-chain in clear text",
+    "encryptedLabel": "Encrypted",
+    "encryptedAria": "Encrypt comment",
+    "encryptedNote": "Only the sender and recipient can read it",
+    "privacy": "Privacy"
   },
   "receive": {
     "addressLabel": "Your Wallet Address",
@@ -74,7 +78,7 @@
   },
   "import": {
     "title": "Import Wallet",
-    "description": "Enter your 24-word recovery phrase",
+    "description": "Enter your 24-word TON recovery phrase",
     "placeholder": "Enter 24 words separated by spaces...",
     "button": "Import Wallet",
     "importing": "Importing...",
@@ -93,12 +97,19 @@
   },
   "backup": {
     "title": "Save Your Recovery Phrase",
-    "warning": "Write down these 24 words and keep them safe.",
+    "warning": "Write down these {{count}} words and keep them safe.",
     "warningDesc": "This is the only way to recover your wallet. If you lose these words, your funds are lost forever. Never share them with anyone.",
-    "yourPhrase": "Your 24-word recovery phrase",
+    "yourPhrase": "Your {{count}}-word recovery phrase",
     "copy": "Copy to Clipboard",
-    "acknowledgement": "I confirm that I have securely recorded my 24-word recovery phrase. I understand that without it, there is no way to recover my wallet or funds.",
-    "confirm": "Continue"
+    "acknowledgement": "I confirm that I have securely recorded my recovery phrase. I understand that without it, there is no way to recover my wallet or funds.",
+    "confirm": "Continue",
+    "continueVerification": "I saved it — continue",
+    "preparing": "Preparing verification…",
+    "verifyTitle": "Confirm your backup",
+    "verifyDescription": "Use the recovery phrase you saved. It is no longer displayed on this page.",
+    "wordNumber": "Word #{{number}}",
+    "verifyButton": "Verify backup",
+    "verifying": "Verifying…"
   },
   "create": {
     "title": "Create Wallet",
@@ -152,7 +163,7 @@
   },
   "recovery": {
     "title": "Wallet Recovery Required",
-    "description": "Your system keyring has changed. Your wallet data is still on disk but cannot be decrypted. Import your 24-word recovery phrase to restore access.",
+    "description": "Your system keyring has changed. Your wallet data is still on disk but cannot be decrypted. Import your 24-word TON recovery phrase to restore access.",
     "importButton": "Import Wallet",
     "orCreateNew": "or create a new wallet",
     "weakEncryption": "Weak encryption: no system keyring detected. Your wallet is protected with basic encryption only."
@@ -172,7 +183,7 @@
   "delete": {
     "button": "Delete Wallet",
     "title": "Delete Wallet",
-    "warning": "This will permanently delete your wallet from this device. Make sure you have backed up your 24-word recovery phrase. Without it, your funds will be lost forever.",
+    "warning": "This will permanently delete your wallet and local backups from this device. Make sure you have recorded your recovery phrase.",
     "description": "Permanently removes the wallet from this device. Make sure you have your recovery phrase before proceeding."
   },
   "overview": {

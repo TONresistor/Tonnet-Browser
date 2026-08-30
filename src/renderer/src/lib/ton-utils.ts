@@ -1,9 +1,10 @@
 // Canonical .ton validation lives in shared so main and renderer agree.
+import { WALLET_TX_FEE_RESERVE_NANO } from '@shared/constants'
 import { isTonDomain, TON_DOMAIN_REGEX } from '@shared/utils/ton'
 export { isTonDomain, TON_DOMAIN_REGEX }
 
 /** Network fee/gas reserve held back when sending the full balance (0.01 TON, in nanoton). */
-export const TX_FEE_RESERVE_NANO = 10_000_000n
+export const TX_FEE_RESERVE_NANO = WALLET_TX_FEE_RESERVE_NANO
 
 const NANO_PER_TON = 1_000_000_000n
 

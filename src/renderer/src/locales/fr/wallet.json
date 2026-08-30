@@ -34,7 +34,11 @@
     "commentLabel": "Commentaire (optionnel)",
     "comment": "Commentaire",
     "commentPlaceholder": "Mémo ou note",
-    "commentNote": "Stocké en clair sur la blockchain"
+    "commentNote": "Stocké en clair sur la blockchain",
+    "encryptedLabel": "Chiffré",
+    "encryptedAria": "Chiffrer le commentaire",
+    "encryptedNote": "Seuls l'expéditeur et le destinataire peuvent le lire",
+    "privacy": "Confidentialité"
   },
   "receive": {
     "addressLabel": "Ton adresse de portefeuille",
@@ -74,7 +78,7 @@
   },
   "import": {
     "title": "Importer un portefeuille",
-    "description": "Entre ta phrase de récupération de 24 mots",
+    "description": "Entre ta phrase de récupération TON de 24 mots",
     "placeholder": "Entre 24 mots séparés par des espaces...",
     "button": "Importer le portefeuille",
     "importing": "Importation...",
@@ -93,12 +97,19 @@
   },
   "backup": {
     "title": "Sauvegarde ta phrase de récupération",
-    "warning": "Note ces 24 mots et conserve-les en lieu sûr.",
+    "warning": "Note ces {{count}} mots et conserve-les en lieu sûr.",
     "warningDesc": "C'est le seul moyen de récupérer ton portefeuille. Si tu perds ces mots, tes fonds seront perdus définitivement. Ne les partage jamais avec personne.",
-    "yourPhrase": "Ta phrase de récupération de 24 mots",
+    "yourPhrase": "Ta phrase de récupération de {{count}} mots",
     "copy": "Copier dans le presse-papiers",
-    "acknowledgement": "Je confirme avoir enregistré ma phrase de récupération de 24 mots en lieu sûr. Je comprends que sans elle, il sera impossible de récupérer mon portefeuille ou mes fonds.",
-    "confirm": "Continuer"
+    "acknowledgement": "Je confirme avoir enregistré ma phrase de récupération en lieu sûr. Je comprends que sans elle, il sera impossible de récupérer mon portefeuille ou mes fonds.",
+    "confirm": "Continuer",
+    "continueVerification": "Je l'ai sauvegardée — continuer",
+    "preparing": "Préparation de la vérification…",
+    "verifyTitle": "Confirme ta sauvegarde",
+    "verifyDescription": "Utilise la phrase de récupération que tu as sauvegardée. Elle n'est plus affichée sur cette page.",
+    "wordNumber": "Mot n°{{number}}",
+    "verifyButton": "Vérifier la sauvegarde",
+    "verifying": "Vérification…"
   },
   "create": {
     "title": "Créer un portefeuille",
@@ -164,7 +175,7 @@
   },
   "recovery": {
     "title": "Récupération du portefeuille requise",
-    "description": "Votre trousseau système a changé. Vos données sont toujours sur le disque mais ne peuvent pas être déchiffrées. Importez vos 24 mots de récupération pour restaurer l'accès.",
+    "description": "Votre trousseau système a changé. Vos données sont toujours sur le disque mais ne peuvent pas être déchiffrées. Importez votre phrase TON de 24 mots pour restaurer l'accès.",
     "importButton": "Restaurer le portefeuille",
     "orCreateNew": "ou créer un nouveau portefeuille",
     "weakEncryption": "Chiffrement faible : aucun trousseau système détecté. Votre portefeuille n'est protégé que par un chiffrement basique."
@@ -172,7 +183,7 @@
   "delete": {
     "button": "Supprimer le portefeuille",
     "title": "Supprimer le portefeuille",
-    "warning": "Cette action supprimera définitivement votre portefeuille de cet appareil. Assurez-vous d'avoir sauvegardé votre phrase de récupération de 24 mots. Sans elle, vos fonds seront perdus à jamais.",
+    "warning": "Cette action supprimera définitivement le portefeuille et ses sauvegardes locales. Vérifiez que votre phrase de récupération est enregistrée.",
     "description": "Supprime définitivement le portefeuille de cet appareil. Assurez-vous d'avoir votre phrase de récupération avant de continuer."
   },
   "overview": {

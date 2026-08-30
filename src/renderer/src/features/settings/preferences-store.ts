@@ -56,18 +56,11 @@ export interface AppPreferences {
   historyMode: 'memory' | 'persistent'
   historyMaxEntries: number
 
-  contentFilteringEnabled: boolean
-  blockAds: boolean
-  blockTrackers: boolean
-  blockMiners: boolean
-  blockMalware: boolean
-  blockAnnoyances: boolean
-  whitelistedDomains: string[]
-
   // Advanced
   proxyVerbosity: number
   storageVerbosity: number
   displayUnicodeDomains: boolean
+  tonConnectEnabled: boolean
 
   // Cocoon AI
   cocoonAutostart: boolean
@@ -134,18 +127,11 @@ export const defaultPreferences: AppPreferences = {
   cookieAutoDelete: DEFAULT_SETTINGS.cookieAutoDelete,
   cookieAutoDeleteMinutes: DEFAULT_SETTINGS.cookieAutoDeleteMinutes,
 
-  contentFilteringEnabled: DEFAULT_SETTINGS.contentFiltering.enabled,
-  blockAds: DEFAULT_SETTINGS.contentFiltering.blockAds,
-  blockTrackers: DEFAULT_SETTINGS.contentFiltering.blockTrackers,
-  blockMiners: DEFAULT_SETTINGS.contentFiltering.blockMiners,
-  blockMalware: DEFAULT_SETTINGS.contentFiltering.blockMalware,
-  blockAnnoyances: DEFAULT_SETTINGS.contentFiltering.blockAnnoyances,
-  whitelistedDomains: DEFAULT_SETTINGS.contentFiltering.whitelistedDomains,
-
   // Advanced
   proxyVerbosity: DEFAULT_SETTINGS.proxyVerbosity,
   storageVerbosity: DEFAULT_SETTINGS.storageVerbosity,
   displayUnicodeDomains: DEFAULT_SETTINGS.displayUnicodeDomains,
+  tonConnectEnabled: DEFAULT_SETTINGS.tonConnectEnabled,
 
   // Cocoon AI
   cocoonAutostart: DEFAULT_SETTINGS.cocoon.autostart,
@@ -192,16 +178,10 @@ const prefToCategory: Record<keyof AppPreferences, PreferenceMapping> = {
   cookieAutoDeleteMinutes: { category: 'privacy', field: 'cookieAutoDeleteMinutes' },
   historyMode: { category: 'privacy', field: 'historyMode' },
   historyMaxEntries: { category: 'privacy', field: 'historyMaxEntries' },
-  contentFilteringEnabled: { category: 'contentFiltering', field: 'enabled' },
-  blockAds: { category: 'contentFiltering', field: 'blockAds' },
-  blockTrackers: { category: 'contentFiltering', field: 'blockTrackers' },
-  blockMiners: { category: 'contentFiltering', field: 'blockMiners' },
-  blockMalware: { category: 'contentFiltering', field: 'blockMalware' },
-  blockAnnoyances: { category: 'contentFiltering', field: 'blockAnnoyances' },
-  whitelistedDomains: { category: 'contentFiltering', field: 'whitelistedDomains' },
   proxyVerbosity: { category: 'advanced', field: 'proxyVerbosity' },
   storageVerbosity: { category: 'advanced', field: 'storageVerbosity' },
   displayUnicodeDomains: { category: 'advanced', field: 'displayUnicodeDomains' },
+  tonConnectEnabled: { category: 'advanced', field: 'tonConnectEnabled' },
   cocoonAutostart: { category: 'cocoon', field: 'autostart' },
   messengerNetworkEnabled: { category: 'messenger', field: 'networkEnabled' },
 }
@@ -220,11 +200,6 @@ function mainSettingsToPrefs(settings: AppSettings): AppPreferences {
   return result as AppPreferences
 }
 
-/**
- * Value-equality for a single preference. Arrays (e.g. whitelistedDomains) are
- * compared by content, everything else by identity. Used by BOTH the dirty
- * check and the save() diff so they can never disagree.
- */
 function prefValueChanged(a: unknown, b: unknown): boolean {
   if (Array.isArray(a) && Array.isArray(b)) {
     return JSON.stringify(a) !== JSON.stringify(b)

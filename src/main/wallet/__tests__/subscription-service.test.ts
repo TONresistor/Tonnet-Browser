@@ -34,8 +34,22 @@ describe('WalletSubscriptionService', () => {
     service.start(setupResult.bridge, 'address', setupResult.callbacks)
     const accountCallback = setupResult.bridge.subscribeAccountState.mock.calls[0][1]
     const transactionCallback = setupResult.bridge.subscribeTransactions.mock.calls[0][1]
-    accountCallback({ balance: '10', last_transaction_lt: '', last_transaction_hash: '', seqno: 0 })
-    accountCallback({ balance: '11', last_transaction_lt: '', last_transaction_hash: '', seqno: 0 })
+    accountCallback({
+      address: 'EQAddress',
+      balance: '10',
+      status: 'active',
+      last_tx_lt: '',
+      last_tx_hash: '',
+      block_seqno: 0,
+    })
+    accountCallback({
+      address: 'EQAddress',
+      balance: '11',
+      status: 'active',
+      last_tx_lt: '',
+      last_tx_hash: '',
+      block_seqno: 0,
+    })
     transactionCallback({ hash: 'hash', lt: '1', now: 1 })
     expect(setupResult.callbacks.balanceChanged).toHaveBeenCalledOnce()
     expect(setupResult.callbacks.balanceChanged).toHaveBeenCalledWith('11')

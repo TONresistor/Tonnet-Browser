@@ -9,7 +9,6 @@ import Lottie from 'lottie-react'
 import explorerAnimation from '@/assets/explorer.json'
 import explorerYellowAnimation from '@/assets/explorer-yellow.json'
 import tonIcon from '@/assets/ton.png'
-import { APP_VERSION } from '@shared/constants'
 import { processNavigationInput } from '@/lib/url-utils'
 import { usePreferences } from '@/features/settings/preferences-store'
 import { useTranslation } from 'react-i18next'
@@ -58,8 +57,6 @@ export function StartPage() {
           </button>
         </div>
       </form>
-
-      <div className="absolute bottom-8 text-muted-foreground/50 text-xs">v{APP_VERSION}</div>
     </div>
   )
 }

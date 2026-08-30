@@ -85,7 +85,7 @@ vi.mock('electron', () => ({
 }))
 
 // Import after mocks
-import { WalletKeyStorage, WalletDecryptionError } from '../key-storage'
+import { WalletKeyStorage, WalletDecryptionError, WalletSystemStorageError } from '../key-storage'
 import { mnemonicToPrivateKey } from '@ton/crypto'
 
 // --- Helpers ---
@@ -96,6 +96,10 @@ function makeEncryptedBuffer(data: object, storage: InMemorySecureStorage): Buff
   const json = JSON.stringify(data)
   const encrypted = storage.encrypt(json)
   return Buffer.concat([SENC_MARKER, encrypted]) as Buffer<ArrayBuffer>
+}
+
+function getLastAtomicWrite(): Buffer<ArrayBuffer> {
+  return Buffer.from(atomicHandleWriteFile.mock.calls.at(-1)?.[0] as Uint8Array)
 }
 
 // --- Tests ---
@@ -115,6 +119,7 @@ describe('WalletKeyStorage', () => {
   // 1. generateFromMnemonic() produces 24 words and stores encrypted
   describe('generateFromMnemonic()', () => {
     it('produces 24-word mnemonic and writes encrypted file', async () => {
+      vi.mocked(fs.readFile).mockImplementation(async () => getLastAtomicWrite())
       const { keypair } = await ks.generateFromMnemonic()
 
       expect(keypair.publicKey).toBeInstanceOf(Buffer)
@@ -132,12 +137,19 @@ describe('WalletKeyStorage', () => {
       expect(buf.subarray(0, 4).toString()).toBe('SENC')
       const document = JSON.parse(storage.decrypt(buf.subarray(4)))
       expect(document).toMatchObject({
-        schemaVersion: 1,
-        data: { type: 'mnemonic', mnemonic: Array(24).fill('test') },
+        schemaVersion: 3,
+        data: {
+          type: 'device',
+          backupVerified: false,
+          walletVersion: 'v5R1',
+          mnemonicScheme: 'ton',
+          secret: { type: 'mnemonic', mnemonic: Array(24).fill('test') },
+        },
       })
     })
 
     it('returns mnemonic array of length 24', async () => {
+      vi.mocked(fs.readFile).mockImplementation(async () => getLastAtomicWrite())
       const { mnemonic, keypair } = await ks.generateFromMnemonic()
 
       expect(mnemonic).toHaveLength(24)
@@ -152,6 +164,20 @@ describe('WalletKeyStorage', () => {
     it('throws if encryption is unavailable', async () => {
       storage.setAvailable(false)
       await expect(ks.generateFromMnemonic()).rejects.toThrow('Secure storage is not available')
+    })
+
+    it('removes a newly written wallet when persisted identity verification fails', async () => {
+      const generated = { publicKey: Buffer.alloc(32, 7), secretKey: Buffer.alloc(64, 8) }
+      const reopened = { publicKey: Buffer.alloc(32, 9), secretKey: Buffer.alloc(64, 10) }
+      vi.mocked(mnemonicToPrivateKey).mockResolvedValueOnce(generated).mockResolvedValueOnce(reopened)
+      vi.mocked(fs.readFile).mockImplementation(async () => getLastAtomicWrite())
+      vi.mocked(fs.unlink).mockResolvedValue(undefined)
+
+      await expect(ks.generateFromMnemonic()).rejects.toThrow('identity mismatch')
+
+      expect(fs.unlink).toHaveBeenCalledWith('/tmp/test/wallet-key.dat')
+      expect(generated.secretKey.every((byte) => byte === 0)).toBe(true)
+      expect(reopened.secretKey.every((byte) => byte === 0)).toBe(true)
     })
   })
 
@@ -284,6 +310,7 @@ describe('WalletKeyStorage', () => {
       vi.mocked(fs.readFile)
         .mockResolvedValueOnce(rawSeed) // initial read
         .mockResolvedValueOnce(rawSeed) // verify read: still raw = verification fails
+        .mockResolvedValue(rawSeed)
 
       vi.mocked(fs.access).mockRejectedValue(Object.assign(new Error(), { code: 'ENOENT' })) // no bak
       vi.mocked(fs.copyFile).mockResolvedValue(undefined)
@@ -292,12 +319,10 @@ describe('WalletKeyStorage', () => {
       vi.mocked(fs.rename).mockResolvedValue(undefined)
       vi.mocked(fs.unlink).mockResolvedValue(undefined)
 
-      // load() still returns the seed (from memory), migration failure is logged but non-fatal
-      const result = await ks.load()
-      expect(result.publicKey.length).toBe(32)
+      await expect(ks.load()).rejects.toThrow('Legacy wallet migration failed')
 
       // backup was created but NOT deleted (verification failed)
-      expect(fs.copyFile).toHaveBeenCalledOnce()
+      expect(fs.copyFile).toHaveBeenCalledTimes(2)
       // unlink may be called for tmp cleanup but never for the bak path
       const unlinkCalls = vi.mocked(fs.unlink).mock.calls.map(([p]) => p as string)
       expect(unlinkCalls.every((p) => !p.endsWith('.pre-migration.bak'))).toBe(true)
@@ -320,6 +345,7 @@ describe('WalletKeyStorage', () => {
       vi.mocked(fs.readFile)
         .mockResolvedValueOnce(rawSeed) // initial readData read
         .mockResolvedValueOnce(encryptedBuf) // verifySeedFile read (main file already valid)
+        .mockResolvedValue(encryptedBuf)
 
       // bak file exists
       vi.mocked(fs.access).mockResolvedValue(undefined)
@@ -357,6 +383,7 @@ describe('WalletKeyStorage', () => {
         .mockResolvedValueOnce(rawSeed) // readData initial
         .mockResolvedValueOnce(rawSeed) // verifySeedFile after bak detected → fail (still raw)
         .mockResolvedValueOnce(encryptedBuf) // verifySeedFile after write → success
+        .mockResolvedValue(encryptedBuf)
 
       vi.mocked(fs.access).mockResolvedValue(undefined) // bak exists
       vi.mocked(fs.copyFile).mockResolvedValue(undefined)
@@ -386,6 +413,14 @@ describe('WalletKeyStorage', () => {
       await expect(ks.load()).rejects.toThrow(WalletDecryptionError)
     })
 
+    it('reports unavailable system storage separately', async () => {
+      storage.setAvailable(false)
+      const garbled = Buffer.concat([SENC_MARKER, Buffer.from('not-encrypted-data')])
+      vi.mocked(fs.readFile).mockResolvedValue(garbled)
+
+      await expect(ks.load()).rejects.toThrow(WalletSystemStorageError)
+    })
+
     it('throws on missing wallet file', async () => {
       vi.mocked(fs.readFile).mockRejectedValue(Object.assign(new Error(), { code: 'ENOENT' }))
 
@@ -404,7 +439,7 @@ describe('WalletKeyStorage', () => {
 
       ks.lock()
 
-      expect(ks.isLocked()).toBe(true)
+      expect(ks.isLocked()).toBe(false)
       // Public key retained, secret key gone
       expect(ks.getPublicKey()).not.toBeNull()
     })
@@ -420,7 +455,7 @@ describe('WalletKeyStorage', () => {
       ks.lock()
       ks.lock() // second call on an already-locked wallet must be a safe no-op
 
-      expect(ks.isLocked()).toBe(true) // still locked, not corrupted
+      expect(ks.isLocked()).toBe(false)
       expect(ks.getPublicKey()).toEqual(publicKey) // public key retained
     })
   })
@@ -438,6 +473,8 @@ describe('WalletKeyStorage', () => {
     it('locks wallet after auto-lock timeout', async () => {
       const data = { type: 'mnemonic', mnemonic: Array(24).fill('test') }
       vi.mocked(fs.readFile).mockResolvedValue(makeEncryptedBuffer(data, storage))
+      const onLock = vi.fn()
+      ks.setOnLock(onLock)
 
       await ks.load()
       expect(ks.isLocked()).toBe(false)
@@ -445,7 +482,8 @@ describe('WalletKeyStorage', () => {
       // Default auto-lock is 5 minutes (300000ms)
       vi.advanceTimersByTime(5 * 60 * 1000)
 
-      expect(ks.isLocked()).toBe(true)
+      expect(ks.isLocked()).toBe(false)
+      expect(onLock).toHaveBeenCalledOnce()
     })
 
     it('setAutoLockMinutes(0) disables auto-lock', async () => {
@@ -469,7 +507,7 @@ describe('WalletKeyStorage', () => {
 
       vi.advanceTimersByTime(60 * 1000)
 
-      expect(ks.isLocked()).toBe(true)
+      expect(ks.isLocked()).toBe(false)
     })
   })
 
@@ -504,7 +542,15 @@ describe('WalletKeyStorage', () => {
     it('deleteFile calls unlink', async () => {
       vi.mocked(fs.unlink).mockResolvedValue(undefined)
       await ks.deleteFile()
-      expect(fs.unlink).toHaveBeenCalledOnce()
+      expect(fs.unlink).toHaveBeenCalledTimes(5)
+      expect(vi.mocked(fs.unlink).mock.calls.map(([path]) => String(path))).toEqual(
+        expect.arrayContaining([
+          expect.stringContaining('wallet-key.dat'),
+          expect.stringContaining('wallet-key.dat.pre-migration.bak'),
+          expect.stringContaining('wallet-key.dat.pre-password.bak'),
+          expect.stringContaining('wallet-key.dat.pre-import.bak'),
+        ])
+      )
     })
 
     it('deleteFile ignores ENOENT', async () => {

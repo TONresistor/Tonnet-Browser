@@ -22,7 +22,6 @@ import type { OverlayManager } from './overlay-manager'
 import type { ProxyManager } from '../proxy/manager'
 import type { StorageManager } from '../storage/daemon'
 import type { HistoryManager } from '../history/manager'
-import type { ContentFilterManager } from '../content-filter/filter-manager'
 import type { PaymentInterceptor } from '../wallet/payment-interceptor'
 
 import { DEFAULT_SETTINGS } from '../../shared/defaults'
@@ -111,7 +110,6 @@ export class TabManager {
       handleZoomInput: (input) => this.pageZoom.handleInput(input),
     }
     this.sessions.initialize({
-      contentFilterManager: deps.contentFilterManager,
       paymentInterceptor: deps.paymentInterceptor,
     })
     this.sessionsActive = true
@@ -345,7 +343,6 @@ export interface TabManagerDeps {
   proxyManager: ProxyManager
   storageManager: StorageManager
   historyManager: HistoryManager
-  contentFilterManager: ContentFilterManager
   paymentInterceptor: PaymentInterceptor
 }
 

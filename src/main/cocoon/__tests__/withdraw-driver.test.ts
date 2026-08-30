@@ -47,10 +47,16 @@ import { driveCurrentWithdrawStep } from '../current-withdraw'
 import { getStakeInfo, cashout } from '../unstake'
 import { retireCurrentCocoonWallet } from '../retire-wallet'
 import type { CocoonManager } from '../manager'
-import type { WsBridgeClient } from '../../wallet/ws-bridge-client'
+import type { WsBridgeClient } from '../../ton-bridge/ws-bridge-client'
 import type { CocoonStakeInfo, CocoonStakeStatus } from '../../../shared/cocoon-types'
 
 const ADDR = 'EQCns7bYSp0igFvS1wpb5wsZjCKCV19MD5AVzI4EyxsnU73k'
+const NATIVE_IDENTITY = { publicKey: '11'.repeat(32), addressRaw: ADDR, revision: 1 }
+const BOUND_INTENT = {
+  startedAt: 1,
+  nativeWalletPublicKey: NATIVE_IDENTITY.publicKey,
+  nativeWalletAddress: NATIVE_IDENTITY.addressRaw,
+}
 
 function makeManager(state: 'stopped' | 'ready' = 'ready'): CocoonManager {
   const emitter = new EventEmitter()
@@ -102,7 +108,7 @@ describe('WithdrawDriver.tick (no pending intent)', () => {
     const driver = new WithdrawDriver(
       manager,
       () => makeBridge(),
-      () => ADDR,
+      () => NATIVE_IDENTITY,
       persistence
     )
     driver.triggerTick()
@@ -111,12 +117,12 @@ describe('WithdrawDriver.tick (no pending intent)', () => {
   })
 
   it('returns early when bridge is offline', async () => {
-    cacheStore.load.mockResolvedValue({ cachedAt: 0, pendingWithdraw: { startedAt: 1 } })
+    cacheStore.load.mockResolvedValue({ cachedAt: 0, pendingWithdraw: BOUND_INTENT })
     const manager = makeManager('ready')
     const driver = new WithdrawDriver(
       manager,
       () => null,
-      () => ADDR,
+      () => NATIVE_IDENTITY,
       persistence
     )
     driver.triggerTick()
@@ -127,7 +133,7 @@ describe('WithdrawDriver.tick (no pending intent)', () => {
 
 describe('WithdrawDriver.tick (cooldown sub-states)', () => {
   beforeEach(() => {
-    cacheStore.load.mockResolvedValue({ cachedAt: 0, pendingWithdraw: { startedAt: 1 } })
+    cacheStore.load.mockResolvedValue({ cachedAt: 0, pendingWithdraw: BOUND_INTENT })
   })
 
   it('waits during status=closing', async () => {
@@ -136,7 +142,7 @@ describe('WithdrawDriver.tick (cooldown sub-states)', () => {
     const driver = new WithdrawDriver(
       manager,
       () => makeBridge(),
-      () => ADDR,
+      () => NATIVE_IDENTITY,
       persistence
     )
     const events: unknown[] = []
@@ -157,7 +163,7 @@ describe('WithdrawDriver.tick (cooldown sub-states)', () => {
     const driver = new WithdrawDriver(
       manager,
       () => makeBridge(),
-      () => ADDR,
+      () => NATIVE_IDENTITY,
       persistence
     )
     driver.triggerTick()
@@ -171,23 +177,28 @@ describe('WithdrawDriver.tick (cooldown sub-states)', () => {
 
 describe('WithdrawDriver.tick (refundable)', () => {
   beforeEach(() => {
-    cacheStore.load.mockResolvedValue({ cachedAt: 0, pendingWithdraw: { startedAt: 1 } })
+    cacheStore.load.mockResolvedValue({ cachedAt: 0, pendingWithdraw: BOUND_INTENT })
     vi.mocked(getStakeInfo).mockResolvedValue(snapshot('refundable'))
   })
 
   it('claims refund directly without requiring the runner', async () => {
     const manager = makeManager('ready')
+    const topUp = vi.fn().mockResolvedValue(undefined)
     const driver = new WithdrawDriver(
       manager,
       () => makeBridge(),
-      () => ADDR,
-      persistence
+      () => NATIVE_IDENTITY,
+      persistence,
+      topUp
     )
     driver.triggerTick()
     await new Promise((r) => setImmediate(r))
     await new Promise((r) => setImmediate(r))
 
     expect(driveCurrentWithdrawStep).toHaveBeenCalledTimes(1)
+    const directWithdraw = vi.mocked(driveCurrentWithdrawStep).mock.calls[0][0]
+    await directWithdraw.topUpNodeWallet?.('node-address', 10n)
+    expect(topUp).toHaveBeenCalledWith('node-address', 10n, NATIVE_IDENTITY)
   })
 
   it('also claims directly if the runner is stopped', async () => {
@@ -195,7 +206,7 @@ describe('WithdrawDriver.tick (refundable)', () => {
     const driver = new WithdrawDriver(
       manager,
       () => makeBridge(),
-      () => ADDR,
+      () => NATIVE_IDENTITY,
       persistence
     )
     driver.triggerTick()
@@ -208,7 +219,7 @@ describe('WithdrawDriver.tick (refundable)', () => {
 
 describe('WithdrawDriver.tick (closed → cashout)', () => {
   beforeEach(() => {
-    cacheStore.load.mockResolvedValue({ cachedAt: 0, pendingWithdraw: { startedAt: 1 } })
+    cacheStore.load.mockResolvedValue({ cachedAt: 0, pendingWithdraw: BOUND_INTENT })
   })
 
   it('cashes out residual and retires the consumed wallet', async () => {
@@ -222,7 +233,7 @@ describe('WithdrawDriver.tick (closed → cashout)', () => {
     const driver = new WithdrawDriver(
       manager,
       () => makeBridge(),
-      () => ADDR,
+      () => NATIVE_IDENTITY,
       persistence
     )
     const events: unknown[] = []
@@ -246,7 +257,7 @@ describe('WithdrawDriver.tick (closed → cashout)', () => {
     const driver = new WithdrawDriver(
       manager,
       () => makeBridge(),
-      () => ADDR,
+      () => NATIVE_IDENTITY,
       persistence
     )
     driver.triggerTick()
@@ -260,7 +271,7 @@ describe('WithdrawDriver.tick (closed → cashout)', () => {
 
 describe('WithdrawDriver.tick (defensive states)', () => {
   beforeEach(() => {
-    cacheStore.load.mockResolvedValue({ cachedAt: 0, pendingWithdraw: { startedAt: 1 } })
+    cacheStore.load.mockResolvedValue({ cachedAt: 0, pendingWithdraw: BOUND_INTENT })
   })
 
   it('keeps pending intent and retries refund request while stake is still active', async () => {
@@ -269,7 +280,7 @@ describe('WithdrawDriver.tick (defensive states)', () => {
     const driver = new WithdrawDriver(
       manager,
       () => makeBridge(),
-      () => ADDR,
+      () => NATIVE_IDENTITY,
       persistence
     )
     driver.triggerTick()
@@ -286,7 +297,7 @@ describe('WithdrawDriver.tick (defensive states)', () => {
     const driver = new WithdrawDriver(
       manager,
       () => makeBridge(),
-      () => ADDR,
+      () => NATIVE_IDENTITY,
       persistence
     )
     driver.triggerTick()
@@ -302,7 +313,7 @@ describe('WithdrawDriver.tick (defensive states)', () => {
     const driver = new WithdrawDriver(
       manager,
       () => makeBridge(),
-      () => ADDR,
+      () => NATIVE_IDENTITY,
       persistence
     )
     const events: unknown[] = []
@@ -318,17 +329,48 @@ describe('WithdrawDriver.tick (defensive states)', () => {
     })
     expect(cacheStore.clearPendingWithdraw).not.toHaveBeenCalled()
   })
+
+  it('pauses without spending when the active wallet differs from the bound wallet', async () => {
+    cacheStore.load.mockResolvedValue({ cachedAt: 0, pendingWithdraw: BOUND_INTENT })
+    const driver = new WithdrawDriver(
+      makeManager('ready'),
+      () => makeBridge(),
+      () => ({ ...NATIVE_IDENTITY, publicKey: '22'.repeat(32), revision: 2 }),
+      persistence,
+      vi.fn()
+    )
+    driver.triggerTick()
+    await new Promise((resolve) => setImmediate(resolve))
+
+    expect(driveCurrentWithdrawStep).not.toHaveBeenCalled()
+    expect(cashout).not.toHaveBeenCalled()
+  })
+
+  it('pauses legacy pending intents that have no wallet binding', async () => {
+    cacheStore.load.mockResolvedValue({ cachedAt: 0, pendingWithdraw: { startedAt: 1 } })
+    const driver = new WithdrawDriver(
+      makeManager('ready'),
+      () => makeBridge(),
+      () => NATIVE_IDENTITY,
+      persistence,
+      vi.fn()
+    )
+    driver.triggerTick()
+    await new Promise((resolve) => setImmediate(resolve))
+
+    expect(driveCurrentWithdrawStep).not.toHaveBeenCalled()
+  })
 })
 
 describe('startFullWithdraw', () => {
   it('sets the persistent flag and runs the first direct withdraw step', async () => {
-    cacheStore.load.mockResolvedValue({ cachedAt: 0, pendingWithdraw: { startedAt: 1 } })
+    cacheStore.load.mockResolvedValue({ cachedAt: 0, pendingWithdraw: BOUND_INTENT })
     vi.mocked(getStakeInfo).mockResolvedValue(snapshot('active'))
     const manager = makeManager('stopped')
     const driver = new WithdrawDriver(
       manager,
       () => makeBridge(),
-      () => ADDR,
+      () => NATIVE_IDENTITY,
       persistence
     )
 
@@ -341,12 +383,12 @@ describe('startFullWithdraw', () => {
   })
 
   it('surfaces immediate bridge errors to the IPC caller', async () => {
-    cacheStore.load.mockResolvedValue({ cachedAt: 0, pendingWithdraw: { startedAt: 1 } })
+    cacheStore.load.mockResolvedValue({ cachedAt: 0, pendingWithdraw: BOUND_INTENT })
     const manager = makeManager('ready')
     const driver = new WithdrawDriver(
       manager,
       () => null,
-      () => ADDR,
+      () => NATIVE_IDENTITY,
       persistence
     )
 

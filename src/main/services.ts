@@ -18,7 +18,6 @@ import { BridgePermissionStore } from './bridge/permission-store'
 import { TonConnectService } from './tonconnect/service'
 import { TonConnectSessionStore } from './tonconnect/session-store'
 import { HistoryManager } from './history/manager'
-import { ContentFilterManager } from './content-filter/filter-manager'
 import { CocoonManager } from './cocoon/manager'
 import { WithdrawDriver } from './cocoon/withdraw-driver'
 import { RecoveryDriver } from './cocoon/recovery-driver'
@@ -43,8 +42,20 @@ import { DisposableStore, onEmitter } from './utils/disposable'
 import { SettingsCoordinator } from './settings/coordinator'
 import { createLogger } from '../shared/logger'
 import { getSetting } from './settings'
+import { TonIndexerClient } from './indexer/client'
+import { TonBridgeRuntime } from './ton-bridge/runtime'
+import { TonBridgeCoordinator } from './ton-bridge/coordinator'
+import { mapBridgeProvider, type BridgeProvider } from './ports/bridge-provider'
+import type { MessengerBridgePort, TonBridgePort } from './ports/ton-bridge'
+import type { WalletBridgePort } from './wallet/bridge-port'
 
 const log = createLogger('services')
+
+export interface TonBridgeProviders {
+  wallet: BridgeProvider<WalletBridgePort>
+  ton: BridgeProvider<TonBridgePort>
+  messenger: BridgeProvider<MessengerBridgePort>
+}
 
 export interface ServiceRegistry {
   ipcRegistrations: DisposableStore
@@ -53,7 +64,10 @@ export interface ServiceRegistry {
   proxyManager: ProxyManager
   storageManager: StorageManager
   walletManager: WalletManager
+  tonBridgeCoordinator: TonBridgeCoordinator
+  tonBridgeProviders: TonBridgeProviders
   walletHistoryManager: WalletHistoryManager
+  tonIndexerClient: TonIndexerClient
   paymentInterceptor: PaymentInterceptor
   paymentPolicyStore: PaymentPolicyStore
   overlayManager: OverlayManager
@@ -62,7 +76,6 @@ export interface ServiceRegistry {
   tonConnectService: TonConnectService
   tonConnectSessionStore: TonConnectSessionStore
   historyManager: HistoryManager
-  contentFilterManager: ContentFilterManager
   cocoonManager: CocoonManager
   withdrawDriver: WithdrawDriver
   recoveryDriver: RecoveryDriver
@@ -90,11 +103,26 @@ export function createServices(): ServiceRegistry {
     stakeCache: new StakeCacheStore(),
   }
   const historyManager = new HistoryManager()
-  const contentFilterManager = new ContentFilterManager()
   const bridgePermissionStore = new BridgePermissionStore()
   const walletHistoryManager = new WalletHistoryManager()
+  const tonIndexerClient = new TonIndexerClient(() => {
+    const settings = getSetting('wallet')
+    return {
+      enabled: settings.indexerEnabled,
+      endpoint: settings.indexerEndpoint,
+      apiKey: settings.indexerApiKey,
+    }
+  })
+  const bridgeInterceptor = new BridgePermissionInterceptor(bridgePermissionStore, overlayManager)
+  const tonBridgeRuntime = new TonBridgeRuntime()
+  const tonBridgeProviders: TonBridgeProviders = {
+    wallet: mapBridgeProvider(tonBridgeRuntime, (bridge): WalletBridgePort => bridge),
+    ton: mapBridgeProvider(tonBridgeRuntime, (bridge): TonBridgePort => bridge),
+    messenger: mapBridgeProvider(tonBridgeRuntime, (bridge): MessengerBridgePort => bridge),
+  }
+  const tonBridgeCoordinator = new TonBridgeCoordinator(proxyManager, tonBridgeRuntime, bridgeInterceptor)
   const paymentPolicyStore = new PaymentPolicyStore()
-  const walletManager = new WalletManager(secureStorage)
+  const walletManager = new WalletManager(secureStorage, tonBridgeProviders.wallet)
   const paymentInterceptor = new PaymentInterceptor(
     walletManager,
     paymentPolicyStore,
@@ -108,14 +136,6 @@ export function createServices(): ServiceRegistry {
             : walletPaymentFailedContract
       emitContractToRenderer(contract, notification)
     }
-  )
-  const bridgeInterceptor = new BridgePermissionInterceptor(bridgePermissionStore, overlayManager)
-  lifecycleRegistrations.add(
-    onEmitter(proxyManager, 'ws-bridge-ready', (wsPort: number) => {
-      void Promise.all([walletManager.applyBridgePort(wsPort), bridgeInterceptor.applyBridgePort(wsPort)]).catch(
-        (error) => log.error(`Failed to synchronize bridge clients: ${String(error)}`)
-      )
-    })
   )
   lifecycleRegistrations.add(
     onEmitter(proxyManager, 'bridge-exit', () => {
@@ -133,42 +153,42 @@ export function createServices(): ServiceRegistry {
   const cocoonManager = new CocoonManager()
   const withdrawDriver = new WithdrawDriver(
     cocoonManager,
-    () => walletManager.getTonBridge(),
-    () => walletManager.getState().address || null,
+    () => tonBridgeProviders.ton.getBridge(),
+    () => walletManager.getIdentitySnapshot(),
     cocoonPersistence,
-    async (nodeAddress, amountNano) => {
-      await walletManager.send(nodeAddress, amountNano.toString())
+    async (nodeAddress, amountNano, expectedIdentity) => {
+      await walletManager.send(nodeAddress, amountNano.toString(), undefined, expectedIdentity)
     }
   )
   // React to runner state changes so refundable transitions are picked up
-  // immediately instead of waiting the full 30s tick. start() is deferred to
-  // the ws-bridge-ready handler since the driver needs the bridge to do work.
+  // immediately instead of waiting the full 30s tick. Startup waits for the
+  // shared Bridge coordinator because the driver needs on-chain access.
   lifecycleRegistrations.add(onEmitter(cocoonManager, 'state-change', () => withdrawDriver.triggerTick()))
 
   // Recovery driver runs in parallel for ARCHIVED wallets whose client SC
-  // still locks user TON. start() is deferred to the ws-bridge-ready handler.
+  // still locks user TON. Startup also waits for the shared Bridge coordinator.
   const recoveryDriver = new RecoveryDriver(
-    () => walletManager.getTonBridge(),
+    () => tonBridgeProviders.ton.getBridge(),
     () => walletManager.getState().address || null,
     cocoonPersistence.recoveryQueue,
     cocoonPersistence.consumedArchive
   )
   const cocoonActivation: CocoonActivationPorts = {
     cocoonManager,
-    getBridge: () => walletManager.getTonBridge(),
-    getNativeAddress: () => walletManager.getState().address || null,
-    getNativeBalance: () => walletManager.getBalance(),
-    sendNative: (to, amount) => walletManager.send(to, amount),
+    getBridge: () => tonBridgeProviders.ton.getBridge(),
+    getNativeIdentity: () => walletManager.getIdentitySnapshot(),
+    getNativeBalance: (expectedIdentity) => walletManager.getBalance(expectedIdentity),
+    sendNative: (to, amount, expectedIdentity) => walletManager.send(to, amount, undefined, expectedIdentity),
     persistence: cocoonPersistence,
   }
   const settingsCoordinator = new SettingsCoordinator({
     proxyManager,
     storageManager,
     historyManager,
-    contentFilterManager,
     walletManager,
+    tonBridgeCoordinator,
+    tonConnectService,
     bridgePermissionStore,
-    bridgeInterceptor,
     tabManager,
     chatSessionController,
   })
@@ -180,7 +200,10 @@ export function createServices(): ServiceRegistry {
     proxyManager,
     storageManager,
     walletManager,
+    tonBridgeCoordinator,
+    tonBridgeProviders,
     walletHistoryManager,
+    tonIndexerClient,
     paymentInterceptor,
     paymentPolicyStore,
     overlayManager,
@@ -189,7 +212,6 @@ export function createServices(): ServiceRegistry {
     tonConnectService,
     tonConnectSessionStore,
     historyManager,
-    contentFilterManager,
     cocoonManager,
     withdrawDriver,
     recoveryDriver,
@@ -210,14 +232,15 @@ export async function destroyServices(registry: ServiceRegistry): Promise<void> 
   registry.tabManager.dispose()
   await registry.chatSessionController.disconnect()
 
-  registry.overlayManager.destroy()
-  registry.bridgeInterceptor.destroy()
   registry.paymentInterceptor.destroy()
   await registry.paymentPolicyStore.destroy()
-  await registry.proxyManager.stop()
-  await registry.storageManager.stop()
-  registry.walletManager.destroy()
   registry.withdrawDriver.stop()
   registry.recoveryDriver.stop()
+  registry.walletManager.destroy()
+  await registry.tonBridgeCoordinator.destroy()
+  registry.bridgeInterceptor.destroy()
+  registry.overlayManager.destroy()
+  await registry.proxyManager.stop()
+  await registry.storageManager.stop()
   await registry.cocoonManager.stop()
 }

@@ -26,7 +26,8 @@ import { errorMessage } from '../../shared/errors'
 import { PollingDriver } from './polling-driver'
 import { createLogger } from '../../shared/logger'
 import { getStakeInfo, cashout } from './unstake'
-import { driveCurrentWithdrawStep, type TopUpNodeWallet } from './current-withdraw'
+import { driveCurrentWithdrawStep } from './current-withdraw'
+import type { WalletIdentitySnapshot } from '../wallet/wallet-identity'
 import { retireCurrentCocoonWallet } from './retire-wallet'
 import type { CocoonManager } from './manager'
 import type { TonBridgePort } from '../ports/ton-bridge'
@@ -44,9 +45,13 @@ export class WithdrawDriver extends PollingDriver {
   constructor(
     private manager: CocoonManager,
     private getBridge: () => TonBridgePort | null,
-    private getNativeAddress: () => string | null,
+    private getNativeIdentity: () => WalletIdentitySnapshot | null,
     private persistence: CocoonPersistence,
-    private topUpNodeWallet?: TopUpNodeWallet
+    private topUpNodeWallet?: (
+      nodeAddress: string,
+      amountNano: bigint,
+      expectedIdentity: WalletIdentitySnapshot
+    ) => Promise<void>
   ) {
     super(TICK_INTERVAL_MS, log)
   }
@@ -57,7 +62,13 @@ export class WithdrawDriver extends PollingDriver {
   }
 
   async startFullWithdraw(): Promise<void> {
-    await this.persistence.stakeCache.setPendingWithdraw({ startedAt: Date.now() })
+    const identity = this.getNativeIdentity()
+    if (!identity) throw new Error('Native wallet not initialized — cannot withdraw Cocoon stake')
+    await this.persistence.stakeCache.setPendingWithdraw({
+      startedAt: Date.now(),
+      nativeWalletPublicKey: identity.publicKey,
+      nativeWalletAddress: identity.addressRaw,
+    })
     await this.runUserInitiatedTick()
   }
 
@@ -65,6 +76,21 @@ export class WithdrawDriver extends PollingDriver {
     const cache = await this.persistence.stakeCache.load()
     const intent = cache?.pendingWithdraw ?? null
     if (!intent) return // no pending exit; driver idle
+    const currentIdentity = this.getNativeIdentity()
+    if (
+      !intent.nativeWalletPublicKey ||
+      !intent.nativeWalletAddress ||
+      !currentIdentity ||
+      currentIdentity.publicKey !== intent.nativeWalletPublicKey ||
+      currentIdentity.addressRaw !== intent.nativeWalletAddress
+    ) {
+      this.emit('event', {
+        type: 'error',
+        message: 'Cocoon withdrawal is bound to a different wallet. Explicit rebind required.',
+        recoverable: true,
+      } satisfies WithdrawDriverEvent)
+      return
+    }
 
     const bridge = this.getBridge()
     if (!bridge) {
@@ -87,7 +113,7 @@ export class WithdrawDriver extends PollingDriver {
 
       switch (info.status) {
         case 'active':
-          await this.driveDirectWithdrawStep()
+          await this.driveDirectWithdrawStep(intent.nativeWalletAddress, currentIdentity)
           break
 
         case 'closing':
@@ -96,11 +122,11 @@ export class WithdrawDriver extends PollingDriver {
           break
 
         case 'refundable':
-          await this.driveDirectWithdrawStep()
+          await this.driveDirectWithdrawStep(intent.nativeWalletAddress, currentIdentity)
           break
 
         case 'closed':
-          await this.driveCashout(info)
+          await this.driveCashout(info, intent.nativeWalletAddress)
           break
       }
     } catch (err) {
@@ -120,19 +146,17 @@ export class WithdrawDriver extends PollingDriver {
    * on cocoon-runner readiness, which can be blocked exactly when the node
    * wallet has insufficient operational balance.
    */
-  private async driveDirectWithdrawStep(): Promise<void> {
+  private async driveDirectWithdrawStep(nativeAddress: string, nativeIdentity: WalletIdentitySnapshot): Promise<void> {
     const bridge = this.getBridge()
     if (!bridge) return
-    const native = this.getNativeAddress()
-    if (!native) {
-      throw new Error('Native wallet not initialized — cannot withdraw Cocoon stake')
-    }
     const result = await driveCurrentWithdrawStep({
       manager: this.manager,
       bridge,
-      nativeAddress: native,
+      nativeAddress,
       stakeCache: this.persistence.stakeCache,
-      topUpNodeWallet: this.topUpNodeWallet,
+      topUpNodeWallet: this.topUpNodeWallet
+        ? (nodeAddress, amountNano) => this.topUpNodeWallet!(nodeAddress, amountNano, nativeIdentity)
+        : undefined,
     })
     log.info(`Direct current withdraw step: ${result.status} client=${result.clientSCAddress.slice(0, 8)}…`)
   }
@@ -142,19 +166,13 @@ export class WithdrawDriver extends PollingDriver {
    * and clear the flag. Always attempts the sweep (the cashout helper handles
    * dust thresholds internally and skips no-op sweeps silently).
    */
-  private async driveCashout(info: CocoonStakeInfo): Promise<void> {
+  private async driveCashout(info: CocoonStakeInfo, nativeAddress: string): Promise<void> {
     const bridge = this.getBridge()
     if (!bridge) return
 
-    const native = this.getNativeAddress()
-    if (!native) {
-      log.warn('Cashout skipped: native wallet address not available yet')
-      return
-    }
-
     try {
       log.info(`Driving cashout (cocoon residual ${info.cocoonWalletBalance}) → native`)
-      const result = await cashout(this.manager, bridge, native)
+      const result = await cashout(this.manager, bridge, nativeAddress)
       this.emit('event', {
         type: 'cashout-done',
         sentAmount: result.totalSent,

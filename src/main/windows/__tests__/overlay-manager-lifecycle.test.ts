@@ -7,22 +7,19 @@ const state = vi.hoisted(() => ({
       close: ReturnType<typeof vi.fn>
       send: ReturnType<typeof vi.fn>
       focus: ReturnType<typeof vi.fn>
-      on: ReturnType<typeof vi.fn>
-      removeListener: ReturnType<typeof vi.fn>
-    }
+    } & EventEmitter
   }>,
 }))
 
 vi.mock('electron', () => {
   class WebContentsView {
-    webContents = {
+    webContents = Object.assign(new EventEmitter(), {
       loadURL: vi.fn().mockResolvedValue(undefined),
       close: vi.fn(),
       send: vi.fn(),
       focus: vi.fn(),
-      on: vi.fn(),
-      removeListener: vi.fn(),
-    }
+      isDestroyed: vi.fn(() => false),
+    })
     setBackgroundColor = vi.fn()
     setBounds = vi.fn()
 
@@ -55,11 +52,11 @@ describe('OverlayManager window lifecycle', () => {
     const secondWindow = new WindowMock()
     const manager = new OverlayManager()
 
-    manager.attachWindow(firstWindow as never)
+    manager.attachWindow(firstWindow as never, vi.fn())
     manager.show('menu', { x: 0, y: 0, width: 10, height: 10 }, { type: 'menu' })
     const firstViews = [...state.views]
 
-    manager.attachWindow(secondWindow as never)
+    manager.attachWindow(secondWindow as never, vi.fn())
     const secondViews = state.views.slice(2)
 
     expect(firstViews).toHaveLength(2)
@@ -83,7 +80,7 @@ describe('OverlayManager window lifecycle', () => {
     const window = new WindowMock()
     const manager = new OverlayManager()
     const callback = vi.fn(() => manager.hide('approval'))
-    manager.attachWindow(window as never)
+    manager.attachWindow(window as never, vi.fn())
     manager.show('approval', { x: 0, y: 0, width: 10, height: 10 }, { type: 'form' }, callback, { autoDismiss: false })
 
     manager.hideAll()
@@ -99,7 +96,7 @@ describe('OverlayManager window lifecycle', () => {
     const manager = new OverlayManager()
     const onResize = vi.fn()
     const onDetach = vi.fn()
-    manager.attachWindow(window as never)
+    manager.attachWindow(window as never, vi.fn())
     manager.show('resize', { x: 0, y: 0, width: 10, height: 10 }, { type: 'form' }, onResize, {
       autoDismiss: false,
     })
@@ -121,11 +118,11 @@ describe('OverlayManager window lifecycle', () => {
     const window = new WindowMock()
     const manager = new OverlayManager()
     const callback = vi.fn(() => manager.hide('blurred'))
-    manager.attachWindow(window as never)
+    manager.attachWindow(window as never, vi.fn())
     manager.show('blurred', { x: 0, y: 0, width: 10, height: 10 }, { type: 'form' }, callback)
     vi.runAllTimers()
     const view = state.views.at(-1)!
-    const blur = view.webContents.on.mock.calls.find(([event]) => event === 'blur')?.[1] as (() => void) | undefined
+    const blur = view.webContents.listeners('blur')[0] as (() => void) | undefined
 
     expect(blur).toBeTypeOf('function')
     blur?.()
@@ -140,7 +137,7 @@ describe('OverlayManager window lifecycle', () => {
     const window = new WindowMock()
     const manager = new OverlayManager()
     const callback = vi.fn(() => manager.hide('action'))
-    manager.attachWindow(window as never)
+    manager.attachWindow(window as never, vi.fn())
     manager.show('action', { x: 0, y: 0, width: 10, height: 10 }, { type: 'form' }, callback, {
       autoDismiss: false,
     })
@@ -152,5 +149,31 @@ describe('OverlayManager window lifecycle', () => {
 
     expect(callback).toHaveBeenCalledOnce()
     expect(callback).toHaveBeenCalledWith('approve', {})
+  })
+
+  it('forwards input from pooled and on-demand views and removes every listener on detach', () => {
+    const window = new WindowMock()
+    const manager = new OverlayManager()
+    const handleInput = vi.fn()
+    manager.attachWindow(window as never, handleInput)
+
+    manager.show('one', { x: 0, y: 0, width: 10, height: 10 }, { type: 'menu' }, undefined, {
+      autoDismiss: false,
+    })
+    manager.show('two', { x: 0, y: 0, width: 10, height: 10 }, { type: 'menu' }, undefined, {
+      autoDismiss: false,
+    })
+    manager.show('three', { x: 0, y: 0, width: 10, height: 10 }, { type: 'menu' }, undefined, {
+      autoDismiss: false,
+    })
+
+    expect(state.views).toHaveLength(3)
+    for (const view of state.views) {
+      view.webContents.emit('before-input-event', { preventDefault: vi.fn() }, { code: 'F12' })
+    }
+    expect(handleInput).toHaveBeenCalledTimes(3)
+
+    manager.detachWindow(window as never)
+    expect(state.views.every((view) => view.webContents.listenerCount('before-input-event') === 0)).toBe(true)
   })
 })

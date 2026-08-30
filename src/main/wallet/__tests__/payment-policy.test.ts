@@ -39,7 +39,7 @@ vi.mock('../../../shared/logger', () => ({
   }),
 }))
 
-import { PaymentPolicyStore, normalizeToSecondLevel } from '../payment-policy'
+import { PaymentPolicyStore, normalizePaymentOrigin } from '../payment-policy'
 import { getSetting } from '../../settings'
 import { RATE_LIMIT_BURST_PER_10S, RATE_LIMIT_WINDOW_MS, ONE_DAY_MS } from '../constants'
 
@@ -47,6 +47,8 @@ import { RATE_LIMIT_BURST_PER_10S, RATE_LIMIT_WINDOW_MS, ONE_DAY_MS } from '../c
 function setLimits(limits: Partial<{ perRequest: string; perDay: string; perSitePerMonth: string }> = {}): void {
   vi.mocked(getSetting).mockReturnValue({
     limits: { perRequest: '0', perDay: '0', perSitePerMonth: '0', ...limits },
+    paymentMode: 'manual',
+    sitePolicies: [],
   } as never)
 }
 
@@ -62,27 +64,33 @@ function reserve(store: PaymentPolicyStore, domain: string, amount: string): str
   return id as string
 }
 
-describe('normalizeToSecondLevel', () => {
-  it('collapses a subdomain to its second-level domain', () => {
-    expect(normalizeToSecondLevel('sub.boards.ton')).toBe('boards.ton')
-    expect(normalizeToSecondLevel('a.b.c.evil.com')).toBe('evil.com')
+describe('normalizePaymentOrigin', () => {
+  it('keeps separately controlled subdomains distinct', () => {
+    expect(normalizePaymentOrigin('https://sub.boards.ton/page')).toBe('https://sub.boards.ton')
+    expect(normalizePaymentOrigin('https://boards.ton')).toBe('https://boards.ton')
+    expect(normalizePaymentOrigin('https://good.co.uk')).not.toBe(normalizePaymentOrigin('https://evil.co.uk'))
   })
 
-  it('leaves a bare second-level domain unchanged', () => {
-    expect(normalizeToSecondLevel('boards.ton')).toBe('boards.ton')
+  it('uses https as the legacy host-only policy default', () => {
+    expect(normalizePaymentOrigin('boards.ton')).toBe('https://boards.ton')
   })
 
   it('returns an IPv4 address unchanged (must not be split into a 2-level domain)', () => {
-    expect(normalizeToSecondLevel('127.0.0.1')).toBe('127.0.0.1')
-    expect(normalizeToSecondLevel('192.168.1.1')).toBe('192.168.1.1')
+    expect(normalizePaymentOrigin('https://127.0.0.1')).toBe('https://127.0.0.1')
+    expect(normalizePaymentOrigin('http://192.168.1.1:8080')).toBe('http://192.168.1.1:8080')
   })
 
   it('returns an IPv6 bracket address unchanged', () => {
-    expect(normalizeToSecondLevel('[::1]')).toBe('[::1]')
+    expect(normalizePaymentOrigin('http://[::1]:8080')).toBe('http://[::1]:8080')
   })
 
   it('strips scheme and path before normalizing', () => {
-    expect(normalizeToSecondLevel('https://sub.shop.ton/checkout')).toBe('shop.ton')
+    expect(normalizePaymentOrigin('https://sub.shop.ton/checkout')).toBe('https://sub.shop.ton')
+  })
+
+  it('rejects non-HTTP origins instead of collapsing them into a shared null origin', () => {
+    expect(() => normalizePaymentOrigin('javascript:alert(1)')).toThrow('Invalid payment origin')
+    expect(() => normalizePaymentOrigin('file:///tmp/payment')).toThrow('Invalid payment origin')
   })
 })
 
@@ -132,13 +140,12 @@ describe('PaymentPolicyStore', () => {
       expect(store.canPay('shop.ton', '3')).toBe(true) // 7 + 3 == 10
     })
 
-    it('shares the per-day budget across subdomains of the same site', () => {
+    it('keeps per-day budgets isolated between subdomains', () => {
       setLimits({ perDay: '10' })
       reserve(store, 'a.shop.ton', '6')
       advanceClock(1500)
-      // b.shop.ton normalizes to the same bucket as a.shop.ton
-      expect(store.canPay('b.shop.ton', '5')).toBe(false) // 6 + 5 > 10
-      expect(store.canPay('b.shop.ton', '4')).toBe(true) // 6 + 4 == 10
+      expect(store.canPay('b.shop.ton', '10')).toBe(true)
+      expect(store.canPay('a.shop.ton', '5')).toBe(false)
     })
 
     it('rejects a payment that would exceed the per-site-per-month limit', () => {
@@ -147,6 +154,25 @@ describe('PaymentPolicyStore', () => {
       advanceClock(1500)
       expect(store.canPay('shop.ton', '50')).toBe(false) // 60 + 50 > 100
     })
+  })
+
+  it('downgrades legacy host-only auto policies to manual until exact-origin approval', () => {
+    vi.mocked(getSetting).mockReturnValue({
+      limits: { perRequest: '0', perDay: '0', perSitePerMonth: '0' },
+      paymentMode: 'off',
+      sitePolicies: [{ domain: 'shop.ton', mode: 'auto' }],
+    } as never)
+    expect(store.getSiteMode('https://shop.ton/checkout')).toBe('manual')
+  })
+
+  it('preserves restrictive legacy policies across HTTP and HTTPS origins', () => {
+    vi.mocked(getSetting).mockReturnValue({
+      limits: { perRequest: '0', perDay: '0', perSitePerMonth: '0' },
+      paymentMode: 'auto',
+      sitePolicies: [{ domain: 'shop.ton', mode: 'off' }],
+    } as never)
+    expect(store.getSiteMode('http://shop.ton/pay')).toBe('off')
+    expect(store.getSiteMode('https://shop.ton/pay')).toBe('off')
   })
 
   describe('rate limiting', () => {
@@ -242,6 +268,28 @@ describe('PaymentPolicyStore', () => {
       await second.init()
       expect(second.getSpending('shop.ton').day).toBe('5')
       await second.destroy()
+    })
+
+    it('keeps legacy spending as a shared restrictive bucket for HTTP and HTTPS', async () => {
+      await store.destroy()
+      storageBackend.data = {
+        'shop.ton': [{ amount: '5', timestamp: Date.now() }],
+      }
+      store = new PaymentPolicyStore()
+      await store.init()
+      expect(store.getSpending('https://shop.ton/checkout').day).toBe('5')
+      expect(store.getSpending('http://shop.ton/checkout').day).toBe('5')
+    })
+
+    it('keeps valid legacy records when another key is malformed', async () => {
+      await store.destroy()
+      storageBackend.data = {
+        'shop.ton': [{ amount: '5', timestamp: Date.now() }],
+        'https://[invalid': [{ amount: '99', timestamp: Date.now() }],
+      }
+      store = new PaymentPolicyStore()
+      await store.init()
+      expect(store.getSpending('http://shop.ton').day).toBe('5')
     })
   })
 })

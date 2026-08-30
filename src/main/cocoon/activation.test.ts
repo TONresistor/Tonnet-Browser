@@ -26,11 +26,13 @@ vi.mock('./lifecycle', () => ({ startCocoonManager }))
 
 import { flowStake, type CocoonActivationPorts } from './activation'
 
+const NATIVE_IDENTITY = { publicKey: '11'.repeat(32), addressRaw: '0:' + '22'.repeat(32), revision: 1 }
+
 function createPorts(overrides: Partial<CocoonActivationPorts> = {}): CocoonActivationPorts {
   return {
     cocoonManager: { getHttpPort: vi.fn(() => 10_000) } as unknown as CocoonActivationPorts['cocoonManager'],
     getBridge: vi.fn(() => ({ getBalance: vi.fn(() => Promise.resolve('0')) }) as never),
-    getNativeAddress: vi.fn(() => 'UQ-native'),
+    getNativeIdentity: vi.fn(() => NATIVE_IDENTITY),
     getNativeBalance: vi.fn(() => Promise.resolve('30000000000')),
     sendNative: vi.fn(() => Promise.resolve()),
     persistence: {
@@ -83,9 +85,23 @@ describe('Cocoon activation ports', () => {
     await expect(activation).resolves.toEqual({ httpPort: 10_000 })
 
     expect(generateCocoonWallet).toHaveBeenCalledOnce()
-    expect(ports.getNativeBalance).toHaveBeenCalledOnce()
-    expect(ports.sendNative).toHaveBeenCalledWith('UQ-node', '20000000000')
+    expect(ports.getNativeBalance).toHaveBeenCalledWith(NATIVE_IDENTITY)
+    expect(ports.sendNative).toHaveBeenCalledWith('UQ-node', '20000000000', NATIVE_IDENTITY)
     expect(startCocoonManager).toHaveBeenCalledWith(ports.cocoonManager)
+  })
+
+  it('keeps the activation funding bound to the identity captured at entry', async () => {
+    vi.useFakeTimers()
+    const getNativeIdentity = vi.fn(() => NATIVE_IDENTITY)
+    const ports = createPorts({ getNativeIdentity })
+
+    const activation = flowStake(ports)
+    await vi.runAllTimersAsync()
+    await activation
+
+    expect(getNativeIdentity).toHaveBeenCalledOnce()
+    expect(ports.getNativeBalance).toHaveBeenCalledWith(NATIVE_IDENTITY)
+    expect(ports.sendNative).toHaveBeenCalledWith('UQ-node', '20000000000', NATIVE_IDENTITY)
   })
 
   it('rejects insufficient native balance without generating a transfer', async () => {

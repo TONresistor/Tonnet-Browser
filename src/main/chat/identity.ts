@@ -10,7 +10,7 @@ import { createLogger } from '../../shared/logger'
 import { isEnoent } from '../utils/errors'
 import type { OwnChatIdentity } from '../../shared/types'
 import { devicePublicKeyHex } from './envelope'
-import { proofPayload, deriveWalletAddress, shortAddress, PROOF_TTL_S, TONPROOF_DOMAIN } from './tonproof'
+import { proofPayload, deriveWalletAddress, shortAddress, PROOF_TTL_S, TONPROOF_DOMAIN, verifyProof } from './tonproof'
 import { checkOwnDomain } from './resolve'
 import { VersionedJsonRepository } from '../persistence/versioned-json-repository'
 
@@ -20,6 +20,7 @@ const DEVICE_KEY_FILE = 'chat-device-key.dat'
 const IDENTITY_FILE = 'chat-identity.json'
 const ENCRYPTED_MARKER = Buffer.from('SENC')
 const PLAIN_MARKER = Buffer.from('PLNS')
+const PROOF_CLOCK_SAFETY_S = 300
 
 export interface ChatProof {
   wkey: string
@@ -130,13 +131,30 @@ export class ChatIdentityManager {
     if (!file || !file.wkey || !file.wsig || !file.wts || !file.wexp) return null
     if (file.wkey !== walletPub) return null
     if (file.dpub !== devicePub) return null
-    if (file.wexp <= nowSec) return null
+    const verified = verifyProof(
+      {
+        type: 'msg',
+        nick: '',
+        text: '',
+        ts: nowSec * 1_000,
+        room: 'tonnet:proof-cache',
+        key: devicePub,
+        wkey: file.wkey,
+        wsig: file.wsig,
+        wts: file.wts,
+        wexp: file.wexp,
+      },
+      nowSec
+    )
+    if (!verified.ok) return null
     return { wkey: file.wkey, wsig: file.wsig, wts: file.wts, wexp: file.wexp }
   }
 
   private async signProof(walletPub: string): Promise<ChatProof> {
     const devicePub = await this.devicePub()
-    const wexp = Math.floor(Date.now() / 1000) + PROOF_TTL_S
+    // wts is chosen by the wallet after this payload is built. Reserve the
+    // permitted clock-skew window so wexp-wts cannot exceed the 7-day profile.
+    const wexp = Math.floor(Date.now() / 1000) + PROOF_TTL_S - PROOF_CLOCK_SAFETY_S
     const reply = await this.walletManager.signTonProof(TONPROOF_DOMAIN, proofPayload(devicePub, wexp))
     const proof: ChatProof = {
       wkey: walletPub,
@@ -144,6 +162,19 @@ export class ChatIdentityManager {
       wts: reply.timestamp,
       wexp,
     }
+    const verified = verifyProof(
+      {
+        type: 'msg',
+        nick: '',
+        text: '',
+        ts: Date.now(),
+        room: 'tonnet:proof-signing',
+        key: devicePub,
+        ...proof,
+      },
+      Math.floor(Date.now() / 1000)
+    )
+    if (!verified.ok) throw new Error(`Wallet returned an invalid TON proof (${verified.reason})`)
     const domain = this.file?.wkey === walletPub ? this.file?.domain : undefined
     await this.persist({ v: 1, ...proof, dpub: devicePub, domain })
     return proof

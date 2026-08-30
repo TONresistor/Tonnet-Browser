@@ -11,7 +11,6 @@ import {
   StorageSettingsPartialSchema,
   AppearanceSettingsPartialSchema,
   PrivacySettingsPartialSchema,
-  ContentFilteringSettingsPartialSchema,
   AdvancedSettingsPartialSchema,
   WalletSettingsPartialSchema,
   BridgeSettingsPartialSchema,
@@ -29,7 +28,6 @@ export const SETTINGS_CATEGORIES: ReadonlyArray<keyof AppSettings> = [
   'storage',
   'appearance',
   'privacy',
-  'contentFiltering',
   'advanced',
   'wallet',
   'bridge',
@@ -68,7 +66,6 @@ export function validateCategoryValues<K extends keyof AppSettings>(
     storage: StorageSettingsPartialSchema,
     appearance: AppearanceSettingsPartialSchema,
     privacy: PrivacySettingsPartialSchema,
-    contentFiltering: ContentFilteringSettingsPartialSchema,
     advanced: AdvancedSettingsPartialSchema,
     wallet: WalletSettingsPartialSchema,
     bridge: BridgeSettingsPartialSchema,
@@ -155,6 +152,7 @@ export function isValidSettingsObject(obj: unknown): obj is Partial<AppSettings>
   if (advanced) {
     if (advanced.displayUnicodeDomains !== undefined && typeof advanced.displayUnicodeDomains !== 'boolean')
       return false
+    if (advanced.tonConnectEnabled !== undefined && typeof advanced.tonConnectEnabled !== 'boolean') return false
   }
 
   const messenger = settings.messenger as Record<string, unknown> | undefined

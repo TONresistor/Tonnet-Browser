@@ -6,7 +6,6 @@
     "storage": "Almacenamiento",
     "appearance": "Apariencia",
     "privacy": "Privacidad",
-    "contentFiltering": "Filtrado de contenido",
     "history": "Historial",
     "shortcuts": "Atajos",
     "bookmarks": "Marcadores",
@@ -162,32 +161,6 @@
     "autoDeleteTimeout": "Tiempo de espera de eliminación automática",
     "autoDeleteTimeoutDesc": "Minutos de inactividad antes de eliminar cookies"
   },
-  "contentFiltering": {
-    "title": "Filtrado de contenido",
-    "description": "Bloquear anuncios, rastreadores, mineros y contenido malicioso en sitios .ton",
-    "enableFiltering": "Activar filtrado de contenido",
-    "enableFilteringDesc": "Interruptor principal para todas las categorías de filtrado",
-    "enableFilteringLabel": "Activar filtrado de contenido",
-    "blockAds": "Bloquear anuncios",
-    "blockAdsDesc": "Bloquear recursos publicitarios y banners",
-    "blockAdsLabel": "Bloquear anuncios",
-    "blockTrackers": "Bloquear rastreadores",
-    "blockTrackersDesc": "Bloquear scripts de rastreo, analítica y píxeles",
-    "blockTrackersLabel": "Bloquear rastreadores",
-    "blockMiners": "Bloquear mineros",
-    "blockMinersDesc": "Bloquear scripts de minería de criptomonedas",
-    "blockMinersLabel": "Bloquear mineros",
-    "blockMalware": "Bloquear malware",
-    "blockMalwareDesc": "Bloquear scripts maliciosos y ejecutables",
-    "blockMalwareLabel": "Bloquear malware",
-    "blockAnnoyances": "Bloquear molestias",
-    "blockAnnoyancesDesc": "Bloquear ventanas emergentes y superposiciones intrusivas",
-    "blockAnnoyancesLabel": "Bloquear molestias",
-    "whitelistedDomains": "Dominios en lista blanca",
-    "whitelistedDomainsDesc": "Dominios que evitan todo el filtrado de contenido",
-    "domainPlaceholder": "ejemplo.ton",
-    "add": "Añadir"
-  },
   "history": {
     "title": "Historial",
     "description": "Configurar el almacenamiento del historial de navegación",
@@ -284,7 +257,9 @@
     "experimental": {
       "title": "Funciones experimentales",
       "unicodeDomains": "Dominios Unicode (IDN)",
-      "unicodeDomainsDesc": "Muestra dominios rusos, con emojis y otros dominios internacionales en lugar del Punycode xn--. El Punycode se muestra durante la edición."
+      "unicodeDomainsDesc": "Muestra dominios rusos, con emojis y otros dominios internacionales en lugar del Punycode xn--. El Punycode se muestra durante la edición.",
+      "tonConnect": "Wallet TON Connect integrada",
+      "tonConnectDesc": "Ofrece el conector experimental del navegador a los sitios .ton."
     },
     "resetAll": "Restablecer toda la configuración a valores predeterminados",
     "resetAllConfirm": "Haz clic de nuevo para confirmar"

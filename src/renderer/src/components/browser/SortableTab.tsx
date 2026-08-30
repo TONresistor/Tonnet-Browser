@@ -58,8 +58,8 @@ export const SortableTab = memo(function SortableTab({
       tabIndex={isActive ? 0 : -1}
       className={`no-drag group flex items-center gap-2 px-2.5 py-1.5 ${isVertical ? 'rounded-lg w-full' : 'rounded-full max-w-[200px]'} cursor-pointer transition-all duration-200 border ${
         isActive
-          ? 'bg-surface-active border-border-medium text-chrome-foreground'
-          : 'bg-surface border-transparent text-chrome-foreground hover:bg-surface-hover'
+          ? 'bg-card border-border-subtle text-heading'
+          : 'border-transparent text-chrome-foreground hover:bg-elevation-2'
       } ${isNarrow ? 'justify-center' : ''}`}
       onClick={(_e) => {
         // Only activate if not dragging

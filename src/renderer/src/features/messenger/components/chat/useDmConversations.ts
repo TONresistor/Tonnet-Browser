@@ -59,7 +59,7 @@ function persist(convos: Record<string, DmConversation>): void {
 
 function withMessage(c: DmConversation, msg: DmMessage): DmConversation {
   if (msg.id && c.messages.some((m) => m.id === msg.id)) return c
-  const messages = [...c.messages, msg].sort((a, b) => a.ts - b.ts).slice(-MAX_MESSAGES)
+  const messages = [...c.messages, msg].slice(-MAX_MESSAGES)
   return { ...c, messages }
 }
 

@@ -1,6 +1,6 @@
 /**
  * Unit tests for WalletManager.resolveRecipient.
- * The wsBridge is injected directly; no network or Go binary required.
+ * The bridge is injected through its provider; no network or Go binary required.
  */
 
 import type { ISecureStorage } from '../../ports/secure-storage'
@@ -123,12 +123,16 @@ function makeDnsResult(overrides: Partial<DnsResolveResult> = {}): DnsResolveRes
 describe('WalletManager.resolveRecipient', () => {
   let manager: WalletManager
   let mockResolveDomain: ReturnType<typeof vi.fn>
+  let bridge: { resolveDomain: ReturnType<typeof vi.fn> } | null
 
   beforeEach(() => {
     vi.clearAllMocks()
-    manager = new WalletManager(new InMemorySecureStorage())
     mockResolveDomain = vi.fn()
-    ;(manager as unknown as Record<string, unknown>).wsBridge = { resolveDomain: mockResolveDomain }
+    bridge = { resolveDomain: mockResolveDomain }
+    manager = new WalletManager(new InMemorySecureStorage(), {
+      getBridge: () => bridge as never,
+      onBridgeChanged: () => () => {},
+    })
   })
 
   // --- Raw address pass-through ---
@@ -259,14 +263,122 @@ describe('WalletManager.resolveRecipient', () => {
 
   // --- Bridge disconnected ---
 
-  it('throws Bridge not connected when wsBridge is null', async () => {
-    ;(manager as unknown as Record<string, unknown>).wsBridge = null
+  it('throws Bridge not connected when the provider has no bridge', async () => {
+    bridge = null
     await expect(manager.resolveRecipient('alice.ton')).rejects.toThrow('Bridge not connected')
   })
 
   it('throws Domain not registered when the bridge call rejects', async () => {
     mockResolveDomain.mockRejectedValue(new Error('RPC error: domain not found'))
     await expect(manager.resolveRecipient('alice.ton')).rejects.toThrow('Domain not registered')
+  })
+})
+
+describe('WalletManager recovery safety', () => {
+  it('requires an application password for every newly created wallet', async () => {
+    const manager = new WalletManager(new InMemorySecureStorage())
+    const state = manager as unknown as { initialized: boolean }
+    state.initialized = true
+    await expect(manager.create({})).rejects.toThrow('wallet password is required')
+  })
+
+  it('never deletes an unreadable wallet when create is requested', async () => {
+    const manager = new WalletManager(new InMemorySecureStorage())
+    const state = manager as unknown as {
+      initialized: boolean
+      decryptFailed: boolean
+      keyStorage: { deleteFile: ReturnType<typeof vi.fn> }
+    }
+    state.initialized = true
+    state.decryptFailed = true
+    state.keyStorage = { deleteFile: vi.fn() }
+
+    await expect(manager.create({ password: 'correct horse battery staple' })).rejects.toThrow(
+      'Recover or explicitly delete'
+    )
+    expect(state.keyStorage.deleteFile).not.toHaveBeenCalled()
+  })
+
+  it('never replaces a wallet while system storage is blocked', async () => {
+    const manager = new WalletManager(new InMemorySecureStorage())
+    const state = manager as unknown as {
+      initialized: boolean
+      systemStorageBlocked: boolean
+      keyStorage: { deleteFile: ReturnType<typeof vi.fn> }
+    }
+    state.initialized = true
+    state.systemStorageBlocked = true
+    state.keyStorage = { deleteFile: vi.fn() }
+
+    await expect(manager.create({ password: 'correct horse battery staple' })).rejects.toThrow(
+      'Unlock system secure storage'
+    )
+    expect(state.keyStorage.deleteFile).not.toHaveBeenCalled()
+  })
+})
+
+describe('WalletManager vault mutation safety', () => {
+  function prepareVaultMutation(manager: WalletManager) {
+    const keypair = { publicKey: Buffer.alloc(32, 7), secretKey: Buffer.alloc(64, 8) }
+    const keyStorage = {
+      protectWithPassword: vi.fn().mockResolvedValue(undefined),
+      inspect: vi.fn().mockResolvedValue({ backupVerified: false }),
+      changePassword: vi.fn().mockResolvedValue(undefined),
+      load: vi.fn().mockResolvedValue(keypair),
+      lock: vi.fn(),
+      isLocked: vi.fn(() => false),
+    }
+    const state = manager as unknown as {
+      operationTail: Promise<void>
+      publicKey: Buffer
+      keypair: TestKeypair | null
+      keyStorage: typeof keyStorage
+    }
+    state.publicKey = Buffer.from(keypair.publicKey)
+    state.keypair = keypair
+    state.keyStorage = keyStorage
+    return { state, keyStorage }
+  }
+
+  it('queues password setup behind active wallet operations', async () => {
+    const manager = new WalletManager(new InMemorySecureStorage())
+    const { state, keyStorage } = prepareVaultMutation(manager)
+    let release: () => void = () => {}
+    state.operationTail = new Promise<void>((resolve) => {
+      release = resolve
+    })
+
+    const setup = manager.setupPassword('correct horse battery staple')
+    await Promise.resolve()
+    expect(keyStorage.protectWithPassword).not.toHaveBeenCalled()
+
+    release()
+    await setup
+    expect(keyStorage.protectWithPassword).toHaveBeenCalledOnce()
+  })
+
+  it('serializes concurrent password changes', async () => {
+    const manager = new WalletManager(new InMemorySecureStorage())
+    const { keyStorage } = prepareVaultMutation(manager)
+    let releaseFirst: () => void = () => {}
+    keyStorage.changePassword
+      .mockReturnValueOnce(
+        new Promise<void>((resolve) => {
+          releaseFirst = resolve
+        })
+      )
+      .mockResolvedValueOnce(undefined)
+
+    const first = manager.changePassword('current password value', 'next password value')
+    await Promise.resolve()
+    const second = manager.changePassword('next password value', 'final password value')
+    await Promise.resolve()
+    expect(keyStorage.changePassword).toHaveBeenCalledOnce()
+
+    releaseFirst()
+    await first
+    await second
+    expect(keyStorage.changePassword).toHaveBeenCalledTimes(2)
   })
 })
 
@@ -287,8 +399,9 @@ interface WalletManagerImportState {
     load: ReturnType<typeof vi.fn>
     lock: ReturnType<typeof vi.fn>
   }
-  subscriptionService: {
-    stop: ReturnType<typeof vi.fn>
+  runtime: {
+    balance: string
+    resetAccount: ReturnType<typeof vi.fn>
   }
 }
 
@@ -313,11 +426,19 @@ function prepareWalletImport(manager: WalletManager, importFromMnemonic: ReturnT
     address: { toString: () => 'UQOld', toRawString: () => '0:old' },
   }
   state.keyStorage = keyStorage
-  state.subscriptionService = { stop }
+  state.runtime = { balance: '0', resetAccount: stop }
   return { state, oldKeypair, oldPublicKey, keyStorage, stop }
 }
 
 describe('WalletManager.importWallet', () => {
+  it('requires an application password before replacing or importing an account', async () => {
+    const manager = new WalletManager(new InMemorySecureStorage())
+    const input = Array(24).fill('word')
+    const setup = prepareWalletImport(manager, vi.fn())
+    await expect(manager.importWallet(input)).rejects.toThrow('wallet password is required')
+    expect(setup.keyStorage.importFromMnemonic).not.toHaveBeenCalled()
+  })
+
   it.each(['Invalid mnemonic phrase', 'Disk write failed'])(
     'preserves the current wallet when import fails: %s',
     async (message) => {
@@ -325,7 +446,7 @@ describe('WalletManager.importWallet', () => {
       const input = Array(24).fill('word')
       const setup = prepareWalletImport(manager, vi.fn().mockRejectedValue(new Error(message)))
 
-      await expect(manager.importWallet(input)).rejects.toThrow(message)
+      await expect(manager.importWallet(input, 'correct horse battery staple')).rejects.toThrow(message)
 
       expect(setup.state.keypair).toBe(setup.oldKeypair)
       expect(setup.state.publicKey).toBe(setup.oldPublicKey)
@@ -346,7 +467,7 @@ describe('WalletManager.importWallet', () => {
     const importFromMnemonic = vi.fn().mockResolvedValue(nextKeypair)
     const setup = prepareWalletImport(manager, importFromMnemonic)
 
-    const result = await manager.importWallet(input)
+    const result = await manager.importWallet(input, 'correct horse battery staple')
 
     expect(importFromMnemonic).toHaveBeenCalledOnce()
     expect(setup.stop).toHaveBeenCalledOnce()
@@ -373,7 +494,7 @@ describe('WalletManager.importWallet', () => {
       release = resolve
     })
 
-    const result = manager.importWallet(input)
+    const result = manager.importWallet(input, 'correct horse battery staple')
     await Promise.resolve()
 
     expect(importFromMnemonic).not.toHaveBeenCalled()
@@ -397,9 +518,9 @@ describe('WalletManager.importWallet', () => {
     const importFromMnemonic = vi.fn().mockReturnValueOnce(firstImport).mockResolvedValueOnce(secondKeypair)
     const setup = prepareWalletImport(manager, importFromMnemonic)
 
-    const firstResult = manager.importWallet(firstInput)
+    const firstResult = manager.importWallet(firstInput, 'correct horse battery staple')
     await Promise.resolve()
-    const secondResult = manager.importWallet(secondInput)
+    const secondResult = manager.importWallet(secondInput, 'correct horse battery staple')
     await Promise.resolve()
 
     expect(importFromMnemonic).toHaveBeenCalledOnce()
@@ -434,7 +555,7 @@ describe('WalletManager.importWallet', () => {
       },
     }
 
-    const importing = manager.importWallet(input)
+    const importing = manager.importWallet(input, 'correct horse battery staple')
     await Promise.resolve()
     const signing = manager.signData('example.ton', { type: 'text', text: 'Approve' })
     await Promise.resolve()
@@ -466,7 +587,7 @@ describe('WalletManager.importWallet', () => {
       },
     }
 
-    const importing = manager.importWallet(input)
+    const importing = manager.importWallet(input, 'correct horse battery staple')
     await Promise.resolve()
     const signing = manager.signData('example.ton', { type: 'text', text: 'Approve' }, approvedAddress)
     resolveImport(nextKeypair)

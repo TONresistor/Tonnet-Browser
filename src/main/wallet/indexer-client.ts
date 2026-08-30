@@ -1,26 +1,9 @@
 import { Address } from '@ton/core'
-import { RateLimiter } from '../ipc/validation'
 import { createLogger } from '../../shared/logger'
 import type { WalletTransaction } from '../../shared/types'
+import type { TonIndexerClient, TonIndexerMessage, TonIndexerTransaction } from '../indexer/client'
 
 const log = createLogger('wallet:indexer')
-const limiter = new RateLimiter(1, 1100)
-
-interface IndexerMessage {
-  value?: string
-  source?: string
-  destination?: string
-  message_content?: { decoded?: { comment?: string } | null } | null
-}
-
-interface IndexerTransaction {
-  hash?: string
-  lt?: string
-  now?: number
-  total_fees?: string
-  in_msg?: IndexerMessage | null
-  out_msgs?: IndexerMessage[] | null
-}
 
 function toFriendly(raw?: string): string {
   if (!raw) return ''
@@ -41,7 +24,12 @@ function toHexHash(hash?: string): string {
   }
 }
 
-function mapTransaction(tx: IndexerTransaction): WalletTransaction | null {
+function messageComment(message: TonIndexerMessage | null | undefined): string | undefined {
+  const comment = message?.message_content?.decoded?.comment
+  return typeof comment === 'string' && comment ? comment : undefined
+}
+
+function mapTransaction(tx: TonIndexerTransaction): WalletTransaction | null {
   const outs = tx.out_msgs ?? []
   const inMsg = tx.in_msg
 
@@ -54,12 +42,12 @@ function mapTransaction(tx: IndexerTransaction): WalletTransaction | null {
     type = 'send'
     amount = outs[0].value ?? '0'
     counterparty = outs[0].destination ?? ''
-    comment = outs[0].message_content?.decoded?.comment ?? undefined
+    comment = messageComment(outs[0])
   } else if (inMsg) {
     type = 'receive'
     amount = inMsg.value ?? '0'
     counterparty = inMsg.source ?? ''
-    comment = inMsg.message_content?.decoded?.comment ?? undefined
+    comment = messageComment(inMsg)
   }
 
   if (amount === '0') return null
@@ -83,31 +71,12 @@ function mapTransaction(tx: IndexerTransaction): WalletTransaction | null {
 }
 
 export async function fetchHistoryViaIndexer(
+  indexer: TonIndexerClient,
   address: string,
-  limit: number,
-  endpoint: string,
-  apiKey?: string
+  limit: number
 ): Promise<WalletTransaction[]> {
   if (!address) return []
-  if (!limiter.check()) {
-    throw new Error('Indexer rate limit reached, try again shortly')
-  }
-
-  const base = endpoint.replace(/\/+$/, '')
-  const url = `${base}/transactions?account=${encodeURIComponent(address)}&limit=${limit}&sort=desc`
-  const headers: Record<string, string> = { Accept: 'application/json' }
-  if (apiKey) headers['X-Api-Key'] = apiKey
-
-  const res = await fetch(url, { headers, signal: AbortSignal.timeout(15_000) })
-  if (res.status === 429) {
-    throw new Error('Indexer rate limited (HTTP 429) — add an API key or slow down')
-  }
-  if (!res.ok) {
-    throw new Error(`Indexer HTTP ${res.status}`)
-  }
-
-  const data = (await res.json()) as { transactions?: IndexerTransaction[] }
-  const txs = data.transactions ?? []
+  const txs = await indexer.getTransactions({ account: address, limit, sort: 'desc' })
   log.info(`Indexer returned ${txs.length} transaction(s)`)
   return txs.map(mapTransaction).filter((tx): tx is WalletTransaction => tx !== null)
 }

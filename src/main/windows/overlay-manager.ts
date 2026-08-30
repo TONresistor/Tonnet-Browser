@@ -12,6 +12,8 @@ import {
   overlayThemeEventContract,
 } from '../../shared/ipc-contract/overlay'
 import { createLogger } from '../../shared/logger'
+import { onWebContents, type IDisposable } from '../utils/disposable'
+import type { WebContentsInputHandler } from './devtools'
 
 const log = createLogger('overlay')
 
@@ -46,10 +48,13 @@ export class OverlayManager {
   private readonly POOL_SIZE = OVERLAY_POOL_SIZE
   private resizeHandler: (() => void) | null = null
   private clickOutsideHandlers = new Map<string, () => void>()
+  private inputHandler: WebContentsInputHandler | null = null
+  private inputListeners = new Map<WebContentsView, IDisposable>()
 
-  attachWindow(win: BrowserWindow): void {
+  attachWindow(win: BrowserWindow, inputHandler: WebContentsInputHandler): void {
     this.detachWindow()
     this.mainWindow = win
+    this.inputHandler = inputHandler
 
     for (let i = 0; i < this.POOL_SIZE; i++) {
       this.pool.push(this.createOverlayView())
@@ -71,6 +76,10 @@ export class OverlayManager {
         nodeIntegration: false,
       },
     })
+
+    if (this.inputHandler) {
+      this.inputListeners.set(view, onWebContents(view.webContents, 'before-input-event', this.inputHandler))
+    }
 
     view.setBackgroundColor('#00000000')
 
@@ -278,12 +287,16 @@ export class OverlayManager {
 
     this.hideAll()
 
+    for (const listener of this.inputListeners.values()) listener.dispose()
+    this.inputListeners.clear()
+
     for (const view of this.pool) {
       view.webContents.close()
     }
     this.pool = []
     this.active.clear()
     this.clickOutsideHandlers.clear()
+    this.inputHandler = null
     this.mainWindow = null
     log.info('Overlay manager destroyed')
   }

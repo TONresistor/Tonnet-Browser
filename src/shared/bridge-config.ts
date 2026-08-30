@@ -111,13 +111,6 @@ export interface BridgeConfig {
 // Required: used by WsBridgeClient for core wallet/DNS operations.
 // Optional: disabled by default, users can enable via Settings > Bridge for dApp use.
 //
-// Usage map (2026-04-07 audit):
-//   lite:            5 internal methods (getAccountState, sendMessage, getTransactions, sendAndWatch, runMethod)
-//   subscribe:       3 internal methods (accountState, transactions, unsubscribe)
-//   wallet:          1 internal method  (getSeqno)
-//   dns:             1 internal method  (resolve)
-//   jetton/nft/sbt/payment/network/subscribe_trace: no usage in codebase
-
 export const DEFAULT_NAMESPACE_STATE: Record<NamespaceKey, boolean> = {
   // Required by browser internals
   lite: true,

@@ -3,7 +3,15 @@ import {
   PaymentNotificationSchema,
   WALLET_EVENT_CONTRACTS,
   walletCreateContract,
+  walletDeleteContract,
+  walletForgetContract,
   walletGetStateContract,
+  walletImportContract,
+  walletUnlockContract,
+  walletExportMnemonicContract,
+  walletChangePasswordContract,
+  walletCreateBackupChallengeContract,
+  walletMarkBackupVerifiedContract,
   walletPayForXhrContract,
   walletSendContract,
   WalletStateSchema,
@@ -45,13 +53,26 @@ describe('wallet IPC contract', () => {
 
   it('accepts exactly 24 mnemonic words only on explicit secret flows', () => {
     const mnemonic = Array.from({ length: 24 }, (_, index) => `word${index}`)
+    expect(walletCreateContract.input.parse([{}])).toEqual([{}])
+    expect(walletCreateContract.input.parse([{ password: 'correct horse battery staple' }])).toBeDefined()
+    expect(() => walletCreateContract.input.parse([{ password: 'short' }])).toThrow()
     expect(walletCreateContract.output.parse({ ...state, mnemonic }).mnemonic).toEqual(mnemonic)
+    expect(() => walletCreateContract.output.parse({ ...state, mnemonic: mnemonic.slice(0, 12) })).toThrow()
     expect(() => walletCreateContract.output.parse({ ...state, mnemonic: mnemonic.slice(1) })).toThrow()
     expect(walletCreateContract.redaction).toBe('secret')
+    expect(walletImportContract.input.parse([mnemonic, 'correct horse battery staple', 'v4R2'])).toBeDefined()
+    expect(() => walletImportContract.input.parse([mnemonic, undefined, 'v4R2'])).toThrow()
+    expect(() => walletImportContract.input.parse([mnemonic, 'correct horse battery staple', 'v4R1'])).toThrow()
   })
 
   it('enforces the wallet comment limit in UTF-8 bytes rather than characters', () => {
     expect(walletSendContract.input.parse(['UQ-recipient', '1', 'a'.repeat(123)])).toBeDefined()
+    expect(walletSendContract.input.parse(['UQ-recipient', '1', 'private memo', true])).toEqual([
+      'UQ-recipient',
+      '1',
+      'private memo',
+      true,
+    ])
     expect(() => walletSendContract.input.parse(['UQ-recipient', '1', '😀'.repeat(65)])).toThrow()
   })
 
@@ -65,6 +86,32 @@ describe('wallet IPC contract', () => {
       key: 'sender',
     })
     expect(() => walletPayForXhrContract.input.parse([{ url: 'file:///etc/passwd' }])).toThrow()
+  })
+
+  it('rate-limits password-authenticated operations in the main process', () => {
+    for (const contract of [
+      walletUnlockContract,
+      walletExportMnemonicContract,
+      walletChangePasswordContract,
+      walletCreateBackupChallengeContract,
+      walletMarkBackupVerifiedContract,
+    ]) {
+      expect(contract.rateLimit).toEqual({ kind: 'fixed-window', maxRequests: 5, windowMs: 60_000, key: 'sender' })
+      expect(contract.redaction).toBe('secret')
+    }
+  })
+
+  it('requires a password to delete a wallet', () => {
+    expect(walletDeleteContract.input.parse(['correct horse battery staple'])).toEqual(['correct horse battery staple'])
+    expect(() => walletDeleteContract.input.parse([])).toThrow()
+    expect(() => walletDeleteContract.input.parse(['short'])).toThrow()
+    expect(walletDeleteContract.redaction).toBe('secret')
+  })
+
+  it('allows a confirmed local reset without sending a password', () => {
+    expect(walletForgetContract.input.parse([])).toEqual([])
+    expect(() => walletForgetContract.input.parse(['password'])).toThrow()
+    expect(walletForgetContract.redaction).toBe('sensitive')
   })
 
   it('validates payment notifications before renderer delivery', () => {

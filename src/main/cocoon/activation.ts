@@ -17,6 +17,7 @@ import { retireCurrentCocoonWallet } from './retire-wallet'
 import { startCocoonManager } from './lifecycle'
 import type { CocoonManager } from './manager'
 import type { TonBridgePort } from '../ports/ton-bridge'
+import type { WalletIdentitySnapshot } from '../wallet/wallet-identity'
 import type { CocoonPersistence } from './persistence'
 
 const log = createLogger('cocoon:activation')
@@ -56,9 +57,9 @@ const FUND_PROPAGATION_MS = 1500
 export interface CocoonActivationPorts {
   cocoonManager: CocoonManager
   getBridge(): TonBridgePort | null
-  getNativeAddress(): string | null
-  getNativeBalance(): Promise<string>
-  sendNative(to: string, amount: string): Promise<unknown>
+  getNativeIdentity(): WalletIdentitySnapshot | null
+  getNativeBalance(expectedIdentity: WalletIdentitySnapshot): Promise<string>
+  sendNative(to: string, amount: string, expectedIdentity: WalletIdentitySnapshot): Promise<unknown>
   persistence: CocoonPersistence
 }
 
@@ -70,10 +71,10 @@ function requireBridge(ports: CocoonActivationPorts): TonBridgePort {
 }
 
 /** Returns the native wallet address or throws a not-initialized error naming the action. */
-function requireNativeAddress(ports: CocoonActivationPorts, action: string): string {
-  const native = ports.getNativeAddress()
-  if (!native) throw new Error(`Native wallet not initialized — cannot ${action}`)
-  return native
+function requireNativeIdentity(ports: CocoonActivationPorts, action: string): WalletIdentitySnapshot {
+  const identity = ports.getNativeIdentity()
+  if (!identity) throw new Error(`Native wallet not initialized — cannot ${action}`)
+  return identity
 }
 
 /**
@@ -123,6 +124,7 @@ async function waitForDrainConfirmed(
 export async function retireTerminalWalletBeforeCreate(ports: CocoonActivationPorts): Promise<void> {
   const wallet = await loadCocoonWallet()
   if (!wallet) return
+  const nativeIdentity = requireNativeIdentity(ports, 'retire existing Cocoon setup')
 
   const bridge = ports.getBridge()
   if (!bridge) {
@@ -156,9 +158,8 @@ export async function retireTerminalWalletBeforeCreate(ports: CocoonActivationPo
   ])
   const hasResidual = ownerBalance >= DRAIN_FLOOR_NANO || nodeBalance >= DRAIN_FLOOR_NANO
   if (hasResidual) {
-    const native = requireNativeAddress(ports, 'retire existing Cocoon setup')
     try {
-      await cashout(ports.cocoonManager, bridge, native)
+      await cashout(ports.cocoonManager, bridge, nativeIdentity.addressRaw)
       await waitForDrainConfirmed(bridge, wallet.ownerAddress, wallet.nodeAddress)
     } catch (err) {
       const msg = errorMessage(err)
@@ -189,6 +190,7 @@ export async function retireTerminalWalletBeforeCreate(ports: CocoonActivationPo
 export async function flowStake(ports: CocoonActivationPorts): Promise<{ httpPort: number }> {
   const { cocoonManager } = ports
   const bridge = requireBridge(ports)
+  const nativeIdentity = requireNativeIdentity(ports, 'activate Cocoon')
 
   // 1. Inspect current state. wallet may be null on first ever use.
   const currentWallet = await loadCocoonWallet()
@@ -228,7 +230,7 @@ export async function flowStake(ports: CocoonActivationPorts): Promise<{ httpPor
     if (stakeInfo?.status === 'closed' || noKnownClient) {
       log.info('Activate: retiring terminal Cocoon identity before restake')
       try {
-        await cashout(cocoonManager, bridge, ports.getNativeAddress() || currentWallet.ownerAddress)
+        await cashout(cocoonManager, bridge, nativeIdentity.addressRaw)
       } catch (err) {
         const msg = errorMessage(err)
         if (!msg.includes('Nothing to cashout')) throw err
@@ -246,14 +248,14 @@ export async function flowStake(ports: CocoonActivationPorts): Promise<{ httpPor
   const fresh = await generateCocoonWallet()
 
   // 6. Fund 20 TON from the user's native wallet to the fresh cocoon_node.
-  const nativeBalance = BigInt(await ports.getNativeBalance())
+  const nativeBalance = BigInt(await ports.getNativeBalance(nativeIdentity))
   const required = MIN_STAKE_NANO + FUND_GAS_RESERVE_NANO
   if (nativeBalance < required) {
     throw new Error(`Top up your TON wallet to at least ${required / 1_000_000_000n} GRAM to activate Cocoon`)
   }
 
   log.info(`Activate: native wallet → fresh cocoon_node, ${MIN_STAKE_NANO} nanoTON`)
-  await ports.sendNative(fresh.nodeAddress, MIN_STAKE_NANO.toString())
+  await ports.sendNative(fresh.nodeAddress, MIN_STAKE_NANO.toString(), nativeIdentity)
   await new Promise<void>((r) => setTimeout(r, FUND_PROPAGATION_MS))
 
   // 7. Start the runner. It registers a new client SC against the fresh node.

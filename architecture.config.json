@@ -1,14 +1,5 @@
 {
   "allowedCycles": [],
-  "maxProductionFileLines": 600,
-  "fileSizeExceptions": [
-    {
-      "path": "src/main/cocoon/contracts/wrappers/CocoonRoot.ts",
-      "owner": "Cocoon contract generation",
-      "reason": "Generated ABI wrapper; manual decomposition would diverge from the contract generator output.",
-      "milestone": "Remove only when the upstream wrapper generator emits a smaller equivalent surface."
-    }
-  ],
   "forbiddenPatterns": [
     {
       "id": "cocoon-stores-must-be-injected",
@@ -22,12 +13,12 @@
     },
     {
       "id": "bridge-facade-must-delegate-capability-methods",
-      "from": ["src/main/wallet/ws-bridge-client.ts"],
+      "from": ["src/main/ton-bridge/ws-bridge-client.ts"],
       "pattern": "['\"](?:dns\\.resolve|dht\\.findValue|overlay\\.(?:join|sendMessage|sendRaw|leave)|adnl\\.(?:connectByADNL|disconnect|ping))['\"]"
     },
     {
       "id": "websocket-transport-must-not-contain-ton-capabilities",
-      "from": ["src/main/wallet/websocket-transport.ts"],
+      "from": ["src/main/ton-bridge/websocket-transport.ts"],
       "pattern": "['\"](?:lite|wallet|dns|dht|overlay|adnl|subscribe)\\."
     },
     {
@@ -69,11 +60,6 @@
       "pattern": "\\b(?:accessSync|existsSync|readFileSync|writeFileSync|realpathSync|renameSync|unlinkSync|rmSync|statSync)\\s*\\("
     },
     {
-      "id": "renderer-app-must-use-owned-clients",
-      "from": ["src/renderer/src/App.tsx"],
-      "pattern": "window\\.electron"
-    },
-    {
       "id": "messenger-feature-must-use-owned-client",
       "from": ["src/renderer/src/features/messenger/components"],
       "pattern": "window\\.electron"
@@ -109,6 +95,11 @@
         "src/renderer/src/features/cocoon/components/StakePanel.tsx"
       ],
       "pattern": "window\\.electron\\.wallet"
+    },
+    {
+      "id": "bridge-consumers-must-use-narrow-providers",
+      "from": ["src/main/index.ts", "src/main/ipc", "src/main/settings"],
+      "pattern": "\\btonBridgeRuntime\\b|\\b(?:applyPort|applyBridgePort)\\s*\\("
     },
     {
       "id": "renderer-code-must-use-owned-clients",
@@ -216,7 +207,16 @@
     {
       "id": "cocoon-must-use-ton-bridge-port",
       "from": ["src/main/cocoon"],
-      "to": ["src/main/wallet/ws-bridge-client.ts"]
+      "to": ["src/main/ton-bridge/ws-bridge-client.ts"]
+    },
+    {
+      "id": "wallet-must-use-ton-bridge-provider",
+      "from": ["src/main/wallet"],
+      "to": [
+        "src/main/ton-bridge/runtime.ts",
+        "src/main/ton-bridge/ws-bridge-client.ts",
+        "src/main/ton-bridge/bridge-codecs.ts"
+      ]
     },
     {
       "id": "proxy-startup-must-not-own-window-scope",
@@ -241,7 +241,7 @@
     {
       "id": "messenger-and-cocoon-adapters-must-use-bridge-ports",
       "from": ["src/main/ipc/handlers/chat.ts", "src/main/ipc/handlers/cocoon.ts"],
-      "to": ["src/main/wallet/ws-bridge-client.ts"]
+      "to": ["src/main/ton-bridge/ws-bridge-client.ts"]
     },
     {
       "id": "renderer-features-must-use-browser-navigation-facade",

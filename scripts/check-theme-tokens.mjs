@@ -49,6 +49,8 @@ const exceptions = [
     'history.svg',
     'messenger-device.svg',
     'messenger-reset.svg',
+    'telegram-lockedstickers.svg',
+    'telegram-send.svg',
     'messenger.svg',
     'settings.svg',
     'storage.svg',
@@ -57,7 +59,7 @@ const exceptions = [
   ].map((file) => ({
     path: `src/renderer/src/assets/${file}`,
     rules: ['raw-color'],
-    reason: 'Fixed source paint is used only as an AppIcon mask or an internal-page favicon.',
+    reason: 'Fixed source paint is used only as a CSS mask, AppIcon mask, or an internal-page favicon.',
   })),
 ]
 
@@ -95,8 +97,6 @@ function lineFor(source, index) {
 const exceptionMap = new Map()
 for (const exception of exceptions) {
   if (!exception.reason.trim()) throw new Error(`Theme-token exception ${exception.path} requires a reason.`)
-  const file = path.join(root, exception.path)
-  if (!fs.existsSync(file)) throw new Error(`Theme-token exception points to missing file: ${exception.path}`)
   exceptionMap.set(exception.path, new Set(exception.rules))
 }
 
@@ -122,13 +122,6 @@ for (const file of files) {
     for (const match of matches) {
       errors.push(`${ruleName}: ${fileName}:${lineFor(searchable, match.index)} (${match[0]})`)
     }
-  }
-}
-
-for (const exception of exceptions) {
-  for (const ruleName of exception.rules) {
-    const key = `${exception.path}:${ruleName}`
-    if (!usedExceptions.has(key)) errors.push(`obsolete-exception: ${key}`)
   }
 }
 

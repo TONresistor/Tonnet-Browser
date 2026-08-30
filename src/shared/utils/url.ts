@@ -30,3 +30,34 @@ export function normalizeUrl(url: string): string {
 
   return url
 }
+
+export function cleanNavigationUrl(url: string): string {
+  const queryStart = url.indexOf('?')
+  const fragmentStart = url.indexOf('#')
+  if (queryStart === -1 || (fragmentStart !== -1 && fragmentStart < queryStart)) return url
+
+  const queryEnd = fragmentStart === -1 ? url.length : fragmentStart
+  const parts = url.slice(queryStart + 1, queryEnd).split('&')
+  const kept: string[] = []
+  let changed = false
+
+  for (const part of parts) {
+    const separator = part.indexOf('=')
+    const rawKey = separator === -1 ? part : part.slice(0, separator)
+    let key = rawKey.toLowerCase()
+    try {
+      key = decodeURIComponent(rawKey.replace(/\+/g, ' ')).toLowerCase()
+    } catch {
+      key = rawKey.toLowerCase()
+    }
+    if (key.startsWith('utm_') || key === 'fbclid' || key === 'gclid') {
+      changed = true
+    } else {
+      kept.push(part)
+    }
+  }
+
+  if (!changed) return url
+  const query = kept.length > 0 ? `?${kept.join('&')}` : ''
+  return `${url.slice(0, queryStart)}${query}${url.slice(queryEnd)}`
+}

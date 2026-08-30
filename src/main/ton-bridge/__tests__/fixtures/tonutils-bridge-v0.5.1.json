@@ -1,0 +1,44 @@
+{
+  "helper": "tonutils-bridge",
+  "version": "v0.5.1",
+  "commit": "6b313f2f7773221b16b6394e99460e91382b3d79",
+  "requests": [
+    { "method": "dns.resolve", "params": { "domain": "site.ton" } },
+    { "method": "adnl.connectByADNL", "params": { "adnl_id": "anchor" } },
+    { "method": "overlay.join", "params": { "overlay_id": "overlay", "peer_id": "peer" } },
+    { "method": "overlay.sendRaw", "params": { "overlay_id": "overlay", "data": "payload" } },
+    { "method": "adnl.ping", "params": { "peer_id": "peer" } },
+    { "method": "overlay.leave", "params": { "overlay_id": "overlay" } },
+    { "method": "adnl.disconnect", "params": { "peer_id": "peer" } },
+    { "method": "dht.findValue", "params": { "key_id": "key", "name": "address", "index": 0 } },
+    { "method": "subscribe.unsubscribe", "params": { "subscription_id": "sub" } },
+    {
+      "method": "lite.emulateTransaction",
+      "params": { "address": "0:abc", "boc": "te6ccg==", "ignore_chksig": true }
+    }
+  ],
+  "responses": {
+    "dns.resolve": {
+      "wallet": "0:abc",
+      "site_adnl": "anchor",
+      "has_storage": true,
+      "owner": "0:def",
+      "initialized": true,
+      "expiring_at": 2000000000,
+      "text_records": { "description": "fixture" }
+    },
+    "adnl.connectByADNL": { "connected": true, "peer_id": "peer", "remote_addr": "1.2.3.4:5" },
+    "dht.findValue": { "data": "dmFsdWU=", "ttl": 2000000000 },
+    "subscribe": { "subscription_id": "sub" },
+    "lite.emulateTransaction": {
+      "accepted": true,
+      "success": true,
+      "exit_code": 0,
+      "total_fees": "42",
+      "fees": { "storage_fee": "1", "gas_fee": "2", "fwd_fee": "3", "action_fee": "4" }
+    }
+  },
+  "events": {
+    "overlay.message": { "overlay_id": "overlay", "message": "payload", "trusted": true }
+  }
+}

@@ -63,6 +63,16 @@ describe('mergeHistory', () => {
     expect(merged[0].x402Domain).toBe('d.ton')
   })
 
+  it('keeps the sender copy of an encrypted comment when the chain cannot decode it', () => {
+    const cached = tx({ id: 'x', hash: 'HASH-ENC', comment: 'private memo', commentEncrypted: true })
+    const refetched = tx({ id: 'x', hash: 'HASH-ENC', comment: undefined })
+
+    const merged = mergeHistory([cached], [refetched], LIMIT)
+
+    expect(merged).toHaveLength(1)
+    expect(merged[0]).toMatchObject({ comment: 'private memo', commentEncrypted: true })
+  })
+
   it('sorts newest-first and caps to the limit', () => {
     const cached = Array.from({ length: 5 }, (_, i) => tx({ id: `c${i}`, hash: `H${i}`, timestamp: i }))
     const merged = mergeHistory(cached, [], 3)

@@ -34,7 +34,11 @@
     "commentLabel": "Comentario (opcional)",
     "comment": "Comentario",
     "commentPlaceholder": "Memo o nota",
-    "commentNote": "Se guarda en texto plano en la blockchain"
+    "commentNote": "Se guarda en texto plano en la blockchain",
+    "encryptedLabel": "Cifrado",
+    "encryptedAria": "Cifrar comentario",
+    "encryptedNote": "Solo el remitente y el destinatario pueden leerlo",
+    "privacy": "Privacidad"
   },
   "receive": {
     "addressLabel": "Tu dirección de cartera",
@@ -74,7 +78,7 @@
   },
   "import": {
     "title": "Importar cartera",
-    "description": "Introduce tu frase de recuperación de 24 palabras",
+    "description": "Introduce tu frase de recuperación TON de 24 palabras",
     "placeholder": "Introduce 24 palabras separadas por espacios...",
     "button": "Importar cartera",
     "importing": "Importando...",
@@ -93,11 +97,11 @@
   },
   "backup": {
     "title": "Guarda tu frase de recuperación",
-    "warning": "Anota estas 24 palabras y guárdalas en un lugar seguro.",
+    "warning": "Anota estas {{count}} palabras y guárdalas en un lugar seguro.",
     "warningDesc": "Esta es la única forma de recuperar tu cartera. Si pierdes estas palabras, tus fondos se perderán para siempre. Nunca las compartas con nadie.",
-    "yourPhrase": "Tu frase de recuperación de 24 palabras",
+    "yourPhrase": "Tu frase de recuperación de {{count}} palabras",
     "copy": "Copiar al portapapeles",
-    "acknowledgement": "Confirmo que he guardado de forma segura mi frase de recuperación de 24 palabras. Entiendo que sin ella no podré recuperar mi cartera ni mis fondos.",
+    "acknowledgement": "Confirmo que he guardado de forma segura mi frase de recuperación de {{count}} palabras. Entiendo que sin ella no podré recuperar mi cartera ni mis fondos.",
     "confirm": "Continuar"
   },
   "create": {
@@ -164,7 +168,7 @@
   },
   "recovery": {
     "title": "Recuperación de cartera requerida",
-    "description": "Tu llavero del sistema ha cambiado. Los datos de tu cartera siguen en el disco pero no pueden descifrarse. Importa tu frase de 24 palabras para recuperar el acceso.",
+    "description": "Tu llavero del sistema ha cambiado. Los datos de tu cartera siguen en el disco pero no pueden descifrarse. Importa tu frase TON de 24 palabras para recuperar el acceso.",
     "importButton": "Restaurar cartera",
     "orCreateNew": "o crear una nueva cartera",
     "weakEncryption": "Cifrado débil: no se detectó llavero del sistema. Tu cartera está protegida solo con cifrado básico."
@@ -172,7 +176,7 @@
   "delete": {
     "button": "Eliminar cartera",
     "title": "Eliminar cartera",
-    "warning": "Esto eliminará permanentemente tu cartera de este dispositivo. Asegúrate de haber guardado tu frase de recuperación de 24 palabras. Sin ella, tus fondos se perderán para siempre.",
+    "warning": "Esto eliminará permanentemente tu cartera de este dispositivo. Asegúrate de haber guardado tu frase de recuperación.",
     "description": "Elimina permanentemente la cartera de este dispositivo. Asegúrate de tener tu frase de recuperación antes de continuar."
   },
   "overview": {

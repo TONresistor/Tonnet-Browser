@@ -162,6 +162,16 @@ export const AdvancedSection = memo(function AdvancedSection({
             ariaLabel={t('advanced.experimental.unicodeDomains')}
           />
         </SettingRow>
+        <SettingRow
+          label={t('advanced.experimental.tonConnect')}
+          description={t('advanced.experimental.tonConnectDesc')}
+        >
+          <Toggle
+            checked={draft.tonConnectEnabled}
+            onChange={(v) => setDraft('tonConnectEnabled', v)}
+            ariaLabel={t('advanced.experimental.tonConnect')}
+          />
+        </SettingRow>
         <Http402ExperimentalPanel onDirtyChange={onHttp402DirtyChange} sectionRef={http402SectionRef} />
       </div>
 

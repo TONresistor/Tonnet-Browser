@@ -1,5 +1,5 @@
 import type { WalletTransaction } from '../../shared/types'
-import type { BridgeAccountState, BridgeTransaction } from './bridge-codecs'
+import type { BridgeAccountState, BridgeTransaction } from '../ports/ton-bridge'
 
 export interface WalletSubscriptionBridge {
   subscribeAccountState(address: string, callback: (state: BridgeAccountState) => void): () => void

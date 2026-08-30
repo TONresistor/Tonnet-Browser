@@ -620,6 +620,15 @@ function ensureTonconnectListener() {
   })
 }
 
+async function isTonconnectEnabled() {
+  try {
+    var availability = await ipcRenderer.invoke('tonconnect:availability')
+    return availability && availability.enabled === true
+  } catch (_error) {
+    return false
+  }
+}
+
 contextBridge.exposeInMainWorld('tonnet', {
   tonconnect: {
     deviceInfo: {
@@ -639,6 +648,7 @@ contextBridge.exposeInMainWorld('tonnet', {
     },
     protocolVersion: 2,
     isWalletBrowser: true,
+    isEnabled: isTonconnectEnabled,
     connect: function (protocolVersion, request) {
       if (request && typeof request.manifestUrl === 'string' && request.manifestUrl.length > MAX_MANIFEST_URL) {
         return Promise.reject(new Error('tonconnect: manifestUrl too large'))
@@ -690,10 +700,22 @@ function doInjectFetchShim(parent) {
     '  window.fetch = async function(input, init){',
     '    var url = "";',
     '    try { url = (typeof input === "string") ? input : (input && input.url) || ""; } catch (e) {}',
-    '    if (/wallets-v2\\.json/.test(url) && window.tonnet && window.tonnet.tonconnect && window.tonnet.tonconnect.walletInfo) {',
+    '    if (/wallets-v2\\.json/.test(url) && window.tonnet && window.tonnet.tonconnect && window.tonnet.tonconnect.walletInfo && await window.tonnet.tonconnect.isEnabled()) {',
+    '      var response = await origFetch(input, init);',
+    '      if (!response.ok) return response;',
+    '      var wallets;',
+    '      try { wallets = await response.clone().json(); } catch (e) { return response; }',
+    '      if (!Array.isArray(wallets)) return response;',
     '      var wi = window.tonnet.tonconnect.walletInfo;',
     '      var entry = { app_name: wi.app_name, name: wi.name, image: wi.image, about_url: wi.about_url, bridge: [{ type: "js", key: "tonnet" }], platforms: wi.platforms, features: wi.features };',
-    '      return new Response(JSON.stringify([entry]), { status: 200, headers: { "Content-Type": "application/json" } });',
+    '      wallets = wallets.filter(function(wallet) { return !wallet || wallet.app_name !== "tonnet"; });',
+    '      wallets.unshift(entry);',
+    '      var headers = new Headers(response.headers);',
+    '      headers.delete("content-length");',
+    '      headers.delete("content-encoding");',
+    '      headers.delete("etag");',
+    '      headers.set("content-type", "application/json");',
+    '      return new Response(JSON.stringify(wallets), { status: response.status, statusText: response.statusText, headers: headers });',
     '    }',
     '    if (!window.tonBridge || typeof window.tonBridge.payForXhr !== "function") return origFetch(input, init);',
     '    var req;',

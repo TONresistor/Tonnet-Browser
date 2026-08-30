@@ -3,39 +3,69 @@
  */
 
 import type { DnsResolveResult, WalletState, WalletTransaction } from '../../../shared/types'
+import { app, systemPreferences } from 'electron'
 import { toError, log } from './shared'
 import { emitContractToRenderer } from '../../events/renderer-events'
 import { getMainWindow } from '../../windows/main'
 import { WALLET_HISTORY_DEFAULT_LIMIT } from '../../wallet/constants'
 import { fetchHistoryViaIndexer } from '../../wallet/indexer-client'
-import { getSetting } from '../../settings'
 import { isTonDomain } from '../../../shared/utils/ton'
 import type { ServiceRegistry } from '../../services'
 import {
   walletBalanceUpdatedContract,
   walletGetStateContract,
+  walletRetrySystemStorageContract,
   walletNewTransactionContract,
   walletStateChangedContract,
   walletApprovePaymentContract,
   walletClearHistoryContract,
   walletCreateContract,
   walletDeleteContract,
+  walletForgetContract,
   walletExportKeyContract,
   walletExportMnemonicContract,
   walletGetBalanceContract,
   walletGetHistoryContract,
   walletImportContract,
+  walletDiscoverAccountsContract,
   walletPayForXhrContract,
   walletRejectPaymentContract,
   walletResolveRecipientContract,
   walletSendContract,
+  walletUnlockContract,
+  walletLockContract,
+  walletSetupPasswordContract,
+  walletMarkBackupVerifiedContract,
+  walletCreateBackupChallengeContract,
+  walletChangePasswordContract,
+  walletSensitiveDisplayContract,
   dnsResolveContract,
 } from '../../../shared/ipc-contract/wallet'
+import { WALLET_SYSTEM_STORAGE_RETRY_TOKEN } from '../../../shared/constants'
 import { ipcFailure, ownIpcEmitterListener, secureContractHandle, tonsiteContractHandle } from '../contract-handler'
+import {
+  requestWalletDeletionApproval,
+  requestWalletForgetApproval,
+  requestWalletReplacementApproval,
+  requestWalletTransferApproval,
+} from '../../wallet/wallet-approval'
+import { deriveWalletAccount, discoverWalletAccounts } from '../../wallet/wallet-versions'
+import { WalletBackupVerifier } from '../../wallet/backup-verifier'
+import { WalletDecryptionError } from '../../wallet/key-storage'
 
 export function registerWalletHandlers(registry: ServiceRegistry): void {
-  const { walletManager, walletHistoryManager, paymentInterceptor, overlayManager, tonConnectService } = registry
+  const {
+    walletManager,
+    tonBridgeProviders,
+    walletHistoryManager,
+    tonIndexerClient,
+    paymentInterceptor,
+    overlayManager,
+    tonConnectService,
+  } = registry
+  const backupVerifier = new WalletBackupVerifier()
   const clearAccountScopedState = async (): Promise<void> => {
+    backupVerifier.clear()
     const results = await Promise.allSettled([walletHistoryManager.clear(), tonConnectService.clearSessions()])
     for (const result of results) {
       if (result.status === 'rejected') {
@@ -59,13 +89,17 @@ export function registerWalletHandlers(registry: ServiceRegistry): void {
     })
   })
 
-  secureContractHandle(walletCreateContract, async () => {
+  secureContractHandle(walletCreateContract, async ({ password }) => {
     if (walletManager.getState().isCreated) ipcFailure('WALLET_ALREADY_EXISTS', 'Wallet already exists')
     try {
-      return await walletManager.create()
+      return await walletManager.create({ password })
     } catch (error) {
-      if (toError(error).message === 'Wallet already exists') {
+      const message = toError(error).message
+      if (message === 'Wallet already exists') {
         ipcFailure('WALLET_ALREADY_EXISTS', 'Wallet already exists', false, error)
+      }
+      if (message.toLowerCase().includes('password') && message.toLowerCase().includes('required')) {
+        ipcFailure('WALLET_PASSWORD_REQUIRED', 'An app password is required on this system', false, error)
       }
       ipcFailure('WALLET_CREATE_FAILED', 'Unable to create wallet', false, error)
     }
@@ -73,6 +107,17 @@ export function registerWalletHandlers(registry: ServiceRegistry): void {
 
   secureContractHandle(walletGetStateContract, () => {
     return walletManager.getState()
+  })
+
+  secureContractHandle(walletRetrySystemStorageContract, () => {
+    if (!walletManager.getState().systemStorageBlocked) {
+      ipcFailure('WALLET_SYSTEM_STORAGE_AVAILABLE', 'System secure storage is already available')
+    }
+    const retryArgument = `--${WALLET_SYSTEM_STORAGE_RETRY_TOKEN}`
+    const args = [...process.argv.slice(1).filter((argument) => argument !== retryArgument), retryArgument]
+    app.relaunch({ args })
+    app.quit()
+    return { success: true as const }
   })
 
   secureContractHandle(walletGetBalanceContract, async () => {
@@ -108,9 +153,15 @@ export function registerWalletHandlers(registry: ServiceRegistry): void {
     }
   })
 
-  secureContractHandle(walletSendContract, async (to, amount, comment?: string) => {
-    if (!walletManager.getState().isCreated) ipcFailure('WALLET_UNAVAILABLE', 'Wallet is not initialized')
-    if (!walletManager.getTonBridge()) ipcFailure('BRIDGE_DISCONNECTED', 'Bridge not connected')
+  secureContractHandle(walletSendContract, async (to, amount, comment?: string, encryptedComment = false) => {
+    const state = walletManager.getState()
+    if (!state.isCreated) ipcFailure('WALLET_UNAVAILABLE', 'Wallet is not initialized')
+    if (state.needsPasswordSetup) ipcFailure('WALLET_PASSWORD_REQUIRED', 'Set a wallet password before sending')
+    if (state.isLocked) ipcFailure('WALLET_LOCKED', 'Unlock the wallet before sending')
+    if (!state.backupVerified) ipcFailure('WALLET_BACKUP_REQUIRED', 'Verify the wallet backup before sending')
+    if (!tonBridgeProviders.wallet.getBridge()) ipcFailure('BRIDGE_DISCONNECTED', 'Bridge not connected')
+    const walletIdentity = walletManager.getIdentitySnapshot()
+    if (!walletIdentity) ipcFailure('WALLET_UNAVAILABLE', 'Wallet identity is unavailable')
     if (BigInt(amount) <= 0n) ipcFailure('INVALID_AMOUNT', 'Amount must be greater than zero')
     let resolved: { address: string; domain?: string }
     try {
@@ -124,18 +175,37 @@ export function registerWalletHandlers(registry: ServiceRegistry): void {
         domainFailure ? error : undefined
       )
     }
-    let balance: string
-    try {
-      balance = await walletManager.getBalance()
-    } catch (error) {
-      ipcFailure('BALANCE_READ_FAILED', 'Unable to read wallet balance', true, error)
+    let commentBody: Awaited<ReturnType<typeof walletManager.prepareEncryptedComment>> | undefined
+    if (encryptedComment && comment) {
+      try {
+        commentBody = await walletManager.prepareEncryptedComment(resolved.address, comment, walletIdentity)
+      } catch (error) {
+        ipcFailure('ENCRYPTED_COMMENT_UNAVAILABLE', 'Recipient does not support encrypted comments', false, error)
+      }
     }
-    if (BigInt(amount) > BigInt(balance)) {
+    let preflight: Awaited<ReturnType<typeof walletManager.preflightTransfer>>
+    try {
+      preflight = await walletManager.preflightTransfer(resolved.address, amount, comment, walletIdentity, commentBody)
+    } catch (error) {
+      ipcFailure('TRANSFER_PREFLIGHT_FAILED', 'Unable to verify transaction fees and recipient', true, error)
+    }
+    if (BigInt(amount) + BigInt(preflight.estimatedFee) > BigInt(preflight.walletBalance)) {
       ipcFailure('INSUFFICIENT_BALANCE', 'Insufficient balance')
     }
+    const approved = await requestWalletTransferApproval(overlayManager, {
+      address: resolved.address,
+      amount,
+      domain: resolved.domain,
+      comment,
+      commentEncrypted: Boolean(commentBody),
+      estimatedFee: preflight.estimatedFee,
+    })
+    if (!approved) ipcFailure('USER_CANCELLED', 'Transfer cancelled')
     let tx: WalletTransaction
     try {
-      tx = await walletManager.send(resolved.address, amount, comment)
+      tx = commentBody
+        ? await walletManager.send(resolved.address, amount, comment, walletIdentity, commentBody, true)
+        : await walletManager.send(resolved.address, amount, comment, walletIdentity)
     } catch (error) {
       ipcFailure('SIGNING_FAILED', 'Unable to sign or send transaction', false, error)
     }
@@ -153,16 +223,10 @@ export function registerWalletHandlers(registry: ServiceRegistry): void {
       const onChain = await walletManager.fetchOnChainHistory(safeLimit)
       return await walletHistoryManager.reconcile(onChain)
     } catch (error) {
-      const walletSettings = getSetting('wallet')
-      if (walletSettings.indexerEnabled) {
+      if (tonIndexerClient.isEnabled()) {
         try {
           const address = walletManager.getState().address
-          const viaIndexer = await fetchHistoryViaIndexer(
-            address,
-            safeLimit,
-            walletSettings.indexerEndpoint,
-            walletSettings.indexerApiKey
-          )
+          const viaIndexer = await fetchHistoryViaIndexer(tonIndexerClient, address, safeLimit)
           if (viaIndexer.length > 0) {
             return await walletHistoryManager.reconcile(viaIndexer)
           }
@@ -229,15 +293,56 @@ export function registerWalletHandlers(registry: ServiceRegistry): void {
     }
   )
 
-  secureContractHandle(walletImportContract, async (mnemonic) => {
+  secureContractHandle(walletDiscoverAccountsContract, async (mnemonic) => {
+    const bridge = tonBridgeProviders.wallet.getBridge()
+    if (!bridge) ipcFailure('BRIDGE_DISCONNECTED', 'Bridge not connected')
+    try {
+      return await discoverWalletAccounts(mnemonic, bridge)
+    } catch (error) {
+      const invalid = toError(error).message === 'Invalid mnemonic phrase'
+      ipcFailure(
+        invalid ? 'INVALID_MNEMONIC' : 'ACCOUNT_DISCOVERY_FAILED',
+        invalid ? 'Invalid mnemonic phrase' : 'Unable to discover wallet accounts',
+        false,
+        invalid ? undefined : error
+      )
+    } finally {
+      mnemonic.fill('')
+    }
+  })
+
+  secureContractHandle(walletImportContract, async (mnemonic, password, walletVersion) => {
+    const current = walletManager.getState()
+    if (current.isCreated || current.decryptFailed) {
+      let replacement: Awaited<ReturnType<typeof deriveWalletAccount>>
+      try {
+        replacement = await deriveWalletAccount(mnemonic, walletVersion)
+      } catch {
+        ipcFailure('INVALID_MNEMONIC', 'Invalid mnemonic phrase')
+      }
+      if (!(await requestWalletReplacementApproval(overlayManager, current.address, replacement))) {
+        ipcFailure('USER_CANCELLED', 'Wallet import cancelled')
+      }
+    }
+    paymentInterceptor.clearAccountState()
     let result: WalletState
     try {
-      result = await walletManager.importWallet(mnemonic)
+      result = await walletManager.importWallet(mnemonic, password, walletVersion)
     } catch (error) {
-      const code = toError(error).message === 'Invalid mnemonic phrase' ? 'INVALID_MNEMONIC' : 'WALLET_IMPORT_FAILED'
+      const message = toError(error).message
+      const code =
+        message === 'Invalid mnemonic phrase'
+          ? 'INVALID_MNEMONIC'
+          : message.toLowerCase().includes('password') && message.toLowerCase().includes('required')
+            ? 'WALLET_PASSWORD_REQUIRED'
+            : 'WALLET_IMPORT_FAILED'
       ipcFailure(
         code,
-        code === 'INVALID_MNEMONIC' ? 'Invalid mnemonic phrase' : 'Unable to import wallet',
+        code === 'INVALID_MNEMONIC'
+          ? 'Invalid mnemonic phrase'
+          : code === 'WALLET_PASSWORD_REQUIRED'
+            ? 'An app password is required on this system'
+            : 'Unable to import wallet',
         false,
         code === 'INVALID_MNEMONIC' ? undefined : error
       )
@@ -246,72 +351,138 @@ export function registerWalletHandlers(registry: ServiceRegistry): void {
     return result
   })
 
-  secureContractHandle(walletDeleteContract, async () => {
+  secureContractHandle(walletDeleteContract, async (password) => {
     const state = walletManager.getState()
     if (!state.isCreated && !state.decryptFailed) {
       ipcFailure('WALLET_NOT_FOUND', 'No wallet to delete')
     }
+    if (!state.passwordProtected) {
+      ipcFailure('WALLET_PASSWORD_REQUIRED', 'Set a wallet password before deleting the wallet')
+    }
+    const walletIdentity = walletManager.getIdentitySnapshot()
+    if (!walletIdentity) ipcFailure('WALLET_DELETE_FAILED', 'Wallet identity is unavailable')
+    try {
+      await walletManager.authenticatePassword(password)
+    } catch (error) {
+      ipcFailure('INVALID_PASSWORD', 'Invalid wallet password', false, error)
+    }
+    if (!(await requestWalletDeletionApproval(overlayManager, state.address))) {
+      ipcFailure('USER_CANCELLED', 'Wallet deletion cancelled')
+    }
+    paymentInterceptor.clearAccountState()
     let result: WalletState
     try {
-      result = await walletManager.deleteWallet()
+      result = await walletManager.deleteWallet(password, walletIdentity)
     } catch (error) {
+      if (error instanceof WalletDecryptionError) {
+        ipcFailure('INVALID_PASSWORD', 'Invalid wallet password', false, error)
+      }
       ipcFailure('WALLET_DELETE_FAILED', 'Unable to delete wallet', false, error)
     }
     await clearAccountScopedState()
     return result
   })
 
-  secureContractHandle(walletExportMnemonicContract, async () => {
-    const confirmed = await new Promise<boolean>((resolve) => {
-      const win = getMainWindow()
-      if (!win) {
-        resolve(false)
-        return
+  secureContractHandle(walletForgetContract, async () => {
+    const state = walletManager.getState()
+    if (!state.isCreated && !state.decryptFailed) ipcFailure('WALLET_NOT_FOUND', 'No wallet to remove')
+    const snapshot = await walletManager.getForgetSnapshot()
+    if (!snapshot) ipcFailure('WALLET_NOT_FOUND', 'No wallet data to remove')
+    if (!(await requestWalletForgetApproval(overlayManager, state.address))) {
+      ipcFailure('USER_CANCELLED', 'Wallet removal cancelled')
+    }
+    paymentInterceptor.clearAccountState()
+    let result: WalletState
+    try {
+      result = await walletManager.forgetWallet(snapshot.fingerprint)
+    } catch (error) {
+      ipcFailure('WALLET_FORGET_FAILED', 'Unable to remove wallet from this device', false, error)
+    }
+    await clearAccountScopedState()
+    return result
+  })
+
+  secureContractHandle(walletExportMnemonicContract, async (password?: string) => {
+    const state = walletManager.getState()
+    if (!state.passwordProtected && process.platform === 'darwin' && systemPreferences.canPromptTouchID()) {
+      try {
+        await systemPreferences.promptTouchID('Show TON wallet recovery phrase')
+      } catch (error) {
+        ipcFailure('USER_CANCELLED', 'Recovery phrase export cancelled', false, error)
       }
-
-      const bounds = win.getContentBounds()
-      const w = 420
-      const h = 260
-      const x = Math.round(bounds.width / 2 - w / 2)
-      const y = Math.round(bounds.height / 3)
-      const overlayId = 'wallet-export-confirm'
-
-      const shown = overlayManager.show(
-        overlayId,
-        { x, y, width: w, height: h },
-        {
-          type: 'form',
-          title: 'Export Seed Phrase',
-          fields: [
-            {
-              id: '_warning',
-              label: 'Your 24-word seed phrase will be displayed.',
-              value:
-                'Anyone who sees these words can take full control of your wallet. Only proceed if you are in a safe environment.',
-              readonly: true,
-            },
-          ],
-          actions: [
-            { id: 'cancel', label: 'Cancel' },
-            { id: 'show', label: 'Show Seed Phrase', primary: true },
-          ],
-        },
-        (actionType) => {
-          overlayManager.hide(overlayId)
-          resolve(actionType === 'show')
-        }
-      )
-      if (!shown) resolve(false)
-    })
-
-    if (!confirmed) {
-      ipcFailure('USER_CANCELLED', 'Export cancelled')
     }
     try {
-      return await walletManager.exportMnemonic()
+      return await walletManager.exportMnemonic(password)
     } catch (error) {
       ipcFailure('MNEMONIC_UNAVAILABLE', 'Mnemonic is unavailable', false, error)
     }
+  })
+
+  secureContractHandle(walletUnlockContract, async (password) => {
+    if (!walletManager.getState().isCreated) ipcFailure('WALLET_NOT_FOUND', 'No wallet exists')
+    try {
+      return await walletManager.unlock(password)
+    } catch (error) {
+      ipcFailure('INVALID_PASSWORD', 'Invalid wallet password', false, error)
+    }
+  })
+
+  secureContractHandle(walletLockContract, () => {
+    if (!walletManager.getState().isCreated) ipcFailure('WALLET_NOT_FOUND', 'No wallet exists')
+    return walletManager.lock()
+  })
+
+  secureContractHandle(walletSetupPasswordContract, async (password) => {
+    if (!walletManager.getState().isCreated) ipcFailure('WALLET_NOT_FOUND', 'No wallet exists')
+    try {
+      return await walletManager.setupPassword(password)
+    } catch (error) {
+      ipcFailure('WALLET_PASSWORD_SETUP_FAILED', 'Unable to protect the wallet', false, error)
+    }
+  })
+
+  secureContractHandle(walletCreateBackupChallengeContract, async (password?: string) => {
+    const state = walletManager.getState()
+    if (!state.isCreated || !state.publicKey) ipcFailure('WALLET_NOT_FOUND', 'No wallet exists')
+    try {
+      const result = await walletManager.exportMnemonic(password)
+      try {
+        return backupVerifier.create(result.mnemonic, state.publicKey)
+      } finally {
+        result.mnemonic.fill('')
+      }
+    } catch (error) {
+      ipcFailure('BACKUP_CHALLENGE_FAILED', 'Unable to create backup challenge', false, error)
+    }
+  })
+
+  secureContractHandle(walletMarkBackupVerifiedContract, async (challengeId, password, answers) => {
+    const state = walletManager.getState()
+    if (!state.isCreated || !state.publicKey) ipcFailure('WALLET_NOT_FOUND', 'No wallet exists')
+    if (!backupVerifier.verify(challengeId, state.publicKey, answers)) {
+      ipcFailure('BACKUP_VERIFICATION_FAILED', 'Recovery words do not match')
+    }
+    try {
+      return await walletManager.markBackupVerified(password, state.publicKey)
+    } catch (error) {
+      ipcFailure('BACKUP_VERIFICATION_FAILED', 'Unable to verify wallet backup', false, error)
+    }
+  })
+
+  secureContractHandle(walletChangePasswordContract, async (currentPassword, nextPassword) => {
+    if (!walletManager.getState().isCreated) ipcFailure('WALLET_NOT_FOUND', 'No wallet exists')
+    try {
+      return await walletManager.changePassword(currentPassword, nextPassword)
+    } catch (error) {
+      ipcFailure('WALLET_PASSWORD_CHANGE_FAILED', 'Unable to change wallet password', false, error)
+    }
+  })
+
+  secureContractHandle(walletSensitiveDisplayContract, (active) => {
+    const window = getMainWindow()
+    if (!window) ipcFailure('SENSITIVE_DISPLAY_FAILED', 'Main window unavailable')
+    window.setContentProtection(active)
+    return { success: true as const }
   })
 
   secureContractHandle(dnsResolveContract, async (domain) => {

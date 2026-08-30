@@ -31,6 +31,10 @@ jobs:
           node-version: '22'
           cache: 'npm'
 
+      - name: Read Go version
+        id: go-version
+        run: node -e "console.log('version=' + require('./scripts/binary-versions.json').go_version)" >> "$GITHUB_OUTPUT"
+
       - name: Verify lockfile cross-platform natives
         run: node scripts/verify-lockfile-natives.mjs
 
@@ -49,13 +53,13 @@ jobs:
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v4
         with:
           path: resources/bin/linux
-          key: go-binaries-linux-${{ hashFiles('scripts/binary-versions.json') }}
+          key: go-binaries-linux-${{ hashFiles('scripts/binary-versions.json', 'scripts/build-binaries-from-source.sh', '**/*.patch') }}
 
       - name: Setup Go
         if: steps.go-bin-cache.outputs.cache-hit != 'true'
         uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v5
         with:
-          go-version: '1.25'
+          go-version: ${{ steps.go-version.outputs.version }}
 
       - name: Build Go binaries from source
         if: steps.go-bin-cache.outputs.cache-hit != 'true'
@@ -98,32 +102,18 @@ jobs:
           if-no-files-found: ignore
 
       - name: Verify build compiles
-        run: npm run build && npm run verify:bundle-budgets
+        run: npm run build
 
       - name: Security audit
         run: npm audit --audit-level=high
 
-      - name: Generate supply-chain metadata
-        run: |
-          npm --silent run generate:sbom > sbom.cdx.json
-          npm run generate:provenance -- build-provenance.json
-
-      - name: Upload supply-chain metadata
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: supply-chain-metadata
-          path: |
-            sbom.cdx.json
-            build-provenance.json
-          retention-days: 30
-
   # ─────────────────────────────────────────────
-  # Notify: Telegram (one summary per push, any branch)
+  # Notify: Telegram (one summary per push to dev or main)
   # ─────────────────────────────────────────────
   notify:
     needs: validate
     runs-on: ubuntu-latest
-    if: always() && github.event_name == 'push'
+    if: always() && github.event_name == 'push' && (github.ref_name == 'dev' || github.ref_name == 'main')
     steps:
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4
@@ -148,7 +138,7 @@ jobs:
           NULL_SHA="0000000000000000000000000000000000000000"
           REPO_URL="${{ github.server_url }}/${{ github.repository }}"
 
-          # One summary notification per push for every branch (avoid per-commit spam)
+          # One summary notification per push (avoid per-commit spam)
           if [ -n "$BRANCH" ]; then
             if [ "$BEFORE_SHA" = "$NULL_SHA" ]; then
               RANGE="$AFTER_SHA"

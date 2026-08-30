@@ -4,6 +4,8 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { EventEmitter } from 'events'
+import { mnemonicNew } from '@ton/crypto'
+import { beginCell } from '@ton/core'
 
 const tabsMocks = vi.hoisted(() => ({
   createTab: vi.fn(() => Promise.resolve(true)),
@@ -20,6 +22,9 @@ const tabsMocks = vi.hoisted(() => ({
 const loggingMocks = vi.hoisted(() => ({
   flushNativeLogs: vi.fn(() => Promise.resolve()),
   clipboardWriteText: vi.fn(),
+}))
+const settingsMocks = vi.hoisted(() => ({
+  getSetting: vi.fn(),
 }))
 const { createTab, closeTab, switchTab, getActiveView, hideAllViews, showActiveView, navigateInTab, getActiveTabId } =
   tabsMocks
@@ -94,7 +99,7 @@ vi.mock('../../storage/daemon', () => ({
 vi.mock('../../settings', () => ({
   SettingsRuntimeApplyError: class SettingsRuntimeApplyError extends Error {},
   loadSettings: vi.fn(() => ({ general: {}, network: {}, storage: {} })),
-  getSetting: vi.fn(() => ({})),
+  getSetting: settingsMocks.getSetting,
   setSetting: vi.fn(),
   resetSettings: vi.fn(),
   getDownloadPath: vi.fn(() => '/mock/downloads'),
@@ -110,15 +115,6 @@ vi.mock('../../windows/main', () => ({
 vi.mock('../../windows/tabs', () => ({
   TabManager: vi.fn(),
   fileBrowserCache: new Map(),
-}))
-
-// Mock content filter manager
-vi.mock('../../content-filter/filter-manager', () => ({
-  contentFilterManager: {
-    setEnabled: vi.fn(),
-    setWhitelist: vi.fn(),
-    setCategoryEnabled: vi.fn(),
-  },
 }))
 
 // Mock history manager
@@ -235,8 +231,8 @@ import { getSetting, SettingsRuntimeApplyError } from '../../settings'
 import type { ServiceRegistry } from '../../services'
 import { DisposableStore } from '../../utils/disposable'
 import { overlayIdB64ForRoom } from '../../chat/room'
-import { sealBroadcast } from '../../chat/broadcast'
-import { marshalEnvelope, signEnvelope } from '../../chat/envelope'
+import { broadcastId, parseBroadcast, sealBroadcast } from '../../chat/broadcast'
+import { marshalEnvelope, parseEnvelope, signEnvelope } from '../../chat/envelope'
 import { generateCocoonWallet, loadCocoonWallet, markSetupComplete } from '../../cocoon/wallet'
 import { getOwnerBalance, getCocoonWalletBalance, fundCocoonFromOwner } from '../../cocoon/setup'
 import { ChatSessionController } from '../../chat/session-controller'
@@ -293,6 +289,11 @@ function createMockRegistry(): ServiceRegistry {
       const emitter = new EventEmitter()
       return Object.assign(emitter, {
         getState: vi.fn(() => ({ isCreated: false })),
+        getIdentitySnapshot: vi.fn(() => ({
+          publicKey: '01'.repeat(32),
+          addressRaw: `0:${'02'.repeat(32)}`,
+          revision: 1,
+        })),
         importWallet: vi.fn(() =>
           Promise.resolve({
             isCreated: true,
@@ -302,22 +303,52 @@ function createMockRegistry(): ServiceRegistry {
             balance: '0',
           })
         ),
+        authenticatePassword: vi.fn(() => Promise.resolve()),
+        getForgetSnapshot: vi.fn(() => Promise.resolve({ fingerprint: 'wallet-fingerprint' })),
+        forgetWallet: vi.fn(() =>
+          Promise.resolve({ isCreated: false, address: '', addressRaw: '', publicKey: '', balance: '0' })
+        ),
+        deleteWallet: vi.fn(() =>
+          Promise.resolve({ isCreated: false, address: '', addressRaw: '', publicKey: '', balance: '0' })
+        ),
         resolveRecipient: vi.fn((input: string) => Promise.resolve({ address: input })),
         getBalance: vi.fn(() => Promise.resolve('100')),
+        preflightTransfer: vi.fn(() =>
+          Promise.resolve({ estimatedFee: '1', destinationStatus: 'active', walletBalance: '100' })
+        ),
+        prepareEncryptedComment: vi.fn(() => Promise.resolve(beginCell().storeUint(1, 1).endCell())),
         send: vi.fn(),
         setAutoLockMinutes: vi.fn(),
-        getTonBridge: vi.fn(() => null),
-        getMessengerBridge: vi.fn(() => null),
         fetchOnChainHistory: vi.fn(() => []),
       })
     })() as any,
+    tonBridgeCoordinator: {
+      whenReady: vi.fn(() => Promise.resolve()),
+      waitUntilReady: vi.fn(() => Promise.resolve()),
+      destroy: vi.fn(() => Promise.resolve()),
+    } as any,
+    tonBridgeProviders: {
+      wallet: { getBridge: vi.fn(() => null), onBridgeChanged: vi.fn() },
+      ton: { getBridge: vi.fn(() => null), onBridgeChanged: vi.fn() },
+      messenger: { getBridge: vi.fn(() => null), onBridgeChanged: vi.fn() },
+    } as any,
     walletHistoryManager: {
       add: vi.fn(),
       getAll: vi.fn(() => []),
       reconcile: vi.fn((tx) => tx),
       clear: vi.fn(),
     } as any,
-    paymentInterceptor: { approvePayment: vi.fn(), rejectPayment: vi.fn(), registerOnSession: vi.fn() } as any,
+    tonIndexerClient: {
+      isEnabled: vi.fn(() => false),
+      getTransactions: vi.fn(() => Promise.resolve([])),
+      getNftItems: vi.fn(() => Promise.resolve([])),
+    } as any,
+    paymentInterceptor: {
+      approvePayment: vi.fn(),
+      rejectPayment: vi.fn(),
+      registerOnSession: vi.fn(),
+      clearAccountState: vi.fn(),
+    } as any,
     paymentPolicyStore: { destroy: vi.fn(), init: vi.fn() } as any,
     overlayManager: {
       show: vi.fn(),
@@ -352,12 +383,6 @@ function createMockRegistry(): ServiceRegistry {
       clear: vi.fn(),
       getStats: vi.fn(() => ({ total: 0, mode: 'memory', isLocked: false })),
       hasPersistentFile: vi.fn(() => false),
-    } as any,
-    contentFilterManager: {
-      setEnabled: vi.fn(),
-      setWhitelist: vi.fn(),
-      setCategoryEnabled: vi.fn(),
-      applySettings: vi.fn(),
     } as any,
     cocoonManager: (() => {
       const emitter = new EventEmitter()
@@ -416,6 +441,7 @@ function createMockRegistry(): ServiceRegistry {
       updateWalletSidebarWidth: vi.fn(),
       onAppearanceSettingsChanged: vi.fn(),
       updateProxyPort: vi.fn(() => Promise.resolve()),
+      resolveSenderIdentity: vi.fn(() => null),
       initialize: vi.fn(),
       dispose: vi.fn(),
     } as any,
@@ -428,7 +454,7 @@ function createMockRegistry(): ServiceRegistry {
     cocoonActivation: {
       cocoonManager: null as any,
       getBridge: vi.fn(() => null),
-      getNativeAddress: vi.fn(() => null),
+      getNativeIdentity: vi.fn(() => null),
       getNativeBalance: vi.fn(() => Promise.resolve('0')),
       sendNative: vi.fn(() => Promise.resolve()),
       persistence: null as any,
@@ -465,8 +491,12 @@ function resetHandlersTestEnv(): void {
   mockMainWindow = {
     webContents: { send: vi.fn() },
     getBounds: vi.fn(() => ({ x: 0, y: 0, width: 1024, height: 768 })),
+    getContentBounds: vi.fn(() => ({ x: 0, y: 0, width: 1024, height: 768 })),
     setTitle: vi.fn(),
   }
+  settingsMocks.getSetting.mockImplementation((category: string) =>
+    category === 'advanced' ? { tonConnectEnabled: false } : {}
+  )
   mockRegistry = createMockRegistry()
   registerIpcHandlers(mockRegistry)
 }
@@ -492,6 +522,49 @@ describe('IPC Handlers', () => {
     expect(mockProxyManager.listenerCount('status')).toBe(1)
     expect(mockStorageManager.listenerCount('bags-updated')).toBe(1)
     replacement.ipcRegistrations.dispose()
+  })
+
+  describe('TON Connect experimental gate', () => {
+    const tonsiteEvent = { sender: { id: 42 } } as any
+
+    beforeEach(() => {
+      vi.mocked(mockRegistry.tabManager.resolveSenderIdentity).mockReturnValue('webdom.ton')
+    })
+
+    it('reports the feature as disabled by default and blocks connect requests', async () => {
+      const availability = mockHandlers.get(IPC_CHANNELS.TONCONNECT_AVAILABILITY)!
+      const request = mockHandlers.get(IPC_CHANNELS.TONCONNECT_REQUEST)!
+
+      await expect(availability(tonsiteEvent)).resolves.toEqual({ enabled: false })
+      await expect(
+        request(tonsiteEvent, {
+          method: 'connect',
+          protocolVersion: 2,
+          request: { manifestUrl: 'https://webdom.ton/tonconnect-manifest.json', items: [{ name: 'ton_addr' }] },
+        })
+      ).resolves.toMatchObject({ event: 'connect_error', payload: { message: 'Experimental feature disabled' } })
+      expect(mockRegistry.tonConnectService.handleRequest).not.toHaveBeenCalled()
+    })
+
+    it('forwards requests when the experimental feature is enabled', async () => {
+      settingsMocks.getSetting.mockImplementation((category: string) =>
+        category === 'advanced' ? { tonConnectEnabled: true } : {}
+      )
+      vi.mocked(mockRegistry.tonConnectService.handleRequest).mockResolvedValueOnce({
+        event: 'connect_error',
+        id: 0,
+        payload: { code: 0, message: 'No wallet available' },
+      })
+      const request = mockHandlers.get(IPC_CHANNELS.TONCONNECT_REQUEST)!
+
+      await request(tonsiteEvent, {
+        method: 'connect',
+        protocolVersion: 2,
+        request: { manifestUrl: 'https://webdom.ton/tonconnect-manifest.json', items: [{ name: 'ton_addr' }] },
+      })
+
+      expect(mockRegistry.tonConnectService.handleRequest).toHaveBeenCalledOnce()
+    })
   })
 
   describe('Proxy Handlers', () => {
@@ -669,16 +742,97 @@ describe('IPC Handlers', () => {
   })
 
   describe('Wallet Handlers', () => {
+    it('rejects wallet deletion before confirmation when the password is invalid', async () => {
+      vi.mocked(mockRegistry.walletManager.getState).mockReturnValue({
+        isCreated: true,
+        address: 'UQCurrent',
+        passwordProtected: true,
+      } as never)
+      vi.mocked(mockRegistry.walletManager.authenticatePassword).mockRejectedValueOnce(new Error('invalid password'))
+      const handler = mockHandlers.get(IPC_CHANNELS.WALLET_DELETE)!
+
+      await expect(handler(createMockEvent(), 'definitely the wrong password')).resolves.toEqual({
+        ok: false,
+        error: { code: 'INVALID_PASSWORD', message: 'Invalid wallet password', retryable: false },
+      })
+      expect(mockRegistry.overlayManager.show).not.toHaveBeenCalled()
+      expect(mockRegistry.walletManager.deleteWallet).not.toHaveBeenCalled()
+    })
+
+    it('revalidates the password and wallet identity after deletion confirmation', async () => {
+      const identity = {
+        publicKey: '01'.repeat(32),
+        addressRaw: `0:${'02'.repeat(32)}`,
+        revision: 1,
+      }
+      vi.mocked(mockRegistry.walletManager.getState).mockReturnValue({
+        isCreated: true,
+        address: 'UQCurrent',
+        passwordProtected: true,
+      } as never)
+      vi.mocked(mockRegistry.walletManager.getIdentitySnapshot).mockReturnValue(identity)
+      vi.mocked(mockRegistry.overlayManager.show).mockImplementation((_id, _bounds, _content, callback) => {
+        callback?.('approve', {})
+        return true
+      })
+      const handler = mockHandlers.get(IPC_CHANNELS.WALLET_DELETE)!
+
+      await expect(handler(createMockEvent(), 'correct horse battery staple')).resolves.toMatchObject({
+        isCreated: false,
+      })
+      expect(mockRegistry.walletManager.authenticatePassword).toHaveBeenCalledWith('correct horse battery staple')
+      expect(mockRegistry.walletManager.deleteWallet).toHaveBeenCalledWith('correct horse battery staple', identity)
+    })
+
+    it('forgets a locked wallet without its password after confirmation', async () => {
+      vi.mocked(mockRegistry.walletManager.getState).mockReturnValue({
+        isCreated: true,
+        address: 'UQCurrent',
+        passwordProtected: true,
+        isLocked: true,
+      } as never)
+      vi.mocked(mockRegistry.overlayManager.show).mockImplementation((_id, _bounds, _content, callback) => {
+        callback?.('approve', {})
+        return true
+      })
+      const handler = mockHandlers.get(IPC_CHANNELS.WALLET_FORGET)!
+
+      await expect(handler(createMockEvent())).resolves.toMatchObject({ isCreated: false })
+      expect(mockRegistry.walletManager.authenticatePassword).not.toHaveBeenCalled()
+      expect(mockRegistry.walletManager.forgetWallet).toHaveBeenCalledWith('wallet-fingerprint')
+      expect(mockRegistry.walletHistoryManager.clear).toHaveBeenCalledOnce()
+    })
+
+    it('forgets an unreadable wallet without requiring a loaded identity', async () => {
+      vi.mocked(mockRegistry.walletManager.getState).mockReturnValue({
+        isCreated: false,
+        address: '',
+        passwordProtected: false,
+        decryptFailed: true,
+      } as never)
+      vi.mocked(mockRegistry.overlayManager.show).mockImplementation((_id, _bounds, _content, callback) => {
+        callback?.('approve', {})
+        return true
+      })
+      const handler = mockHandlers.get(IPC_CHANNELS.WALLET_FORGET)!
+
+      await expect(handler(createMockEvent())).resolves.toMatchObject({ isCreated: false })
+      expect(mockRegistry.walletManager.getIdentitySnapshot).not.toHaveBeenCalled()
+      expect(mockRegistry.walletManager.forgetWallet).toHaveBeenCalledWith('wallet-fingerprint')
+    })
+
     it('clears account-scoped state after a wallet import succeeds', async () => {
-      const mnemonic = Array.from({ length: 24 }, (_, index) => `word${index + 1}`)
+      const mnemonic = await mnemonicNew(24)
+      const password = 'correct horse battery staple'
       const handler = mockHandlers.get(IPC_CHANNELS.WALLET_IMPORT)!
 
-      const result = await handler(createMockEvent(), mnemonic)
+      const result = await handler(createMockEvent(), mnemonic, password, 'v5R1')
 
       expect(result).toMatchObject({ isCreated: true, address: 'UQImported' })
-      expect(mockRegistry.walletManager.importWallet).toHaveBeenCalledWith(mnemonic)
+      expect(mockRegistry.walletManager.importWallet).toHaveBeenCalledWith(mnemonic, password, 'v5R1')
       expect(mockRegistry.walletHistoryManager.clear).toHaveBeenCalledOnce()
       expect(mockRegistry.tonConnectService.clearSessions).toHaveBeenCalledOnce()
+      expect(mockRegistry.paymentInterceptor.clearAccountState).toHaveBeenCalledOnce()
       expect(vi.mocked(mockRegistry.walletManager.importWallet).mock.invocationCallOrder[0]).toBeLessThan(
         vi.mocked(mockRegistry.walletHistoryManager.clear).mock.invocationCallOrder[0]
       )
@@ -690,9 +844,10 @@ describe('IPC Handlers', () => {
     it('keeps account-scoped state when wallet import fails', async () => {
       vi.mocked(mockRegistry.walletManager.importWallet).mockRejectedValueOnce(new Error('Invalid mnemonic phrase'))
       const mnemonic = Array.from({ length: 24 }, (_, index) => `word${index + 1}`)
+      const password = 'correct horse battery staple'
       const handler = mockHandlers.get(IPC_CHANNELS.WALLET_IMPORT)!
 
-      const result = await handler(createMockEvent(), mnemonic)
+      const result = await handler(createMockEvent(), mnemonic, password, 'v5R1')
 
       expect(result).toEqual({
         ok: false,
@@ -702,10 +857,47 @@ describe('IPC Handlers', () => {
       expect(mockRegistry.tonConnectService.clearSessions).not.toHaveBeenCalled()
     })
 
+    it('requires native confirmation before replacing an existing wallet', async () => {
+      vi.mocked(mockRegistry.walletManager.getState).mockReturnValue({ isCreated: true, address: 'UQCurrent' } as never)
+      vi.mocked(mockRegistry.overlayManager.show).mockImplementation((_id, _bounds, _content, callback) => {
+        callback?.('deny', {})
+        return true
+      })
+      const handler = mockHandlers.get(IPC_CHANNELS.WALLET_IMPORT)!
+      const mnemonic = await mnemonicNew(24)
+      await expect(handler(createMockEvent(), mnemonic, 'correct horse battery staple', 'v5R1')).resolves.toEqual({
+        ok: false,
+        error: { code: 'USER_CANCELLED', message: 'Wallet import cancelled', retryable: false },
+      })
+      expect(mockRegistry.overlayManager.show).toHaveBeenCalledWith(
+        expect.stringContaining('wallet-replace-'),
+        expect.any(Object),
+        expect.objectContaining({
+          rows: expect.arrayContaining([
+            { label: 'Current wallet', value: 'UQCurrent' },
+            expect.objectContaining({ label: 'New wallet' }),
+            { label: 'New account type', value: 'v5R1 · TON' },
+          ]),
+        }),
+        expect.any(Function),
+        { autoDismiss: false }
+      )
+      expect(mockRegistry.walletManager.importWallet).not.toHaveBeenCalled()
+    })
+
     it('reports an insufficient balance as a stable business failure', async () => {
-      vi.mocked(mockRegistry.walletManager.getState).mockReturnValueOnce({ isCreated: true } as never)
-      vi.mocked(mockRegistry.walletManager.getTonBridge).mockReturnValueOnce({} as never)
-      vi.mocked(mockRegistry.walletManager.getBalance).mockResolvedValueOnce('10')
+      vi.mocked(mockRegistry.walletManager.getState).mockReturnValueOnce({
+        isCreated: true,
+        isLocked: false,
+        needsPasswordSetup: false,
+        backupVerified: true,
+      } as never)
+      vi.mocked(mockRegistry.tonBridgeProviders.wallet.getBridge).mockReturnValueOnce({} as never)
+      vi.mocked(mockRegistry.walletManager.preflightTransfer).mockResolvedValueOnce({
+        estimatedFee: '1',
+        destinationStatus: 'active',
+        walletBalance: '10',
+      })
       const handler = mockHandlers.get(IPC_CHANNELS.WALLET_SEND)!
 
       const result = await handler(createMockEvent(), 'EQRecipient', '11')
@@ -715,6 +907,131 @@ describe('IPC Handlers', () => {
         error: { code: 'INSUFFICIENT_BALANCE', message: 'Insufficient balance', retryable: false },
       })
       expect(mockRegistry.walletManager.send).not.toHaveBeenCalled()
+    })
+
+    it('reserves network fees in the main-process balance check', async () => {
+      vi.mocked(mockRegistry.walletManager.getState).mockReturnValueOnce({
+        isCreated: true,
+        isLocked: false,
+        needsPasswordSetup: false,
+        backupVerified: true,
+      } as never)
+      vi.mocked(mockRegistry.tonBridgeProviders.wallet.getBridge).mockReturnValueOnce({} as never)
+      vi.mocked(mockRegistry.walletManager.preflightTransfer).mockResolvedValueOnce({
+        estimatedFee: '10000000',
+        destinationStatus: 'active',
+        walletBalance: '10000009',
+      })
+      const handler = mockHandlers.get(IPC_CHANNELS.WALLET_SEND)!
+      await expect(handler(createMockEvent(), 'EQRecipient', '10')).resolves.toEqual({
+        ok: false,
+        error: { code: 'INSUFFICIENT_BALANCE', message: 'Insufficient balance', retryable: false },
+      })
+      expect(mockRegistry.walletManager.send).not.toHaveBeenCalled()
+    })
+
+    it('requires a main-process approval before a renderer transfer', async () => {
+      vi.mocked(mockRegistry.walletManager.getState).mockReturnValue({
+        isCreated: true,
+        isLocked: false,
+        needsPasswordSetup: false,
+        backupVerified: true,
+      } as never)
+      vi.mocked(mockRegistry.tonBridgeProviders.wallet.getBridge).mockReturnValue({} as never)
+      vi.mocked(mockRegistry.walletManager.getBalance).mockResolvedValue('100000000')
+      vi.mocked(mockRegistry.walletManager.resolveRecipient).mockResolvedValue({
+        address: 'EQRecipient',
+        domain: 'example.ton',
+      })
+      vi.mocked(mockRegistry.walletManager.send).mockResolvedValue({
+        id: 'tx-1',
+        type: 'send',
+        amount: '10',
+        address: 'EQRecipient',
+        timestamp: 1,
+        status: 'pending',
+      })
+      vi.mocked(mockRegistry.overlayManager.show).mockImplementation((_id, _bounds, _content, callback) => {
+        callback?.('approve', {})
+        return true
+      })
+
+      const handler = mockHandlers.get(IPC_CHANNELS.WALLET_SEND)!
+      await expect(handler(createMockEvent(), 'example.ton', '10')).resolves.toMatchObject({ id: 'tx-1' })
+      expect(mockRegistry.overlayManager.show).toHaveBeenCalledWith(
+        expect.stringContaining('wallet-transfer-'),
+        expect.any(Object),
+        expect.objectContaining({ title: 'Confirm wallet transfer', amount: '0.00000001 GRAM' }),
+        expect.any(Function),
+        { autoDismiss: false }
+      )
+      expect(mockRegistry.walletManager.send).toHaveBeenCalledWith(
+        'EQRecipient',
+        '10',
+        undefined,
+        expect.objectContaining({ publicKey: expect.any(String), addressRaw: expect.any(String) })
+      )
+    })
+
+    it('reuses the prepared encrypted comment for preflight and send', async () => {
+      const encryptedBody = beginCell().storeUint(0x2167da4b, 32).endCell()
+      vi.mocked(mockRegistry.walletManager.getState).mockReturnValue({
+        isCreated: true,
+        isLocked: false,
+        needsPasswordSetup: false,
+        backupVerified: true,
+      } as never)
+      vi.mocked(mockRegistry.tonBridgeProviders.wallet.getBridge).mockReturnValue({} as never)
+      vi.mocked(mockRegistry.walletManager.resolveRecipient).mockResolvedValue({ address: 'EQRecipient' })
+      vi.mocked(mockRegistry.walletManager.prepareEncryptedComment).mockResolvedValue(encryptedBody)
+      vi.mocked(mockRegistry.walletManager.send).mockResolvedValue({
+        id: 'tx-encrypted',
+        type: 'send',
+        amount: '10',
+        address: 'EQRecipient',
+        timestamp: 1,
+        status: 'pending',
+        comment: 'private memo',
+        commentEncrypted: true,
+      })
+      vi.mocked(mockRegistry.overlayManager.show).mockImplementation((_id, _bounds, _content, callback) => {
+        callback?.('approve', {})
+        return true
+      })
+
+      const handler = mockHandlers.get(IPC_CHANNELS.WALLET_SEND)!
+      await expect(handler(createMockEvent(), 'EQRecipient', '10', 'private memo', true)).resolves.toMatchObject({
+        id: 'tx-encrypted',
+      })
+
+      const identity = expect.objectContaining({ publicKey: expect.any(String), addressRaw: expect.any(String) })
+      expect(mockRegistry.walletManager.prepareEncryptedComment).toHaveBeenCalledWith(
+        'EQRecipient',
+        'private memo',
+        identity
+      )
+      expect(mockRegistry.walletManager.preflightTransfer).toHaveBeenCalledWith(
+        'EQRecipient',
+        '10',
+        'private memo',
+        identity,
+        encryptedBody
+      )
+      expect(mockRegistry.walletManager.send).toHaveBeenCalledWith(
+        'EQRecipient',
+        '10',
+        'private memo',
+        identity,
+        encryptedBody,
+        true
+      )
+      expect(mockRegistry.overlayManager.show).toHaveBeenCalledWith(
+        expect.stringContaining('wallet-transfer-'),
+        expect.any(Object),
+        expect.objectContaining({ rows: expect.arrayContaining([{ label: 'Privacy', value: 'Encrypted comment' }]) }),
+        expect.any(Function),
+        { autoDismiss: false }
+      )
     })
   })
 
@@ -826,18 +1143,154 @@ describe('IPC Handlers', () => {
       })
     })
 
-    it('emits replayed history messages even when the signed broadcast date is stale', async () => {
+    it('rejects a candidate when its challenge-bearing presence cannot be sent', async () => {
+      const room = 'tonnet:groupchat'
+      const bootstrap = Buffer.alloc(32, 9).toString('base64')
+      const bridge = {
+        dhtFindValue: vi.fn(),
+        dhtFindOverlayNodes: vi.fn(() => Promise.resolve({ nodes: [], count: 0 })),
+        overlayConnectAndJoin: vi.fn(() => Promise.resolve('peer-id')),
+        overlayQuery: vi.fn((_overlay: string, data: string) => {
+          if (data === 'onDZSA==') {
+            const response = Buffer.alloc(40)
+            Buffer.from('4c34c713', 'hex').copy(response)
+            Buffer.alloc(32, 0x42).copy(response, 4)
+            response.writeInt32LE(Math.floor(Date.now() / 1000) + 60, 36)
+            return Promise.resolve(response.toString('base64'))
+          }
+          const response = Buffer.alloc(8)
+          Buffer.from('47a0c32f', 'hex').copy(response)
+          response.writeInt32LE(Math.floor(Date.now() / 1000), 4)
+          return Promise.resolve(response.toString('base64'))
+        }),
+        onOverlayMessage: vi.fn(() => vi.fn()),
+        overlaySendRaw: vi.fn(() => Promise.reject(new Error('presence send failed'))),
+        overlayLeaveAndDisconnect: vi.fn(() => Promise.resolve()),
+        adnlPing: vi.fn(() => Promise.resolve()),
+      }
+      vi.mocked(getSetting).mockImplementation(((category: string) => {
+        if (category === 'messenger') return { networkEnabled: true, attachWalletIdentity: false }
+        return {}
+      }) as typeof getSetting)
+      vi.mocked(mockRegistry.tonBridgeProviders.messenger.getBridge).mockReturnValue(bridge as any)
+
+      const connect = mockHandlers.get(IPC_CHANNELS.CHAT_CONNECT)!
+      const result = await connect(createMockEvent(), room, bootstrap)
+
+      expect(result).toMatchObject({
+        ok: false,
+        error: { code: 'ROOM_UNAVAILABLE', retryable: true },
+      })
+      expect(bridge.overlayLeaveAndDisconnect).toHaveBeenCalledWith(overlayIdB64ForRoom(room), 'peer-id')
+      expect(mockRegistry.chatSessionController.session).toBeNull()
+    })
+
+    it('returns the canonical public send id and emits replayed history inside the bounded window', async () => {
       const room = 'tonnet:groupchat'
       const overlayId = overlayIdB64ForRoom(room)
       const bootstrap = Buffer.alloc(32, 9).toString('base64')
+      const history = ['first history message', 'second history message', 'third history message'].map(
+        (text, index) => {
+          const seed = Buffer.alloc(32, 19 + index)
+          const secondsAgo = 180 - index * 30
+          const env = signEnvelope(
+            { type: 'msg', nick: 'alice', text, ts: Date.now() - secondsAgo * 1_000, room },
+            seed
+          )
+          const wire = sealBroadcast(seed, marshalEnvelope(env), Math.floor(Date.now() / 1000) - secondsAgo)
+          return { env, wire, text }
+        }
+      )
       let overlayMessage: ((data: { overlay_id: string; message: string }) => void) | null = null
+      let replayed = false
       const bridge = {
         dhtFindValue: vi.fn(),
+        dhtFindOverlayNodes: vi.fn(() => Promise.resolve({ nodes: [], count: 0 })),
         overlayConnectAndJoin: vi.fn(() => Promise.resolve('peer-id')),
+        overlayQuery: vi.fn((_overlay: string, data: string) => {
+          if (data === 'onDZSA==') {
+            const response = Buffer.alloc(40)
+            Buffer.from('4c34c713', 'hex').copy(response)
+            Buffer.alloc(32, 0x42).copy(response, 4)
+            response.writeInt32LE(Math.floor(Date.now() / 1000) + 60, 36)
+            return Promise.resolve(response.toString('base64'))
+          }
+          const response = Buffer.alloc(8)
+          Buffer.from('47a0c32f', 'hex').copy(response)
+          response.writeInt32LE(Math.floor(Date.now() / 1000), 4)
+          return Promise.resolve(response.toString('base64'))
+        }),
         onOverlayMessage: vi.fn((cb: (data: { overlay_id: string; message: string }) => void) => {
           overlayMessage = cb
           return vi.fn()
         }),
+        overlaySendRaw: vi.fn(() => {
+          if (!replayed) {
+            replayed = true
+            for (const item of history) {
+              overlayMessage!({ overlay_id: overlayId, message: item.wire.toString('base64') })
+            }
+          }
+          return Promise.resolve()
+        }),
+        overlayLeaveAndDisconnect: vi.fn(() => Promise.resolve()),
+        adnlPing: vi.fn(() => Promise.resolve()),
+      }
+      vi.mocked(getSetting).mockImplementation(((category: string) => {
+        if (category === 'messenger') return { networkEnabled: true, attachWalletIdentity: false }
+        return {}
+      }) as typeof getSetting)
+      vi.mocked(mockRegistry.tonBridgeProviders.messenger.getBridge).mockReturnValue(bridge as any)
+
+      const connect = mockHandlers.get(IPC_CHANNELS.CHAT_CONNECT)!
+      const send = mockHandlers.get(IPC_CHANNELS.CHAT_SEND)!
+      const disconnect = mockHandlers.get(IPC_CHANNELS.CHAT_DISCONNECT)!
+      await connect(createMockEvent(), room, bootstrap)
+      await new Promise((resolve) => setImmediate(resolve))
+
+      for (const item of history) {
+        expect(mockMainWindow.webContents.send).toHaveBeenCalledWith(
+          IPC_CHANNELS.CHAT_MESSAGE,
+          expect.objectContaining({ room, text: item.text, deviceKey: item.env.key })
+        )
+      }
+
+      bridge.overlaySendRaw.mockClear()
+      const sent = await send(createMockEvent(), 'local message')
+      const sentCall = bridge.overlaySendRaw.mock.calls[0] as unknown as [string, string]
+      const sentWire = parseBroadcast(Buffer.from(sentCall[1], 'base64'))
+      expect(sentWire).not.toBeNull()
+      const sentEnvelope = parseEnvelope(sentWire!.data)
+      expect(sent).toMatchObject({
+        sent: true,
+        id: broadcastId(sentWire!.src, sentWire!.data, sentWire!.flags).toString('hex'),
+        ts: sentEnvelope.ts,
+      })
+
+      await disconnect(createMockEvent())
+    })
+
+    it('reconnects the active room after resetting the chat identity', async () => {
+      const room = 'tonnet:groupchat'
+      const bootstrap = Buffer.alloc(32, 9).toString('base64')
+      const bridge = {
+        dhtFindValue: vi.fn(),
+        dhtFindOverlayNodes: vi.fn(() => Promise.resolve({ nodes: [], count: 0 })),
+        overlayConnectAndJoin: vi.fn(() => Promise.resolve('new-peer-id')),
+        overlayQuery: vi.fn((_overlay: string, data: string) => {
+          if (data === 'onDZSA==') {
+            const response = Buffer.alloc(40)
+            Buffer.from('4c34c713', 'hex').copy(response)
+            Buffer.alloc(32, 0x42).copy(response, 4)
+            response.writeInt32LE(Math.floor(Date.now() / 1000) + 60, 36)
+            return Promise.resolve(response.toString('base64'))
+          }
+          const response = Buffer.alloc(8)
+          Buffer.from('47a0c32f', 'hex').copy(response)
+          response.writeInt32LE(Math.floor(Date.now() / 1000), 4)
+          return Promise.resolve(response.toString('base64'))
+        }),
+        onOverlayMessage: vi.fn(() => vi.fn()),
         overlaySendRaw: vi.fn(() => Promise.resolve()),
         overlayLeaveAndDisconnect: vi.fn(() => Promise.resolve()),
         adnlPing: vi.fn(() => Promise.resolve()),
@@ -846,26 +1299,79 @@ describe('IPC Handlers', () => {
         if (category === 'messenger') return { networkEnabled: true, attachWalletIdentity: false }
         return {}
       }) as typeof getSetting)
-      vi.mocked(mockRegistry.walletManager.getMessengerBridge).mockReturnValue(bridge as any)
+      vi.mocked(mockRegistry.tonBridgeProviders.messenger.getBridge).mockReturnValue(bridge as any)
 
-      const connect = mockHandlers.get(IPC_CHANNELS.CHAT_CONNECT)!
-      const disconnect = mockHandlers.get(IPC_CHANNELS.CHAT_DISCONNECT)!
-      await connect(createMockEvent(), room, bootstrap)
+      const oldSession = {
+        room,
+        bootstrap,
+        overlayId: overlayIdB64ForRoom(room),
+        via: 'node',
+        peerId: 'old-peer-id',
+        clockOffsetSec: 0,
+        bindingChallenge: '',
+        gated: false,
+        cert: null,
+        dispose: vi.fn(() => Promise.resolve()),
+      }
+      await mockRegistry.chatSessionController.connect(room, async () => oldSession as any)
 
-      const peerSeed = Buffer.alloc(32, 19)
-      const env = signEnvelope(
-        { type: 'msg', nick: 'alice', text: 'from history', ts: Date.now() - 120_000, room },
-        peerSeed
-      )
-      const wire = sealBroadcast(peerSeed, marshalEnvelope(env), Math.floor(Date.now() / 1000) - 120)
-      overlayMessage!({ overlay_id: overlayId, message: wire.toString('base64') })
-      await new Promise((resolve) => setImmediate(resolve))
+      const reset = mockHandlers.get(IPC_CHANNELS.CHAT_RESET_IDENTITY)!
+      const result = await reset(createMockEvent())
 
-      expect(mockMainWindow.webContents.send).toHaveBeenCalledWith(
-        IPC_CHANNELS.CHAT_MESSAGE,
-        expect.objectContaining({ room, text: 'from history', deviceKey: env.key })
-      )
-      await disconnect(createMockEvent())
+      expect(result.deviceKey).toMatch(/^[0-9a-f]{64}$/)
+      expect(oldSession.dispose).toHaveBeenCalledOnce()
+      expect(mockRegistry.chatSessionController.session).toMatchObject({ room, bootstrap, peerId: 'new-peer-id' })
+      expect(mockMainWindow.webContents.send).toHaveBeenCalledWith('chat:connection', {
+        room,
+        status: 'reconnecting',
+      })
+      expect(mockMainWindow.webContents.send).toHaveBeenCalledWith('chat:connection', {
+        room,
+        status: 'connected',
+      })
+    })
+
+    it('keeps the new identity when reconnecting after reset fails', async () => {
+      const room = 'tonnet:groupchat'
+      vi.mocked(getSetting).mockImplementation(((category: string) => {
+        if (category === 'messenger') return { networkEnabled: true, attachWalletIdentity: false }
+        return {}
+      }) as typeof getSetting)
+      vi.mocked(mockRegistry.tonBridgeProviders.messenger.getBridge).mockReturnValue(null)
+
+      const oldSession = {
+        room,
+        overlayId: overlayIdB64ForRoom(room),
+        via: 'dht',
+        peerId: 'old-peer-id',
+        clockOffsetSec: 0,
+        bindingChallenge: '',
+        gated: false,
+        cert: null,
+        dispose: vi.fn(() => Promise.resolve()),
+      }
+      await mockRegistry.chatSessionController.connect(room, async () => oldSession as any)
+
+      const reset = mockHandlers.get(IPC_CHANNELS.CHAT_RESET_IDENTITY)!
+      const result = await reset(createMockEvent())
+
+      expect(result.deviceKey).toMatch(/^[0-9a-f]{64}$/)
+      expect(mockRegistry.chatSessionController.session).toBeNull()
+      expect(mockMainWindow.webContents.send).toHaveBeenCalledWith('chat:connection', {
+        room,
+        status: 'error',
+      })
+    })
+
+    it('resets an idle identity without starting a chat connection', async () => {
+      const reset = mockHandlers.get(IPC_CHANNELS.CHAT_RESET_IDENTITY)!
+
+      const result = await reset(createMockEvent())
+
+      expect(result.deviceKey).toMatch(/^[0-9a-f]{64}$/)
+      expect(mockRegistry.chatSessionController.session).toBeNull()
+      expect(mockRegistry.tonBridgeProviders.messenger.getBridge).not.toHaveBeenCalled()
+      expect(mockMainWindow.webContents.send).not.toHaveBeenCalledWith('chat:connection', expect.anything())
     })
   })
 
@@ -1143,7 +1649,7 @@ describe('Cocoon AI Handlers', () => {
   describe('COCOON_SETUP_OWNER_BALANCE', () => {
     it('returns the balance as a decimal nano-TON string', async () => {
       const mockBridge = { getBalance: vi.fn() }
-      vi.mocked(mockRegistry.walletManager.getTonBridge).mockReturnValueOnce(mockBridge as any)
+      vi.mocked(mockRegistry.tonBridgeProviders.ton.getBridge).mockReturnValueOnce(mockBridge as any)
       vi.mocked(getOwnerBalance).mockResolvedValueOnce(1_000_000_000n)
       const handler = mockHandlers.get(IPC_CHANNELS.COCOON_SETUP_OWNER_BALANCE)!
 
@@ -1154,7 +1660,7 @@ describe('Cocoon AI Handlers', () => {
     })
 
     it('returns error when bridge is not connected', async () => {
-      // getTonBridge returns null by default
+      // The shared Bridge runtime returns null by default.
       const handler = mockHandlers.get(IPC_CHANNELS.COCOON_SETUP_OWNER_BALANCE)!
 
       const result = await handler(createMockEvent())
@@ -1171,7 +1677,7 @@ describe('Cocoon AI Handlers', () => {
   describe('COCOON_SETUP_COCOON_BALANCE', () => {
     it('returns the cocoon node wallet balance as a decimal nano-TON string', async () => {
       const mockBridge = { getBalance: vi.fn() }
-      vi.mocked(mockRegistry.walletManager.getTonBridge).mockReturnValueOnce(mockBridge as any)
+      vi.mocked(mockRegistry.tonBridgeProviders.ton.getBridge).mockReturnValueOnce(mockBridge as any)
       vi.mocked(getCocoonWalletBalance).mockResolvedValueOnce(19_500_000_000n)
       const handler = mockHandlers.get(IPC_CHANNELS.COCOON_SETUP_COCOON_BALANCE)!
 
@@ -1198,7 +1704,7 @@ describe('Cocoon AI Handlers', () => {
   describe('COCOON_SETUP_FUND_COCOON', () => {
     it("'max' branch: passes 'max' to fundCocoonFromOwner and stringifies sentAmount", async () => {
       const mockBridge = {}
-      vi.mocked(mockRegistry.walletManager.getTonBridge).mockReturnValueOnce(mockBridge as any)
+      vi.mocked(mockRegistry.tonBridgeProviders.ton.getBridge).mockReturnValueOnce(mockBridge as any)
       vi.mocked(fundCocoonFromOwner).mockResolvedValueOnce({
         bocHash: 'abc123',
         seqno: 5,
@@ -1214,7 +1720,7 @@ describe('Cocoon AI Handlers', () => {
 
     it('explicit amount: converts decimal string to BigInt before delegating', async () => {
       const mockBridge = {}
-      vi.mocked(mockRegistry.walletManager.getTonBridge).mockReturnValueOnce(mockBridge as any)
+      vi.mocked(mockRegistry.tonBridgeProviders.ton.getBridge).mockReturnValueOnce(mockBridge as any)
       vi.mocked(fundCocoonFromOwner).mockResolvedValueOnce({
         bocHash: 'def456',
         seqno: 3,
@@ -1230,7 +1736,7 @@ describe('Cocoon AI Handlers', () => {
 
     it('returns error for a non-numeric amount string', async () => {
       const mockBridge = {}
-      vi.mocked(mockRegistry.walletManager.getTonBridge).mockReturnValueOnce(mockBridge as any)
+      vi.mocked(mockRegistry.tonBridgeProviders.ton.getBridge).mockReturnValueOnce(mockBridge as any)
       const handler = mockHandlers.get(IPC_CHANNELS.COCOON_SETUP_FUND_COCOON)!
 
       const result = await handler(createMockEvent(), { amount: 'not-a-number' })
@@ -1242,7 +1748,7 @@ describe('Cocoon AI Handlers', () => {
     })
 
     it('returns error when bridge is not connected', async () => {
-      // getTonBridge returns null by default
+      // The shared Bridge runtime returns null by default.
       const handler = mockHandlers.get(IPC_CHANNELS.COCOON_SETUP_FUND_COCOON)!
 
       const result = await handler(createMockEvent(), { amount: 'max' })

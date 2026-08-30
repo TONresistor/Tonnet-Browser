@@ -149,7 +149,11 @@ function validateEnvelope(e: WireEnvelope, withSignature: boolean): void {
     throw new Error('envelope: bad type')
   }
   if (!e.room || !visibleAscii(e.room)) throw new Error('envelope: malformed room')
-  if (e.to) hexBuf(e.to, 32, 'recipient')
+  if (e.type === 'dm' || e.type === 'cert-grant') {
+    hexBuf(e.to, 32, 'recipient')
+  } else if (e.to) {
+    throw new Error('envelope: unexpected recipient')
+  }
   if (e.key) {
     hexBuf(e.key, 32, 'key')
   } else if (withSignature) {

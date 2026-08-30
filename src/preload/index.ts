@@ -17,15 +17,25 @@ import type {
   walletClearHistoryContract,
   walletCreateContract,
   walletDeleteContract,
+  walletForgetContract,
   walletExportKeyContract,
   walletExportMnemonicContract,
   walletGetBalanceContract,
   walletGetHistoryContract,
   walletGetStateContract,
+  walletRetrySystemStorageContract,
   walletImportContract,
+  walletDiscoverAccountsContract,
+  walletLockContract,
+  walletMarkBackupVerifiedContract,
+  walletCreateBackupChallengeContract,
+  walletChangePasswordContract,
+  walletSensitiveDisplayContract,
   walletRejectPaymentContract,
   walletResolveRecipientContract,
   walletSendContract,
+  walletSetupPasswordContract,
+  walletUnlockContract,
 } from '../shared/ipc-contract/wallet'
 import type {
   tonConnectDisconnectSessionContract,
@@ -68,7 +78,6 @@ import type {
   tabCloseContract,
   tabCreateContract,
   tabSwitchContract,
-  toggleDevtoolsContract,
   viewHideContract,
   viewShowContract,
   zoomGetContract,
@@ -217,7 +226,6 @@ const electronAPI = {
     get: () => invokeChannel<typeof zoomGetContract>(IPC_CHANNELS.ZOOM_GET),
     set: (percent: number) => invokeChannel<typeof zoomSetContract>(IPC_CHANNELS.ZOOM_SET, percent),
   },
-  toggleDevTools: () => invokeChannel<typeof toggleDevtoolsContract>(IPC_CHANNELS.TOGGLE_DEVTOOLS),
 
   // Storage
   storage: {
@@ -306,11 +314,14 @@ const electronAPI = {
 
   // Wallet
   wallet: {
-    create: () => invokeChannel<typeof walletCreateContract>(IPC_CHANNELS.WALLET_CREATE),
+    create: (options: { password?: string }) =>
+      invokeChannel<typeof walletCreateContract>(IPC_CHANNELS.WALLET_CREATE, options),
     getState: () => invokeChannel<typeof walletGetStateContract>(IPC_CHANNELS.WALLET_GET_STATE),
+    retrySystemStorage: () =>
+      invokeChannel<typeof walletRetrySystemStorageContract>(IPC_CHANNELS.WALLET_RETRY_SYSTEM_STORAGE),
     getBalance: () => invokeChannel<typeof walletGetBalanceContract>(IPC_CHANNELS.WALLET_GET_BALANCE),
-    send: (to: string, amount: string, comment?: string) =>
-      invokeChannel<typeof walletSendContract>(IPC_CHANNELS.WALLET_SEND, to, amount, comment),
+    send: (to: string, amount: string, comment?: string, encryptedComment?: boolean) =>
+      invokeChannel<typeof walletSendContract>(IPC_CHANNELS.WALLET_SEND, to, amount, comment, encryptedComment),
     resolveRecipient: (input: string) =>
       invokeChannel<typeof walletResolveRecipientContract>(IPC_CHANNELS.WALLET_RESOLVE_RECIPIENT, input),
     getHistory: (limit?: number) =>
@@ -321,10 +332,36 @@ const electronAPI = {
       invokeChannel<typeof walletApprovePaymentContract>(IPC_CHANNELS.WALLET_APPROVE_PAYMENT, paymentId),
     rejectPayment: (paymentId: string) =>
       invokeChannel<typeof walletRejectPaymentContract>(IPC_CHANNELS.WALLET_REJECT_PAYMENT, paymentId),
-    importWallet: (mnemonic: string[]) =>
-      invokeChannel<typeof walletImportContract>(IPC_CHANNELS.WALLET_IMPORT, mnemonic),
-    exportMnemonic: () => invokeChannel<typeof walletExportMnemonicContract>(IPC_CHANNELS.WALLET_EXPORT_MNEMONIC),
-    deleteWallet: () => invokeChannel<typeof walletDeleteContract>(IPC_CHANNELS.WALLET_DELETE),
+    discoverAccounts: (mnemonic: string[]) =>
+      invokeChannel<typeof walletDiscoverAccountsContract>(IPC_CHANNELS.WALLET_DISCOVER_ACCOUNTS, mnemonic),
+    importWallet: (mnemonic: string[], password: string, walletVersion: 'v3R1' | 'v3R2' | 'v4R2' | 'v5R1') =>
+      invokeChannel<typeof walletImportContract>(IPC_CHANNELS.WALLET_IMPORT, mnemonic, password, walletVersion),
+    exportMnemonic: (password?: string) =>
+      invokeChannel<typeof walletExportMnemonicContract>(IPC_CHANNELS.WALLET_EXPORT_MNEMONIC, password),
+    deleteWallet: (password: string) =>
+      invokeChannel<typeof walletDeleteContract>(IPC_CHANNELS.WALLET_DELETE, password),
+    forgetWallet: () => invokeChannel<typeof walletForgetContract>(IPC_CHANNELS.WALLET_FORGET),
+    unlock: (password: string) => invokeChannel<typeof walletUnlockContract>(IPC_CHANNELS.WALLET_UNLOCK, password),
+    lock: () => invokeChannel<typeof walletLockContract>(IPC_CHANNELS.WALLET_LOCK),
+    setupPassword: (password: string) =>
+      invokeChannel<typeof walletSetupPasswordContract>(IPC_CHANNELS.WALLET_SETUP_PASSWORD, password),
+    createBackupChallenge: (password?: string) =>
+      invokeChannel<typeof walletCreateBackupChallengeContract>(IPC_CHANNELS.WALLET_CREATE_BACKUP_CHALLENGE, password),
+    markBackupVerified: (challengeId: string, password: string | undefined, answers: string[]) =>
+      invokeChannel<typeof walletMarkBackupVerifiedContract>(
+        IPC_CHANNELS.WALLET_MARK_BACKUP_VERIFIED,
+        challengeId,
+        password,
+        answers
+      ),
+    changePassword: (currentPassword: string, nextPassword: string) =>
+      invokeChannel<typeof walletChangePasswordContract>(
+        IPC_CHANNELS.WALLET_CHANGE_PASSWORD,
+        currentPassword,
+        nextPassword
+      ),
+    setSensitiveDisplay: (active: boolean) =>
+      invokeChannel<typeof walletSensitiveDisplayContract>(IPC_CHANNELS.WALLET_SENSITIVE_DISPLAY, active),
   },
 
   // Bridge

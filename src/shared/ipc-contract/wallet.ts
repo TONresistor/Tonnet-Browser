@@ -10,8 +10,13 @@ export const WalletStateSchema = z.object({
   publicKey: z.string(),
   balance: z.string().regex(/^\d+$/),
   decryptFailed: z.boolean().optional(),
+  systemStorageBlocked: z.boolean().optional(),
   weakEncryption: z.boolean().optional(),
   isLocked: z.boolean().optional(),
+  needsPasswordSetup: z.boolean().optional(),
+  passwordProtected: z.boolean().optional(),
+  backupVerified: z.boolean().optional(),
+  walletVersion: z.enum(['v3R1', 'v3R2', 'v4R2', 'v5R1']).optional(),
 })
 
 export type WalletState = z.infer<typeof WalletStateSchema>
@@ -27,6 +32,7 @@ export const WalletTransactionSchema = z.object({
   lt: z.string().optional(),
   fee: z.string().optional(),
   comment: z.string().optional(),
+  commentEncrypted: z.boolean().optional(),
   x402Domain: z.string().optional(),
   x402Url: z.string().optional(),
 })
@@ -63,7 +69,16 @@ export const PaymentNotificationSchema = z.object({
 })
 export type PaymentNotification = z.infer<typeof PaymentNotificationSchema>
 
-const MnemonicSchema = z.array(z.string().min(1).max(32)).length(24)
+const RecoveryMnemonicSchema = z.array(z.string().min(1).max(32)).length(24)
+const WalletPasswordSchema = z.string().min(10).max(256)
+const WalletVersionSchema = z.enum(['v3R1', 'v3R2', 'v4R2', 'v5R1'])
+export const WalletAccountCandidateSchema = z.object({
+  version: WalletVersionSchema,
+  address: z.string().min(1),
+  addressRaw: z.string().min(1),
+  balance: z.string().regex(/^\d+$/).nullable(),
+})
+export type WalletAccountCandidate = z.infer<typeof WalletAccountCandidateSchema>
 const MutationSchema = z.object({ success: z.literal(true) })
 const mainBase = {
   direction: 'request' as const,
@@ -72,13 +87,18 @@ const mainBase = {
   rateLimit: { kind: 'none' as const },
   redaction: 'sensitive' as const,
 }
+const passwordRateLimit = { kind: 'fixed-window' as const, maxRequests: 5, windowMs: 60_000, key: 'sender' as const }
 
 export const walletCreateContract = defineRequest({
   ...mainBase,
   channel: WALLET_CONTRACT_CHANNELS.create,
-  input: z.tuple([]),
-  output: WalletStateSchema.extend({ mnemonic: MnemonicSchema }),
-  errors: ['WALLET_ALREADY_EXISTS', 'WALLET_CREATE_FAILED'],
+  input: z.tuple([
+    z.object({
+      password: WalletPasswordSchema.optional(),
+    }),
+  ]),
+  output: WalletStateSchema.extend({ mnemonic: RecoveryMnemonicSchema }),
+  errors: ['WALLET_ALREADY_EXISTS', 'WALLET_PASSWORD_REQUIRED', 'WALLET_CREATE_FAILED'],
   redaction: 'secret',
 })
 
@@ -92,6 +112,13 @@ export const walletGetStateContract = defineRequest({
   output: WalletStateSchema,
   errors: ['WALLET_STATE_UNAVAILABLE'],
   redaction: 'sensitive',
+})
+export const walletRetrySystemStorageContract = defineRequest({
+  ...mainBase,
+  channel: WALLET_CONTRACT_CHANNELS.retrySystemStorage,
+  input: z.tuple([]),
+  output: MutationSchema,
+  errors: ['WALLET_SYSTEM_STORAGE_AVAILABLE'],
 })
 export const walletGetBalanceContract = defineRequest({
   ...mainBase,
@@ -117,6 +144,7 @@ export const walletSendContract = defineRequest({
       .string()
       .refine((value) => new TextEncoder().encode(value).length <= WALLET_MAX_COMMENT_BYTES)
       .optional(),
+    z.boolean().optional(),
   ]),
   output: WalletTransactionSchema,
   errors: [
@@ -125,9 +153,15 @@ export const walletSendContract = defineRequest({
     'INVALID_RECIPIENT',
     'DNS_RESOLUTION_FAILED',
     'BALANCE_READ_FAILED',
+    'TRANSFER_PREFLIGHT_FAILED',
     'INVALID_AMOUNT',
     'COMMENT_TOO_LONG',
+    'ENCRYPTED_COMMENT_UNAVAILABLE',
     'INSUFFICIENT_BALANCE',
+    'WALLET_LOCKED',
+    'WALLET_PASSWORD_REQUIRED',
+    'WALLET_BACKUP_REQUIRED',
+    'USER_CANCELLED',
     'SIGNING_FAILED',
   ],
   redaction: 'secret',
@@ -189,26 +223,112 @@ export const walletPayForXhrContract = defineRequest({
 export const walletImportContract = defineRequest({
   ...mainBase,
   channel: WALLET_CONTRACT_CHANNELS.importWallet,
-  input: z.tuple([MnemonicSchema]),
+  input: z.tuple([RecoveryMnemonicSchema, WalletPasswordSchema, WalletVersionSchema]),
   output: WalletStateSchema,
-  errors: ['INVALID_MNEMONIC', 'WALLET_IMPORT_FAILED'],
+  errors: ['INVALID_MNEMONIC', 'WALLET_PASSWORD_REQUIRED', 'WALLET_IMPORT_FAILED', 'USER_CANCELLED'],
+  redaction: 'secret',
+})
+export const walletDiscoverAccountsContract = defineRequest({
+  ...mainBase,
+  channel: WALLET_CONTRACT_CHANNELS.discoverAccounts,
+  input: z.tuple([RecoveryMnemonicSchema]),
+  output: z.array(WalletAccountCandidateSchema).length(4),
+  errors: ['INVALID_MNEMONIC', 'BRIDGE_DISCONNECTED', 'ACCOUNT_DISCOVERY_FAILED'],
   redaction: 'secret',
 })
 export const walletExportMnemonicContract = defineRequest({
   ...mainBase,
+  rateLimit: passwordRateLimit,
   channel: WALLET_CONTRACT_CHANNELS.exportMnemonic,
-  input: z.tuple([]),
-  output: z.object({ mnemonic: MnemonicSchema }),
+  input: z.tuple([WalletPasswordSchema.optional()]),
+  output: z.object({ mnemonic: RecoveryMnemonicSchema }),
   errors: ['USER_CANCELLED', 'MNEMONIC_UNAVAILABLE'],
   redaction: 'secret',
 })
 export const walletDeleteContract = defineRequest({
   ...mainBase,
+  rateLimit: passwordRateLimit,
   channel: WALLET_CONTRACT_CHANNELS.deleteWallet,
+  input: z.tuple([WalletPasswordSchema]),
+  output: WalletStateSchema,
+  errors: [
+    'WALLET_NOT_FOUND',
+    'WALLET_PASSWORD_REQUIRED',
+    'INVALID_PASSWORD',
+    'WALLET_DELETE_FAILED',
+    'USER_CANCELLED',
+  ],
+  redaction: 'secret',
+})
+export const walletForgetContract = defineRequest({
+  ...mainBase,
+  channel: WALLET_CONTRACT_CHANNELS.forgetWallet,
   input: z.tuple([]),
   output: WalletStateSchema,
-  errors: ['WALLET_NOT_FOUND', 'WALLET_DELETE_FAILED'],
+  errors: ['WALLET_NOT_FOUND', 'WALLET_FORGET_FAILED', 'USER_CANCELLED'],
+  redaction: 'sensitive',
+})
+export const walletUnlockContract = defineRequest({
+  ...mainBase,
+  rateLimit: passwordRateLimit,
+  channel: WALLET_CONTRACT_CHANNELS.unlock,
+  input: z.tuple([WalletPasswordSchema]),
+  output: WalletStateSchema,
+  errors: ['WALLET_NOT_FOUND', 'INVALID_PASSWORD', 'WALLET_UNLOCK_FAILED'],
   redaction: 'secret',
+})
+export const walletLockContract = defineRequest({
+  ...mainBase,
+  channel: WALLET_CONTRACT_CHANNELS.lock,
+  input: z.tuple([]),
+  output: WalletStateSchema,
+  errors: ['WALLET_NOT_FOUND'],
+})
+export const walletSetupPasswordContract = defineRequest({
+  ...mainBase,
+  channel: WALLET_CONTRACT_CHANNELS.setupPassword,
+  input: z.tuple([WalletPasswordSchema]),
+  output: WalletStateSchema,
+  errors: ['WALLET_NOT_FOUND', 'WALLET_PASSWORD_SETUP_FAILED'],
+  redaction: 'secret',
+})
+export const walletMarkBackupVerifiedContract = defineRequest({
+  ...mainBase,
+  rateLimit: passwordRateLimit,
+  channel: WALLET_CONTRACT_CHANNELS.markBackupVerified,
+  input: z.tuple([z.string().uuid(), WalletPasswordSchema.optional(), z.array(z.string().min(1).max(32)).length(3)]),
+  output: WalletStateSchema,
+  errors: ['WALLET_NOT_FOUND', 'BACKUP_VERIFICATION_FAILED'],
+  redaction: 'secret',
+})
+export const walletCreateBackupChallengeContract = defineRequest({
+  ...mainBase,
+  rateLimit: passwordRateLimit,
+  channel: WALLET_CONTRACT_CHANNELS.createBackupChallenge,
+  input: z.tuple([WalletPasswordSchema.optional()]),
+  output: z.object({
+    challengeId: z.string().uuid(),
+    indexes: z.array(z.number().int().min(0).max(23)).length(3),
+  }),
+  errors: ['WALLET_NOT_FOUND', 'INVALID_PASSWORD', 'BACKUP_CHALLENGE_FAILED'],
+  redaction: 'secret',
+})
+export const walletChangePasswordContract = defineRequest({
+  ...mainBase,
+  rateLimit: passwordRateLimit,
+  channel: WALLET_CONTRACT_CHANNELS.changePassword,
+  input: z.tuple([WalletPasswordSchema, WalletPasswordSchema]),
+  output: WalletStateSchema,
+  errors: ['WALLET_NOT_FOUND', 'INVALID_PASSWORD', 'WALLET_PASSWORD_CHANGE_FAILED'],
+  redaction: 'secret',
+})
+export const walletSensitiveDisplayContract = defineRequest({
+  ...mainBase,
+  channel: WALLET_CONTRACT_CHANNELS.sensitiveDisplay,
+  input: z.tuple([z.boolean()]),
+  output: MutationSchema,
+  errors: ['SENSITIVE_DISPLAY_FAILED'],
+  redaction: 'sensitive',
 })
 export const dnsResolveContract = defineRequest({
   ...mainBase,
@@ -266,6 +386,7 @@ export const WALLET_EVENT_CONTRACTS = [
 export const WALLET_REQUEST_CONTRACTS = [
   walletCreateContract,
   walletGetStateContract,
+  walletRetrySystemStorageContract,
   walletGetBalanceContract,
   walletResolveRecipientContract,
   walletSendContract,
@@ -276,7 +397,16 @@ export const WALLET_REQUEST_CONTRACTS = [
   walletRejectPaymentContract,
   walletPayForXhrContract,
   walletImportContract,
+  walletDiscoverAccountsContract,
   walletExportMnemonicContract,
   walletDeleteContract,
+  walletForgetContract,
+  walletUnlockContract,
+  walletLockContract,
+  walletSetupPasswordContract,
+  walletMarkBackupVerifiedContract,
+  walletCreateBackupChallengeContract,
+  walletChangePasswordContract,
+  walletSensitiveDisplayContract,
   dnsResolveContract,
 ] as const

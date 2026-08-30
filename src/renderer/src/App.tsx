@@ -42,6 +42,7 @@ import { InternalRouteContent } from '@/app-shell/InternalRouteContent'
 import { useApplicationBootstrap } from '@/app-shell/useApplicationBootstrap'
 import { useMessengerShortcut } from '@/features/messenger/useMessengerShortcut'
 import { appShellClient } from '@/app-shell/client'
+import { TON_WALLET_PAGE, WALLET_SYSTEM_STORAGE_RETRY_TOKEN } from '@shared/constants'
 
 const log = createLogger('app')
 
@@ -66,6 +67,9 @@ function App() {
   const [cocoonSidebarOpen, setCocoonSidebarOpen] = useState(false)
   const [cocoonSidebarWidth, setCocoonSidebarWidth] = useState(320)
   const messengerShortcutVisible = useMessengerShortcut(messengerNetworkEnabled)
+  const walletSystemStorageRetry = useRef(
+    new URLSearchParams(window.location.search).has(WALLET_SYSTEM_STORAGE_RETRY_TOKEN)
+  )
 
   // Debounce timer for settings save
   const settingsSaveTimer = useRef<NodeJS.Timeout | null>(null)
@@ -73,6 +77,12 @@ function App() {
   useApplicationBootstrap()
   useLocaleEffects()
   useThemeEffects()
+
+  useEffect(() => {
+    if (!walletSystemStorageRetry.current) return
+    walletSystemStorageRetry.current = false
+    void openOrSwitchToTab(TON_WALLET_PAGE)
+  }, [openOrSwitchToTab])
 
   // Sync current sidebar width with saved value when preferences load
   useEffect(() => {

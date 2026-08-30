@@ -27,7 +27,8 @@ import { useOpenOrSwitchBrowserTab } from '@/features/browser/navigation'
 import { TransactionList } from '@/features/wallet/components/TransactionList'
 import { SendForm } from '@/features/wallet/components/SendForm'
 import { ReceivePanel } from '@/features/wallet/components/ReceivePanel'
-import { TransactionDetailSheet } from '@/features/wallet/components/TransactionDetailSheet'
+import { TransactionDetailView } from '@/features/wallet/components/TransactionDetailView'
+import { useWalletContentView } from '@/features/wallet/components/wallet-view-state'
 import { ActionButton } from '@/components/ui/ios/ActionButton'
 import { ActionTile } from '@/components/ui/ios/ActionTile'
 import { BalanceHero } from '@/components/ui/ios/BalanceHero'
@@ -37,8 +38,12 @@ import { AddressChip } from '@/components/ui/ios/AddressChip'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { TON_WALLET_PAGE, UI_COPY_FEEDBACK_MS } from '@shared/constants'
-
-type SidebarView = 'overview' | 'send' | 'receive'
+import { copySensitiveText } from '@/features/wallet/sensitive-clipboard'
+import { WalletSidebarGate } from './WalletSidebarGate'
+import { WalletForgotPasswordScreen } from './WalletForgotPasswordScreen'
+import { errorMessage } from '@shared/errors'
+import { openWalletRecoverySettings } from '@/features/settings/public'
+import { WalletSystemStorageGate } from './WalletSystemStorageGate'
 
 interface WalletSidebarProps {
   onClose: () => void
@@ -54,11 +59,17 @@ export function WalletSidebar({ onClose }: WalletSidebarProps) {
     isLoading,
     isSending,
     error,
+    systemStorageBlocked,
+    isLocked,
+    needsPasswordSetup,
+    backupVerified,
     init,
-    create,
     send,
     loadHistory,
     refreshBalance,
+    unlock,
+    setupPassword,
+    forgetWallet,
   } = useWalletStore(
     useShallow((s) => ({
       isCreated: s.isCreated,
@@ -68,21 +79,34 @@ export function WalletSidebar({ onClose }: WalletSidebarProps) {
       isLoading: s.isLoading,
       isSending: s.isSending,
       error: s.error,
+      systemStorageBlocked: s.systemStorageBlocked,
+      isLocked: s.isLocked,
+      needsPasswordSetup: s.needsPasswordSetup,
+      backupVerified: s.backupVerified,
       init: s.init,
-      create: s.create,
       send: s.send,
       loadHistory: s.loadHistory,
       refreshBalance: s.refreshBalance,
+      unlock: s.unlock,
+      setupPassword: s.setupPassword,
+      forgetWallet: s.forgetWallet,
     }))
   )
   const openOrSwitchToTab = useOpenOrSwitchBrowserTab()
   const [mnemonicCopied, setMnemonicCopied] = useState(false)
-  const [view, setView] = useState<SidebarView>('overview')
-  const [selectedTx, setSelectedTx] = useState<WalletTransaction | null>(null)
   const [newMnemonic, setNewMnemonic] = useState<string[] | null>(null)
   const [backupAcknowledged, setBackupAcknowledged] = useState(false)
   const [mnemonicRevealed, setMnemonicRevealed] = useState(false)
+  const [walletPassword, setWalletPassword] = useState('')
+  const [walletPasswordConfirm, setWalletPasswordConfirm] = useState('')
+  const [securityError, setSecurityError] = useState<string | null>(null)
+  const [securityPending, setSecurityPending] = useState(false)
+  const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false)
   const mnemonicTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const { view, selectedTransaction, showOverview, showSend, showReceive, showTransaction } = useWalletContentView(
+    transactions,
+    isCreated && !isLocked && !needsPasswordSetup && backupVerified
+  )
 
   // Auto-clear mnemonic from memory after 60s
   useEffect(() => {
@@ -118,14 +142,13 @@ export function WalletSidebar({ onClose }: WalletSidebarProps) {
   }, [refreshBalance, loadHistory])
 
   const handleCreate = useCallback(async () => {
-    const words = await create()
-    if (words) setNewMnemonic(words)
-  }, [create])
+    openOrSwitchToTab(TON_WALLET_PAGE)
+    onClose()
+  }, [openOrSwitchToTab, onClose])
 
   const handleCopyMnemonic = useCallback(() => {
     if (!newMnemonic) return
-    navigator.clipboard.writeText(newMnemonic.join(' '))
-    setTimeout(() => navigator.clipboard.writeText(''), 30_000)
+    void copySensitiveText(newMnemonic.join(' '))
     setMnemonicCopied(true)
     setTimeout(() => setMnemonicCopied(false), UI_COPY_FEEDBACK_MS)
   }, [newMnemonic])
@@ -134,6 +157,27 @@ export function WalletSidebar({ onClose }: WalletSidebarProps) {
     openOrSwitchToTab(TON_WALLET_PAGE)
     onClose()
   }, [openOrSwitchToTab, onClose])
+
+  const handleSecuritySubmit = useCallback(async () => {
+    setSecurityPending(true)
+    setSecurityError(null)
+    try {
+      if (needsPasswordSetup) await setupPassword(walletPassword)
+      else await unlock(walletPassword)
+      setWalletPassword('')
+      setWalletPasswordConfirm('')
+    } catch (error) {
+      setSecurityError(errorMessage(error))
+    } finally {
+      setSecurityPending(false)
+    }
+  }, [needsPasswordSetup, setupPassword, unlock, walletPassword])
+
+  const handleRecoverWallet = useCallback(() => {
+    openWalletRecoverySettings()
+    openOrSwitchToTab('ton://settings')
+    onClose()
+  }, [onClose, openOrSwitchToTab])
 
   // Mnemonic backup screen after wallet creation
   if (newMnemonic) {
@@ -213,6 +257,12 @@ export function WalletSidebar({ onClose }: WalletSidebarProps) {
     )
   }
 
+  if (systemStorageBlocked) {
+    return (
+      <WalletSystemStorageGate variant="sidebar" onDismiss={onClose} onOpenFull={handleOpenWallet} onClose={onClose} />
+    )
+  }
+
   if (!isCreated) {
     return (
       <div className="flex flex-col h-full bg-[hsl(var(--elevation-1))] border-l border-border">
@@ -255,17 +305,49 @@ export function WalletSidebar({ onClose }: WalletSidebarProps) {
     )
   }
 
+  if (isLocked || needsPasswordSetup || !backupVerified) {
+    if (forgotPasswordOpen) {
+      return (
+        <WalletForgotPasswordScreen
+          compact
+          onRecover={handleRecoverWallet}
+          onForget={forgetWallet}
+          onBack={() => setForgotPasswordOpen(false)}
+          onClose={onClose}
+        />
+      )
+    }
+    return (
+      <WalletSidebarGate
+        mode={needsPasswordSetup ? 'setup' : isLocked ? 'unlock' : 'backup'}
+        password={walletPassword}
+        confirmation={needsPasswordSetup ? walletPasswordConfirm : undefined}
+        pending={securityPending}
+        error={securityError}
+        onPassword={(value) => {
+          setWalletPassword(value)
+          setSecurityError(null)
+        }}
+        onConfirmation={needsPasswordSetup ? setWalletPasswordConfirm : undefined}
+        onSubmit={handleSecuritySubmit}
+        onForgotPassword={isLocked ? () => setForgotPasswordOpen(true) : undefined}
+        onOpenFull={handleOpenWallet}
+        onClose={onClose}
+      />
+    )
+  }
+
   return (
     <div className="flex flex-col h-full bg-[hsl(var(--elevation-1))]">
       {/* Header */}
       <div className="px-4 py-3 border-b border-border flex items-center justify-between">
         <div className="flex items-center gap-2">
-          {view !== 'overview' ? (
+          {view.kind !== 'overview' ? (
             <Button
               variant="ghost"
               size="icon"
               className="h-6 w-6 rounded-full"
-              onClick={() => setView('overview')}
+              onClick={showOverview}
               title={t('send.back')}
               aria-label={t('send.back')}
             >
@@ -275,11 +357,19 @@ export function WalletSidebar({ onClose }: WalletSidebarProps) {
             <AppIcon name="wallet" className="h-4 w-4 text-icon" />
           )}
           <span className="text-sm font-semibold text-heading">
-            {view === 'overview' ? t('page.title') : view === 'send' ? t('tabs.send') : t('tabs.receive')}
+            {view.kind === 'overview'
+              ? t('page.title')
+              : view.kind === 'send'
+                ? t('tabs.send')
+                : view.kind === 'receive'
+                  ? t('tabs.receive')
+                  : selectedTransaction
+                    ? t(`history.types.${selectedTransaction.type}`)
+                    : t('page.title')}
           </span>
         </div>
         <div className="flex items-center gap-1">
-          {view === 'overview' && (
+          {view.kind === 'overview' && (
             <Button
               variant="ghost"
               size="icon"
@@ -304,15 +394,15 @@ export function WalletSidebar({ onClose }: WalletSidebarProps) {
         </div>
       </div>
 
-      {view === 'overview' && (
+      {view.kind === 'overview' && (
         <>
           <SidebarOverviewBody
             balance={balance}
             address={address}
-            onSend={() => setView('send')}
-            onReceive={() => setView('receive')}
+            onSend={showSend}
+            onReceive={showReceive}
             transactions={transactions}
-            onSelect={setSelectedTx}
+            onSelect={showTransaction}
             t={t}
           />
 
@@ -325,25 +415,34 @@ export function WalletSidebar({ onClose }: WalletSidebarProps) {
                 transition-colors font-medium"
             >
               <ExternalLink className="h-3 w-3" />
-              {t('page.title')}
+              {t('page.openFull', { defaultValue: 'Open full wallet' })}
             </button>
           </div>
         </>
       )}
 
-      {view === 'send' && (
+      {view.kind === 'send' && (
         <div className="flex-1 overflow-auto p-4">
           <SendForm onSend={send} isSending={isSending} error={error} balance={balance} />
         </div>
       )}
 
-      {view === 'receive' && (
+      {view.kind === 'receive' && (
         <div className="flex-1 overflow-auto p-4">
           <ReceivePanel address={address} />
         </div>
       )}
 
-      <TransactionDetailSheet tx={selectedTx} selfAddress={address} onClose={() => setSelectedTx(null)} />
+      {view.kind === 'transaction' && selectedTransaction && (
+        <div className="min-h-0 flex-1 overflow-auto p-4">
+          <TransactionDetailView
+            transaction={selectedTransaction}
+            selfAddress={address}
+            onBack={showOverview}
+            density="compact"
+          />
+        </div>
+      )}
     </div>
   )
 }

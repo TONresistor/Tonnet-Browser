@@ -42,6 +42,8 @@ export interface StakeCache {
 
 const PendingWithdrawSchema = z.object({
   startedAt: z.number().finite(),
+  nativeWalletPublicKey: z.string().optional(),
+  nativeWalletAddress: z.string().optional(),
   lastActionAt: z.number().finite().optional(),
   lastBocHash: z.string().optional(),
 })

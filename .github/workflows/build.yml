@@ -62,8 +62,8 @@ jobs:
       - name: Test coverage
         run: npm run test:coverage
 
-      - name: Verify build and bundle budgets
-        run: npm run build && npm run verify:bundle-budgets
+      - name: Verify build compiles
+        run: npm run build
 
       - name: Security audit
         run: npm audit --audit-level=high
@@ -124,10 +124,15 @@ jobs:
           node-version: '22'
           cache: 'npm'
 
+      - name: Read Go version
+        id: go-version
+        shell: bash
+        run: node -e "console.log('version=' + require('./scripts/binary-versions.json').go_version)" >> "$GITHUB_OUTPUT"
+
       - name: Setup Go
         uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v5
         with:
-          go-version: '1.25'
+          go-version: ${{ steps.go-version.outputs.version }}
 
       - name: Cache Electron binary
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v4

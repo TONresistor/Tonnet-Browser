@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.6.0] - 2026-08-30
+
+### Added
+
+- Experimental setting to advertise the built-in TON Connect wallet to .ton sites.
+- Experimental Messenger with DHT discovery and automatic reconnect.
+- Encrypted wallet vault with password, backup and recovery flows.
+- Optional encrypted transaction comments.
+
+### Changed
+
+- Tracking protection is simplified; the path-based content filter is gone.
+- Wallet transaction details now render inline in full-page and sidebar layouts.
+- Bundled TON binaries updated to proxy v1.10.1, bridge v0.5.1, storage v1.5.3 and GoCoon v0.3.0, built with Go 1.26.
+- `ton://storage` opens bag details in the left sidebar (back to filters) instead of a floating bar, with more compact bag rows.
+
+### Fixed
+
+- DevTools shortcut works while a page has focus.
+- Cocoon displays non-bounceable `UQ` funding addresses.
+- Wallet locking, password errors, transaction preflight and recovery flows are hardened.
+
 ## [2.5.0] - 2026-08-07
 
 ### Added
@@ -382,7 +404,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Preload script path for ES module builds.
 - Utya Duck theme persistence and colors.
 
-[Unreleased]: https://github.com/TONresistor/Tonnet-Browser/compare/v2.5.0...HEAD
+[Unreleased]: https://github.com/TONresistor/Tonnet-Browser/compare/v2.6.0...HEAD
+[2.6.0]: https://github.com/TONresistor/Tonnet-Browser/compare/v2.5.0...v2.6.0
 [2.5.0]: https://github.com/TONresistor/Tonnet-Browser/compare/v2.4.0...v2.5.0
 [2.4.0]: https://github.com/TONresistor/Tonnet-Browser/compare/v2.3.1...v2.4.0
 [2.2.0]: https://github.com/TONresistor/Tonnet-Browser/compare/v2.1.0...v2.2.0

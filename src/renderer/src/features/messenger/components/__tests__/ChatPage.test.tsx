@@ -94,6 +94,7 @@ describe('ChatPage', () => {
     })
 
     expect(mockElectron.chat.connect).toHaveBeenCalledWith('tonnet:groupchat', undefined)
+    expect(container.textContent).toContain('connected')
     mockElectron.chat.disconnect.mockClear()
 
     await act(async () => {

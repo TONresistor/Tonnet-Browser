@@ -86,4 +86,22 @@ describe('preferences store', () => {
     expect(usePreferencesStore.getState().saved.displayUnicodeDomains).toBe(true)
     expect(usePreferencesStore.getState().hasChanges).toBe(false)
   })
+
+  it('persists the experimental TON Connect preference under advanced settings', async () => {
+    mocks.apply.mockResolvedValueOnce(AppSettingsSchema.parse({ advanced: { tonConnectEnabled: true } }))
+    const { defaultPreferences, usePreferencesStore } = await import('../preferences-store')
+    usePreferencesStore.setState({
+      saved: { ...defaultPreferences },
+      draft: { ...defaultPreferences, tonConnectEnabled: true },
+      isLoaded: true,
+      hasChanges: true,
+      isSaving: false,
+    })
+
+    await usePreferencesStore.getState().save()
+
+    expect(mocks.apply).toHaveBeenCalledWith({ advanced: { tonConnectEnabled: true } })
+    expect(usePreferencesStore.getState().saved.tonConnectEnabled).toBe(true)
+    expect(usePreferencesStore.getState().hasChanges).toBe(false)
+  })
 })

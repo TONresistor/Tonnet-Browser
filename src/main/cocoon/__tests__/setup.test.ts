@@ -21,7 +21,7 @@ vi.mock('../contracts', () => ({
 import { getOwnerBalance, getCocoonWalletBalance, fundCocoonFromOwner } from '../setup'
 import { loadCocoonWallet } from '../wallet'
 import { sendFromOwnerWallet } from '../contracts'
-import type { WsBridgeClient } from '../../wallet/ws-bridge-client'
+import type { WsBridgeClient } from '../../ton-bridge/ws-bridge-client'
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 

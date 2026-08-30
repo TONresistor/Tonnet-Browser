@@ -10,7 +10,7 @@ import { chmodSync, existsSync, mkdirSync, renameSync, rmSync } from 'fs'
 import { migrateUserData } from './utils/migrate-userdata'
 import { EventEmitter } from 'events'
 import { pathToFileURL } from 'url'
-import { electronApp, optimizer, is } from '@electron-toolkit/utils'
+import { electronApp, is } from '@electron-toolkit/utils'
 import { registerIpcHandlers } from './ipc/handlers'
 import { emitContractToRenderer } from './events/renderer-events'
 import { setMainWindow } from './windows/main'
@@ -39,6 +39,7 @@ import {
   proxyProgressEventContract,
   proxyStatusEventContract,
 } from '../shared/ipc-contract/proxy'
+import { WALLET_SYSTEM_STORAGE_RETRY_TOKEN } from '../shared/constants'
 
 // Initialize electron-log IPC bridge so renderer can also log via electron-log
 log.initialize()
@@ -67,8 +68,7 @@ const applicationStartedAt = Date.now()
 /**
  * Run a deferred startup step (sync or async), logging on failure instead of
  * throwing, so one service failing to init/start cannot abort the rest of the
- * boot sequence. DRY: unifies the bare calls and ad-hoc .catch() at the
- * ws-bridge-ready hook into one guarded path.
+ * boot sequence.
  */
 function safeStartup(label: string, run: () => void | Promise<unknown>): void {
   try {
@@ -166,6 +166,15 @@ app.commandLine.appendSwitch(
 let services: ServiceRegistry
 let windowScope: IDisposable | null = null
 let autoConnector: ProxyAutoConnector
+let openWalletAfterSystemStorageRetry = process.argv.includes(`--${WALLET_SYSTEM_STORAGE_RETRY_TOKEN}`)
+
+function rendererEntryUrl(baseUrl: string): string {
+  if (!openWalletAfterSystemStorageRetry) return baseUrl
+  openWalletAfterSystemStorageRetry = false
+  const url = new URL(baseUrl)
+  url.searchParams.set(WALLET_SYSTEM_STORAGE_RETRY_TOKEN, '1')
+  return url.toString()
+}
 
 function getTabDeps() {
   return {
@@ -173,7 +182,6 @@ function getTabDeps() {
     proxyManager: services.proxyManager,
     storageManager: services.storageManager,
     historyManager: services.historyManager,
-    contentFilterManager: services.contentFilterManager,
     paymentInterceptor: services.paymentInterceptor,
   }
 }
@@ -298,11 +306,9 @@ function createWindow(): void {
   })
 
   // HMR for renderer in development
-  if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-    mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
-  } else {
-    mainWindow.loadURL('app://bundle/index.html')
-  }
+  const rendererUrl =
+    is.dev && process.env['ELECTRON_RENDERER_URL'] ? process.env['ELECTRON_RENDERER_URL'] : 'app://bundle/index.html'
+  mainWindow.loadURL(rendererEntryUrl(rendererUrl))
 }
 
 // Single-instance lock: a second launch would spawn duplicate daemons that
@@ -388,41 +394,6 @@ app.whenReady().then(async () => {
 
   electronApp.setAppUserModelId('com.tonbrowser.app')
 
-  app.on('browser-window-created', (_, window) => {
-    optimizer.watchWindowShortcuts(window)
-
-    // Intercept Ctrl+Shift+I (or Cmd+Option+I on macOS) to open DevTools for active WebContentsView (not main window)
-    // This prevents DevTools from appearing under the WebContentsView overlay
-    window.webContents.on('before-input-event', (event, input) => {
-      if (services?.tabManager.pageZoom.handleInput(input)) {
-        event.preventDefault()
-        return
-      }
-      const isDevToolsShortcut =
-        (input.control && input.shift && input.key.toLowerCase() === 'i') ||
-        (process.platform === 'darwin' && input.meta && input.alt && input.key.toLowerCase() === 'i')
-      if (isDevToolsShortcut) {
-        event.preventDefault()
-        const view = services?.tabManager.getActiveView()
-        if (view) {
-          // Toggle DevTools for the website's WebContentsView
-          if (view.webContents.isDevToolsOpened()) {
-            view.webContents.closeDevTools()
-          } else {
-            view.webContents.openDevTools({ mode: 'detach' })
-          }
-        } else {
-          // No active WebContentsView, open DevTools for main window (system pages)
-          if (window.webContents.isDevToolsOpened()) {
-            window.webContents.closeDevTools()
-          } else {
-            window.webContents.openDevTools({ mode: 'detach' })
-          }
-        }
-      }
-    })
-  })
-
   // Serve files via app:// protocol in production
   // Replaces file:// which is blocked by grantFileProtocolExtraPrivileges fuse
   // Routed by URL hostname:
@@ -472,17 +443,25 @@ app.whenReady().then(async () => {
     () => services.proxyManager.isRunning()
   )
   await services.tonConnectService.init()
+  if (!getSetting('advanced').tonConnectEnabled) await services.tonConnectService.clearSessions()
 
-  // Defer wallet + bridge interceptor init until WS bridge is ready (proxy must be running first)
-  services.proxyManager.once('ws-bridge-ready', () => {
-    safeStartup('Wallet init', () => services.walletManager.init())
-    safeStartup('Payment policy init', () => services.paymentPolicyStore.init())
-    safeStartup('Bridge interceptor init', () => services.bridgeInterceptor.init())
-    // Cocoon drivers need the bridge to do work, so start them here rather than
-    // at construction (avoids an immediate disk-reading tick before bridge ready).
-    safeStartup('Withdraw driver start', () => services.withdrawDriver.start())
-    safeStartup('Recovery driver start', () => services.recoveryDriver.start())
-    safeStartup('Cocoon autostart', () => autostartCocoonIfEnabled(services.cocoonManager))
+  safeStartup('Wallet init', () => services.walletManager.init())
+  safeStartup('Payment policy init', () => services.paymentPolicyStore.init())
+  safeStartup('Bridge interceptor init', async () => {
+    await services.tonBridgeCoordinator.whenReady()
+    services.bridgeInterceptor.init()
+  })
+  safeStartup('Withdraw driver start', async () => {
+    await services.tonBridgeCoordinator.whenReady()
+    await services.withdrawDriver.start()
+  })
+  safeStartup('Recovery driver start', async () => {
+    await services.tonBridgeCoordinator.whenReady()
+    await services.recoveryDriver.start()
+  })
+  safeStartup('Cocoon autostart', async () => {
+    await services.tonBridgeCoordinator.whenReady()
+    await autostartCocoonIfEnabled(services.cocoonManager)
   })
   createWindow()
 

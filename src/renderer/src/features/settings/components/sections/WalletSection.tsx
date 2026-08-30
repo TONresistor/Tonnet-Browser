@@ -18,6 +18,8 @@ import { WalletManagementPanel } from './WalletManagementPanel'
 import { ConnectedAppsPanel } from './ConnectedAppsPanel'
 import { useSectionHandle } from '@/hooks/useSectionHandle'
 import { settingsClient } from '@/features/settings/client'
+import { usePreferencesStore } from '@/features/settings/preferences-store'
+import { DEFAULT_TON_INDEXER_ENDPOINT } from '@shared/constants'
 
 const log = createLogger('wallet-settings')
 
@@ -29,7 +31,7 @@ const DEFAULT_WALLET_SETTINGS: WalletSettings = {
   autoPayDomains: [],
   autoLockMinutes: 5,
   indexerEnabled: false,
-  indexerEndpoint: 'https://toncenter.com/api/v3',
+  indexerEndpoint: DEFAULT_TON_INDEXER_ENDPOINT,
   indexerApiKey: '',
 }
 
@@ -46,6 +48,7 @@ interface WalletSectionProps {
 
 export const WalletSection = memo(function WalletSection({ onDirtyChange, sectionRef }: WalletSectionProps) {
   const { t } = useTranslation('settings')
+  const tonConnectEnabled = usePreferencesStore((state) => state.saved.tonConnectEnabled)
   const [saved, setSaved] = useState<WalletSettings>(DEFAULT_WALLET_SETTINGS)
   const [draft, setDraft] = useState<WalletSettings>(DEFAULT_WALLET_SETTINGS)
   const [isLoading, setIsLoading] = useState(true)
@@ -108,6 +111,7 @@ export const WalletSection = memo(function WalletSection({ onDirtyChange, sectio
   const saveToMain = useCallback(async () => {
     try {
       await walletClient.updateSettings({
+        autoLockMinutes: draft.autoLockMinutes,
         indexerEnabled: draft.indexerEnabled,
         indexerEndpoint: draft.indexerEndpoint,
         indexerApiKey: draft.indexerApiKey,
@@ -145,23 +149,48 @@ export const WalletSection = memo(function WalletSection({ onDirtyChange, sectio
       {/* Wallet management: export / import */}
       <WalletManagementPanel />
 
-      <ConnectedAppsPanel />
+      {tonConnectEnabled && <ConnectedAppsPanel />}
 
       <div className="mt-6">
         <h3 className="mb-2 px-1 text-[13px] font-medium uppercase tracking-wide text-muted-foreground">
-          {t('wallet.historyGroup', { defaultValue: 'Transaction history' })}
+          Wallet security
         </h3>
         <div className="settings-group px-4">
           <SettingRow
-            label={t('wallet.indexerEnabled', { defaultValue: 'Full history via indexer' })}
+            label="Auto-lock"
+            description="Clear the decrypted signing key after this many minutes. Use 0 only if you understand the risk."
+          >
+            <TextInput
+              value={String(draft.autoLockMinutes)}
+              onChange={(value) => {
+                const minutes = Number.parseInt(value, 10)
+                if (Number.isInteger(minutes) && minutes >= 0 && minutes <= 1440) {
+                  updateDraft({ autoLockMinutes: minutes })
+                }
+              }}
+              placeholder="5"
+              ariaLabel="Wallet auto-lock minutes"
+            />
+          </SettingRow>
+        </div>
+      </div>
+
+      <div className="mt-6">
+        <h3 className="mb-2 px-1 text-[13px] font-medium uppercase tracking-wide text-muted-foreground">
+          {t('wallet.historyGroup', { defaultValue: 'Blockchain data' })}
+        </h3>
+        <div className="settings-group px-4">
+          <SettingRow
+            label={t('wallet.indexerEnabled', { defaultValue: 'HTTP indexer fallback' })}
             description={t('wallet.indexerEnabledDesc', {
-              defaultValue: 'Recover full history via an HTTP indexer (clearnet, exposes your address).',
+              defaultValue:
+                'Use a clearnet indexer when the local Bridge cannot provide older history. Queried addresses are exposed.',
             })}
           >
             <Toggle
               checked={draft.indexerEnabled}
               onChange={(v) => updateDraft({ indexerEnabled: v })}
-              ariaLabel={t('wallet.indexerEnabled', { defaultValue: 'Full history via indexer' })}
+              ariaLabel={t('wallet.indexerEnabled', { defaultValue: 'HTTP indexer fallback' })}
             />
           </SettingRow>
           {draft.indexerEnabled && (
@@ -175,7 +204,7 @@ export const WalletSection = memo(function WalletSection({ onDirtyChange, sectio
                 <TextInput
                   value={draft.indexerEndpoint}
                   onChange={(v) => updateDraft({ indexerEndpoint: v })}
-                  placeholder="https://toncenter.com/api/v3"
+                  placeholder={DEFAULT_TON_INDEXER_ENDPOINT}
                   ariaLabel={t('wallet.indexerEndpoint', { defaultValue: 'Indexer endpoint' })}
                 />
               </SettingRow>

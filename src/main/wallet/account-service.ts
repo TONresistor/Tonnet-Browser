@@ -1,10 +1,10 @@
 import { Address, beginCell, storeStateInit } from '@ton/core'
-import type { WalletContractV5R1 } from '@ton/ton'
 import type { TonConnectAccount } from '../tonconnect/wallet-port'
+import type { SupportedWalletContract } from './wallet-versions'
 
 export interface WalletAccountContext {
   getPublicKey(): Buffer | null
-  getContract(): WalletContractV5R1 | null
+  getContract(): SupportedWalletContract | null
 }
 
 /** Read-only address/public-key/state derivation owned independently from signing. */

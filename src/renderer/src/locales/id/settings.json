@@ -6,7 +6,6 @@
     "storage": "Penyimpanan",
     "appearance": "Tampilan",
     "privacy": "Privasi",
-    "contentFiltering": "Filter Konten",
     "history": "Riwayat",
     "shortcuts": "Pintasan",
     "bookmarks": "Penanda",
@@ -162,32 +161,6 @@
     "autoDeleteTimeout": "Waktu tunggu penghapusan otomatis",
     "autoDeleteTimeoutDesc": "Menit tidak aktif sebelum menghapus cookie"
   },
-  "contentFiltering": {
-    "title": "Filter Konten",
-    "description": "Blokir iklan, pelacak, penambang, dan konten berbahaya di situs .ton",
-    "enableFiltering": "Aktifkan filter konten",
-    "enableFilteringDesc": "Sakelar utama untuk semua kategori filter",
-    "enableFilteringLabel": "Aktifkan filter konten",
-    "blockAds": "Blokir iklan",
-    "blockAdsDesc": "Blokir sumber daya iklan dan banner",
-    "blockAdsLabel": "Blokir iklan",
-    "blockTrackers": "Blokir pelacak",
-    "blockTrackersDesc": "Blokir skrip pelacakan, analitik, dan piksel",
-    "blockTrackersLabel": "Blokir pelacak",
-    "blockMiners": "Blokir penambang",
-    "blockMinersDesc": "Blokir skrip penambangan cryptocurrency",
-    "blockMinersLabel": "Blokir penambang",
-    "blockMalware": "Blokir malware",
-    "blockMalwareDesc": "Blokir skrip berbahaya dan executable",
-    "blockMalwareLabel": "Blokir malware",
-    "blockAnnoyances": "Blokir gangguan",
-    "blockAnnoyancesDesc": "Blokir popup dan overlay yang mengganggu",
-    "blockAnnoyancesLabel": "Blokir gangguan",
-    "whitelistedDomains": "Domain daftar putih",
-    "whitelistedDomainsDesc": "Domain yang melewati semua filter konten",
-    "domainPlaceholder": "contoh.ton",
-    "add": "Tambahkan"
-  },
   "history": {
     "title": "Riwayat",
     "description": "Konfigurasi penyimpanan riwayat penjelajahan",
@@ -284,7 +257,9 @@
     "experimental": {
       "title": "Fitur eksperimental",
       "unicodeDomains": "Domain Unicode (IDN)",
-      "unicodeDomainsDesc": "Tampilkan domain Rusia, emoji, dan domain internasional lainnya sebagai pengganti Punycode xn--. Punycode ditampilkan saat pengeditan."
+      "unicodeDomainsDesc": "Tampilkan domain Rusia, emoji, dan domain internasional lainnya sebagai pengganti Punycode xn--. Punycode ditampilkan saat pengeditan.",
+      "tonConnect": "Dompet TON Connect bawaan",
+      "tonConnectDesc": "Tawarkan konektor dompet eksperimental browser ke situs .ton."
     },
     "resetAll": "Setel ulang semua pengaturan ke default",
     "resetAllConfirm": "Klik lagi untuk konfirmasi"

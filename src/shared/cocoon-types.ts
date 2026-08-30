@@ -43,6 +43,8 @@ export type CocoonStakeStatus = 'active' | 'closing' | 'cooldown' | 'refundable'
 export interface CocoonPendingWithdraw {
   /** Unix ms timestamp when the user requested the full exit. */
   startedAt: number
+  nativeWalletPublicKey?: string
+  nativeWalletAddress?: string
   /** Unix ms timestamp of the last direct refund/claim tx broadcast. */
   lastActionAt?: number
   /** BOC hash of the last direct refund/claim tx broadcast. */

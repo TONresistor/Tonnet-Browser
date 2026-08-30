@@ -9,6 +9,8 @@ export const APP_VERSION: string = __APP_VERSION__
 
 // Internal pages
 export const TON_WALLET_PAGE = 'ton://wallet'
+export const WALLET_SYSTEM_STORAGE_RETRY_TOKEN = 'wallet-system-storage-retry'
+export const DEFAULT_TON_INDEXER_ENDPOINT = 'https://toncenter.com/api/v3'
 
 // Default bookmarks shown on first run
 export const DEFAULT_BOOKMARKS = [
@@ -19,6 +21,7 @@ export const DEFAULT_BOOKMARKS = [
 export const UI_COPY_FEEDBACK_MS = 2_000
 export const UI_NOTIFICATION_TIMEOUT_MS = 3_000
 export const UI_ERROR_TIMEOUT_MS = 5_000
+export const WALLET_TX_FEE_RESERVE_NANO = 10_000_000n
 
 // UI dimensions (used by main process for view bounds calculation AND shared with renderer)
 export const UI_DIMENSIONS = {
@@ -47,7 +50,7 @@ export const WALLET_TX_DISPLAY_CAP = 100
 
 /**
  * Max UTF-8 byte length of an outgoing transfer comment (memo).
- * On-chain comments are stored in clear text as a snake-encoded string and
+ * On-chain comments are stored as plaintext or encrypted snake cells and
  * inflate the external message and fees, so we bound them. 256 bytes
  * comfortably covers exchange memos and short notes. Enforced byte-accurately
  * (not by JS string length) in both the SendForm UI and the WALLET_SEND IPC

@@ -17,5 +17,7 @@ describe('Unicode-domain setting translations', () => {
     expect(settings.advanced.experimental.title).toBeTruthy()
     expect(settings.advanced.experimental.unicodeDomains).toBeTruthy()
     expect(settings.advanced.experimental.unicodeDomainsDesc).toBeTruthy()
+    expect(settings.advanced.experimental.tonConnect).toBeTruthy()
+    expect(settings.advanced.experimental.tonConnectDesc).toBeTruthy()
   })
 })

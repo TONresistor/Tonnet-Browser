@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build all Go binaries from source using pinned tags from binary-versions.json.
+# Build all Go binaries from source using pinned commits from binary-versions.json.
 # Usage: ./scripts/build-binaries-from-source.sh [linux|mac|win] [amd64|arm64]
 # Requires: go, git, python3, jq (optional, uses python3 fallback)
 # On macOS builds: also requires lipo for universal binaries.
@@ -99,6 +99,7 @@ for i in $(seq 0 $((BINARY_COUNT - 1))); do
   REPO=$(python3 -c "import json,sys; print(json.load(sys.stdin)['binaries'][$i]['repo'])" < "$CONFIG")
   VERSION=$(python3 -c "import json,sys; print(json.load(sys.stdin)['binaries'][$i]['version'])" < "$CONFIG")
   EXPECTED_COMMIT=$(python3 -c "import json,sys; print(json.load(sys.stdin)['binaries'][$i]['commit'])" < "$CONFIG")
+  SOURCE_PATCH=$(python3 -c "import json,sys; print(json.load(sys.stdin)['binaries'][$i].get('patch', ''))" < "$CONFIG")
   ENTRY=$(python3 -c "import json,sys; print(json.load(sys.stdin)['binaries'][$i]['entry_point'])" < "$CONFIG")
   LDFLAGS_TMPL=$(python3 -c "import json,sys; print(json.load(sys.stdin)['binaries'][$i]['ldflags'])" < "$CONFIG")
 
@@ -109,25 +110,45 @@ for i in $(seq 0 $((BINARY_COUNT - 1))); do
   DEST_DIR="$PROJECT_DIR/resources/bin/$PLATFORM"
   mkdir -p "$DEST_DIR"
 
+  PATCH_SUFFIX=""
+  if [ -n "$SOURCE_PATCH" ]; then
+    PATCH_PATH="$PROJECT_DIR/$SOURCE_PATCH"
+    if [ ! -f "$PATCH_PATH" ]; then
+      echo "ERROR: Source patch not found: $PATCH_PATH"
+      exit 1
+    fi
+    PATCH_HASH=$(python3 -c "import hashlib,sys; print(hashlib.sha256(open(sys.argv[1], 'rb').read()).hexdigest())" "$PATCH_PATH")
+    PATCH_SUFFIX="+patch.$PATCH_HASH"
+  fi
+
   # Check if already built at this version and architecture.
   VERSION_FILE="$DEST_DIR/.${NAME}.version"
-  VERSION_MARKER="$VERSION@$EXPECTED_COMMIT/$TARGET_ARCH"
+  VERSION_MARKER="$VERSION@$EXPECTED_COMMIT/$TARGET_ARCH$PATCH_SUFFIX"
   if [ -f "$VERSION_FILE" ] && [ "$(cat "$VERSION_FILE")" = "$VERSION_MARKER" ] && [ -f "$DEST_DIR/${NAME}${EXT}" ]; then
     echo "Already built $NAME $VERSION_MARKER, skipping"
     continue
   fi
 
-  # Shallow clone at pinned tag
+  # Fetch only the pinned commit so development builds stay reproducible.
   CLONE_DIR="$TMPDIR_BASE/$NAME"
-  echo "Cloning https://github.com/$REPO.git @ $VERSION"
-  git clone --depth 1 --branch "$VERSION" "https://github.com/$REPO.git" "$CLONE_DIR" 2>&1 | tail -2
+  echo "Fetching https://github.com/$REPO.git @ $EXPECTED_COMMIT ($VERSION)"
+  git init --quiet "$CLONE_DIR"
+  git -C "$CLONE_DIR" remote add origin "https://github.com/$REPO.git"
+  git -C "$CLONE_DIR" fetch --quiet --depth 1 origin "$EXPECTED_COMMIT"
+  git -C "$CLONE_DIR" checkout --quiet --detach FETCH_HEAD
 
   # Log exact commit for transparency
   COMMIT_SHA=$(git -C "$CLONE_DIR" rev-parse HEAD)
   echo "Commit: $COMMIT_SHA"
   if [ "$COMMIT_SHA" != "$EXPECTED_COMMIT" ]; then
-    echo "ERROR: $NAME tag $VERSION resolved to $COMMIT_SHA, expected immutable pin $EXPECTED_COMMIT"
+    echo "ERROR: $NAME resolved to $COMMIT_SHA, expected immutable pin $EXPECTED_COMMIT"
     exit 1
+  fi
+
+  if [ -n "$SOURCE_PATCH" ]; then
+    git -C "$CLONE_DIR" apply --unidiff-zero --check "$PATCH_PATH"
+    git -C "$CLONE_DIR" apply --unidiff-zero "$PATCH_PATH"
+    echo "Applied source patch: $SOURCE_PATCH"
   fi
 
   # Resolve ldflags template

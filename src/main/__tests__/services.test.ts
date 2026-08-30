@@ -139,7 +139,6 @@ vi.mock('../settings', () => ({
       privacy: { historyMode: 'memory' },
       wallet: { paymentMode: 'manual' },
       bridge: { permissions: [] },
-      contentFiltering: { enabled: false },
     }
     return defaults[key] ?? {}
   }),
@@ -194,6 +193,7 @@ describe('services composition root', () => {
       vi.spyOn(registry.proxyManager, 'stop'),
       vi.spyOn(registry.storageManager, 'stop'),
       vi.spyOn(registry.walletManager, 'destroy'),
+      vi.spyOn(registry.tonBridgeCoordinator, 'destroy'),
       vi.spyOn(registry.withdrawDriver, 'stop'),
       vi.spyOn(registry.recoveryDriver, 'stop'),
       vi.spyOn(registry.cocoonManager, 'stop'),
@@ -204,18 +204,6 @@ describe('services composition root', () => {
     for (const spy of spies) {
       expect(spy).toHaveBeenCalledOnce()
     }
-  })
-
-  it('synchronizes both bridge clients after native Bridge readiness', async () => {
-    const wallet = vi.spyOn(registry.walletManager, 'applyBridgePort').mockResolvedValue()
-    const interceptor = vi.spyOn(registry.bridgeInterceptor, 'applyBridgePort').mockResolvedValue()
-
-    registry.proxyManager.emit('ws-bridge-ready', 9123)
-
-    await vi.waitFor(() => {
-      expect(wallet).toHaveBeenCalledWith(9123)
-      expect(interceptor).toHaveBeenCalledWith(9123)
-    })
   })
 
   it('disconnects chat after an unexpected native Bridge exit', async () => {

@@ -18,6 +18,7 @@ import {
 import { CONTEXT_MENU_WIDTH } from './constants'
 import { clipboard } from 'electron'
 import { DisposableStore, onWebContents } from '../utils/disposable'
+import { handleDevToolsShortcut } from './devtools'
 import type { HistoryManager } from '../history/manager'
 import type { OverlayManager } from './overlay-manager'
 import type { OverlayMenuItem } from '../../shared/types'
@@ -46,7 +47,11 @@ export function setupViewEventListeners(view: WebContentsView, tabId: string, de
 
   store.add(
     onWebContents(view.webContents, 'before-input-event', (event: Electron.Event, input: Electron.Input) => {
-      if (deps.handleZoomInput(input)) event.preventDefault()
+      if (deps.handleZoomInput(input)) {
+        event.preventDefault()
+        return
+      }
+      handleDevToolsShortcut(event, input, () => view.webContents)
     })
   )
 
