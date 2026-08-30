@@ -12,8 +12,8 @@
     {
       "name": "tonutils-bridge",
       "repo": "TONresistor/tonutils-bridge",
-      "version": "v0.5.0",
-      "commit": "2cd73c52cf47ba33e2d3efbc4285fac05e0b1e2b",
+      "version": "v0.5.1",
+      "commit": "6b313f2f7773221b16b6394e99460e91382b3d79",
       "entry_point": ".",
       "ldflags": "-s -w"
     },
@@ -28,16 +28,16 @@
     {
       "name": "gocoon",
       "repo": "TONresistor/gocoon",
-      "version": "v0.2.1+dev.3fbc874",
-      "commit": "3fbc874f93db60b887ac46a24b92dcb2d1263583",
+      "version": "v0.3.0",
+      "commit": "c42929b3fccaea33738309ea62c0665e85cd52bf",
       "entry_point": "./cmd/gocoon",
       "ldflags": "-s -w -X 'github.com/TONresistor/gocoon/pkg/cocoon.Version=${VERSION}'"
     },
     {
       "name": "cocoon-runner",
       "repo": "TONresistor/gocoon",
-      "version": "v0.2.1+dev.3fbc874",
-      "commit": "3fbc874f93db60b887ac46a24b92dcb2d1263583",
+      "version": "v0.3.0",
+      "commit": "c42929b3fccaea33738309ea62c0665e85cd52bf",
       "entry_point": "./cmd/gocoon-runner",
       "ldflags": "-s -w -X 'github.com/TONresistor/gocoon/pkg/cocoon.Version=${VERSION}'"
     }

@@ -7,23 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-### Added
-
-- Messenger node discovery, clock calibration, connection challenges and automatic reconnect.
-
-### Changed
-
-- Messenger preserves receive order and bounds replay and receive processing.
-
-### Fixed
-
-- Messenger uses canonical broadcast IDs, revalidates cached wallet proofs and keeps gated rooms disabled by default.
-
-## [2.6.0] - 2026-08-27
+## [2.6.0] - 2026-08-30
 
 ### Added
 
 - Experimental setting to advertise the built-in TON Connect wallet to .ton sites.
+- Experimental Messenger with DHT discovery and automatic reconnect.
 - Encrypted wallet vault with password, backup and recovery flows.
 - Optional encrypted transaction comments.
 
@@ -31,7 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 - Tracking protection is simplified; the path-based content filter is gone.
 - Wallet transaction details now render inline in full-page and sidebar layouts.
-- Bundled TON binaries updated to proxy v1.10.1, bridge v0.5.0 and storage v1.5.3, built with Go 1.26.
+- Bundled TON binaries updated to proxy v1.10.1, bridge v0.5.1, storage v1.5.3 and GoCoon v0.3.0, built with Go 1.26.
 - `ton://storage` opens bag details in the left sidebar (back to filters) instead of a floating bar, with more compact bag rows.
 
 ### Fixed
