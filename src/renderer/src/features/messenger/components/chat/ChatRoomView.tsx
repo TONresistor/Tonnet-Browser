@@ -164,7 +164,7 @@ function ChatRoomView({
 
       {networkEnabled && error && (
         <div className="mx-3 mt-2 rounded-card border border-destructive/20 bg-destructive/10 px-4 py-2 text-sm text-destructive">
-          {error} (check the proxy connection and bridge namespaces)
+          {error}
         </div>
       )}
 

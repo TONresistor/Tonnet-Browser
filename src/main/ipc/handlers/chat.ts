@@ -286,13 +286,37 @@ export function registerChatHandlers(registry: ServiceRegistry): void {
   })
 
   secureContractHandle(chatResetIdentityContract, async () => {
+    const currentSession = chatSessionController.session
+    const active = currentSession ? { room: currentSession.room, bootstrap: currentSession.bootstrap } : null
+    const generation = ++connectionGeneration
+    if (active) emitContractToRenderer(chatConnectionContract, { room: active.room, status: 'reconnecting' })
     try {
-      connectionGeneration++
       await chatSessionController.disconnect()
       await identity.resetIdentity()
       await membership.clear()
-      return await ownIdentityView(identity)
+      const nextIdentity = await ownIdentityView(identity)
+      if (active && generation === connectionGeneration) {
+        try {
+          await chatSessionController.connect(active.room, ({ markJoining }) =>
+            establish(active.room, active.bootstrap, markJoining)
+          )
+          if (generation === connectionGeneration) {
+            emitContractToRenderer(chatConnectionContract, { room: active.room, status: 'connected' })
+          }
+        } catch (error) {
+          log.event('warn', 'chat.identity_reset.reconnect_failed', 'chat reconnect after identity reset failed', {
+            error: toError(error),
+          })
+          if (generation === connectionGeneration) {
+            emitContractToRenderer(chatConnectionContract, { room: active.room, status: 'error' })
+          }
+        }
+      }
+      return nextIdentity
     } catch (error) {
+      if (active && generation === connectionGeneration) {
+        emitContractToRenderer(chatConnectionContract, { room: active.room, status: 'error' })
+      }
       ipcFailure('IDENTITY_FAILED', 'Unable to reset chat identity', false, error)
     }
   })
