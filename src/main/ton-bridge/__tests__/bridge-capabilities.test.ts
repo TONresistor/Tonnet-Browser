@@ -49,6 +49,20 @@ describe('bridge capability clients', () => {
     expect(request).toHaveBeenCalledWith('adnl.disconnect', { peer_id: 'peer' })
   })
 
+  it('allows cold ADNL discovery and retries one connection timeout', async () => {
+    const request = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('Request timeout: adnl.connectByADNL'))
+      .mockResolvedValueOnce({ peer_id: 'peer' })
+      .mockResolvedValueOnce({})
+    const overlay = new BridgeOverlayClient(request, { on: () => () => {} })
+
+    await expect(overlay.connectAndJoin('anchor', 'overlay')).resolves.toBe('peer')
+    expect(request).toHaveBeenNthCalledWith(1, 'adnl.connectByADNL', { adnl_id: 'anchor' }, 20_000)
+    expect(request).toHaveBeenNthCalledWith(2, 'adnl.connectByADNL', { adnl_id: 'anchor' }, 20_000)
+    expect(request).toHaveBeenNthCalledWith(3, 'overlay.join', { overlay_id: 'overlay', peer_id: 'peer' })
+  })
+
   it('retries transient DHT failures but not semantic not-found', async () => {
     const warn = vi.fn()
     const transient = vi

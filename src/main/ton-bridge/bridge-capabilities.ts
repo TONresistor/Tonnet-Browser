@@ -11,6 +11,12 @@ import type { BridgeEventCallback } from './bridge-event-bus'
 
 type RpcParams = Record<string, unknown>
 type Request = (method: string, params: RpcParams, timeoutMs?: number) => Promise<unknown>
+const ADNL_CONNECT_TIMEOUT_MS = 20_000
+
+function isTransientAdnlConnectError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error)
+  return /request timeout: adnl\.connectByADNL|dht resolve failed|no live public ADNL address found/i.test(message)
+}
 
 export interface BridgeEventsPort {
   on(event: string, callback: BridgeEventCallback): () => void
@@ -46,9 +52,15 @@ export class BridgeOverlayClient {
   ) {}
 
   async connectAndJoin(anchorAdnlB64: string, overlayIdB64: string): Promise<string> {
-    const connection = AdnlConnectionResultSchema.parse(
-      await this.request('adnl.connectByADNL', { adnl_id: anchorAdnlB64 })
-    )
+    const connect = () => this.request('adnl.connectByADNL', { adnl_id: anchorAdnlB64 }, ADNL_CONNECT_TIMEOUT_MS)
+    let rawConnection: unknown
+    try {
+      rawConnection = await connect()
+    } catch (error) {
+      if (!isTransientAdnlConnectError(error)) throw error
+      rawConnection = await connect()
+    }
+    const connection = AdnlConnectionResultSchema.parse(rawConnection)
     try {
       await this.request('overlay.join', { overlay_id: overlayIdB64, peer_id: connection.peer_id })
     } catch (error) {

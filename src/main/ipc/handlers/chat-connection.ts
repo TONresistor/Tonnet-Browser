@@ -13,7 +13,7 @@ import { emitContractToRenderer } from '../../events/renderer-events'
 import type { MessengerBridgePort } from '../../ports/ton-bridge'
 import type { ChatRuntimeSession, ChatSessionController } from '../../chat/session-controller'
 import { isAcceptableFrameDate, measureClockOffset } from '../../chat/time'
-import { requestBindingChallenge } from '../../chat/binding'
+import { requestBindingChallenge, requestSessionChallenge } from '../../chat/binding'
 import { overlayIdB64ForRoom, parseRoomName } from '../../chat/room'
 import {
   CHAT_RECEIVE_CONCURRENCY,
@@ -434,7 +434,7 @@ export async function connectRoom(
       peerId = await bridge.overlayConnectAndJoin(cand.adnl, overlayId)
       const connectedPeerId = peerId
       clockOffsetSec = await measureClockOffset(bridge, overlayId)
-      const bindingChallenge = await requestBindingChallenge(bridge, overlayId, nowSec() + clockOffsetSec)
+      const bindingChallenge = await requestSessionChallenge(bridge, overlayId, nowSec() + clockOffsetSec)
       let disposed = false
       let pinging = false
       let announcing = false

@@ -1,6 +1,7 @@
 import type { MessengerBridgePort } from '../ports/ton-bridge'
 
 const GET_CHALLENGE_QUERY = Buffer.from('a270d948', 'hex')
+const GET_SESSION_CHALLENGE_QUERY = Buffer.from('293e72b3', 'hex')
 const CHALLENGE_RESPONSE_MAGIC = Buffer.from('4c34c713', 'hex')
 const CHALLENGE_MAX_LIFETIME_S = 120
 
@@ -27,4 +28,17 @@ export async function requestBindingChallenge(
 ): Promise<BindingChallenge> {
   const response = await bridge.overlayQuery(overlayIdB64, GET_CHALLENGE_QUERY.toString('base64'), 3)
   return parseBindingChallenge(Buffer.from(response, 'base64'), calibratedNowSec)
+}
+
+export async function requestSessionChallenge(
+  bridge: MessengerBridgePort,
+  overlayIdB64: string,
+  calibratedNowSec: number
+): Promise<BindingChallenge> {
+  try {
+    const response = await bridge.overlayQuery(overlayIdB64, GET_SESSION_CHALLENGE_QUERY.toString('base64'), 3)
+    return parseBindingChallenge(Buffer.from(response, 'base64'), calibratedNowSec)
+  } catch {
+    return requestBindingChallenge(bridge, overlayIdB64, calibratedNowSec)
+  }
 }
