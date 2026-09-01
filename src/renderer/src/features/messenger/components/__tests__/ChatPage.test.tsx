@@ -138,4 +138,38 @@ describe('ChatPage', () => {
 
     expect(container.textContent).toContain('Bridge not connected')
   })
+
+  it('keeps the TON DNS alias visible while resolving the canonical room', async () => {
+    localStorage.setItem('groupchat.rooms', JSON.stringify([{ room: ROOM, alias: 'groupchat.ton' }]))
+    let resolveConnect!: (value: Awaited<ReturnType<typeof mockElectron.chat.connect>>) => void
+    mockElectron.chat.connect.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveConnect = resolve
+      })
+    )
+
+    await act(async () => {
+      root?.render(<ChatPage />)
+    })
+
+    const row = container.querySelector('[role="option"]') as HTMLElement
+    await act(async () => {
+      row.click()
+    })
+
+    expect(container.querySelector('[title="groupchat.ton"]')).toBeTruthy()
+    expect(container.querySelector(`[title="${ROOM}"]`)).toBeNull()
+
+    await act(async () => {
+      resolveConnect({
+        connected: true,
+        room: ROOM,
+        via: 'dht',
+        state: ROOM_STATE,
+        timeline: { items: [], hasMore: false },
+      })
+    })
+
+    expect(container.querySelector('[title="Community"]')).toBeTruthy()
+  })
 })

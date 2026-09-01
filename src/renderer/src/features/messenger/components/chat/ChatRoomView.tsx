@@ -20,6 +20,7 @@ import {
 
 interface ChatRoomViewProps {
   room: string
+  pendingRoomName?: string
   roomState: ChatRoomState | null
   canAdmin: boolean
   canModerate: boolean
@@ -57,6 +58,7 @@ function subtitle(status: ChatStatus): string {
 
 function ChatRoomView({
   room,
+  pendingRoomName,
   roomState,
   canAdmin,
   canModerate,
@@ -110,6 +112,7 @@ function ChatRoomView({
   }
 
   const connected = status === 'connected'
+  const displayedRoomName = roomState?.name || pendingRoomName || roomLabel(room)
   const q = searchQuery.trim().toLowerCase()
   const visible = q
     ? timeline.filter((item) => {
@@ -127,11 +130,11 @@ function ChatRoomView({
             className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-[14px] font-semibold text-identity-foreground"
             style={{ backgroundColor: avatarColor(room) }}
           >
-            {initial(roomState?.name ?? room)}
+            {initial(displayedRoomName)}
           </span>
           <div className="min-w-0 flex-1">
-            <div className="truncate text-[15px] font-semibold leading-tight text-heading" title={room}>
-              {roomState?.name || roomLabel(room)}
+            <div className="truncate text-[15px] font-semibold leading-tight text-heading" title={displayedRoomName}>
+              {displayedRoomName}
             </div>
             <div className="flex items-center gap-2 text-[12px] leading-tight text-muted-foreground">
               <span>{subtitle(status)}</span>

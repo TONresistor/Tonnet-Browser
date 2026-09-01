@@ -333,6 +333,8 @@ function ChatPage(): React.JSX.Element {
   const canAdmin = Boolean(ownKey && roomState?.admins.includes(ownKey))
   const canModerate = Boolean(canAdmin || (ownKey && roomState?.moderators.includes(ownKey)))
   const canWrite = Boolean(roomState?.writePolicy !== 'admins' || canAdmin)
+  const followedRoom = rooms.find((entry) => entry.room === room)
+  const pendingRoomName = followedRoom?.alias || followedRoom?.name
 
   return (
     <div
@@ -366,6 +368,7 @@ function ChatPage(): React.JSX.Element {
       ) : (
         <ChatRoomView
           room={room}
+          pendingRoomName={pendingRoomName}
           roomState={roomState}
           canAdmin={canAdmin}
           canModerate={canModerate}
