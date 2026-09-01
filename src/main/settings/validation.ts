@@ -157,8 +157,6 @@ export function isValidSettingsObject(obj: unknown): obj is Partial<AppSettings>
 
   const messenger = settings.messenger as Record<string, unknown> | undefined
   if (messenger) {
-    if (messenger.attachWalletIdentity !== undefined && typeof messenger.attachWalletIdentity !== 'boolean')
-      return false
     if (messenger.networkEnabled !== undefined && typeof messenger.networkEnabled !== 'boolean') return false
   }
 

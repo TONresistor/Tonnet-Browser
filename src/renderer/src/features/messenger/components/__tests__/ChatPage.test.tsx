@@ -16,19 +16,38 @@ vi.mock('electron-log/renderer', () => ({
 }))
 
 const listeners = new Map<string, Set<(...args: any[]) => void>>()
+const ROOM = 'Q'.repeat(43)
+const ROOM_STATE = {
+  roomId: ROOM,
+  name: 'Community',
+  description: 'Persistent room',
+  writePolicy: 'everyone',
+  admins: [],
+  moderators: [],
+  pinnedMessages: [],
+  revisionSeqno: 0,
+  latestSeqno: 0,
+  onlineUsers: 1,
+  nodeRole: 'sequencer',
+}
 
 const mockElectron = {
   chat: {
-    connect: vi.fn().mockResolvedValue({ connected: true, room: 'tonnet:groupchat', via: 'dht' }),
+    connect: vi.fn().mockResolvedValue({
+      connected: true,
+      room: ROOM,
+      via: 'dht',
+      state: ROOM_STATE,
+      timeline: { items: [], hasMore: false },
+    }),
     send: vi.fn(),
     dmSend: vi.fn(),
-    createRoom: vi.fn(),
+    mutate: vi.fn(),
+    timelineBefore: vi.fn().mockResolvedValue({ items: [], hasMore: false }),
     disconnect: vi.fn().mockResolvedValue({ disconnected: true }),
     identity: vi.fn().mockResolvedValue({
-      deviceKey: 'a'.repeat(64),
-      linked: false,
-      declined: false,
-      walletReady: false,
+      identityKey: 'a'.repeat(43),
+      name: '',
     }),
     linkIdentity: vi.fn(),
     claimDomain: vi.fn(),
@@ -38,7 +57,7 @@ const mockElectron = {
   },
   settings: {
     get: vi.fn().mockImplementation((category: string) => {
-      if (category === 'messenger') return Promise.resolve({ attachWalletIdentity: false, networkEnabled: true })
+      if (category === 'messenger') return Promise.resolve({ networkEnabled: true })
       return Promise.resolve({})
     }),
     set: vi.fn().mockResolvedValue({ success: true }),
@@ -61,7 +80,7 @@ describe('ChatPage', () => {
     vi.clearAllMocks()
     listeners.clear()
     localStorage.clear()
-    localStorage.setItem('groupchat.rooms', JSON.stringify([{ room: 'tonnet:groupchat' }]))
+    localStorage.setItem('groupchat.rooms', JSON.stringify([{ room: ROOM }]))
     Object.defineProperty(window, 'electron', {
       configurable: true,
       value: mockElectron,
@@ -93,7 +112,7 @@ describe('ChatPage', () => {
       row.click()
     })
 
-    expect(mockElectron.chat.connect).toHaveBeenCalledWith('tonnet:groupchat', undefined)
+    expect(mockElectron.chat.connect).toHaveBeenCalledWith(ROOM, undefined)
     expect(container.textContent).toContain('connected')
     mockElectron.chat.disconnect.mockClear()
 

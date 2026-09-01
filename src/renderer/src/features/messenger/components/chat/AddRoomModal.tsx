@@ -25,7 +25,7 @@ export function AddRoomModal({ isOpen, onClose, onAdd }: AddRoomModalProps): Rea
   }
   const submit = (): void => {
     const name = room.trim()
-    if (!name) return
+    if (!isValidReference(name)) return
     onAdd(name, node.trim() || undefined)
     reset()
     onClose()
@@ -62,19 +62,19 @@ export function AddRoomModal({ isOpen, onClose, onAdd }: AddRoomModalProps): Rea
           Add a room
         </h3>
         <p className="mb-4 mt-1 text-[13px] text-muted-foreground">
-          Follow a group chat by name. It stays pinned in your sidebar; nothing is joined until you open it.
+          Follow a public community by its room key or TON DNS alias.
         </p>
 
         <label className="mb-2 block text-xs font-medium uppercase tracking-wider text-muted-foreground">
-          Room name
+          Room key or .ton domain
         </label>
         <input
           value={room}
-          onChange={(e) => setRoom(e.target.value.slice(0, 128))}
+          onChange={(e) => setRoom(e.target.value.trim().slice(0, 253))}
           onKeyDown={(e) => {
-            if (e.key === 'Enter' && room.trim()) submit()
+            if (e.key === 'Enter' && isValidReference(room.trim())) submit()
           }}
-          placeholder="e.g. tonnet:groupchat"
+          placeholder="43-character room key or community.ton"
           className="mb-4 w-full rounded-card bg-surface px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring"
           autoFocus
         />
@@ -102,7 +102,7 @@ export function AddRoomModal({ isOpen, onClose, onAdd }: AddRoomModalProps): Rea
           <ActionButton
             variant="filled"
             onClick={submit}
-            disabled={!room.trim()}
+            disabled={!isValidReference(room.trim())}
             className="flex-1"
             icon={<Plus className="h-4 w-4" />}
           >
@@ -112,4 +112,8 @@ export function AddRoomModal({ isOpen, onClose, onAdd }: AddRoomModalProps): Rea
       </div>
     </div>
   )
+}
+
+function isValidReference(value: string): boolean {
+  return /^[A-Za-z0-9_-]{43}$/.test(value) || /^[a-z0-9-]+(?:\.[a-z0-9-]+)*\.ton$/i.test(value)
 }

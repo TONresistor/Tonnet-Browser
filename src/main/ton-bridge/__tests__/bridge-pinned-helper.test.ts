@@ -9,7 +9,7 @@ import {
   OverlayMessageEventSchema,
   SubscriptionResultSchema,
 } from '../bridge-codecs'
-import fixture from './fixtures/tonutils-bridge-v0.5.0.json'
+import fixture from './fixtures/tonutils-bridge-v0.4.0-dev.json'
 
 interface HelperPin {
   name: string
