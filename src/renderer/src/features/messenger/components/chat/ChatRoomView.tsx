@@ -80,10 +80,16 @@ function ChatRoomView({
   const [metadataName, setMetadataName] = useState('')
   const [metadataDescription, setMetadataDescription] = useState('')
   const [moderatorKey, setModeratorKey] = useState('')
+  const [pinnedRequest, setPinnedRequest] = useState<{ messageId: string; nonce: number } | null>(null)
+  const pinnedRequestNonceRef = useRef(0)
+  const pinnedLoadCursorRef = useRef<number | null>(null)
 
   useEffect(() => {
     setSearchOpen(false)
     setSearchQuery('')
+    setPinnedRequest(null)
+    pinnedRequestNonceRef.current = 0
+    pinnedLoadCursorRef.current = null
   }, [room])
 
   useEffect(() => {
@@ -96,6 +102,35 @@ function ChatRoomView({
   }, [timeline])
 
   const identityLabels = useMemo(() => timelineIdentityLabels(timeline), [timeline])
+  const pinnedMessageId = roomState?.pinnedMessages.at(-1)
+
+  useEffect(() => {
+    if (!pinnedRequest) return
+    const target = Array.from(listRef.current?.querySelectorAll<HTMLElement>('[data-message-id]') ?? []).find(
+      (element) => element.dataset.messageId === pinnedRequest.messageId
+    )
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      setPinnedRequest(null)
+      pinnedLoadCursorRef.current = null
+      return
+    }
+    if (!hasOlder) {
+      setPinnedRequest(null)
+      pinnedLoadCursorRef.current = null
+      return
+    }
+    if (loadingOlder) return
+    const cursor = timeline[0]?.seqno
+    if (!cursor) {
+      setPinnedRequest(null)
+      pinnedLoadCursorRef.current = null
+      return
+    }
+    if (pinnedLoadCursorRef.current === cursor) return
+    pinnedLoadCursorRef.current = cursor
+    void onLoadOlder()
+  }, [hasOlder, loadingOlder, onLoadOlder, pinnedRequest, timeline])
 
   if (!room) {
     return (
@@ -116,6 +151,15 @@ function ChatRoomView({
     : timeline
   const pinned = new Set(roomState?.pinnedMessages ?? [])
 
+  const openPinnedMessage = (): void => {
+    if (!pinnedMessageId) return
+    setSearchOpen(false)
+    setSearchQuery('')
+    pinnedLoadCursorRef.current = null
+    pinnedRequestNonceRef.current += 1
+    setPinnedRequest({ messageId: pinnedMessageId, nonce: pinnedRequestNonceRef.current })
+  }
+
   return (
     <div className="relative flex min-w-0 flex-1 flex-col">
       <div className="m-3 mb-0 flex items-center gap-2">
@@ -135,6 +179,18 @@ function ChatRoomView({
               {roomState && <span>{roomState.onlineUsers} online</span>}
             </div>
           </div>
+          {roomState && roomState.pinnedMessages.length > 0 && (
+            <button
+              type="button"
+              onClick={openPinnedMessage}
+              disabled={loadingOlder}
+              aria-label="Open pinned messages"
+              title={`${roomState.pinnedMessages.length} pinned message${roomState.pinnedMessages.length > 1 ? 's' : ''}`}
+              className="ml-auto flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-surface hover:text-foreground disabled:opacity-40"
+            >
+              <Pin className="h-[17px] w-[17px]" />
+            </button>
+          )}
         </div>
         <div className="flex shrink-0 items-center gap-0.5 rounded-full border border-border-subtle bg-elevation-1 p-1 shadow-panel">
           {canAdmin && (
@@ -299,7 +355,11 @@ function ChatRoomView({
           }
           const message = item
           return (
-            <div key={message.eventId} className={cn('flex flex-col', message.self ? 'items-end' : 'items-start')}>
+            <div
+              key={message.eventId}
+              data-message-id={message.messageId}
+              className={cn('flex flex-col', message.self ? 'items-end' : 'items-start')}
+            >
               <div
                 className={cn(
                   'max-w-[75%] rounded-2xl px-3 py-2 text-sm',
