@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react'
-import type { MessengerSettings, OwnChatIdentity } from '@shared/types'
+import type { OwnChatIdentity } from '@shared/types'
 import type { ChatRoomState } from '@shared/ipc-contract/chat'
 import ChatSidebar from './chat/ChatSidebar'
 import ChatRoomView from './chat/ChatRoomView'
@@ -35,8 +35,6 @@ function ChatPage(): React.JSX.Element {
   const [addOpen, setAddOpen] = useState(false)
   const [identity, setIdentity] = useState<OwnChatIdentity | null>(null)
   const [roomState, setRoomState] = useState<ChatRoomState | null>(null)
-  const [networkEnabled, setNetworkEnabled] = useState(false)
-  const [enablingNetwork, setEnablingNetwork] = useState(false)
 
   const [activeDm, setActiveDm] = useState<string>('')
   const [dmInput, setDmInput] = useState('')
@@ -55,34 +53,13 @@ function ChatPage(): React.JSX.Element {
       .catch(() => {})
   }, [])
 
-  const refreshMessengerSettings = useCallback(() => {
-    messengerClient
-      .getSettings()
-      .then((prefs) => setNetworkEnabled(Boolean((prefs as MessengerSettings)?.networkEnabled)))
-      .catch(() => {})
-  }, [])
-
   useEffect(() => {
     refreshIdentity()
-    refreshMessengerSettings()
-  }, [refreshIdentity, refreshMessengerSettings])
-
-  useEffect(() => {
-    const off = messengerClient.onSettingsChanged((change) => {
-      if (change.reset) {
-        refreshMessengerSettings()
-        return
-      }
-      if (change.category !== 'messenger') return
-      const next = (change.values as Partial<MessengerSettings> | undefined)?.networkEnabled
-      if (typeof next === 'boolean') setNetworkEnabled(next)
-    })
-    return () => off()
-  }, [refreshMessengerSettings])
+  }, [refreshIdentity])
 
   useEffect(() => {
     let cancelled = false
-    const key = `${room} ${node} ${networkEnabled ? 'enabled' : 'disabled'}`
+    const key = `${room} ${node}`
     connectedKeyRef.current = key
     setTimeline([])
     setHasOlder(true)
@@ -90,14 +67,6 @@ function ChatPage(): React.JSX.Element {
     setError(null)
     if (!room) {
       setStatus('idle')
-      messengerClient.disconnect().catch(() => {})
-      return () => {
-        cancelled = true
-      }
-    }
-    if (!networkEnabled) {
-      setStatus('idle')
-      setError('Messenger networking is disabled. Enable it to join rooms.')
       messengerClient.disconnect().catch(() => {})
       return () => {
         cancelled = true
@@ -133,7 +102,7 @@ function ChatPage(): React.JSX.Element {
         messengerClient.disconnect().catch(() => {})
       }
     }
-  }, [room, node, networkEnabled, canonicalize, updateName])
+  }, [room, node, canonicalize, updateName])
 
   useEffect(() => {
     const off = messengerClient.onTimeline((item) => {
@@ -256,21 +225,6 @@ function ChatPage(): React.JSX.Element {
     [add, openRoom]
   )
 
-  const enableMessengerNetworking = useCallback(async () => {
-    if (networkEnabled || enablingNetwork) return
-    setEnablingNetwork(true)
-    setError(null)
-    try {
-      const res = await messengerClient.updateSettings({ networkEnabled: true })
-      if (!res.success) throw new Error('Failed to enable Messenger networking')
-      setNetworkEnabled(true)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
-    } finally {
-      setEnablingNetwork(false)
-    }
-  }, [networkEnabled, enablingNetwork])
-
   const handleRemove = useCallback(
     (r: string) => {
       remove(r)
@@ -377,15 +331,12 @@ function ChatPage(): React.JSX.Element {
           loadingOlder={loadingOlder}
           status={status}
           error={error}
-          networkEnabled={networkEnabled}
-          networkEnabling={enablingNetwork}
           timeline={timeline}
           input={input}
           onInput={setInput}
           onSend={send}
           onLeave={leaveRoom}
           onOpenDm={handleOpenDm}
-          onEnableNetworking={enableMessengerNetworking}
           onMutate={mutateRoom}
           onLoadOlder={loadOlder}
         />

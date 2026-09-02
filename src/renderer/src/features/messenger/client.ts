@@ -1,9 +1,4 @@
-import type { SettingsChangedEvent } from '@shared/ipc-events'
-import type { MessengerSettings } from '@shared/types'
-
 export const messengerClient = {
-  getSettings: () => window.electron.settings.get('messenger'),
-  updateSettings: (values: Partial<MessengerSettings>) => window.electron.settings.set('messenger', { ...values }),
   connect: (room?: string, node?: string) => window.electron.chat.connect(room, node),
   disconnect: () => window.electron.chat.disconnect(),
   send: (text: string) => window.electron.chat.send(text),
@@ -16,8 +11,6 @@ export const messengerClient = {
   claimDomain: (domain: string) => window.electron.chat.claimDomain(domain),
   clearDomain: () => window.electron.chat.clearDomain(),
   resetIdentity: () => window.electron.chat.resetIdentity(),
-  onSettingsChanged: (listener: (change: SettingsChangedEvent) => void) =>
-    window.electron.on('settings:changed', listener),
   onTimeline: (listener: Parameters<typeof window.electron.on<'chat:timeline'>>[1]) =>
     window.electron.on('chat:timeline', listener),
   onDirectMessage: (listener: Parameters<typeof window.electron.on<'chat:dm'>>[1]) =>

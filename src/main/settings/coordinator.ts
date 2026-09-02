@@ -9,7 +9,6 @@ import type { TonBridgeCoordinator } from '../ton-bridge/coordinator'
 import type { TonConnectService } from '../tonconnect/service'
 import type { BridgePermissionStore } from '../bridge/permission-store'
 import type { TabManager } from '../windows/tabs'
-import type { MessengerClientManager } from '../messenger/client-manager'
 import { getDefaultSettings, mergeSettingsPatch, transactSettings, type SettingsPatch } from './index'
 
 export interface SettingsRuntimeDependencies {
@@ -21,7 +20,6 @@ export interface SettingsRuntimeDependencies {
   tonConnectService: TonConnectService
   bridgePermissionStore: BridgePermissionStore
   tabManager: TabManager
-  messengerClientManager: MessengerClientManager
 }
 
 function fieldsChanged<T extends object>(previous: T, current: T, fields: ReadonlyArray<keyof T>): boolean {
@@ -123,10 +121,6 @@ export class SettingsCoordinator {
     }
     if (force || categoryChanged(previous, current, 'privacy')) {
       await tabManager.onPrivacySettingsChanged(previous.privacy, current.privacy)
-    }
-    if (force || previous.messenger.networkEnabled !== current.messenger.networkEnabled) {
-      if (current.messenger.networkEnabled) await this.dependencies.messengerClientManager.start()
-      else await this.dependencies.messengerClientManager.stop()
     }
   }
 

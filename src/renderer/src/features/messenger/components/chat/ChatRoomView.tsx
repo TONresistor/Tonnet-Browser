@@ -1,5 +1,5 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react'
-import { LoaderCircle, LogOut, Pin, PinOff, Search, Settings2, X } from 'lucide-react'
+import { LogOut, Pin, PinOff, Search, Settings2, X } from 'lucide-react'
 import type { ChatRoomState } from '@shared/ipc-contract/chat'
 import { cn } from '@/lib/utils'
 import { EmptyState } from '@/components/ui/ios/EmptyState'
@@ -29,15 +29,12 @@ interface ChatRoomViewProps {
   loadingOlder: boolean
   status: ChatStatus
   error: string | null
-  networkEnabled: boolean
-  networkEnabling: boolean
   timeline: ChatTimelineItem[]
   input: string
   onInput: (v: string) => void
   onSend: () => void
   onLeave: () => void
   onOpenDm: (message: ChatTimelineMessage) => void
-  onEnableNetworking: () => void
   onMutate: (mutation: RoomMutation) => Promise<void>
   onLoadOlder: () => Promise<void>
 }
@@ -67,15 +64,12 @@ function ChatRoomView({
   loadingOlder,
   status,
   error,
-  networkEnabled,
-  networkEnabling,
   timeline,
   input,
   onInput,
   onSend,
   onLeave,
   onOpenDm,
-  onEnableNetworking,
   onMutate,
   onLoadOlder,
 }: ChatRoomViewProps): React.JSX.Element {
@@ -224,7 +218,7 @@ function ChatRoomView({
           <div className="flex flex-wrap items-center gap-2">
             <input
               value={moderatorKey}
-              onChange={(event) => setModeratorKey(event.target.value.trim().toLowerCase().slice(0, 64))}
+              onChange={(event) => setModeratorKey(event.target.value.trim().slice(0, 43))}
               placeholder="Moderator identity key"
               className="min-w-64 flex-1 rounded-card bg-surface px-3 py-2 font-mono text-xs outline-none"
             />
@@ -232,7 +226,7 @@ function ChatRoomView({
               <button
                 key={action}
                 type="button"
-                disabled={!/^[0-9a-f]{64}$/.test(moderatorKey)}
+                disabled={!/^[A-Za-z0-9_-]{43}$/.test(moderatorKey)}
                 onClick={() => void onMutate({ action, subjectKey: moderatorKey })}
                 className="rounded-full border border-border-subtle px-3 py-1.5 text-xs disabled:opacity-40"
               >
@@ -268,27 +262,7 @@ function ChatRoomView({
         </div>
       )}
 
-      {!networkEnabled && (
-        <div className="mx-3 mt-2 flex items-center gap-3 rounded-card border border-primary/25 bg-primary/10 px-4 py-2.5 text-sm text-foreground">
-          <div className="min-w-0 flex-1">
-            <div className="font-medium">Messenger is experimental and off</div>
-            <div className="mt-0.5 text-xs leading-snug text-muted-foreground">
-              Enable Messenger to turn on ADNL, Overlay and DHT automatically.
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={onEnableNetworking}
-            disabled={networkEnabling}
-            className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full bg-primary px-3 text-xs font-semibold text-identity-foreground transition-colors hover:bg-primary/90 disabled:opacity-60"
-          >
-            {networkEnabling && <LoaderCircle className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />}
-            Enable
-          </button>
-        </div>
-      )}
-
-      {networkEnabled && error && (
+      {error && (
         <div className="mx-3 mt-2 rounded-card border border-destructive/20 bg-destructive/10 px-4 py-2 text-sm text-destructive">
           {error}
         </div>
@@ -386,9 +360,7 @@ function ChatRoomView({
           }}
           disabled={!connected || !canWrite}
           className="min-w-0 flex-1 bg-transparent px-1.5 py-1 text-sm text-foreground outline-none placeholder:text-muted-foreground/50 disabled:opacity-50"
-          placeholder={
-            !networkEnabled ? 'Enable Messenger' : connected ? (canWrite ? 'Message…' : 'Admins only') : 'Connecting…'
-          }
+          placeholder={connected ? (canWrite ? 'Message…' : 'Admins only') : 'Connecting…'}
           aria-label="message"
         />
         <button

@@ -55,13 +55,6 @@ const mockElectron = {
     detectDomains: vi.fn(),
     resetIdentity: vi.fn(),
   },
-  settings: {
-    get: vi.fn().mockImplementation((category: string) => {
-      if (category === 'messenger') return Promise.resolve({ networkEnabled: true })
-      return Promise.resolve({})
-    }),
-    set: vi.fn().mockResolvedValue({ success: true }),
-  },
   on: vi.fn((channel: string, callback: (...args: any[]) => void) => {
     const set = listeners.get(channel) ?? new Set()
     set.add(callback)

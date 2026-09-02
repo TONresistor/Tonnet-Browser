@@ -190,12 +190,13 @@ export const CocoonSettingsPartialSchema = z
 export type CocoonSettings = z.infer<typeof CocoonSettingsSchema>
 
 export const MessengerSettingsSchema = z.object({
-  networkEnabled: z.boolean().default(false),
+  /** Start the standalone Messenger client when Browser starts. */
+  autostart: z.boolean().default(false),
 })
 
 export const MessengerSettingsPartialSchema = z
   .object({
-    networkEnabled: z.boolean(),
+    autostart: z.boolean(),
   })
   .partial()
   .strict()

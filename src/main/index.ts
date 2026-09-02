@@ -446,7 +446,7 @@ app.whenReady().then(async () => {
   if (!getSetting('advanced').tonConnectEnabled) await services.tonConnectService.clearSessions()
 
   safeStartup('Wallet init', () => services.walletManager.init())
-  if (getSetting('messenger').networkEnabled) {
+  if (getSetting('messenger').autostart) {
     safeStartup('Messenger client start', () => services.messengerClientManager.start())
   }
   safeStartup('Payment policy init', () => services.paymentPolicyStore.init())

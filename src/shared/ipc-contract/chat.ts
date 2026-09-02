@@ -2,6 +2,8 @@ import { z } from 'zod'
 import { defineEvent, defineRequest } from './definition'
 import { CHAT_CHANNELS } from './channels'
 
+const IdentityKeySchema = z.string().regex(/^[A-Za-z0-9_-]{43}$/)
+
 export const ChatIdentityInfoSchema = z.object({
   tier: z.enum(['domain', 'identity']),
   name: z.string(),
@@ -10,7 +12,7 @@ export const ChatIdentityInfoSchema = z.object({
 })
 
 export const OwnChatIdentitySchema = z.object({
-  identityKey: z.string().regex(/^[A-Za-z0-9_-]{43}$/),
+  identityKey: IdentityKeySchema,
   name: z.string().max(64),
   domain: z.string().optional(),
 })
@@ -36,7 +38,6 @@ const ChatPublicErrorCodes = [
   'CHAT_LIMIT_EXCEEDED',
   'CHAT_OPERATION_FAILED',
 ] as const
-const IdentityKeySchema = z.string().regex(/^[A-Za-z0-9_-]{43}$/)
 const EventIdSchema = z.string().regex(/^[A-Za-z0-9_-]{43}$/)
 const MessageIdSchema = z.string().regex(/^[1-9]\d*$/)
 const TimelineBaseSchema = z.object({
@@ -113,8 +114,8 @@ export const ChatRoomStateSchema = z.object({
   name: z.string().max(64),
   description: z.string().max(512),
   writePolicy: z.enum(['everyone', 'admins']),
-  admins: z.array(z.string().regex(/^[0-9a-f]{64}$/)).max(64),
-  moderators: z.array(z.string().regex(/^[0-9a-f]{64}$/)).max(256),
+  admins: z.array(IdentityKeySchema).max(64),
+  moderators: z.array(IdentityKeySchema).max(256),
   pinnedMessages: z.array(z.string().regex(/^[1-9]\d*$/)).max(100),
   revisionSeqno: z.number().int().nonnegative(),
   latestSeqno: z.number().int().nonnegative(),
@@ -193,10 +194,7 @@ export const chatMutateContract = defineRequest({
         .string()
         .regex(/^[1-9]\d*$/)
         .optional(),
-      subjectKey: z
-        .string()
-        .regex(/^[A-Za-z0-9_-]{43}$/)
-        .optional(),
+      subjectKey: IdentityKeySchema.optional(),
       anyoneCanWrite: z.boolean().optional(),
     }),
   ]),

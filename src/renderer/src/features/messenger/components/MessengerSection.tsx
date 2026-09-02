@@ -1,10 +1,9 @@
 import { memo, useCallback, useEffect, useState } from 'react'
-import { Check, Copy, LoaderCircle, RadioTower } from 'lucide-react'
-import { Toggle } from '@/features/settings/components/shared/Toggle'
+import { Check, Copy, LoaderCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { createLogger } from '@/logger'
 import { useConfirmAction } from '@/hooks/useConfirmAction'
-import type { OwnChatIdentity, MessengerSettings } from '@shared/types'
+import type { OwnChatIdentity } from '@shared/types'
 import { avatarColor, initial } from '@/features/messenger/components/chat/util'
 import '@/features/settings/components/settings.css'
 import { messengerClient } from '@/features/messenger/client'
@@ -18,10 +17,8 @@ interface MessengerSectionProps {
 
 export const MessengerSection = memo(function MessengerSection({ onIdentityChange }: MessengerSectionProps) {
   const [identity, setIdentity] = useState<OwnChatIdentity | null>(null)
-  const [networkEnabled, setNetworkEnabled] = useState(false)
   const [loading, setLoading] = useState(true)
   const [copied, setCopied] = useState(false)
-  const [networking, setNetworking] = useState(false)
   const [domainInput, setDomainInput] = useState('')
   const [domainBusy, setDomainBusy] = useState(false)
   const [domainError, setDomainError] = useState<string | null>(null)
@@ -37,11 +34,11 @@ export const MessengerSection = memo(function MessengerSection({ onIdentityChang
 
   useEffect(() => {
     let active = true
-    void Promise.all([messengerClient.getIdentity(), messengerClient.getSettings()])
-      .then(([id, prefs]) => {
+    void messengerClient
+      .getIdentity()
+      .then((id) => {
         if (!active) return
         applyIdentity(id)
-        setNetworkEnabled(Boolean((prefs as MessengerSettings).networkEnabled))
       })
       .catch((error) => log.error('Failed to load messenger identity:', error))
       .finally(() => active && setLoading(false))
@@ -57,24 +54,6 @@ export const MessengerSection = memo(function MessengerSection({ onIdentityChang
       setTimeout(() => setCopied(false), 1500)
     })
   }, [identity])
-
-  const toggleNetwork = useCallback(
-    async (value: boolean) => {
-      const previous = networkEnabled
-      setNetworkEnabled(value)
-      setNetworking(true)
-      try {
-        const result = await messengerClient.updateSettings({ networkEnabled: value })
-        if (!result.success) throw new Error('Failed to update messenger networking')
-      } catch (error) {
-        setNetworkEnabled(previous)
-        log.error('Failed to update messenger networking:', error)
-      } finally {
-        setNetworking(false)
-      }
-    },
-    [networkEnabled]
-  )
 
   const confirmDomain = useCallback(async () => {
     const domain = domainInput.trim().toLowerCase()
@@ -152,22 +131,6 @@ export const MessengerSection = memo(function MessengerSection({ onIdentityChang
           </div>
           {copied ? <Check className="h-4 w-4 text-primary" /> : <Copy className="h-4 w-4 text-muted-foreground" />}
         </button>
-
-        <div className="flex items-center gap-3 border-t border-border-subtle px-3 py-2.5">
-          <span className="grid h-[29px] w-[29px] place-items-center rounded-control bg-primary text-primary-foreground">
-            <RadioTower className="h-[17px] w-[17px] text-identity-foreground" />
-          </span>
-          <div className="min-w-0 flex-1">
-            <div className="text-[14px] font-medium text-foreground">Messenger network</div>
-            <div className="text-[11px] text-muted-foreground">Standalone ADNL client</div>
-          </div>
-          <Toggle
-            checked={networkEnabled}
-            onChange={toggleNetwork}
-            ariaLabel="Messenger network"
-            disabled={networking}
-          />
-        </div>
       </div>
 
       <div className="mt-3 settings-group p-3">

@@ -48,10 +48,6 @@ function createDependencies() {
       applyDefaultZoom: vi.fn(),
       onPrivacySettingsChanged: vi.fn(() => Promise.resolve()),
     },
-    messengerClientManager: {
-      start: vi.fn(() => Promise.resolve()),
-      stop: vi.fn(() => Promise.resolve()),
-    },
   } as unknown as SettingsRuntimeDependencies
 }
 

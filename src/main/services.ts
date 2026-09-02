@@ -180,7 +180,6 @@ export function createServices(): ServiceRegistry {
     tonConnectService,
     bridgePermissionStore,
     tabManager,
-    messengerClientManager,
   })
 
   return {
