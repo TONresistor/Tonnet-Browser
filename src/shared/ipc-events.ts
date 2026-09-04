@@ -62,6 +62,7 @@ export interface IpcEventMap {
   ]
   'chat:connection': [event: import('./ipc-contract/chat').ChatConnectionEvent]
   'chat:room-state': [state: import('./ipc-contract/chat').ChatRoomState]
+  'chat:room-presence': [presence: import('./ipc-contract/chat').ChatRoomPresence]
   'cocoon:state-changed': [state: CocoonState]
   'cocoon:log': [event: CocoonLogEvent]
   'cocoon:withdraw:event': [event: WithdrawDriverEvent]

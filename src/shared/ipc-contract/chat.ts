@@ -119,10 +119,19 @@ export const ChatRoomStateSchema = z.object({
   pinnedMessages: z.array(z.string().regex(/^[1-9]\d*$/)).max(100),
   revisionSeqno: z.number().int().nonnegative(),
   latestSeqno: z.number().int().nonnegative(),
-  onlineUsers: z.number().int().nonnegative(),
-  nodeRole: z.enum(['sequencer', 'relay']),
 })
 export type ChatRoomState = z.infer<typeof ChatRoomStateSchema>
+
+export const ChatRoomConnectionSchema = z.object({
+  nodeRole: z.enum(['sequencer', 'relay']),
+})
+export type ChatRoomConnection = z.infer<typeof ChatRoomConnectionSchema>
+
+export const ChatRoomPresenceSchema = z.object({
+  roomId: z.string().regex(/^[A-Za-z0-9_-]{43}$/),
+  onlineUsers: z.number().int().nonnegative(),
+})
+export type ChatRoomPresence = z.infer<typeof ChatRoomPresenceSchema>
 
 export const ChatConnectionEventSchema = z.discriminatedUnion('status', [
   z.object({
@@ -134,6 +143,8 @@ export const ChatConnectionEventSchema = z.discriminatedUnion('status', [
     room: z.string().min(1),
     status: z.literal('connected'),
     state: ChatRoomStateSchema,
+    connection: ChatRoomConnectionSchema,
+    presence: ChatRoomPresenceSchema,
     timeline: ChatTimelinePageSchema,
   }),
   z.object({
@@ -155,6 +166,8 @@ export const chatConnectContract = defineRequest({
     room: z.string().min(1),
     via: z.enum(['node', 'dht']),
     state: ChatRoomStateSchema,
+    connection: ChatRoomConnectionSchema,
+    presence: ChatRoomPresenceSchema,
     timeline: ChatTimelinePageSchema,
   }),
   errors: [
@@ -280,6 +293,14 @@ export const chatRoomStateContract = defineEvent({
   redaction: 'public',
 })
 
+export const chatRoomPresenceContract = defineEvent({
+  channel: CHAT_CHANNELS.roomPresence,
+  direction: 'event',
+  recipient: 'main-renderer',
+  payload: z.tuple([ChatRoomPresenceSchema]),
+  redaction: 'public',
+})
+
 export const CHAT_REQUEST_CONTRACTS = [
   chatConnectContract,
   chatSendContract,
@@ -299,4 +320,5 @@ export const CHAT_EVENT_CONTRACTS = [
   chatDmMessageContract,
   chatConnectionContract,
   chatRoomStateContract,
+  chatRoomPresenceContract,
 ] as const

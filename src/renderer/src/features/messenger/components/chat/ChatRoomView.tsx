@@ -22,6 +22,7 @@ interface ChatRoomViewProps {
   room: string
   pendingRoomName?: string
   roomState: ChatRoomState | null
+  onlineUsers: number | null
   canAdmin: boolean
   canModerate: boolean
   canWrite: boolean
@@ -57,6 +58,7 @@ function ChatRoomView({
   room,
   pendingRoomName,
   roomState,
+  onlineUsers,
   canAdmin,
   canModerate,
   canWrite,
@@ -176,7 +178,7 @@ function ChatRoomView({
             </div>
             <div className="flex items-center gap-2 text-[12px] leading-tight text-muted-foreground">
               <span>{subtitle(status)}</span>
-              {roomState && <span>{roomState.onlineUsers} online</span>}
+              {onlineUsers !== null && <span>{onlineUsers} online</span>}
             </div>
           </div>
           {roomState && roomState.pinnedMessages.length > 0 && (

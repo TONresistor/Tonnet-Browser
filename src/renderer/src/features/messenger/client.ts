@@ -19,4 +19,6 @@ export const messengerClient = {
     window.electron.on('chat:connection', listener),
   onRoomState: (listener: Parameters<typeof window.electron.on<'chat:room-state'>>[1]) =>
     window.electron.on('chat:room-state', listener),
+  onRoomPresence: (listener: Parameters<typeof window.electron.on<'chat:room-presence'>>[1]) =>
+    window.electron.on('chat:room-presence', listener),
 }

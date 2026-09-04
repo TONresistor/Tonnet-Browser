@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react'
 import type { OwnChatIdentity } from '@shared/types'
-import type { ChatRoomState } from '@shared/ipc-contract/chat'
+import type { ChatRoomPresence, ChatRoomState } from '@shared/ipc-contract/chat'
 import ChatSidebar from './chat/ChatSidebar'
 import ChatRoomView from './chat/ChatRoomView'
 import DmView from './chat/DmView'
@@ -35,6 +35,7 @@ function ChatPage(): React.JSX.Element {
   const [addOpen, setAddOpen] = useState(false)
   const [identity, setIdentity] = useState<OwnChatIdentity | null>(null)
   const [roomState, setRoomState] = useState<ChatRoomState | null>(null)
+  const [presence, setPresence] = useState<ChatRoomPresence | null>(null)
 
   const [activeDm, setActiveDm] = useState<string>('')
   const [dmInput, setDmInput] = useState('')
@@ -64,6 +65,7 @@ function ChatPage(): React.JSX.Element {
     setTimeline([])
     setHasOlder(true)
     setRoomState(null)
+    setPresence(null)
     setError(null)
     if (!room) {
       setStatus('idle')
@@ -78,6 +80,7 @@ function ChatPage(): React.JSX.Element {
       .then((res) => {
         if (!cancelled && connectedKeyRef.current === key) {
           setRoomState(res.state)
+          setPresence(res.presence)
           setTimeline(res.timeline.items)
           setHasOlder(res.timeline.hasMore)
           if (res.room !== roomRef.current) {
@@ -131,9 +134,11 @@ function ChatPage(): React.JSX.Element {
       if (event.room !== roomRef.current) return
       if (event.status === 'reconnecting') {
         setStatus('reconnecting')
+        setPresence(null)
         setError(null)
       } else if (event.status === 'connected') {
         setRoomState(event.state)
+        setPresence(event.presence)
         setTimeline(event.timeline.items)
         setHasOlder(event.timeline.hasMore)
         updateName(event.room, event.state.name)
@@ -141,11 +146,19 @@ function ChatPage(): React.JSX.Element {
         setError(null)
       } else {
         setStatus('error')
+        setPresence(null)
         setError(event.message)
       }
     })
     return () => off()
   }, [updateName])
+
+  useEffect(() => {
+    const off = messengerClient.onRoomPresence((next) => {
+      if (next.roomId === roomRef.current) setPresence(next)
+    })
+    return () => off()
+  }, [])
 
   useEffect(() => {
     const off = messengerClient.onRoomState((next) => {
@@ -324,6 +337,7 @@ function ChatPage(): React.JSX.Element {
           room={room}
           pendingRoomName={pendingRoomName}
           roomState={roomState}
+          onlineUsers={presence?.roomId === room ? presence.onlineUsers : null}
           canAdmin={canAdmin}
           canModerate={canModerate}
           canWrite={canWrite}

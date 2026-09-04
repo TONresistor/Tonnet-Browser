@@ -11,11 +11,14 @@ import {
   chatLinkIdentityContract,
   chatMutateContract,
   chatResetIdentityContract,
+  chatRoomPresenceContract,
   chatRoomStateContract,
   chatSendContract,
   chatTimelineBeforeContract,
   chatTimelineContract,
   type ChatRoomState,
+  type ChatRoomConnection,
+  type ChatRoomPresence,
   type ChatTimelineItem,
   type ChatTimelinePage,
 } from '../../../shared/ipc-contract/chat'
@@ -73,9 +76,15 @@ interface RpcState {
   pinned_messages: string[]
   revision_seqno: string
   latest_seqno: string
-  online_users: number
+}
+
+interface RpcConnection {
   node_role: 'sequencer' | 'relay'
-  ready: boolean
+}
+
+interface RpcPresence {
+  room: string
+  online_users: number
 }
 
 function ownIdentity(value: RpcIdentity): OwnChatIdentity {
@@ -130,13 +139,27 @@ function roomState(value: RpcState): ChatRoomState {
     pinnedMessages: value.pinned_messages,
     revisionSeqno: Number(value.revision_seqno),
     latestSeqno: Number(value.latest_seqno),
-    onlineUsers: value.online_users,
-    nodeRole: value.node_role,
   }
 }
 
+function roomConnection(value: RpcConnection): ChatRoomConnection {
+  return { nodeRole: value.node_role }
+}
+
+function roomPresence(value: RpcPresence): ChatRoomPresence {
+  return { roomId: value.room, onlineUsers: value.online_users }
+}
+
 function publicFailure(error: unknown): never {
-  if (error instanceof MessengerRpcError) ipcFailure(error.code, error.message, true, error)
+  if (error instanceof MessengerRpcError) {
+    const code =
+      error.code === 'SEQUENCER_UNAVAILABLE'
+        ? 'CHAT_SEQUENCER_UNAVAILABLE'
+        : error.code === 'CLOCK_SKEW'
+          ? 'CHAT_CLOCK_SKEW'
+          : error.code
+    ipcFailure(code, error.message, true, error)
+  }
   ipcFailure(
     'CHAT_OPERATION_FAILED',
     error instanceof Error ? error.message : 'Messenger operation failed',
@@ -163,6 +186,11 @@ export function registerChatHandlers(registry: ServiceRegistry): void {
   )
   registry.lifecycleRegistrations.add(
     onEmitter(manager, 'room.state', (raw: RpcState) => emitContractToRenderer(chatRoomStateContract, roomState(raw)))
+  )
+  registry.lifecycleRegistrations.add(
+    onEmitter(manager, 'room.presence', (raw: RpcPresence) =>
+      emitContractToRenderer(chatRoomPresenceContract, roomPresence(raw))
+    )
   )
   registry.lifecycleRegistrations.add(
     onEmitter(manager, 'dm.message', (raw: Record<string, unknown>) => {
@@ -212,6 +240,8 @@ export function registerChatHandlers(registry: ServiceRegistry): void {
               room,
               status: 'connected',
               state: roomState(raw.state as RpcState),
+              connection: roomConnection(raw.connection as RpcConnection),
+              presence: roomPresence(raw.presence as RpcPresence),
               timeline: {
                 items: page.items.map((item) => timelineItem(item, identity?.identityKey)),
                 hasMore: page.has_more,
@@ -231,6 +261,8 @@ export function registerChatHandlers(registry: ServiceRegistry): void {
       const joined = await manager.request<{
         room: string
         state: RpcState
+        connection: RpcConnection
+        presence: RpcPresence
         timeline: { items: RpcEvent[]; has_more: boolean }
       }>('room.join', { reference, bootstrap: nodeArg?.trim() || undefined })
       activeRoom = joined.room
@@ -239,6 +271,8 @@ export function registerChatHandlers(registry: ServiceRegistry): void {
         room: joined.room,
         via: nodeArg ? ('node' as const) : ('dht' as const),
         state: roomState(joined.state),
+        connection: roomConnection(joined.connection),
+        presence: roomPresence(joined.presence),
         timeline: {
           items: joined.timeline.items.map((item) => timelineItem(item, identity?.identityKey)),
           hasMore: joined.timeline.has_more,

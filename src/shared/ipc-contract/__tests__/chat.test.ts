@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { ChatRoomStateSchema, chatRoomStateContract } from '../chat'
+import {
+  ChatRoomPresenceSchema,
+  ChatRoomStateSchema,
+  chatConnectContract,
+  chatRoomPresenceContract,
+  chatRoomStateContract,
+} from '../chat'
 
 const identityKey = 'I'.repeat(43)
 const state = {
@@ -12,9 +18,9 @@ const state = {
   pinnedMessages: [],
   revisionSeqno: 9,
   latestSeqno: 9,
-  onlineUsers: 1,
-  nodeRole: 'sequencer' as const,
 }
+const connection = { nodeRole: 'sequencer' as const }
+const presence = { roomId: state.roomId, onlineUsers: 1 }
 
 describe('chat IPC contracts', () => {
   it('accepts canonical base64url identity keys in room roles', () => {
@@ -24,5 +30,22 @@ describe('chat IPC contracts', () => {
 
   it('rejects legacy hexadecimal identity keys in room roles', () => {
     expect(() => ChatRoomStateSchema.parse({ ...state, admins: ['ab'.repeat(32)] })).toThrow()
+  })
+
+  it('keeps node-local presence outside verified room state', () => {
+    expect(ChatRoomPresenceSchema.parse(presence)).toEqual(presence)
+    expect(chatRoomPresenceContract.payload.parse([presence])).toEqual([presence])
+    expect(ChatRoomStateSchema.parse({ ...state, onlineUsers: 1 })).not.toHaveProperty('onlineUsers')
+    expect(
+      chatConnectContract.output.parse({
+        connected: true,
+        room: state.roomId,
+        via: 'dht',
+        state,
+        connection,
+        presence,
+        timeline: { items: [], hasMore: false },
+      })
+    ).toBeDefined()
   })
 })

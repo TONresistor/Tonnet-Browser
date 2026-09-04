@@ -27,9 +27,9 @@ const ROOM_STATE = {
   pinnedMessages: [],
   revisionSeqno: 0,
   latestSeqno: 0,
-  onlineUsers: 1,
-  nodeRole: 'sequencer',
 }
+const ROOM_CONNECTION = { nodeRole: 'sequencer' as const }
+const ROOM_PRESENCE = { roomId: ROOM, onlineUsers: 1 }
 
 const mockElectron = {
   chat: {
@@ -38,6 +38,8 @@ const mockElectron = {
       room: ROOM,
       via: 'dht',
       state: ROOM_STATE,
+      connection: ROOM_CONNECTION,
+      presence: ROOM_PRESENCE,
       timeline: { items: [], hasMore: false },
     }),
     send: vi.fn(),
@@ -159,10 +161,30 @@ describe('ChatPage', () => {
         room: ROOM,
         via: 'dht',
         state: ROOM_STATE,
+        connection: ROOM_CONNECTION,
+        presence: ROOM_PRESENCE,
         timeline: { items: [], hasMore: false },
       })
     })
 
     expect(container.querySelector('[title="Community"]')).toBeTruthy()
+  })
+
+  it('updates node-local presence independently from room state', async () => {
+    await act(async () => {
+      root?.render(<ChatPage />)
+    })
+    const row = container.querySelector('[role="option"]') as HTMLElement
+    await act(async () => {
+      row.click()
+    })
+    expect(container.textContent).toContain('1 online')
+
+    await act(async () => {
+      for (const listener of listeners.get('chat:room-presence') ?? []) {
+        listener({ roomId: ROOM, onlineUsers: 4 })
+      }
+    })
+    expect(container.textContent).toContain('4 online')
   })
 })

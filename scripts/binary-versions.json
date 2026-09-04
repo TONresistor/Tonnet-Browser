@@ -20,8 +20,8 @@
     {
       "name": "tonnet-messenger",
       "repo": "TONresistor/tonnet-messenger",
-      "version": "v0.4.0+dev.2056f5a",
-      "commit": "2056f5aae0fdaad044c62f9d8a61c1b824e64063",
+      "version": "v0.4.0+dev.90fad1d",
+      "commit": "90fad1d3c77766b7ae2633ca51949e7453a110c2",
       "entry_point": "./cmd/tonnet-messenger",
       "ldflags": "-s -w -X 'github.com/TONresistor/tonnet-messenger/internal/clientcli.Version=${VERSION}'"
     },

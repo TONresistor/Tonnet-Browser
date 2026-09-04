@@ -136,6 +136,7 @@ export const CHAT_CHANNELS = {
   dmMessage: 'chat:dm',
   connection: 'chat:connection',
   roomState: 'chat:room-state',
+  roomPresence: 'chat:room-presence',
   identity: 'chat:identity',
   linkIdentity: 'chat:identity:link',
   claimDomain: 'chat:identity:claim-domain',
@@ -218,4 +219,5 @@ export const MAIN_RENDERER_EVENT_CHANNELS = [
   CHAT_CHANNELS.dmMessage,
   CHAT_CHANNELS.connection,
   CHAT_CHANNELS.roomState,
+  CHAT_CHANNELS.roomPresence,
 ] as const
