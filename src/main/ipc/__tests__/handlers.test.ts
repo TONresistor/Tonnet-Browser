@@ -362,6 +362,7 @@ function createMockRegistry(): ServiceRegistry {
     bridgePermissionStore: { getAllPermissions: vi.fn(() => []), revokePermission: vi.fn() } as any,
     tonConnectService: {
       init: vi.fn(),
+      isAvailable: vi.fn(() => true),
       handleRequest: vi.fn(),
       getSessions: vi.fn(() => []),
       disconnectSession: vi.fn(),
@@ -433,6 +434,8 @@ function createMockRegistry(): ServiceRegistry {
       showActiveView,
       loadBagFile: tabsMocks.loadBagFile,
       cancelNavigation: tabsMocks.cancelNavigation,
+      reloadActivePage: vi.fn(() => true),
+      stopActivePage: vi.fn(() => true),
       updateSidebarWidth: vi.fn(),
       updateWalletSidebarWidth: vi.fn(),
       onAppearanceSettingsChanged: vi.fn(),
@@ -499,6 +502,20 @@ function resetHandlersTestEnv(): void {
 
 describe('IPC Handlers', () => {
   beforeEach(resetHandlersTestEnv)
+
+  it('routes Stop through navigation ownership instead of stopping a hidden retained view', async () => {
+    const stop = vi.fn()
+    getActiveView.mockReturnValueOnce({ webContents: { stop } })
+    vi.mocked(mockRegistry.tabManager.stopActivePage).mockReturnValueOnce(false)
+    await expect(mockHandlers.get(IPC_CHANNELS.STOP)!(createMockEvent())).resolves.toEqual({ success: false })
+    expect(mockRegistry.tabManager.stopActivePage).toHaveBeenCalledOnce()
+    expect(stop).not.toHaveBeenCalled()
+  })
+
+  it('routes Reload through the cancellation-aware page lifecycle', async () => {
+    await expect(mockHandlers.get(IPC_CHANNELS.RELOAD)!(createMockEvent())).resolves.toEqual({ success: true })
+    expect(mockRegistry.tabManager.reloadActivePage).toHaveBeenCalledExactlyOnceWith(false)
+  })
 
   it('owns every handler and push listener in a disposable registration scope', () => {
     const handlerCount = mockHandlers.size

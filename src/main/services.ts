@@ -47,6 +47,9 @@ import { mapBridgeProvider, type BridgeProvider } from './ports/bridge-provider'
 import type { TonBridgePort } from './ports/ton-bridge'
 import type { WalletBridgePort } from './wallet/bridge-port'
 import { MessengerClientManager } from './messenger/client-manager'
+import { createLogger } from '../shared/logger'
+
+const log = createLogger('services')
 
 export interface TonBridgeProviders {
   wallet: BridgeProvider<WalletBridgePort>
@@ -181,6 +184,15 @@ export function createServices(): ServiceRegistry {
     bridgePermissionStore,
     tabManager,
   })
+
+  lifecycleRegistrations.add(
+    onEmitter(historyManager, 'persistence-failed', () => {
+      // Settings mutations are queued: never await this from a failing history transition.
+      void settingsCoordinator.apply({ privacy: { historyMode: 'memory' } }).catch((error) => {
+        log.error('Failed to reconcile suspended history persistence:', error)
+      })
+    })
+  )
 
   return {
     ipcRegistrations,

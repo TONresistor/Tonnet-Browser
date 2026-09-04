@@ -39,7 +39,7 @@ vi.mock('electron', () => ({
   BrowserWindow: class {},
   WebContentsView: class {},
 }))
-vi.mock('../browser-view', () => ({ createBrowserView }))
+vi.mock('../browser-view', () => ({ createBrowserView, extractFavicon: vi.fn(async () => null) }))
 vi.mock('../tabs-session', () => ({
   extractDomain,
   TabSessionManager: vi.fn(function () {
@@ -76,6 +76,7 @@ vi.mock('../../events/renderer-events', () => ({ emitContractToRenderer }))
 import { TabManager } from '../tabs'
 import { DisposableStore } from '../../utils/disposable'
 import { ensureViewIdentity } from '../tabs-view-lifecycle'
+import { loadErrorPage } from '../tabs-storage'
 
 class WindowMock extends EventEmitter {
   contentView = {
@@ -99,6 +100,11 @@ function createView(id: number) {
   const webContents = Object.assign(new EventEmitter(), {
     id,
     close: vi.fn(),
+    stop: vi.fn(),
+    getURL: vi.fn(() => ''),
+    getTitle: vi.fn(() => 'Retained page'),
+    isLoading: vi.fn(() => false),
+    navigationHistory: { canGoBack: vi.fn(() => false), canGoForward: vi.fn(() => false) },
     isDestroyed: vi.fn(() => false),
     loadURL: vi.fn(() => Promise.resolve()),
     getZoomFactor: vi.fn(() => 1),
@@ -116,6 +122,58 @@ const deps = {
 } as never
 
 describe('TabManager lifecycle ownership', () => {
+  it('reveals a retained document without destroying native forward history', async () => {
+    const window = new WindowMock()
+    const manager = new TabManager()
+    manager.attachWindow(window as never, 8080, deps)
+    await manager.createTab('tab-1', 'http://first.ton')
+    const view = manager.getActiveView()!
+    vi.mocked(view.webContents.getURL).mockReturnValue('http://first.ton/')
+    vi.mocked(view.webContents.navigationHistory.canGoForward).mockReturnValue(true)
+    sessions.getTabDomain.mockReturnValue('first.ton')
+    manager.hideAllViews('tab-1')
+    await manager.navigateInTab('tab-1', 'http://first.ton')
+    expect(view.webContents.loadURL).not.toHaveBeenCalled()
+    expect(emitContractToRenderer).toHaveBeenCalledWith(
+      expect.objectContaining({ channel: 'page:title' }),
+      'Retained page',
+      'tab-1'
+    )
+    expect(window.contentView.children).toContain(view)
+    expect(emitContractToRenderer).toHaveBeenCalledWith(
+      expect.objectContaining({ channel: 'page:navigate' }),
+      expect.objectContaining({ canGoForward: true })
+    )
+    manager.dispose()
+  })
+
+  it('reattaches after did-start-navigation followed by same-domain handoff, and after Stop', async () => {
+    vi.useFakeTimers()
+    const window = new WindowMock()
+    const manager = new TabManager()
+    manager.attachWindow(window as never, 8080, deps)
+    await manager.createTab('tab-1', 'http://first.ton')
+    const view = manager.getActiveView()!
+    sessions.getTabDomain.mockReturnValue('first.ton')
+    const navigation = { url: 'http://first.ton/next', isMainFrame: true, isSameDocument: false }
+    view.webContents.emit('did-start-navigation', navigation)
+    expect(window.contentView.children).not.toContain(view)
+    const handoff = setupSecurityHandlers.mock.calls.at(-1)?.[2]
+    expect(handoff?.(navigation.url)).toBe(false)
+    view.webContents.emit('dom-ready')
+    vi.advanceTimersByTime(150)
+    expect(window.contentView.children).toContain(view)
+    view.webContents.emit('did-start-navigation', navigation)
+    expect(window.contentView.children).not.toContain(view)
+    expect(manager.stopActivePage()).toBe(true)
+    expect(window.contentView.children).toContain(view)
+    manager.hideAllViews('tab-1')
+    expect(manager.stopActivePage()).toBe(false)
+    expect(window.contentView.children).not.toContain(view)
+    manager.dispose()
+    vi.useRealTimers()
+  })
+
   beforeEach(() => {
     vi.clearAllMocks()
     sessions.getSessionForDomain.mockReset()
@@ -130,6 +188,43 @@ describe('TabManager lifecycle ownership', () => {
     initStorageListener
       .mockReturnValueOnce({ dispose: firstStorageDispose })
       .mockReturnValueOnce({ dispose: secondStorageDispose })
+  })
+
+  it.each(['ERR_ABORTED (-3)', 'ERR_CONNECTION_REFUSED'])('ignores obsolete load rejection: %s', async (message) => {
+    const manager = new TabManager()
+    manager.attachWindow(new WindowMock() as never, 8080, deps)
+    manager.registerTab('tab-1')
+    const view = createView(1)
+    let reject!: (error: Error) => void
+    view.webContents.loadURL.mockReturnValueOnce(
+      new Promise<void>((_resolve, fail) => {
+        reject = fail
+      })
+    )
+    manager.views.add('tab-1', view as never, new DisposableStore())
+    sessions.getTabDomain.mockReturnValue('first.ton')
+    await manager.navigateInTab('tab-1', 'http://first.ton/old')
+    await manager.navigateInTab('tab-1', 'http://first.ton/new')
+    reject(new Error(message))
+    await Promise.resolve()
+    expect(loadErrorPage).not.toHaveBeenCalled()
+    manager.dispose()
+  })
+
+  it('invalidates pending load recovery on Stop and on tab close', async () => {
+    const manager = new TabManager()
+    manager.attachWindow(new WindowMock() as never, 8080, deps)
+    manager.registerTab('tab-1')
+    const view = createView(1)
+    manager.views.add('tab-1', view as never, new DisposableStore())
+    const owns = manager.captureNavigation('tab-1', view as never)
+    expect(owns()).toBe(true)
+    manager.cancelNavigation('tab-1')
+    expect(owns()).toBe(false)
+    const afterStop = manager.captureNavigation('tab-1', view as never)
+    manager.closeTab('tab-1')
+    expect(afterStop()).toBe(false)
+    manager.dispose()
   })
 
   it('reattaches without retaining views or listeners from the previous window', () => {

@@ -34,6 +34,7 @@ import { attachWindowScope } from './windows/window-scope'
 import { ProxyAutoConnector } from './proxy/auto-connect'
 import type { IDisposable } from './utils/disposable'
 import { reconcileHistoryModeAtStartup } from './history/startup'
+import { initializeTonConnect } from './tonconnect/startup'
 import {
   proxyAutoConnectEventContract,
   proxyProgressEventContract,
@@ -442,8 +443,9 @@ app.whenReady().then(async () => {
       ),
     () => services.proxyManager.isRunning()
   )
-  await services.tonConnectService.init()
-  if (!getSetting('advanced').tonConnectEnabled) await services.tonConnectService.clearSessions()
+  await initializeTonConnect(services.tonConnectService, getSetting('advanced').tonConnectEnabled, (error) => {
+    appLog.error('TON Connect unavailable; continuing browser startup:', error)
+  })
 
   safeStartup('Wallet init', () => services.walletManager.init())
   if (getSetting('messenger').autostart) {

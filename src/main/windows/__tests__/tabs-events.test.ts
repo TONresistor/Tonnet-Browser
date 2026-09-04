@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
   emitContractToRenderer: vi.fn(),
-  extractFavicon: vi.fn(() => Promise.resolve(null)),
+  extractFavicon: vi.fn<() => Promise<string | null>>(() => Promise.resolve(null)),
   loadStorageBrowser: vi.fn(() => Promise.resolve()),
   loadErrorPage: vi.fn(),
 }))
@@ -36,14 +36,24 @@ function createHarness() {
   })
   const historyManager = { addEntry: vi.fn() }
   const handleZoomInput = vi.fn(() => false)
+  let current = true
   const listeners = setupViewEventListeners({ webContents } as never, 'tab-1', {
     historyManager: historyManager as never,
     overlayManager: {} as never,
     storage: {} as never,
     cancelNavigation: vi.fn(),
+    captureNavigation: () => () => current,
     handleZoomInput,
   })
-  return { handleZoomInput, historyManager, listeners, webContents }
+  return {
+    handleZoomInput,
+    historyManager,
+    listeners,
+    webContents,
+    supersede: () => {
+      current = false
+    },
+  }
 }
 
 describe('tab navigation events', () => {
@@ -84,6 +94,87 @@ describe('tab navigation events', () => {
     expect(mocks.emitContractToRenderer).toHaveBeenCalledOnce()
     expect(historyManager.addEntry).toHaveBeenCalledWith('http://whitepaper.ton', 'Whitepaper')
 
+    listeners.dispose()
+  })
+
+  it.each(['did-navigate', 'did-navigate-in-page'])('rejects oversized URLs from %s without throwing', (event) => {
+    const { historyManager, listeners, webContents } = createHarness()
+    const url = `http://whitepaper.ton/#${'x'.repeat(20_000)}`
+    webContents.getURL.mockReturnValue(url)
+    expect(() => webContents.emit(event, {}, url, true)).not.toThrow()
+    expect(() => webContents.emit('page-title-updated', {}, 'Page')).not.toThrow()
+    expect(mocks.emitContractToRenderer).not.toHaveBeenCalledWith(
+      expect.objectContaining({ channel: 'page:navigate' }),
+      expect.anything()
+    )
+    expect(historyManager.addEntry).not.toHaveBeenCalled()
+    listeners.dispose()
+  })
+
+  it('accepts the exact URL limit and bounds titles for both IPC and history', () => {
+    const { historyManager, listeners, webContents } = createHarness()
+    const prefix = 'http://whitepaper.ton/#'
+    const url = prefix + 'x'.repeat(16_384 - prefix.length)
+    const title = 't'.repeat(20_000)
+    webContents.getURL.mockReturnValue(url)
+    webContents.getTitle.mockReturnValue(title)
+    expect(() => webContents.emit('did-navigate', {}, url)).not.toThrow()
+    expect(historyManager.addEntry).toHaveBeenCalledWith(url, title.slice(0, 4_096))
+    expect(() => webContents.emit('page-title-updated', {}, title)).not.toThrow()
+    expect(mocks.emitContractToRenderer).toHaveBeenLastCalledWith(
+      expect.objectContaining({ channel: 'page:title' }),
+      title.slice(0, 4_096),
+      'tab-1'
+    )
+    listeners.dispose()
+  })
+
+  it('ignores in-page navigation from a subframe', () => {
+    const { historyManager, listeners, webContents } = createHarness()
+    webContents.emit('did-navigate-in-page', {}, 'http://embedded.ton/#changed', false)
+    expect(mocks.emitContractToRenderer).not.toHaveBeenCalled()
+    expect(historyManager.addEntry).not.toHaveBeenCalled()
+    listeners.dispose()
+  })
+
+  it('does not replace the main page when a subframe fails', () => {
+    const { listeners, webContents } = createHarness()
+    webContents.emit('did-fail-load', {}, -105, 'ERR_NAME_NOT_RESOLVED', 'http://embedded.ton', false)
+    expect(mocks.loadStorageBrowser).not.toHaveBeenCalled()
+    expect(mocks.loadErrorPage).not.toHaveBeenCalled()
+    listeners.dispose()
+  })
+
+  it('ignores an obsolete Storage fallback failure', async () => {
+    const { listeners, webContents, supersede } = createHarness()
+    let reject!: (error: Error) => void
+    mocks.loadStorageBrowser.mockReturnValueOnce(
+      new Promise((_resolve, fail) => {
+        reject = fail
+      })
+    )
+    webContents.emit('did-fail-load', {}, -105, 'ERR_NAME_NOT_RESOLVED', 'http://old.ton', true)
+    supersede()
+    reject(new Error('Storage unavailable'))
+    await Promise.resolve()
+    expect(mocks.loadErrorPage).not.toHaveBeenCalled()
+    listeners.dispose()
+  })
+
+  it('does not publish an obsolete favicon or start empty-page recovery', async () => {
+    const { listeners, webContents, supersede } = createHarness()
+    let resolve!: (value: string | null) => void
+    mocks.extractFavicon.mockReturnValueOnce(
+      new Promise((done) => {
+        resolve = done
+      })
+    )
+    webContents.emit('did-finish-load')
+    supersede()
+    resolve('data:image/png;base64,AAA')
+    await Promise.resolve()
+    expect(mocks.emitContractToRenderer).not.toHaveBeenCalled()
+    expect(mocks.loadStorageBrowser).not.toHaveBeenCalled()
     listeners.dispose()
   })
 })

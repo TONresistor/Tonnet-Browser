@@ -4,10 +4,9 @@
  */
 
 import { WebContentsView, BrowserWindow } from 'electron'
-import { createBrowserView } from './browser-view'
+import { createBrowserView, extractFavicon } from './browser-view'
 import { extractDomain, TabSessionManager } from './tabs-session'
 import {
-  loadErrorPage,
   createTabStorageState,
   disposeTabStorageState,
   initStorageListener,
@@ -28,10 +27,18 @@ import { DEFAULT_SETTINGS } from '../../shared/defaults'
 import { createLogger } from '../../shared/logger'
 import { emitContractToRenderer } from '../events/renderer-events'
 import { normalizeUrl } from '../../shared/utils/url'
-import { BrowserUrlSchema, pageZoomContract, tabHistoryResetContract } from '../../shared/ipc-contract/browsing'
+import {
+  BrowserUrlSchema,
+  pageNavigateContract,
+  pageLoadingContract,
+  pageTitleContract,
+  pageFaviconContract,
+  pageZoomContract,
+  tabHistoryResetContract,
+} from '../../shared/ipc-contract/browsing'
 import { ViewRegistry } from './view-registry'
 import { attachViewWhenReady } from './tabs-attach'
-import { rebuildViewsForIsolation, safeDetach, setupViewEvents } from './tabs-view-lifecycle'
+import { loadViewUrl, rebuildViewsForIsolation, safeDetach, setupViewEvents } from './tabs-view-lifecycle'
 import { loadBagFileFor, loadStorageBagFor } from './tabs-storage-navigation'
 import { PageZoomController } from './page-zoom'
 
@@ -42,6 +49,7 @@ export class TabManager {
   readonly sessions = new TabSessionManager()
   readonly storage = createTabStorageState()
   readonly views = new ViewRegistry<WebContentsView>()
+  readonly pendingAttachments = new Map<WebContentsView, IDisposable>()
   private mainWindow: BrowserWindow | null = null
   private proxyPort: number = DEFAULT_SETTINGS.proxyPort
   private resizeHandler: (() => void) | null = null
@@ -108,6 +116,7 @@ export class TabManager {
       storage: this.storage,
       cancelNavigation: (tabId) => this.cancelNavigation(tabId),
       handleZoomInput: (input) => this.pageZoom.handleInput(input),
+      captureNavigation: (tabId, view) => this.captureNavigation(tabId, view),
     }
     this.sessions.initialize({
       paymentInterceptor: deps.paymentInterceptor,
@@ -260,6 +269,25 @@ export class TabManager {
     return this.activeTabId
   }
 
+  reloadActivePage(ignoreCache: boolean): boolean {
+    const view = this.getActiveView()
+    if (!view || view.webContents.isDestroyed()) return false
+    if (this.activeTabId) this.cancelNavigation(this.activeTabId)
+    if (ignoreCache) view.webContents.reloadIgnoringCache()
+    else view.webContents.reload()
+    return true
+  }
+
+  stopActivePage(): boolean {
+    if (this.views.activeViewId !== this.activeTabId) return false
+    const view = this.getActiveView()
+    if (!view || view.webContents.isDestroyed()) return false
+    if (this.activeTabId) this.cancelNavigation(this.activeTabId)
+    view.webContents.stop()
+    this.showActiveView()
+    return true
+  }
+
   resolveSenderIdentity(sender: Electron.WebContents): string | null {
     for (const [tabId, { view }] of this.views.entries()) {
       if (view.webContents === sender) return this.sessions.getTabDomain(tabId) ?? null
@@ -281,7 +309,10 @@ export class TabManager {
 
   beginNavigation(tabId: string): number {
     const view = this.views.get(tabId)
-    if (view) cancelStorageBrowserLoad(this.storage, view.webContents.id)
+    if (view) {
+      this.pendingAttachments.get(view)?.dispose()
+      cancelStorageBrowserLoad(this.storage, view.webContents.id)
+    }
     const epoch = (this.navigationEpochByTab.get(tabId) ?? 0) + 1
     this.navigationEpochByTab.set(tabId, epoch)
     return epoch
@@ -289,6 +320,17 @@ export class TabManager {
 
   ownsNavigation(tabId: string, epoch: number): boolean {
     return this.navigationEpochByTab.get(tabId) === epoch
+  }
+
+  captureNavigation(tabId: string, view: WebContentsView): () => boolean {
+    const generation = this.captureWindowGeneration()
+    const epoch = this.navigationEpochByTab.get(tabId)
+    return () =>
+      this.ownsWindowGeneration(generation) &&
+      this.hasTab(tabId) &&
+      this.views.get(tabId) === view &&
+      !view.webContents.isDestroyed() &&
+      this.navigationEpochByTab.get(tabId) === epoch
   }
 
   cancelNavigation(tabId: string): void {
@@ -431,12 +473,14 @@ function hideAllViewsFor(manager: TabManager, tabId?: string): void {
   if (activeView) {
     safeDetach(manager, activeView, 'hideAllViews')
   }
+  manager.views.deactivate()
 }
 
 function showActiveViewFor(manager: TabManager): void {
   if (!manager.window) return
   const view = manager.getActiveView()
   if (view) {
+    if (manager.getActiveTabId()) manager.views.activate(manager.getActiveTabId()!)
     manager.window.contentView.addChildView(view)
     updateViewBounds(view, manager.window, manager.sidebarWidth)
   }
@@ -514,11 +558,7 @@ async function navigateInTabFor(manager: TabManager, tabId: string, url: string)
         manager.emitActiveZoom()
         attachViewWhenReady(manager, view, tabId, generation)
       }
-      view.webContents.loadURL(navigateUrl).catch((error) => {
-        if (String(error).includes('ERR_ABORTED')) return
-        log.error('loadURL failed:', error)
-        if (view) loadErrorPage(view, error.message, navigateUrl)
-      })
+      loadViewUrl(manager, view, tabId, navigateUrl)
       return true
     } catch (error) {
       if (view && manager.views.get(tabId) === view) manager.views.remove(tabId)
@@ -561,30 +601,45 @@ async function navigateInTabFor(manager: TabManager, tabId: string, url: string)
     manager.sessions.updateDomainActivity(domain)
     emitContractToRenderer(tabHistoryResetContract, tabId, navigateUrl)
 
-    if (manager.views.activeViewId === tabId) {
+    if (manager.getActiveTabId() === tabId) {
+      manager.views.activate(tabId)
       manager.emitActiveZoom()
       attachViewWhenReady(manager, newView, tabId, generation)
     }
 
-    newView.webContents.loadURL(navigateUrl).catch((err) => {
-      if (String(err).includes('ERR_ABORTED')) return
-      log.error('loadURL failed (new view):', err)
-      loadErrorPage(newView, err.message, navigateUrl)
-    })
+    loadViewUrl(manager, newView, tabId, navigateUrl)
   } else {
     manager.sessions.setTabDomain(tabId, domain)
     manager.sessions.updateDomainActivity(domain)
 
-    if (manager.views.activeViewId === tabId && manager.window) {
+    if (manager.getActiveTabId() === tabId && manager.window) {
+      manager.views.activate(tabId)
       safeDetach(manager, view, 'same-domain navigate')
       manager.window.contentView.addChildView(view)
       updateViewBounds(view, manager.window, manager.sidebarWidth)
     }
 
-    view.webContents.loadURL(navigateUrl).catch((err) => {
-      log.error('loadURL failed:', err)
-      loadErrorPage(view, err.message, navigateUrl)
-    })
+    // Returning from a React route can reveal the retained document without
+    // appending another native history entry or deleting its forward history.
+    if (view.webContents.getURL() === new URL(navigateUrl).href && !view.webContents.isLoading()) {
+      emitContractToRenderer(pageNavigateContract, {
+        tabId,
+        url: view.webContents.getURL(),
+        canGoBack: view.webContents.navigationHistory.canGoBack(),
+        canGoForward: view.webContents.navigationHistory.canGoForward(),
+      })
+      emitContractToRenderer(pageLoadingContract, false, tabId)
+      emitContractToRenderer(pageTitleContract, view.webContents.getTitle().slice(0, 4_096), tabId)
+      const isCurrent = manager.captureNavigation(tabId, view)
+      void extractFavicon(view)
+        .then((favicon) => {
+          if (favicon && isCurrent()) emitContractToRenderer(pageFaviconContract, favicon, tabId)
+        })
+        .catch((error) => log.debug('Retained page favicon unavailable:', error))
+      return true
+    }
+
+    loadViewUrl(manager, view, tabId, navigateUrl)
   }
 
   return true
