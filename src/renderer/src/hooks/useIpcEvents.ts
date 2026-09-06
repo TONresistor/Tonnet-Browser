@@ -5,51 +5,60 @@
 
 import { useEffect } from 'react'
 import { useBrowserStore } from '@/stores/browser'
-import { useTabsStore } from '@/stores/tabs'
+import { useTabsStore, type Tab } from '@/stores/tabs'
 import { IPC_CHANNELS } from '@shared/ipc-channels'
 import { browserClient } from '@/features/browser/client'
+import { resolveInternalRoute } from '@/app-shell/internal-routes'
+import { tabNavigationFlags } from '@/features/browser/tab-history'
 
 export function useIpcEvents(updateTab: ReturnType<typeof useTabsStore.getState>['updateTab']): void {
   useEffect(() => {
     const { setNavigation, setLoading, setTitle } = useBrowserStore.getState()
 
+    const pageTab = (tabId: string) => {
+      const tab = useTabsStore.getState().tabs.find((candidate) => candidate.id === tabId)
+      if (!tab) return undefined
+      const route = resolveInternalRoute(tab.url)
+      return !route || route.kind === 'storage-file' ? tab : undefined
+    }
+    const isActive = (tabId: string) => useTabsStore.getState().activeTabId === tabId
+
     const unsubNavigate = browserClient.on(IPC_CHANNELS.PAGE_NAVIGATE, (data) => {
-      setNavigation(data.url, data.canGoBack, data.canGoForward)
-      // Update tab state + push to history for bag file navigation
-      if (data.tabId) {
-        const tab = useTabsStore.getState().tabs.find((t) => t.id === data.tabId)
-        if (tab && data.url !== tab.url && data.url.startsWith('file:///') && data.url.includes('/storage/')) {
-          const newHistory = tab.history.slice(0, tab.historyIndex + 1)
-          newHistory.push(data.url)
-          updateTab(data.tabId, {
-            url: data.url,
-            canGoBack: true,
-            canGoForward: false,
-            history: newHistory,
-            historyIndex: newHistory.length - 1,
-          })
-        } else {
-          updateTab(data.tabId, { url: data.url, canGoBack: data.canGoBack, canGoForward: data.canGoForward })
-        }
+      const page = pageTab(data.tabId)
+      if (!page) return
+      const updates: Partial<Tab> = {
+        url: data.url,
+        nativeCanGoBack: data.canGoBack,
+        nativeCanGoForward: data.canGoForward,
       }
+      if (data.url !== page.url && data.url.startsWith('file:///') && data.url.includes('/storage/')) {
+        updates.history = [...page.history.slice(0, page.historyIndex + 1), data.url]
+        updates.historyIndex = updates.history.length - 1
+        updates.legacyStorageHistory = true
+      }
+      const flags = tabNavigationFlags({ ...page, ...updates })
+      updateTab(data.tabId, { ...updates, ...flags })
+      if (isActive(data.tabId)) setNavigation(data.url, flags.canGoBack, flags.canGoForward)
     })
 
     const unsubLoading = browserClient.on(IPC_CHANNELS.PAGE_LOADING, (loading, tabId) => {
-      setLoading(loading)
+      if (!pageTab(tabId)) return
+      if (isActive(tabId)) setLoading(loading)
       if (tabId) {
         updateTab(tabId, { isLoading: loading })
       }
     })
 
     const unsubTitle = browserClient.on(IPC_CHANNELS.PAGE_TITLE, (title, tabId) => {
-      setTitle(title)
+      if (!pageTab(tabId)) return
+      if (isActive(tabId)) setTitle(title)
       if (tabId) {
         updateTab(tabId, { title })
       }
     })
 
     const unsubFavicon = browserClient.on(IPC_CHANNELS.PAGE_FAVICON, (favicon, tabId) => {
-      if (tabId) {
+      if (pageTab(tabId)) {
         updateTab(tabId, { favicon })
       }
     })
@@ -71,6 +80,9 @@ export function useIpcEvents(updateTab: ReturnType<typeof useTabsStore.getState>
           historyIndex: 0,
           canGoBack: false,
           canGoForward: false,
+          legacyStorageHistory: false,
+          nativeCanGoBack: false,
+          nativeCanGoForward: false,
         })
         if (state.activeTabId === tabId) setNavigation(url, false, false)
       }

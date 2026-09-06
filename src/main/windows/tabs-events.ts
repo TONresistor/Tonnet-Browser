@@ -9,6 +9,7 @@ import { extractFavicon } from './browser-view'
 import { createLogger } from '../../shared/logger'
 import { emitContractToRenderer } from '../events/renderer-events'
 import {
+  BrowserUrlSchema,
   contextOpenLinkContract,
   pageFaviconContract,
   pageLoadingContract,
@@ -18,7 +19,7 @@ import {
 import { CONTEXT_MENU_WIDTH } from './constants'
 import { clipboard } from 'electron'
 import { DisposableStore, onWebContents } from '../utils/disposable'
-import { handleDevToolsShortcut } from './devtools'
+import type { WebContentsInputHandler } from './browser-shortcuts'
 import type { HistoryManager } from '../history/manager'
 import type { OverlayManager } from './overlay-manager'
 import type { OverlayMenuItem } from '../../shared/types'
@@ -30,13 +31,24 @@ function isInternalPresentationUrl(url: string): boolean {
   return url.startsWith('data:') || url.startsWith('file:')
 }
 
+function isPublishablePageUrl(url: string): boolean {
+  if (isInternalPresentationUrl(url)) return false
+  if (BrowserUrlSchema.safeParse(url).success) return true
+  log.event('warn', 'page.url.rejected', 'page URL exceeds the browser contract', { length: url.length })
+  return false
+}
+
+// History has the tightest title limit among the consumers of page metadata.
+const boundedTitle = (title: string): string => title.slice(0, 4_096)
+
 /** Dependencies needed by setupViewEventListeners */
 export interface TabEventDeps {
   historyManager: HistoryManager
   overlayManager: OverlayManager
   storage: TabStorageState
   cancelNavigation(tabId: string): void
-  handleZoomInput(input: Electron.Input): boolean
+  captureNavigation(tabId: string, view: WebContentsView): () => boolean
+  handleInput: WebContentsInputHandler
 }
 
 /** Set up non-security event listeners on a view (loading, navigation, favicon, context menu). */
@@ -45,15 +57,7 @@ export function setupViewEventListeners(view: WebContentsView, tabId: string, de
 
   const store = new DisposableStore()
 
-  store.add(
-    onWebContents(view.webContents, 'before-input-event', (event: Electron.Event, input: Electron.Input) => {
-      if (deps.handleZoomInput(input)) {
-        event.preventDefault()
-        return
-      }
-      handleDevToolsShortcut(event, input, () => view.webContents)
-    })
-  )
+  store.add(onWebContents(view.webContents, 'before-input-event', deps.handleInput))
 
   store.add(
     onWebContents(view.webContents, 'did-start-loading', () => {
@@ -68,33 +72,39 @@ export function setupViewEventListeners(view: WebContentsView, tabId: string, de
   )
 
   const handleNavigate = (_e: unknown, url: string): void => {
-    if (isInternalPresentationUrl(url)) return
+    if (!isPublishablePageUrl(url)) return
     emitContractToRenderer(pageNavigateContract, {
       tabId,
       url,
       canGoBack: view.webContents.navigationHistory.canGoBack(),
       canGoForward: view.webContents.navigationHistory.canGoForward(),
     })
-    historyManager.addEntry(url, view.webContents.getTitle())
+    historyManager.addEntry(url, boundedTitle(view.webContents.getTitle()))
   }
   store.add(onWebContents(view.webContents, 'did-navigate', handleNavigate))
-  store.add(onWebContents(view.webContents, 'did-navigate-in-page', handleNavigate))
+  store.add(
+    onWebContents(view.webContents, 'did-navigate-in-page', (event: unknown, url: string, isMainFrame: boolean) => {
+      if (isMainFrame) handleNavigate(event, url)
+    })
+  )
 
   store.add(
     onWebContents(view.webContents, 'page-title-updated', (_e: unknown, title: string) => {
-      emitContractToRenderer(pageTitleContract, title, tabId)
+      const safeTitle = boundedTitle(title)
+      emitContractToRenderer(pageTitleContract, safeTitle, tabId)
 
       const url = view.webContents.getURL()
-      if (!isInternalPresentationUrl(url)) historyManager.addEntry(url, title, undefined, false)
+      if (isPublishablePageUrl(url)) historyManager.addEntry(url, safeTitle, undefined, false)
     })
   )
 
   // Extract favicon and detect empty storage bag pages
   store.add(
     onWebContents(view.webContents, 'did-finish-load', async () => {
+      const isCurrent = deps.captureNavigation(tabId, view)
       try {
         const favicon = await extractFavicon(view)
-        if (view.webContents.isDestroyed()) return
+        if (!isCurrent()) return
         if (favicon) {
           emitContractToRenderer(pageFaviconContract, favicon, tabId)
         }
@@ -103,17 +113,17 @@ export function setupViewEventListeners(view: WebContentsView, tabId: string, de
       }
 
       try {
-        if (view.webContents.isDestroyed()) return
+        if (!isCurrent()) return
         const pageUrl = view.webContents.getURL()
         const url = new URL(pageUrl)
         if (url.hostname.endsWith('.ton') && !pageUrl.startsWith('data:')) {
           const { textLen, htmlLen } = await view.webContents.executeJavaScript(
             '({ textLen: document.body ? document.body.innerText.trim().length : 0, htmlLen: document.body ? document.body.innerHTML.trim().length : 0 })'
           )
-          if (view.webContents.isDestroyed()) return
+          if (!isCurrent()) return
           if (htmlLen < 50 && textLen < 10) {
             log.info(`Empty page detected for ${url.hostname}, trying storage browser`)
-            loadStorageBrowser(storage, view, url.hostname).catch(() => {
+            loadStorageBrowser(storage, view, url.hostname, isCurrent).catch(() => {
               log.debug('Not a storage bag or no files available')
             })
           }
@@ -129,7 +139,10 @@ export function setupViewEventListeners(view: WebContentsView, tabId: string, de
     onWebContents(
       view.webContents,
       'did-fail-load',
-      (_event: unknown, errorCode: number, errorDescription: string, validatedURL: string) => {
+      (_event: unknown, errorCode: number, errorDescription: string, validatedURL: string, isMainFrame: boolean) => {
+        if (!isMainFrame) return
+        const isCurrent = deps.captureNavigation(tabId, view)
+        if (!isCurrent()) return
         if (errorCode === -3 || errorCode === -2 || errorCode === 0) {
           return
         }
@@ -143,8 +156,8 @@ export function setupViewEventListeners(view: WebContentsView, tabId: string, de
         try {
           const url = new URL(validatedURL)
           if (url.hostname.endsWith('.ton')) {
-            loadStorageBrowser(storage, view, url.hostname).catch(() => {
-              loadErrorPage(view, `${errorDescription} (${errorCode})`, validatedURL)
+            loadStorageBrowser(storage, view, url.hostname, isCurrent).catch(() => {
+              if (isCurrent()) loadErrorPage(view, `${errorDescription} (${errorCode})`, validatedURL)
             })
             return
           }
@@ -176,7 +189,7 @@ export function setupViewEventListeners(view: WebContentsView, tabId: string, de
       }
 
       // Link options
-      if (params.linkURL) {
+      if (params.linkURL && BrowserUrlSchema.safeParse(params.linkURL).success) {
         if (items.length > 0) items.push({ id: '_sep2', label: '', separator: true })
         items.push(
           { id: 'open-link-new-tab', label: 'Open Link in New Tab', data: { url: params.linkURL } },
@@ -235,7 +248,7 @@ export function setupViewEventListeners(view: WebContentsView, tabId: string, de
               view.webContents.selectAll()
               break
             case 'open-link-new-tab':
-              emitContractToRenderer(contextOpenLinkContract, d.url)
+              if (BrowserUrlSchema.safeParse(d.url).success) emitContractToRenderer(contextOpenLinkContract, d.url)
               break
             case 'copy-link':
               clipboard.writeText(d.url)

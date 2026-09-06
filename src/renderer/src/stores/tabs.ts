@@ -11,7 +11,13 @@ import { shortId } from '@/lib/id'
 import { createLogger } from '@/logger'
 import { settingsClient } from '@/features/settings/client'
 import { browserClient } from '@/features/browser/client'
-import { getInternalPageFavicon, getInternalPageTitle, isInternalUrl } from '@/app-shell/internal-routes'
+import { selectTabTraversal } from '@/features/browser/tab-history'
+import {
+  getInternalPageFavicon,
+  getInternalPageTitle,
+  isInternalUrl,
+  resolveInternalRoute,
+} from '@/app-shell/internal-routes'
 
 export { getInternalPageFavicon, getInternalPageTitle } from '@/app-shell/internal-routes'
 
@@ -21,6 +27,9 @@ const navigationRequestByTab = new Map<string, number>()
 export interface Tab extends BaseTab {
   history: string[]
   historyIndex: number
+  legacyStorageHistory?: boolean
+  nativeCanGoBack?: boolean
+  nativeCanGoForward?: boolean
 }
 
 // Limit history size to prevent memory growth
@@ -72,6 +81,9 @@ async function applyTabNavigation(
 ): Promise<void> {
   const previousTab = get().tabs.find((tab) => tab.id === tabId)
   if (!previousTab) return
+  const route = updates.url ? resolveInternalRoute(updates.url) : null
+  if (route && route.kind !== 'storage-file') updates = { ...updates, isLoading: false }
+  if (updates.url && !route && isInternalUrl(previousTab.url)) updates = { ...updates, favicon: undefined }
   const request = (navigationRequestByTab.get(tabId) ?? 0) + 1
   navigationRequestByTab.set(tabId, request)
   const rollback = Object.fromEntries(
@@ -84,6 +96,7 @@ async function applyTabNavigation(
   if (updates.url !== undefined) {
     browser.setNavigation(updates.url, updates.canGoBack ?? false, updates.canGoForward ?? false)
     if (updates.title) browser.setTitle(updates.title)
+    if (updates.isLoading !== undefined) browser.setLoading(updates.isLoading)
     let success = false
     try {
       success = (await browserClient.navigate(updates.url, tabId)).success
@@ -100,6 +113,7 @@ async function applyTabNavigation(
     if (restored && get().activeTabId === tabId) {
       browser.setNavigation(restored.url, restored.canGoBack, restored.canGoForward)
       browser.setTitle(restored.title)
+      browser.setLoading(restored.isLoading)
     }
   }
 }
@@ -124,6 +138,9 @@ export const useTabsStore = create<TabsState>((set, get) => ({
       canGoForward: false,
       history: [targetUrl],
       historyIndex: 0,
+      nativeCanGoBack: false,
+      nativeCanGoForward: false,
+      legacyStorageHistory: false,
     }
 
     try {
@@ -138,6 +155,7 @@ export const useTabsStore = create<TabsState>((set, get) => ({
       // Sync settings store with new tab's state
       useBrowserStore.getState().setNavigation(targetUrl, false, false)
       useBrowserStore.getState().setTitle(title)
+      useBrowserStore.getState().setLoading(false)
 
       // Always call navigate - it handles hiding views for internal pages
       // and loading URLs for external pages
@@ -149,10 +167,8 @@ export const useTabsStore = create<TabsState>((set, get) => ({
 
   closeTab: async (id: string) => {
     navigationRequestByTab.delete(id)
-    const { tabs, activeTabId, closedTabs } = get()
-    const index = tabs.findIndex((t) => t.id === id)
+    const { tabs, closedTabs } = get()
     const closedTab = tabs.find((t) => t.id === id)
-    const newTabs = tabs.filter((t) => t.id !== id)
 
     // Save closed tab for Ctrl+Shift+T (skip ton://start and ton://loading)
     if (closedTab && !closedTab.url.startsWith('ton://start') && !closedTab.url.startsWith('ton://loading')) {
@@ -164,32 +180,33 @@ export const useTabsStore = create<TabsState>((set, get) => ({
       // Close tab in main process
       await browserClient.closeTab(id)
 
-      let newActiveId = activeTabId
-      if (activeTabId === id && newTabs.length > 0) {
-        // Select adjacent tab
-        newActiveId = newTabs[Math.min(index, newTabs.length - 1)]?.id ?? null
-        if (newActiveId) {
-          await browserClient.switchTab(newActiveId)
-          // Sync settings store with new active tab
-          const newActiveTab = newTabs.find((t) => t.id === newActiveId)
-          if (newActiveTab) {
-            useBrowserStore
-              .getState()
-              .setNavigation(newActiveTab.url, newActiveTab.canGoBack, newActiveTab.canGoForward)
-            // Hide views for internal pages
-            if (isInternalUrl(newActiveTab.url)) {
-              void browserClient.navigate(newActiveTab.url, newActiveId)
-            }
-          }
-        }
-      } else if (newTabs.length === 0) {
-        // Last tab closed - create a new default tab with homepage
-        set({ tabs: newTabs, activeTabId: null })
-        await get().addTab() // Uses homepage from settings
+      const current = get()
+      const index = current.tabs.findIndex((tab) => tab.id === id)
+      const remaining = current.tabs.filter((tab) => tab.id !== id)
+      const wasActive = current.activeTabId === id
+      const newActiveId = wasActive
+        ? (remaining[Math.min(Math.max(0, index), remaining.length - 1)]?.id ?? null)
+        : current.activeTabId
+      set({ tabs: remaining, activeTabId: newActiveId })
+      if (remaining.length === 0) {
+        await get().ensureDefaultTab()
         return
       }
-
-      set({ tabs: newTabs, activeTabId: newActiveId })
+      if (wasActive && newActiveId) {
+        await browserClient.switchTab(newActiveId)
+        // Sync settings store with new active tab
+        const latest = get()
+        const newActiveTab = latest.tabs.find((t) => t.id === newActiveId)
+        if (newActiveTab && latest.activeTabId === newActiveId) {
+          useBrowserStore.getState().setNavigation(newActiveTab.url, newActiveTab.canGoBack, newActiveTab.canGoForward)
+          useBrowserStore.getState().setTitle(newActiveTab.title)
+          useBrowserStore.getState().setLoading(newActiveTab.isLoading)
+          // Hide views for internal pages
+          if (isInternalUrl(newActiveTab.url)) {
+            void browserClient.navigate(newActiveTab.url, newActiveId)
+          }
+        }
+      }
     } catch (error) {
       log.error('Failed to close tab:', error)
     }
@@ -205,14 +222,17 @@ export const useTabsStore = create<TabsState>((set, get) => ({
     try {
       // Switch tab in main process (shows/hides WebContentsViews)
       await browserClient.switchTab(id)
+      const latestTab = get().tabs.find((candidate) => candidate.id === id)
+      if (!latestTab) return
       set({ activeTabId: id })
 
       // Sync settings store with this tab's state
-      useBrowserStore.getState().setNavigation(tab.url, tab.canGoBack, tab.canGoForward)
-      useBrowserStore.getState().setTitle(tab.title)
+      useBrowserStore.getState().setNavigation(latestTab.url, latestTab.canGoBack, latestTab.canGoForward)
+      useBrowserStore.getState().setTitle(latestTab.title)
+      useBrowserStore.getState().setLoading(latestTab.isLoading)
 
       // For internal pages, hide WebContentsViews so React content is visible
-      if (isInternalUrl(tab.url)) {
+      if (isInternalUrl(latestTab.url)) {
         await browserClient.hideView()
       }
     } catch (error) {
@@ -247,7 +267,9 @@ export const useTabsStore = create<TabsState>((set, get) => ({
     const internalTitle = getInternalPageTitle(url)
 
     // Update history: truncate forward history and add new URL
-    let newHistory = [...activeTab.history.slice(0, activeTab.historyIndex + 1), url]
+    const previousHistory = activeTab.history.slice(0, activeTab.historyIndex + 1)
+    if (isInternalUrl(url) && !isInternalUrl(activeTab.url)) previousHistory[activeTab.historyIndex] = activeTab.url
+    let newHistory = [...previousHistory, url]
     let newHistoryIndex = newHistory.length - 1
 
     // Trim oldest entries if over limit
@@ -308,9 +330,15 @@ export const useTabsStore = create<TabsState>((set, get) => ({
     if (!activeTabId) return
 
     const activeTab = tabs.find((t) => t.id === activeTabId)
-    if (!activeTab || activeTab.historyIndex <= 0) return
+    if (!activeTab) return
+    const target = selectTabTraversal(activeTab, 'back')
+    if (target === 'native') {
+      await browserClient.goBack()
+      return
+    }
+    if (target === null) return
 
-    const newIndex = activeTab.historyIndex - 1
+    const newIndex = target
     const newUrl = activeTab.history[newIndex]
     const internalTitle = getInternalPageTitle(newUrl)
 
@@ -335,9 +363,15 @@ export const useTabsStore = create<TabsState>((set, get) => ({
     if (!activeTabId) return
 
     const activeTab = tabs.find((t) => t.id === activeTabId)
-    if (!activeTab || activeTab.historyIndex >= activeTab.history.length - 1) return
+    if (!activeTab) return
+    const target = selectTabTraversal(activeTab, 'forward')
+    if (target === 'native') {
+      await browserClient.goForward()
+      return
+    }
+    if (target === null) return
 
-    const newIndex = activeTab.historyIndex + 1
+    const newIndex = target
     const newUrl = activeTab.history[newIndex]
     const internalTitle = getInternalPageTitle(newUrl)
 
@@ -408,8 +442,7 @@ export const useTabsStore = create<TabsState>((set, get) => ({
 
   goToTabByIndex: async (index: number) => {
     const { tabs, setActiveTab } = get()
-    // Index is 1-based (Ctrl+1 to Ctrl+9)
-    const tabIndex = index - 1
+    const tabIndex = index === 9 ? tabs.length - 1 : index - 1
     if (tabIndex >= 0 && tabIndex < tabs.length) {
       await setActiveTab(tabs[tabIndex].id)
     }

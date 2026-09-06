@@ -82,6 +82,80 @@ function renderMenu(items) {
   }
 }
 
+function renderFind(content) {
+  currentItems = []
+  selectedIndex = -1
+  root.className = 'find-mode'
+
+  let container = root.querySelector('.find-container')
+  let input = container?.querySelector('.find-input')
+  let count = container?.querySelector('.find-count')
+  let previous = container?.querySelector('[data-action="previous"]')
+  let next = container?.querySelector('[data-action="next"]')
+
+  if (!container || !input || !count || !previous || !next) {
+    root.innerHTML = ''
+    container = document.createElement('div')
+    container.className = 'find-container'
+
+    input = document.createElement('input')
+    input.className = 'find-input'
+    input.type = 'text'
+    input.placeholder = 'Find in page'
+    input.setAttribute('aria-label', 'Find in page')
+    input.addEventListener('input', () => window.overlayBridge.sendAction('query', { query: input.value }))
+    input.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault()
+        event.stopPropagation()
+        window.overlayBridge.sendAction(event.shiftKey ? 'previous' : 'next', {})
+      } else if (event.key === 'Escape') {
+        event.preventDefault()
+        event.stopPropagation()
+        window.overlayBridge.sendAction('close', {})
+      }
+    })
+
+    count = document.createElement('span')
+    count.className = 'find-count'
+
+    const makeButton = (action, label, text) => {
+      const button = document.createElement('button')
+      button.className = 'find-button'
+      button.type = 'button'
+      button.dataset.action = action
+      button.title = label
+      button.setAttribute('aria-label', label)
+      button.textContent = text
+      button.addEventListener('mousedown', (event) => event.preventDefault())
+      button.addEventListener('click', () => window.overlayBridge.sendAction(action, {}))
+      return button
+    }
+
+    previous = makeButton('previous', 'Previous match', '↑')
+    next = makeButton('next', 'Next match', '↓')
+    const close = makeButton('close', 'Close', '×')
+
+    container.appendChild(input)
+    container.appendChild(count)
+    container.appendChild(previous)
+    container.appendChild(next)
+    container.appendChild(close)
+    root.appendChild(container)
+  }
+
+  const query = typeof content.query === 'string' ? content.query : ''
+  if (document.activeElement !== input && input.value !== query) input.value = query
+  const matches = Number.isInteger(content.matches) ? content.matches : 0
+  const activeMatch = Number.isInteger(content.activeMatch) ? content.activeMatch : 0
+  count.textContent = query ? `${activeMatch}/${matches}` : ''
+  previous.disabled = !query
+  next.disabled = !query
+
+  input.focus()
+  if (content.selectAll) input.select()
+}
+
 function renderForm(content) {
   currentItems = []
   selectedIndex = -1
@@ -163,7 +237,7 @@ function renderForm(content) {
   if (firstInput) firstInput.focus()
 }
 
-function renderApproval(content) {
+function renderApproval(content, animate = true) {
   currentItems = []
   selectedIndex = -1
   root.className = 'modal-mode'
@@ -171,11 +245,18 @@ function renderApproval(content) {
 
   const scrim = document.createElement('div')
   scrim.className = 'tc-scrim'
-  scrim.addEventListener('click', () => window.overlayBridge.sendAction('dismiss', {}))
 
   const card = document.createElement('div')
-  card.className = 'tc-card'
+  card.className = 'tc-card' + (animate ? '' : ' tc-card-static')
   card.addEventListener('click', (e) => e.stopPropagation())
+  let actionPending = false
+  const dispatchAction = (action, data) => {
+    if (actionPending) return
+    actionPending = true
+    for (const button of card.querySelectorAll('button')) button.disabled = true
+    window.overlayBridge.sendAction(action, data)
+  }
+  scrim.addEventListener('click', () => dispatchAction('dismiss', {}))
 
   if (content.icon) {
     const img = document.createElement('img')
@@ -257,6 +338,113 @@ function renderApproval(content) {
       value.textContent = r.value || ''
       row.appendChild(label)
       row.appendChild(value)
+      if (r.action && r.action.id) {
+        const button = document.createElement('button')
+        button.type = 'button'
+        button.className = 'tc-row-action'
+        button.textContent = r.action.label || r.action.id
+        let editing = false
+        const openEditor = () => {
+          if (!r.action.editable) {
+            dispatchAction(r.action.id, {})
+            return
+          }
+          if (editing) return
+          editing = true
+
+          value.hidden = true
+          button.hidden = true
+
+          const editor = document.createElement('div')
+          editor.className = 'tc-row-editor'
+          const input = document.createElement('input')
+          input.className = 'tc-row-input'
+          input.type = 'text'
+          input.value = r.action.value || ''
+          input.placeholder = r.action.placeholder || ''
+          input.setAttribute('aria-label', r.label || 'Edit value')
+
+          const error = document.createElement('span')
+          error.className = 'tc-row-error'
+          error.textContent = r.action.error || ''
+
+          const controls = document.createElement('div')
+          controls.className = 'tc-row-editor-actions'
+          const cancel = document.createElement('button')
+          cancel.type = 'button'
+          cancel.className = 'tc-row-editor-button'
+          cancel.textContent = 'Cancel'
+          const save = document.createElement('button')
+          save.type = 'button'
+          save.className = 'tc-row-editor-button primary'
+          save.textContent = 'Save'
+          controls.appendChild(cancel)
+          controls.appendChild(save)
+          editor.appendChild(input)
+          editor.appendChild(error)
+          editor.appendChild(controls)
+          row.appendChild(editor)
+
+          const closeEditor = () => {
+            editing = false
+            editor.remove()
+            value.hidden = false
+            button.hidden = false
+            button.focus()
+          }
+          const saveValue = () => {
+            const maxBytes = Number(r.action.maxBytes) || 0
+            if (maxBytes > 0 && new TextEncoder().encode(input.value).length > maxBytes) {
+              error.textContent = `Memo must be ${maxBytes} bytes or less.`
+              return
+            }
+            input.disabled = true
+            cancel.disabled = true
+            save.disabled = true
+            save.textContent = 'Saving…'
+            const field = r.action.field || 'value'
+            dispatchAction(r.action.id, { [field]: input.value })
+          }
+
+          cancel.addEventListener('click', closeEditor)
+          save.addEventListener('click', saveValue)
+          input.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') {
+              event.preventDefault()
+              event.stopPropagation()
+              saveValue()
+            } else if (event.key === 'Escape') {
+              event.preventDefault()
+              event.stopPropagation()
+              closeEditor()
+            }
+          })
+          input.addEventListener('input', () => {
+            error.textContent = ''
+          })
+          input.focus()
+          input.select()
+        }
+        button.addEventListener('click', openEditor)
+        row.appendChild(button)
+        if (r.action.autoEdit) requestAnimationFrame(openEditor)
+      }
+      if (r.toggle && r.toggle.id) {
+        const toggle = document.createElement('button')
+        const checked = r.toggle.checked === true
+        toggle.type = 'button'
+        toggle.className = 'tc-toggle' + (checked ? ' checked' : '')
+        toggle.setAttribute('role', 'switch')
+        toggle.setAttribute('aria-label', r.label || 'Toggle')
+        toggle.setAttribute('aria-checked', String(checked))
+        const thumb = document.createElement('span')
+        thumb.className = 'tc-toggle-thumb'
+        toggle.appendChild(thumb)
+        toggle.addEventListener('click', () => {
+          dispatchAction(r.toggle.id, { enabled: !checked })
+        })
+        row.appendChild(toggle)
+      }
       rows.appendChild(row)
     }
     card.appendChild(rows)
@@ -268,7 +456,7 @@ function renderApproval(content) {
     const btn = document.createElement('button')
     btn.className = 'tc-btn ' + (action.primary ? 'tc-btn-primary' : 'tc-btn-secondary')
     btn.textContent = action.label || action.id
-    btn.addEventListener('click', () => window.overlayBridge.sendAction(action.id, {}))
+    btn.addEventListener('click', () => dispatchAction(action.id, {}))
     actions.appendChild(btn)
   }
   card.appendChild(actions)
@@ -298,6 +486,7 @@ window.overlayBridge.onContent((content) => {
     return
   }
 
+  const updatingApproval = content.type === 'approval' && root.classList.contains('modal-mode') && root.childElementCount > 0
   root.className = ''
   if (content.type === 'suggestions' && content.items) {
     renderSuggestions(content.items)
@@ -306,10 +495,12 @@ window.overlayBridge.onContent((content) => {
     }
   } else if (content.type === 'menu' && content.items) {
     renderMenu(content.items)
+  } else if (content.type === 'find') {
+    renderFind(content)
   } else if (content.type === 'form') {
     renderForm(content)
   } else if (content.type === 'approval') {
-    renderApproval(content)
+    renderApproval(content, !updatingApproval)
   }
 })
 

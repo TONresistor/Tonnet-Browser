@@ -34,6 +34,7 @@ import { attachWindowScope } from './windows/window-scope'
 import { ProxyAutoConnector } from './proxy/auto-connect'
 import type { IDisposable } from './utils/disposable'
 import { reconcileHistoryModeAtStartup } from './history/startup'
+import { initializeTonConnect } from './tonconnect/startup'
 import {
   proxyAutoConnectEventContract,
   proxyProgressEventContract,
@@ -362,8 +363,16 @@ app.whenReady().then(async () => {
       {
         label: 'View',
         submenu: [
-          { role: 'reload' },
-          { role: 'forceReload' },
+          {
+            label: 'Reload',
+            accelerator: 'Command+R',
+            click: () => services?.tabManager.reloadActivePage(false),
+          },
+          {
+            label: 'Force Reload',
+            accelerator: 'Command+Shift+R',
+            click: () => services?.tabManager.reloadActivePage(true),
+          },
           { type: 'separator' },
           {
             label: 'Reset Zoom',
@@ -442,10 +451,14 @@ app.whenReady().then(async () => {
       ),
     () => services.proxyManager.isRunning()
   )
-  await services.tonConnectService.init()
-  if (!getSetting('advanced').tonConnectEnabled) await services.tonConnectService.clearSessions()
+  await initializeTonConnect(services.tonConnectService, getSetting('advanced').tonConnectEnabled, (error) => {
+    appLog.error('TON Connect unavailable; continuing browser startup:', error)
+  })
 
   safeStartup('Wallet init', () => services.walletManager.init())
+  if (getSetting('messenger').autostart) {
+    safeStartup('Messenger client start', () => services.messengerClientManager.start())
+  }
   safeStartup('Payment policy init', () => services.paymentPolicyStore.init())
   safeStartup('Bridge interceptor init', async () => {
     await services.tonBridgeCoordinator.whenReady()

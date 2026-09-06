@@ -112,12 +112,19 @@ import type {
 } from '../shared/ipc-contract/window'
 import type {
   chatClaimDomainContract,
+  chatPrepareDomainLinkContract,
+  chatOpenDomainLinkContract,
   chatClearDomainContract,
   chatConnectContract,
-  chatCreateRoomContract,
   chatDetectDomainsContract,
   chatDisconnectContract,
+  chatLeaveContract,
   chatDmSendContract,
+  chatDiscardPendingContract,
+  chatMutateContract,
+  chatPendingContract,
+  chatRetryPendingContract,
+  chatTimelineBeforeContract,
   chatIdentityContract,
   chatLinkIdentityContract,
   chatResetIdentityContract,
@@ -390,16 +397,38 @@ const electronAPI = {
   chat: {
     connect: (room?: string, node?: string) =>
       invokeChannel<typeof chatConnectContract>(IPC_CHANNELS.CHAT_CONNECT, room, node),
-    send: (text: string) => invokeChannel<typeof chatSendContract>(IPC_CHANNELS.CHAT_SEND, text),
-    dmSend: (peerKey: string, text: string) =>
-      invokeChannel<typeof chatDmSendContract>(IPC_CHANNELS.CHAT_DM_SEND, peerKey, text),
-    createRoom: (display: string) =>
-      invokeChannel<typeof chatCreateRoomContract>(IPC_CHANNELS.CHAT_CREATE_ROOM, display),
+    send: (roomId: string, text: string) =>
+      invokeChannel<typeof chatSendContract>(IPC_CHANNELS.CHAT_SEND, roomId, text),
+    dmSend: (roomId: string, peerKey: string, text: string) =>
+      invokeChannel<typeof chatDmSendContract>(IPC_CHANNELS.CHAT_DM_SEND, roomId, peerKey, text),
+    mutate: (
+      roomId: string,
+      mutation: {
+        action: 'metadata' | 'pin' | 'unpin' | 'moderator-grant' | 'moderator-revoke' | 'write-policy'
+        name?: string
+        description?: string
+        messageId?: string
+        subjectKey?: string
+        anyoneCanWrite?: boolean
+      }
+    ) => invokeChannel<typeof chatMutateContract>(IPC_CHANNELS.CHAT_MUTATE, roomId, mutation),
+    pending: (roomId: string) => invokeChannel<typeof chatPendingContract>(IPC_CHANNELS.CHAT_PENDING, roomId),
+    retryPending: (roomId: string, eventId: string) =>
+      invokeChannel<typeof chatRetryPendingContract>(IPC_CHANNELS.CHAT_RETRY_PENDING, roomId, eventId),
+    discardPending: (roomId: string, eventId: string) =>
+      invokeChannel<typeof chatDiscardPendingContract>(IPC_CHANNELS.CHAT_DISCARD_PENDING, roomId, eventId),
+    timelineBefore: (roomId: string, beforeSeqno: number, limit?: number) =>
+      invokeChannel<typeof chatTimelineBeforeContract>(IPC_CHANNELS.CHAT_TIMELINE_BEFORE, roomId, beforeSeqno, limit),
     disconnect: () => invokeChannel<typeof chatDisconnectContract>(IPC_CHANNELS.CHAT_DISCONNECT),
+    leave: (roomId: string) => invokeChannel<typeof chatLeaveContract>(IPC_CHANNELS.CHAT_LEAVE, roomId),
     identity: () => invokeChannel<typeof chatIdentityContract>(IPC_CHANNELS.CHAT_IDENTITY),
     linkIdentity: () => invokeChannel<typeof chatLinkIdentityContract>(IPC_CHANNELS.CHAT_IDENTITY_LINK),
     claimDomain: (domain: string) =>
       invokeChannel<typeof chatClaimDomainContract>(IPC_CHANNELS.CHAT_CLAIM_DOMAIN, domain),
+    prepareDomainLink: (domain: string) =>
+      invokeChannel<typeof chatPrepareDomainLinkContract>(IPC_CHANNELS.CHAT_PREPARE_DOMAIN_LINK, domain),
+    openDomainLink: (txUrl: string) =>
+      invokeChannel<typeof chatOpenDomainLinkContract>(IPC_CHANNELS.CHAT_OPEN_DOMAIN_LINK, txUrl),
     clearDomain: () => invokeChannel<typeof chatClearDomainContract>(IPC_CHANNELS.CHAT_CLEAR_DOMAIN),
     detectDomains: () => invokeChannel<typeof chatDetectDomainsContract>(IPC_CHANNELS.CHAT_DETECT_DOMAINS),
     resetIdentity: () => invokeChannel<typeof chatResetIdentityContract>(IPC_CHANNELS.CHAT_RESET_IDENTITY),

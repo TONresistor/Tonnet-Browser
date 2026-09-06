@@ -9,7 +9,6 @@ import type { TonBridgeCoordinator } from '../ton-bridge/coordinator'
 import type { TonConnectService } from '../tonconnect/service'
 import type { BridgePermissionStore } from '../bridge/permission-store'
 import type { TabManager } from '../windows/tabs'
-import type { ChatRuntimeSession, ChatSessionController } from '../chat/session-controller'
 import { getDefaultSettings, mergeSettingsPatch, transactSettings, type SettingsPatch } from './index'
 
 export interface SettingsRuntimeDependencies {
@@ -21,7 +20,6 @@ export interface SettingsRuntimeDependencies {
   tonConnectService: TonConnectService
   bridgePermissionStore: BridgePermissionStore
   tabManager: TabManager
-  chatSessionController: ChatSessionController<ChatRuntimeSession>
 }
 
 function fieldsChanged<T extends object>(previous: T, current: T, fields: ReadonlyArray<keyof T>): boolean {
@@ -36,27 +34,19 @@ function categoryChanged<K extends keyof AppSettings>(
   return JSON.stringify(previous[category]) !== JSON.stringify(current[category])
 }
 
-function bridgeRestartRequired(previous: AppSettings, current: AppSettings): boolean {
-  return (
-    fieldsChanged(previous.network, current.network, ['proxyPort', 'wsPort', 'anonymousMode', 'tunnelMode']) ||
-    fieldsChanged(previous.general, current.general, ['resolveEth', 'ethRpc', 'resolveSol', 'solRpc']) ||
-    previous.advanced.proxyVerbosity !== current.advanced.proxyVerbosity ||
-    previous.messenger.networkEnabled !== current.messenger.networkEnabled
-  )
-}
-
 export class SettingsCoordinator {
   constructor(private readonly dependencies: SettingsRuntimeDependencies) {}
 
-  async apply(patch: SettingsPatch): Promise<AppSettings> {
+  async apply(patch: SettingsPatch, options: { reconcileHistory?: boolean } = {}): Promise<AppSettings> {
     const settings = await transactSettings(
       (current) => {
         const next = mergeSettingsPatch(current, patch)
         return next
       },
       (previous, current) => this.reconcile(previous, current),
-      (previous, current) => this.finalize(previous, current),
-      (previous, current, operation) => this.guardChat(previous, current, operation)
+      (previous, current) => this.finalize(previous, current, false, options.reconcileHistory),
+      (previous, current, operation) => this.guardChat(previous, current, operation),
+      { applyUnchanged: options.reconcileHistory === true }
     )
     for (const category of Object.keys(patch) as Array<keyof AppSettings>) {
       emitContractToRenderer(settingsChangedContract, {
@@ -75,7 +65,7 @@ export class SettingsCoordinator {
       (previous, current) => this.finalize(previous, current, true),
       (previous, current, operation) => {
         this.assertPortTransition(previous, current)
-        return this.dependencies.chatSessionController.runDisconnected(operation)
+        return operation()
       },
       { applyUnchanged: true }
     )
@@ -89,8 +79,7 @@ export class SettingsCoordinator {
       force ||
       fieldsChanged(previous.network, current.network, ['proxyPort', 'wsPort', 'anonymousMode', 'tunnelMode']) ||
       fieldsChanged(previous.general, current.general, ['resolveEth', 'ethRpc', 'resolveSol', 'solRpc']) ||
-      previous.advanced.proxyVerbosity !== current.advanced.proxyVerbosity ||
-      previous.messenger.networkEnabled !== current.messenger.networkEnabled
+      previous.advanced.proxyVerbosity !== current.advanced.proxyVerbosity
     const storageChanged =
       force ||
       previous.network.storagePort !== current.network.storagePort ||
@@ -136,8 +125,17 @@ export class SettingsCoordinator {
     }
   }
 
-  private async finalize(previous: AppSettings, current: AppSettings, force = false): Promise<void> {
-    if (force || fieldsChanged(previous.privacy, current.privacy, ['historyMode', 'historyMaxEntries'])) {
+  private async finalize(
+    previous: AppSettings,
+    current: AppSettings,
+    force = false,
+    reconcileHistory = false
+  ): Promise<void> {
+    if (
+      force ||
+      reconcileHistory ||
+      fieldsChanged(previous.privacy, current.privacy, ['historyMode', 'historyMaxEntries'])
+    ) {
       await this.dependencies.historyManager.applySettings(current.privacy)
     }
     if (force) this.dependencies.bridgePermissionStore.clearSessionGrants()
@@ -152,12 +150,7 @@ export class SettingsCoordinator {
     operation: () => Promise<AppSettings>
   ): Promise<AppSettings> {
     this.assertPortTransition(previous, current)
-    if (previous.messenger.networkEnabled && !current.messenger.networkEnabled) {
-      return this.dependencies.chatSessionController.runDisconnected(operation)
-    }
-    return bridgeRestartRequired(previous, current)
-      ? this.dependencies.chatSessionController.runWhenIdle(operation)
-      : operation()
+    return operation()
   }
 
   private assertPortTransition(previous: AppSettings, current: AppSettings): void {

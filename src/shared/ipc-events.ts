@@ -7,6 +7,7 @@ import type {
   StorageBag,
 } from './types'
 import type { CocoonState, CocoonLogEvent, WithdrawDriverEvent, RecoveryDriverEvent } from './cocoon-types'
+import type { BrowserShortcutCommand } from './ipc-contract/browsing'
 
 export interface ProxyStatusEvent extends Partial<ProxyStatus> {
   status?: string
@@ -34,6 +35,7 @@ export interface IpcEventMap {
   'page:title': [title: string, tabId: string]
   'page:favicon': [favicon: string, tabId: string]
   'page:zoom': [zoom: number, tabId: string]
+  'browser:shortcut': [command: BrowserShortcutCommand]
   'proxy:status': [status: ProxyStatusEvent]
   'proxy:progress': [progress: { step: number; message: string }]
   'proxy:auto-connect': []
@@ -49,18 +51,7 @@ export interface IpcEventMap {
   'wallet:payment-made': [notification: PaymentNotificationData]
   'wallet:payment-failed': [notification: PaymentNotificationData]
   'overlay:action': [overlayId: string, actionType: string, actionData: unknown]
-  'chat:message': [
-    msg: {
-      room?: string
-      id: string
-      nick: string
-      text: string
-      ts: number
-      self?: boolean
-      deviceKey?: string
-      identity: import('./types').ChatIdentityInfo
-    },
-  ]
+  'chat:timeline': [item: import('./ipc-contract/chat').ChatTimelineItem]
   'chat:dm': [
     msg: {
       room?: string
@@ -69,15 +60,13 @@ export interface IpcEventMap {
       text: string
       ts: number
       identity: import('./types').ChatIdentityInfo
+      direction: 'sent' | 'received'
     },
   ]
-  'chat:connection': [
-    event: {
-      room: string
-      status: 'reconnecting' | 'connected' | 'error'
-      attempt?: number
-    },
-  ]
+  'chat:connection': [event: import('./ipc-contract/chat').ChatConnectionEvent]
+  'chat:room-state': [state: import('./ipc-contract/chat').ChatRoomState]
+  'chat:room-presence': [presence: import('./ipc-contract/chat').ChatRoomPresence]
+  'chat:identity-changed': [identity: import('./types').OwnChatIdentity]
   'cocoon:state-changed': [state: CocoonState]
   'cocoon:log': [event: CocoonLogEvent]
   'cocoon:withdraw:event': [event: WithdrawDriverEvent]

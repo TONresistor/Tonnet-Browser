@@ -18,6 +18,14 @@
       "ldflags": "-s -w"
     },
     {
+      "name": "tonnet-messenger",
+      "repo": "TONresistor/tonnet-messenger",
+      "version": "v0.4.1",
+      "commit": "c527b7f99f72c700165fef16856b7f1a163f1878",
+      "entry_point": "./cmd/tonnet-messenger",
+      "ldflags": "-s -w -X 'github.com/TONresistor/tonnet-messenger/internal/clientcli.Version=${VERSION}'"
+    },
+    {
       "name": "tonutils-storage",
       "repo": "xssnick/tonutils-storage",
       "version": "v1.5.3",

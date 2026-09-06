@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.7.0] - 2026-09-06
+
+### Added
+
+- Standalone Messenger with persistent public rooms, verified history, moderation and online encrypted direct messages.
+- Room joining by canonical key, `.ton` or `.t.me` alias, with separate presence snapshots and pinned-message navigation.
+- Recovery of uncertain Messenger operations: inspect, retry the same proposal or discard tracking while preserving the current draft.
+- Profile domain linking with a transaction QR, manual setup instructions and automatic DNS verification. Collectible `.t.me` usernames listed for sale or auction are rejected before preparing a transaction.
+- Memo editing and an encryption toggle in wallet transfer approval, with updated fee checks after each saved change.
+- Find-in-page and centralized browser shortcuts across the window, web pages and overlays.
+
+### Changed
+
+- Messenger owns its identity and connects directly over TON QUIC, independently of the Browser proxy and Bridge.
+- The former Messenger network opt-in becomes an autostart preference; opening Messenger starts its client on demand.
+- The default Resistance Dog background uses the updated dark palette.
+- Messenger is pinned to stable v0.4.1. Bridge v0.5.1 and GoCoon v0.3.0 are unchanged.
+- Shared lock icons and a simplified Messenger profile layout.
+- Updated Browserslist data and audited transitive dependencies.
+
+### Fixed
+
+- Direct-message reception and conversation retention while navigating outside Messenger, alias recovery after a failed join, and retention of loaded history when new events arrive.
+- Messenger timestamps, outgoing direct-message direction and duplicate send acknowledgements.
+- Stale room joins and history refreshes, helper crash recovery, bounded protocol frames and declared IPC errors.
+- Closing Messenger preserves joined-room caches; only an explicit leave removes membership.
+- Page metadata is bounded before IPC publication; background pages no longer overwrite the active page's browser controls.
+- Obsolete navigation recovery and view attachments are cancelled. Web-page back/forward navigation uses Chromium history.
+- Failed history decryption or persistence preserves the existing encrypted file instead of overwriting it or falling back to plaintext.
+- TON Connect initialization failures no longer block Browser startup.
+- Anti-fingerprinting protections run in the page's main JavaScript world, with corrected canvas export and WebRTC listener handling.
+
+### Compatibility
+
+- Messenger 0.4 rooms and identities are incompatible with the legacy overlay chat. Existing standalone-client state is preserved; legacy room names, wallet attribution and offline DM history are not converted.
+- Update Messenger clients, sequencers and replicas before using `.t.me` identity claims in a room. Older clients can reject history containing these claims.
+- Browser settings migrate to schema 4. Use a pre-upgrade profile backup when returning to an older build that only supports schema 3.
+
 ## [2.6.0] - 2026-08-30
 
 ### Added
@@ -404,7 +442,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Preload script path for ES module builds.
 - Utya Duck theme persistence and colors.
 
-[Unreleased]: https://github.com/TONresistor/Tonnet-Browser/compare/v2.6.0...HEAD
+[Unreleased]: https://github.com/TONresistor/Tonnet-Browser/compare/v2.7.0...HEAD
+[2.7.0]: https://github.com/TONresistor/Tonnet-Browser/compare/v2.6.0...v2.7.0
 [2.6.0]: https://github.com/TONresistor/Tonnet-Browser/compare/v2.5.0...v2.6.0
 [2.5.0]: https://github.com/TONresistor/Tonnet-Browser/compare/v2.4.0...v2.5.0
 [2.4.0]: https://github.com/TONresistor/Tonnet-Browser/compare/v2.3.1...v2.4.0
