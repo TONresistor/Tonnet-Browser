@@ -15,7 +15,8 @@ if (lock.packages?.['']?.version !== pkg.version) {
   )
 }
 
-if (!/^\d+\.\d+$/.test(binaries.go_version ?? '')) failures.push('binary-versions.json go_version must be major.minor')
+if (!/^\d+\.\d+(?:\.\d+)?$/.test(binaries.go_version ?? ''))
+  failures.push('binary-versions.json go_version must be major.minor or major.minor.patch')
 if (!Array.isArray(binaries.binaries) || binaries.binaries.length === 0) failures.push('binary list must not be empty')
 for (const helper of binaries.binaries ?? []) {
   const name = helper.name ?? '<unnamed>'

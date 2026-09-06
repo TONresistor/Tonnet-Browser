@@ -125,7 +125,7 @@ ARM64 Linux builds are also published as `TON-Browser-2.7.0-arm64.AppImage` and 
 
 - Node.js 22+
 - npm 9+
-- The Go version declared in [`scripts/binary-versions.json`](scripts/binary-versions.json) (currently 1.26)
+- The Go version declared in [`scripts/binary-versions.json`](scripts/binary-versions.json) (currently 1.26.7)
 
 ### Development
 

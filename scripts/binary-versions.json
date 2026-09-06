@@ -1,5 +1,5 @@
 {
-  "go_version": "1.26",
+  "go_version": "1.26.7",
   "binaries": [
     {
       "name": "tonutils-proxy",
