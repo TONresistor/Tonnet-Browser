@@ -8,6 +8,7 @@ export const WALLET_CONTRACT_CHANNELS = {
   send: 'wallet:send',
   resolveRecipient: 'wallet:resolve-recipient',
   getHistory: 'wallet:get-history',
+  decryptComment: 'wallet:decrypt-comment',
   clearHistory: 'wallet:clear-history',
   exportKey: 'wallet:export-key',
   approvePayment: 'wallet:approve-payment',

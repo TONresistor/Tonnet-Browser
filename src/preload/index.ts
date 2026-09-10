@@ -16,6 +16,7 @@ import type {
   walletApprovePaymentContract,
   walletClearHistoryContract,
   walletCreateContract,
+  walletDecryptCommentContract,
   walletDeleteContract,
   walletForgetContract,
   walletExportKeyContract,
@@ -333,6 +334,8 @@ const electronAPI = {
       invokeChannel<typeof walletResolveRecipientContract>(IPC_CHANNELS.WALLET_RESOLVE_RECIPIENT, input),
     getHistory: (limit?: number) =>
       invokeChannel<typeof walletGetHistoryContract>(IPC_CHANNELS.WALLET_GET_HISTORY, limit),
+    decryptComment: (input: { body: string; senderAddress: string }) =>
+      invokeChannel<typeof walletDecryptCommentContract>(IPC_CHANNELS.WALLET_DECRYPT_COMMENT, input),
     clearHistory: () => invokeChannel<typeof walletClearHistoryContract>(IPC_CHANNELS.WALLET_CLEAR_HISTORY),
     exportKey: () => invokeChannel<typeof walletExportKeyContract>(IPC_CHANNELS.WALLET_EXPORT_KEY),
     approvePayment: (paymentId: string) =>

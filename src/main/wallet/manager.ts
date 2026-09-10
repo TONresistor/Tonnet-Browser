@@ -24,6 +24,7 @@ import { createLogger } from '../../shared/logger'
 import { WalletQueryService } from './query-service'
 import { WalletSigningService } from './signing-service'
 import { WalletTransferService } from './transfer-service'
+import { WalletEncryptionService } from './encryption-service'
 import { WalletAccountService } from './account-service'
 import { warmupWalletBridge } from './bridge-warmup'
 import type { WalletBridgePort } from './bridge-port'
@@ -60,11 +61,13 @@ export class WalletManager extends EventEmitter {
   private queryService: WalletQueryService
   private signingService: WalletSigningService
   private transferService: WalletTransferService
+  private encryptionService: WalletEncryptionService
   private accountService: WalletAccountService
   readonly send: WalletTransferService['send']
   readonly signTransfer: WalletTransferService['signTransfer']
   readonly preflightTransfer: WalletTransferService['preflightTransfer']
   readonly prepareEncryptedComment: WalletTransferService['prepareEncryptedComment']
+  readonly decryptComment: WalletEncryptionService['decryptComment']
   constructor(
     secureStorage?: ISecureStorage,
     private readonly bridgeProvider: BridgeProvider<WalletBridgePort> = disconnectedBridgeProvider
@@ -107,21 +110,17 @@ export class WalletManager extends EventEmitter {
           await this.syncSeqnoUnlocked(true)
           return operation(this.walletContract, this.runtime.seqno)
         }),
-      withSigningState: (expectedIdentity, operation) =>
-        this.runExclusive(async () => {
-          this.assertWalletIdentity(expectedIdentity)
-          if (!this.walletContract) throw new Error('Wallet not initialized')
-          const senderAddress = this.walletContract.address
-          const result = await this.signWithKeyUnlocked((secretKey) => operation(senderAddress, secretKey))
-          this.assertWalletIdentity(expectedIdentity)
-          return result
-        }),
+      withSigningState: (expectedIdentity, operation) => this.withSigningState(expectedIdentity, operation),
       notifyStateChanged: () => this.emit('state-changed', this.getState()),
+    })
+    this.encryptionService = new WalletEncryptionService({
+      withSigningState: (expectedIdentity, operation) => this.withSigningState(expectedIdentity, operation),
     })
     this.send = this.transferService.send.bind(this.transferService)
     this.signTransfer = this.transferService.signTransfer.bind(this.transferService)
     this.preflightTransfer = this.transferService.preflightTransfer.bind(this.transferService)
     this.prepareEncryptedComment = this.transferService.prepareEncryptedComment.bind(this.transferService)
+    this.decryptComment = this.encryptionService.decryptComment.bind(this.encryptionService)
     this.accountService = new WalletAccountService({
       getPublicKey: () => this.publicKey,
       getContract: () => this.walletContract,
@@ -525,6 +524,25 @@ export class WalletManager extends EventEmitter {
 
   private assertWalletIdentity(expected: WalletIdentitySnapshot): void {
     this.identity.assertCurrent(this.getIdentitySnapshot(), expected)
+  }
+
+  /**
+   * Run `operation` with the unlocked secret key, asserting the wallet identity
+   * on both sides so a mid-flight account switch cannot sign or decrypt with
+   * the wrong key. Shared by the transfer and encryption services.
+   */
+  private withSigningState<T>(
+    expectedIdentity: WalletIdentitySnapshot,
+    operation: (senderAddress: Address, secretKey: Buffer) => Promise<T>
+  ): Promise<T> {
+    return this.runExclusive(async () => {
+      this.assertWalletIdentity(expectedIdentity)
+      if (!this.walletContract) throw new Error('Wallet not initialized')
+      const senderAddress = this.walletContract.address
+      const result = await this.signWithKeyUnlocked((secretKey) => operation(senderAddress, secretKey))
+      this.assertWalletIdentity(expectedIdentity)
+      return result
+    })
   }
   setAutoLockMinutes(minutes: number): void {
     this.keyStorage.setAutoLockMinutes(minutes)

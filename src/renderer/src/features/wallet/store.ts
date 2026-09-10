@@ -17,6 +17,14 @@ interface WalletStore {
   publicKey: string
   balance: string
   transactions: WalletTransaction[]
+  /**
+   * Decrypted memo plaintext keyed by transaction id. Deliberately renderer
+   * memory only: an incoming memo is the counterparty's plaintext, and it is
+   * not ours to write into the on-disk history. Cleared on lock and on any
+   * account change.
+   */
+  decryptedComments: Record<string, string>
+  decryptingCommentId: string | null
   isLoading: boolean
   initialized: boolean
   isSending: boolean
@@ -51,6 +59,7 @@ interface WalletStore {
   refreshBalance: () => Promise<void>
   send: (to: string, amount: string, comment?: string, encryptedComment?: boolean) => Promise<void>
   loadHistory: (limit?: number) => Promise<void>
+  decryptComment: (transaction: WalletTransaction) => Promise<void>
   clearHistory: () => Promise<void>
   deleteWallet: (password: string) => Promise<void>
   forgetWallet: () => Promise<void>
@@ -89,6 +98,11 @@ export const useWalletStore = create<WalletStore>((set, get) => {
 
     unsubState = walletClient.onStateChanged((state) => {
       if (state && typeof state === 'object') {
+        // Locking or switching accounts must not leave recovered plaintext
+        // readable in the renderer.
+        const locked = state.isLocked ?? get().isLocked
+        const addressChanged = Boolean(state.address) && state.address !== get().address
+        if (locked || addressChanged) set({ decryptedComments: {}, decryptingCommentId: null })
         set({
           isCreated: state.isCreated ?? get().isCreated,
           address: state.address ?? get().address,
@@ -116,6 +130,8 @@ export const useWalletStore = create<WalletStore>((set, get) => {
     publicKey: '',
     balance: '0',
     transactions: [],
+    decryptedComments: {},
+    decryptingCommentId: null,
     isLoading: false,
     initialized: false,
     isSending: false,
@@ -257,7 +273,7 @@ export const useWalletStore = create<WalletStore>((set, get) => {
 
     lock: async () => {
       const state = await walletClient.lock()
-      set({ isLocked: state.isLocked ?? true })
+      set({ isLocked: state.isLocked ?? true, decryptedComments: {}, decryptingCommentId: null })
     },
 
     setupPassword: async (password: string) => {
@@ -318,6 +334,24 @@ export const useWalletStore = create<WalletStore>((set, get) => {
       }
     },
 
+    decryptComment: async (transaction: WalletTransaction) => {
+      const { encryptedBody } = transaction
+      if (!encryptedBody || get().decryptedComments[transaction.id]) return
+      // The salt is whoever encrypted the memo: the counterparty on a receive,
+      // ourselves on a send. Any other address fails the integrity check.
+      const senderAddress = transaction.type === 'receive' ? transaction.address : get().address
+      if (!senderAddress) return
+      set({ decryptingCommentId: transaction.id, error: null })
+      try {
+        const { comment } = await walletClient.decryptComment(encryptedBody, senderAddress)
+        set((state) => ({ decryptedComments: { ...state.decryptedComments, [transaction.id]: comment } }))
+      } catch (err) {
+        set({ error: errorMessage(err) })
+      } finally {
+        set({ decryptingCommentId: null })
+      }
+    },
+
     deleteWallet: async (password: string) => {
       try {
         await walletClient.deleteWallet(password)
@@ -328,6 +362,8 @@ export const useWalletStore = create<WalletStore>((set, get) => {
           publicKey: '',
           balance: '0',
           transactions: [],
+          decryptedComments: {},
+          decryptingCommentId: null,
           decryptFailed: false,
           systemStorageBlocked: false,
           weakEncryption: false,
@@ -353,6 +389,8 @@ export const useWalletStore = create<WalletStore>((set, get) => {
           publicKey: '',
           balance: '0',
           transactions: [],
+          decryptedComments: {},
+          decryptingCommentId: null,
           decryptFailed: false,
           systemStorageBlocked: false,
           weakEncryption: false,
@@ -371,7 +409,7 @@ export const useWalletStore = create<WalletStore>((set, get) => {
     clearHistory: async () => {
       try {
         await walletClient.clearHistory()
-        set({ transactions: [] })
+        set({ transactions: [], decryptedComments: {}, decryptingCommentId: null })
       } catch (err) {
         set({ error: errorMessage(err) })
       }

@@ -94,4 +94,81 @@ describe('TransactionDetailView', () => {
 
     expect(container.querySelector('[data-ui-icon="secure-lock"]')).not.toBeNull()
   })
+
+  const encrypted: WalletTransaction = {
+    ...transaction,
+    type: 'receive',
+    commentEncrypted: true,
+    encryptedBody: 'ciphertext-boc',
+  }
+
+  it('offers to decrypt an encrypted memo and hands back the whole transaction', async () => {
+    const onDecryptComment = vi.fn()
+    await act(async () => {
+      root.render(
+        <TransactionDetailView
+          transaction={encrypted}
+          selfAddress={`0:${'22'.repeat(32)}`}
+          onBack={vi.fn()}
+          onDecryptComment={onDecryptComment}
+        />
+      )
+    })
+
+    const button = Array.from(container.querySelectorAll('button')).find((el) => el.textContent === 'Show memo')
+    expect(button).toBeDefined()
+    await act(async () => button!.click())
+
+    expect(onDecryptComment).toHaveBeenCalledWith(encrypted)
+  })
+
+  it('shows the recovered plaintext and drops the decrypt action once decrypted', async () => {
+    await act(async () => {
+      root.render(
+        <TransactionDetailView
+          transaction={encrypted}
+          selfAddress={`0:${'22'.repeat(32)}`}
+          onBack={vi.fn()}
+          onDecryptComment={vi.fn()}
+          decryptedComment="lunch money"
+        />
+      )
+    })
+
+    expect(container.textContent).toContain('lunch money')
+    expect(Array.from(container.querySelectorAll('button')).some((el) => el.textContent === 'Show memo')).toBe(false)
+  })
+
+  it('disables the action while a decrypt is in flight', async () => {
+    await act(async () => {
+      root.render(
+        <TransactionDetailView
+          transaction={encrypted}
+          selfAddress={`0:${'22'.repeat(32)}`}
+          onBack={vi.fn()}
+          onDecryptComment={vi.fn()}
+          isDecrypting
+        />
+      )
+    })
+
+    const button = Array.from(container.querySelectorAll('button')).find((el) => el.textContent === 'Decrypting…')
+    expect(button?.disabled).toBe(true)
+  })
+
+  it('does not offer decryption when no ciphertext was carried', async () => {
+    await act(async () => {
+      root.render(
+        <TransactionDetailView
+          transaction={{ ...encrypted, encryptedBody: undefined }}
+          selfAddress={`0:${'22'.repeat(32)}`}
+          onBack={vi.fn()}
+          onDecryptComment={vi.fn()}
+        />
+      )
+    })
+
+    expect(container.querySelector('[data-ui-icon="secure-lock"]')).not.toBeNull()
+    expect(Array.from(container.querySelectorAll('button')).some((el) => el.textContent === 'Show memo')).toBe(false)
+  })
 })

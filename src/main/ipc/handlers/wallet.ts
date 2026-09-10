@@ -20,6 +20,7 @@ import {
   walletApprovePaymentContract,
   walletClearHistoryContract,
   walletCreateContract,
+  walletDecryptCommentContract,
   walletDeleteContract,
   walletForgetContract,
   walletExportKeyContract,
@@ -52,6 +53,7 @@ import {
 import { deriveWalletAccount, discoverWalletAccounts } from '../../wallet/wallet-versions'
 import { WalletBackupVerifier } from '../../wallet/backup-verifier'
 import { WalletDecryptionError } from '../../wallet/key-storage'
+import { parseMainnetAddress } from '../../wallet/address-utils'
 
 export function registerWalletHandlers(registry: ServiceRegistry): void {
   const {
@@ -278,6 +280,26 @@ export function registerWalletHandlers(registry: ServiceRegistry): void {
         return cached
       }
       ipcFailure('WALLET_HISTORY_FAILED', 'Unable to load wallet history', false, error)
+    }
+  })
+
+  secureContractHandle(walletDecryptCommentContract, async ({ body, senderAddress }) => {
+    const state = walletManager.getState()
+    if (!state.isCreated) ipcFailure('WALLET_UNAVAILABLE', 'Wallet is not initialized')
+    if (state.isLocked) ipcFailure('WALLET_LOCKED', 'Unlock the wallet to read encrypted memos')
+    const walletIdentity = walletManager.getIdentitySnapshot()
+    if (!walletIdentity) ipcFailure('WALLET_UNAVAILABLE', 'Wallet identity is unavailable')
+    try {
+      parseMainnetAddress(senderAddress)
+    } catch (error) {
+      ipcFailure('INVALID_RECIPIENT', 'Invalid sender address', false, error)
+    }
+    try {
+      return { comment: await walletManager.decryptComment(body, senderAddress, walletIdentity) }
+    } catch (error) {
+      // The failure reason is not reported: it distinguishes a wrong salt from
+      // a corrupt body, which is more than the renderer needs to know.
+      ipcFailure('COMMENT_DECRYPT_FAILED', 'Unable to decrypt this memo', false, error)
     }
   })
 

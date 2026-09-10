@@ -56,6 +56,8 @@ export function WalletSidebar({ onClose }: WalletSidebarProps) {
     address,
     balance,
     transactions,
+    decryptedComments,
+    decryptingCommentId,
     isLoading,
     isSending,
     error,
@@ -66,6 +68,7 @@ export function WalletSidebar({ onClose }: WalletSidebarProps) {
     init,
     send,
     loadHistory,
+    decryptComment,
     refreshBalance,
     unlock,
     setupPassword,
@@ -76,6 +79,8 @@ export function WalletSidebar({ onClose }: WalletSidebarProps) {
       address: s.address,
       balance: s.balance,
       transactions: s.transactions,
+      decryptedComments: s.decryptedComments,
+      decryptingCommentId: s.decryptingCommentId,
       isLoading: s.isLoading,
       isSending: s.isSending,
       error: s.error,
@@ -86,6 +91,7 @@ export function WalletSidebar({ onClose }: WalletSidebarProps) {
       init: s.init,
       send: s.send,
       loadHistory: s.loadHistory,
+      decryptComment: s.decryptComment,
       refreshBalance: s.refreshBalance,
       unlock: s.unlock,
       setupPassword: s.setupPassword,
@@ -440,6 +446,9 @@ export function WalletSidebar({ onClose }: WalletSidebarProps) {
             selfAddress={address}
             onBack={showOverview}
             density="compact"
+            decryptedComment={decryptedComments[selectedTransaction.id]}
+            isDecrypting={decryptingCommentId === selectedTransaction.id}
+            onDecryptComment={decryptComment}
           />
         </div>
       )}

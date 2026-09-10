@@ -47,6 +47,8 @@ export function WalletPage() {
     address,
     balance,
     transactions,
+    decryptedComments,
+    decryptingCommentId,
     isLoading,
     isSending,
     error,
@@ -63,6 +65,7 @@ export function WalletPage() {
     discoverAccounts,
     send,
     loadHistory,
+    decryptComment,
     refreshBalance,
     unlock,
     setupPassword,
@@ -77,6 +80,8 @@ export function WalletPage() {
       address: s.address,
       balance: s.balance,
       transactions: s.transactions,
+      decryptedComments: s.decryptedComments,
+      decryptingCommentId: s.decryptingCommentId,
       isLoading: s.isLoading,
       isSending: s.isSending,
       error: s.error,
@@ -93,6 +98,7 @@ export function WalletPage() {
       discoverAccounts: s.discoverAccounts,
       send: s.send,
       loadHistory: s.loadHistory,
+      decryptComment: s.decryptComment,
       refreshBalance: s.refreshBalance,
       unlock: s.unlock,
       setupPassword: s.setupPassword,
@@ -471,7 +477,14 @@ export function WalletPage() {
           {view.kind === 'send' && <SendForm onSend={send} isSending={isSending} error={error} balance={balance} />}
           {view.kind === 'receive' && <ReceivePanel address={address} />}
           {view.kind === 'transaction' && selectedTransaction && (
-            <TransactionDetailView transaction={selectedTransaction} selfAddress={address} onBack={showOverview} />
+            <TransactionDetailView
+              transaction={selectedTransaction}
+              selfAddress={address}
+              onBack={showOverview}
+              decryptedComment={decryptedComments[selectedTransaction.id]}
+              isDecrypting={decryptingCommentId === selectedTransaction.id}
+              onDecryptComment={decryptComment}
+            />
           )}
         </div>
       </div>

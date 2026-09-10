@@ -14,6 +14,10 @@ interface TransactionDetailViewProps {
   selfAddress: string
   onBack: () => void
   density?: 'compact' | 'regular'
+  /** Recovered plaintext of an encrypted memo, held in memory by the store. */
+  decryptedComment?: string
+  isDecrypting?: boolean
+  onDecryptComment?: (transaction: WalletTransaction) => void
 }
 
 function DetailRow({ label, children, compact }: { label: string; children: ReactNode; compact: boolean }) {
@@ -37,6 +41,9 @@ export function TransactionDetailView({
   selfAddress,
   onBack,
   density = 'regular',
+  decryptedComment,
+  isDecrypting = false,
+  onDecryptComment,
 }: TransactionDetailViewProps) {
   const { t, i18n } = useTranslation('wallet')
   const compact = density === 'compact'
@@ -56,6 +63,8 @@ export function TransactionDetailView({
   const amountPrefix = isReceive ? '+' : '-'
   const from = isReceive ? transaction.address : selfAddress
   const to = isReceive ? selfAddress : transaction.address
+  const commentText = transaction.comment ?? decryptedComment
+  const canDecrypt = Boolean(transaction.encryptedBody) && !decryptedComment && Boolean(onDecryptComment)
 
   return (
     <section className="min-w-0" aria-label={t(`history.types.${transaction.type}`)}>
@@ -104,16 +113,30 @@ export function TransactionDetailView({
               {transaction.x402Domain}
             </DetailRow>
           )}
-          {transaction.comment && (
+          {commentText && (
             <DetailRow label={t('detail.comment', { defaultValue: 'Comment' })} compact={compact}>
-              {transaction.comment}
+              {commentText}
             </DetailRow>
           )}
           {transaction.commentEncrypted && (
             <DetailRow label={t('detail.privacy', { defaultValue: 'Privacy' })} compact={compact}>
-              <span className="inline-flex items-center gap-1">
-                <SecureLockIcon className="h-3.5 w-3.5" />
-                {t('send.encryptedLabel')}
+              <span className="inline-flex items-center gap-2">
+                <span className="inline-flex items-center gap-1">
+                  <SecureLockIcon className="h-3.5 w-3.5" />
+                  {t('send.encryptedLabel')}
+                </span>
+                {canDecrypt && (
+                  <button
+                    type="button"
+                    onClick={() => onDecryptComment?.(transaction)}
+                    disabled={isDecrypting}
+                    className="text-primary underline-offset-2 hover:underline disabled:opacity-60"
+                  >
+                    {isDecrypting
+                      ? t('detail.decrypting', { defaultValue: 'Decrypting…' })
+                      : t('detail.decrypt', { defaultValue: 'Show memo' })}
+                  </button>
+                )}
               </span>
             </DetailRow>
           )}

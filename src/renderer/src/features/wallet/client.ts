@@ -28,6 +28,8 @@ export const walletClient = {
     window.electron.wallet.send(to, amount, comment, encryptedComment),
   resolveRecipient: (recipient: string) => window.electron.wallet.resolveRecipient(recipient),
   getHistory: (limit?: number) => window.electron.wallet.getHistory(limit),
+  decryptComment: (body: string, senderAddress: string) =>
+    window.electron.wallet.decryptComment({ body, senderAddress }),
   clearHistory: () => window.electron.wallet.clearHistory(),
   approvePayment: (paymentId: string) => window.electron.wallet.approvePayment(paymentId),
   rejectPayment: (paymentId: string) => window.electron.wallet.rejectPayment(paymentId),
