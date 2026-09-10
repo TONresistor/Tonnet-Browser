@@ -364,6 +364,10 @@ export class TonConnectService {
         return this.signingWorkflow.sendTransaction(domain, session.appName, session.address, message)
       case 'signData':
         return this.signingWorkflow.signData(domain, session.appName, session.address, message)
+      case 'encryptData':
+        return this.signingWorkflow.encryptData(domain, session.appName, session.address, message)
+      case 'decryptData':
+        return this.signingWorkflow.decryptData(domain, session.appName, session.address, message)
       default:
         return rpcError(message.id, TONCONNECT_ERROR.METHOD_NOT_SUPPORTED, `Method ${message.method} not supported`)
     }
@@ -378,6 +382,8 @@ export class TonConnectService {
       features: [
         { name: 'SendTransaction', maxMessages: TONCONNECT_MAX_MESSAGES, extraCurrencySupported: false },
         { name: 'SignData', types: ['text', 'binary', 'cell'] },
+        { name: 'EncryptData' },
+        { name: 'DecryptData' },
       ],
     }
   }

@@ -1,36 +1,44 @@
 import { Address } from '@ton/core'
 import { keyPairFromSeed } from '@ton/crypto'
+import { WalletContractV5R1 } from '@ton/ton'
 import { describe, expect, it, vi } from 'vitest'
 import { WalletEncryptionService } from '../encryption-service'
 import { createEncryptedCommentBody } from '../encrypted-comment'
 import type { WalletIdentitySnapshot } from '../wallet-identity'
+import vectors from '../ton-encryption/__tests__/vectors.json'
 
-const senderSeed = Buffer.alloc(32, 1)
-const recipientSeed = Buffer.alloc(32, 2)
-const senderAddress = Address.parseRaw(`0:${'11'.repeat(32)}`)
-const recipientAddress = Address.parseRaw(`0:${'22'.repeat(32)}`)
+const senderSeed = Buffer.from(vectors.senderSeedHex, 'hex')
+const recipientSeed = Buffer.from(vectors.recipientSeedHex, 'hex')
+const senderKey = keyPairFromSeed(senderSeed)
+const recipientKey = keyPairFromSeed(recipientSeed)
+const senderAddress = WalletContractV5R1.create({ publicKey: senderKey.publicKey, workchain: 0 }).address
+const recipientAddress = WalletContractV5R1.create({ publicKey: recipientKey.publicKey, workchain: 0 }).address
 const identity: WalletIdentitySnapshot = {
   publicKey: 'aa'.repeat(32),
   addressRaw: recipientAddress.toRawString(),
   revision: 1,
 }
 
-/** A context that unlocks as `recipientSeed`, i.e. the receiving wallet. */
-function recipientContext() {
+function signingContext(address: Address, secretKey: Buffer) {
   const withSigningState = vi.fn(
-    async (_identity: WalletIdentitySnapshot, operation: (address: Address, key: Buffer) => Promise<unknown>) =>
-      operation(recipientAddress, recipientSeed)
+    async (_identity: WalletIdentitySnapshot, operation: (addr: Address, key: Buffer) => Promise<unknown>) =>
+      operation(address, secretKey)
   )
   return { withSigningState } as unknown as ConstructorParameters<typeof WalletEncryptionService>[0] & {
     withSigningState: typeof withSigningState
   }
 }
 
+/** A context that unlocks as `recipientSeed`, i.e. the receiving wallet. */
+function recipientContext() {
+  return signingContext(recipientAddress, recipientSeed)
+}
+
 async function encryptedMemo(comment: string): Promise<string> {
   const body = await createEncryptedCommentBody({
     senderAddress,
     senderSecretKey: senderSeed,
-    recipientPublicKey: keyPairFromSeed(recipientSeed).publicKey,
+    recipientPublicKey: recipientKey.publicKey,
     comment,
   })
   return body.toBoc().toString('base64')
@@ -76,5 +84,30 @@ describe('WalletEncryptionService', () => {
     await service.decryptComment(body, senderAddress.toRawString(), identity)
 
     expect(context.withSigningState).toHaveBeenCalledWith(identity, expect.any(Function))
+  })
+
+  it('round-trips a raw TON Connect envelope for the pinned identities', async () => {
+    const senderIdentity: WalletIdentitySnapshot = {
+      publicKey: vectors.senderPublicKeyHex,
+      addressRaw: senderAddress.toRawString(),
+      revision: 1,
+    }
+    const recipientIdentity: WalletIdentitySnapshot = {
+      publicKey: vectors.recipientPublicKeyHex,
+      addressRaw: recipientAddress.toRawString(),
+      revision: 1,
+    }
+    const encryptService = new WalletEncryptionService(signingContext(senderAddress, senderSeed))
+    const decryptService = new WalletEncryptionService(signingContext(recipientAddress, recipientSeed))
+    const plaintext = Buffer.from('binary key wrap', 'utf8')
+
+    const encrypted = await encryptService.encryptTonConnectPayload(plaintext, recipientKey.publicKey, senderIdentity)
+    const recovered = await decryptService.decryptTonConnectPayload(
+      Buffer.from(encrypted, 'base64'),
+      vectors.saltAddress,
+      recipientIdentity
+    )
+
+    expect(recovered.toString('utf8')).toBe('binary key wrap')
   })
 })

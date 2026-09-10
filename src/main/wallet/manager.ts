@@ -2,6 +2,8 @@ import { EventEmitter } from 'events'
 import { internal, Address, type MessageRelaxed } from '@ton/core'
 import { sign } from '@ton/crypto'
 import type {
+  DecryptDataPayloadInput,
+  EncryptDataPayloadInput,
   TonConnectOutMessage,
   TonProofReplyPayload,
   SignDataPayloadInput,
@@ -434,6 +436,29 @@ export class WalletManager extends EventEmitter {
     return this.runExclusive(() => {
       this.accountService.assertTonConnectAccount(expectedAddress)
       return this.signingService.signData(domain, payload)
+    })
+  }
+
+  async encryptData(payload: EncryptDataPayloadInput, expectedAddress?: string): Promise<string> {
+    return this.runExclusive(async () => {
+      this.accountService.assertTonConnectAccount(expectedAddress)
+      const identity = this.getIdentitySnapshot()
+      if (!identity) throw new Error('Wallet identity is unavailable')
+      const peerPublicKey = Buffer.from(payload.recipientPublicKey, 'hex')
+      if (peerPublicKey.length !== 32) throw new Error('Invalid recipient public key')
+      const plaintext = Buffer.from(payload.bytes, 'base64')
+      return this.encryptionService.encryptTonConnectPayload(plaintext, peerPublicKey, identity)
+    })
+  }
+
+  async decryptData(payload: DecryptDataPayloadInput, expectedAddress?: string): Promise<string> {
+    return this.runExclusive(async () => {
+      this.accountService.assertTonConnectAccount(expectedAddress)
+      const identity = this.getIdentitySnapshot()
+      if (!identity) throw new Error('Wallet identity is unavailable')
+      const envelope = Buffer.from(payload.encrypted, 'base64')
+      const plaintext = await this.encryptionService.decryptTonConnectPayload(envelope, payload.salt, identity)
+      return plaintext.toString('base64')
     })
   }
 

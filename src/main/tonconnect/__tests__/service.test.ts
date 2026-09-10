@@ -18,6 +18,8 @@ describe('TonConnectService wallet identity', () => {
       signTonProof: vi.fn(),
       signTonConnectTransaction: vi.fn(),
       signData: vi.fn(),
+      encryptData: vi.fn(),
+      decryptData: vi.fn(),
     }
     const sessionStore = {
       init: vi.fn().mockResolvedValue(undefined),
@@ -74,6 +76,8 @@ describe('TonConnectService wallet identity', () => {
       signTonProof: vi.fn(),
       signTonConnectTransaction: vi.fn(),
       signData: vi.fn(),
+      encryptData: vi.fn(),
+      decryptData: vi.fn(),
     }
     const sessionStore = {
       init: vi.fn().mockResolvedValue(undefined),

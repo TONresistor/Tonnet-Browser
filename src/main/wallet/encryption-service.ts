@@ -9,6 +9,7 @@
 
 import type { Address } from '@ton/core'
 import { decryptCommentBody } from './encrypted-comment'
+import { decryptEnvelope, encryptEnvelope } from './ton-encryption/envelope'
 import { parseMainnetAddress } from './address-utils'
 import type { WalletIdentitySnapshot } from './wallet-identity'
 
@@ -37,6 +38,48 @@ export class WalletEncryptionService {
     const sender = parseMainnetAddress(senderAddress)
     return this.context.withSigningState(expectedIdentity, (_ownAddress, secretKey) =>
       decryptCommentBody({ body, senderAddress: sender, recipientSecretKey: secretKey })
+    )
+  }
+
+  /**
+   * Build a raw ton-simple-v2 envelope for TON Connect `encryptData`.
+   *
+   * Returns base64 bytes with no BOC wrapper and no on-chain opcode. The salt
+   * is our own address because we are the encrypting party.
+   */
+  async encryptTonConnectPayload(
+    plaintext: Buffer,
+    peerPublicKey: Buffer,
+    expectedIdentity: WalletIdentitySnapshot
+  ): Promise<string> {
+    if (peerPublicKey.length !== 32) throw new Error('peerPublicKey must be 32 bytes')
+    return this.context.withSigningState(expectedIdentity, async (senderAddress, secretKey) => {
+      const envelope = await encryptEnvelope({
+        plaintext,
+        senderAddress,
+        senderSeed: secretKey,
+        peerPublicKey,
+      })
+      return envelope.toString('base64')
+    })
+  }
+
+  /**
+   * Recover plaintext from a raw ton-simple-v2 envelope for TON Connect
+   * `decryptData`. `senderAddress` is the request's `salt` field.
+   */
+  async decryptTonConnectPayload(
+    envelope: Buffer,
+    senderAddress: string,
+    expectedIdentity: WalletIdentitySnapshot
+  ): Promise<Buffer> {
+    const sender = parseMainnetAddress(senderAddress)
+    return this.context.withSigningState(expectedIdentity, (_ownAddress, secretKey) =>
+      decryptEnvelope({
+        envelope,
+        senderAddress: sender,
+        recipientSeed: secretKey,
+      })
     )
   }
 }
