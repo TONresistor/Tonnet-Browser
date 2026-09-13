@@ -260,7 +260,7 @@ void app
       await new Promise((resolve) => setTimeout(resolve, 300))
       assert.equal(wc.getURL(), 'http://alpha.ton/one')
       await manager.navigateInTab('test', 'http://alpha.ton/slow')
-      await until(() => !window.contentView.children.includes(view), 'slow navigation detaches')
+      await until(() => wc.isLoading() && window.contentView.children.includes(view), 'slow navigation stays visible')
       assert.equal(manager.stopActivePage(), true)
       await until(() => !wc.isLoading(), 'stop loading')
       assert(window.contentView.children.includes(view))

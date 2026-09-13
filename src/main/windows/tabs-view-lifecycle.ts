@@ -4,9 +4,9 @@ import { updateViewBounds } from './tabs-bounds'
 import { loadErrorPage } from './tabs-storage'
 import { setupSecurityHandlers } from './tabs-security'
 import { setupViewEventListeners, type TabEventDeps } from './tabs-events'
-import { attachViewWhenReady, setupNavAwareAttach } from './tabs-attach'
+import { attachActiveView } from './tabs-attach'
 import { extractDomain, type TabSessionManager } from './tabs-session'
-import { DisposableStore, type IDisposable } from '../utils/disposable'
+import { DisposableStore } from '../utils/disposable'
 import { isAbortedNavigation } from './navigation-failure'
 import { createLogger } from '../../shared/logger'
 import type { BrowserWindow } from 'electron'
@@ -21,7 +21,6 @@ export interface TabViewLifecycleManager {
   readonly sessions: TabSessionManager
   readonly storage: TabStorageState
   readonly views: ViewRegistry<WebContentsView>
-  readonly pendingAttachments: Map<WebContentsView, IDisposable>
   readonly eventDependencies: TabEventDeps
   readonly defaultZoom: number
   captureWindowGeneration(): number
@@ -50,10 +49,8 @@ function createViewEventStore(manager: TabViewLifecycleManager, view: WebContent
           if (!currentDomain) return false
           if (currentDomain === extractDomain(url)) {
             manager.cancelNavigation(tabId)
-            // did-start-navigation precedes will-navigate / will-redirect.
-            // Cancellation invalidates the attachment created by that earlier event.
             if (manager.views.activeViewId === tabId) {
-              attachViewWhenReady(manager, view, tabId, manager.captureWindowGeneration())
+              attachActiveView(manager, view, tabId, manager.captureWindowGeneration())
             }
             return false
           }
@@ -63,7 +60,6 @@ function createViewEventStore(manager: TabViewLifecycleManager, view: WebContent
         () => manager.captureNavigation(tabId, view)
       )
     )
-    store.add(setupNavAwareAttach(manager, view, tabId))
     return store
   } catch (error) {
     store.dispose()

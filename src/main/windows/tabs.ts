@@ -37,7 +37,7 @@ import {
   tabHistoryResetContract,
 } from '../../shared/ipc-contract/browsing'
 import { ViewRegistry } from './view-registry'
-import { attachViewWhenReady } from './tabs-attach'
+import { attachActiveView } from './tabs-attach'
 import { loadViewUrl, rebuildViewsForIsolation, safeDetach, setupViewEvents } from './tabs-view-lifecycle'
 import { loadBagFileFor, loadStorageBagFor } from './tabs-storage-navigation'
 import { PageZoomController } from './page-zoom'
@@ -50,7 +50,6 @@ export class TabManager {
   readonly sessions = new TabSessionManager()
   readonly storage = createTabStorageState()
   readonly views = new ViewRegistry<WebContentsView>()
-  readonly pendingAttachments = new Map<WebContentsView, IDisposable>()
   private mainWindow: BrowserWindow | null = null
   private proxyPort: number = DEFAULT_SETTINGS.proxyPort
   private resizeHandler: (() => void) | null = null
@@ -316,7 +315,6 @@ export class TabManager {
   beginNavigation(tabId: string): number {
     const view = this.views.get(tabId)
     if (view) {
-      this.pendingAttachments.get(view)?.dispose()
       cancelStorageBrowserLoad(this.storage, view.webContents.id)
     }
     const epoch = (this.navigationEpochByTab.get(tabId) ?? 0) + 1
@@ -562,7 +560,7 @@ async function navigateInTabFor(manager: TabManager, tabId: string, url: string)
       if (manager.getActiveTabId() === tabId) {
         manager.views.activate(tabId)
         manager.emitActiveZoom()
-        attachViewWhenReady(manager, view, tabId, generation)
+        attachActiveView(manager, view, tabId, generation)
       }
       loadViewUrl(manager, view, tabId, navigateUrl)
       return true
@@ -610,7 +608,7 @@ async function navigateInTabFor(manager: TabManager, tabId: string, url: string)
     if (manager.getActiveTabId() === tabId) {
       manager.views.activate(tabId)
       manager.emitActiveZoom()
-      attachViewWhenReady(manager, newView, tabId, generation)
+      attachActiveView(manager, newView, tabId, generation)
     }
 
     loadViewUrl(manager, newView, tabId, navigateUrl)

@@ -147,8 +147,7 @@ describe('TabManager lifecycle ownership', () => {
     manager.dispose()
   })
 
-  it('reattaches after did-start-navigation followed by same-domain handoff, and after Stop', async () => {
-    vi.useFakeTimers()
+  it('keeps the view visible during same-domain navigation and Stop, but hidden after hide', async () => {
     const window = new WindowMock()
     const manager = new TabManager()
     manager.attachWindow(window as never, 8080, deps)
@@ -157,21 +156,16 @@ describe('TabManager lifecycle ownership', () => {
     sessions.getTabDomain.mockReturnValue('first.ton')
     const navigation = { url: 'http://first.ton/next', isMainFrame: true, isSameDocument: false }
     view.webContents.emit('did-start-navigation', navigation)
-    expect(window.contentView.children).not.toContain(view)
+    expect(window.contentView.children).toContain(view)
     const handoff = setupSecurityHandlers.mock.calls.at(-1)?.[2]
     expect(handoff?.(navigation.url)).toBe(false)
-    view.webContents.emit('dom-ready')
-    vi.advanceTimersByTime(150)
     expect(window.contentView.children).toContain(view)
-    view.webContents.emit('did-start-navigation', navigation)
-    expect(window.contentView.children).not.toContain(view)
     expect(manager.stopActivePage()).toBe(true)
     expect(window.contentView.children).toContain(view)
     manager.hideAllViews('tab-1')
     expect(manager.stopActivePage()).toBe(false)
     expect(window.contentView.children).not.toContain(view)
     manager.dispose()
-    vi.useRealTimers()
   })
 
   beforeEach(() => {
@@ -494,36 +488,29 @@ describe('TabManager lifecycle ownership', () => {
   })
 
   it('attaches a replacement when its tab becomes active during session creation', async () => {
-    vi.useFakeTimers()
-    try {
-      const window = new WindowMock()
-      const manager = new TabManager()
-      const oldView = createView(1)
-      const otherView = createView(2)
-      const newView = createView(3)
-      const targetSession = deferred<object>()
-      sessions.getTabDomain.mockReturnValue('first.ton')
-      sessions.getSessionForDomain.mockReturnValueOnce(targetSession.promise)
-      createBrowserView.mockReturnValueOnce(newView)
-      manager.attachWindow(window as never, 8080, deps)
-      manager.registerTab('tab-1')
-      manager.registerTab('tab-2')
-      manager.views.add('tab-1', oldView as never, new DisposableStore())
-      manager.views.add('tab-2', otherView as never, new DisposableStore())
-      manager.switchTab('tab-2')
+    const window = new WindowMock()
+    const manager = new TabManager()
+    const oldView = createView(1)
+    const otherView = createView(2)
+    const newView = createView(3)
+    const targetSession = deferred<object>()
+    sessions.getTabDomain.mockReturnValue('first.ton')
+    sessions.getSessionForDomain.mockReturnValueOnce(targetSession.promise)
+    createBrowserView.mockReturnValueOnce(newView)
+    manager.attachWindow(window as never, 8080, deps)
+    manager.registerTab('tab-1')
+    manager.registerTab('tab-2')
+    manager.views.add('tab-1', oldView as never, new DisposableStore())
+    manager.views.add('tab-2', otherView as never, new DisposableStore())
+    manager.switchTab('tab-2')
 
-      const navigation = manager.navigateInTab('tab-1', 'http://second.ton')
-      manager.switchTab('tab-1')
-      targetSession.resolve({})
-      await expect(navigation).resolves.toBe(true)
-      newView.webContents.emit('dom-ready')
-      await vi.advanceTimersByTimeAsync(150)
+    const navigation = manager.navigateInTab('tab-1', 'http://second.ton')
+    manager.switchTab('tab-1')
+    targetSession.resolve({})
+    await expect(navigation).resolves.toBe(true)
 
-      expect(window.contentView.children).toContain(newView)
-      expect(window.contentView.children).not.toContain(oldView)
-    } finally {
-      vi.useRealTimers()
-    }
+    expect(window.contentView.children).toContain(newView)
+    expect(window.contentView.children).not.toContain(oldView)
   })
 
   it('updates the runtime proxy port without reattaching or destroying the window', async () => {

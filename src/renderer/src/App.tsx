@@ -129,8 +129,7 @@ function App() {
     }
 
     if (!internalRoute) {
-      // External page - WebContentsView handles this, this is just a background
-      return loadingContent
+      return <div className="w-full h-full bg-background-secondary" />
     }
     return <InternalRouteContent route={internalRoute} loading={loadingContent} />
   }
