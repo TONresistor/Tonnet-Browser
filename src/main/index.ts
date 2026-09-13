@@ -4,7 +4,7 @@
  */
 
 import log, { configureApplicationLogging, createLogger } from '../shared/logger'
-import { app, BrowserWindow, shell, Menu, protocol, net } from 'electron'
+import { app, BrowserWindow, shell, Menu, protocol, net, systemPreferences } from 'electron'
 import { join, resolve, dirname, sep } from 'path'
 import { chmodSync, existsSync, mkdirSync, renameSync, rmSync } from 'fs'
 import { migrateUserData } from './utils/migrate-userdata'
@@ -116,6 +116,13 @@ if (process.platform === 'linux') {
 // Linux libsecret and macOS Keychain use app.name as the key to find the encryption
 // secret. Changing it would make existing encrypted wallet data unreadable.
 app.setName('TON Browser')
+
+if (process.platform === 'darwin') {
+  systemPreferences.setUserDefault('AppleShowScrollBars', 'string', 'WhenScrolling')
+} else {
+  const features = app.commandLine.getSwitchValue('enable-features')
+  app.commandLine.appendSwitch('enable-features', [features, 'OverlayScrollbar'].filter(Boolean).join(','))
+}
 
 // Force userData to canonical "ton-browser" directory (no spaces, lowercase).
 // app.setPath decouples the filesystem path from app.name, so safeStorage

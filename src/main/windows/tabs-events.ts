@@ -26,6 +26,10 @@ import type { OverlayMenuItem } from '../../shared/types'
 import type { TabStorageState } from './tabs-storage'
 
 const log = createLogger('tabs-events')
+const PAGE_SCROLLBAR_CSS = `
+  * { scrollbar-color: rgb(160 160 160 / 80%) transparent !important; }
+  :root { scrollbar-width: thin !important; scrollbar-gutter: auto !important; }
+`
 
 function isInternalPresentationUrl(url: string): boolean {
   return url.startsWith('data:') || url.startsWith('file:')
@@ -58,6 +62,15 @@ export function setupViewEventListeners(view: WebContentsView, tabId: string, de
   const store = new DisposableStore()
 
   store.add(onWebContents(view.webContents, 'before-input-event', deps.handleInput))
+
+  store.add(
+    onWebContents(view.webContents, 'dom-ready', () => {
+      if (view.webContents.isDestroyed()) return
+      void view.webContents
+        .insertCSS(PAGE_SCROLLBAR_CSS, { cssOrigin: 'user' })
+        .catch((error) => log.debug('Failed to style page scrollbars:', error))
+    })
+  )
 
   store.add(
     onWebContents(view.webContents, 'did-start-loading', () => {
