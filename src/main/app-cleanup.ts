@@ -35,7 +35,7 @@ export async function runCleanup(services: ServiceRegistry): Promise<void> {
       for (const ses of sessions) {
         await ses.clearCache()
         await ses.clearStorageData({
-          storages: ['cookies', 'localstorage', 'indexdb', 'websql', 'serviceworkers', 'cachestorage'],
+          storages: ['cookies', 'localstorage', 'indexdb', 'serviceworkers', 'cachestorage'],
         })
       }
 

@@ -74,6 +74,8 @@ irm https://github.com/TONresistor/Tonnet-Browser/releases/latest/download/TON-B
 
 ### macOS
 
+Builds from this branch require macOS 13 (Ventura) or later.
+
 Open the `.dmg` and drag TON Browser to Applications.
 
 The app is ad-hoc signed (no paid Apple Developer ID), so Gatekeeper does not
@@ -123,7 +125,7 @@ ARM64 Linux builds are also published as `TON-Browser-2.7.0-arm64.AppImage` and 
 
 ### Prerequisites
 
-- Node.js 22+
+- Node.js 22.12.0+
 - npm 9+
 - The Go version declared in [`scripts/binary-versions.json`](scripts/binary-versions.json) (currently 1.26.7)
 

@@ -52,7 +52,7 @@ export function registerSettingsHandlers(registry: ServiceRegistry): void {
       sessions.map(async (ses) => {
         await ses.clearCache()
         await ses.clearStorageData({
-          storages: ['cookies', 'localstorage', 'indexdb', 'websql', 'serviceworkers', 'cachestorage'],
+          storages: ['cookies', 'localstorage', 'indexdb', 'serviceworkers', 'cachestorage'],
         })
       })
     )
@@ -136,7 +136,7 @@ export function registerSettingsHandlers(registry: ServiceRegistry): void {
       appVersion: app.getVersion(),
       diagnosticLogging: diagnosticLoggingStatus(),
     })
-    clipboard.writeText(report)
+    await clipboard.writeText(report)
     createLogger('logging').event('info', 'logging.diagnostics.copied', 'diagnostic report copied')
     return { success: true as const }
   })

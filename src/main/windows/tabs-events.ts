@@ -251,10 +251,8 @@ export function setupViewEventListeners(view: WebContentsView, tabId: string, de
               if (BrowserUrlSchema.safeParse(d.url).success) emitContractToRenderer(contextOpenLinkContract, d.url)
               break
             case 'copy-link':
-              clipboard.writeText(d.url)
-              break
             case 'copy-image-url':
-              clipboard.writeText(d.url)
+              void clipboard.writeText(d.url).catch((error) => log.error('Failed to copy URL:', error))
               break
             case 'back':
               deps.cancelNavigation(tabId)

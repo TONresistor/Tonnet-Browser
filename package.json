@@ -36,7 +36,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "start": "electron-vite preview",
-    "postinstall": "electron-builder install-app-deps",
+    "postinstall": "install-electron --no && electron-builder install-app-deps",
     "prepare": "husky",
     "build:binaries": "bash scripts/build-binaries-from-source.sh",
     "build:binaries:linux": "npm run build:binaries:linux:x64",
@@ -103,7 +103,7 @@
     "@vitejs/plugin-react": "^4.3.4",
     "@vitest/coverage-v8": "^4.1.11",
     "babel-plugin-react-compiler": "^1.0.0",
-    "electron": "^41.3.0",
+    "electron": "^44.3.0",
     "electron-builder": "^26.0.12",
     "electron-vite": "^5.0.0",
     "esbuild": "0.25.12",
@@ -132,6 +132,6 @@
     ]
   },
   "engines": {
-    "node": ">=22"
+    "node": ">=22.12.0"
   }
 }

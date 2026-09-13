@@ -9,6 +9,9 @@ import type { OverlayMenuItem } from '../../shared/types'
 import type { OverlayManager } from './overlay-manager'
 import { CONTEXT_MENU_WIDTH } from './constants'
 import { onWebContents, type IDisposable } from '../utils/disposable'
+import { createLogger } from '../../shared/logger'
+
+const log = createLogger('main-context-menu')
 
 export function setupMainContextMenu(mainWindow: BrowserWindow, overlayManager: OverlayManager): IDisposable {
   return onWebContents(mainWindow.webContents, 'context-menu', (_e: unknown, params: Electron.ContextMenuParams) => {
@@ -61,7 +64,9 @@ export function setupMainContextMenu(mainWindow: BrowserWindow, overlayManager: 
             mainWindow.webContents.selectAll()
             break
           case 'copy-link':
-            clipboard.writeText((actionData as Record<string, string>).url)
+            void clipboard
+              .writeText((actionData as Record<string, string>).url)
+              .catch((error) => log.error('Failed to copy link:', error))
             break
           case 'dismiss':
             break

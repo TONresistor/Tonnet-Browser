@@ -21,7 +21,7 @@ const tabsMocks = vi.hoisted(() => ({
 }))
 const loggingMocks = vi.hoisted(() => ({
   flushNativeLogs: vi.fn(() => Promise.resolve()),
-  clipboardWriteText: vi.fn(),
+  clipboardWriteText: vi.fn<() => Promise<void>>(() => Promise.resolve()),
 }))
 const settingsMocks = vi.hoisted(() => ({
   getSetting: vi.fn(),
@@ -1270,6 +1270,34 @@ describe('IPC Handlers', () => {
       expect(loggingMocks.flushNativeLogs.mock.invocationCallOrder[0]).toBeLessThan(
         loggingMocks.clipboardWriteText.mock.invocationCallOrder[0]
       )
+    })
+
+    it('waits for the diagnostic clipboard write before reporting success', async () => {
+      let finishWrite!: () => void
+      loggingMocks.clipboardWriteText.mockReturnValueOnce(
+        new Promise<void>((resolve) => {
+          finishWrite = resolve
+        })
+      )
+      const handler = mockHandlers.get(IPC_CHANNELS.SETTINGS_DIAGNOSTICS_COPY)!
+      const settled = vi.fn()
+      const result = handler(createMockEvent()).then(settled)
+
+      await vi.waitFor(() => expect(loggingMocks.clipboardWriteText).toHaveBeenCalledOnce())
+      expect(settled).not.toHaveBeenCalled()
+      finishWrite()
+      await result
+      expect(settled).toHaveBeenCalledWith({ success: true })
+    })
+
+    it('reports diagnostic clipboard write failures through IPC', async () => {
+      loggingMocks.clipboardWriteText.mockRejectedValueOnce(new Error('Clipboard unavailable'))
+      const handler = mockHandlers.get(IPC_CHANNELS.SETTINGS_DIAGNOSTICS_COPY)!
+
+      expect(await handler(createMockEvent())).toEqual({
+        ok: false,
+        error: { code: 'IPC_INTERNAL_ERROR', message: 'Operation failed', retryable: false },
+      })
     })
   })
 

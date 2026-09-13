@@ -6,9 +6,11 @@ const mocks = vi.hoisted(() => ({
   extractFavicon: vi.fn<() => Promise<string | null>>(() => Promise.resolve(null)),
   loadStorageBrowser: vi.fn(() => Promise.resolve()),
   loadErrorPage: vi.fn(),
+  clipboardWriteText: vi.fn<() => Promise<void>>(() => Promise.resolve()),
+  logError: vi.fn(),
 }))
 
-vi.mock('electron', () => ({ WebContentsView: class {}, clipboard: { writeText: vi.fn() } }))
+vi.mock('electron', () => ({ WebContentsView: class {}, clipboard: { writeText: mocks.clipboardWriteText } }))
 vi.mock('../../events/renderer-events', () => ({ emitContractToRenderer: mocks.emitContractToRenderer }))
 vi.mock('../browser-view', () => ({ extractFavicon: mocks.extractFavicon }))
 vi.mock('../tabs-storage', () => ({
@@ -16,7 +18,7 @@ vi.mock('../tabs-storage', () => ({
   loadErrorPage: mocks.loadErrorPage,
 }))
 vi.mock('../../../shared/logger', () => ({
-  createLogger: () => ({ debug: vi.fn(), error: vi.fn(), info: vi.fn(), event: vi.fn() }),
+  createLogger: () => ({ debug: vi.fn(), error: mocks.logError, info: vi.fn(), event: vi.fn() }),
 }))
 
 import { setupViewEventListeners } from '../tabs-events'
@@ -36,16 +38,19 @@ function createHarness() {
   })
   const historyManager = { addEntry: vi.fn() }
   const handleInput = vi.fn()
+  const overlayManager = { show: vi.fn(), hide: vi.fn() }
   let current = true
-  const listeners = setupViewEventListeners({ webContents } as never, 'tab-1', {
+  const view = { webContents, getBounds: () => ({ x: 0, y: 0, width: 800, height: 600 }) }
+  const listeners = setupViewEventListeners(view as never, 'tab-1', {
     historyManager: historyManager as never,
-    overlayManager: {} as never,
+    overlayManager: overlayManager as never,
     storage: {} as never,
     cancelNavigation: vi.fn(),
     captureNavigation: () => () => current,
     handleInput,
   })
   return {
+    overlayManager,
     handleInput,
     historyManager,
     listeners,
@@ -62,6 +67,20 @@ describe('tab navigation events', () => {
     mocks.emitContractToRenderer.mockImplementation(
       (contract: { payload: { parse(args: unknown[]): unknown } }, ...args: unknown[]) => contract.payload.parse(args)
     )
+  })
+
+  it.each(['copy-link', 'copy-image-url'])('handles asynchronous %s clipboard failures', async (action) => {
+    const { listeners, webContents, overlayManager } = createHarness()
+    const error = new Error('Clipboard unavailable')
+    mocks.clipboardWriteText.mockRejectedValueOnce(error)
+    webContents.emit('context-menu', {}, { x: 20, y: 20, linkURL: 'http://whitepaper.ton' })
+    const onAction = overlayManager.show.mock.calls[0][3]
+
+    onAction(action, { url: 'http://whitepaper.ton' })
+
+    expect(overlayManager.hide).toHaveBeenCalledWith('page-context-menu')
+    await vi.waitFor(() => expect(mocks.logError).toHaveBeenCalledWith('Failed to copy URL:', error))
+    listeners.dispose()
   })
 
   it('does not expose an oversized internal data page as the tab URL', () => {

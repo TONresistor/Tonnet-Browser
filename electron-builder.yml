@@ -58,6 +58,7 @@ portable:
   artifactName: "TON-Browser-Portable-${version}.${ext}"
 
 mac:
+  minimumSystemVersion: "13.0.0"
   extraResources:
     - from: "resources/bin/mac"
       to: "bin"

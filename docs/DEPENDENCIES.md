@@ -58,7 +58,7 @@ Exact immutable commits and build entrypoints live in `scripts/binary-versions.j
 | `@vitejs/plugin-react`        | ^4.3.4    | React Vite integration            |
 | `@vitest/coverage-v8`         | ^4.1.5    | Test coverage                     |
 | `babel-plugin-react-compiler` | ^1.0.0    | React compiler                    |
-| `electron`                    | ^41.3.0   | Desktop runtime                   |
+| `electron`                    | ^44.3.0   | Desktop runtime                   |
 | `electron-builder`            | ^26.0.12  | Platform packaging                |
 | `electron-vite`               | ^5.0.0    | Electron development and build    |
 | `eslint`                      | ^9.39.4   | Linting                           |
