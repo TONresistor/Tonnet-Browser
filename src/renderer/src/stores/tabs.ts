@@ -9,8 +9,8 @@ import i18n from '@/i18n'
 import type { Tab as BaseTab } from '@shared/types'
 import { shortId } from '@/lib/id'
 import { createLogger } from '@/logger'
-import { settingsClient } from '@/features/settings/client'
 import { browserClient } from '@/features/browser/client'
+import { usePreferencesStore } from '@/features/settings/preferences-store'
 import { selectTabTraversal } from '@/features/browser/tab-history'
 import {
   getInternalPageFavicon,
@@ -57,14 +57,8 @@ interface TabsState {
   reorderTabs: (tabId: string, newIndex: number) => void
 }
 
-// Get homepage from main process settings
-async function getHomepage(): Promise<string> {
-  try {
-    const general = await settingsClient.get('general')
-    return general?.homepage || 'ton://start'
-  } catch {
-    return 'ton://start'
-  }
+function getHomepage(): string {
+  return usePreferencesStore.getState().saved.homepage || 'ton://start'
 }
 
 /**
@@ -124,8 +118,7 @@ export const useTabsStore = create<TabsState>((set, get) => ({
   closedTabs: [],
 
   addTab: async (url?: string) => {
-    // Use homepage if no URL provided
-    const targetUrl = url ?? (await getHomepage())
+    const targetUrl = url ?? getHomepage()
     const id = shortId()
     const title = getInternalPageTitle(targetUrl) || i18n.t('tabs.newTab', { ns: 'browser' })
     const newTab: Tab = {
@@ -142,70 +135,86 @@ export const useTabsStore = create<TabsState>((set, get) => ({
       nativeCanGoForward: false,
       legacyStorageHistory: false,
     }
+    const previousActiveId = get().activeTabId
+
+    set((state) => ({
+      tabs: [...state.tabs, newTab],
+      activeTabId: id,
+    }))
+    useBrowserStore.getState().setNavigation(targetUrl, false, false)
+    useBrowserStore.getState().setTitle(title)
+    useBrowserStore.getState().setLoading(false)
 
     try {
-      // Create tab in main process
-      await browserClient.createTab(id, targetUrl)
-
-      set((state) => ({
-        tabs: [...state.tabs, newTab],
-        activeTabId: id,
-      }))
-
-      // Sync settings store with new tab's state
-      useBrowserStore.getState().setNavigation(targetUrl, false, false)
-      useBrowserStore.getState().setTitle(title)
-      useBrowserStore.getState().setLoading(false)
-
-      // Always call navigate - it handles hiding views for internal pages
-      // and loading URLs for external pages
-      await browserClient.navigate(targetUrl, id)
+      const result = await browserClient.createTab(id, targetUrl)
+      if (!result.success) throw new Error('Tab creation rejected')
+      if (resolveInternalRoute(targetUrl)?.kind === 'storage-file') {
+        await browserClient.navigate(targetUrl, id)
+      }
     } catch (error) {
       log.error('Failed to create tab:', error)
+      set((state) => ({
+        tabs: state.tabs.filter((tab) => tab.id !== id),
+        activeTabId: state.activeTabId === id ? previousActiveId : state.activeTabId,
+      }))
+      if (get().activeTabId === previousActiveId) {
+        const previous = get().tabs.find((tab) => tab.id === previousActiveId)
+        useBrowserStore
+          .getState()
+          .setNavigation(previous?.url ?? 'ton://start', previous?.canGoBack ?? false, previous?.canGoForward ?? false)
+        useBrowserStore
+          .getState()
+          .setTitle(previous?.title ?? getInternalPageTitle('ton://start') ?? i18n.t('tabs.newTab', { ns: 'browser' }))
+        useBrowserStore.getState().setLoading(previous?.isLoading ?? false)
+      }
     }
   },
 
   closeTab: async (id: string) => {
     navigationRequestByTab.delete(id)
-    const { tabs, closedTabs } = get()
+    const { tabs, closedTabs, activeTabId } = get()
     const closedTab = tabs.find((t) => t.id === id)
+    if (!closedTab) return
 
-    // Save closed tab for Ctrl+Shift+T (skip ton://start and ton://loading)
-    if (closedTab && !closedTab.url.startsWith('ton://start') && !closedTab.url.startsWith('ton://loading')) {
-      const newClosedTabs = [{ url: closedTab.url, title: closedTab.title }, ...closedTabs].slice(0, 10) // Keep last 10
-      set({ closedTabs: newClosedTabs })
+    const index = tabs.findIndex((tab) => tab.id === id)
+    const remaining = tabs.filter((tab) => tab.id !== id)
+    const wasActive = activeTabId === id
+    const newActiveId = wasActive
+      ? (remaining[Math.min(Math.max(0, index), remaining.length - 1)]?.id ?? null)
+      : activeTabId
+    const nextClosedTabs =
+      !closedTab.url.startsWith('ton://start') && !closedTab.url.startsWith('ton://loading')
+        ? [{ url: closedTab.url, title: closedTab.title }, ...closedTabs].slice(0, 10)
+        : closedTabs
+
+    const syncChrome = (next: Tab) => {
+      useBrowserStore.getState().setNavigation(next.url, next.canGoBack, next.canGoForward)
+      useBrowserStore.getState().setTitle(next.title)
+      useBrowserStore.getState().setLoading(next.isLoading)
+    }
+
+    if (remaining.length > 0) {
+      set({ tabs: remaining, activeTabId: newActiveId, closedTabs: nextClosedTabs })
+      if (wasActive && newActiveId) {
+        const next = remaining.find((tab) => tab.id === newActiveId)
+        if (next) syncChrome(next)
+      }
+    } else {
+      set({ closedTabs: nextClosedTabs })
     }
 
     try {
-      // Close tab in main process
       await browserClient.closeTab(id)
-
-      const current = get()
-      const index = current.tabs.findIndex((tab) => tab.id === id)
-      const remaining = current.tabs.filter((tab) => tab.id !== id)
-      const wasActive = current.activeTabId === id
-      const newActiveId = wasActive
-        ? (remaining[Math.min(Math.max(0, index), remaining.length - 1)]?.id ?? null)
-        : current.activeTabId
-      set({ tabs: remaining, activeTabId: newActiveId })
       if (remaining.length === 0) {
+        set({ tabs: [], activeTabId: null })
         await get().ensureDefaultTab()
         return
       }
       if (wasActive && newActiveId) {
         await browserClient.switchTab(newActiveId)
-        // Sync settings store with new active tab
         const latest = get()
         const newActiveTab = latest.tabs.find((t) => t.id === newActiveId)
-        if (newActiveTab && latest.activeTabId === newActiveId) {
-          useBrowserStore.getState().setNavigation(newActiveTab.url, newActiveTab.canGoBack, newActiveTab.canGoForward)
-          useBrowserStore.getState().setTitle(newActiveTab.title)
-          useBrowserStore.getState().setLoading(newActiveTab.isLoading)
-          // Hide views for internal pages
-          if (isInternalUrl(newActiveTab.url)) {
-            void browserClient.navigate(newActiveTab.url, newActiveId)
-          }
-        }
+        if (newActiveTab && latest.activeTabId === newActiveId) syncChrome(newActiveTab)
       }
     } catch (error) {
       log.error('Failed to close tab:', error)
@@ -218,25 +227,29 @@ export const useTabsStore = create<TabsState>((set, get) => ({
 
     const tab = tabs.find((t) => t.id === id)
     if (!tab) return
+    const previousId = activeTabId
+
+    const syncChrome = (next: Tab) => {
+      useBrowserStore.getState().setNavigation(next.url, next.canGoBack, next.canGoForward)
+      useBrowserStore.getState().setTitle(next.title)
+      useBrowserStore.getState().setLoading(next.isLoading)
+    }
+
+    set({ activeTabId: id })
+    syncChrome(tab)
 
     try {
-      // Switch tab in main process (shows/hides WebContentsViews)
       await browserClient.switchTab(id)
       const latestTab = get().tabs.find((candidate) => candidate.id === id)
-      if (!latestTab) return
-      set({ activeTabId: id })
-
-      // Sync settings store with this tab's state
-      useBrowserStore.getState().setNavigation(latestTab.url, latestTab.canGoBack, latestTab.canGoForward)
-      useBrowserStore.getState().setTitle(latestTab.title)
-      useBrowserStore.getState().setLoading(latestTab.isLoading)
-
-      // For internal pages, hide WebContentsViews so React content is visible
-      if (isInternalUrl(latestTab.url)) {
-        await browserClient.hideView()
-      }
+      if (!latestTab || get().activeTabId !== id) return
+      syncChrome(latestTab)
     } catch (error) {
       log.error('Failed to switch tab:', error)
+      if (get().activeTabId === id) {
+        set({ activeTabId: previousId })
+        const previous = previousId ? get().tabs.find((candidate) => candidate.id === previousId) : undefined
+        if (previous) syncChrome(previous)
+      }
     }
   },
 

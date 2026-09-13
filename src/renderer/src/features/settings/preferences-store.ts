@@ -229,8 +229,6 @@ export const usePreferencesStore = create<PreferencesState>()((set, get) => ({
   isSaving: false,
 
   loadFromMain: async () => {
-    // Reset isLoaded to show loading state while fetching
-    set({ isLoaded: false })
     try {
       const settings = await settingsClient.getAll()
       const prefs = mainSettingsToPrefs(settings)

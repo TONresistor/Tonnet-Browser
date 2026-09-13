@@ -23,12 +23,14 @@ import type { HistoryEntry } from '@shared/types'
 
 type TimeFilter = 'today' | 'week' | 'month' | 'all'
 
+let entriesCache: HistoryEntry[] = []
+
 export function HistoryPage() {
   const { t, i18n } = useTranslation('pages')
-  const [entries, setEntries] = useState<HistoryEntry[]>([])
+  const [entries, setEntriesState] = useState<HistoryEntry[]>(entriesCache)
   const [query, setQuery] = useState('')
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('all')
-  const [isLoading, setIsLoading] = useState(false)
+  const [isLoading, setIsLoading] = useState(entriesCache.length === 0)
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const deleteConfirm = useConfirmAction()
   const clearAllConfirm = useConfirmAction()
@@ -36,9 +38,16 @@ export function HistoryPage() {
   const addTab = useAddBrowserTab()
 
   const loadSeq = useRef(0)
+  const setEntries = useCallback(
+    (next: HistoryEntry[]) => {
+      if (!query && timeFilter === 'all') entriesCache = next
+      setEntriesState(next)
+    },
+    [query, timeFilter]
+  )
   const loadHistory = useCallback(async () => {
     const seq = ++loadSeq.current
-    setIsLoading(true)
+    if (entriesCache.length === 0) setIsLoading(true)
     try {
       let results: HistoryEntry[] = []
 
@@ -67,7 +76,7 @@ export function HistoryPage() {
       if (seq === loadSeq.current) setEntries([])
     }
     if (seq === loadSeq.current) setIsLoading(false)
-  }, [query, timeFilter])
+  }, [query, setEntries, timeFilter])
 
   useEffect(() => {
     // Debounce search
@@ -85,6 +94,7 @@ export function HistoryPage() {
     if (deleteConfirm.trigger(id)) {
       const result = await historyClient.deleteEntry(id)
       if (result.success) {
+        entriesCache = []
         loadHistory()
       }
     }
@@ -94,6 +104,7 @@ export function HistoryPage() {
     if (clearAllConfirm.trigger()) {
       const result = await historyClient.clear()
       if (result.success) {
+        entriesCache = []
         loadHistory()
       }
     }
@@ -111,7 +122,7 @@ export function HistoryPage() {
       }
 
       await historyClient.deleteByDate(start.getTime(), now)
-
+      entriesCache = []
       loadHistory()
     }
   }

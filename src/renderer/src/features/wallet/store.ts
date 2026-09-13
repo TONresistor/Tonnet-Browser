@@ -18,6 +18,7 @@ interface WalletStore {
   balance: string
   transactions: WalletTransaction[]
   isLoading: boolean
+  initialized: boolean
   isSending: boolean
   error: string | null
   decryptFailed: boolean
@@ -116,6 +117,7 @@ export const useWalletStore = create<WalletStore>((set, get) => {
     balance: '0',
     transactions: [],
     isLoading: false,
+    initialized: false,
     isSending: false,
     error: null,
     decryptFailed: false,
@@ -155,7 +157,7 @@ export const useWalletStore = create<WalletStore>((set, get) => {
     setError: (error) => set({ error }),
 
     init: async () => {
-      if (get().isCreated || get().isLoading) return
+      if (get().initialized || get().isLoading) return
       set({ isLoading: true, error: null })
       try {
         const state = await walletClient.getState()
@@ -179,6 +181,7 @@ export const useWalletStore = create<WalletStore>((set, get) => {
         if (walletSettings?.notificationStyle) {
           set({ notificationStyle: walletSettings.notificationStyle })
         }
+        set({ initialized: true })
       } catch (err) {
         set({ error: errorMessage(err) })
       } finally {

@@ -3,7 +3,7 @@
  * Browser chrome with tabs, navigation, and content area.
  */
 
-import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react'
+import { Suspense, useEffect, useRef, useState, type ReactNode } from 'react'
 import { NavigationButtons } from '@/components/browser/NavigationButtons'
 import { AddressBar } from '@/components/browser/AddressBar'
 import { WindowControls } from '@/components/browser/WindowControls'
@@ -11,7 +11,7 @@ import { TabBar } from '@/components/browser/TabBar'
 import { BookmarksBar } from '@/components/browser/BookmarksBar'
 import { StatusBar } from '@/components/browser/StatusBar'
 import { ResizablePanel } from '@/components/browser/ResizablePanel'
-const LandingPage = lazy(() => import('@/components/pages/LandingPage').then((m) => ({ default: m.LandingPage })))
+import { LandingPage } from '@/components/pages/LandingPage'
 import { useBrowserStore } from '@/stores/browser'
 import { useTabsStore } from '@/stores/tabs'
 import {
@@ -23,12 +23,8 @@ import {
 } from '@/features/settings/public'
 import { useLocaleEffects } from '@/features/settings/useLocaleEffects'
 import { useThemeEffects } from '@/features/themes/public'
-const WalletSidebar = lazy(() =>
-  import('@/features/wallet/components/WalletSidebar').then((m) => ({ default: m.WalletSidebar }))
-)
-const CocoonSidebar = lazy(() =>
-  import('@/features/cocoon/components/CocoonSidebar').then((m) => ({ default: m.CocoonSidebar }))
-)
+import { WalletSidebar } from '@/features/wallet/components/WalletSidebar'
+import { CocoonSidebar } from '@/features/cocoon/components/CocoonSidebar'
 import { Button } from '@/components/ui/button'
 import { AppIcon } from '@/components/ui/AppIcon'
 import { useTranslation } from 'react-i18next'
@@ -284,9 +280,7 @@ function App() {
             }}
             className="border-l border-border"
           >
-            <Suspense fallback={null}>
-              <WalletSidebar onClose={() => setWalletSidebarOpen(false)} />
-            </Suspense>
+            <WalletSidebar onClose={() => setWalletSidebarOpen(false)} />
           </ResizablePanel>
         )}
 
@@ -302,9 +296,7 @@ function App() {
             }}
             className="border-l border-border"
           >
-            <Suspense fallback={null}>
-              <CocoonSidebar onClose={() => setCocoonSidebarOpen(false)} />
-            </Suspense>
+            <CocoonSidebar onClose={() => setCocoonSidebarOpen(false)} />
           </ResizablePanel>
         )}
       </div>

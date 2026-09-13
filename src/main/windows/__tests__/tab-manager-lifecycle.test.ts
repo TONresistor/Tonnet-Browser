@@ -68,7 +68,7 @@ vi.mock('../tabs-bounds', () => ({
 }))
 vi.mock('../tabs-security', () => ({
   setupSecurityHandlers,
-  ALLOWED_SCHEMES: ['http:', 'https:'],
+  ALLOWED_SCHEMES: ['http:'],
 }))
 vi.mock('../tabs-events', () => ({ setupViewEventListeners: vi.fn(() => ({ dispose: vi.fn() })) }))
 vi.mock('../../events/renderer-events', () => ({ emitContractToRenderer }))
@@ -122,6 +122,69 @@ const deps = {
 } as never
 
 describe('TabManager lifecycle ownership', () => {
+  it.each([
+    ['http://first.ton/path', 'http://first.ton/path'],
+    ['https://first.ton/path', 'http://first.ton/path'],
+    ['tonsite://first.ton/path', 'http://first.ton/path'],
+    ['first.ton/path', 'http://first.ton/path'],
+    ['first.ton:8080/path', 'http://first.ton:8080/path'],
+  ])('normalizes a new tab URL before creating its session and loading it: %s', async (input, expected) => {
+    const manager = new TabManager()
+    manager.attachWindow(new WindowMock() as never, 8080, deps)
+
+    expect(await manager.createTab('tab-1', input)).toBe(true)
+
+    expect(extractDomain).toHaveBeenCalledWith(expected)
+    expect(manager.getActiveView()!.webContents.loadURL).toHaveBeenCalledExactlyOnceWith(expected)
+    manager.dispose()
+  })
+
+  it.each([
+    'file:///tmp/private.txt',
+    'ftp://first.ton/file',
+    'javascript:alert(1)',
+    'data:text/html,<h1>test</h1>',
+    'chrome://settings',
+    'http://',
+    'http://bad host/',
+  ])('rejects an unsafe or malformed initial URL before creating a tab: %s', async (url) => {
+    const manager = new TabManager()
+    manager.attachWindow(new WindowMock() as never, 8080, deps)
+
+    expect(await manager.createTab('tab-1', url)).toBe(false)
+
+    expect(manager.hasTab('tab-1')).toBe(false)
+    expect(sessions.getSessionForDomain).not.toHaveBeenCalled()
+    expect(createBrowserView).not.toHaveBeenCalled()
+    manager.dispose()
+  })
+
+  it.each(['file:///tmp/private.txt', 'ftp://first.ton/file', 'javascript:alert(1)', 'data:text/html,test'])(
+    'applies the same protocol policy when navigating an existing tab: %s',
+    async (url) => {
+      const manager = new TabManager()
+      manager.attachWindow(new WindowMock() as never, 8080, deps)
+      await manager.createTab('tab-1', 'http://first.ton')
+      const view = manager.getActiveView()!
+      vi.mocked(view.webContents.loadURL).mockClear()
+
+      expect(await manager.navigateInTab('tab-1', url)).toBe(false)
+      expect(view.webContents.loadURL).not.toHaveBeenCalled()
+      manager.dispose()
+    }
+  )
+
+  it('keeps internal tabs in the renderer without loading a native URL', async () => {
+    const manager = new TabManager()
+    manager.attachWindow(new WindowMock() as never, 8080, deps)
+
+    expect(await manager.createTab('tab-1', 'ton://settings')).toBe(true)
+    expect(manager.getActiveTabId()).toBe('tab-1')
+    expect(sessions.getSessionForDomain).not.toHaveBeenCalled()
+    expect(createBrowserView).not.toHaveBeenCalled()
+    manager.dispose()
+  })
+
   it('reveals a retained document without destroying native forward history', async () => {
     const window = new WindowMock()
     const manager = new TabManager()
@@ -131,6 +194,7 @@ describe('TabManager lifecycle ownership', () => {
     vi.mocked(view.webContents.getURL).mockReturnValue('http://first.ton/')
     vi.mocked(view.webContents.navigationHistory.canGoForward).mockReturnValue(true)
     sessions.getTabDomain.mockReturnValue('first.ton')
+    vi.mocked(view.webContents.loadURL).mockClear()
     manager.hideAllViews('tab-1')
     await manager.navigateInTab('tab-1', 'http://first.ton')
     expect(view.webContents.loadURL).not.toHaveBeenCalled()

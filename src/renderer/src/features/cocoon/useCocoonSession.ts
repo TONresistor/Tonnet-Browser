@@ -72,27 +72,64 @@ export interface UseCocoonSessionResult {
   retryStart: () => void
 }
 
+const sessionCache = {
+  walletInfo: undefined as WalletInfo | null | undefined,
+  walletInfoError: null as string | null,
+  resumeStep: null as 3 | 4 | null,
+  availability: null as CocoonAvailability | null,
+  availabilityError: null as string | null,
+  state: { kind: 'stopped' } as CocoonState,
+  startError: null as string | null,
+  stakeInfo: undefined as CocoonStakeInfo | null | undefined,
+  pendingWithdraw: null as CocoonPendingWithdraw | null,
+  terminalEmptyWallet: false,
+}
+
 export function useCocoonSession(): UseCocoonSessionResult {
-  const [walletInfo, setWalletInfo] = useState<WalletInfo | null | undefined>(undefined)
-  const [walletInfoError, setWalletInfoError] = useState<string | null>(null)
-  const [resumeStep, setResumeStep] = useState<3 | 4 | null>(null)
-  const [availability, setAvailability] = useState<CocoonAvailability | null>(null)
-  const [availabilityError, setAvailabilityError] = useState<string | null>(null)
-  const [state, setState] = useState<CocoonState>({ kind: 'stopped' })
+  const [walletInfo, setWalletInfo] = useState<WalletInfo | null | undefined>(sessionCache.walletInfo)
+  const [walletInfoError, setWalletInfoError] = useState<string | null>(sessionCache.walletInfoError)
+  const [resumeStep, setResumeStep] = useState<3 | 4 | null>(sessionCache.resumeStep)
+  const [availability, setAvailability] = useState<CocoonAvailability | null>(sessionCache.availability)
+  const [availabilityError, setAvailabilityError] = useState<string | null>(sessionCache.availabilityError)
+  const [state, setState] = useState<CocoonState>(sessionCache.state)
   // Surfaces start() failure so the UI can render an actionable error and a
   // Retry button instead of leaving the user stuck on a "Waiting…" screen.
-  const [startError, setStartError] = useState<string | null>(null)
+  const [startError, setStartError] = useState<string | null>(sessionCache.startError)
   const [retryNonce, setRetryNonce] = useState(0)
   // Pre-start gate: snapshot of the on-chain stake state so we can skip
   // auto-starting the runner when the stake is in a non-active phase
   // (closing/cooldown/refundable/closed). Otherwise the runner loops on
   // proxy rejections ("client is closing") and burns CPU for nothing.
-  const [stakeInfo, setStakeInfo] = useState<CocoonStakeInfo | null | undefined>(undefined)
+  const [stakeInfo, setStakeInfo] = useState<CocoonStakeInfo | null | undefined>(sessionCache.stakeInfo)
   // Persistent pending-withdraw intent — the user clicked the single-action
   // "Unstake & withdraw" button and the main-process driver is auto-progressing
   // through cooldown → claim → cashout. The renderer renders a progress screen.
-  const [pendingWithdraw, setPendingWithdraw] = useState<CocoonPendingWithdraw | null>(null)
-  const [terminalEmptyWallet, setTerminalEmptyWallet] = useState(false)
+  const [pendingWithdraw, setPendingWithdraw] = useState<CocoonPendingWithdraw | null>(sessionCache.pendingWithdraw)
+  const [terminalEmptyWallet, setTerminalEmptyWallet] = useState(sessionCache.terminalEmptyWallet)
+
+  useEffect(() => {
+    sessionCache.walletInfo = walletInfo
+    sessionCache.walletInfoError = walletInfoError
+    sessionCache.resumeStep = resumeStep
+    sessionCache.availability = availability
+    sessionCache.availabilityError = availabilityError
+    sessionCache.state = state
+    sessionCache.startError = startError
+    sessionCache.stakeInfo = stakeInfo
+    sessionCache.pendingWithdraw = pendingWithdraw
+    sessionCache.terminalEmptyWallet = terminalEmptyWallet
+  }, [
+    walletInfo,
+    walletInfoError,
+    resumeStep,
+    availability,
+    availabilityError,
+    state,
+    startError,
+    stakeInfo,
+    pendingWithdraw,
+    terminalEmptyWallet,
+  ])
 
   const refresh = useCallback(() => {
     cocoonClient

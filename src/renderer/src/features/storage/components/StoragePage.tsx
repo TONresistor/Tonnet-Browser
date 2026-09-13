@@ -23,9 +23,11 @@ import { StorageSidebar } from './storage/StorageSidebar'
 import { filterBags, bagCounts, type FilterType } from './storage/bag-filter'
 import { AddBagModal } from './storage/AddBagModal'
 
+let bagsCache: StorageBag[] = []
+
 export function StoragePage() {
   const { t } = useTranslation('pages')
-  const [bags, setBags] = useState<StorageBag[]>([])
+  const [bags, setBagsState] = useState<StorageBag[]>(bagsCache)
   const [filter, setFilter] = useState<FilterType>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedBagId, setSelectedBagId] = useState<string | null>(null)
@@ -33,6 +35,11 @@ export function StoragePage() {
   const [loadingDetails, setLoadingDetails] = useState(false)
   const [detailTab, setDetailTab] = useState<'info' | 'files'>('info')
   const [showAddModal, setShowAddModal] = useState(false)
+
+  const setBags = useCallback((next: StorageBag[]) => {
+    bagsCache = next
+    setBagsState(next)
+  }, [])
 
   const loadBags = useCallback(async () => {
     try {
@@ -43,7 +50,7 @@ export function StoragePage() {
     } catch (err) {
       log.error('Failed to load bags:', err)
     }
-  }, [])
+  }, [setBags])
 
   // Load bags on mount and listen for real-time updates
   useEffect(() => {
@@ -56,7 +63,7 @@ export function StoragePage() {
     return () => {
       unsubscribe()
     }
-  }, [loadBags])
+  }, [loadBags, setBags])
 
   const handleRemoveBag = useCallback(
     async (bagId: string) => {

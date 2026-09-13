@@ -3,6 +3,7 @@ import { AppSettingsSchema } from '@shared/types'
 
 const mocks = vi.hoisted(() => ({
   apply: vi.fn(),
+  getAll: vi.fn(),
   isAvailable: vi.fn(() => false),
   onChanged: vi.fn(() => vi.fn()),
 }))
@@ -10,6 +11,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@/features/settings/client', () => ({
   settingsClient: {
     apply: mocks.apply,
+    getAll: mocks.getAll,
     isAvailable: mocks.isAvailable,
     onChanged: mocks.onChanged,
   },
@@ -85,6 +87,33 @@ describe('preferences store', () => {
     expect(mocks.apply).toHaveBeenCalledWith({ advanced: { displayUnicodeDomains: true } })
     expect(usePreferencesStore.getState().saved.displayUnicodeDomains).toBe(true)
     expect(usePreferencesStore.getState().hasChanges).toBe(false)
+  })
+
+  it('keeps already-loaded preferences visible while refreshing from main', async () => {
+    let resolveGetAll!: (settings: ReturnType<typeof AppSettingsSchema.parse>) => void
+    mocks.getAll.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveGetAll = resolve
+      })
+    )
+    const { defaultPreferences, usePreferencesStore } = await import('../preferences-store')
+    usePreferencesStore.setState({
+      saved: { ...defaultPreferences },
+      draft: { ...defaultPreferences },
+      isLoaded: true,
+      hasChanges: false,
+      isSaving: false,
+    })
+
+    const loading = usePreferencesStore.getState().loadFromMain()
+    expect(usePreferencesStore.getState().isLoaded).toBe(true)
+
+    resolveGetAll(AppSettingsSchema.parse({ general: { homepage: 'ton://storage' } }))
+    await loading
+
+    expect(usePreferencesStore.getState().isLoaded).toBe(true)
+    expect(usePreferencesStore.getState().saved.homepage).toBe('ton://storage')
+    expect(usePreferencesStore.getState().draft.homepage).toBe('ton://storage')
   })
 
   it('persists the experimental TON Connect preference under advanced settings', async () => {

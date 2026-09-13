@@ -32,7 +32,7 @@ vi.mock('@/i18n', () => ({
 // Mock window.electron IPC
 const mockElectron = {
   tabs: {
-    create: vi.fn().mockResolvedValue(undefined),
+    create: vi.fn().mockResolvedValue({ success: true }),
     close: vi.fn().mockResolvedValue(undefined),
     switch: vi.fn().mockResolvedValue(undefined),
   },
@@ -76,6 +76,12 @@ const browserStateMocks = vi.hoisted(() => ({ setNavigation: vi.fn(), setTitle: 
 vi.mock('../browser', () => ({
   useBrowserStore: {
     getState: () => browserStateMocks,
+  },
+}))
+
+vi.mock('@/features/settings/preferences-store', () => ({
+  usePreferencesStore: {
+    getState: () => ({ saved: { homepage: 'ton://start' } }),
   },
 }))
 
@@ -144,6 +150,7 @@ describe('tabs store', () => {
       const { tabs } = useTabsStore.getState()
       expect(tabs).toHaveLength(1)
       expect(tabs[0].url).toBe('ton://start')
+      expect(mockElectron.navigate).not.toHaveBeenCalled()
     })
 
     it('initializes tab history with the initial URL', async () => {
@@ -162,12 +169,36 @@ describe('tabs store', () => {
       expect(tab.canGoForward).toBe(false)
     })
 
-    it('calls electron IPC to create and navigate', async () => {
+    it('creates the tab in main without a second navigate IPC', async () => {
       await useTabsStore.getState().addTab('http://example.ton')
 
       const tab = useTabsStore.getState().tabs[0]
       expect(mockElectron.tabs.create).toHaveBeenCalledWith(tab.id, 'http://example.ton')
-      expect(mockElectron.navigate).toHaveBeenCalledWith('http://example.ton', tab.id)
+      expect(mockElectron.navigate).not.toHaveBeenCalled()
+    })
+
+    it('restores the previous tab when main rejects creation', async () => {
+      await useTabsStore.getState().addTab('http://first.ton')
+      const previous = useTabsStore.getState().tabs[0]
+      mockElectron.tabs.create.mockResolvedValueOnce({ success: false })
+
+      await useTabsStore.getState().addTab('file:///tmp/private.txt')
+
+      expect(useTabsStore.getState().tabs).toEqual([previous])
+      expect(useTabsStore.getState().activeTabId).toBe(previous.id)
+      expect(browserStateMocks.setNavigation).toHaveBeenLastCalledWith(previous.url, false, false)
+      expect(browserStateMocks.setTitle).toHaveBeenLastCalledWith(previous.title)
+      expect(mockElectron.navigate).not.toHaveBeenCalled()
+    })
+
+    it('routes a new raw storage-file tab through the file navigation handler', async () => {
+      const url = `ton://storage/file/${'a'.repeat(64)}/report.pdf`
+
+      await useTabsStore.getState().addTab(url)
+
+      const tab = useTabsStore.getState().tabs[0]
+      expect(mockElectron.tabs.create).toHaveBeenCalledWith(tab.id, url)
+      expect(mockElectron.navigate).toHaveBeenCalledExactlyOnceWith(url, tab.id)
     })
 
     it('sets active tab to the newly created tab', async () => {
@@ -181,6 +212,18 @@ describe('tabs store', () => {
   })
 
   describe('closeTab', () => {
+    it('removes the tab before close IPC resolves', async () => {
+      await useTabsStore.getState().addTab('http://a.ton')
+      await useTabsStore.getState().addTab('http://b.ton')
+      const closing = useTabsStore.getState().tabs[1]
+      const pending = deferred<void>()
+      mockElectron.tabs.close.mockReturnValueOnce(pending.promise)
+      const closingTab = useTabsStore.getState().closeTab(closing.id)
+      expect(useTabsStore.getState().tabs.map((tab) => tab.url)).toEqual(['http://a.ton'])
+      pending.resolve()
+      await closingTab
+    })
+
     it('keeps replacement metadata updated during a pending close', async () => {
       await useTabsStore.getState().addTab('http://a.ton')
       await useTabsStore.getState().addTab('http://b.ton')
@@ -305,6 +348,7 @@ describe('tabs store', () => {
       await useTabsStore.getState().setActiveTab(tabA.id)
 
       expect(useTabsStore.getState().activeTabId).toBe(tabA.id)
+      expect(mockElectron.view.hide).not.toHaveBeenCalled()
     })
 
     it('does nothing when switching to the already active tab', async () => {

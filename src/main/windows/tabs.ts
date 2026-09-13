@@ -392,15 +392,31 @@ export interface TabManagerDeps {
   paymentInterceptor: PaymentInterceptor
 }
 
+function normalizeExternalTabUrl(url: string): string | null {
+  const normalized = normalizeUrl(url.includes('://') ? url : `http://${url}`)
+  if (!BrowserUrlSchema.safeParse(normalized).success) return null
+  try {
+    return ALLOWED_SCHEMES.includes(new URL(normalized).protocol) ? normalized : null
+  } catch {
+    return null
+  }
+}
+
 async function createTabFor(manager: TabManager, tabId: string, initialUrl?: string): Promise<boolean> {
   if (!manager.window) return false
+  const navigationUrl =
+    initialUrl && !initialUrl.startsWith('ton://') ? normalizeExternalTabUrl(initialUrl) : initialUrl
+  if (navigationUrl === null) {
+    log.error('Invalid navigation URL')
+    return false
+  }
   if (!manager.registerTab(tabId)) return false
-  if (!initialUrl || initialUrl.startsWith('ton://')) return manager.switchTab(tabId)
+  if (!navigationUrl || navigationUrl.startsWith('ton://')) return manager.switchTab(tabId)
   const generation = manager.captureWindowGeneration()
   let createdView: WebContentsView | null = null
 
   try {
-    const domain = initialUrl ? extractDomain(initialUrl) : 'default'
+    const domain = extractDomain(navigationUrl)
     const session = await manager.getSessionForDomain(domain)
     if (!manager.ownsWindowGeneration(generation) || !manager.hasTab(tabId) || manager.views.has(tabId)) return false
 
@@ -415,6 +431,7 @@ async function createTabFor(manager: TabManager, tabId: string, initialUrl?: str
       return false
     }
 
+    loadViewUrl(manager, createdView, tabId, navigationUrl)
     return true
   } catch (error) {
     log.error(`Failed to create tab ${tabId}:`, error)
@@ -506,31 +523,9 @@ async function navigateInTabFor(manager: TabManager, tabId: string, url: string)
   if (!manager.hasTab(tabId)) return false
   const generation = manager.captureWindowGeneration()
 
-  let navigateUrl = url
-  if (
-    !url.startsWith('http://') &&
-    !url.startsWith('https://') &&
-    !url.startsWith('ton://') &&
-    !url.startsWith('tonsite://')
-  ) {
-    navigateUrl = `http://${url}`
-  }
-
-  navigateUrl = normalizeUrl(navigateUrl)
-
-  if (!BrowserUrlSchema.safeParse(navigateUrl).success) {
+  const navigateUrl = normalizeExternalTabUrl(url)
+  if (navigateUrl === null) {
     log.error('Invalid navigation URL')
-    return false
-  }
-
-  try {
-    const parsed = new URL(navigateUrl)
-    if (!ALLOWED_SCHEMES.includes(parsed.protocol)) {
-      log.error(`Blocked navigation to unsafe scheme: ${parsed.protocol}`)
-      return false
-    }
-  } catch {
-    log.error(`Invalid URL: ${navigateUrl}`)
     return false
   }
 
@@ -618,9 +613,10 @@ async function navigateInTabFor(manager: TabManager, tabId: string, url: string)
 
     if (manager.getActiveTabId() === tabId && manager.window) {
       manager.views.activate(tabId)
-      safeDetach(manager, view, 'same-domain navigate')
-      manager.window.contentView.addChildView(view)
-      updateViewBounds(view, manager.window, manager.sidebarWidth)
+      if (!manager.window.contentView.children.includes(view)) {
+        manager.window.contentView.addChildView(view)
+        updateViewBounds(view, manager.window, manager.sidebarWidth)
+      }
     }
 
     // Returning from a React route can reveal the retained document without

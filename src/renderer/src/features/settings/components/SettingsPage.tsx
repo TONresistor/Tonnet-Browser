@@ -89,9 +89,9 @@ export function SettingsPage() {
     }
   }, [activeSection, draft.historyMode, changingHistoryMode])
 
-  // Load settings on mount
   useEffect(() => {
-    loadFromMain()
+    if (usePreferencesStore.getState().isLoaded) return
+    void loadFromMain()
   }, [loadFromMain])
 
   // Cleanup timeouts on unmount
