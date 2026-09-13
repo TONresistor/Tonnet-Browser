@@ -36,7 +36,9 @@
     "dragOver": "La pestaña {{activeTitle}} está sobre {{overTitle}}",
     "reordered": "Pestaña {{title}} reordenada",
     "dragCancelled": "Arrastre cancelado",
-    "dragCancelledFull": "Arrastre cancelado. La pestaña {{title}} volvió a su posición original."
+    "dragCancelledFull": "Arrastre cancelado. La pestaña {{title}} volvió a su posición original.",
+    "scrollLeft": "Desplazar pestañas a la izquierda",
+    "scrollRight": "Desplazar pestañas a la derecha"
   },
   "windowControls": {
     "group": "Controles de ventana",

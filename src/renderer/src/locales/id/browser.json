@@ -36,7 +36,9 @@
     "dragOver": "Tab {{activeTitle}} berada di atas {{overTitle}}",
     "reordered": "Tab {{title}} disusun ulang",
     "dragCancelled": "Penyeretan dibatalkan",
-    "dragCancelledFull": "Penyeretan dibatalkan. Tab {{title}} kembali ke posisi semula."
+    "dragCancelledFull": "Penyeretan dibatalkan. Tab {{title}} kembali ke posisi semula.",
+    "scrollLeft": "Gulir tab ke kiri",
+    "scrollRight": "Gulir tab ke kanan"
   },
   "windowControls": {
     "group": "Kontrol jendela",

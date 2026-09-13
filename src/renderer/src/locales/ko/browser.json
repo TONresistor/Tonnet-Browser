@@ -36,7 +36,9 @@
     "dragOver": "탭 {{activeTitle}}이(가) {{overTitle}} 위에 있음",
     "reordered": "탭 {{title}} 순서 변경됨",
     "dragCancelled": "드래그 취소됨",
-    "dragCancelledFull": "드래그가 취소되었습니다. 탭 {{title}}이(가) 원래 위치로 돌아갔습니다."
+    "dragCancelledFull": "드래그가 취소되었습니다. 탭 {{title}}이(가) 원래 위치로 돌아갔습니다.",
+    "scrollLeft": "탭을 왼쪽으로 스크롤",
+    "scrollRight": "탭을 오른쪽으로 스크롤"
   },
   "windowControls": {
     "group": "창 컨트롤",

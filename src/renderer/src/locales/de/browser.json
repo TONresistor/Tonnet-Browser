@@ -36,7 +36,9 @@
     "dragOver": "Tab {{activeTitle}} ist über {{overTitle}}",
     "reordered": "Tab {{title}} neu angeordnet",
     "dragCancelled": "Ziehen abgebrochen",
-    "dragCancelledFull": "Ziehen abgebrochen. Tab {{title}} wurde an die ursprüngliche Position zurückgesetzt."
+    "dragCancelledFull": "Ziehen abgebrochen. Tab {{title}} wurde an die ursprüngliche Position zurückgesetzt.",
+    "scrollLeft": "Tabs nach links scrollen",
+    "scrollRight": "Tabs nach rechts scrollen"
   },
   "windowControls": {
     "group": "Fenstersteuerung",

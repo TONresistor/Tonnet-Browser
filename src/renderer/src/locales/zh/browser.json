@@ -36,7 +36,9 @@
     "dragOver": "标签页 {{activeTitle}} 移至 {{overTitle}} 上方",
     "reordered": "标签页 {{title}} 已重新排序",
     "dragCancelled": "拖动已取消",
-    "dragCancelledFull": "拖动已取消。标签页 {{title}} 已返回原位置。"
+    "dragCancelledFull": "拖动已取消。标签页 {{title}} 已返回原位置。",
+    "scrollLeft": "向左滚动标签页",
+    "scrollRight": "向右滚动标签页"
   },
   "windowControls": {
     "group": "窗口控制",

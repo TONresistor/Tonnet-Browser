@@ -36,7 +36,9 @@
     "dragOver": "Aba {{activeTitle}} está sobre {{overTitle}}",
     "reordered": "Aba {{title}} reordenada",
     "dragCancelled": "Arrasto cancelado",
-    "dragCancelledFull": "Arrasto cancelado. Aba {{title}} retornou à posição original."
+    "dragCancelledFull": "Arrasto cancelado. Aba {{title}} retornou à posição original.",
+    "scrollLeft": "Deslocar abas para a esquerda",
+    "scrollRight": "Deslocar abas para a direita"
   },
   "windowControls": {
     "group": "Controles da janela",

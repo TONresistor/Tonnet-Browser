@@ -3,7 +3,7 @@
  * Wraps a tab with dnd-kit's useSortable hook.
  */
 
-import { memo } from 'react'
+import { memo, useCallback } from 'react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { Tab } from '@/stores/tabs'
@@ -20,6 +20,7 @@ interface SortableTabProps {
   onKeyDown: (e: React.KeyboardEvent, tabId: string) => void
   isVertical?: boolean
   sidebarWidth?: number
+  onRef?: (tabId: string, node: HTMLDivElement | null) => void
 }
 
 export const SortableTab = memo(function SortableTab({
@@ -31,9 +32,17 @@ export const SortableTab = memo(function SortableTab({
   onKeyDown,
   isVertical = false,
   sidebarWidth,
+  onRef,
 }: SortableTabProps) {
   const { t } = useTranslation('browser')
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: tab.id })
+  const setTabRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      setNodeRef(node)
+      onRef?.(tab.id, node)
+    },
+    [setNodeRef, onRef, tab.id]
+  )
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -49,14 +58,14 @@ export const SortableTab = memo(function SortableTab({
 
   return (
     <div
-      ref={setNodeRef}
+      ref={setTabRef}
       style={style}
       {...attributes}
       {...listeners}
       role="tab"
       aria-selected={isActive}
       tabIndex={isActive ? 0 : -1}
-      className={`no-drag group flex items-center gap-2 px-2.5 py-1.5 ${isVertical ? 'rounded-lg w-full' : 'rounded-full max-w-[200px]'} cursor-pointer transition-all duration-200 border ${
+      className={`no-drag group flex items-center gap-2 px-2.5 py-1.5 ${isVertical ? 'rounded-lg w-full' : 'rounded-full min-w-[100px] max-w-[200px] flex-[1_1_200px]'} cursor-pointer transition-all duration-200 border ${
         isActive
           ? 'bg-card border-border-subtle text-heading'
           : 'border-transparent text-chrome-foreground hover:bg-elevation-2'
@@ -70,6 +79,7 @@ export const SortableTab = memo(function SortableTab({
       onKeyDown={(e) => onKeyDown(e, tab.id)}
       onContextMenu={(e) => onContextMenu(e, tab.id)}
       aria-label={`Tab: ${tab.title || t('tabs.newTab')}. Press space to start dragging.`}
+      title={tab.title || t('tabs.newTab')}
     >
       {/* Favicon with optional close overlay in narrow mode */}
       {isNarrow ? (
@@ -101,12 +111,12 @@ export const SortableTab = memo(function SortableTab({
       )}
 
       {/* Title - Hidden in narrow mode */}
-      {showTitle && <span className="truncate text-sm flex-1">{tab.title || t('tabs.newTab')}</span>}
+      {showTitle && <span className="min-w-0 truncate text-sm flex-1">{tab.title || t('tabs.newTab')}</span>}
 
       {/* Close button - Standard position (only in non-narrow mode) */}
       {!isNarrow && (
         <button
-          className="opacity-0 group-hover:opacity-100 focus:opacity-100 hover:bg-surface-active rounded-full p-0.5 text-icon transition-opacity"
+          className="shrink-0 opacity-0 group-hover:opacity-100 focus:opacity-100 hover:bg-surface-active rounded-full p-0.5 text-icon transition-opacity"
           aria-label={`Close ${tab.title || t('tabs.closeTab')}`}
           tabIndex={0}
           onClick={(e) => onClose(e, tab.id)}

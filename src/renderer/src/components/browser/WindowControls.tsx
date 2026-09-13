@@ -23,7 +23,7 @@ export function WindowControls() {
   }
 
   return (
-    <div className="flex items-center text-icon no-drag" role="group" aria-label={t('windowControls.group')}>
+    <div className="flex shrink-0 items-center text-icon no-drag" role="group" aria-label={t('windowControls.group')}>
       <button
         className="h-8 w-10 flex items-center justify-center hover:bg-border transition-colors"
         onClick={handleMinimize}

@@ -36,7 +36,9 @@
     "dragOver": "Tab {{activeTitle}} is over {{overTitle}}",
     "reordered": "Tab {{title}} reordered",
     "dragCancelled": "Dragging cancelled",
-    "dragCancelledFull": "Dragging cancelled. Tab {{title}} returned to original position."
+    "dragCancelledFull": "Dragging cancelled. Tab {{title}} returned to original position.",
+    "scrollLeft": "Scroll tabs left",
+    "scrollRight": "Scroll tabs right"
   },
   "windowControls": {
     "group": "Window controls",

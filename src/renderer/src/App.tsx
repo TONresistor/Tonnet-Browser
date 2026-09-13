@@ -137,9 +137,9 @@ function App() {
     <div className="flex flex-col h-screen bg-background">
       {/* Tab Bar Row - Only in horizontal mode */}
       {!isVertical && (
-        <div className="flex items-center bg-background drag-region min-h-[44px]">
+        <div className="flex min-w-0 shrink-0 items-center bg-background drag-region min-h-[44px]">
           {proxyConnected && <TabBar />}
-          <div className="flex-1" />
+          <div className={proxyConnected ? 'w-6 shrink-0' : 'flex-1'} />
           <WindowControls />
         </div>
       )}

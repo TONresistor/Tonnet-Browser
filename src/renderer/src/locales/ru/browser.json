@@ -36,7 +36,9 @@
     "dragOver": "Вкладка {{activeTitle}} над {{overTitle}}",
     "reordered": "Вкладка {{title}} перемещена",
     "dragCancelled": "Перемещение отменено",
-    "dragCancelledFull": "Перемещение отменено. Вкладка {{title}} возвращена на исходное место."
+    "dragCancelledFull": "Перемещение отменено. Вкладка {{title}} возвращена на исходное место.",
+    "scrollLeft": "Прокрутить вкладки влево",
+    "scrollRight": "Прокрутить вкладки вправо"
   },
   "windowControls": {
     "group": "Управление окном",

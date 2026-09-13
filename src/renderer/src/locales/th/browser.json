@@ -36,7 +36,9 @@
     "dragOver": "แท็บ {{activeTitle}} อยู่เหนือ {{overTitle}}",
     "reordered": "จัดเรียงแท็บ {{title}} ใหม่แล้ว",
     "dragCancelled": "ยกเลิกการลากแล้ว",
-    "dragCancelledFull": "ยกเลิกการลากแล้ว แท็บ {{title}} กลับไปยังตำแหน่งเดิม"
+    "dragCancelledFull": "ยกเลิกการลากแล้ว แท็บ {{title}} กลับไปยังตำแหน่งเดิม",
+    "scrollLeft": "เลื่อนแท็บไปทางซ้าย",
+    "scrollRight": "เลื่อนแท็บไปทางขวา"
   },
   "windowControls": {
     "group": "การควบคุมหน้าต่าง",
