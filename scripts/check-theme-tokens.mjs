@@ -52,6 +52,7 @@ const exceptions = [
     'telegram-lockedstickers.svg',
     'telegram-send.svg',
     'messenger.svg',
+    'messenger-admin.svg',
     'settings.svg',
     'storage.svg',
     'ton.svg',

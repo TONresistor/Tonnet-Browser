@@ -7,6 +7,7 @@ import storageFilterAllIcon from '@/assets/storage-filter-all.svg'
 import storageFilterDownloadIcon from '@/assets/storage-filter-download.svg'
 import storageFilterCompleteIcon from '@/assets/storage-filter-complete.svg'
 import messengerIcon from '@/assets/messenger.svg'
+import messengerAdminIcon from '@/assets/messenger-admin.svg'
 import cocoonIcon from '@/assets/cocoon.png'
 import appearanceIcon from '@/assets/appearance.svg'
 import privacyIcon from '@/assets/privacy.svg'
@@ -37,6 +38,7 @@ const MASK_ICONS = {
   storageFilterDownload: storageFilterDownloadIcon,
   storageFilterComplete: storageFilterCompleteIcon,
   messenger: messengerIcon,
+  messengerAdmin: messengerAdminIcon,
   cocoon: cocoonIcon,
   appearance: appearanceIcon,
   privacy: privacyIcon,

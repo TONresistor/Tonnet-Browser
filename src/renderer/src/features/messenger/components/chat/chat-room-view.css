@@ -1,0 +1,40 @@
+.messenger-room {
+  container: messenger-room / inline-size;
+}
+
+.messenger-timeline::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.messenger-admin-panel[hidden] {
+  display: none;
+}
+
+@container messenger-room (min-width: 761px) {
+  .is-admin-open > .messenger-admin-panel {
+    margin-left: 8px;
+  }
+}
+
+@container messenger-room (max-width: 760px) {
+  .messenger-room-layout.is-admin-open {
+    flex-direction: column;
+  }
+
+  .is-admin-open > .messenger-conversation {
+    flex: 0 1 auto;
+    overflow-y: auto;
+  }
+
+  .is-admin-open .messenger-timeline,
+  .is-admin-open .messenger-composer {
+    display: none;
+  }
+
+  .is-admin-open > .messenger-admin-panel {
+    width: auto;
+    min-height: 0;
+    flex: 1 1 0;
+    margin-left: 0.75rem;
+  }
+}

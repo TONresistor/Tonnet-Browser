@@ -391,18 +391,20 @@ function ChatPage(): React.JSX.Element {
   const mutateRoom = useCallback(
     async (mutation: Parameters<typeof messengerClient.mutate>[1]) => {
       const targetRoom = roomRef.current
-      if (pendingOperationRef.current !== null) return
+      if (pendingOperationRef.current !== null) return false
       const token = beginCanonical(targetRoom)
-      if (token === null) return
+      if (token === null) return false
       setError(null)
       try {
         const result = await messengerClient.mutate(targetRoom, mutation)
-        if (roomRef.current !== targetRoom) return
+        if (roomRef.current !== targetRoom) return false
         setTimeline((current) => mergeTimelineItems(current, result.item, Number.POSITIVE_INFINITY))
+        return true
       } catch (cause) {
-        if (roomRef.current !== targetRoom) return
+        if (roomRef.current !== targetRoom) return false
         await refreshPending(targetRoom).catch(() => {})
         if (roomRef.current === targetRoom) setError(cause instanceof Error ? cause.message : String(cause))
+        return false
       } finally {
         finishCanonical(targetRoom, token)
       }
