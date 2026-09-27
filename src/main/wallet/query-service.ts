@@ -2,10 +2,14 @@ import type { DnsResolveResult, WalletTransaction } from '../../shared/types'
 import { TON_DOMAIN_REGEX } from '../../shared/utils/ton'
 import { createLogger } from '../../shared/logger'
 import { decodeCommentBody } from './comment'
+import { isEncryptedCommentBody } from './ton-encryption/comment-body'
 import { parseMainnetAddress } from './address-utils'
 import type { BridgeTransaction } from '../ports/ton-bridge'
 
 const log = createLogger('wallet:queries')
+
+/** Mirrors the encryptedBody ceiling in WalletTransactionSchema. */
+const MAX_ENCRYPTED_BODY_CHARS = 4_096
 
 export interface WalletQueryBridge {
   getBalance(address: string): Promise<string>
@@ -100,6 +104,12 @@ export class WalletQueryService {
     const timestamp = Number(transaction.now)
     if (!timestamp || !Number.isFinite(timestamp)) return null
 
+    // Encrypted memos are only flagged here, never decrypted: history sync runs
+    // in the background and the signing key is unavailable while locked. The
+    // ciphertext rides along so the renderer can ask for it on demand.
+    const body = message?.body
+    const encrypted = isEncryptedCommentBody(body)
+
     return {
       id: transaction.hash || transaction.lt || crypto.randomUUID(),
       type: isSend ? 'send' : 'receive',
@@ -110,7 +120,9 @@ export class WalletQueryService {
       hash: transaction.hash ?? '',
       lt: transaction.lt || undefined,
       fee: transaction.total_fees,
-      comment: decodeCommentBody(message?.body),
+      comment: encrypted ? undefined : decodeCommentBody(body),
+      commentEncrypted: encrypted || undefined,
+      encryptedBody: encrypted && body && body.length <= MAX_ENCRYPTED_BODY_CHARS ? body : undefined,
     }
   }
 }

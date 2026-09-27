@@ -1,7 +1,9 @@
-import { Address } from '@ton/core'
+import { Address, Cell } from '@ton/core'
 import { describe, expect, it, vi } from 'vitest'
 import type { DnsResolveResult } from '../../../shared/types'
 import { WalletQueryService, type WalletQueryBridge } from '../query-service'
+import { encodeCommentBody } from '../comment'
+import { encodeEncryptedCommentBody } from '../ton-encryption/comment-body'
 
 const RAW = '0:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
 
@@ -72,5 +74,50 @@ describe('WalletQueryService', () => {
       })
     ).toMatchObject({ id: 'hash', type: 'receive', amount: '5', timestamp: 10_000 })
     expect(service.convertRawTransaction({ hash: 'hash', lt: '1', now: 0 })).toBeNull()
+  })
+
+  it('flags an encrypted memo and carries the ciphertext instead of decoding it', () => {
+    const service = new WalletQueryService(() => bridge())
+    const body = encodeEncryptedCommentBody(Buffer.alloc(80, 7)).toBoc().toString('base64')
+
+    expect(
+      service.convertRawTransaction({
+        hash: 'hash',
+        lt: '1',
+        now: 10,
+        in_msg: { source: RAW, destination: RAW, value: '5', body },
+      })
+    ).toMatchObject({ comment: undefined, commentEncrypted: true, encryptedBody: body })
+  })
+
+  it('leaves a plain text memo undecorated', () => {
+    const service = new WalletQueryService(() => bridge())
+    const body = encodeCommentBody('hello').toBoc().toString('base64')
+
+    expect(
+      service.convertRawTransaction({
+        hash: 'hash',
+        lt: '1',
+        now: 10,
+        in_msg: { source: RAW, destination: RAW, value: '5', body },
+      })
+    ).toMatchObject({ comment: 'hello', commentEncrypted: undefined, encryptedBody: undefined })
+  })
+
+  it('drops a ciphertext too large for the transport schema', () => {
+    const service = new WalletQueryService(() => bridge())
+    // 4096 base64 chars is the WalletTransactionSchema ceiling; overshoot it.
+    const body = 'A'.repeat(4_097)
+    vi.spyOn(Cell, 'fromBase64').mockReturnValue(encodeEncryptedCommentBody(Buffer.alloc(48)))
+
+    expect(
+      service.convertRawTransaction({
+        hash: 'hash',
+        lt: '1',
+        now: 10,
+        in_msg: { source: RAW, destination: RAW, value: '5', body },
+      })
+    ).toMatchObject({ commentEncrypted: true, encryptedBody: undefined })
+    vi.restoreAllMocks()
   })
 })

@@ -6,6 +6,13 @@
     "noWalletDesc": "Create a new wallet or import an existing one to get started.",
     "createWallet": "Create Wallet"
   },
+  "onboarding": {
+    "foundTitle": "Wallet found on this device",
+    "foundDesc": "Use the wallet already stored here, import a different one, or create a new wallet.",
+    "useExisting": "Use existing wallet",
+    "unlockDesc": "Load the wallet stored on this device, then unlock it with your password.",
+    "createReplaceDesc": "Creating a new wallet replaces the unreadable wallet file on this device."
+  },
   "tabs": {
     "send": "Send",
     "receive": "Receive",

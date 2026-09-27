@@ -313,6 +313,7 @@ function createMockRegistry(): ServiceRegistry {
           Promise.resolve({ estimatedFee: '1', destinationStatus: 'active', walletBalance: '100' })
         ),
         prepareEncryptedComment: vi.fn(() => Promise.resolve(beginCell().storeUint(1, 1).endCell())),
+        decryptComment: vi.fn(() => Promise.resolve('recovered memo')),
         send: vi.fn(),
         setAutoLockMinutes: vi.fn(),
         fetchOnChainHistory: vi.fn(() => []),
@@ -1178,6 +1179,54 @@ describe('IPC Handlers', () => {
         expect.any(Function),
         { autoDismiss: false }
       )
+    })
+
+    it('decrypts a memo for the unlocked wallet under its identity snapshot', async () => {
+      const identity = { publicKey: '0a'.repeat(32), addressRaw: `0:${'0b'.repeat(32)}`, revision: 4 }
+      vi.mocked(mockRegistry.walletManager.getState).mockReturnValue({ isCreated: true, isLocked: false } as never)
+      vi.mocked(mockRegistry.walletManager.getIdentitySnapshot).mockReturnValue(identity)
+      const handler = mockHandlers.get(IPC_CHANNELS.WALLET_DECRYPT_COMMENT)!
+      const senderAddress = `0:${'0c'.repeat(32)}`
+
+      await expect(handler(createMockEvent(), { body: 'ciphertext-boc', senderAddress })).resolves.toEqual({
+        comment: 'recovered memo',
+      })
+      expect(mockRegistry.walletManager.decryptComment).toHaveBeenCalledWith('ciphertext-boc', senderAddress, identity)
+    })
+
+    it('refuses to decrypt while the wallet is locked', async () => {
+      vi.mocked(mockRegistry.walletManager.getState).mockReturnValue({ isCreated: true, isLocked: true } as never)
+      const handler = mockHandlers.get(IPC_CHANNELS.WALLET_DECRYPT_COMMENT)!
+
+      await expect(
+        handler(createMockEvent(), { body: 'ciphertext-boc', senderAddress: `0:${'0c'.repeat(32)}` })
+      ).resolves.toMatchObject({ ok: false, error: { code: 'WALLET_LOCKED' } })
+      expect(mockRegistry.walletManager.decryptComment).not.toHaveBeenCalled()
+    })
+
+    it('rejects an unparseable sender address before touching the key', async () => {
+      vi.mocked(mockRegistry.walletManager.getState).mockReturnValue({ isCreated: true, isLocked: false } as never)
+      const handler = mockHandlers.get(IPC_CHANNELS.WALLET_DECRYPT_COMMENT)!
+
+      await expect(
+        handler(createMockEvent(), { body: 'ciphertext-boc', senderAddress: 'not-an-address' })
+      ).resolves.toMatchObject({ ok: false, error: { code: 'INVALID_RECIPIENT' } })
+      expect(mockRegistry.walletManager.decryptComment).not.toHaveBeenCalled()
+    })
+
+    it('reports a generic failure rather than why decryption failed', async () => {
+      vi.mocked(mockRegistry.walletManager.getState).mockReturnValue({ isCreated: true, isLocked: false } as never)
+      vi.mocked(mockRegistry.walletManager.decryptComment).mockRejectedValueOnce(
+        new Error('Failed to decrypt: authentication failed')
+      )
+      const handler = mockHandlers.get(IPC_CHANNELS.WALLET_DECRYPT_COMMENT)!
+
+      await expect(
+        handler(createMockEvent(), { body: 'ciphertext-boc', senderAddress: `0:${'0c'.repeat(32)}` })
+      ).resolves.toEqual({
+        ok: false,
+        error: { code: 'COMMENT_DECRYPT_FAILED', message: 'Unable to decrypt this memo', retryable: false },
+      })
     })
   })
 

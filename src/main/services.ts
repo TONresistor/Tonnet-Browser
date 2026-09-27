@@ -5,7 +5,7 @@
  * importing module-level singletons.
  */
 
-import { ElectronSafeStorageAdapter } from './adapters/electron-secure-storage'
+import { createSecureStorage } from './adapters/create-secure-storage'
 import { ProxyManager } from './proxy/manager'
 import { StorageManager } from './storage/daemon'
 import { WalletManager } from './wallet/manager'
@@ -88,7 +88,7 @@ export interface ServiceRegistry {
 export function createServices(): ServiceRegistry {
   const ipcRegistrations = new DisposableStore()
   const lifecycleRegistrations = new DisposableStore()
-  const secureStorage = new ElectronSafeStorageAdapter()
+  const secureStorage = createSecureStorage()
 
   // Create all services -- NO async init here, just construction
   const proxyManager = new ProxyManager()

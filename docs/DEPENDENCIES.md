@@ -21,6 +21,7 @@ Exact immutable commits and build entrypoints live in `scripts/binary-versions.j
 | `@dnd-kit/sortable`        | ^10.0.0 | Sortable UI                             |
 | `@dnd-kit/utilities`       | ^3.2.2  | Drag-and-drop helpers                   |
 | `@fontsource/inter`        | ^5.2.8  | Bundled Inter font                      |
+| `@noble/curves`            | ^2.2.0  | X25519 key agreement for payload encryption |
 | `@ton/core`                | 0.63.1  | TON cells, addresses, and serialization |
 | `@ton/crypto`              | 3.3.0   | Mnemonics and key derivation            |
 | `@ton/ton`                 | 16.3.0  | TON wallet contracts                    |

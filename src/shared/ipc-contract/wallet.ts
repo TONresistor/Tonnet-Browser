@@ -11,6 +11,7 @@ export const WalletStateSchema = z.object({
   balance: z.string().regex(/^\d+$/),
   decryptFailed: z.boolean().optional(),
   systemStorageBlocked: z.boolean().optional(),
+  hasPersistedWallet: z.boolean().optional(),
   weakEncryption: z.boolean().optional(),
   isLocked: z.boolean().optional(),
   needsPasswordSetup: z.boolean().optional(),
@@ -33,6 +34,11 @@ export const WalletTransactionSchema = z.object({
   fee: z.string().optional(),
   comment: z.string().optional(),
   commentEncrypted: z.boolean().optional(),
+  /**
+   * Base64 body of an encrypted memo, carried so the renderer can request
+   * decryption on demand. Ciphertext only; it is already public on chain.
+   */
+  encryptedBody: z.string().max(4_096).optional(),
   x402Domain: z.string().optional(),
   x402Url: z.string().optional(),
 })
@@ -95,6 +101,7 @@ export const walletCreateContract = defineRequest({
   input: z.tuple([
     z.object({
       password: WalletPasswordSchema.optional(),
+      replace: z.boolean().optional(),
     }),
   ]),
   output: WalletStateSchema.extend({ mnemonic: RecoveryMnemonicSchema }),
@@ -117,8 +124,15 @@ export const walletRetrySystemStorageContract = defineRequest({
   ...mainBase,
   channel: WALLET_CONTRACT_CHANNELS.retrySystemStorage,
   input: z.tuple([]),
-  output: MutationSchema,
-  errors: ['WALLET_SYSTEM_STORAGE_AVAILABLE'],
+  output: WalletStateSchema,
+  errors: ['WALLET_SYSTEM_STORAGE_RETRY_FAILED'],
+})
+export const walletReloadPersistedContract = defineRequest({
+  ...mainBase,
+  channel: WALLET_CONTRACT_CHANNELS.reloadPersisted,
+  input: z.tuple([]),
+  output: WalletStateSchema,
+  errors: ['WALLET_RELOAD_FAILED'],
 })
 export const walletGetBalanceContract = defineRequest({
   ...mainBase,
@@ -172,6 +186,24 @@ export const walletGetHistoryContract = defineRequest({
   input: z.tuple([z.number().int().min(1).max(1_000).optional()]),
   output: z.array(WalletTransactionSchema),
   errors: ['WALLET_HISTORY_FAILED'],
+})
+/**
+ * Decrypt one encrypted memo on demand. Kept off the history read path because
+ * it needs the signing key, which is unavailable while the wallet is locked.
+ */
+export const walletDecryptCommentContract = defineRequest({
+  ...mainBase,
+  channel: WALLET_CONTRACT_CHANNELS.decryptComment,
+  input: z.tuple([
+    z.object({
+      body: z.string().min(1).max(4_096),
+      /** The message sender: counterparty for a receive, ourselves for a send. */
+      senderAddress: z.string().min(1).max(1_024),
+    }),
+  ]),
+  output: z.object({ comment: z.string() }),
+  errors: ['WALLET_UNAVAILABLE', 'WALLET_LOCKED', 'INVALID_RECIPIENT', 'COMMENT_DECRYPT_FAILED'],
+  redaction: 'secret',
 })
 export const walletClearHistoryContract = defineRequest({
   ...mainBase,
@@ -387,10 +419,12 @@ export const WALLET_REQUEST_CONTRACTS = [
   walletCreateContract,
   walletGetStateContract,
   walletRetrySystemStorageContract,
+  walletReloadPersistedContract,
   walletGetBalanceContract,
   walletResolveRecipientContract,
   walletSendContract,
   walletGetHistoryContract,
+  walletDecryptCommentContract,
   walletClearHistoryContract,
   walletExportKeyContract,
   walletApprovePaymentContract,

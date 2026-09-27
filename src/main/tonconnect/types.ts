@@ -131,3 +131,31 @@ export interface SignDataResult {
   domain: string
   payload: SignDataPayloadInput
 }
+
+export interface EncryptDataPayloadInput {
+  /** Plaintext, base64. Bytes rather than text so binary payloads survive. */
+  bytes: string
+  /** The recipient's Ed25519 wallet key, 64 hex characters. */
+  recipientPublicKey: string
+  from?: string
+  network?: string
+}
+
+export interface DecryptDataPayloadInput {
+  /** The raw ton-simple-v2 envelope, base64. No BOC, no opcode prefix. */
+  encrypted: string
+  /** Address of whoever encrypted the payload; a KDF input, not an account selector. */
+  salt: string
+  from?: string
+  network?: string
+}
+
+export interface EncryptDataResult {
+  encrypted: string
+  payload: EncryptDataPayloadInput & { from: string }
+}
+
+export interface DecryptDataResult {
+  bytes: string
+  payload: DecryptDataPayloadInput & { from: string }
+}

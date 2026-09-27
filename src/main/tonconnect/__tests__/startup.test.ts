@@ -33,6 +33,8 @@ describe('TON Connect startup isolation', () => {
       signTonProof: vi.fn(),
       signTonConnectTransaction: vi.fn(),
       signData: vi.fn(),
+      encryptData: vi.fn(),
+      decryptData: vi.fn(),
     }
     const approval = { request: vi.fn() }
     const service = new TonConnectService(wallet, store as never, approval, {} as never, {} as never)

@@ -7,7 +7,8 @@ export const walletClient = {
   isAvailable: () => typeof window !== 'undefined' && Boolean(window.electron),
   getState: () => window.electron.wallet.getState(),
   retrySystemStorage: () => window.electron.wallet.retrySystemStorage(),
-  create: (options: { password?: string }) => window.electron.wallet.create(options),
+  reloadPersisted: () => window.electron.wallet.reloadPersisted(),
+  create: (options: { password?: string; replace?: boolean }) => window.electron.wallet.create(options),
   discoverAccounts: (mnemonic: string[]) => window.electron.wallet.discoverAccounts(mnemonic),
   importWallet: (mnemonic: string[], password: string, walletVersion: 'v3R1' | 'v3R2' | 'v4R2' | 'v5R1') =>
     window.electron.wallet.importWallet(mnemonic, password, walletVersion),
@@ -28,6 +29,8 @@ export const walletClient = {
     window.electron.wallet.send(to, amount, comment, encryptedComment),
   resolveRecipient: (recipient: string) => window.electron.wallet.resolveRecipient(recipient),
   getHistory: (limit?: number) => window.electron.wallet.getHistory(limit),
+  decryptComment: (body: string, senderAddress: string) =>
+    window.electron.wallet.decryptComment({ body, senderAddress }),
   clearHistory: () => window.electron.wallet.clearHistory(),
   approvePayment: (paymentId: string) => window.electron.wallet.approvePayment(paymentId),
   rejectPayment: (paymentId: string) => window.electron.wallet.rejectPayment(paymentId),

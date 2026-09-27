@@ -16,6 +16,7 @@ import type {
   walletApprovePaymentContract,
   walletClearHistoryContract,
   walletCreateContract,
+  walletDecryptCommentContract,
   walletDeleteContract,
   walletForgetContract,
   walletExportKeyContract,
@@ -24,6 +25,7 @@ import type {
   walletGetHistoryContract,
   walletGetStateContract,
   walletRetrySystemStorageContract,
+  walletReloadPersistedContract,
   walletImportContract,
   walletDiscoverAccountsContract,
   walletLockContract,
@@ -321,11 +323,13 @@ const electronAPI = {
 
   // Wallet
   wallet: {
-    create: (options: { password?: string }) =>
+    create: (options: { password?: string; replace?: boolean }) =>
       invokeChannel<typeof walletCreateContract>(IPC_CHANNELS.WALLET_CREATE, options),
     getState: () => invokeChannel<typeof walletGetStateContract>(IPC_CHANNELS.WALLET_GET_STATE),
     retrySystemStorage: () =>
       invokeChannel<typeof walletRetrySystemStorageContract>(IPC_CHANNELS.WALLET_RETRY_SYSTEM_STORAGE),
+    reloadPersisted: () =>
+      invokeChannel<typeof walletReloadPersistedContract>(IPC_CHANNELS.WALLET_RELOAD_PERSISTED),
     getBalance: () => invokeChannel<typeof walletGetBalanceContract>(IPC_CHANNELS.WALLET_GET_BALANCE),
     send: (to: string, amount: string, comment?: string, encryptedComment?: boolean) =>
       invokeChannel<typeof walletSendContract>(IPC_CHANNELS.WALLET_SEND, to, amount, comment, encryptedComment),
@@ -333,6 +337,8 @@ const electronAPI = {
       invokeChannel<typeof walletResolveRecipientContract>(IPC_CHANNELS.WALLET_RESOLVE_RECIPIENT, input),
     getHistory: (limit?: number) =>
       invokeChannel<typeof walletGetHistoryContract>(IPC_CHANNELS.WALLET_GET_HISTORY, limit),
+    decryptComment: (input: { body: string; senderAddress: string }) =>
+      invokeChannel<typeof walletDecryptCommentContract>(IPC_CHANNELS.WALLET_DECRYPT_COMMENT, input),
     clearHistory: () => invokeChannel<typeof walletClearHistoryContract>(IPC_CHANNELS.WALLET_CLEAR_HISTORY),
     exportKey: () => invokeChannel<typeof walletExportKeyContract>(IPC_CHANNELS.WALLET_EXPORT_KEY),
     approvePayment: (paymentId: string) =>

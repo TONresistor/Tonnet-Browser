@@ -5,6 +5,7 @@ import { mnemonicNew, mnemonicToPrivateKey } from '@ton/crypto'
 import { WalletContractV5R1 } from '@ton/ton'
 import { afterEach, describe, expect, it } from 'vitest'
 import type { ISecureStorage } from '../../ports/secure-storage'
+import { FallbackSecureStorage } from '../../adapters/fallback-secure-storage'
 import { WalletDecryptionError, WalletKeyStorage } from '../key-storage'
 
 class TestSecureStorage implements ISecureStorage {
@@ -245,6 +246,25 @@ describe('WalletKeyStorage password protection', () => {
     expect(unlocked.publicKey).toEqual(original.publicKey)
     reopened.destroy()
   }, 15_000)
+
+  it('stores password-protected wallets as plaintext JSON when OS secure storage is unavailable', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'ton-browser-fallback-'))
+    directories.push(directory)
+    const storage = new FallbackSecureStorage()
+    const password = 'correct horse battery staple'
+    const keyStorage = new WalletKeyStorage(storage, directory)
+    const imported = await keyStorage.importFromMnemonic(await mnemonicNew(24), password, 'v5R1')
+    keyStorage.lock()
+
+    const raw = await readFile(join(directory, 'wallet-key.dat'))
+    expect(raw.subarray(0, 4).toString()).not.toBe('SENC')
+    expect(raw.toString('utf-8').startsWith('{')).toBe(true)
+
+    const reopened = new WalletKeyStorage(storage, directory)
+    const unlocked = await reopened.load(password)
+    expect(unlocked.publicKey).toEqual(imported.publicKey)
+    reopened.destroy()
+  })
 
   it('grandfathers a legacy raw seed as backed up during password migration', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'ton-browser-vault-'))

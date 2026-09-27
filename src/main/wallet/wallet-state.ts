@@ -13,6 +13,7 @@ export function buildWalletState(input: {
   passwordProtected: boolean
   backupVerified: boolean
   walletVersion: WalletVersion
+  hasPersistedWallet: boolean
 }): WalletState {
   const common = {
     balance: input.balance,
@@ -24,6 +25,7 @@ export function buildWalletState(input: {
     passwordProtected: input.passwordProtected,
     backupVerified: input.backupVerified,
     walletVersion: input.walletVersion,
+    hasPersistedWallet: input.hasPersistedWallet,
   }
   if (!input.publicKey || !input.contract) {
     return { ...common, isCreated: false, address: '', addressRaw: '', publicKey: '' }

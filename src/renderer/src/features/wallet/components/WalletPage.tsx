@@ -7,9 +7,7 @@
 import { errorMessage } from '@shared/errors'
 import { useEffect, useRef, useState, useCallback, memo } from 'react'
 import { useShallow } from 'zustand/react/shallow'
-import { ArrowUp, ArrowDown, RefreshCw, Plus, LoaderCircle, AlertTriangle, ArrowLeft } from 'lucide-react'
-import Lottie from 'lottie-react'
-import explorerAnimation from '@/assets/explorer.json'
+import { ArrowUp, ArrowDown, RefreshCw, LoaderCircle, AlertTriangle, ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { AppIcon } from '@/components/ui/AppIcon'
 import { useWalletStore } from '@/features/wallet/store'
@@ -26,7 +24,6 @@ import { InsetGroup } from '@/components/ui/ios/InsetGroup'
 import { AddressChip } from '@/components/ui/ios/AddressChip'
 import { UI_COPY_FEEDBACK_MS } from '@shared/constants'
 import { useTranslation } from 'react-i18next'
-import { WalletPasswordFields } from './WalletPasswordFields'
 import { WalletSecurityScreen } from './WalletSecurityScreen'
 import type { WalletAccountCandidate } from '@shared/ipc-contract/wallet'
 import { WalletBackupChallenge } from './WalletBackupChallenge'
@@ -37,6 +34,7 @@ import { WalletBackupPhraseScreen } from './WalletBackupPhraseScreen'
 import { WalletForgotPasswordScreen } from './WalletForgotPasswordScreen'
 import { SecureLockIcon } from '@/components/ui/SecureLockIcon'
 import { WalletSystemStorageGate } from './WalletSystemStorageGate'
+import { WalletOnboardingScreen } from './WalletOnboardingScreen'
 import { useNavigateActiveBrowserTab } from '@/features/browser/navigation'
 
 type BackupFlowStep = 'idle' | 'phrase' | 'challenge'
@@ -47,11 +45,14 @@ export function WalletPage() {
     address,
     balance,
     transactions,
+    decryptedComments,
+    decryptingCommentId,
     isLoading,
     isSending,
     error,
     decryptFailed,
     systemStorageBlocked,
+    hasPersistedWallet,
     weakEncryption,
     isLocked,
     needsPasswordSetup,
@@ -61,8 +62,10 @@ export function WalletPage() {
     create,
     importWallet,
     discoverAccounts,
+    reloadPersisted,
     send,
     loadHistory,
+    decryptComment,
     refreshBalance,
     unlock,
     setupPassword,
@@ -77,11 +80,14 @@ export function WalletPage() {
       address: s.address,
       balance: s.balance,
       transactions: s.transactions,
+      decryptedComments: s.decryptedComments,
+      decryptingCommentId: s.decryptingCommentId,
       isLoading: s.isLoading,
       isSending: s.isSending,
       error: s.error,
       decryptFailed: s.decryptFailed,
       systemStorageBlocked: s.systemStorageBlocked,
+      hasPersistedWallet: s.hasPersistedWallet,
       weakEncryption: s.weakEncryption,
       isLocked: s.isLocked,
       needsPasswordSetup: s.needsPasswordSetup,
@@ -91,8 +97,10 @@ export function WalletPage() {
       create: s.create,
       importWallet: s.importWallet,
       discoverAccounts: s.discoverAccounts,
+      reloadPersisted: s.reloadPersisted,
       send: s.send,
       loadHistory: s.loadHistory,
+      decryptComment: s.decryptComment,
       refreshBalance: s.refreshBalance,
       unlock: s.unlock,
       setupPassword: s.setupPassword,
@@ -227,20 +235,14 @@ export function WalletPage() {
     setWalletPassword('')
     setWalletPasswordConfirm('')
   }, [])
-  const handleCreate = useCallback(async () => {
-    if (walletPassword.length < 10 || walletPassword !== walletPasswordConfirm) {
-      setSecurityError('Choose and confirm a wallet password of at least 10 characters.')
-      return
-    }
-    const password = walletPassword
-    setSecurityError(null)
-    try {
-      const words = await create({ password })
+  const handleOnboardingCreate = useCallback(
+    async (password: string, replace: boolean) => {
+      const words = await create({ password, replace })
       if (words) openBackupPhrase(password, words)
-    } catch (err) {
-      setSecurityError(errorMessage(err))
-    }
-  }, [create, openBackupPhrase, walletPassword, walletPasswordConfirm])
+      return words
+    },
+    [create, openBackupPhrase]
+  )
   const handleUnlock = useCallback(async () => {
     setSecurityError(null)
     const password = walletPassword
@@ -471,7 +473,14 @@ export function WalletPage() {
           {view.kind === 'send' && <SendForm onSend={send} isSending={isSending} error={error} balance={balance} />}
           {view.kind === 'receive' && <ReceivePanel address={address} />}
           {view.kind === 'transaction' && selectedTransaction && (
-            <TransactionDetailView transaction={selectedTransaction} selfAddress={address} onBack={showOverview} />
+            <TransactionDetailView
+              transaction={selectedTransaction}
+              selfAddress={address}
+              onBack={showOverview}
+              decryptedComment={decryptedComments[selectedTransaction.id]}
+              isDecrypting={decryptingCommentId === selectedTransaction.id}
+              onDecryptComment={decryptComment}
+            />
           )}
         </div>
       </div>
@@ -516,40 +525,23 @@ export function WalletPage() {
         </div>
 
         {!isCreated ? (
-          /* Empty state */
-          <div className="flex flex-col items-center justify-center gap-4 py-10 text-center">
-            <Lottie animationData={explorerAnimation} className="mb-1 h-24 w-24" loop autoplay />
-            <div>
-              <h2 className="text-base font-semibold text-heading">{t('page.noWalletTitle')}</h2>
-              <p className="mt-1 max-w-xs text-sm text-muted-foreground">{t('page.noWalletDesc')}</p>
-            </div>
-            {error && <p className="text-sm text-destructive">{error}</p>}
-            <div className="w-full max-w-xs">
-              <WalletPasswordFields
-                password={walletPassword}
-                confirmation={walletPasswordConfirm}
-                onPasswordChange={setWalletPassword}
-                onConfirmationChange={setWalletPasswordConfirm}
-                disabled={isLoading}
-              />
-            </div>
-            {securityError && <p className="text-xs text-destructive">{securityError}</p>}
-            <ActionButton
-              variant="filled"
-              onClick={handleCreate}
-              disabled={isLoading}
-              className="w-full max-w-xs"
-              icon={
-                isLoading ? (
-                  <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
-                ) : (
-                  <Plus className="h-4 w-4" aria-hidden="true" />
-                )
+          <WalletOnboardingScreen
+            hasPersistedWallet={hasPersistedWallet}
+            isLoading={isLoading}
+            error={error}
+            onCreate={handleOnboardingCreate}
+            onImport={async (mnemonic, password, version) => {
+              await importWallet(mnemonic, password, version)
+            }}
+            onReloadPersisted={reloadPersisted}
+            onUnlock={async (password) => {
+              await unlock(password)
+              if (!useWalletStore.getState().backupVerified) {
+                openBackupPhrase(password, await exportMnemonic(password))
               }
-            >
-              {t('page.createWallet')}
-            </ActionButton>
-          </div>
+            }}
+            onDiscoverAccounts={discoverAccounts}
+          />
         ) : (
           <div className="max-w-lg mx-auto">
             {/* Weak encryption banner */}

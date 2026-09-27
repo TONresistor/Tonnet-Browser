@@ -3,7 +3,7 @@
  */
 
 import type { DnsResolveResult, WalletState, WalletTransaction } from '../../../shared/types'
-import { app, systemPreferences } from 'electron'
+import { systemPreferences } from 'electron'
 import { toError, log } from './shared'
 import { emitContractToRenderer } from '../../events/renderer-events'
 import { getMainWindow } from '../../windows/main'
@@ -15,11 +15,13 @@ import {
   walletBalanceUpdatedContract,
   walletGetStateContract,
   walletRetrySystemStorageContract,
+  walletReloadPersistedContract,
   walletNewTransactionContract,
   walletStateChangedContract,
   walletApprovePaymentContract,
   walletClearHistoryContract,
   walletCreateContract,
+  walletDecryptCommentContract,
   walletDeleteContract,
   walletForgetContract,
   walletExportKeyContract,
@@ -41,7 +43,6 @@ import {
   walletSensitiveDisplayContract,
   dnsResolveContract,
 } from '../../../shared/ipc-contract/wallet'
-import { WALLET_SYSTEM_STORAGE_RETRY_TOKEN } from '../../../shared/constants'
 import { ipcFailure, ownIpcEmitterListener, secureContractHandle, tonsiteContractHandle } from '../contract-handler'
 import {
   requestWalletDeletionApproval,
@@ -52,6 +53,7 @@ import {
 import { deriveWalletAccount, discoverWalletAccounts } from '../../wallet/wallet-versions'
 import { WalletBackupVerifier } from '../../wallet/backup-verifier'
 import { WalletDecryptionError } from '../../wallet/key-storage'
+import { parseMainnetAddress } from '../../wallet/address-utils'
 
 export function registerWalletHandlers(registry: ServiceRegistry): void {
   const {
@@ -89,10 +91,26 @@ export function registerWalletHandlers(registry: ServiceRegistry): void {
     })
   })
 
-  secureContractHandle(walletCreateContract, async ({ password }) => {
-    if (walletManager.getState().isCreated) ipcFailure('WALLET_ALREADY_EXISTS', 'Wallet already exists')
+  secureContractHandle(walletCreateContract, async ({ password, replace }) => {
+    const current = walletManager.getState()
+    if (current.isCreated) ipcFailure('WALLET_ALREADY_EXISTS', 'Wallet already exists')
+    if (current.hasPersistedWallet && !replace) {
+      ipcFailure('WALLET_ALREADY_EXISTS', 'Wallet already exists on this device')
+    }
+    if (current.hasPersistedWallet && replace) {
+      if (
+        !(await requestWalletReplacementApproval(overlayManager, current.address, {
+          address: 'New wallet',
+          version: 'v5R1',
+        }))
+      ) {
+        ipcFailure('USER_CANCELLED', 'Wallet creation cancelled')
+      }
+      paymentInterceptor.clearAccountState()
+      await clearAccountScopedState()
+    }
     try {
-      return await walletManager.create({ password })
+      return await walletManager.create({ password, replace })
     } catch (error) {
       const message = toError(error).message
       if (message === 'Wallet already exists') {
@@ -109,15 +127,20 @@ export function registerWalletHandlers(registry: ServiceRegistry): void {
     return walletManager.getState()
   })
 
-  secureContractHandle(walletRetrySystemStorageContract, () => {
-    if (!walletManager.getState().systemStorageBlocked) {
-      ipcFailure('WALLET_SYSTEM_STORAGE_AVAILABLE', 'System secure storage is already available')
+  secureContractHandle(walletRetrySystemStorageContract, async () => {
+    try {
+      return await walletManager.retrySystemStorageAccess()
+    } catch (error) {
+      ipcFailure('WALLET_SYSTEM_STORAGE_RETRY_FAILED', 'Unable to access system secure storage', false, error)
     }
-    const retryArgument = `--${WALLET_SYSTEM_STORAGE_RETRY_TOKEN}`
-    const args = [...process.argv.slice(1).filter((argument) => argument !== retryArgument), retryArgument]
-    app.relaunch({ args })
-    app.quit()
-    return { success: true as const }
+  })
+
+  secureContractHandle(walletReloadPersistedContract, async () => {
+    try {
+      return await walletManager.reloadPersistedWallet()
+    } catch (error) {
+      ipcFailure('WALLET_RELOAD_FAILED', 'Unable to load wallet from this device', false, error)
+    }
   })
 
   secureContractHandle(walletGetBalanceContract, async () => {
@@ -281,6 +304,26 @@ export function registerWalletHandlers(registry: ServiceRegistry): void {
     }
   })
 
+  secureContractHandle(walletDecryptCommentContract, async ({ body, senderAddress }) => {
+    const state = walletManager.getState()
+    if (!state.isCreated) ipcFailure('WALLET_UNAVAILABLE', 'Wallet is not initialized')
+    if (state.isLocked) ipcFailure('WALLET_LOCKED', 'Unlock the wallet to read encrypted memos')
+    const walletIdentity = walletManager.getIdentitySnapshot()
+    if (!walletIdentity) ipcFailure('WALLET_UNAVAILABLE', 'Wallet identity is unavailable')
+    try {
+      parseMainnetAddress(senderAddress)
+    } catch (error) {
+      ipcFailure('INVALID_RECIPIENT', 'Invalid sender address', false, error)
+    }
+    try {
+      return { comment: await walletManager.decryptComment(body, senderAddress, walletIdentity) }
+    } catch (error) {
+      // The failure reason is not reported: it distinguishes a wrong salt from
+      // a corrupt body, which is more than the renderer needs to know.
+      ipcFailure('COMMENT_DECRYPT_FAILED', 'Unable to decrypt this memo', false, error)
+    }
+  })
+
   secureContractHandle(walletClearHistoryContract, async () => {
     try {
       await walletHistoryManager.clear()
@@ -351,7 +394,7 @@ export function registerWalletHandlers(registry: ServiceRegistry): void {
 
   secureContractHandle(walletImportContract, async (mnemonic, password, walletVersion) => {
     const current = walletManager.getState()
-    if (current.isCreated || current.decryptFailed) {
+    if (current.isCreated || current.decryptFailed || current.hasPersistedWallet) {
       let replacement: Awaited<ReturnType<typeof deriveWalletAccount>>
       try {
         replacement = await deriveWalletAccount(mnemonic, walletVersion)

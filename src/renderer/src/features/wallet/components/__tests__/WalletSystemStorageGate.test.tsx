@@ -5,7 +5,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { WalletSystemStorageGate } from '../WalletSystemStorageGate'
 
 const { retrySystemStorage } = vi.hoisted(() => ({
-  retrySystemStorage: vi.fn(() => Promise.resolve({ success: true as const })),
+  retrySystemStorage: vi.fn(() =>
+    Promise.resolve({
+      isCreated: true,
+      address: 'UQTest',
+      addressRaw: '0:test',
+      publicKey: 'aa'.repeat(64),
+      balance: '0',
+      systemStorageBlocked: false,
+    })
+  ),
 }))
 
 vi.mock('react-i18next', () => ({
@@ -49,6 +58,7 @@ describe('WalletSystemStorageGate', () => {
 
     await act(async () => retry?.click())
     expect(retrySystemStorage).toHaveBeenCalledOnce()
+    expect(container.textContent).not.toContain('Retrying…')
 
     await act(async () => dismiss?.click())
     expect(onDismiss).toHaveBeenCalledOnce()

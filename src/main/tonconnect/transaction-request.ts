@@ -1,5 +1,6 @@
 import { Address, Cell } from '@ton/core'
-import { TONCONNECT_MAX_MESSAGES, TON_MAINNET_CHAIN, type TonConnectOutMessage } from './types'
+import { TONCONNECT_MAX_MESSAGES, type TonConnectOutMessage } from './types'
+import { checkFromAndNetwork } from './request-scope'
 
 interface RawSendMessage {
   address?: unknown
@@ -27,10 +28,8 @@ export function parseTransactionRequest(
 
   if (!Array.isArray(parsed.messages) || parsed.messages.length === 0) return { ok: false, error: 'No messages' }
   if (parsed.messages.length > TONCONNECT_MAX_MESSAGES) return { ok: false, error: 'Too many messages' }
-  if (parsed.network && parsed.network !== TON_MAINNET_CHAIN) return { ok: false, error: 'Network mismatch' }
-  if (parsed.from && accountAddress && !sameAddress(parsed.from, accountAddress)) {
-    return { ok: false, error: 'Invalid sender address' }
-  }
+  const scopeError = checkFromAndNetwork(parsed, accountAddress)
+  if (scopeError) return { ok: false, error: scopeError }
   if (parsed.valid_until && parsed.valid_until < nowSec) return { ok: false, error: 'Transaction expired' }
 
   const messages: TonConnectOutMessage[] = []
@@ -60,22 +59,6 @@ export function parseTransactionRequest(
     messages,
     totalNano: messages.reduce((total, message) => total + BigInt(message.amount), 0n),
     hasContractPayload: messages.some((message) => Boolean(message.payload || message.stateInit)),
-  }
-}
-
-function sameAddress(a: string, b: string): boolean {
-  try {
-    return parseAddress(a).equals(parseAddress(b))
-  } catch {
-    return false
-  }
-}
-
-function parseAddress(value: string): Address {
-  try {
-    return Address.parseFriendly(value).address
-  } catch {
-    return Address.parseRaw(value)
   }
 }
 

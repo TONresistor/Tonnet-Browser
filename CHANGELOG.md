@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- Decryption of encrypted transfer memos in transaction details, for both sent and received messages. Recovered text is held in memory only and cleared on lock, account change or history clear.
+- TON Connect `encryptData` and `decryptData`, so .ton sites can exchange encrypted payloads with the built-in wallet.
+- `docs/ENCRYPTION.md` describing the `ton-simple-v2` envelope, both transports, the salt rules, the threat model and the interoperability matrix.
+
+### Changed
+
+- X25519 key agreement moves to `@noble/curves`, replacing the hand-rolled ladder. Peer public keys are now validated and low-order keys rejected.
+- TON Connect validates `from` and `network` on every method; `signData` previously accepted both without checking them.
+
 ## [2.7.1] - 2026-09-27
 
 ### Changed

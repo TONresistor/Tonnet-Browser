@@ -89,6 +89,15 @@ vi.mock('../../settings', () => ({
   getSetting: vi.fn(() => ({ wsPort: 9999 })),
 }))
 
+vi.mock('../../adapters/create-secure-storage', () => ({
+  createSecureStorage: () => ({
+    isAvailable: () => true,
+    encrypt: (plaintext: string) => Buffer.from(`ENC:${plaintext}`),
+    decrypt: (encrypted: Buffer) => encrypted.toString().slice(4),
+    getBackendName: () => 'test-backend',
+  }),
+}))
+
 // --- Import after mocks ---
 
 import { WalletManager } from '../manager'
@@ -594,5 +603,129 @@ describe('WalletManager.importWallet', () => {
 
     await importing
     await expect(signing).rejects.toThrow('Wallet changed while approval was pending')
+  })
+})
+
+describe('WalletManager.retrySystemStorageAccess', () => {
+  it('recovers a password wallet from plaintext storage without relaunching', async () => {
+    const manager = new WalletManager(new InMemorySecureStorage())
+    const keyStorage = {
+      exists: vi.fn().mockResolvedValue(true),
+      setStorage: vi.fn(),
+      inspect: vi.fn().mockResolvedValue({
+        publicKey: Buffer.alloc(32, 7),
+        passwordProtected: true,
+        backupVerified: true,
+        walletVersion: 'v5R1',
+        mnemonicScheme: 'ton',
+      }),
+      setAutoLockMinutes: vi.fn(),
+      isBasicTextBackend: vi.fn(() => true),
+      isLocked: vi.fn(() => true),
+      lock: vi.fn(),
+    }
+    const state = manager as unknown as {
+      initialized: boolean
+      systemStorageBlocked: boolean
+      keyStorage: typeof keyStorage
+    }
+    state.initialized = true
+    state.systemStorageBlocked = true
+    state.keyStorage = keyStorage as never
+
+    const result = await manager.retrySystemStorageAccess()
+
+    expect(keyStorage.setStorage).toHaveBeenCalledOnce()
+    expect(result.systemStorageBlocked).toBe(false)
+    expect(result.isCreated).toBe(true)
+    expect(result.passwordProtected).toBe(true)
+  })
+})
+
+describe('WalletManager TON Connect encryption', () => {
+  function prepareEncryptionManager() {
+    const manager = new WalletManager(new InMemorySecureStorage())
+    const keypair = { publicKey: Buffer.alloc(32, 7), secretKey: Buffer.alloc(64, 8) }
+    const addressRaw = VALID_ADDRESS
+    const state = manager as unknown as {
+      publicKey: Buffer
+      keypair: typeof keypair
+      needsPasswordSetup: boolean
+      backupVerified: boolean
+      walletContract: { address: { workChain: number; toRawString: () => string } }
+      keyStorage: { isLocked: ReturnType<typeof vi.fn>; load: ReturnType<typeof vi.fn> }
+      encryptionService: {
+        encryptTonConnectPayload: ReturnType<typeof vi.fn>
+        decryptTonConnectPayload: ReturnType<typeof vi.fn>
+      }
+    }
+    state.publicKey = Buffer.from(keypair.publicKey)
+    state.keypair = keypair
+    state.needsPasswordSetup = false
+    state.backupVerified = true
+    state.walletContract = {
+      address: { workChain: 0, toRawString: () => addressRaw },
+    }
+    state.keyStorage = {
+      isLocked: vi.fn(() => false),
+      load: vi.fn().mockResolvedValue(keypair),
+    } as never
+
+    const withSigningState = (
+      manager as unknown as {
+        withSigningState: <T>(
+          identity: { publicKey: string; addressRaw: string; revision: number },
+          operation: (senderAddress: unknown, secretKey: Buffer) => Promise<T>
+        ) => Promise<T>
+      }
+    ).withSigningState.bind(manager)
+
+    state.encryptionService = {
+      encryptTonConnectPayload: vi.fn((_plain, _peer, identity) =>
+        withSigningState(identity, async () => 'encrypted')
+      ),
+      decryptTonConnectPayload: vi.fn((_envelope, _salt, identity) =>
+        withSigningState(identity, async () => Buffer.from('plain'))
+      ),
+    }
+
+    return { manager, addressRaw, recipientPublicKey: 'aa'.repeat(32) }
+  }
+
+  async function expectSettlesWithin<T>(promise: Promise<T>, ms: number): Promise<T> {
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const timeout = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error('encryptData/decryptData deadlocked')), ms)
+    })
+    try {
+      return await Promise.race([promise, timeout])
+    } finally {
+      clearTimeout(timer)
+    }
+  }
+
+  it('encryptData settles without deadlocking runExclusive', async () => {
+    const { manager, addressRaw, recipientPublicKey } = prepareEncryptionManager()
+    const result = await expectSettlesWithin(
+      manager.encryptData(
+        { bytes: Buffer.from('hello').toString('base64'), recipientPublicKey },
+        addressRaw
+      ),
+      500
+    )
+    expect(result).toBe('encrypted')
+  })
+
+  it('decryptData settles without deadlocking runExclusive', async () => {
+    const { manager, addressRaw } = prepareEncryptionManager()
+    const salt = Address.parse(VALID_ADDRESS).toString({ bounceable: true, urlSafe: true })
+    const result = await expectSettlesWithin(
+      manager.decryptData(
+        { encrypted: Buffer.from('env').toString('base64'), salt },
+        addressRaw
+      ),
+      500
+    )
+    expect(result).toBe(Buffer.from('plain').toString('base64'))
   })
 })
