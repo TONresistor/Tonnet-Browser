@@ -11,6 +11,7 @@ export const WalletStateSchema = z.object({
   balance: z.string().regex(/^\d+$/),
   decryptFailed: z.boolean().optional(),
   systemStorageBlocked: z.boolean().optional(),
+  hasPersistedWallet: z.boolean().optional(),
   weakEncryption: z.boolean().optional(),
   isLocked: z.boolean().optional(),
   needsPasswordSetup: z.boolean().optional(),
@@ -100,6 +101,7 @@ export const walletCreateContract = defineRequest({
   input: z.tuple([
     z.object({
       password: WalletPasswordSchema.optional(),
+      replace: z.boolean().optional(),
     }),
   ]),
   output: WalletStateSchema.extend({ mnemonic: RecoveryMnemonicSchema }),
@@ -122,8 +124,15 @@ export const walletRetrySystemStorageContract = defineRequest({
   ...mainBase,
   channel: WALLET_CONTRACT_CHANNELS.retrySystemStorage,
   input: z.tuple([]),
-  output: MutationSchema,
-  errors: ['WALLET_SYSTEM_STORAGE_AVAILABLE'],
+  output: WalletStateSchema,
+  errors: ['WALLET_SYSTEM_STORAGE_RETRY_FAILED'],
+})
+export const walletReloadPersistedContract = defineRequest({
+  ...mainBase,
+  channel: WALLET_CONTRACT_CHANNELS.reloadPersisted,
+  input: z.tuple([]),
+  output: WalletStateSchema,
+  errors: ['WALLET_RELOAD_FAILED'],
 })
 export const walletGetBalanceContract = defineRequest({
   ...mainBase,
@@ -410,6 +419,7 @@ export const WALLET_REQUEST_CONTRACTS = [
   walletCreateContract,
   walletGetStateContract,
   walletRetrySystemStorageContract,
+  walletReloadPersistedContract,
   walletGetBalanceContract,
   walletResolveRecipientContract,
   walletSendContract,

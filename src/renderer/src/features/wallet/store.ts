@@ -31,6 +31,7 @@ interface WalletStore {
   error: string | null
   decryptFailed: boolean
   systemStorageBlocked: boolean
+  hasPersistedWallet: boolean
   weakEncryption: boolean
   isLocked: boolean
   needsPasswordSetup: boolean
@@ -42,7 +43,8 @@ interface WalletStore {
   approvePending402: () => Promise<void>
   rejectPending402: () => Promise<void>
   init: () => Promise<void>
-  create: (options: { password?: string }) => Promise<string[] | null>
+  create: (options: { password?: string; replace?: boolean }) => Promise<string[] | null>
+  reloadPersisted: () => Promise<void>
   discoverAccounts: (mnemonic: string[]) => Promise<WalletAccountCandidate[]>
   importWallet: (
     mnemonic: string[],
@@ -111,6 +113,7 @@ export const useWalletStore = create<WalletStore>((set, get) => {
           balance: state.balance ?? get().balance,
           decryptFailed: state.decryptFailed ?? get().decryptFailed,
           systemStorageBlocked: state.systemStorageBlocked ?? get().systemStorageBlocked,
+          hasPersistedWallet: state.hasPersistedWallet ?? get().hasPersistedWallet,
           weakEncryption: state.weakEncryption ?? get().weakEncryption,
           isLocked: state.isLocked ?? get().isLocked,
           needsPasswordSetup: state.needsPasswordSetup ?? get().needsPasswordSetup,
@@ -138,6 +141,7 @@ export const useWalletStore = create<WalletStore>((set, get) => {
     error: null,
     decryptFailed: false,
     systemStorageBlocked: false,
+    hasPersistedWallet: false,
     weakEncryption: false,
     isLocked: false,
     needsPasswordSetup: false,
@@ -186,6 +190,7 @@ export const useWalletStore = create<WalletStore>((set, get) => {
             balance: state.balance ?? '0',
             decryptFailed: state.decryptFailed ?? false,
             systemStorageBlocked: state.systemStorageBlocked ?? false,
+            hasPersistedWallet: state.hasPersistedWallet ?? false,
             weakEncryption: state.weakEncryption ?? false,
             isLocked: state.isLocked ?? false,
             needsPasswordSetup: state.needsPasswordSetup ?? false,
@@ -205,7 +210,34 @@ export const useWalletStore = create<WalletStore>((set, get) => {
       }
     },
 
-    create: async (options: { password?: string }) => {
+    reloadPersisted: async () => {
+      set({ isLoading: true, error: null })
+      try {
+        const state = await walletClient.reloadPersisted()
+        set({
+          isCreated: state.isCreated ?? false,
+          address: state.address ?? '',
+          addressRaw: state.addressRaw ?? '',
+          publicKey: state.publicKey ?? '',
+          balance: state.balance ?? '0',
+          decryptFailed: state.decryptFailed ?? false,
+          systemStorageBlocked: state.systemStorageBlocked ?? false,
+          hasPersistedWallet: state.hasPersistedWallet ?? false,
+          weakEncryption: state.weakEncryption ?? false,
+          isLocked: state.isLocked ?? false,
+          needsPasswordSetup: state.needsPasswordSetup ?? false,
+          passwordProtected: state.passwordProtected ?? false,
+          backupVerified: state.backupVerified ?? false,
+        })
+      } catch (err) {
+        set({ error: errorMessage(err) })
+        throw err
+      } finally {
+        set({ isLoading: false })
+      }
+    },
+
+    create: async (options: { password?: string; replace?: boolean }) => {
       set({ isLoading: true, error: null })
       try {
         const result = await walletClient.create(options)
@@ -217,6 +249,7 @@ export const useWalletStore = create<WalletStore>((set, get) => {
             publicKey: result.publicKey ?? '',
             balance: result.balance ?? '0',
             systemStorageBlocked: false,
+            hasPersistedWallet: true,
             isLocked: result.isLocked ?? false,
             needsPasswordSetup: result.needsPasswordSetup ?? false,
             passwordProtected: result.passwordProtected ?? false,
@@ -247,6 +280,7 @@ export const useWalletStore = create<WalletStore>((set, get) => {
           balance: result.balance ?? '0',
           decryptFailed: false,
           systemStorageBlocked: false,
+          hasPersistedWallet: true,
           weakEncryption: false,
           isLocked: result.isLocked ?? false,
           needsPasswordSetup: result.needsPasswordSetup ?? false,

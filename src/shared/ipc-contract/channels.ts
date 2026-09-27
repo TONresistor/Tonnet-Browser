@@ -4,6 +4,7 @@ export const WALLET_CONTRACT_CHANNELS = {
   create: 'wallet:create',
   getState: 'wallet:get-state',
   retrySystemStorage: 'wallet:retry-system-storage',
+  reloadPersisted: 'wallet:reload-persisted',
   getBalance: 'wallet:get-balance',
   send: 'wallet:send',
   resolveRecipient: 'wallet:resolve-recipient',

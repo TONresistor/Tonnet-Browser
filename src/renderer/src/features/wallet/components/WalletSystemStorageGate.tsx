@@ -31,10 +31,19 @@ export function WalletSystemStorageGate({
     setPending(true)
     setError(null)
     try {
-      await walletClient.retrySystemStorage()
+      const state = await walletClient.retrySystemStorage()
+      if (state.systemStorageBlocked) {
+        setError(
+          t('systemStorage.retryFailed', {
+            defaultValue:
+              'System secure storage is still unavailable. Unlock your system keyring or continue with your wallet password if prompted next.',
+          })
+        )
+      }
     } catch (retryError) {
-      setPending(false)
       setError(errorMessage(retryError))
+    } finally {
+      setPending(false)
     }
   }
 
@@ -55,7 +64,8 @@ export function WalletSystemStorageGate({
         </p>
         <p className="mt-2 text-xs text-muted-foreground">
           {t('systemStorage.retryDescription', {
-            defaultValue: 'Try again to reopen TON Browser and allow access. Your wallet password comes next.',
+            defaultValue:
+              'Try again to access system secure storage. If it stays unavailable, your wallet password is used instead.',
           })}
         </p>
       </div>
@@ -68,7 +78,7 @@ export function WalletSystemStorageGate({
         onClick={() => void handleRetry()}
       >
         {pending
-          ? t('systemStorage.retrying', { defaultValue: 'Reopening…' })
+          ? t('systemStorage.retrying', { defaultValue: 'Retrying…' })
           : t('systemStorage.retry', { defaultValue: 'Try again' })}
       </ActionButton>
       {error && (

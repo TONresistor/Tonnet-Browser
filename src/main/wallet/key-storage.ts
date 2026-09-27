@@ -5,7 +5,8 @@ import { app } from 'electron'
 import { keyPairFromSeed, mnemonicNew } from '@ton/crypto'
 import { WALLET_FILE_NAME, AUTO_LOCK_DEFAULT_MS } from './constants'
 import type { ISecureStorage } from '../ports/secure-storage'
-import { ElectronSafeStorageAdapter } from '../adapters/electron-secure-storage'
+import { createSecureStorage } from '../adapters/create-secure-storage'
+import { isFallbackSecureStorage } from '../adapters/fallback-secure-storage'
 import { createLogger } from '../../shared/logger'
 import { isEnoent } from '../utils/errors'
 import { writeSecureFileAtomic } from '../utils/secure-fs'
@@ -40,10 +41,14 @@ export class WalletKeyStorage {
   private onLock: (() => void) | null = null
   private passwordProtected = false
 
-  constructor(storage: ISecureStorage = new ElectronSafeStorageAdapter(), basePath?: string) {
+  constructor(storage: ISecureStorage = createSecureStorage(), basePath?: string) {
     this.storage = storage
     const dir = basePath ?? app.getPath('userData')
     this.filePath = join(dir, `${WALLET_FILE_NAME}.dat`)
+  }
+
+  setStorage(storage: ISecureStorage): void {
+    this.storage = storage
   }
 
   get bakPath(): string {
@@ -68,9 +73,8 @@ export class WalletKeyStorage {
   }
 
   private ensureEncryptionAvailable(): void {
-    if (!this.storage.isAvailable()) {
-      throw new Error('Secure storage is not available. Install a keyring (gnome-keyring, kwallet) to use the wallet.')
-    }
+    if (this.storage.isAvailable() || isFallbackSecureStorage(this.storage)) return
+    throw new Error('Secure storage is not available. Install a keyring (gnome-keyring, kwallet) to use the wallet.')
   }
 
   async generateFromMnemonic(password?: string): Promise<{
@@ -538,8 +542,12 @@ export class WalletKeyStorage {
   }
 
   private async storeData(data: StorageData): Promise<void> {
-    this.ensureEncryptionAvailable()
     const json = encodeStorageData(data)
+    if (data.type === 'password' && isFallbackSecureStorage(this.storage)) {
+      await writeSecureFileAtomic(this.filePath, Buffer.from(json, 'utf-8'))
+      return
+    }
+    this.ensureEncryptionAvailable()
     const encrypted = this.storage.encrypt(json)
     const markedBuffer = Buffer.concat([ENCRYPTED_MARKER, encrypted])
     // Atomic + fsync write (tmp -> rename, 0o600): a crash mid-write must never
@@ -557,6 +565,15 @@ export class WalletKeyStorage {
   private async readData(): Promise<StorageData | null> {
     try {
       const buffer = await fs.readFile(this.filePath)
+
+      if (buffer.length > 0 && buffer[0] === 0x7b /* '{' */) {
+        try {
+          return parseStorageData(JSON.parse(buffer.toString('utf-8')))
+        } catch (error) {
+          log.error('Invalid plaintext wallet key document:', error)
+          return null
+        }
+      }
 
       if (buffer.subarray(0, 4).equals(ENCRYPTED_MARKER)) {
         let decrypted: string

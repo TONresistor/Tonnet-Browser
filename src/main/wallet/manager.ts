@@ -10,6 +10,7 @@ import type {
   SignDataResult,
 } from '../tonconnect/types'
 import { WalletKeyStorage, WalletDecryptionError, WalletSystemStorageError } from './key-storage'
+import { createSecureStorage } from '../adapters/create-secure-storage'
 import type { ISecureStorage } from '../ports/secure-storage'
 import { isContractNotDeployedError } from '../ports/ton-bridge'
 import type { BridgeProvider } from '../ports/bridge-provider'
@@ -53,6 +54,7 @@ export class WalletManager extends EventEmitter {
   private initialized: boolean = false
   private decryptFailed: boolean = false
   private systemStorageBlocked: boolean = false
+  private persistedWalletPresent: boolean = false
   private weakEncryption: boolean = false
   private needsPasswordSetup: boolean = false
   private backupVerified: boolean = false
@@ -137,44 +139,9 @@ export class WalletManager extends EventEmitter {
   async init(): Promise<void> {
     if (this.initialized) return
     const startedAt = Date.now()
-    if (await this.keyStorage.exists()) {
-      try {
-        const metadata = await this.keyStorage.inspect()
-        this.passwordProtected = metadata?.passwordProtected ?? false
-        if (metadata?.publicKey) {
-          this.publicKey = Buffer.from(metadata.publicKey)
-          this.walletVersion = metadata.walletVersion
-          this.walletContract = createWalletContract(this.walletVersion, metadata.publicKey)
-          this.backupVerified = metadata.backupVerified
-        } else {
-          this.keypair = await this.keyStorage.load()
-          this.publicKey = Buffer.from(this.keypair.publicKey)
-          this.walletVersion = metadata?.walletVersion ?? 'v5R1'
-          this.walletContract = createWalletContract(this.walletVersion, this.keypair.publicKey)
-          this.backupVerified = metadata?.backupVerified ?? false
-        }
-        this.identity.advance()
-        const walletSettings = getSetting('wallet')
-        this.keyStorage.setAutoLockMinutes(walletSettings.autoLockMinutes)
-        this.weakEncryption = !this.passwordProtected && this.keyStorage.isBasicTextBackend()
-        this.needsPasswordSetup = !this.passwordProtected
-        if (this.needsPasswordSetup) {
-          this.keyStorage.lock()
-          this.keypair = null
-        }
-      } catch (error) {
-        if (error instanceof WalletSystemStorageError) {
-          log.error('System secure storage is unavailable:', error)
-          this.systemStorageBlocked = true
-          this.emit('state-changed', this.getState())
-        } else if (error instanceof WalletDecryptionError) {
-          log.error('Wallet decryption failed (keyring backend may have changed):', error)
-          this.decryptFailed = true
-          this.emit('state-changed', this.getState())
-        } else {
-          log.error('Failed to load wallet:', error)
-        }
-      }
+    this.persistedWalletPresent = await this.keyStorage.exists()
+    if (this.persistedWalletPresent) {
+      await this.loadExistingWallet()
     } else {
       log.info('No wallet found, waiting for creation')
     }
@@ -190,8 +157,8 @@ export class WalletManager extends EventEmitter {
     }
     this.emit('state-changed', this.getState())
   }
-  async create(options: { password?: string }): Promise<WalletState & { mnemonic: string[] }> {
-    const { password } = options
+  async create(options: { password?: string; replace?: boolean }): Promise<WalletState & { mnemonic: string[] }> {
+    const { password, replace = false } = options
     if (!this.initialized) {
       await this.init()
     }
@@ -200,13 +167,18 @@ export class WalletManager extends EventEmitter {
       if (this.keypair || this.publicKey || this.walletContract) {
         throw new Error('Wallet already exists')
       }
-      if (this.decryptFailed) {
+      if (this.decryptFailed && !replace) {
         throw new Error('Recover or explicitly delete the unreadable wallet before creating a new one')
       }
       if (this.systemStorageBlocked) {
         throw new Error('Unlock system secure storage before creating a wallet')
       }
+      if (this.persistedWalletPresent) {
+        if (!replace) throw new Error('Wallet already exists')
+        await this.quarantinePersistedWallet()
+      }
       const { keypair, mnemonic } = await this.keyStorage.generateFromMnemonic(password)
+      this.persistedWalletPresent = true
       this.keypair = keypair
       this.publicKey = Buffer.from(keypair.publicKey)
       this.walletVersion = 'v5R1'
@@ -261,6 +233,7 @@ export class WalletManager extends EventEmitter {
         this.identity.advance()
         this.subscribeAccount()
 
+        this.persistedWalletPresent = true
         const state = this.getState()
         this.emit('state-changed', state)
         log.info('Wallet imported from mnemonic')
@@ -270,6 +243,23 @@ export class WalletManager extends EventEmitter {
       mnemonic.fill('')
       ;(mnemonic as string[]).length = 0
     }
+  }
+
+  async reloadPersistedWallet(): Promise<WalletState> {
+    return this.runExclusive(async () => {
+      this.persistedWalletPresent = await this.keyStorage.exists()
+      if (!this.persistedWalletPresent) {
+        const state = this.getState()
+        this.emit('state-changed', state)
+        return state
+      }
+      this.systemStorageBlocked = false
+      this.decryptFailed = false
+      await this.loadExistingWallet()
+      const state = this.getState()
+      this.emit('state-changed', state)
+      return state
+    })
   }
 
   async authenticatePassword(password: string): Promise<void> {
@@ -346,6 +336,25 @@ export class WalletManager extends EventEmitter {
       return this.unlockUnlocked(nextPassword)
     })
   }
+
+  /**
+   * Re-probe OS secure storage without relaunching the app. Falls back to local
+   * persistence when the keychain remains unavailable.
+   */
+  async retrySystemStorageAccess(): Promise<WalletState> {
+    return this.runExclusive(async () => {
+      this.keyStorage.setStorage(createSecureStorage())
+      this.systemStorageBlocked = false
+      this.decryptFailed = false
+      if (await this.keyStorage.exists()) {
+        await this.loadExistingWallet()
+      }
+      const state = this.getState()
+      this.emit('state-changed', state)
+      return state
+    })
+  }
+
   getState(): WalletState {
     return buildWalletState({
       publicKey: this.publicKey,
@@ -354,6 +363,7 @@ export class WalletManager extends EventEmitter {
       isLocked: this.keyStorage.isLocked(),
       decryptFailed: this.decryptFailed,
       systemStorageBlocked: this.systemStorageBlocked,
+      hasPersistedWallet: this.persistedWalletPresent,
       weakEncryption: this.weakEncryption,
       needsPasswordSetup: this.needsPasswordSetup,
       passwordProtected: this.passwordProtected,
@@ -361,6 +371,44 @@ export class WalletManager extends EventEmitter {
       walletVersion: this.walletVersion,
     })
   }
+  private async loadExistingWallet(): Promise<void> {
+    try {
+      const metadata = await this.keyStorage.inspect()
+      this.passwordProtected = metadata?.passwordProtected ?? false
+      if (metadata?.publicKey) {
+        this.publicKey = Buffer.from(metadata.publicKey)
+        this.walletVersion = metadata.walletVersion
+        this.walletContract = createWalletContract(this.walletVersion, metadata.publicKey)
+        this.backupVerified = metadata.backupVerified
+      } else {
+        this.keypair = await this.keyStorage.load()
+        this.publicKey = Buffer.from(this.keypair.publicKey)
+        this.walletVersion = metadata?.walletVersion ?? 'v5R1'
+        this.walletContract = createWalletContract(this.walletVersion, this.keypair.publicKey)
+        this.backupVerified = metadata?.backupVerified ?? false
+      }
+      this.identity.advance()
+      const walletSettings = getSetting('wallet')
+      this.keyStorage.setAutoLockMinutes(walletSettings.autoLockMinutes)
+      this.weakEncryption = !this.passwordProtected && this.keyStorage.isBasicTextBackend()
+      this.needsPasswordSetup = !this.passwordProtected
+      if (this.needsPasswordSetup) {
+        this.keyStorage.lock()
+        this.keypair = null
+      }
+    } catch (error) {
+      if (error instanceof WalletSystemStorageError) {
+        log.error('System secure storage is unavailable:', error)
+        this.systemStorageBlocked = true
+      } else if (error instanceof WalletDecryptionError) {
+        log.error('Wallet decryption failed (keyring backend may have changed):', error)
+        this.decryptFailed = true
+      } else {
+        log.error('Failed to load wallet:', error)
+      }
+    }
+  }
+
   private resetWalletAfterRemoval(): WalletState {
     wipeKeypair(this.keypair)
     wipePublicKey(this.publicKey)
@@ -371,6 +419,7 @@ export class WalletManager extends EventEmitter {
     this.runtime.resetAccount()
     this.decryptFailed = false
     this.systemStorageBlocked = false
+    this.persistedWalletPresent = false
     this.weakEncryption = false
     this.needsPasswordSetup = false
     this.backupVerified = false
@@ -380,6 +429,24 @@ export class WalletManager extends EventEmitter {
     this.emit('state-changed', state)
     return state
   }
+
+  private async quarantinePersistedWallet(): Promise<void> {
+    const fingerprint = await this.keyStorage.getStorageFingerprint()
+    if (fingerprint) {
+      await this.keyStorage.quarantine(fingerprint)
+    } else {
+      await this.keyStorage.deleteFile()
+    }
+    wipeKeypair(this.keypair)
+    wipePublicKey(this.publicKey)
+    this.keypair = null
+    this.publicKey = null
+    this.walletContract = null
+    this.decryptFailed = false
+    this.systemStorageBlocked = false
+    this.persistedWalletPresent = false
+  }
+
   async getBalance(expectedIdentity?: WalletIdentitySnapshot): Promise<string> {
     if (expectedIdentity) this.assertWalletIdentity(expectedIdentity)
     const address = this.walletContract?.address.toString() ?? null
@@ -440,26 +507,22 @@ export class WalletManager extends EventEmitter {
   }
 
   async encryptData(payload: EncryptDataPayloadInput, expectedAddress?: string): Promise<string> {
-    return this.runExclusive(async () => {
-      this.accountService.assertTonConnectAccount(expectedAddress)
-      const identity = this.getIdentitySnapshot()
-      if (!identity) throw new Error('Wallet identity is unavailable')
-      const peerPublicKey = Buffer.from(payload.recipientPublicKey, 'hex')
-      if (peerPublicKey.length !== 32) throw new Error('Invalid recipient public key')
-      const plaintext = Buffer.from(payload.bytes, 'base64')
-      return this.encryptionService.encryptTonConnectPayload(plaintext, peerPublicKey, identity)
-    })
+    this.accountService.assertTonConnectAccount(expectedAddress)
+    const identity = this.getIdentitySnapshot()
+    if (!identity) throw new Error('Wallet identity is unavailable')
+    const peerPublicKey = Buffer.from(payload.recipientPublicKey, 'hex')
+    if (peerPublicKey.length !== 32) throw new Error('Invalid recipient public key')
+    const plaintext = Buffer.from(payload.bytes, 'base64')
+    return this.encryptionService.encryptTonConnectPayload(plaintext, peerPublicKey, identity)
   }
 
   async decryptData(payload: DecryptDataPayloadInput, expectedAddress?: string): Promise<string> {
-    return this.runExclusive(async () => {
-      this.accountService.assertTonConnectAccount(expectedAddress)
-      const identity = this.getIdentitySnapshot()
-      if (!identity) throw new Error('Wallet identity is unavailable')
-      const envelope = Buffer.from(payload.encrypted, 'base64')
-      const plaintext = await this.encryptionService.decryptTonConnectPayload(envelope, payload.salt, identity)
-      return plaintext.toString('base64')
-    })
+    this.accountService.assertTonConnectAccount(expectedAddress)
+    const identity = this.getIdentitySnapshot()
+    if (!identity) throw new Error('Wallet identity is unavailable')
+    const envelope = Buffer.from(payload.encrypted, 'base64')
+    const plaintext = await this.encryptionService.decryptTonConnectPayload(envelope, payload.salt, identity)
+    return plaintext.toString('base64')
   }
 
   private async signWithKeyUnlocked<T>(fn: (secretKey: Buffer) => T): Promise<T> {
@@ -491,6 +554,7 @@ export class WalletManager extends EventEmitter {
     })
   }
 
+  /** Serializes wallet mutations. Not reentrant — do not call from inside another runExclusive. */
   private runExclusive<T>(operation: () => T | Promise<T>): Promise<T> {
     const result = this.operationTail.then(operation)
     this.operationTail = result.then(
