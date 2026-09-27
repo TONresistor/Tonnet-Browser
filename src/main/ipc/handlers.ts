@@ -22,6 +22,7 @@ import {
   registerTonConnectHandlers,
   registerCocoonHandlers,
   registerChatHandlers,
+  registerZkResistorHandlers,
 } from './handlers/index'
 import { withIpcRegistrationScope } from './contract-handler'
 import { initUpdater } from '../updater'
@@ -60,6 +61,7 @@ export function registerIpcHandlers(registry: ServiceRegistry): void {
     registerTonConnectHandlers(registry)
     registerCocoonHandlers(registry)
     registerChatHandlers(registry)
+    registerZkResistorHandlers(registry)
     initUpdater()
   })
 }

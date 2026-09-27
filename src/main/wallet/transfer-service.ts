@@ -143,6 +143,32 @@ export class WalletTransferService {
       })
     })
   }
+
+  preflightContractMessage(
+    to: string,
+    amount: string,
+    body: Cell,
+    expectedIdentity: WalletIdentitySnapshot
+  ): Promise<TransferPreflightResult> {
+    return this.context.withPreflightState(expectedIdentity, async (walletContract, seqno) => {
+      const destination = Address.parse(to)
+      const destinationAddress = destination.toString({ bounceable: false })
+      const walletAddress = walletContract.address.toString({ bounceable: false })
+      const [destinationState, wallet] = await Promise.all([
+        this.context.getAccountInformation(destinationAddress),
+        this.context.getAccountInformation(walletAddress),
+      ])
+      return preflightTonTransfer({
+        walletContract,
+        destinationBounceable: true,
+        destinationStatus: destinationState.status,
+        walletBalance: wallet.balance,
+        message: internal({ to: destination, value: BigInt(amount), bounce: true, body }),
+        seqno,
+        emulateTransaction: (address, boc) => this.context.emulateTransaction(address, boc),
+      })
+    })
+  }
 }
 
 function toInternalMessage(message: TonConnectOutMessage): MessageRelaxed {

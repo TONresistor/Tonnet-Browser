@@ -255,6 +255,11 @@
     "syncTestDomain": "Sync-Test-Domain",
     "syncTestDomainDesc": "Domain zur Überprüfung der DHT-Synchronisation",
     "experimental": {
+      "zkResistorDownloading": "ZKR-Ressourcen werden heruntergeladen (~28 MB): {{percent}} %",
+      "zkResistorDownloadFailed": "ZKR-Ressourcen konnten nicht heruntergeladen oder geprüft werden.",
+      "zkResistorRetry": "Erneut versuchen",
+      "zkResistor": "ZKResistor",
+      "zkResistorDesc": "GRAM-Privatsphäre-Pools unter ton://zkr aktivieren.",
       "title": "Experimentelle Funktionen",
       "unicodeDomains": "Unicode-Domains (IDN)",
       "unicodeDomainsDesc": "Russische, Emoji- und andere internationale Domains anstelle von xn-- Punycode anzeigen. Beim Bearbeiten wird der Punycode angezeigt.",

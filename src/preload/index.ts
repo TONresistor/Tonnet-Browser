@@ -164,6 +164,15 @@ import type {
   cocoonWalletMarkSetupCompleteContract,
 } from '../shared/ipc-contract/cocoon'
 import type { updaterCheckContract, updaterOpenDownloadPageContract } from '../shared/ipc-contract/updater'
+import type {
+  zkResistorAccountContract,
+  zkResistorCatalogContract,
+  zkResistorMerkleContract,
+  zkResistorResourceContract,
+  zkResistorResourceStatusContract,
+  zkResistorPrepareResourcesContract,
+  zkResistorSendContract,
+} from '../shared/ipc-contract/zkresistor'
 import { IpcClientError, isIpcFailure } from '../shared/ipc-failure'
 
 export { IpcClientError } from '../shared/ipc-failure'
@@ -369,6 +378,22 @@ const electronAPI = {
       ),
     setSensitiveDisplay: (active: boolean) =>
       invokeChannel<typeof walletSensitiveDisplayContract>(IPC_CHANNELS.WALLET_SENSITIVE_DISPLAY, active),
+  },
+
+  zkresistor: {
+    resourceStatus: () =>
+      invokeChannel<typeof zkResistorResourceStatusContract>(IPC_CHANNELS.ZKRESISTOR_RESOURCE_STATUS),
+    prepareResources: () =>
+      invokeChannel<typeof zkResistorPrepareResourcesContract>(IPC_CHANNELS.ZKRESISTOR_PREPARE_RESOURCES),
+    catalog: () => invokeChannel<typeof zkResistorCatalogContract>(IPC_CHANNELS.ZKRESISTOR_CATALOG),
+    account: (...args: RequestArgs<typeof zkResistorAccountContract>) =>
+      invokeChannel<typeof zkResistorAccountContract>(IPC_CHANNELS.ZKRESISTOR_ACCOUNT, ...args),
+    merkle: (...args: RequestArgs<typeof zkResistorMerkleContract>) =>
+      invokeChannel<typeof zkResistorMerkleContract>(IPC_CHANNELS.ZKRESISTOR_MERKLE, ...args),
+    resource: (...args: RequestArgs<typeof zkResistorResourceContract>) =>
+      invokeChannel<typeof zkResistorResourceContract>(IPC_CHANNELS.ZKRESISTOR_RESOURCE, ...args),
+    send: (...args: RequestArgs<typeof zkResistorSendContract>) =>
+      invokeChannel<typeof zkResistorSendContract>(IPC_CHANNELS.ZKRESISTOR_SEND, ...args),
   },
 
   // Bridge

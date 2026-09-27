@@ -1,3 +1,4 @@
+import { usePrepareZkResistorResources } from '@/features/zkresistor/resources-store'
 /**
  * Main application component.
  * Browser chrome with tabs, navigation, and content area.
@@ -41,6 +42,7 @@ import { TON_WALLET_PAGE, WALLET_SYSTEM_STORAGE_RETRY_TOKEN } from '@shared/cons
 const log = createLogger('app')
 
 function App() {
+  usePrepareZkResistorResources()
   const { t } = useTranslation('common')
   const currentUrl = useBrowserStore((s) => s.currentUrl)
   const proxyConnected = useBrowserStore((s) => s.proxyConnected)

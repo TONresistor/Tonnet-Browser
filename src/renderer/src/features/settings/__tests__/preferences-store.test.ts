@@ -133,4 +133,20 @@ describe('preferences store', () => {
     expect(usePreferencesStore.getState().saved.tonConnectEnabled).toBe(true)
     expect(usePreferencesStore.getState().hasChanges).toBe(false)
   })
+  it('defaults ZKResistor to disabled and persists its experimental setting', async () => {
+    expect(AppSettingsSchema.parse({}).advanced.zkResistorEnabled).toBe(false)
+    mocks.apply.mockResolvedValueOnce(AppSettingsSchema.parse({ advanced: { zkResistorEnabled: true } }))
+    const { defaultPreferences, usePreferencesStore } = await import('../preferences-store')
+    expect(defaultPreferences.zkResistorEnabled).toBe(false)
+    usePreferencesStore.setState({
+      saved: { ...defaultPreferences },
+      draft: { ...defaultPreferences, zkResistorEnabled: true },
+      isLoaded: true,
+      hasChanges: true,
+      isSaving: false,
+    })
+    await usePreferencesStore.getState().save()
+    expect(mocks.apply).toHaveBeenCalledWith({ advanced: { zkResistorEnabled: true } })
+    expect(usePreferencesStore.getState().saved.zkResistorEnabled).toBe(true)
+  })
 })

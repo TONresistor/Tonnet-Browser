@@ -255,6 +255,11 @@
     "syncTestDomain": "Domínio de teste de sincronização",
     "syncTestDomainDesc": "Domínio usado para verificar sincronização DHT",
     "experimental": {
+      "zkResistorDownloading": "A transferir recursos ZKR (~28 MB): {{percent}}%",
+      "zkResistorDownloadFailed": "Não foi possível transferir ou verificar os recursos ZKR.",
+      "zkResistorRetry": "Tentar novamente",
+      "zkResistor": "ZKResistor",
+      "zkResistorDesc": "Ativar pools de privacidade GRAM em ton://zkr.",
       "title": "Recursos experimentais",
       "unicodeDomains": "Domínios Unicode (IDN)",
       "unicodeDomainsDesc": "Exibe domínios russos, com emojis e outros domínios internacionais em vez do Punycode xn--. O Punycode é exibido durante a edição.",

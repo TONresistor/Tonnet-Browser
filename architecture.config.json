@@ -219,6 +219,11 @@
       ]
     },
     {
+      "id": "zkresistor-must-use-ton-bridge-port",
+      "from": ["src/main/zkresistor"],
+      "to": ["src/main/ton-bridge/runtime.ts", "src/main/ton-bridge/ws-bridge-client.ts"]
+    },
+    {
       "id": "proxy-startup-must-not-own-window-scope",
       "from": ["src/main/proxy/startup.ts"],
       "to": ["src/main/windows"]

@@ -64,6 +64,7 @@ export class WalletManager extends EventEmitter {
   readonly send: WalletTransferService['send']
   readonly signTransfer: WalletTransferService['signTransfer']
   readonly preflightTransfer: WalletTransferService['preflightTransfer']
+  readonly preflightContractMessage: WalletTransferService['preflightContractMessage']
   readonly prepareEncryptedComment: WalletTransferService['prepareEncryptedComment']
   constructor(
     secureStorage?: ISecureStorage,
@@ -121,6 +122,7 @@ export class WalletManager extends EventEmitter {
     this.send = this.transferService.send.bind(this.transferService)
     this.signTransfer = this.transferService.signTransfer.bind(this.transferService)
     this.preflightTransfer = this.transferService.preflightTransfer.bind(this.transferService)
+    this.preflightContractMessage = this.transferService.preflightContractMessage.bind(this.transferService)
     this.prepareEncryptedComment = this.transferService.prepareEncryptedComment.bind(this.transferService)
     this.accountService = new WalletAccountService({
       getPublicKey: () => this.publicKey,

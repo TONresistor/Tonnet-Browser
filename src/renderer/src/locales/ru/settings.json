@@ -255,6 +255,11 @@
     "syncTestDomain": "Домен проверки синхронизации",
     "syncTestDomainDesc": "Домен для проверки синхронизации DHT",
     "experimental": {
+      "zkResistorDownloading": "Загрузка ресурсов ZKR (~28 МБ): {{percent}}%",
+      "zkResistorDownloadFailed": "Не удалось загрузить или проверить ресурсы ZKR.",
+      "zkResistorRetry": "Повторить",
+      "zkResistor": "ZKResistor",
+      "zkResistorDesc": "Включить пулы конфиденциальности GRAM на ton://zkr.",
       "title": "Экспериментальные функции",
       "unicodeDomains": "Unicode-домены (IDN)",
       "unicodeDomainsDesc": "Показывать русские, emoji и другие международные домены вместо Punycode xn--. При редактировании отображается Punycode.",

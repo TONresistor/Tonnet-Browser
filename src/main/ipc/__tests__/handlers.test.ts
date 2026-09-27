@@ -228,6 +228,9 @@ vi.mock('../../cocoon/platform', () => ({
 import { registerIpcHandlers, _resetHandlersForTesting } from '../handlers'
 import { IPC_CHANNELS } from '../../../shared/ipc-channels'
 import { getSetting, SettingsRuntimeApplyError } from '../../settings'
+import { TonIndexerDisabledError } from '../../indexer/client'
+import { ZkResistorStateService } from '../../zkresistor/state-service'
+import { getZkResistorResources } from '../../zkresistor/resources'
 import type { ServiceRegistry } from '../../services'
 import { DisposableStore } from '../../utils/disposable'
 import { generateCocoonWallet, loadCocoonWallet, markSetupComplete } from '../../cocoon/wallet'
@@ -327,6 +330,7 @@ function createMockRegistry(): ServiceRegistry {
       wallet: { getBridge: vi.fn(() => null), onBridgeChanged: vi.fn() },
       ton: { getBridge: vi.fn(() => null), onBridgeChanged: vi.fn() },
       messenger: { getBridge: vi.fn(() => null), onBridgeChanged: vi.fn() },
+      zkResistor: { getBridge: vi.fn(() => null), onBridgeChanged: vi.fn() },
     } as any,
     walletHistoryManager: {
       add: vi.fn(),
@@ -1684,5 +1688,63 @@ describe('Cocoon AI Handlers', () => {
         error: { code: 'BRIDGE_DISCONNECTED', message: 'Bridge not connected', retryable: false },
       })
     })
+  })
+})
+
+describe('ZKResistor experimental gate', () => {
+  beforeEach(resetHandlersTestEnv)
+
+  it.each([
+    [IPC_CHANNELS.ZKRESISTOR_CATALOG, []],
+    [IPC_CHANNELS.ZKRESISTOR_RESOURCE_STATUS, []],
+    [IPC_CHANNELS.ZKRESISTOR_PREPARE_RESOURCES, []],
+    [IPC_CHANNELS.ZKRESISTOR_ACCOUNT, ['EQ-pool']],
+    [IPC_CHANNELS.ZKRESISTOR_MERKLE, [{ operation: 'checkpoint', poolAddress: 'EQ-pool' }]],
+    [IPC_CHANNELS.ZKRESISTOR_RESOURCE, [{ kind: 'circuit', name: 'hasher.wasm' }]],
+    [
+      IPC_CHANNELS.ZKRESISTOR_SEND,
+      [{ operation: 'deposit', poolAddress: 'EQ-pool', value: '1', payload: 'te6ccgEBAQEAAgAAAA==' }],
+    ],
+  ] as const)('rejects %s while disabled', async (channel, args) => {
+    vi.mocked(getSetting).mockReturnValue({ zkResistorEnabled: false } as never)
+    const result = await mockHandlers.get(channel)!(createMockEvent(), ...args)
+    expect(result).toMatchObject({ ok: false, error: { code: 'FEATURE_DISABLED' } })
+  })
+
+  it('allows the catalog handler to reach the bridge when enabled', async () => {
+    vi.mocked(getSetting).mockReturnValue({ zkResistorEnabled: true } as never)
+    const result = await mockHandlers.get(IPC_CHANNELS.ZKRESISTOR_CATALOG)!(createMockEvent())
+    expect(result).toMatchObject({ ok: false, error: { code: 'BRIDGE_DISCONNECTED' } })
+  })
+})
+
+describe('ZKResistor history configuration', () => {
+  beforeEach(resetHandlersTestEnv)
+
+  it('explains that the configured indexer must be enabled', async () => {
+    vi.mocked(getSetting).mockReturnValue({ zkResistorEnabled: true } as never)
+    vi.mocked(mockRegistry.tonBridgeProviders.zkResistor.getBridge).mockReturnValue({} as never)
+    const merkle = vi
+      .spyOn(ZkResistorStateService.prototype, 'merkle')
+      .mockRejectedValueOnce(new TonIndexerDisabledError())
+    const resourceStatus = vi
+      .spyOn(getZkResistorResources(), 'status')
+      .mockReturnValue({ status: 'ready', receivedBytes: 1, totalBytes: 1, error: null })
+    try {
+      const result = await mockHandlers.get(IPC_CHANNELS.ZKRESISTOR_MERKLE)!(createMockEvent(), {
+        operation: 'checkpoint',
+        poolAddress: `0:${'11'.repeat(32)}`,
+      })
+      expect(result).toMatchObject({
+        ok: false,
+        error: {
+          code: 'ZKRESISTOR_INDEXER_REQUIRED',
+          message: 'Enable the HTTP indexer in Settings > Wallet to use ZKResistor',
+        },
+      })
+    } finally {
+      merkle.mockRestore()
+      resourceStatus.mockRestore()
+    }
   })
 })

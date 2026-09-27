@@ -48,12 +48,14 @@ import type { TonBridgePort } from './ports/ton-bridge'
 import type { WalletBridgePort } from './wallet/bridge-port'
 import { MessengerClientManager } from './messenger/client-manager'
 import { createLogger } from '../shared/logger'
+import type { ZkResistorBridgePort } from './ports/zkresistor-bridge'
 
 const log = createLogger('services')
 
 export interface TonBridgeProviders {
   wallet: BridgeProvider<WalletBridgePort>
   ton: BridgeProvider<TonBridgePort>
+  zkResistor: BridgeProvider<ZkResistorBridgePort>
 }
 
 export interface ServiceRegistry {
@@ -117,6 +119,7 @@ export function createServices(): ServiceRegistry {
   const tonBridgeProviders: TonBridgeProviders = {
     wallet: mapBridgeProvider(tonBridgeRuntime, (bridge): WalletBridgePort => bridge),
     ton: mapBridgeProvider(tonBridgeRuntime, (bridge): TonBridgePort => bridge),
+    zkResistor: mapBridgeProvider(tonBridgeRuntime, (bridge): ZkResistorBridgePort => bridge),
   }
   const tonBridgeCoordinator = new TonBridgeCoordinator(proxyManager, tonBridgeRuntime, bridgeInterceptor)
   const paymentPolicyStore = new PaymentPolicyStore()

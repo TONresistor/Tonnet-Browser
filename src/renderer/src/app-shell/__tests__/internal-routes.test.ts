@@ -33,6 +33,22 @@ describe('internal route registry', () => {
     expect(getInternalPageFavicon('ton://theme')).toBeTruthy()
   })
 
+  it('registers the ZKResistor page', () => {
+    expect(resolveInternalRoute('ton://zkr')).toEqual({ kind: 'zkresistor', view: 'zkresistor' })
+    expect(getInternalPageTitle('ton://zkr')).toBe('ZKResistor')
+    expect(getInternalPageFavicon('ton://zkr')).toBeTruthy()
+  })
+
+  it('resolves dedicated ZKResistor pool pages', () => {
+    expect(resolveInternalRoute('ton://zkr/pool/EQ-pool')).toEqual({
+      kind: 'zkresistor-pool',
+      view: 'zkresistor-pool',
+      poolAddress: 'EQ-pool',
+    })
+    expect(getInternalPageTitle('ton://zkr/pool/EQ-pool')).toBe('ZKResistor Pool')
+    expect(getInternalPageFavicon('ton://zkr/pool/EQ-pool')).toBeTruthy()
+  })
+
   it('parses storage browse and viewer parameters', () => {
     expect(resolveInternalRoute('ton://storage/browse/bag-id')).toEqual({
       kind: 'storage-browse',
@@ -58,6 +74,8 @@ describe('internal route registry', () => {
   })
 
   it('uses the stable fallback for unknown and malformed internal routes', () => {
+    expect(resolveInternalRoute('ton://zkresistor')).toEqual({ kind: 'fallback', view: 'start' })
+    expect(resolveInternalRoute('ton://zkresistor/pool/EQ-pool')).toEqual({ kind: 'fallback', view: 'start' })
     expect(resolveInternalRoute('ton://unknown')).toEqual({ kind: 'fallback', view: 'start' })
     expect(resolveInternalRoute('ton://storage/view/missing-file')).toEqual({ kind: 'fallback', view: 'start' })
     expect(getInternalPageTitle('ton://unknown')).toBe('TON Browser')

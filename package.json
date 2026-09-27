@@ -19,7 +19,9 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
+    "predev": "npm run verify:zkresistor-resources",
     "dev": "electron-vite dev",
+    "prebuild": "npm run verify:zkresistor-resources",
     "build": "electron-vite build",
     "lint": "eslint src \"scripts/*.mjs\" electron.vite.config.ts vitest.config.ts",
     "lint:fix": "eslint src \"scripts/*.mjs\" electron.vite.config.ts vitest.config.ts --fix",
@@ -28,6 +30,7 @@
     "architecture": "node scripts/check-architecture.mjs",
     "verify:theme-tokens": "node scripts/check-theme-tokens.mjs",
     "verify:release-metadata": "node scripts/verify-release-metadata.mjs",
+    "verify:zkresistor-resources": "node scripts/verify-zkresistor-resources.mjs",
     "generate:sbom": "npm sbom --sbom-format cyclonedx",
     "generate:provenance": "node scripts/generate-build-provenance.mjs",
     "type-check": "tsc --noEmit && tsc -p tsconfig.main.json --noEmit && tsc -p tsconfig.preload.json --noEmit && tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.test.json --noEmit",
@@ -67,6 +70,8 @@
     "@ton/core": "0.63.1",
     "@ton/crypto": "3.3.0",
     "@ton/ton": "16.3.0",
+    "@tonresistor/zkresistor-sdk": "2.0.1",
+    "buffer": "^6.0.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "electron-log": "^5.4.3",
@@ -86,6 +91,7 @@
     "zustand": "^5.0.12"
   },
   "overrides": {
+    "bfj": "9.1.3",
     "@ton/ton": {
       "axios": ">=1.16.0"
     }

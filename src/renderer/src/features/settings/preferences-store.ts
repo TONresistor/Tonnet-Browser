@@ -61,6 +61,7 @@ export interface AppPreferences {
   storageVerbosity: number
   displayUnicodeDomains: boolean
   tonConnectEnabled: boolean
+  zkResistorEnabled: boolean
 
   // Cocoon AI
   cocoonAutostart: boolean
@@ -132,6 +133,7 @@ export const defaultPreferences: AppPreferences = {
   storageVerbosity: DEFAULT_SETTINGS.storageVerbosity,
   displayUnicodeDomains: DEFAULT_SETTINGS.displayUnicodeDomains,
   tonConnectEnabled: DEFAULT_SETTINGS.tonConnectEnabled,
+  zkResistorEnabled: DEFAULT_SETTINGS.zkResistorEnabled,
 
   // Cocoon AI
   cocoonAutostart: DEFAULT_SETTINGS.cocoon.autostart,
@@ -182,6 +184,7 @@ const prefToCategory: Record<keyof AppPreferences, PreferenceMapping> = {
   storageVerbosity: { category: 'advanced', field: 'storageVerbosity' },
   displayUnicodeDomains: { category: 'advanced', field: 'displayUnicodeDomains' },
   tonConnectEnabled: { category: 'advanced', field: 'tonConnectEnabled' },
+  zkResistorEnabled: { category: 'advanced', field: 'zkResistorEnabled' },
   cocoonAutostart: { category: 'cocoon', field: 'autostart' },
   messengerAutostart: { category: 'messenger', field: 'autostart' },
 }

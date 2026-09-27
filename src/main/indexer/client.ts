@@ -18,7 +18,7 @@ export const TonIndexerMessageSchema = z
   .object({
     source: z.string().nullable().optional(),
     destination: z.string().nullable().optional(),
-    value: DecimalStringSchema.optional(),
+    value: DecimalStringSchema.nullable().optional(),
     created_lt: DecimalStringSchema.optional(),
     message_content: TonIndexerMessageContentSchema.nullable().optional(),
   })

@@ -29,6 +29,8 @@ export const AccountBalanceResultSchema = z.object({
 export const AccountInformationResultSchema: z.ZodType<AccountInformationResult> = z.object({
   balance: z.string().regex(/^\d+$/),
   status: z.enum(['active', 'uninit', 'frozen']),
+  code: z.string().optional(),
+  data: z.string().optional(),
 })
 
 const EmulationFeesSchema = z.object({

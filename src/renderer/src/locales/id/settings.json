@@ -255,6 +255,11 @@
     "syncTestDomain": "Domain tes sinkronisasi",
     "syncTestDomainDesc": "Domain yang digunakan untuk memverifikasi sinkronisasi DHT",
     "experimental": {
+      "zkResistorDownloading": "Mengunduh sumber daya ZKR (~28 MB): {{percent}}%",
+      "zkResistorDownloadFailed": "Sumber daya ZKR tidak dapat diunduh atau diverifikasi.",
+      "zkResistorRetry": "Coba lagi",
+      "zkResistor": "ZKResistor",
+      "zkResistorDesc": "Aktifkan pool privasi GRAM di ton://zkr.",
       "title": "Fitur eksperimental",
       "unicodeDomains": "Domain Unicode (IDN)",
       "unicodeDomainsDesc": "Tampilkan domain Rusia, emoji, dan domain internasional lainnya sebagai pengganti Punycode xn--. Punycode ditampilkan saat pengeditan.",

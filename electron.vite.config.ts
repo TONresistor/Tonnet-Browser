@@ -53,6 +53,9 @@ export default defineConfig({
   },
   renderer: {
     root: resolve(__dirname, 'src/renderer'),
+    optimizeDeps: {
+      include: ['@ton/core', '@tonresistor/zkresistor-sdk', 'buffer'],
+    },
     build: {
       chunkSizeWarningLimit: 1500,
       rollupOptions: {

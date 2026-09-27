@@ -255,6 +255,11 @@
     "syncTestDomain": "โดเมนทดสอบการซิงค์",
     "syncTestDomainDesc": "โดเมนที่ใช้ตรวจสอบการซิงค์ DHT",
     "experimental": {
+      "zkResistorDownloading": "กำลังดาวน์โหลดทรัพยากร ZKR (~28 MB): {{percent}}%",
+      "zkResistorDownloadFailed": "ไม่สามารถดาวน์โหลดหรือตรวจสอบทรัพยากร ZKR ได้",
+      "zkResistorRetry": "ลองอีกครั้ง",
+      "zkResistor": "ZKResistor",
+      "zkResistorDesc": "เปิดใช้งานพูลความเป็นส่วนตัว GRAM ที่ ton://zkr",
       "title": "ฟีเจอร์ทดลอง",
       "unicodeDomains": "โดเมน Unicode (IDN)",
       "unicodeDomainsDesc": "แสดงโดเมนภาษารัสเซีย อีโมจิ และโดเมนสากลอื่นๆ แทน Punycode xn-- โดยจะแสดง Punycode ขณะแก้ไข",

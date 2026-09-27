@@ -1,6 +1,8 @@
 export interface AccountInformationResult {
   balance: string
   status: 'active' | 'uninit' | 'frozen'
+  code?: string
+  data?: string
 }
 
 export interface EmulateTransactionResult {

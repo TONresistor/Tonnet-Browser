@@ -432,6 +432,11 @@
     "copyDiagnostics": "Copy report",
     "diagnosticsCopied": "Copied",
     "experimental": {
+      "zkResistorDownloading": "Downloading ZKR resources (~28 MB): {{percent}}%",
+      "zkResistorDownloadFailed": "Unable to download or verify ZKR resources.",
+      "zkResistorRetry": "Retry",
+      "zkResistor": "ZKResistor",
+      "zkResistorDesc": "Enable GRAM privacy pools at ton://zkr.",
       "title": "Experimental features",
       "messenger": "Start Messenger with Browser",
       "messengerDesc": "Start the Messenger client automatically when Browser opens.",

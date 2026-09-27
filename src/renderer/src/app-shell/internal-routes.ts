@@ -7,6 +7,7 @@ import messengerIcon from '@/assets/messenger.svg'
 import settingsIcon from '@/assets/settings.svg'
 import storageIcon from '@/assets/storage.svg'
 import walletIcon from '@/assets/wallet.svg'
+import zkResistorIcon from '@/assets/zkresistor.svg'
 import themeIcon from '@/assets/appearance.svg'
 
 export type InternalRouteView =
@@ -23,6 +24,8 @@ export type InternalRouteView =
   | 'dns'
   | 'chat'
   | 'cocoon'
+  | 'zkresistor'
+  | 'zkresistor-pool'
 
 export type InternalRoute =
   | { kind: 'start'; view: 'start' }
@@ -38,10 +41,15 @@ export type InternalRoute =
   | { kind: 'dns'; view: 'dns' }
   | { kind: 'chat'; view: 'chat' }
   | { kind: 'cocoon'; view: 'cocoon' }
+  | { kind: 'zkresistor'; view: 'zkresistor' }
+  | { kind: 'zkresistor-pool'; view: 'zkresistor-pool'; poolAddress: string }
   | { kind: 'loading'; view: 'loading' }
   | { kind: 'fallback'; view: 'start' }
 
-type StaticRouteKind = Exclude<InternalRoute['kind'], 'storage-browse' | 'storage-view' | 'storage-file' | 'fallback'>
+type StaticRouteKind = Exclude<
+  InternalRoute['kind'],
+  'storage-browse' | 'storage-view' | 'storage-file' | 'zkresistor-pool' | 'fallback'
+>
 
 interface RouteMetadata {
   kind: StaticRouteKind
@@ -81,6 +89,12 @@ const routes = {
     view: 'cocoon',
     title: () => i18n.t('tooltips.cocoon', { ns: 'common' }),
     favicon: cocoonIcon,
+  },
+  zkr: {
+    kind: 'zkresistor',
+    view: 'zkresistor',
+    title: () => 'ZKResistor',
+    favicon: zkResistorIcon,
   },
   chat: { kind: 'chat', view: 'chat', title: () => 'Messenger', favicon: messengerIcon },
   bookmarks: {
@@ -129,6 +143,16 @@ export function resolveInternalRoute(url: string): InternalRoute | null {
   }
 
   if (path.startsWith('storage/file/')) return { kind: 'storage-file', view: 'loading' }
+  if (path.startsWith('zkr/pool/')) {
+    const encodedAddress = path.slice('zkr/pool/'.length)
+    if (encodedAddress) {
+      try {
+        return { kind: 'zkresistor-pool', view: 'zkresistor-pool', poolAddress: decodeURIComponent(encodedAddress) }
+      } catch {
+        return { kind: 'fallback', view: 'start' }
+      }
+    }
+  }
   return { kind: 'fallback', view: 'start' }
 }
 
@@ -138,6 +162,7 @@ export function getInternalPageTitle(url: string): string | null {
   if (route.kind === 'storage-browse' || route.kind === 'storage-view' || route.kind === 'storage-file') {
     return routes.storage.title()
   }
+  if (route.kind === 'zkresistor-pool') return 'ZKResistor Pool'
   if (route.kind === 'fallback') return i18n.t('appName', { ns: 'common' })
   const metadata = Object.values(routes).find((candidate) => candidate.kind === route.kind)
   return metadata?.title() ?? i18n.t('appName', { ns: 'common' })
@@ -149,6 +174,7 @@ export function getInternalPageFavicon(url: string): string | null {
   if (route.kind === 'storage-browse' || route.kind === 'storage-view' || route.kind === 'storage-file') {
     return storageIcon
   }
+  if (route.kind === 'zkresistor-pool') return zkResistorIcon
   if (route.kind === 'fallback') return null
   const metadata = Object.values(routes).find((candidate) => candidate.kind === route.kind)
   return metadata && 'favicon' in metadata ? metadata.favicon : null

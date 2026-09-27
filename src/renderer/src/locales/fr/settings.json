@@ -275,6 +275,11 @@
     "syncTestDomain": "Domaine de test de synchronisation",
     "syncTestDomainDesc": "Domaine utilisé pour vérifier la synchronisation DHT",
     "experimental": {
+      "zkResistorDownloading": "Téléchargement des ressources ZKR (~28 Mo) : {{percent}} %",
+      "zkResistorDownloadFailed": "Impossible de télécharger ou vérifier les ressources ZKR.",
+      "zkResistorRetry": "Réessayer",
+      "zkResistor": "ZKResistor",
+      "zkResistorDesc": "Activer les pools de confidentialité GRAM sur ton://zkr.",
       "title": "Fonctionnalités expérimentales",
       "messenger": "Démarrer Messenger avec Browser",
       "messengerDesc": "Démarre automatiquement le client Messenger à l’ouverture de Browser.",

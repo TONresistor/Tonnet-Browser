@@ -103,6 +103,27 @@ describe('WalletTransferService', () => {
     )
   })
 
+  it('preflights an active contract message with its payload', async () => {
+    const { service, context } = setup()
+    const walletContract = WalletContractV5R1.create({ publicKey: Buffer.alloc(32, 1), workchain: 0 })
+    const identity = {
+      publicKey: walletContract.publicKey.toString('hex'),
+      addressRaw: walletContract.address.toRawString(),
+      revision: 1,
+    }
+    const payload = beginCell().storeUint(0x12345678, 32).endCell()
+    context.getAccountInformation.mockResolvedValue({ balance: '1000000000', status: 'active' })
+    context.emulateTransaction.mockResolvedValue({ accepted: true, success: true, exit_code: 0, total_fees: '10' })
+    context.withPreflightState.mockImplementation((_expectedIdentity, operation) => operation(walletContract, 0))
+
+    await expect(service.preflightContractMessage(recipient, '150000000', payload, identity)).resolves.toMatchObject({
+      destinationStatus: 'active',
+      walletBalance: '1000000000',
+    })
+
+    expect(context.emulateTransaction).toHaveBeenCalledOnce()
+  })
+
   it('fails before signing when no bridge is available', async () => {
     const service = new WalletTransferService({
       getBridge: () => null,
