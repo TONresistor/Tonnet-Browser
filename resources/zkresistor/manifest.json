@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "protocolRevision": "recipient-binding-20260711",
+  "factoryAddress": "EQB8W1W276GWiQpK88Sx46K20rsMrCKIezOpwFGJ4dhjWz58",
+  "sdkVersion": "2.0.1",
+  "files": {
+    "hasher.wasm": {
+      "sha256": "aa1e8cefe460c257846cb10dd3866bc43710b302ce75b629edc0b1e9f891f63e",
+      "byteLength": 964886
+    },
+    "insert.wasm": {
+      "sha256": "f8e1498459a4ab3736ab74b5256b30ad073bea18ee68c2a59f2a8d2f7533f222",
+      "byteLength": 1094171
+    },
+    "insert_final.zkey": {
+      "sha256": "5ef0a354249e224dc52d72bd332391503d0a63878fb6b1485ca729e040ae59ef",
+      "byteLength": 16061857
+    },
+    "withdraw.wasm": {
+      "sha256": "f268629f83d7292c7c872a1a9e6fd7823db61b74573167eb9a099882e74179fa",
+      "byteLength": 1050960
+    },
+    "withdraw_final.zkey": {
+      "sha256": "60b22adfc56e3c8268484213ea34cb29492645decc41bd0d5632762de39949ff",
+      "byteLength": 9141573
+    }
+  },
+  "baseUrl": "https://github.com/TONresistor/zk-resistor-contracts/releases/download/circuits-recipient-binding-20260711/"
+}

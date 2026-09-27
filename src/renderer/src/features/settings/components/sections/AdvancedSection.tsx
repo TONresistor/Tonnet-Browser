@@ -1,3 +1,6 @@
+import { usePreferencesStore } from '@/features/settings/preferences-store'
+import { ZkResistorResourceStatus } from '@/features/zkresistor/components/ZkResistorResourceStatus'
+import { useZkResistorResources } from '@/features/zkresistor/resources-store'
 /**
  * Section Advanced
  */
@@ -30,6 +33,8 @@ export const AdvancedSection = memo(function AdvancedSection({
   http402SectionRef,
 }: AdvancedSectionProps) {
   const { t } = useTranslation('settings')
+  const zkResistorEnabled = usePreferencesStore((s) => s.saved.zkResistorEnabled)
+  const zkResistorResourcesPending = useZkResistorResources((s) => s.state.status !== 'ready')
   const [diagnostics, setDiagnostics] = useState<{ enabled: boolean; until: number | null }>({
     enabled: false,
     until: null,
@@ -145,6 +150,22 @@ export const AdvancedSection = memo(function AdvancedSection({
             {t('advanced.experimental.title')}
           </p>
         </div>
+        <SettingRow
+          label={t('advanced.experimental.zkResistor')}
+          description={
+            zkResistorEnabled && zkResistorResourcesPending ? (
+              <ZkResistorResourceStatus inline />
+            ) : (
+              t('advanced.experimental.zkResistorDesc')
+            )
+          }
+        >
+          <Toggle
+            checked={draft.zkResistorEnabled}
+            onChange={(v) => setDraft('zkResistorEnabled', v)}
+            ariaLabel={t('advanced.experimental.zkResistor')}
+          />
+        </SettingRow>
         <SettingRow label={t('advanced.experimental.messenger')} description={t('advanced.experimental.messengerDesc')}>
           <Toggle
             checked={draft.messengerAutostart}

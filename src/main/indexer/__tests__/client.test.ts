@@ -61,6 +61,29 @@ describe('TonIndexerClient', () => {
     expect(fetchFn).toHaveBeenCalledTimes(1)
   })
 
+  it('preserves external messages with null value alongside internal transfers', async () => {
+    const outMessages = [
+      { destination: 'EQAccount', value: '100' },
+      { destination: null, value: null, message_content: { body: 'te6ccgEBAQEAAgAAAA==' } },
+    ]
+    const client = new TonIndexerClient(() => ({ enabled: true, endpoint: 'https://toncenter.com/api/v3' }), {
+      fetch: vi.fn(async () => Response.json({ transactions: [{ ...transaction, out_msgs: outMessages }] })),
+    })
+
+    const result = await client.getTransactions({ account: 'EQAccount', limit: 10 })
+    expect(result[0].out_msgs).toEqual(outMessages)
+  })
+
+  it.each([100, '-1', 'invalid'])('still rejects malformed message values: %s', async (value) => {
+    const client = new TonIndexerClient(() => ({ enabled: true, endpoint: 'https://toncenter.com/api/v3' }), {
+      fetch: vi.fn(async () =>
+        Response.json({ transactions: [{ ...transaction, out_msgs: [{ destination: 'EQAccount', value }] }] })
+      ),
+    })
+
+    await expect(client.getTransactions({ account: 'EQAccount', limit: 10 })).rejects.toThrow()
+  })
+
   it('retries HTTP 429 responses through the shared queue', async () => {
     const fetchFn = vi
       .fn()

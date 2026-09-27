@@ -61,6 +61,7 @@ export const DEFAULT_SETTINGS = {
   storageVerbosity: 2,
   displayUnicodeDomains: false,
   tonConnectEnabled: false,
+  zkResistorEnabled: false,
 
   // Wallet
   wallet: {

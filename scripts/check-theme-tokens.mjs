@@ -46,6 +46,7 @@ const exceptions = [
     'appearance.svg',
     'bookmark.svg',
     'dns.svg',
+    'gram.svg',
     'history.svg',
     'messenger-device.svg',
     'messenger-reset.svg',
@@ -57,6 +58,7 @@ const exceptions = [
     'storage.svg',
     'ton.svg',
     'wallet.svg',
+    'zkresistor.svg',
   ].map((file) => ({
     path: `src/renderer/src/assets/${file}`,
     rules: ['raw-color'],

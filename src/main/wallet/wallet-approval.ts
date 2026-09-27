@@ -122,6 +122,56 @@ export function requestWalletTransferApproval(
   })
 }
 
+export function requestZkResistorApproval(
+  overlayManager: OverlayManager,
+  transaction: {
+    operation: 'deposit' | 'withdraw'
+    poolAddress: string
+    denomination: string
+    transactionValue: string
+    recipient?: string
+    estimatedFee: string
+  }
+): Promise<boolean> {
+  return new Promise((resolve) => {
+    const window = getMainWindow()
+    if (!window) return resolve(false)
+    const depositing = transaction.operation === 'deposit'
+    const id = `zkresistor-${transaction.operation}-${crypto.randomUUID()}`
+    const bounds = window.getContentBounds()
+    const shown = overlayManager.show(
+      id,
+      { x: 0, y: 0, width: bounds.width, height: bounds.height },
+      {
+        type: 'approval',
+        iconTon: true,
+        title: depositing ? 'Confirm private deposit' : 'Confirm private withdrawal',
+        subtitle: 'ZKResistor',
+        amount: `${formatGram(transaction.denomination)} GRAM`,
+        rows: [
+          ...(transaction.recipient ? [{ label: 'Recipient', value: transaction.recipient }] : []),
+          { label: 'Pool', value: transaction.poolAddress },
+          {
+            label: depositing ? 'Total sent to contract' : 'Gas sent to contract',
+            value: `${formatGram(transaction.transactionValue)} GRAM`,
+          },
+          { label: 'Estimated wallet fee', value: `~${formatGram(transaction.estimatedFee)} GRAM` },
+        ],
+        actions: [
+          { id: 'deny', label: 'Cancel' },
+          { id: 'approve', label: depositing ? 'Deposit' : 'Withdraw', primary: true },
+        ],
+      },
+      (actionType) => {
+        overlayManager.hide(id)
+        resolve(actionType === 'approve')
+      },
+      { autoDismiss: false }
+    )
+    if (!shown) resolve(false)
+  })
+}
+
 export function requestWalletReplacementApproval(
   overlayManager: OverlayManager,
   currentAddress: string,

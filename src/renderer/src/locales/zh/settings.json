@@ -255,6 +255,11 @@
     "syncTestDomain": "同步测试域名",
     "syncTestDomainDesc": "用于验证 DHT 同步的域名",
     "experimental": {
+      "zkResistorDownloading": "正在下载 ZKR 资源（约 28 MB）：{{percent}}%",
+      "zkResistorDownloadFailed": "无法下载或验证 ZKR 资源。",
+      "zkResistorRetry": "重试",
+      "zkResistor": "ZKResistor",
+      "zkResistorDesc": "启用 ton://zkr 中的 GRAM 隐私池。",
       "title": "实验性功能",
       "unicodeDomains": "Unicode 域名（IDN）",
       "unicodeDomainsDesc": "显示俄语、表情符号和其他国际化域名，而不是 xn-- Punycode。编辑时会显示 Punycode。",

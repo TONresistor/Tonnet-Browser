@@ -153,6 +153,7 @@ export function isValidSettingsObject(obj: unknown): obj is Partial<AppSettings>
     if (advanced.displayUnicodeDomains !== undefined && typeof advanced.displayUnicodeDomains !== 'boolean')
       return false
     if (advanced.tonConnectEnabled !== undefined && typeof advanced.tonConnectEnabled !== 'boolean') return false
+    if (advanced.zkResistorEnabled !== undefined && typeof advanced.zkResistorEnabled !== 'boolean') return false
   }
 
   const messenger = settings.messenger as Record<string, unknown> | undefined

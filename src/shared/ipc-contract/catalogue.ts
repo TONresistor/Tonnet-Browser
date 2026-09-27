@@ -18,6 +18,15 @@ import { CHAT_EVENT_CONTRACTS, CHAT_REQUEST_CONTRACTS } from './chat'
 import { OVERLAY_EVENT_CONTRACTS, OVERLAY_REQUEST_CONTRACTS } from './overlay'
 import { COCOON_EVENT_CONTRACTS, COCOON_REQUEST_CONTRACTS } from './cocoon'
 import { UPDATER_REQUEST_CONTRACTS } from './updater'
+import {
+  zkResistorAccountContract,
+  zkResistorCatalogContract,
+  zkResistorMerkleContract,
+  zkResistorResourceContract,
+  zkResistorResourceStatusContract,
+  zkResistorPrepareResourcesContract,
+  zkResistorSendContract,
+} from './zkresistor'
 
 export const IPC_REQUEST_CONTRACTS = [
   ...BOOKMARKS_IPC_CONTRACTS,
@@ -36,6 +45,13 @@ export const IPC_REQUEST_CONTRACTS = [
   ...CHAT_REQUEST_CONTRACTS,
   ...OVERLAY_REQUEST_CONTRACTS,
   ...COCOON_REQUEST_CONTRACTS,
+  zkResistorCatalogContract,
+  zkResistorAccountContract,
+  zkResistorMerkleContract,
+  zkResistorResourceContract,
+  zkResistorResourceStatusContract,
+  zkResistorPrepareResourcesContract,
+  zkResistorSendContract,
   ...UPDATER_REQUEST_CONTRACTS,
 ] as const
 

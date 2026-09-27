@@ -14,6 +14,8 @@ const LOCALES = { de, en, es, fr, id, ko, pt, ru, th, zh }
 
 describe('Unicode-domain setting translations', () => {
   it.each(Object.entries(LOCALES))('%s provides the experimental feature labels', (_locale, settings) => {
+    expect(settings.advanced.experimental.zkResistor).toBeTruthy()
+    expect(settings.advanced.experimental.zkResistorDesc).toContain('ton://zkr')
     expect(settings.advanced.experimental.title).toBeTruthy()
     expect(settings.advanced.experimental.unicodeDomains).toBeTruthy()
     expect(settings.advanced.experimental.unicodeDomainsDesc).toBeTruthy()

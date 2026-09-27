@@ -193,6 +193,15 @@ export const COCOON_CHANNELS = {
   withdrawEvent: 'cocoon:withdraw:event',
   recoveryEvent: 'cocoon:recovery:event',
 } as const
+export const ZKRESISTOR_CHANNELS = {
+  catalog: 'zkresistor:catalog',
+  account: 'zkresistor:account',
+  merkle: 'zkresistor:merkle',
+  resource: 'zkresistor:resource',
+  resourceStatus: 'zkresistor:resource-status',
+  prepareResources: 'zkresistor:prepare-resources',
+  send: 'zkresistor:send',
+} as const
 export const UPDATER_CHANNELS = {
   check: 'updater:check',
   openDownloadPage: 'updater:open-download-page',

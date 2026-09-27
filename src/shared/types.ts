@@ -54,6 +54,15 @@ export type PaymentMode = 'off' | 'manual' | 'auto'
 export type NotificationStyle = 'popup' | 'addressbar'
 
 export type { WalletState, WalletTransaction } from './ipc-contract/wallet'
+export type {
+  ZkResistorCatalog,
+  ZkResistorMerkleRequest,
+  ZkResistorMerkleResult,
+  ZkResistorPool,
+  ZkResistorResource,
+  ZkResistorResourceStatus,
+  ZkResistorSendRequest,
+} from './ipc-contract/zkresistor'
 
 export interface PaymentRequirements {
   scheme: string
