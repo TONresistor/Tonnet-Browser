@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.7.1] - 2026-09-27
+
+### Changed
+
+- Faster page loading and tab switching, with improved tab overflow and transparent scrollbars.
+- Messenger room administration now uses a side panel.
+- Updated Electron to 44.3.0 and refreshed dependencies. macOS 13 (Ventura) or later is required.
+
+### Fixed
+
+- Updated Messenger to 0.4.2 to preserve verified history during recovery and prevent duplicate incoming direct messages.
+
 ## [2.7.0] - 2026-09-06
 
 ### Added
