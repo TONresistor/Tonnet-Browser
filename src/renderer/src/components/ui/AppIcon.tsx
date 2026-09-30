@@ -2,6 +2,7 @@ import type { ComponentType } from 'react'
 import { ArrowLeft, ArrowRight, RotateCw, Settings, X } from 'lucide-react'
 import homeIcon from '@/assets/home.svg'
 import walletIcon from '@/assets/wallet.svg'
+import zkResistorIcon from '@/assets/zkresistor.svg'
 import storageIcon from '@/assets/storage.svg'
 import storageFilterAllIcon from '@/assets/storage-filter-all.svg'
 import storageFilterDownloadIcon from '@/assets/storage-filter-download.svg'
@@ -33,6 +34,7 @@ const VECTOR_ICONS = {
 const MASK_ICONS = {
   home: homeIcon,
   wallet: walletIcon,
+  zkresistor: zkResistorIcon,
   storage: storageIcon,
   storageFilterAll: storageFilterAllIcon,
   storageFilterDownload: storageFilterDownloadIcon,

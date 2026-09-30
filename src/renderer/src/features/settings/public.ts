@@ -20,3 +20,6 @@ export const useTabOrientation = () => usePreferencesStore((state) => state.save
 export const useSavedSidebarWidth = () => usePreferencesStore((state) => state.saved.sidebarWidth)
 
 export const useCocoonEnabled = () => usePreferencesStore((state) => state.isLoaded && state.saved.cocoonEnabled)
+
+export const useZkResistorEnabled = () =>
+  usePreferencesStore((state) => state.isLoaded && state.saved.zkResistorEnabled)

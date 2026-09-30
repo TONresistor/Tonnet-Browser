@@ -21,6 +21,7 @@ import {
   useShowBookmarksBar,
   useShowStatusBar,
   useTabOrientation,
+  useZkResistorEnabled,
   useCocoonEnabled,
 } from '@/features/settings/public'
 import { useLocaleEffects } from '@/features/settings/useLocaleEffects'
@@ -53,6 +54,7 @@ function App() {
   const ensureDefaultTab = useTabsStore((s) => s.ensureDefaultTab)
   const showBookmarksBar = useShowBookmarksBar()
   const showStatusBar = useShowStatusBar()
+  const zkResistorEnabled = useZkResistorEnabled()
   const cocoonEnabled = useCocoonEnabled()
   const tabOrientation = useTabOrientation()
   const savedSidebarWidth = useSavedSidebarWidth()
@@ -177,6 +179,18 @@ function App() {
             >
               <AppIcon name="wallet" className="h-4 w-4" />
             </Button>
+            {zkResistorEnabled && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 rounded-full text-icon hover:text-icon"
+                onClick={() => openOrSwitchToTab('ton://zkr')}
+                title="ZKResistor"
+                aria-label="ZKResistor"
+              >
+                <AppIcon name="zkresistor" className="h-4 w-4" />
+              </Button>
+            )}
             {cocoonEnabled && (
               <Button
                 variant="ghost"
