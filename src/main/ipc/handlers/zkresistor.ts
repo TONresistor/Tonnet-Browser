@@ -83,6 +83,10 @@ export function registerZkResistorHandlers(registry: ServiceRegistry): void {
       if (error instanceof TonIndexerDisabledError) {
         ipcFailure('ZKRESISTOR_INDEXER_REQUIRED', 'Enable the HTTP indexer in Settings > Wallet to use ZKResistor')
       }
+      const { ZkResistorSyncIncompleteError } = await import('../../zkresistor/state-service')
+      if (error instanceof ZkResistorSyncIncompleteError) {
+        ipcFailure('ZKRESISTOR_STATE_FAILED', error.message, true, error)
+      }
       ipcFailure('ZKRESISTOR_STATE_FAILED', 'Unable to verify the local ZKResistor state', true, error)
     }
   })

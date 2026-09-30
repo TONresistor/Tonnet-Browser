@@ -1,15 +1,17 @@
+import { promises as fs } from 'node:fs'
 import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Address } from '@ton/core'
 import type { MerkleStateCheckpoint, MerkleStateEventBatch } from '@tonresistor/zkresistor-sdk'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { FileMerkleStateStore } from '../state-store'
 
 const temporaryDirectories: string[] = []
 const poolAddress = Address.parseRaw(`0:${'11'.repeat(32)}`).toString({ bounceable: true, urlSafe: true })
 
 afterEach(async () => {
+  vi.restoreAllMocks()
   await Promise.all(temporaryDirectories.splice(0).map((directory) => rm(directory, { recursive: true, force: true })))
 })
 
@@ -46,6 +48,51 @@ describe('FileMerkleStateStore', () => {
     if (chunks) for await (const chunk of chunks) bytes.push(...chunk)
     expect(bytes).toEqual([1, 2, 3, 4])
     expect(await store.journalBytes()).toBe(0)
+  })
+
+  it('writes complete snapshots even when a low-level write would be partial', async () => {
+    const store = new FileMerkleStateStore(await temporaryRoot(), poolAddress)
+    const open = fs.open.bind(fs)
+    vi.spyOn(fs, 'open').mockImplementation(async (...args) => {
+      const handle = await open(...args)
+      const write = handle.write.bind(handle)
+      const binaryHandle = handle as {
+        write(buffer: Uint8Array): Promise<{ bytesWritten: number; buffer: Uint8Array }>
+      }
+      vi.spyOn(binaryHandle, 'write').mockImplementation((buffer) => write(buffer.subarray(0, 1)))
+      return handle
+    })
+    await store.saveCompact(poolAddress, [Uint8Array.of(1, 2, 3), Uint8Array.of(4, 5, 6)])
+    const chunks = await store.loadCompact(poolAddress)
+    const bytes: number[] = []
+    if (chunks) for await (const chunk of chunks) bytes.push(...chunk)
+    expect(bytes).toEqual([1, 2, 3, 4, 5, 6])
+  })
+
+  it('keeps the previous snapshot and journal if a replacement write fails', async () => {
+    const root = await temporaryRoot()
+    const store = new FileMerkleStateStore(root, poolAddress)
+    await store.saveCompact(poolAddress, [Uint8Array.of(7, 8)])
+    const checkpoint = testCheckpoint(12n)
+    await store.appendVerifiedBatch(poolAddress, { events: [], scannedThrough: checkpoint.position }, checkpoint)
+    const journalSize = await store.journalBytes()
+    const open = fs.open.bind(fs)
+    vi.spyOn(fs, 'open').mockImplementation(async (...args) => {
+      const handle = await open(...args)
+      vi.spyOn(handle, 'writeFile').mockImplementation(async () => {
+        await handle.write(Uint8Array.of(1))
+        throw new Error('Disk full')
+      })
+      return handle
+    })
+    await expect(store.saveCompact(poolAddress, [Uint8Array.of(1, 2, 3)])).rejects.toThrow('Disk full')
+    const chunks = await store.loadCompact(poolAddress)
+    const bytes: number[] = []
+    if (chunks) for await (const chunk of chunks) bytes.push(...chunk)
+    expect(bytes).toEqual([7, 8])
+    expect(await store.journalBytes()).toBe(journalSize)
+    const directory = join(root, Address.parse(poolAddress).toRawString().replace(':', '-'))
+    expect((await readdir(directory)).some((name) => name.endsWith('.tmp'))).toBe(false)
   })
 
   it('quarantines persisted state without deleting the recovery copy', async () => {

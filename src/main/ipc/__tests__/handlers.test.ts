@@ -229,7 +229,7 @@ import { registerIpcHandlers, _resetHandlersForTesting } from '../handlers'
 import { IPC_CHANNELS } from '../../../shared/ipc-channels'
 import { getSetting, SettingsRuntimeApplyError } from '../../settings'
 import { TonIndexerDisabledError } from '../../indexer/client'
-import { ZkResistorStateService } from '../../zkresistor/state-service'
+import { ZkResistorStateService, ZkResistorSyncIncompleteError } from '../../zkresistor/state-service'
 import { getZkResistorResources } from '../../zkresistor/resources'
 import type { ServiceRegistry } from '../../services'
 import { DisposableStore } from '../../utils/disposable'
@@ -1740,6 +1740,34 @@ describe('ZKResistor history configuration', () => {
         error: {
           code: 'ZKRESISTOR_INDEXER_REQUIRED',
           message: 'Enable the HTTP indexer in Settings > Wallet to use ZKResistor',
+        },
+      })
+    } finally {
+      merkle.mockRestore()
+      resourceStatus.mockRestore()
+    }
+  })
+
+  it('reports an incomplete synchronization as retryable', async () => {
+    vi.mocked(getSetting).mockReturnValue({ zkResistorEnabled: true } as never)
+    vi.mocked(mockRegistry.tonBridgeProviders.zkResistor.getBridge).mockReturnValue({} as never)
+    const merkle = vi
+      .spyOn(ZkResistorStateService.prototype, 'merkle')
+      .mockRejectedValueOnce(new ZkResistorSyncIncompleteError())
+    const resourceStatus = vi
+      .spyOn(getZkResistorResources(), 'status')
+      .mockReturnValue({ status: 'ready', receivedBytes: 1, totalBytes: 1, error: null })
+    try {
+      const result = await mockHandlers.get(IPC_CHANNELS.ZKRESISTOR_MERKLE)!(createMockEvent(), {
+        operation: 'checkpoint',
+        poolAddress: `0:${'11'.repeat(32)}`,
+      })
+      expect(result).toMatchObject({
+        ok: false,
+        error: {
+          code: 'ZKRESISTOR_STATE_FAILED',
+          retryable: true,
+          message: 'ZKR synchronization is incomplete. Please try again in a few moments.',
         },
       })
     } finally {
