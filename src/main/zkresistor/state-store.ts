@@ -47,7 +47,7 @@ export class FileMerkleStateStore implements MerkleStateSnapshotStore {
     const temporaryPath = path.join(this.poolDirectory, `.snapshot-${randomUUID()}.tmp`)
     const handle = await fs.open(temporaryPath, 'wx', 0o600)
     try {
-      for (const chunk of chunks) await handle.write(chunk)
+      for (const chunk of chunks) await handle.writeFile(chunk)
       await handle.sync()
       await handle.close()
       await fs.rename(temporaryPath, this.snapshotPath)

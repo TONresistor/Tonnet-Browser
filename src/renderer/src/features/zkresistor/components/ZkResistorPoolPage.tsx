@@ -251,7 +251,16 @@ function PrivateActions({ pool, onCatalogChanged }: { pool: ZkResistorPool; onCa
                   </div>
                   <p className="break-all font-mono text-[11px] leading-relaxed text-muted-foreground">{secretNote}</p>
                 </div>
-                {!depositSubmitted && (
+                {depositSubmitted ? (
+                  <ActionButton
+                    variant="filled"
+                    className="w-full"
+                    disabled={busy || Boolean(walletIssue)}
+                    onClick={prepareDeposit}
+                  >
+                    New deposit
+                  </ActionButton>
+                ) : (
                   <>
                     <label className="flex cursor-pointer select-none items-start gap-2 rounded-card border border-border-subtle bg-elevation-2 p-3">
                       <input

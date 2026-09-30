@@ -31,6 +31,13 @@ interface PoolSession {
   readonly queue: SerialQueue
 }
 
+export class ZkResistorSyncIncompleteError extends Error {
+  constructor(options?: ErrorOptions) {
+    super('ZKR synchronization is incomplete. Please try again in a few moments.', options)
+    this.name = 'ZkResistorSyncIncompleteError'
+  }
+}
+
 export class ZkResistorStateService {
   private readonly client: ZkResistorChainClient
   private readonly sessions = new Map<string, Promise<PoolSession>>()
@@ -80,13 +87,8 @@ export class ZkResistorStateService {
       await this.compactIfNeeded(session)
       return checkpoint
     } catch (error) {
-      if (!(await session.store.hasPersistedState()) || !isRecoverableStateMismatch(error)) throw error
-      const backup = await session.store.quarantine()
-      log.warn('Rebuilding invalid local ZKResistor state', { poolAddress: target.poolAddress, backup })
-      session.provider = await this.createProvider(target.poolAddress, session.store)
-      const checkpoint = await session.provider.sync(target)
-      await this.compactIfNeeded(session)
-      return checkpoint
+      if (isSyncMismatch(error)) throw new ZkResistorSyncIncompleteError({ cause: error })
+      throw error
     }
   }
 
@@ -242,7 +244,7 @@ function canonicalAddress(value: string): string {
   return Address.parse(value).toString({ bounceable: true, urlSafe: true })
 }
 
-function isRecoverableStateMismatch(error: unknown): boolean {
+function isSyncMismatch(error: unknown): boolean {
   if (!(error instanceof Error)) return false
   return [
     'snapshot replay cursor is ahead',
