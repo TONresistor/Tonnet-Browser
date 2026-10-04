@@ -45,7 +45,6 @@ async function fixture() {
   const root = await mkdtemp(join(tmpdir(), 'zkr-state-service-'))
   roots.push(root)
   const bridge = { getAccountInformation: vi.fn(), runMethod: vi.fn() }
-  // This test injects the SDK event source; no HTTP indexer is used.
   const { TonIndexerClient } = await import('../../indexer/client')
   const indexer = new TonIndexerClient(() => ({ enabled: false, endpoint: 'https://toncenter.com/api/v3' }))
   const service = new ZkResistorStateService(bridge, indexer, root)

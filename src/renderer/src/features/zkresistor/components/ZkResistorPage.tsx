@@ -12,7 +12,7 @@ type PoolView = 'list' | 'card'
 
 export default function ZkResistorPage() {
   const [view, setView] = useState<PoolView>('list')
-  const { catalog, loading, error } = useZkResistorCatalog()
+  const { catalog, loading, error, reload } = useZkResistorCatalog()
   const pools = catalog?.pools ?? []
 
   return (
@@ -50,7 +50,15 @@ export default function ZkResistorPage() {
 
         {error && (
           <div className="rounded-card border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-            {error}
+            <p>{error}</p>
+            <button
+              type="button"
+              onClick={() => void reload()}
+              disabled={loading}
+              className="mt-2 font-medium underline underline-offset-2 disabled:opacity-50"
+            >
+              {loading ? 'Retrying…' : 'Retry'}
+            </button>
           </div>
         )}
 

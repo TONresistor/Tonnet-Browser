@@ -174,7 +174,7 @@ import type {
   zkResistorPrepareResourcesContract,
   zkResistorSendContract,
 } from '../shared/ipc-contract/zkresistor'
-import { IpcClientError, isIpcFailure } from '../shared/ipc-failure'
+import { IpcClientError, isIpcFailure, type IpcFailure } from '../shared/ipc-failure'
 
 export { IpcClientError } from '../shared/ipc-failure'
 
@@ -387,7 +387,8 @@ const electronAPI = {
       invokeChannel<typeof zkResistorResourceStatusContract>(IPC_CHANNELS.ZKRESISTOR_RESOURCE_STATUS),
     prepareResources: () =>
       invokeChannel<typeof zkResistorPrepareResourcesContract>(IPC_CHANNELS.ZKRESISTOR_PREPARE_RESOURCES),
-    catalog: () => invokeChannel<typeof zkResistorCatalogContract>(IPC_CHANNELS.ZKRESISTOR_CATALOG),
+    catalog: (): Promise<RequestResult<typeof zkResistorCatalogContract> | IpcFailure> =>
+      ipcRenderer.invoke(IPC_CHANNELS.ZKRESISTOR_CATALOG),
     account: (...args: RequestArgs<typeof zkResistorAccountContract>) =>
       invokeChannel<typeof zkResistorAccountContract>(IPC_CHANNELS.ZKRESISTOR_ACCOUNT, ...args),
     merkle: (...args: RequestArgs<typeof zkResistorMerkleContract>) =>

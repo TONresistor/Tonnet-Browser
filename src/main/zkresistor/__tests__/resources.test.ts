@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
 import { promises as fs } from 'node:fs'
 import path from 'node:path'
+import { tmpdir } from 'node:os'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ZkResistorResources } from '../resources'
 
@@ -25,10 +26,11 @@ async function ready(manager: ZkResistorResources) {
   await vi.waitFor(() => expect(manager.status().status).toBe('ready'))
 }
 beforeEach(async () => {
-  directory = await fs.mkdtemp('/private/tmp/zkr-resources-test-')
+  directory = ''
+  directory = await fs.mkdtemp(path.join(tmpdir(), 'zkr-resources-test-'))
 })
 afterEach(async () => {
-  await fs.rm(directory, { recursive: true, force: true })
+  if (directory) await fs.rm(directory, { recursive: true, force: true })
 })
 
 describe('ZKR resource download and cache', () => {

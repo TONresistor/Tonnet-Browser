@@ -88,7 +88,6 @@ export class ZkResistorResources {
 
   private async install(): Promise<void> {
     await fs.mkdir(this.directory, { recursive: true, mode: 0o700 })
-    // Discard incomplete files left by a previous interrupted application process.
     for (const file of await fs.readdir(this.directory)) {
       if (file.endsWith('.part') && Object.keys(this.config.files).some((name) => file.startsWith(`.${name}-`))) {
         await fs.unlink(path.join(this.directory, file))
