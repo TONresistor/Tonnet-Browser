@@ -25,6 +25,7 @@ afterEach(async () => {
     for (const root of roots.splice(0)) root.unmount()
   })
   for (const container of containers.splice(0)) container.remove()
+  vi.useRealTimers()
 })
 
 async function mount() {
@@ -102,4 +103,67 @@ describe('ZKR catalog revalidation', () => {
     expect(reopened.state().error).toBeNull()
     expect(mocks.catalog).toHaveBeenCalledTimes(3)
   })
+})
+
+const temporaryFailure = () =>
+  Object.assign(new Error('Unable to load the ZKResistor contracts'), {
+    code: 'ZKRESISTOR_CATALOG_FAILED',
+    retryable: true,
+  })
+
+it('retries a temporary error and recovers without reopening the page', async () => {
+  vi.useFakeTimers()
+  mocks.catalog.mockRejectedValueOnce(temporaryFailure()).mockResolvedValueOnce(catalog('recovered'))
+  const page = await mount()
+  expect(page.state().loading).toBe(true)
+  expect(page.state().error).toBeNull()
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(1000)
+  })
+  expect(page.container.textContent).toBe('recovered')
+  expect(mocks.catalog).toHaveBeenCalledTimes(2)
+  expect(page.state().loading).toBe(false)
+})
+
+it('stops after two retries, retains cached data and permits a manual retry', async () => {
+  vi.useFakeTimers()
+  mocks.catalog.mockResolvedValueOnce(catalog('old'))
+  const first = await mount()
+  await first.unmount()
+  mocks.catalog.mockRejectedValue(temporaryFailure())
+  const page = await mount()
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(10000)
+  })
+  expect(mocks.catalog).toHaveBeenCalledTimes(4)
+  expect(page.container.textContent).toBe('old')
+  expect(page.state().loading).toBe(false)
+  expect(page.state().error).toBe('Unable to load the ZKResistor contracts')
+  mocks.catalog.mockResolvedValueOnce(catalog('recovered'))
+  await act(async () => {
+    await page.state().reload()
+  })
+  expect(page.container.textContent).toBe('recovered')
+})
+
+it('does not retry contract validation failures', async () => {
+  vi.useFakeTimers()
+  mocks.catalog.mockRejectedValue(Object.assign(temporaryFailure(), { retryable: false }))
+  const page = await mount()
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(10000)
+  })
+  expect(mocks.catalog).toHaveBeenCalledOnce()
+  expect(page.state().loading).toBe(false)
+})
+
+it('does not issue another request after the last consumer leaves', async () => {
+  vi.useFakeTimers()
+  mocks.catalog.mockRejectedValue(temporaryFailure())
+  const page = await mount()
+  await page.unmount()
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(10000)
+  })
+  expect(mocks.catalog).toHaveBeenCalledOnce()
 })

@@ -53,7 +53,12 @@ export function registerZkResistorHandlers(registry: ServiceRegistry): void {
       const { ZkResistorCatalogService } = await import('../../zkresistor/catalog-service')
       return await new ZkResistorCatalogService(bridge).load()
     } catch (error) {
-      ipcFailure('ZKRESISTOR_CATALOG_FAILED', 'Unable to load the ZKResistor contracts', true, error)
+      ipcFailure(
+        'ZKRESISTOR_CATALOG_FAILED',
+        'Unable to load the ZKResistor contracts',
+        isTransientCatalogReadError(error),
+        error
+      )
     }
   })
 
@@ -192,4 +197,12 @@ function assertResourcesReady(): void {
   if (getZkResistorResources().status().status !== 'ready') {
     ipcFailure('ZKRESISTOR_RESOURCES_NOT_READY', 'Download and verify ZKR resources before using private actions')
   }
+}
+
+function isTransientCatalogReadError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false
+  return (
+    /lite server error, code (?:651|652|-400|-503|502|228|429):/.test(error.message) ||
+    /^Request timeout: lite\.(?:getAccountState|runMethod)$/.test(error.message)
+  )
 }

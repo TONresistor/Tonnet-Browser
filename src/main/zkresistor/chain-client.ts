@@ -48,8 +48,6 @@ export class ZkResistorChainClient implements Client {
     before: TransactionCursor | undefined
   ): Promise<GetTransactionsResult> {
     const canonical = Address.parse(address).toString({ bounceable: true, urlSafe: true })
-    // The pinned Bridge v0.5.1 does not provide the fields required for deterministic replay.
-    // History comes explicitly from the user-enabled indexer; contract state still uses the Bridge.
     if (!this.indexer?.isEnabled()) throw new TonIndexerDisabledError()
     return fetchReplayTransactionsViaIndexer(this.indexer, canonical, limit, before)
   }

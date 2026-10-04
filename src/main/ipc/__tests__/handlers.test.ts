@@ -1776,3 +1776,27 @@ describe('ZKResistor history configuration', () => {
     }
   })
 })
+
+describe('ZKResistor catalog error classification', () => {
+  beforeEach(resetHandlersTestEnv)
+
+  it.each([
+    ['failed to get account: lite server error, code 651: block is not in db', true],
+    ['Request timeout: lite.getAccountState', true],
+    ['Request timeout: lite.runMethod', true],
+    ['Factory bytecode does not match the pinned protocol', false],
+    ['Factory is not active', false],
+    ['get_pool_data returned an invalid result', false],
+  ])('classifies %s as retryable=%s', async (message, retryable) => {
+    const { ZkResistorCatalogService } = await import('../../zkresistor/catalog-service')
+    vi.mocked(getSetting).mockReturnValue({ zkResistorEnabled: true } as never)
+    vi.mocked(mockRegistry.tonBridgeProviders.zkResistor.getBridge).mockReturnValue({} as never)
+    const load = vi.spyOn(ZkResistorCatalogService.prototype, 'load').mockRejectedValueOnce(new Error(message))
+    try {
+      const result = await mockHandlers.get(IPC_CHANNELS.ZKRESISTOR_CATALOG)!(createMockEvent())
+      expect(result).toMatchObject({ ok: false, error: { code: 'ZKRESISTOR_CATALOG_FAILED', retryable } })
+    } finally {
+      load.mockRestore()
+    }
+  })
+})

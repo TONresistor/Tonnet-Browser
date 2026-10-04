@@ -35,7 +35,15 @@ export default function ZkResistorPoolPage({ poolAddress }: { poolAddress: strin
 
         {error && (
           <div className="rounded-card border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-            {error}
+            <p>{error}</p>
+            <button
+              type="button"
+              onClick={() => void reload()}
+              disabled={loading}
+              className="mt-2 font-medium underline underline-offset-2 disabled:opacity-50"
+            >
+              {loading ? 'Retrying…' : 'Retry'}
+            </button>
           </div>
         )}
 
