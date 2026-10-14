@@ -104,6 +104,15 @@ jobs:
       - name: Verify build compiles
         run: npm run build
 
+      - name: Install Electron runtime dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb libgtk-3-0 libnss3 libgbm1 libasound2t64
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+
+      - name: Electron runtime smoke
+        run: xvfb-run -a npm run test:browser-runtime
+
       - name: Security audit
         run: npm audit --audit-level=high
 

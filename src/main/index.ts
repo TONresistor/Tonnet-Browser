@@ -41,6 +41,9 @@ import {
   proxyStatusEventContract,
 } from '../shared/ipc-contract/proxy'
 import { WALLET_SYSTEM_STORAGE_RETRY_TOKEN } from '../shared/constants'
+import { preparePackageSmoke, runPackageSmoke } from './package-smoke'
+
+const packageSmoke = preparePackageSmoke()
 
 // Initialize electron-log IPC bridge so renderer can also log via electron-log
 log.initialize()
@@ -117,7 +120,7 @@ if (process.platform === 'linux') {
 // secret. Changing it would make existing encrypted wallet data unreadable.
 app.setName('TON Browser')
 
-if (process.platform === 'darwin') {
+if (!packageSmoke && process.platform === 'darwin') {
   systemPreferences.setUserDefault('AppleShowScrollBars', 'string', 'WhenScrolling')
 } else {
   const features = app.commandLine.getSwitchValue('enable-features')
@@ -129,7 +132,7 @@ if (process.platform === 'darwin') {
 // keeps using "TON Browser" in the keyring while files go to ton-browser/.
 {
   const userDataParent = dirname(app.getPath('userData'))
-  const canonicalUserData = join(userDataParent, 'ton-browser')
+  const canonicalUserData = packageSmoke?.profile ?? join(userDataParent, 'ton-browser')
   // Redirect logs path before the first log write (migrateUserData logs).
   // Without this, electron-log resolves app.getPath('logs') via app.name and
   // writes to ~/.config/TON Browser/logs, which does not exist on fresh installs.
@@ -150,7 +153,7 @@ if (process.platform === 'darwin') {
   log.transports.file.resolvePathFn = () => applicationLogPath
   configureApplicationLogging(app.getVersion())
   configureNativeLogging(canonicalLogs)
-  migrateUserData(canonicalUserData)
+  if (!packageSmoke) migrateUserData(canonicalUserData)
   app.setPath('userData', canonicalUserData)
 }
 
@@ -222,7 +225,7 @@ function createWindow(): void {
     frame: false,
     icon: join(app.getAppPath(), 'resources/icons/icon.png'),
     backgroundColor: WINDOW_BACKGROUND_COLOR,
-    show: false,
+    show: packageSmoke?.visible ?? false,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
@@ -261,7 +264,7 @@ function createWindow(): void {
     if (savedBounds.isMaximized) {
       mainWindow.maximize()
     }
-    mainWindow.show()
+    if (!packageSmoke || packageSmoke.visible) mainWindow.show()
     browserLog.status('browser.ready', `browser ready · ${Date.now() - applicationStartedAt}ms`, {
       durationMs: Date.now() - applicationStartedAt,
     })
@@ -462,7 +465,7 @@ app.whenReady().then(async () => {
     appLog.error('TON Connect unavailable; continuing browser startup:', error)
   })
 
-  safeStartup('Wallet init', () => services.walletManager.init())
+  if (!packageSmoke) safeStartup('Wallet init', () => services.walletManager.init())
   if (getSetting('messenger').autostart) {
     safeStartup('Messenger client start', () => services.messengerClientManager.start())
   }
@@ -484,6 +487,13 @@ app.whenReady().then(async () => {
     await autostartCocoonIfEnabled(services.cocoonManager)
   })
   createWindow()
+  if (packageSmoke) {
+    const window = BrowserWindow.getAllWindows()[0]
+    void runPackageSmoke(packageSmoke, window, services).catch((error) => {
+      appLog.error('Package smoke failed:', error)
+      void runCleanup(services).finally(() => app.exit(1))
+    })
+  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

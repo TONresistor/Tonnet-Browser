@@ -33,6 +33,7 @@
     "type-check": "tsc --noEmit && tsc -p tsconfig.main.json --noEmit && tsc -p tsconfig.preload.json --noEmit && tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.test.json --noEmit",
     "test": "vitest run",
     "test:browser-runtime": "node scripts/verify-browser-runtime.mjs",
+    "test:packaged-runtime": "node scripts/verify-packaged-runtime.mjs",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "start": "electron-vite preview",

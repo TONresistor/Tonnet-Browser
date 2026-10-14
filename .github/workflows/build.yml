@@ -12,7 +12,7 @@ concurrency:
 
 jobs:
   # ─────────────────────────────────────────────
-  # Job 1: Validate (static analysis, runs once)
+  # Job 1: Validate (source checks and Electron runtime, runs once)
   # ─────────────────────────────────────────────
   validate:
     runs-on: ubuntu-latest
@@ -65,6 +65,15 @@ jobs:
       - name: Verify build compiles
         run: npm run build
 
+      - name: Install Electron runtime dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb libgtk-3-0 libnss3 libgbm1 libasound2t64
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+
+      - name: Electron runtime smoke
+        run: xvfb-run -a npm run test:browser-runtime
+
       - name: Security audit
         run: npm audit --audit-level=high
 
@@ -96,7 +105,7 @@ jobs:
             goarch: amd64
             electron_args: --linux --x64
             artifact_name: linux-x64-build
-          - os: ubuntu-latest
+          - os: ubuntu-24.04-arm
             platform: linux
             goarch: arm64
             electron_args: --linux --arm64
@@ -178,6 +187,30 @@ jobs:
       - name: Verify package artifacts
         run: node scripts/verify-release-artifacts.mjs ${{ matrix.platform }} ${{ matrix.goarch }}
 
+      - name: Install Linux smoke dependencies
+        if: matrix.platform == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb libgtk-3-0 libnss3 libgbm1 libasound2t64
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+
+      - name: Smoke-test Linux packages
+        if: matrix.platform == 'linux'
+        run: xvfb-run -a npm run test:packaged-runtime -- linux
+
+      - name: Smoke-test macOS and Windows packages
+        if: matrix.platform != 'linux'
+        run: npm run test:packaged-runtime -- ${{ matrix.platform }}
+
+      - name: Upload packaged smoke report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: smoke-${{ matrix.artifact_name }}
+          path: .cache/package-smoke/latest-report.json
+          include-hidden-files: true
+          if-no-files-found: ignore
+
       - name: Upload Linux x64 artifacts
         if: matrix.platform == 'linux' && matrix.goarch == 'amd64'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -255,7 +288,7 @@ jobs:
       - name: Generate SHA256 checksums
         run: |
           cd artifacts
-          find . -type f \( -name "*.AppImage" -o -name "*.deb" -o -name "*.exe" -o -name "*.dmg" -o -name "*.json" \) | sort | while read f; do
+          find . -type f ! -path './smoke-*/*' \( -name "*.AppImage" -o -name "*.deb" -o -name "*.exe" -o -name "*.dmg" -o -name "*.json" \) | sort | while read f; do
             sha256sum "$f" >> SHA256SUMS.txt
           done
           echo "=== SHA256SUMS.txt ==="
