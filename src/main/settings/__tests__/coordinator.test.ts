@@ -38,6 +38,7 @@ function createDependencies() {
       isActive: vi.fn(() => true),
     },
     historyManager: { applySettings: vi.fn(() => Promise.resolve()) },
+    cocoonManager: { setEnabled: vi.fn(async () => {}) },
     walletManager: { setAutoLockMinutes: vi.fn() },
     tonBridgeCoordinator: { waitUntilReady: vi.fn(() => Promise.resolve()) },
     tonConnectService: { clearSessions: vi.fn(() => Promise.resolve()) },
@@ -84,6 +85,17 @@ describe('SettingsCoordinator', () => {
         return guard ? guard(previous, next, operation) : operation()
       }
     )
+  })
+
+  it('applies Cocoon enablement immediately without changing its autostart preference', async () => {
+    current = AppSettingsSchema.parse({ cocoon: { autostart: true } })
+    const dependencies = createDependencies()
+    const coordinator = new SettingsCoordinator(dependencies)
+    await coordinator.apply({ cocoon: { enabled: false } })
+    expect(dependencies.cocoonManager.setEnabled).toHaveBeenLastCalledWith(false)
+    expect(current.cocoon).toEqual({ enabled: false, autostart: true })
+    await coordinator.apply({ cocoon: { enabled: true } })
+    expect(dependencies.cocoonManager.setEnabled).toHaveBeenLastCalledWith(true)
   })
 
   it('applies a changed default zoom to existing page views', async () => {

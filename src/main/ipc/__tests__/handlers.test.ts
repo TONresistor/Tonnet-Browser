@@ -494,7 +494,7 @@ function resetHandlersTestEnv(): void {
     setTitle: vi.fn(),
   }
   settingsMocks.getSetting.mockImplementation((category: string) =>
-    category === 'advanced' ? { tonConnectEnabled: false } : {}
+    category === 'advanced' ? { tonConnectEnabled: false } : category === 'cocoon' ? { enabled: true } : {}
   )
   mockRegistry = createMockRegistry()
   registerIpcHandlers(mockRegistry)
@@ -1413,6 +1413,16 @@ const COCOON_ROOT_MAINNET = 'EQCns7bYSp0igFvS1wpb5wsZjCKCV19MD5AVzI4EyxsnU73k'
 
 describe('Cocoon AI Handlers', () => {
   beforeEach(resetHandlersTestEnv)
+
+  it.each([IPC_CHANNELS.COCOON_START, IPC_CHANNELS.COCOON_FLOW_STAKE])(
+    'blocks %s while Cocoon is disabled',
+    async (channel) => {
+      vi.mocked(getSetting).mockReturnValue({ enabled: false, autostart: false })
+      const result = await mockHandlers.get(channel)!(createMockEvent())
+      expect(result).toMatchObject({ ok: false, error: { code: 'FEATURE_DISABLED' } })
+      expect(mockRegistry.cocoonManager.start).not.toHaveBeenCalled()
+    }
+  )
 
   it('reports a missing archive entry with its declared business code', async () => {
     const handler = mockHandlers.get(IPC_CHANNELS.COCOON_ARCHIVE_EXPORT_MNEMONIC)!

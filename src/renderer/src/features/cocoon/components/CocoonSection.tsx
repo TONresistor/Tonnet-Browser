@@ -3,6 +3,7 @@
  */
 
 import { memo, useEffect, useState } from 'react'
+import { useCocoonEnabled } from '@/features/settings/public'
 import { cocoonClient } from '@/features/cocoon/client'
 import { ChevronDown, Loader2 } from 'lucide-react'
 import { SectionHeader } from '@/features/settings/components/shared/SectionHeader'
@@ -21,6 +22,7 @@ type CocoonContractStatus = {
 
 export const CocoonSection = memo(function CocoonSection({ draft, setDraft }: SectionProps) {
   const { t } = useTranslation('settings')
+  const cocoonEnabled = useCocoonEnabled()
   const [advancedRecoveryOpen, setAdvancedRecoveryOpen] = useState(false)
   const [contractStatus, setContractStatus] = useState<CocoonContractStatus | null>(null)
   const openOrSwitchToTab = useOpenOrSwitchBrowserTab()
@@ -91,8 +93,16 @@ export const CocoonSection = memo(function CocoonSection({ draft, setDraft }: Se
         <SectionHeader title={t('cocoon.title')} description={t('cocoon.description')} />
 
         <div className="settings-group px-4">
+          <SettingRow label={t('cocoon.enabled')} description={t('cocoon.enabledDesc')}>
+            <Toggle
+              checked={draft.cocoonEnabled}
+              onChange={(v) => setDraft('cocoonEnabled', v)}
+              ariaLabel={t('cocoon.enabled')}
+            />
+          </SettingRow>
           <SettingRow label={t('cocoon.autostart')} description={t('cocoon.autostartDesc')}>
             <Toggle
+              disabled={!draft.cocoonEnabled}
               checked={draft.cocoonAutostart}
               onChange={(v) => setDraft('cocoonAutostart', v)}
               ariaLabel={t('cocoon.autostart')}
@@ -114,6 +124,7 @@ export const CocoonSection = memo(function CocoonSection({ draft, setDraft }: Se
                 type="button"
                 size="sm"
                 className="h-8 rounded-md border-0 bg-accent/55 px-3 text-foreground shadow-none hover:bg-accent/75 hover:text-foreground whitespace-nowrap"
+                disabled={!cocoonEnabled}
                 onClick={() => openOrSwitchToTab('ton://cocoon')}
               >
                 Open Cocoon Wallet

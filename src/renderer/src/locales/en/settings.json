@@ -164,7 +164,9 @@
         "failed": "Failed",
         "failedDesc": "Recovery failed. Check the error and remove the entry, or retry."
       }
-    }
+    },
+    "enabled": "Enable Cocoon",
+    "enabledDesc": "Show Cocoon in the address bar and allow the AI service to run."
   },
   "appearance": {
     "title": "Appearance",

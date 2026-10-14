@@ -8,6 +8,7 @@
  * crosses the IPC boundary in either direction.
  */
 
+import { getSetting } from '../../settings'
 import { errorMessage } from '../../../shared/errors'
 import { log } from './shared'
 import { emitContractToRenderer } from '../../events/renderer-events'
@@ -120,6 +121,7 @@ export function registerCocoonHandlers(registry: ServiceRegistry): void {
    * needs to be able to call start() again without hitting "already running".
    */
   secureContractHandle(cocoonStartContract, async () => {
+    if (!getSetting('cocoon').enabled) ipcFailure('FEATURE_DISABLED', 'Enable Cocoon in Settings > Cocoon AI')
     try {
       await startCocoonManager(cocoonManager)
     } catch (err) {
@@ -224,6 +226,7 @@ export function registerCocoonHandlers(registry: ServiceRegistry): void {
   // Activate Cocoon (rotation semantics + idempotent fast paths). All on-chain
   // orchestration lives in cocoon/activation.ts:flowStake.
   secureContractHandle(cocoonFlowStakeContract, async () => {
+    if (!getSetting('cocoon').enabled) ipcFailure('FEATURE_DISABLED', 'Enable Cocoon in Settings > Cocoon AI')
     const { httpPort } = await flowStake(cocoonActivation)
     return { success: true as const, httpPort }
   })

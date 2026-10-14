@@ -13,8 +13,8 @@ import type { CocoonManager } from './manager'
  * so the runner sees a connected proxy/bridge/storage stack.
  */
 export async function autostartCocoonIfEnabled(manager: CocoonManager): Promise<void> {
-  const { autostart } = getSetting('cocoon')
-  if (!autostart) return
+  const { enabled, autostart } = getSetting('cocoon')
+  if (!enabled || !autostart) return
   const data = await loadCocoonWallet()
   // Only auto-start when the user has already completed the setup wizard.
   if (!data || data.setupCompletedAt == null) {

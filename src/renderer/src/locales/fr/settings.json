@@ -685,6 +685,8 @@
         "failed": "Échec",
         "failedDesc": "La récupération a échoué. Consultez l'erreur et retirez l'entrée, ou réessayez."
       }
-    }
+    },
+    "enabled": "Activer Cocoon",
+    "enabledDesc": "Afficher Cocoon dans la barre d’adresse et autoriser le service d’IA à fonctionner."
   }
 }

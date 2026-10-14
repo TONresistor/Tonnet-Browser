@@ -176,12 +176,14 @@ export const BridgeSettingsSchema = z.object({
 })
 
 export const CocoonSettingsSchema = z.object({
+  enabled: z.boolean().default(true),
   /** Start the Cocoon runner automatically once proxy + bridge + storage are ready. */
   autostart: z.boolean().default(false),
 })
 
 export const CocoonSettingsPartialSchema = z
   .object({
+    enabled: z.boolean(),
     autostart: z.boolean(),
   })
   .partial()

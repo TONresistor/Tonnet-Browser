@@ -20,6 +20,7 @@ import {
   useShowBookmarksBar,
   useShowStatusBar,
   useTabOrientation,
+  useCocoonEnabled,
 } from '@/features/settings/public'
 import { useLocaleEffects } from '@/features/settings/useLocaleEffects'
 import { useThemeEffects } from '@/features/themes/public'
@@ -50,6 +51,7 @@ function App() {
   const ensureDefaultTab = useTabsStore((s) => s.ensureDefaultTab)
   const showBookmarksBar = useShowBookmarksBar()
   const showStatusBar = useShowStatusBar()
+  const cocoonEnabled = useCocoonEnabled()
   const tabOrientation = useTabOrientation()
   const savedSidebarWidth = useSavedSidebarWidth()
   const setDraft = useSetPreferenceDraft()
@@ -63,6 +65,10 @@ function App() {
   const walletSystemStorageRetry = useRef(
     new URLSearchParams(window.location.search).has(WALLET_SYSTEM_STORAGE_RETRY_TOKEN)
   )
+
+  useEffect(() => {
+    if (!cocoonEnabled) setCocoonSidebarOpen(false)
+  }, [cocoonEnabled])
 
   // Debounce timer for settings save
   const settingsSaveTimer = useRef<NodeJS.Timeout | null>(null)
@@ -86,9 +92,9 @@ function App() {
   // exclusive in the same right slot, so the WebContentsView only needs whichever
   // one is currently open.
   useEffect(() => {
-    const width = walletSidebarOpen ? walletSidebarWidth : cocoonSidebarOpen ? cocoonSidebarWidth : 0
+    const width = walletSidebarOpen ? walletSidebarWidth : cocoonEnabled && cocoonSidebarOpen ? cocoonSidebarWidth : 0
     appShellClient.setContentSidebarWidth(width)
-  }, [walletSidebarOpen, walletSidebarWidth, cocoonSidebarOpen, cocoonSidebarWidth])
+  }, [walletSidebarOpen, walletSidebarWidth, cocoonEnabled, cocoonSidebarOpen, cocoonSidebarWidth])
 
   useEffect(() => {
     return () => {
@@ -169,19 +175,21 @@ function App() {
             >
               <AppIcon name="wallet" className="h-4 w-4" />
             </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 rounded-full text-icon hover:text-icon"
-              onClick={() => {
-                setCocoonSidebarOpen((v) => !v)
-                setWalletSidebarOpen(false)
-              }}
-              title={t('tooltips.cocoon')}
-              aria-label={t('tooltips.cocoon')}
-            >
-              <AppIcon name="cocoon" className="h-5 w-5" />
-            </Button>
+            {cocoonEnabled && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 rounded-full text-icon hover:text-icon"
+                onClick={() => {
+                  setCocoonSidebarOpen((v) => !v)
+                  setWalletSidebarOpen(false)
+                }}
+                title={t('tooltips.cocoon')}
+                aria-label={t('tooltips.cocoon')}
+              >
+                <AppIcon name="cocoon" className="h-5 w-5" />
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="icon"
@@ -287,7 +295,7 @@ function App() {
         )}
 
         {/* Right sidebar (cocoon) — mutually exclusive with wallet */}
-        {cocoonSidebarOpen && (
+        {cocoonEnabled && cocoonSidebarOpen && (
           <ResizablePanel
             side="right"
             defaultWidth={cocoonSidebarWidth}

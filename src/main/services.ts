@@ -143,7 +143,7 @@ export function createServices(): ServiceRegistry {
     new TonConnectManifestLoader(),
     new ElectronTonConnectEventDelivery()
   )
-  const cocoonManager = new CocoonManager()
+  const cocoonManager = new CocoonManager(getSetting('cocoon').enabled)
   const withdrawDriver = new WithdrawDriver(
     cocoonManager,
     () => tonBridgeProviders.ton.getBridge(),
@@ -179,6 +179,7 @@ export function createServices(): ServiceRegistry {
     storageManager,
     historyManager,
     walletManager,
+    cocoonManager,
     tonBridgeCoordinator,
     tonConnectService,
     bridgePermissionStore,

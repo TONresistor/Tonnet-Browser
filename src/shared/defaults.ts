@@ -78,6 +78,7 @@ export const DEFAULT_SETTINGS = {
 
   // Cocoon AI
   cocoon: {
+    enabled: true,
     autostart: false,
   },
 
