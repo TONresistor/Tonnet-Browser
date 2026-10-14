@@ -176,7 +176,7 @@ export const BridgeSettingsSchema = z.object({
 })
 
 export const CocoonSettingsSchema = z.object({
-  enabled: z.boolean().default(true),
+  enabled: z.boolean().default(false),
   /** Start the Cocoon runner automatically once proxy + bridge + storage are ready. */
   autostart: z.boolean().default(false),
 })

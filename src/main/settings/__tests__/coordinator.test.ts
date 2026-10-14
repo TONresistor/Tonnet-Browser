@@ -88,7 +88,7 @@ describe('SettingsCoordinator', () => {
   })
 
   it('applies Cocoon enablement immediately without changing its autostart preference', async () => {
-    current = AppSettingsSchema.parse({ cocoon: { autostart: true } })
+    current = AppSettingsSchema.parse({ cocoon: { enabled: true, autostart: true } })
     const dependencies = createDependencies()
     const coordinator = new SettingsCoordinator(dependencies)
     await coordinator.apply({ cocoon: { enabled: false } })

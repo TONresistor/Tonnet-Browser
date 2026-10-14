@@ -19,14 +19,15 @@ it('offers an independent Cocoon toggle and disables autostart controls while Co
   try {
     await act(async () => root.render(<CocoonSection draft={defaultPreferences} setDraft={setDraft} />))
     const toggle = container.querySelector<HTMLButtonElement>('[aria-label="cocoon.enabled"]')!
-    expect(toggle.getAttribute('aria-checked')).toBe('true')
-    await act(async () => toggle.click())
-    expect(setDraft).toHaveBeenCalledWith('cocoonEnabled', false)
-    await act(async () =>
-      root.render(<CocoonSection draft={{ ...defaultPreferences, cocoonEnabled: false }} setDraft={setDraft} />)
-    )
-    expect(container.querySelector('[aria-label="cocoon.enabled"]')?.getAttribute('aria-checked')).toBe('false')
+    expect(toggle.getAttribute('aria-checked')).toBe('false')
     expect(container.querySelector<HTMLButtonElement>('[aria-label="cocoon.autostart"]')?.disabled).toBe(true)
+    await act(async () => toggle.click())
+    expect(setDraft).toHaveBeenCalledWith('cocoonEnabled', true)
+    await act(async () =>
+      root.render(<CocoonSection draft={{ ...defaultPreferences, cocoonEnabled: true }} setDraft={setDraft} />)
+    )
+    expect(container.querySelector('[aria-label="cocoon.enabled"]')?.getAttribute('aria-checked')).toBe('true')
+    expect(container.querySelector<HTMLButtonElement>('[aria-label="cocoon.autostart"]')?.disabled).toBe(false)
   } finally {
     await act(async () => root.unmount())
     vi.unstubAllGlobals()

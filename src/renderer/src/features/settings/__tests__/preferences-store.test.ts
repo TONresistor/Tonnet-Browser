@@ -27,17 +27,19 @@ describe('preferences store', () => {
     vi.resetModules()
   })
 
-  it('keeps Cocoon enabled for existing settings and saves its toggle in the Cocoon category', async () => {
+  it('defaults Cocoon off, preserves explicit choices, and saves its toggle in the Cocoon category', async () => {
     const { defaultPreferences, usePreferencesStore } = await import('../preferences-store')
-    const existing = AppSettingsSchema.parse({ cocoon: { autostart: true } })
-    expect(existing.cocoon.enabled).toBe(true)
+    expect(AppSettingsSchema.parse({}).cocoon.enabled).toBe(false)
+    expect(AppSettingsSchema.parse({ cocoon: { autostart: true } }).cocoon.enabled).toBe(false)
+    expect(AppSettingsSchema.parse({ cocoon: { enabled: true } }).cocoon.enabled).toBe(true)
+    expect(AppSettingsSchema.parse({ cocoon: { enabled: false } }).cocoon.enabled).toBe(false)
     usePreferencesStore.setState({ saved: { ...defaultPreferences }, draft: { ...defaultPreferences }, isLoaded: true })
-    usePreferencesStore.getState().setDraft('cocoonEnabled', false)
-    expect(usePreferencesStore.getState().saved.cocoonEnabled).toBe(true)
-    mocks.apply.mockResolvedValueOnce(AppSettingsSchema.parse({ cocoon: { enabled: false } }))
-    await usePreferencesStore.getState().save()
-    expect(mocks.apply).toHaveBeenCalledWith({ cocoon: { enabled: false } })
+    usePreferencesStore.getState().setDraft('cocoonEnabled', true)
     expect(usePreferencesStore.getState().saved.cocoonEnabled).toBe(false)
+    mocks.apply.mockResolvedValueOnce(AppSettingsSchema.parse({ cocoon: { enabled: true } }))
+    await usePreferencesStore.getState().save()
+    expect(mocks.apply).toHaveBeenCalledWith({ cocoon: { enabled: true } })
+    expect(usePreferencesStore.getState().saved.cocoonEnabled).toBe(true)
   })
 
   it('preserves edits made while a save is in flight', async () => {
