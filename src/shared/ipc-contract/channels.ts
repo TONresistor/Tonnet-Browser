@@ -24,6 +24,7 @@ export const WALLET_CONTRACT_CHANNELS = {
   markBackupVerified: 'wallet:mark-backup-verified',
   createBackupChallenge: 'wallet:create-backup-challenge',
   changePassword: 'wallet:change-password',
+  pageOpen: 'wallet:page-open',
   sensitiveDisplay: 'wallet:sensitive-display',
   dnsResolve: 'dns:resolve',
   balanceUpdated: 'wallet:balance-updated',

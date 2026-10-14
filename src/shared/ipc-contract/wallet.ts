@@ -322,6 +322,13 @@ export const walletChangePasswordContract = defineRequest({
   errors: ['WALLET_NOT_FOUND', 'INVALID_PASSWORD', 'WALLET_PASSWORD_CHANGE_FAILED'],
   redaction: 'secret',
 })
+export const walletPageOpenContract = defineRequest({
+  ...mainBase,
+  channel: WALLET_CONTRACT_CHANNELS.pageOpen,
+  input: z.tuple([z.boolean()]),
+  output: MutationSchema,
+  errors: [],
+})
 export const walletSensitiveDisplayContract = defineRequest({
   ...mainBase,
   channel: WALLET_CONTRACT_CHANNELS.sensitiveDisplay,
@@ -407,6 +414,7 @@ export const WALLET_REQUEST_CONTRACTS = [
   walletMarkBackupVerifiedContract,
   walletCreateBackupChallengeContract,
   walletChangePasswordContract,
+  walletPageOpenContract,
   walletSensitiveDisplayContract,
   dnsResolveContract,
 ] as const

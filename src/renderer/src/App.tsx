@@ -23,6 +23,7 @@ import {
 } from '@/features/settings/public'
 import { useLocaleEffects } from '@/features/settings/useLocaleEffects'
 import { useThemeEffects } from '@/features/themes/public'
+import { useWalletPageOpen } from '@/features/wallet/public'
 import { WalletSidebar } from '@/features/wallet/components/WalletSidebar'
 import { CocoonSidebar } from '@/features/cocoon/components/CocoonSidebar'
 import { Button } from '@/components/ui/button'
@@ -111,6 +112,7 @@ function App() {
   usePaymentApprovals()
 
   const internalRoute = resolveInternalRoute(currentUrl)
+  useWalletPageOpen(walletSidebarOpen || internalRoute?.kind === 'wallet')
 
   const loadingContent: ReactNode = (
     <div className="w-full h-full flex flex-col items-center justify-center bg-background-secondary">

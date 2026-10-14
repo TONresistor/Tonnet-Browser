@@ -486,6 +486,124 @@ describe('WalletKeyStorage', () => {
       expect(onLock).toHaveBeenCalledOnce()
     })
 
+    it('stays unlocked while the page lease is renewed and restarts the delay on close', async () => {
+      vi.mocked(fs.readFile).mockResolvedValue(
+        makeEncryptedBuffer({ type: 'mnemonic', mnemonic: Array(24).fill('test') }, storage)
+      )
+      const onLock = vi.fn()
+      ks.setOnLock(onLock)
+      ks.setPageOpen(true)
+      await ks.load()
+      for (let i = 0; i < 30; i++) {
+        vi.advanceTimersByTime(15_000)
+        ks.setPageOpen(true)
+      }
+      ks.setAutoLockMinutes(1)
+      vi.advanceTimersByTime(30_000)
+      expect(onLock).not.toHaveBeenCalled()
+      ks.setPageOpen(false)
+      vi.advanceTimersByTime(59_999)
+      expect(onLock).not.toHaveBeenCalled()
+      vi.advanceTimersByTime(1)
+      expect(onLock).toHaveBeenCalledOnce()
+    })
+
+    it('expires an abandoned page lease and then applies the normal auto-lock delay', async () => {
+      vi.mocked(fs.readFile).mockResolvedValue(
+        makeEncryptedBuffer({ type: 'mnemonic', mnemonic: Array(24).fill('test') }, storage)
+      )
+      const onLock = vi.fn()
+      ks.setOnLock(onLock)
+      await ks.load()
+      ks.setPageOpen(true)
+      vi.advanceTimersByTime(60_000 + 300_000 - 1)
+      expect(onLock).not.toHaveBeenCalled()
+      vi.advanceTimersByTime(1)
+      expect(onLock).toHaveBeenCalledOnce()
+    })
+
+    it('still clears the signing key on manual lock while the page is open', async () => {
+      vi.mocked(fs.readFile).mockResolvedValue(
+        makeEncryptedBuffer({ type: 'mnemonic', mnemonic: Array(24).fill('test') }, storage)
+      )
+      const onLock = vi.fn()
+      ks.setOnLock(onLock)
+      const keypair = await ks.load()
+      ks.setPageOpen(true)
+      ks.lock()
+      expect(keypair.secretKey.every((byte) => byte === 0)).toBe(true)
+      expect(onLock).toHaveBeenCalledOnce()
+      ks.setPageOpen(true)
+      vi.advanceTimersByTime(15_000)
+      expect(onLock).toHaveBeenCalledOnce()
+    })
+
+    it.each([false, true])(
+      'protects an operation after leaving the page, then resumes locking (failure=%s)',
+      async (fails) => {
+        vi.mocked(fs.readFile).mockResolvedValue(
+          makeEncryptedBuffer({ type: 'mnemonic', mnemonic: Array(24).fill('test') }, storage)
+        )
+        const onLock = vi.fn()
+        ks.setOnLock(onLock)
+        await ks.load()
+        ks.setPageOpen(true)
+        let finish!: () => void
+        const waiting = new Promise<void>((resolve) => {
+          finish = resolve
+        })
+        const pending = ks.withAutoLockPaused(async () => {
+          await waiting
+          if (fails) throw new Error('cancelled')
+        })
+        const result = pending.catch((error: Error) => error.message)
+        // Closing the page and expiry of its heartbeat must both leave the action protected.
+        ks.setPageOpen(false)
+        ks.setPageOpen(true)
+        vi.advanceTimersByTime(10 * 60_000)
+        ks.setAutoLockMinutes(1)
+        vi.advanceTimersByTime(2 * 60_000)
+        expect(onLock).not.toHaveBeenCalled()
+        finish()
+        expect(await result).toBe(fails ? 'cancelled' : undefined)
+        vi.advanceTimersByTime(59_999)
+        expect(onLock).not.toHaveBeenCalled()
+        vi.advanceTimersByTime(1)
+        expect(onLock).toHaveBeenCalledOnce()
+      }
+    )
+
+    it('waits for every overlapping operation to finish before resuming automatic locking', async () => {
+      vi.mocked(fs.readFile).mockResolvedValue(
+        makeEncryptedBuffer({ type: 'mnemonic', mnemonic: Array(24).fill('test') }, storage)
+      )
+      const onLock = vi.fn()
+      ks.setOnLock(onLock)
+      await ks.load()
+      let finishFirst!: () => void
+      let finishLast!: () => void
+      const first = ks.withAutoLockPaused(
+        () =>
+          new Promise<void>((resolve) => {
+            finishFirst = resolve
+          })
+      )
+      const last = ks.withAutoLockPaused(
+        () =>
+          new Promise<void>((resolve) => {
+            finishLast = resolve
+          })
+      )
+      finishFirst()
+      await first
+      vi.advanceTimersByTime(10 * 60_000)
+      expect(onLock).not.toHaveBeenCalled()
+      finishLast()
+      await last
+      vi.advanceTimersByTime(300_000)
+      expect(onLock).toHaveBeenCalledOnce()
+    })
+
     it('setAutoLockMinutes(0) disables auto-lock', async () => {
       const data = { type: 'mnemonic', mnemonic: Array(24).fill('test') }
       vi.mocked(fs.readFile).mockResolvedValue(makeEncryptedBuffer(data, storage))
