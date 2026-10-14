@@ -327,7 +327,7 @@ export const walletPageOpenContract = defineRequest({
   channel: WALLET_CONTRACT_CHANNELS.pageOpen,
   input: z.tuple([z.boolean()]),
   output: MutationSchema,
-  errors: [],
+  errors: ['WALLET_PAGE_STATE_FAILED'],
 })
 export const walletSensitiveDisplayContract = defineRequest({
   ...mainBase,

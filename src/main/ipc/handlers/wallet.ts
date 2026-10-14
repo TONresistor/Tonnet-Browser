@@ -518,7 +518,11 @@ export function registerWalletHandlers(registry: ServiceRegistry): void {
   })
 
   secureContractHandle(walletPageOpenContract, (open) => {
-    walletManager.setPageOpen(open)
+    try {
+      walletManager.setPageOpen(open)
+    } catch (error) {
+      ipcFailure('WALLET_PAGE_STATE_FAILED', 'Unable to update wallet page state', false, error)
+    }
     return { success: true as const }
   })
 

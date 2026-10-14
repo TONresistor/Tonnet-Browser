@@ -315,6 +315,7 @@ function createMockRegistry(): ServiceRegistry {
         prepareEncryptedComment: vi.fn(() => Promise.resolve(beginCell().storeUint(1, 1).endCell())),
         send: vi.fn(),
         setAutoLockMinutes: vi.fn(),
+        setPageOpen: vi.fn(),
         fetchOnChainHistory: vi.fn(() => []),
       })
     })() as any,
@@ -755,6 +756,29 @@ describe('IPC Handlers', () => {
   })
 
   describe('Wallet Handlers', () => {
+    it.each([true, false])('updates wallet page presence %s', async (open) => {
+      const result = await mockHandlers.get(IPC_CHANNELS.WALLET_PAGE_OPEN)!(createMockEvent(), open)
+      expect(result).toEqual({ success: true })
+      expect(mockRegistry.walletManager.setPageOpen).toHaveBeenCalledWith(open)
+    })
+
+    it('reports a declared error when updating wallet page presence fails', async () => {
+      vi.mocked(mockRegistry.walletManager.setPageOpen).mockImplementationOnce(() => {
+        throw new Error('internal timer failure')
+      })
+      const result = await mockHandlers.get(IPC_CHANNELS.WALLET_PAGE_OPEN)!(createMockEvent(), true)
+      expect(result).toEqual({
+        ok: false,
+        error: { code: 'WALLET_PAGE_STATE_FAILED', message: 'Unable to update wallet page state', retryable: false },
+      })
+    })
+
+    it('rejects invalid wallet page presence before calling the wallet', async () => {
+      const result = await mockHandlers.get(IPC_CHANNELS.WALLET_PAGE_OPEN)!(createMockEvent(), 'true')
+      expect(result).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT' } })
+      expect(mockRegistry.walletManager.setPageOpen).not.toHaveBeenCalled()
+    })
+
     it('rejects wallet deletion before confirmation when the password is invalid', async () => {
       vi.mocked(mockRegistry.walletManager.getState).mockReturnValue({
         isCreated: true,
