@@ -88,6 +88,9 @@
   "overrides": {
     "@ton/ton": {
       "axios": ">=1.16.0"
+    },
+    "@electron/get@3": {
+      "global-agent": "^4.1.3"
     }
   },
   "devDependencies": {
