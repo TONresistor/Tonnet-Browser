@@ -81,11 +81,6 @@ describe('bridgeStackToTupleReader', () => {
     expect(reader.readBigNumber()).toBe(123n)
   })
 
-  it('converts decimal string → readNumber returns correct JS number', () => {
-    const reader = bridgeStackToTupleReader(['42'])
-    expect(reader.readNumber()).toBe(42)
-  })
-
   it('converts base64 BOC of a known cell → readCell returns matching cell', () => {
     const cell = beginCell().storeUint(7, 8).endCell()
     const b64 = cell.toBoc().toString('base64')

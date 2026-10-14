@@ -1483,9 +1483,8 @@ describe('Cocoon AI Handlers', () => {
 
       const result = await handler(createMockEvent())
 
-      expect(result).not.toHaveProperty('ownerMnemonic')
-      expect(result).not.toHaveProperty('nodeSecretBase64')
-      expect(result).not.toHaveProperty('nodeWalletKeyBase64')
+      expect(result).toEqual({ success: true, httpPort: 10000 })
+      expect(JSON.stringify(result)).not.toContain(MOCK_COCOON_WALLET.nodeSecretBase64)
     })
 
     it('returns error when wallet is not initialized', async () => {
@@ -1578,13 +1577,16 @@ describe('Cocoon AI Handlers', () => {
         ownerAddress: 'EQOwner',
         nodeAddress: 'EQNode',
         mnemonic: MOCK_COCOON_MNEMONIC,
-      })
+        nodeSecretBase64: 'secret-canary',
+        nodePublicKeyHex: 'public-key-canary',
+      } as never)
       const handler = mockHandlers.get(IPC_CHANNELS.COCOON_WALLET_CREATE)!
 
       const result = await handler(createMockEvent())
 
-      expect(result).not.toHaveProperty('nodeSecretBase64')
-      expect(result).not.toHaveProperty('nodePublicKeyHex')
+      expect(result).toEqual({ ownerAddress: 'EQOwner', nodeAddress: 'EQNode', mnemonic: MOCK_COCOON_MNEMONIC })
+      expect(JSON.stringify(result)).not.toContain('secret-canary')
+      expect(JSON.stringify(result)).not.toContain('public-key-canary')
     })
   })
 

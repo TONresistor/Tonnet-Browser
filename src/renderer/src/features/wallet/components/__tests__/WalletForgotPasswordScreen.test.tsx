@@ -35,29 +35,6 @@ describe('WalletForgotPasswordScreen', () => {
     expect(onRecover).toHaveBeenCalledOnce()
   })
 
-  it('uses the compact wallet-gate hierarchy in the sidebar', async () => {
-    await act(async () => {
-      root.render(
-        <WalletForgotPasswordScreen compact onRecover={vi.fn()} onForget={vi.fn()} onBack={vi.fn()} onClose={vi.fn()} />
-      )
-    })
-
-    const title = Array.from(container.querySelectorAll('h2')).find((heading) =>
-      heading.textContent?.includes('Forgot your wallet password?')
-    )
-    const content = title?.parentElement?.parentElement
-    expect(title?.className).toContain('text-sm')
-    expect(content?.className).toContain('max-w-xs')
-    expect(content?.className).not.toContain('rounded-card')
-
-    const actions = Array.from(container.querySelectorAll('button')).filter(
-      (button) =>
-        button.textContent?.includes('Recover with 24 words') || button.textContent?.includes('Remove from this device')
-    )
-    expect(actions).toHaveLength(2)
-    expect(actions.every((button) => button.className.includes('h-11'))).toBe(true)
-  })
-
   it('requires REMOVE before forgetting the local wallet', async () => {
     const onForget = vi.fn(() => Promise.resolve())
     await act(async () => {

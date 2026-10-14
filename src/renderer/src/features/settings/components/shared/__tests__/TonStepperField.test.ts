@@ -1,5 +1,8 @@
-import { describe, it, expect } from 'vitest'
-import { computeStep } from '../TonStepperField'
+// @vitest-environment happy-dom
+import { describe, it, expect, vi } from 'vitest'
+import { act, createElement } from 'react'
+import { createRoot } from 'react-dom/client'
+import { computeStep, TonStepperField } from '../TonStepperField'
 
 describe('computeStep', () => {
   it('increments and decrements by the step', () => {
@@ -21,4 +24,37 @@ describe('computeStep', () => {
     expect(computeStep('', 0.5, 1)).toBe('0.5')
     expect(computeStep('abc', 0.5, 1)).toBe('0.5')
   })
+})
+
+it('commits the fresh stepped value rather than the controlled value from the previous render', async () => {
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+  const container = document.createElement('div')
+  document.body.appendChild(container)
+  const root = createRoot(container)
+  const onChange = vi.fn()
+  const onBlur = vi.fn()
+  try {
+    await act(async () =>
+      root.render(
+        createElement(TonStepperField, {
+          value: '1',
+          onChange,
+          onBlur,
+          ariaLabel: 'Payment limit',
+          step: 0.5,
+        })
+      )
+    )
+    const [decrement, increment] = container.querySelectorAll('button')
+    await act(async () => increment.click())
+    expect(onChange).toHaveBeenLastCalledWith('1.5')
+    expect(onBlur).toHaveBeenLastCalledWith('1.5')
+    await act(async () => decrement.click())
+    expect(onChange).toHaveBeenLastCalledWith('0.5')
+    expect(onBlur).toHaveBeenLastCalledWith('0.5')
+  } finally {
+    act(() => root.unmount())
+    container.remove()
+    vi.unstubAllGlobals()
+  }
 })

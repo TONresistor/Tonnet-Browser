@@ -70,4 +70,66 @@ describe('SendForm encrypted comment', () => {
 
     expect(onSend).toHaveBeenCalledWith(`0:${'11'.repeat(32)}`, '1000000000', 'private memo', true)
   })
+
+  it.each([
+    { recipient: 'invalid-address', amount: '1', label: 'invalid recipient' },
+    { recipient: `0:${'11'.repeat(32)}`, amount: '0', label: 'zero amount' },
+    { recipient: `0:${'11'.repeat(32)}`, amount: '0.0000000001', label: 'excess precision' },
+    { recipient: `0:${'11'.repeat(32)}`, amount: '6', label: 'amount above balance' },
+  ])('blocks review and sending for $label', async ({ recipient, amount }) => {
+    const onSend = vi.fn(async () => {})
+    await act(async () => root.render(<SendForm onSend={onSend} isSending={false} error={null} balance="5000000000" />))
+    const to = container.querySelector<HTMLInputElement>('#send-to')
+    const value = container.querySelector<HTMLInputElement>('#send-amount')
+    if (!to || !value) throw new Error('Expected send controls')
+    await act(async () => {
+      setControlValue(to, recipient)
+      setControlValue(value, amount)
+    })
+    const review = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent?.trim() === 'send.reviewButton'
+    )
+    if (!review) throw new Error('Expected review action')
+    expect(review.disabled).toBe(true)
+    await act(async () => review.click())
+    expect(container.textContent).not.toContain('send.confirm')
+    expect(onSend).not.toHaveBeenCalled()
+  })
+
+  it('requires explicit confirmation and blocks another confirmation while sending', async () => {
+    let complete!: () => void
+    const onSend = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          complete = resolve
+        })
+    )
+    const render = (isSending: boolean) =>
+      root.render(<SendForm onSend={onSend} isSending={isSending} error={null} balance="5000000000" />)
+    await act(async () => render(false))
+    const recipient = container.querySelector<HTMLInputElement>('#send-to')
+    const amount = container.querySelector<HTMLInputElement>('#send-amount')
+    if (!recipient || !amount) throw new Error('Expected send controls')
+    await act(async () => {
+      setControlValue(recipient, `0:${'11'.repeat(32)}`)
+      setControlValue(amount, '1')
+    })
+    const review = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent?.trim() === 'send.reviewButton'
+    )
+    if (!review) throw new Error('Expected review action')
+    await act(async () => review.click())
+    expect(onSend).not.toHaveBeenCalled()
+    const confirm = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent?.trim() === 'send.confirm'
+    )
+    if (!confirm) throw new Error('Expected confirmation action')
+    await act(async () => confirm.click())
+    expect(onSend).toHaveBeenCalledOnce()
+    await act(async () => render(true))
+    expect(confirm.disabled).toBe(true)
+    await act(async () => confirm.click())
+    expect(onSend).toHaveBeenCalledOnce()
+    await act(async () => complete())
+  })
 })

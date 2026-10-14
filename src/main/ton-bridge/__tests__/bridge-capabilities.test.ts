@@ -91,5 +91,10 @@ describe('bridge capability clients', () => {
       count: 1,
     })
     expect(request).toHaveBeenCalledWith('dht.findOverlayNodes', { overlay_key: 'room' }, 22_000)
+    request.mockResolvedValueOnce({
+      nodes: [{ id: 'pub', adnl_id: 'adnl', overlay: 'overlay', version: 'invalid' as never }],
+      count: 1,
+    })
+    await expect(dht.findOverlayNodes('room')).rejects.toThrow()
   })
 })

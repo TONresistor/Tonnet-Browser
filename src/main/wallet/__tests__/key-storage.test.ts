@@ -430,20 +430,6 @@ describe('WalletKeyStorage', () => {
 
   // 6. lock() zeros the secret key in memory
   describe('lock()', () => {
-    it('clears secret key from memory', async () => {
-      const data = { type: 'mnemonic', mnemonic: Array(24).fill('test') }
-      vi.mocked(fs.readFile).mockResolvedValue(makeEncryptedBuffer(data, storage))
-
-      await ks.load()
-      expect(ks.getPublicKey()).not.toBeNull()
-
-      ks.lock()
-
-      expect(ks.isLocked()).toBe(false)
-      // Public key retained, secret key gone
-      expect(ks.getPublicKey()).not.toBeNull()
-    })
-
     it('is idempotent when called twice', async () => {
       const data = { type: 'mnemonic', mnemonic: Array(24).fill('test') }
       vi.mocked(fs.readFile).mockResolvedValue(makeEncryptedBuffer(data, storage))
@@ -605,27 +591,36 @@ describe('WalletKeyStorage', () => {
     })
 
     it('setAutoLockMinutes(0) disables auto-lock', async () => {
-      const data = { type: 'mnemonic', mnemonic: Array(24).fill('test') }
-      vi.mocked(fs.readFile).mockResolvedValue(makeEncryptedBuffer(data, storage))
-
-      await ks.load()
+      vi.mocked(fs.readFile).mockResolvedValue(
+        makeEncryptedBuffer({ type: 'mnemonic', mnemonic: Array(24).fill('test') }, storage)
+      )
+      const onLock = vi.fn()
+      ks.setOnLock(onLock)
+      const keypair = await ks.load()
       ks.setAutoLockMinutes(0)
-
-      vi.advanceTimersByTime(10 * 60 * 1000)
-
-      expect(ks.isLocked()).toBe(false)
+      vi.advanceTimersByTime(10 * 60_000)
+      expect(onLock).not.toHaveBeenCalled()
+      expect(keypair.secretKey.some((byte) => byte !== 0)).toBe(true)
+      ks.lock()
+      expect(onLock).toHaveBeenCalledOnce()
+      expect(keypair.secretKey.every((byte) => byte === 0)).toBe(true)
     })
 
     it('setAutoLockMinutes resets the timer with new duration', async () => {
-      const data = { type: 'mnemonic', mnemonic: Array(24).fill('test') }
-      vi.mocked(fs.readFile).mockResolvedValue(makeEncryptedBuffer(data, storage))
-
-      await ks.load()
-      ks.setAutoLockMinutes(1) // 1 minute
-
-      vi.advanceTimersByTime(60 * 1000)
-
-      expect(ks.isLocked()).toBe(false)
+      vi.mocked(fs.readFile).mockResolvedValue(
+        makeEncryptedBuffer({ type: 'mnemonic', mnemonic: Array(24).fill('test') }, storage)
+      )
+      const onLock = vi.fn()
+      ks.setOnLock(onLock)
+      const keypair = await ks.load()
+      vi.advanceTimersByTime(30_000)
+      ks.setAutoLockMinutes(1)
+      vi.advanceTimersByTime(59_999)
+      expect(onLock).not.toHaveBeenCalled()
+      expect(keypair.secretKey.some((byte) => byte !== 0)).toBe(true)
+      vi.advanceTimersByTime(1)
+      expect(onLock).toHaveBeenCalledOnce()
+      expect(keypair.secretKey.every((byte) => byte === 0)).toBe(true)
     })
   })
 
@@ -638,10 +633,6 @@ describe('WalletKeyStorage', () => {
 
     it('returns false for other backends', () => {
       storage.setBackendName('gnome-keyring')
-      expect(ks.isBasicTextBackend()).toBe(false)
-    })
-
-    it('returns false for default test-backend', () => {
       expect(ks.isBasicTextBackend()).toBe(false)
     })
   })
@@ -688,8 +679,12 @@ describe('WalletKeyStorage', () => {
       const data = { type: 'mnemonic', mnemonic: Array(24).fill('test') }
       vi.mocked(fs.readFile).mockResolvedValue(makeEncryptedBuffer(data, storage))
 
-      await ks.load()
+      const keypair = await ks.load()
+      const publicKey = ks.getPublicKey()!
       ks.destroy()
+      expect(keypair.secretKey.every((byte) => byte === 0)).toBe(true)
+      expect(keypair.publicKey.every((byte) => byte === 0)).toBe(true)
+      expect(publicKey.every((byte) => byte === 0)).toBe(true)
 
       expect(ks.getPublicKey()).toBeNull()
       expect(ks.isLocked()).toBe(false) // both null, not locked

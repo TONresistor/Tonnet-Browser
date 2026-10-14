@@ -42,11 +42,13 @@ describe('writeJsonAtomic', () => {
 
   it('cleans up tmp on write failure', () => {
     const target = path.join(tmpDir, 'data.json')
-    const cyclic: Record<string, unknown> = {}
-    cyclic.self = cyclic
-    expect(() => writeJsonAtomic(target, cyclic)).toThrow()
+    // The temporary file is written successfully; replacing a nonempty directory
+    // then fails at rename, exercising the cleanup rather than JSON serialization.
+    fs.mkdirSync(target)
+    fs.writeFileSync(path.join(target, 'keep'), 'previous')
+    expect(() => writeJsonAtomic(target, { value: 'new' })).toThrow()
     expect(fs.existsSync(`${target}.tmp`)).toBe(false)
-    expect(fs.existsSync(target)).toBe(false)
+    expect(fs.readFileSync(path.join(target, 'keep'), 'utf8')).toBe('previous')
   })
 
   it.skipIf(!isPosix)('respects default umask when no mode is given', () => {
@@ -111,10 +113,11 @@ describe('writeSecureJsonAtomic', () => {
 
   it('cleans up tmp on write failure', () => {
     const target = path.join(tmpDir, 'config.json')
-    const cyclic: Record<string, unknown> = {}
-    cyclic.self = cyclic
-    expect(() => writeSecureJsonAtomic(target, cyclic)).toThrow()
+    fs.mkdirSync(target)
+    fs.writeFileSync(path.join(target, 'keep'), 'previous')
+    expect(() => writeSecureJsonAtomic(target, { secret: 'new' })).toThrow()
     expect(fs.existsSync(`${target}.tmp`)).toBe(false)
+    expect(fs.readFileSync(path.join(target, 'keep'), 'utf8')).toBe('previous')
   })
 })
 
@@ -162,12 +165,12 @@ describe('writeFileAtomic', () => {
   })
 
   it('cleans up tmp on write failure', async () => {
-    // Writing to a path where the parent is a file (not a directory) fails at mkdir
-    const blocker = path.join(tmpDir, 'blocker')
-    fs.writeFileSync(blocker, '')
-    const target = path.join(blocker, 'child', 'data.bin')
-    await expect(writeFileAtomic(target, Buffer.from('x'))).rejects.toThrow()
+    const target = path.join(tmpDir, 'data.bin')
+    fs.mkdirSync(target)
+    fs.writeFileSync(path.join(target, 'keep'), 'previous')
+    await expect(writeFileAtomic(target, Buffer.from('new'))).rejects.toThrow()
     expect(fs.existsSync(`${target}.tmp`)).toBe(false)
+    expect(fs.readFileSync(path.join(target, 'keep'), 'utf8')).toBe('previous')
   })
 
   it('preserves previous file contents when write throws', async () => {

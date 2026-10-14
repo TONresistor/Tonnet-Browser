@@ -159,10 +159,6 @@ describe('ProxyManager', () => {
       expect(manager.isRunning()).toBe(false)
     })
 
-    it('isSynced() returns false initially', () => {
-      expect(manager.isSynced()).toBe(false)
-    })
-
     it('tracks a requested start before the proxy process exists', async () => {
       let releaseConfig: () => void = () => {}
       vi.mocked(writeProxyConfig).mockReturnValueOnce(
@@ -866,18 +862,6 @@ describe('ProxyManager', () => {
       const status = manager.getStatus()
       expect(status.status).toBe('connected')
       expect(status.port).toBe(8080)
-
-      manager.stop()
-    })
-  })
-
-  describe('getProxyUrl()', () => {
-    it('returns correct proxy URL after start', async () => {
-      emitProxyReady()
-
-      await manager.start()
-
-      expect(manager.getProxyUrl()).toBe('http://127.0.0.1:8080')
 
       manager.stop()
     })

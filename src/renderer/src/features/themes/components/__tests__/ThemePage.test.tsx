@@ -214,6 +214,7 @@ describe('ThemePage layout', () => {
 
     const dialog = container.querySelector('[role="dialog"]')
     expect(dialog).not.toBeNull()
+    expect(deleteTheme).not.toHaveBeenCalled()
     expect(dialog?.textContent).toContain('appearance.customThemes.deleteConfirm')
     expect(dialog?.querySelector('h2')?.className).toContain('text-center')
     expect(dialog?.querySelector('p')?.className).toContain('text-center')

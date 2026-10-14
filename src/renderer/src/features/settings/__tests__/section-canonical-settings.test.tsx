@@ -302,12 +302,12 @@ describe('canonical settings sections', () => {
     const canonical = AppSettingsSchema.parse({ bridge: { defaultPolicy: 'deny' } })
     await emitSettings({ category: 'bridge', values: canonical.bridge, settings: canonical })
 
-    expect(option(container, 'bridge.policyDeny').className).toContain('bg-elevation-4')
+    expect(option(container, 'bridge.policyDeny').getAttribute('aria-checked')).toBe('true')
     expect(jetton.getAttribute('aria-checked')).toBe('true')
     expect(sectionRef.current?.hasChanges).toBe(true)
 
     await React.act(async () => sectionRef.current?.discard())
-    expect(option(container, 'bridge.policyDeny').className).toContain('bg-elevation-4')
+    expect(option(container, 'bridge.policyDeny').getAttribute('aria-checked')).toBe('true')
     expect(jetton.getAttribute('aria-checked')).toBe('false')
     expect(sectionRef.current?.hasChanges).toBe(false)
   })
@@ -338,7 +338,7 @@ describe('canonical settings sections', () => {
     expect(container.textContent).toContain('persisted.example')
     await emitSettings({ reset: true, settings: reset })
 
-    expect(option(container, 'bridge.policyAsk').className).toContain('bg-elevation-4')
+    expect(option(container, 'bridge.policyAsk').getAttribute('aria-checked')).toBe('true')
     expect(container.textContent).not.toContain('persisted.example')
     expect(sectionRef.current?.hasChanges).toBe(false)
   })
@@ -362,7 +362,7 @@ describe('canonical settings sections', () => {
     const canonical = AppSettingsSchema.parse({ bridge: { defaultPolicy: 'ask', permissions: [permission] } })
     await emitSettings({ category: 'bridge', values: { permissions: [permission] }, settings: canonical })
 
-    expect(option(container, 'bridge.policyDeny').className).toContain('bg-elevation-4')
+    expect(option(container, 'bridge.policyDeny').getAttribute('aria-checked')).toBe('true')
     expect(container.textContent).toContain('canonical.example')
     expect(sectionRef.current?.hasChanges).toBe(true)
   })
@@ -412,7 +412,7 @@ describe('canonical settings sections', () => {
     expect(container.textContent).toContain('canonical.example')
     expect(container.textContent).toContain('session.example')
     expect(container.textContent).not.toContain('stale.example')
-    expect(option(container, 'bridge.policyDeny').className).toContain('bg-elevation-4')
+    expect(option(container, 'bridge.policyDeny').getAttribute('aria-checked')).toBe('true')
   })
 
   it('does not restore stale session permissions after a reset during initial load', async () => {
@@ -440,6 +440,6 @@ describe('canonical settings sections', () => {
     })
 
     expect(container.textContent).not.toContain('stale-session.example')
-    expect(option(container, 'bridge.policyAsk').className).toContain('bg-elevation-4')
+    expect(option(container, 'bridge.policyAsk').getAttribute('aria-checked')).toBe('true')
   })
 })

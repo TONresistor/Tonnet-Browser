@@ -185,6 +185,10 @@ describe('services composition root', () => {
     // The composition root's only real contract: shutdown releases every
     // service. A missed teardown call (resource/handle leak) fails this.
     const spies = [
+      vi.spyOn(registry.ipcRegistrations, 'dispose'),
+      vi.spyOn(registry.lifecycleRegistrations, 'dispose'),
+      vi.spyOn(registry.tabManager, 'dispose'),
+      vi.spyOn(registry.messengerClientManager, 'stop'),
       vi.spyOn(registry.historyManager, 'onAppExit'),
       vi.spyOn(registry.overlayManager, 'destroy'),
       vi.spyOn(registry.bridgeInterceptor, 'destroy'),

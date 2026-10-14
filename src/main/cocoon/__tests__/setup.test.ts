@@ -34,7 +34,7 @@ const MOCK_WALLET_DATA = {
   nodeSecretBase64: 'AAAA',
   nodePublicKeyHex: 'aabbccdd',
   ownerAddress: VALID_TON_ADDRESS,
-  nodeAddress: VALID_TON_ADDRESS,
+  nodeAddress: 'EQAgAIQvjaMw_t1fbEWmmj46bKk1FAHtd6-F_zYtXVlTq9mv',
   createdAt: 1_700_000_000_000,
 }
 

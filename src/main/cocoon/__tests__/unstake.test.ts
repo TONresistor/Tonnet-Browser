@@ -8,6 +8,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { Address } from '@ton/core'
 
 vi.mock('../runner-api', () => ({
   fetchJsonStats: vi.fn(),
@@ -51,7 +52,7 @@ import type { WsBridgeClient } from '../../ton-bridge/ws-bridge-client'
 
 const VALID_ADDR = 'EQCns7bYSp0igFvS1wpb5wsZjCKCV19MD5AVzI4EyxsnU73k'
 const OWNER_ADDR = 'EQCD39VS5jcptHL8vMjEXrzGaRcCVYto7HUn4bpAOg8xqB2N'
-const NATIVE_ADDR = 'EQCns7bYSp0igFvS1wpb5wsZjCKCV19MD5AVzI4EyxsnU73k'
+const NATIVE_ADDR = 'UQBtLdpcZKPlh_H_8dJud6x_pmZ_bwYIACgwYk60GCcfPJ_j'
 
 function makeManager(state: 'stopped' | 'starting' | 'ready' | 'crashed', httpPort = 10000): CocoonManager {
   return {
@@ -340,12 +341,15 @@ describe('cashout', () => {
     expect(result.txs[0]?.source).toBe('node')
     expect(result.txs[0]?.bocHash).toBe('abc')
     expect(result.txs[0]?.sentAmount).toBe('5000000000')
+    expect(Address.parse(vi.mocked(sendFromCocoonWallet).mock.calls[0][3].toString()).toRawString()).toBe(
+      Address.parse(NATIVE_ADDR).toRawString()
+    )
     // drainAll option must be set so the sweep self-destructs the SC.
     expect(sendFromCocoonWallet).toHaveBeenCalledWith(
+      bridge,
+      VALID_ADDR,
       expect.anything(),
-      expect.anything(),
-      expect.anything(),
-      expect.anything(),
+      expect.objectContaining({ workChain: 0 }),
       0n,
       undefined,
       expect.objectContaining({ drainAll: true })
@@ -364,16 +368,24 @@ describe('cashout', () => {
 
     expect(sendFromCocoonWallet).toHaveBeenCalled()
     expect(sendFromOwnerWallet).toHaveBeenCalled()
+    expect(vi.mocked(sendFromCocoonWallet).mock.calls[0][1]).toBe(VALID_ADDR)
+    expect(Address.parse(vi.mocked(sendFromCocoonWallet).mock.calls[0][3].toString()).toRawString()).toBe(
+      Address.parse(NATIVE_ADDR).toRawString()
+    )
     expect(result.totalSent).toBe('7000000000') // 5 + 2 = 7 TON, no reserve kept
     expect(result.txs).toHaveLength(2)
     expect(result.txs[0]?.source).toBe('node')
     expect(result.txs[0]?.sentAmount).toBe('5000000000')
     expect(result.txs[1]?.source).toBe('owner')
     expect(result.txs[1]?.sentAmount).toBe('2000000000')
+    expect(Address.parse(vi.mocked(sendFromOwnerWallet).mock.calls[0][2].toString()).toRawString()).toBe(
+      Address.parse(NATIVE_ADDR).toRawString()
+    )
+    expect(vi.mocked(sendFromOwnerWallet).mock.calls[0][1]).toEqual(['x'])
     expect(sendFromOwnerWallet).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.anything(),
-      expect.anything(),
+      bridge,
+      expect.any(Array),
+      expect.objectContaining({ workChain: 0 }),
       0n,
       undefined,
       expect.objectContaining({ drainAll: true })

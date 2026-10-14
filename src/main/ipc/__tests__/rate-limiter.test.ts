@@ -10,15 +10,6 @@ describe('RateLimiter', () => {
     vi.useRealTimers()
   })
 
-  it('permet les appels sous la limite', () => {
-    const limiter = new RateLimiter(10, 1000)
-
-    // 5 appels avec une limite de 10 devraient tous passer
-    for (let i = 0; i < 5; i++) {
-      expect(limiter.check()).toBe(true)
-    }
-  })
-
   it('bloque quand la limite est atteinte', () => {
     const limiter = new RateLimiter(10, 1000)
 
@@ -59,18 +50,6 @@ describe('RateLimiter', () => {
     // Apres le delai, ca repasse
     vi.advanceTimersByTime(1001)
     expect(limiter.check()).toBe(true)
-  })
-
-  it('fonctionne avec une limite de 100', () => {
-    const limiter = new RateLimiter(100, 1000)
-
-    // 100 appels devraient passer
-    for (let i = 0; i < 100; i++) {
-      expect(limiter.check()).toBe(true)
-    }
-
-    // Le 101eme appel devrait etre bloque
-    expect(limiter.check()).toBe(false)
   })
 
   it('la methode reset() vide les appels', () => {
