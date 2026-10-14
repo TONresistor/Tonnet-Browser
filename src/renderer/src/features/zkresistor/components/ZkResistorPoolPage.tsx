@@ -6,6 +6,7 @@ import { ActionButton } from '@/components/ui/ios/ActionButton'
 import { InsetGroup } from '@/components/ui/ios/InsetGroup'
 import { Segmented } from '@/components/ui/ios/Segmented'
 import { browserNavigation } from '@/features/browser/navigation'
+import { withWalletActivity } from '@/features/wallet/public'
 import { useWalletStore } from '@/features/wallet/store'
 import { formatTokenUnits } from '../format'
 import { useZkResistorCatalog } from '../useCatalog'
@@ -141,7 +142,7 @@ function PrivateActions({ pool, onCatalogChanged }: { pool: ZkResistorPool; onCa
     setError(null)
     setSuccess(null)
     try {
-      await operation()
+      await withWalletActivity(operation)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'ZKResistor operation failed')
     } finally {

@@ -4,6 +4,7 @@ import { createRoot } from 'react-dom/client'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
+  setPageOpen: vi.fn(async (_open: boolean) => ({ success: true })),
   prepare: vi.fn<() => Promise<{ id: string; note: string }>>(),
   submit: vi.fn(async () => {}),
   discard: vi.fn(),
@@ -16,6 +17,9 @@ const mocks = vi.hoisted(() => ({
     needsPasswordSetup: false,
     backupVerified: true,
   },
+}))
+vi.mock('@/features/wallet/client', () => ({
+  walletClient: { isAvailable: () => true, setPageOpen: mocks.setPageOpen },
 }))
 vi.mock('../private-runtime', () => ({
   prepareGramDeposit: mocks.prepare,
@@ -62,6 +66,7 @@ beforeEach(async () => {
 afterEach(async () => {
   await act(async () => root.unmount())
   container.remove()
+  vi.useRealTimers()
 })
 function button(label: string): HTMLButtonElement {
   const found = [...container.querySelectorAll('button')].find((item) => item.textContent === label)
@@ -114,3 +119,28 @@ it('keeps the previous note and permits retry if preparing the next deposit fail
   expect(container.textContent).toContain('SECOND-NOTE')
   expect(button('Deposit 1 GRAM').disabled).toBe(true)
 })
+
+it.each([false, true])(
+  'keeps a submitted deposit active after unmount until it settles (failure=%s)',
+  async (fails) => {
+    await click('Generate secret note')
+    await confirmNote()
+    vi.useFakeTimers()
+    let finish!: () => void
+    mocks.submit.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve, reject) => {
+          finish = () => (fails ? reject(new Error('cancelled')) : resolve())
+        })
+    )
+    mocks.setPageOpen.mockClear()
+    await click('Deposit 1 GRAM')
+    await act(async () => root.unmount())
+    await act(async () => vi.advanceTimersByTime(10 * 60_000))
+    expect(mocks.setPageOpen.mock.calls.every(([open]) => open)).toBe(true)
+    expect(mocks.setPageOpen).toHaveBeenLastCalledWith(true)
+    await act(async () => finish())
+    expect(mocks.setPageOpen).toHaveBeenLastCalledWith(false)
+    expect(vi.getTimerCount()).toBe(0)
+  }
+)

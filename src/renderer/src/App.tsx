@@ -122,7 +122,11 @@ function App() {
   usePaymentApprovals()
 
   const internalRoute = resolveInternalRoute(currentUrl)
-  useWalletPageOpen(walletSidebarOpen || internalRoute?.kind === 'wallet')
+  useWalletPageOpen(
+    walletSidebarOpen ||
+      internalRoute?.kind === 'wallet' ||
+      (zkResistorEnabled && (internalRoute?.kind === 'zkresistor' || internalRoute?.kind === 'zkresistor-pool'))
+  )
 
   const loadingContent: ReactNode = (
     <div className="w-full h-full flex flex-col items-center justify-center bg-background-secondary">

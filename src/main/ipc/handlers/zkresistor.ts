@@ -119,59 +119,61 @@ export function registerZkResistorHandlers(registry: ServiceRegistry): void {
     const walletIdentity = walletManager.getIdentitySnapshot()
     if (!walletIdentity) ipcFailure('WALLET_UNAVAILABLE', 'Wallet identity is unavailable')
 
-    let pool: Awaited<ReturnType<ZkResistorCatalogService['load']>>['pools'][number]
-    let transaction: ReturnType<typeof validateZkResistorTransaction>
-    try {
-      const [{ ZkResistorCatalogService }, { validateZkResistorTransaction }] = await Promise.all([
-        import('../../zkresistor/catalog-service'),
-        import('../../zkresistor/transaction'),
-      ])
-      const catalog = await new ZkResistorCatalogService(bridge).load()
-      const requestedAddress = Address.parse(request.poolAddress)
-      const registered = catalog.pools.find((candidate) => Address.parse(candidate.address).equals(requestedAddress))
-      if (!registered) throw new Error('Pool is not registered by the pinned Factory')
-      pool = registered
-      transaction = validateZkResistorTransaction(request, pool, state.addressRaw)
-    } catch (error) {
-      ipcFailure('INVALID_ZKRESISTOR_TRANSACTION', 'Invalid ZKResistor transaction', false, error)
-    }
+    return walletManager.withAutoLockPaused(async () => {
+      let pool: Awaited<ReturnType<ZkResistorCatalogService['load']>>['pools'][number]
+      let transaction: ReturnType<typeof validateZkResistorTransaction>
+      try {
+        const [{ ZkResistorCatalogService }, { validateZkResistorTransaction }] = await Promise.all([
+          import('../../zkresistor/catalog-service'),
+          import('../../zkresistor/transaction'),
+        ])
+        const catalog = await new ZkResistorCatalogService(bridge).load()
+        const requestedAddress = Address.parse(request.poolAddress)
+        const registered = catalog.pools.find((candidate) => Address.parse(candidate.address).equals(requestedAddress))
+        if (!registered) throw new Error('Pool is not registered by the pinned Factory')
+        pool = registered
+        transaction = validateZkResistorTransaction(request, pool, state.addressRaw)
+      } catch (error) {
+        ipcFailure('INVALID_ZKRESISTOR_TRANSACTION', 'Invalid ZKResistor transaction', false, error)
+      }
 
-    let preflight: Awaited<ReturnType<typeof walletManager.preflightContractMessage>>
-    try {
-      preflight = await walletManager.preflightContractMessage(
-        pool.address,
-        request.value,
-        transaction.body,
-        walletIdentity
-      )
-    } catch (error) {
-      ipcFailure('TRANSFER_PREFLIGHT_FAILED', 'Unable to verify the ZKResistor transaction', true, error)
-    }
-    if (BigInt(request.value) + BigInt(preflight.estimatedFee) > BigInt(preflight.walletBalance)) {
-      ipcFailure('INSUFFICIENT_BALANCE', 'Insufficient wallet balance')
-    }
+      let preflight: Awaited<ReturnType<typeof walletManager.preflightContractMessage>>
+      try {
+        preflight = await walletManager.preflightContractMessage(
+          pool.address,
+          request.value,
+          transaction.body,
+          walletIdentity
+        )
+      } catch (error) {
+        ipcFailure('TRANSFER_PREFLIGHT_FAILED', 'Unable to verify the ZKResistor transaction', true, error)
+      }
+      if (BigInt(request.value) + BigInt(preflight.estimatedFee) > BigInt(preflight.walletBalance)) {
+        ipcFailure('INSUFFICIENT_BALANCE', 'Insufficient wallet balance')
+      }
 
-    const poolAddress = Address.parse(pool.address).toString({ bounceable: true, urlSafe: true })
-    const approved = await requestZkResistorApproval(overlayManager, {
-      operation: request.operation,
-      poolAddress,
-      denomination: pool.denomination,
-      transactionValue: request.value,
-      ...(transaction.recipient ? { recipient: transaction.recipient } : {}),
-      estimatedFee: preflight.estimatedFee,
+      const poolAddress = Address.parse(pool.address).toString({ bounceable: true, urlSafe: true })
+      const approved = await requestZkResistorApproval(overlayManager, {
+        operation: request.operation,
+        poolAddress,
+        denomination: pool.denomination,
+        transactionValue: request.value,
+        ...(transaction.recipient ? { recipient: transaction.recipient } : {}),
+        estimatedFee: preflight.estimatedFee,
+      })
+      if (!approved) ipcFailure('USER_CANCELLED', 'ZKResistor transaction cancelled')
+      assertEnabled()
+
+      try {
+        const boc = await walletManager.signTonConnectTransaction(
+          [{ address: poolAddress, amount: request.value, payload: transaction.body.toBoc().toString('base64') }],
+          state.addressRaw
+        )
+        return { boc }
+      } catch (error) {
+        ipcFailure('SIGNING_FAILED', 'Unable to sign or send the ZKResistor transaction', false, error)
+      }
     })
-    if (!approved) ipcFailure('USER_CANCELLED', 'ZKResistor transaction cancelled')
-    assertEnabled()
-
-    try {
-      const boc = await walletManager.signTonConnectTransaction(
-        [{ address: poolAddress, amount: request.value, payload: transaction.body.toBoc().toString('base64') }],
-        state.addressRaw
-      )
-      return { boc }
-    } catch (error) {
-      ipcFailure('SIGNING_FAILED', 'Unable to sign or send the ZKResistor transaction', false, error)
-    }
   })
 }
 
