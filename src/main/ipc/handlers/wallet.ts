@@ -38,6 +38,7 @@ import {
   walletMarkBackupVerifiedContract,
   walletCreateBackupChallengeContract,
   walletChangePasswordContract,
+  walletPageOpenContract,
   walletSensitiveDisplayContract,
   dnsResolveContract,
 } from '../../../shared/ipc-contract/wallet'
@@ -514,6 +515,15 @@ export function registerWalletHandlers(registry: ServiceRegistry): void {
     } catch (error) {
       ipcFailure('WALLET_PASSWORD_CHANGE_FAILED', 'Unable to change wallet password', false, error)
     }
+  })
+
+  secureContractHandle(walletPageOpenContract, (open) => {
+    try {
+      walletManager.setPageOpen(open)
+    } catch (error) {
+      ipcFailure('WALLET_PAGE_STATE_FAILED', 'Unable to update wallet page state', false, error)
+    }
+    return { success: true as const }
   })
 
   secureContractHandle(walletSensitiveDisplayContract, (active) => {

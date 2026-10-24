@@ -3,14 +3,11 @@ import { initializeTonConnect } from '../startup'
 import { TonConnectService } from '../service'
 
 describe('TON Connect startup isolation', () => {
-  it.each([true, false])('allows window creation after an init failure (enabled=%s)', async (enabled) => {
+  it.each([true, false])('reports an init failure without rejecting startup (enabled=%s)', async (enabled) => {
     const error = new Error('EACCES')
     const init = vi.fn().mockRejectedValue(error)
     const report = vi.fn()
-    const createWindow = vi.fn()
-    await initializeTonConnect({ init }, enabled, report)
-    createWindow()
-    expect(createWindow).toHaveBeenCalledOnce()
+    await expect(initializeTonConnect({ init }, enabled, report)).resolves.toBe(false)
     expect(init).toHaveBeenCalledWith(!enabled)
     expect(report).toHaveBeenCalledWith(error)
   })

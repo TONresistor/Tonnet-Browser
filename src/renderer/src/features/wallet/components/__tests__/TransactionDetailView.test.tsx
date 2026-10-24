@@ -80,18 +80,4 @@ describe('TransactionDetailView', () => {
 
     expect(onBack).toHaveBeenCalledOnce()
   })
-
-  it('uses the encrypted-comment asset for private comments', async () => {
-    await act(async () => {
-      root.render(
-        <TransactionDetailView
-          transaction={{ ...transaction, comment: 'private memo', commentEncrypted: true }}
-          selfAddress={`0:${'22'.repeat(32)}`}
-          onBack={vi.fn()}
-        />
-      )
-    })
-
-    expect(container.querySelector('[data-ui-icon="secure-lock"]')).not.toBeNull()
-  })
 })

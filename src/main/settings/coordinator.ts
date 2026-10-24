@@ -4,6 +4,7 @@ import { emitContractToRenderer } from '../events/renderer-events'
 import type { ProxyManager } from '../proxy/manager'
 import type { StorageManager } from '../storage/daemon'
 import type { HistoryManager } from '../history/manager'
+import type { CocoonManager } from '../cocoon/manager'
 import type { WalletManager } from '../wallet/manager'
 import type { TonBridgeCoordinator } from '../ton-bridge/coordinator'
 import type { TonConnectService } from '../tonconnect/service'
@@ -16,6 +17,7 @@ export interface SettingsRuntimeDependencies {
   storageManager: StorageManager
   historyManager: HistoryManager
   walletManager: WalletManager
+  cocoonManager: CocoonManager
   tonBridgeCoordinator: TonBridgeCoordinator
   tonConnectService: TonConnectService
   bridgePermissionStore: BridgePermissionStore
@@ -110,6 +112,9 @@ export class SettingsCoordinator {
 
     if (bridgeRestarted && proxyManager.isRunning()) {
       await tonBridgeCoordinator.waitUntilReady(current.network.wsPort)
+    }
+    if (force || previous.cocoon.enabled !== current.cocoon.enabled) {
+      await this.dependencies.cocoonManager.setEnabled(current.cocoon.enabled)
     }
     if (force || categoryChanged(previous, current, 'wallet')) {
       walletManager.setAutoLockMinutes(current.wallet.autoLockMinutes)

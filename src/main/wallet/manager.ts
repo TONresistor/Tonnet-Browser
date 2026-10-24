@@ -526,6 +526,14 @@ export class WalletManager extends EventEmitter {
   private assertWalletIdentity(expected: WalletIdentitySnapshot): void {
     this.identity.assertCurrent(this.getIdentitySnapshot(), expected)
   }
+  withAutoLockPaused<T>(operation: () => Promise<T>): Promise<T> {
+    return this.keyStorage.withAutoLockPaused(operation)
+  }
+
+  setPageOpen(open: boolean): void {
+    this.keyStorage.setPageOpen(open)
+  }
+
   setAutoLockMinutes(minutes: number): void {
     this.keyStorage.setAutoLockMinutes(minutes)
   }

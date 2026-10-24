@@ -19,6 +19,9 @@ describe('XhrPaymentTokenStore', () => {
     const store = new XhrPaymentTokenStore(() => now)
     store.register(1, 'https://shop.ton', 'signed', 50, WALLET_A, 2)
     expect(store.consume(1, 'https://shop.ton', WALLET_A)).toBe('signed')
+    expect(store.consume(1, 'https://shop.ton', WALLET_A)).toBe('signed')
+    expect(store.consume(1, 'https://shop.ton', WALLET_A)).toBeNull()
+    store.register(1, 'https://shop.ton', 'signed', 50, WALLET_A, 2)
     now = 151
     expect(store.consume(1, 'https://shop.ton', WALLET_A)).toBeNull()
   })

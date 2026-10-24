@@ -99,6 +99,7 @@ export function LandingPage() {
 
       {/* Connect Button */}
       <button
+        data-testid="ton-connect-button"
         onClick={connect}
         disabled={showLoading}
         className="relative text-xl font-medium px-16 py-5 rounded-full min-w-[340px] transition-all duration-300 bg-tonsite text-identity-foreground backdrop-blur-[20px] border border-identity-foreground/20 disabled:opacity-70 disabled:cursor-not-allowed shadow-tonsite"

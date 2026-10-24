@@ -242,9 +242,11 @@ describe('WalletManager.resolveRecipient', () => {
   })
 
   it('rejects a domain exceeding 126 characters', async () => {
-    // 64-char label + .ton = 68; repeat to exceed 126
-    const longDomain = 'a'.repeat(63) + '.' + 'b'.repeat(56) + '.ton'
+    const longDomain = 'a'.repeat(63) + '.' + 'b'.repeat(63) + '.ton'
+    mockResolveDomain.mockResolvedValue(makeDnsResult())
+    expect(longDomain.length).toBeGreaterThan(126)
     await expect(manager.resolveRecipient(longDomain)).rejects.toThrow()
+    expect(mockResolveDomain).not.toHaveBeenCalled()
   })
 
   // --- Non-.ton TLD falls through to raw address parse ---

@@ -1,3 +1,4 @@
+import { useCocoonEnabled } from '@/features/settings/public'
 import { lazy, type ReactNode } from 'react'
 import type { InternalRoute } from './internal-routes'
 import { StartPage } from '@/components/pages/StartPage'
@@ -38,6 +39,8 @@ interface InternalRouteContentProps {
 }
 
 export function InternalRouteContent({ route, loading }: InternalRouteContentProps) {
+  const cocoonEnabled = useCocoonEnabled()
+  if (route.kind === 'cocoon' && !cocoonEnabled) return <StartPage />
   if (route.view === 'loading') return loading
   if (route.view === 'storage-browse' && route.kind === 'storage-browse') {
     const View = views['storage-browse']

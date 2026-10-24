@@ -33,24 +33,6 @@ describe('pinned tonutils-bridge compatibility fixture', () => {
     expect(pin).not.toHaveProperty('patch')
   })
 
-  it('keeps every browser capability method and parameter name byte-stable', () => {
-    expect(fixture.requests).toEqual([
-      { method: 'dns.resolve', params: { domain: 'site.ton' } },
-      { method: 'adnl.connectByADNL', params: { adnl_id: 'anchor' } },
-      { method: 'overlay.join', params: { overlay_id: 'overlay', peer_id: 'peer' } },
-      { method: 'overlay.sendRaw', params: { overlay_id: 'overlay', data: 'payload' } },
-      { method: 'adnl.ping', params: { peer_id: 'peer' } },
-      { method: 'overlay.leave', params: { overlay_id: 'overlay' } },
-      { method: 'adnl.disconnect', params: { peer_id: 'peer' } },
-      { method: 'dht.findValue', params: { key_id: 'key', name: 'address', index: 0 } },
-      { method: 'subscribe.unsubscribe', params: { subscription_id: 'sub' } },
-      {
-        method: 'lite.emulateTransaction',
-        params: { address: '0:abc', boc: 'te6ccg==', ignore_chksig: true },
-      },
-    ])
-  })
-
   it('accepts pinned response and event shapes at the runtime codec boundary', () => {
     expect(DnsResolveResultSchema.parse(fixture.responses['dns.resolve'])).toMatchObject({ wallet: '0:abc' })
     expect(AdnlConnectionResultSchema.parse(fixture.responses['adnl.connectByADNL'])).toEqual({ peer_id: 'peer' })

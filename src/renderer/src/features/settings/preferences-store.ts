@@ -63,6 +63,7 @@ export interface AppPreferences {
   tonConnectEnabled: boolean
 
   // Cocoon AI
+  cocoonEnabled: boolean
   cocoonAutostart: boolean
 
   messengerAutostart: boolean
@@ -134,6 +135,7 @@ export const defaultPreferences: AppPreferences = {
   tonConnectEnabled: DEFAULT_SETTINGS.tonConnectEnabled,
 
   // Cocoon AI
+  cocoonEnabled: DEFAULT_SETTINGS.cocoon.enabled,
   cocoonAutostart: DEFAULT_SETTINGS.cocoon.autostart,
 
   messengerAutostart: DEFAULT_SETTINGS.messenger.autostart,
@@ -182,6 +184,7 @@ const prefToCategory: Record<keyof AppPreferences, PreferenceMapping> = {
   storageVerbosity: { category: 'advanced', field: 'storageVerbosity' },
   displayUnicodeDomains: { category: 'advanced', field: 'displayUnicodeDomains' },
   tonConnectEnabled: { category: 'advanced', field: 'tonConnectEnabled' },
+  cocoonEnabled: { category: 'cocoon', field: 'enabled' },
   cocoonAutostart: { category: 'cocoon', field: 'autostart' },
   messengerAutostart: { category: 'messenger', field: 'autostart' },
 }

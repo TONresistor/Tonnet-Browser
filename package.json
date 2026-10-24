@@ -33,6 +33,7 @@
     "type-check": "tsc --noEmit && tsc -p tsconfig.main.json --noEmit && tsc -p tsconfig.preload.json --noEmit && tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.test.json --noEmit",
     "test": "vitest run",
     "test:browser-runtime": "node scripts/verify-browser-runtime.mjs",
+    "test:packaged-runtime": "node scripts/verify-packaged-runtime.mjs",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "start": "electron-vite preview",
@@ -82,12 +83,16 @@
     "remark-gfm": "^4.0.1",
     "tailwind-merge": "^3.5.0",
     "ws": "^8.20.0",
-    "zod": "^4.3.6",
+    "zod": "^4.6.7",
     "zustand": "^5.0.12"
   },
   "overrides": {
     "@ton/ton": {
-      "axios": ">=1.16.0"
+      "axios": ">=1.16.0",
+      "zod": "$zod"
+    },
+    "@electron/get@3": {
+      "global-agent": "^4.1.3"
     }
   },
   "devDependencies": {
@@ -101,9 +106,9 @@
     "@types/react-dom": "^19.0.2",
     "@types/ws": "^8.18.1",
     "@vitejs/plugin-react": "^4.3.4",
-    "@vitest/coverage-v8": "^4.1.11",
+    "@vitest/coverage-v8": "^4.1.12",
     "babel-plugin-react-compiler": "^1.0.0",
-    "electron": "^44.3.0",
+    "electron": "^44.9.3",
     "electron-builder": "^26.0.12",
     "electron-vite": "^5.0.0",
     "esbuild": "0.25.12",
@@ -112,15 +117,15 @@
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^5.2.0",
     "globals": "^17.5.0",
-    "happy-dom": "^20.9.0",
+    "happy-dom": "^21.0.4",
     "husky": "^9.1.7",
     "lint-staged": "^16.4.0",
     "prettier": "^3.8.3",
     "tailwindcss": "^4.2.4",
     "typescript": "^5.7.2",
     "typescript-eslint": "^8.59.0",
-    "vite": "^7.3.6",
-    "vitest": "^4.1.11"
+    "vite": "^7.3.7",
+    "vitest": "^4.1.12"
   },
   "lint-staged": {
     "src/**/*.{ts,tsx}": [

@@ -30,6 +30,7 @@ import type {
   walletMarkBackupVerifiedContract,
   walletCreateBackupChallengeContract,
   walletChangePasswordContract,
+  walletPageOpenContract,
   walletSensitiveDisplayContract,
   walletRejectPaymentContract,
   walletResolveRecipientContract,
@@ -367,6 +368,7 @@ const electronAPI = {
         currentPassword,
         nextPassword
       ),
+    setPageOpen: (open: boolean) => invokeChannel<typeof walletPageOpenContract>(IPC_CHANNELS.WALLET_PAGE_OPEN, open),
     setSensitiveDisplay: (active: boolean) =>
       invokeChannel<typeof walletSensitiveDisplayContract>(IPC_CHANNELS.WALLET_SENSITIVE_DISPLAY, active),
   },

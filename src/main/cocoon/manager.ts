@@ -51,6 +51,19 @@ export class CocoonManager extends EventEmitter {
   private httpPort: number = 10000
   private stopping = false
 
+  constructor(private enabled = true) {
+    super()
+  }
+
+  async setEnabled(enabled: boolean): Promise<void> {
+    this.enabled = enabled
+    if (!enabled) await this.stop()
+  }
+
+  private assertEnabled(): void {
+    if (!this.enabled) throw new Error('Cocoon is disabled in Settings')
+  }
+
   getState(): CocoonState {
     return this.state
   }
@@ -60,6 +73,7 @@ export class CocoonManager extends EventEmitter {
   }
 
   async start(config: CocoonConfig): Promise<void> {
+    this.assertEnabled()
     if (this.state.kind !== 'stopped') {
       throw new Error(`Cocoon already running (state=${this.state.kind})`)
     }
@@ -79,10 +93,12 @@ export class CocoonManager extends EventEmitter {
     await Promise.all([this.renderClientConfig({ ...config, httpPort: this.httpPort, rpcPort }), this.copyTonConfig()])
 
     try {
+      this.assertEnabled()
       this.transition({ kind: 'starting', phase: 'client-runner' })
       this.spawnRunner()
 
       await this.waitForReady()
+      this.assertEnabled()
       this.transition({ kind: 'ready', httpPort: this.httpPort })
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)

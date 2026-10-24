@@ -40,8 +40,9 @@ describe('bookmarks IPC contract', () => {
 
   it('rejects malformed and oversized boundary data', () => {
     expect(() => bookmarksSaveContract.input.parse([{ bookmarks: [{}], folders: [] }])).toThrow()
-    expect(() =>
-      BookmarksDataSchema.parse({ bookmarks: [], folders: Array.from({ length: 10_001 }, () => ({})) })
-    ).toThrow()
+    const folder = { id: 'folder-1', name: 'Folder', parentId: null, createdAt: 1, order: 0 }
+    const folders = Array.from({ length: 10_000 }, () => ({ ...folder }))
+    expect(BookmarksDataSchema.parse({ bookmarks: [], folders }).folders).toHaveLength(10_000)
+    expect(() => BookmarksDataSchema.parse({ bookmarks: [], folders: [...folders, folder] })).toThrow()
   })
 })

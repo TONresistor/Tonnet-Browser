@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url'
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const scratch = await mkdtemp(join(tmpdir(), 'ton-browser-runtime-'))
 const require = createRequire(import.meta.url)
+const visible = process.argv.includes('--visible') && !process.env.CI
 try {
   const pkg = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'))
   const entry = join(scratch, 'runtime.cjs')
@@ -27,7 +28,11 @@ try {
     },
     logLevel: 'warning',
   })
-  const env = { ...process.env, TONNET_RUNTIME_PROFILE: join(scratch, 'profile') }
+  const env = {
+    ...process.env,
+    TONNET_RUNTIME_PROFILE: join(scratch, 'profile'),
+    TONNET_RUNTIME_VISIBLE: visible ? '1' : '0',
+  }
   delete env.ELECTRON_RUN_AS_NODE
   const code = await new Promise((resolveExit, reject) => {
     const child = spawn(require('electron'), [entry], { cwd: root, env, stdio: 'inherit' })

@@ -7,12 +7,14 @@ import { join } from 'node:path'
 import { EventEmitter } from 'node:events'
 import assert from 'node:assert/strict'
 
+const visible = process.env.TONNET_RUNTIME_VISIBLE === '1' && !process.env.CI
 const profile = process.env.TONNET_RUNTIME_PROFILE
 const report = (message: string): void => {
   process.stdout.write(`${message}\n`)
 }
 if (!profile) throw new Error('Runtime checks require a disposable profile')
 mkdirSync(join(profile, 'logs'), { recursive: true })
+if (process.platform === 'darwin') app.commandLine.appendSwitch('use-mock-keychain')
 app.setName('Tonnet Runtime Check')
 app.setPath('userData', profile)
 app.setPath('logs', join(profile, 'logs'))
@@ -99,9 +101,13 @@ void app
     setMainWindow(window)
     await window.loadURL('data:text/html,<body>Runtime fixture</body>')
     const send = window.webContents.send.bind(window.webContents)
-    window.on('show', () => {
-      throw new Error('Runtime verification must never display a window')
-    })
+    if (visible) {
+      window.show()
+      window.focus()
+    } else
+      window.on('show', () => {
+        throw new Error('Runtime verification must never display a window')
+      })
     window.webContents.send = (channel: string, ...args: unknown[]) => {
       events.push({ channel, args })
       send(channel, ...args)

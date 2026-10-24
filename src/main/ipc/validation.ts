@@ -50,11 +50,6 @@ export function isValidNavigationUrl(url: string): { valid: boolean; error?: str
   }
 }
 
-// Security: Bag ID validation (64-char hex string)
-export function isValidBagId(bagId: string): boolean {
-  return typeof bagId === 'string' && /^[a-fA-F0-9]{64}$/.test(bagId)
-}
-
 // Security: Validate download path
 export function isValidDownloadPath(inputPath: string): { valid: boolean; error?: string } {
   // Must be a non-empty string

@@ -110,7 +110,7 @@ export const cocoonStatusContract = request(COCOON_CHANNELS.status, CocoonStateS
 export const cocoonStartContract = request(
   COCOON_CHANNELS.start,
   z.object({ success: z.literal(true), httpPort: z.number().int().min(1).max(65_535) }),
-  ['ALREADY_STARTING', 'START_FAILED']
+  ['FEATURE_DISABLED', 'ALREADY_STARTING', 'START_FAILED']
 )
 export const cocoonStopContract = request(COCOON_CHANNELS.stop, SuccessSchema, ['STOP_FAILED'])
 export const cocoonWalletExistsContract = request(COCOON_CHANNELS.walletExists, z.boolean(), ['WALLET_READ_FAILED'])
@@ -168,7 +168,7 @@ export const cocoonCashoutContract = request(
 export const cocoonFlowStakeContract = request(
   COCOON_CHANNELS.flowStake,
   z.object({ success: z.literal(true), httpPort: z.number().int().min(1).max(65_535) }),
-  ['ACTIVATION_FAILED'],
+  ['FEATURE_DISABLED', 'ACTIVATION_FAILED'],
   'secret'
 )
 export const cocoonFlowUnstakeContract = request(

@@ -649,11 +649,15 @@ describe('PaymentInterceptor', () => {
   describe('fetch timeout', () => {
     it('aborts re-fetch after FETCH_TIMEOUT_MS (30s)', async () => {
       const session = createMockSession()
+      let signal: AbortSignal | undefined
+      const aborted = vi.fn()
       // Make fetch hang until abort
       session.fetch.mockImplementation((_url: string, opts?: RequestInit) => {
         return new Promise((_resolve, reject) => {
           if (opts?.signal) {
+            signal = opts.signal
             opts.signal.addEventListener('abort', () => {
+              aborted()
               reject(new DOMException('The operation was aborted.', 'AbortError'))
             })
           }
@@ -673,11 +677,16 @@ describe('PaymentInterceptor', () => {
         webContentsId: 1,
       })
 
-      // Advance past FETCH_TIMEOUT_MS
-      vi.advanceTimersByTime(30_000)
+      await flushPromises()
+      expect(signal?.aborted).toBe(false)
+      vi.advanceTimersByTime(29_999)
+      expect(aborted).not.toHaveBeenCalled()
+      vi.advanceTimersByTime(1)
       await vi.runAllTimersAsync()
       await handlePromise
 
+      expect(signal?.aborted).toBe(true)
+      expect(aborted).toHaveBeenCalledOnce()
       // The fetch was aborted, so no payment should be attempted
       expect(walletManager.signX402Payment).not.toHaveBeenCalled()
       expect(policyStore.reservePayment).not.toHaveBeenCalled()

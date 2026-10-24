@@ -40,5 +40,13 @@ describe('ElectronTonConnectApproval', () => {
       { autoDismiss: false }
     )
     expect(overlay.hide).toHaveBeenCalledWith('tonconnect-approve-1')
+    for (const action of ['deny', 'cancel', 'unexpected']) {
+      const rejected = approval.request({ type: 'approval', title: 'Connect' })
+      callback?.(action)
+      await expect(rejected).resolves.toBe(false)
+    }
+    const ids = overlay.show.mock.calls.map(([id]) => id)
+    expect(new Set(ids).size).toBe(4)
+    expect(overlay.hide.mock.calls.map(([id]) => id)).toEqual(ids)
   })
 })

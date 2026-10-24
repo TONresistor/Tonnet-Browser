@@ -36,6 +36,8 @@ export class WalletKeyStorage {
   private cachedPublicKey: Buffer | null = null
   private cachedSecretKey: Buffer | null = null
   private lockTimer: ReturnType<typeof setTimeout> | null = null
+  private activeOperations = 0
+  private openPageTimer: ReturnType<typeof setTimeout> | null = null
   private autoLockMs: number = AUTO_LOCK_DEFAULT_MS
   private onLock: (() => void) | null = null
   private passwordProtected = false
@@ -380,6 +382,29 @@ export class WalletKeyStorage {
       this.lockTimer = null
     }
   }
+  async withAutoLockPaused<T>(operation: () => Promise<T>): Promise<T> {
+    this.activeOperations++
+    if (this.lockTimer) clearTimeout(this.lockTimer)
+    this.lockTimer = null
+    try {
+      return await operation()
+    } finally {
+      this.activeOperations--
+      if (this.activeOperations === 0 && this.cachedSecretKey) this.resetLockTimer()
+    }
+  }
+  setPageOpen(open: boolean): void {
+    if (this.openPageTimer) clearTimeout(this.openPageTimer)
+    this.openPageTimer = null
+    if (open) {
+      // A crashed renderer must not leave automatic locking suspended indefinitely.
+      this.openPageTimer = setTimeout(() => this.setPageOpen(false), 60_000)
+      if (this.lockTimer) clearTimeout(this.lockTimer)
+      this.lockTimer = null
+    } else if (this.cachedSecretKey) {
+      this.resetLockTimer()
+    }
+  }
   setOnLock(listener: (() => void) | null): void {
     this.onLock = listener
   }
@@ -403,6 +428,8 @@ export class WalletKeyStorage {
     return this.cachedPublicKey
   }
   destroy(): void {
+    if (this.openPageTimer) clearTimeout(this.openPageTimer)
+    this.openPageTimer = null
     if (this.lockTimer) {
       clearTimeout(this.lockTimer)
       this.lockTimer = null
@@ -436,7 +463,7 @@ export class WalletKeyStorage {
     if (this.lockTimer) {
       clearTimeout(this.lockTimer)
     }
-    if (this.autoLockMs > 0) {
+    if (this.autoLockMs > 0 && !this.openPageTimer && this.activeOperations === 0) {
       this.lockTimer = setTimeout(() => this.lock(), this.autoLockMs)
     }
   }

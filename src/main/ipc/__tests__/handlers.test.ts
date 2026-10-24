@@ -315,6 +315,7 @@ function createMockRegistry(): ServiceRegistry {
         prepareEncryptedComment: vi.fn(() => Promise.resolve(beginCell().storeUint(1, 1).endCell())),
         send: vi.fn(),
         setAutoLockMinutes: vi.fn(),
+        setPageOpen: vi.fn(),
         fetchOnChainHistory: vi.fn(() => []),
       })
     })() as any,
@@ -494,7 +495,7 @@ function resetHandlersTestEnv(): void {
     setTitle: vi.fn(),
   }
   settingsMocks.getSetting.mockImplementation((category: string) =>
-    category === 'advanced' ? { tonConnectEnabled: false } : {}
+    category === 'advanced' ? { tonConnectEnabled: false } : category === 'cocoon' ? { enabled: true } : {}
   )
   mockRegistry = createMockRegistry()
   registerIpcHandlers(mockRegistry)
@@ -755,6 +756,29 @@ describe('IPC Handlers', () => {
   })
 
   describe('Wallet Handlers', () => {
+    it.each([true, false])('updates wallet page presence %s', async (open) => {
+      const result = await mockHandlers.get(IPC_CHANNELS.WALLET_PAGE_OPEN)!(createMockEvent(), open)
+      expect(result).toEqual({ success: true })
+      expect(mockRegistry.walletManager.setPageOpen).toHaveBeenCalledWith(open)
+    })
+
+    it('reports a declared error when updating wallet page presence fails', async () => {
+      vi.mocked(mockRegistry.walletManager.setPageOpen).mockImplementationOnce(() => {
+        throw new Error('internal timer failure')
+      })
+      const result = await mockHandlers.get(IPC_CHANNELS.WALLET_PAGE_OPEN)!(createMockEvent(), true)
+      expect(result).toEqual({
+        ok: false,
+        error: { code: 'WALLET_PAGE_STATE_FAILED', message: 'Unable to update wallet page state', retryable: false },
+      })
+    })
+
+    it('rejects invalid wallet page presence before calling the wallet', async () => {
+      const result = await mockHandlers.get(IPC_CHANNELS.WALLET_PAGE_OPEN)!(createMockEvent(), 'true')
+      expect(result).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT' } })
+      expect(mockRegistry.walletManager.setPageOpen).not.toHaveBeenCalled()
+    })
+
     it('rejects wallet deletion before confirmation when the password is invalid', async () => {
       vi.mocked(mockRegistry.walletManager.getState).mockReturnValue({
         isCreated: true,
@@ -1414,6 +1438,16 @@ const COCOON_ROOT_MAINNET = 'EQCns7bYSp0igFvS1wpb5wsZjCKCV19MD5AVzI4EyxsnU73k'
 describe('Cocoon AI Handlers', () => {
   beforeEach(resetHandlersTestEnv)
 
+  it.each([IPC_CHANNELS.COCOON_START, IPC_CHANNELS.COCOON_FLOW_STAKE])(
+    'blocks %s while Cocoon is disabled',
+    async (channel) => {
+      vi.mocked(getSetting).mockReturnValue({ enabled: false, autostart: false })
+      const result = await mockHandlers.get(channel)!(createMockEvent())
+      expect(result).toMatchObject({ ok: false, error: { code: 'FEATURE_DISABLED' } })
+      expect(mockRegistry.cocoonManager.start).not.toHaveBeenCalled()
+    }
+  )
+
   it('reports a missing archive entry with its declared business code', async () => {
     const handler = mockHandlers.get(IPC_CHANNELS.COCOON_ARCHIVE_EXPORT_MNEMONIC)!
 
@@ -1449,9 +1483,8 @@ describe('Cocoon AI Handlers', () => {
 
       const result = await handler(createMockEvent())
 
-      expect(result).not.toHaveProperty('ownerMnemonic')
-      expect(result).not.toHaveProperty('nodeSecretBase64')
-      expect(result).not.toHaveProperty('nodeWalletKeyBase64')
+      expect(result).toEqual({ success: true, httpPort: 10000 })
+      expect(JSON.stringify(result)).not.toContain(MOCK_COCOON_WALLET.nodeSecretBase64)
     })
 
     it('returns error when wallet is not initialized', async () => {
@@ -1544,13 +1577,16 @@ describe('Cocoon AI Handlers', () => {
         ownerAddress: 'EQOwner',
         nodeAddress: 'EQNode',
         mnemonic: MOCK_COCOON_MNEMONIC,
-      })
+        nodeSecretBase64: 'secret-canary',
+        nodePublicKeyHex: 'public-key-canary',
+      } as never)
       const handler = mockHandlers.get(IPC_CHANNELS.COCOON_WALLET_CREATE)!
 
       const result = await handler(createMockEvent())
 
-      expect(result).not.toHaveProperty('nodeSecretBase64')
-      expect(result).not.toHaveProperty('nodePublicKeyHex')
+      expect(result).toEqual({ ownerAddress: 'EQOwner', nodeAddress: 'EQNode', mnemonic: MOCK_COCOON_MNEMONIC })
+      expect(JSON.stringify(result)).not.toContain('secret-canary')
+      expect(JSON.stringify(result)).not.toContain('public-key-canary')
     })
   })
 

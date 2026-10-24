@@ -32,7 +32,7 @@ describe('Cocoon IPC contracts', () => {
     expect(() => cocoonFundContract.input.parse([{ amount: '1.5' }])).toThrow()
   })
 
-  it('marks every mnemonic-returning operation as secret and enforces 24 words', () => {
+  it('marks archive mnemonic export as secret and enforces 24 words', () => {
     expect(cocoonArchiveExportMnemonicContract.redaction).toBe('secret')
     const mnemonic = Array.from({ length: 24 }, (_, index) => `word${index}`)
     expect(cocoonArchiveExportMnemonicContract.output.parse({ mnemonic })).toEqual({ mnemonic })

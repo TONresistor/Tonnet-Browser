@@ -430,20 +430,6 @@ describe('WalletKeyStorage', () => {
 
   // 6. lock() zeros the secret key in memory
   describe('lock()', () => {
-    it('clears secret key from memory', async () => {
-      const data = { type: 'mnemonic', mnemonic: Array(24).fill('test') }
-      vi.mocked(fs.readFile).mockResolvedValue(makeEncryptedBuffer(data, storage))
-
-      await ks.load()
-      expect(ks.getPublicKey()).not.toBeNull()
-
-      ks.lock()
-
-      expect(ks.isLocked()).toBe(false)
-      // Public key retained, secret key gone
-      expect(ks.getPublicKey()).not.toBeNull()
-    })
-
     it('is idempotent when called twice', async () => {
       const data = { type: 'mnemonic', mnemonic: Array(24).fill('test') }
       vi.mocked(fs.readFile).mockResolvedValue(makeEncryptedBuffer(data, storage))
@@ -486,28 +472,155 @@ describe('WalletKeyStorage', () => {
       expect(onLock).toHaveBeenCalledOnce()
     })
 
-    it('setAutoLockMinutes(0) disables auto-lock', async () => {
-      const data = { type: 'mnemonic', mnemonic: Array(24).fill('test') }
-      vi.mocked(fs.readFile).mockResolvedValue(makeEncryptedBuffer(data, storage))
-
+    it('stays unlocked while the page lease is renewed and restarts the delay on close', async () => {
+      vi.mocked(fs.readFile).mockResolvedValue(
+        makeEncryptedBuffer({ type: 'mnemonic', mnemonic: Array(24).fill('test') }, storage)
+      )
+      const onLock = vi.fn()
+      ks.setOnLock(onLock)
+      ks.setPageOpen(true)
       await ks.load()
+      for (let i = 0; i < 30; i++) {
+        vi.advanceTimersByTime(15_000)
+        ks.setPageOpen(true)
+      }
+      ks.setAutoLockMinutes(1)
+      vi.advanceTimersByTime(30_000)
+      expect(onLock).not.toHaveBeenCalled()
+      ks.setPageOpen(false)
+      vi.advanceTimersByTime(59_999)
+      expect(onLock).not.toHaveBeenCalled()
+      vi.advanceTimersByTime(1)
+      expect(onLock).toHaveBeenCalledOnce()
+    })
+
+    it('expires an abandoned page lease and then applies the normal auto-lock delay', async () => {
+      vi.mocked(fs.readFile).mockResolvedValue(
+        makeEncryptedBuffer({ type: 'mnemonic', mnemonic: Array(24).fill('test') }, storage)
+      )
+      const onLock = vi.fn()
+      ks.setOnLock(onLock)
+      await ks.load()
+      ks.setPageOpen(true)
+      vi.advanceTimersByTime(60_000 + 300_000 - 1)
+      expect(onLock).not.toHaveBeenCalled()
+      vi.advanceTimersByTime(1)
+      expect(onLock).toHaveBeenCalledOnce()
+    })
+
+    it('still clears the signing key on manual lock while the page is open', async () => {
+      vi.mocked(fs.readFile).mockResolvedValue(
+        makeEncryptedBuffer({ type: 'mnemonic', mnemonic: Array(24).fill('test') }, storage)
+      )
+      const onLock = vi.fn()
+      ks.setOnLock(onLock)
+      const keypair = await ks.load()
+      ks.setPageOpen(true)
+      ks.lock()
+      expect(keypair.secretKey.every((byte) => byte === 0)).toBe(true)
+      expect(onLock).toHaveBeenCalledOnce()
+      ks.setPageOpen(true)
+      vi.advanceTimersByTime(15_000)
+      expect(onLock).toHaveBeenCalledOnce()
+    })
+
+    it.each([false, true])(
+      'protects an operation after leaving the page, then resumes locking (failure=%s)',
+      async (fails) => {
+        vi.mocked(fs.readFile).mockResolvedValue(
+          makeEncryptedBuffer({ type: 'mnemonic', mnemonic: Array(24).fill('test') }, storage)
+        )
+        const onLock = vi.fn()
+        ks.setOnLock(onLock)
+        await ks.load()
+        ks.setPageOpen(true)
+        let finish!: () => void
+        const waiting = new Promise<void>((resolve) => {
+          finish = resolve
+        })
+        const pending = ks.withAutoLockPaused(async () => {
+          await waiting
+          if (fails) throw new Error('cancelled')
+        })
+        const result = pending.catch((error: Error) => error.message)
+        // Closing the page and expiry of its heartbeat must both leave the action protected.
+        ks.setPageOpen(false)
+        ks.setPageOpen(true)
+        vi.advanceTimersByTime(10 * 60_000)
+        ks.setAutoLockMinutes(1)
+        vi.advanceTimersByTime(2 * 60_000)
+        expect(onLock).not.toHaveBeenCalled()
+        finish()
+        expect(await result).toBe(fails ? 'cancelled' : undefined)
+        vi.advanceTimersByTime(59_999)
+        expect(onLock).not.toHaveBeenCalled()
+        vi.advanceTimersByTime(1)
+        expect(onLock).toHaveBeenCalledOnce()
+      }
+    )
+
+    it('waits for every overlapping operation to finish before resuming automatic locking', async () => {
+      vi.mocked(fs.readFile).mockResolvedValue(
+        makeEncryptedBuffer({ type: 'mnemonic', mnemonic: Array(24).fill('test') }, storage)
+      )
+      const onLock = vi.fn()
+      ks.setOnLock(onLock)
+      await ks.load()
+      let finishFirst!: () => void
+      let finishLast!: () => void
+      const first = ks.withAutoLockPaused(
+        () =>
+          new Promise<void>((resolve) => {
+            finishFirst = resolve
+          })
+      )
+      const last = ks.withAutoLockPaused(
+        () =>
+          new Promise<void>((resolve) => {
+            finishLast = resolve
+          })
+      )
+      finishFirst()
+      await first
+      vi.advanceTimersByTime(10 * 60_000)
+      expect(onLock).not.toHaveBeenCalled()
+      finishLast()
+      await last
+      vi.advanceTimersByTime(300_000)
+      expect(onLock).toHaveBeenCalledOnce()
+    })
+
+    it('setAutoLockMinutes(0) disables auto-lock', async () => {
+      vi.mocked(fs.readFile).mockResolvedValue(
+        makeEncryptedBuffer({ type: 'mnemonic', mnemonic: Array(24).fill('test') }, storage)
+      )
+      const onLock = vi.fn()
+      ks.setOnLock(onLock)
+      const keypair = await ks.load()
       ks.setAutoLockMinutes(0)
-
-      vi.advanceTimersByTime(10 * 60 * 1000)
-
-      expect(ks.isLocked()).toBe(false)
+      vi.advanceTimersByTime(10 * 60_000)
+      expect(onLock).not.toHaveBeenCalled()
+      expect(keypair.secretKey.some((byte) => byte !== 0)).toBe(true)
+      ks.lock()
+      expect(onLock).toHaveBeenCalledOnce()
+      expect(keypair.secretKey.every((byte) => byte === 0)).toBe(true)
     })
 
     it('setAutoLockMinutes resets the timer with new duration', async () => {
-      const data = { type: 'mnemonic', mnemonic: Array(24).fill('test') }
-      vi.mocked(fs.readFile).mockResolvedValue(makeEncryptedBuffer(data, storage))
-
-      await ks.load()
-      ks.setAutoLockMinutes(1) // 1 minute
-
-      vi.advanceTimersByTime(60 * 1000)
-
-      expect(ks.isLocked()).toBe(false)
+      vi.mocked(fs.readFile).mockResolvedValue(
+        makeEncryptedBuffer({ type: 'mnemonic', mnemonic: Array(24).fill('test') }, storage)
+      )
+      const onLock = vi.fn()
+      ks.setOnLock(onLock)
+      const keypair = await ks.load()
+      vi.advanceTimersByTime(30_000)
+      ks.setAutoLockMinutes(1)
+      vi.advanceTimersByTime(59_999)
+      expect(onLock).not.toHaveBeenCalled()
+      expect(keypair.secretKey.some((byte) => byte !== 0)).toBe(true)
+      vi.advanceTimersByTime(1)
+      expect(onLock).toHaveBeenCalledOnce()
+      expect(keypair.secretKey.every((byte) => byte === 0)).toBe(true)
     })
   })
 
@@ -520,10 +633,6 @@ describe('WalletKeyStorage', () => {
 
     it('returns false for other backends', () => {
       storage.setBackendName('gnome-keyring')
-      expect(ks.isBasicTextBackend()).toBe(false)
-    })
-
-    it('returns false for default test-backend', () => {
       expect(ks.isBasicTextBackend()).toBe(false)
     })
   })
@@ -570,8 +679,12 @@ describe('WalletKeyStorage', () => {
       const data = { type: 'mnemonic', mnemonic: Array(24).fill('test') }
       vi.mocked(fs.readFile).mockResolvedValue(makeEncryptedBuffer(data, storage))
 
-      await ks.load()
+      const keypair = await ks.load()
+      const publicKey = ks.getPublicKey()!
       ks.destroy()
+      expect(keypair.secretKey.every((byte) => byte === 0)).toBe(true)
+      expect(keypair.publicKey.every((byte) => byte === 0)).toBe(true)
+      expect(publicKey.every((byte) => byte === 0)).toBe(true)
 
       expect(ks.getPublicKey()).toBeNull()
       expect(ks.isLocked()).toBe(false) // both null, not locked

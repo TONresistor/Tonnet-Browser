@@ -52,7 +52,21 @@ describe('bridge boundary codecs', () => {
         fees: { storage_fee: '1', gas_fee: '2', fwd_fee: '3', action_fee: '4' },
       })
     ).toMatchObject({ accepted: true, total_fees: '42' })
-    expect(() => EmulateTransactionResultSchema.parse({ accepted: true, total_fees: -1 })).toThrow()
+    const valid = {
+      accepted: true,
+      success: true,
+      exit_code: 0,
+      total_fees: '42',
+      fees: { storage_fee: '1', gas_fee: '2', fwd_fee: '3', action_fee: '4' },
+    }
+    for (const invalidFee of [-1, '-1', '1.5']) {
+      expect(() => EmulateTransactionResultSchema.parse({ ...valid, total_fees: invalidFee })).toThrow()
+      for (const field of Object.keys(valid.fees)) {
+        expect(() =>
+          EmulateTransactionResultSchema.parse({ ...valid, fees: { ...valid.fees, [field]: invalidFee } })
+        ).toThrow()
+      }
+    }
   })
 
   it('validates critical account, transaction and overlay push events', () => {

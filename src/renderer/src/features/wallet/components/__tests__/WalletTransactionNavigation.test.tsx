@@ -144,15 +144,6 @@ describe('wallet transaction navigation', () => {
     expect(container.querySelector('section[aria-label="history.types.send"]')).toBeNull()
   })
 
-  it('uses the encrypted icon to lock a password-protected wallet', async () => {
-    walletMock.state = { ...walletMock.state, passwordProtected: true }
-    const { WalletPage } = await import('../WalletPage')
-    await act(async () => root.render(<WalletPage />))
-
-    const lockButton = container.querySelector('button[aria-label="Lock wallet"]')
-    expect(lockButton?.querySelector('[data-ui-icon="secure-lock"]')).not.toBeNull()
-  })
-
   it('returns to the sidebar overview when the selected transaction disappears', async () => {
     const { WalletSidebar } = await import('../WalletSidebar')
     const onClose = vi.fn()
@@ -169,5 +160,55 @@ describe('wallet transaction navigation', () => {
 
     expect(container.textContent).toContain('Open full wallet')
     expect(container.querySelector('section[aria-label="history.types.send"]')).toBeNull()
+  })
+  it('locks through the page action and replaces the overview with the unlock gate', async () => {
+    const lock = vi.fn(async () => {
+      walletMock.state = { ...walletMock.state, isLocked: true }
+    })
+    walletMock.state = { ...walletMock.state, passwordProtected: true, lock }
+    const { WalletPage } = await import('../WalletPage')
+    await act(async () => root.render(<WalletPage />))
+    const lockButton = container.querySelector<HTMLButtonElement>('button[aria-label="Lock wallet"]')
+    if (!lockButton) throw new Error('Expected wallet lock action')
+    await act(async () => lockButton.click())
+    expect(lock).toHaveBeenCalledOnce()
+    await act(async () => root.render(<WalletPage />))
+    expect(container.querySelector('input[type="password"]')).not.toBeNull()
+    expect(container.querySelector('button[aria-label="Lock wallet"]')).toBeNull()
+    expect(container.textContent).not.toContain('overview.recent')
+  })
+
+  it('removes displayed recovery words when the full wallet advances to its backup challenge', async () => {
+    const words = Array.from({ length: 24 }, (_, index) => `recovery-secret-${index}`)
+    const createBackupChallenge = vi.fn(async () => ({ challengeId: 'test-challenge', indexes: [0, 4, 9] }))
+    walletMock.state = {
+      ...walletMock.state,
+      backupVerified: false,
+      exportMnemonic: vi.fn(async () => words),
+      createBackupChallenge,
+    }
+    const { WalletPage } = await import('../WalletPage')
+    await act(async () => root.render(<WalletPage />))
+    const form = container.querySelector('form')
+    if (!form) throw new Error('Expected wallet backup gate')
+    await act(async () => form.requestSubmit())
+    const reveal = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('export.showButton')
+    )
+    if (!reveal) throw new Error('Expected recovery phrase reveal action')
+    await act(async () => reveal.click())
+    expect(container.textContent).toContain(words[0])
+    const acknowledgement = container.querySelector<HTMLInputElement>('input[type="checkbox"]')
+    const proceed = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('I saved it')
+    )
+    if (!acknowledgement || !proceed) throw new Error('Expected recovery phrase acknowledgement')
+    expect(proceed.disabled).toBe(true)
+    expect(createBackupChallenge).not.toHaveBeenCalled()
+    await act(async () => acknowledgement.click())
+    await act(async () => proceed.click())
+    expect(createBackupChallenge).toHaveBeenCalledWith(undefined)
+    expect(container.querySelectorAll('input')).toHaveLength(3)
+    for (const word of words) expect(container.textContent).not.toContain(word)
   })
 })
