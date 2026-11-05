@@ -1,5 +1,5 @@
 export { WalletEngine } from './engine'
-export type { WalletEngineOptions } from './engine'
+export type { WalletEngineOptions, WalletSnapshot } from './engine'
 export type { SecureStorage, VaultPersistence, HistoryStore, BridgeProvider, JournalStore } from './ports'
 export { WalletDecryptionError, WalletSystemStorageError } from './key-storage'
 export { WalletEngineError } from './errors'

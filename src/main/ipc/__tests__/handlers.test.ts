@@ -324,12 +324,16 @@ function createMockRegistry(): ServiceRegistry {
           addressRaw: '',
           publicKey: '',
           balance: '0',
+          revision: 0,
+          sessionRevision: 0,
+          transactions: [],
           operations: [],
         })),
         clearHistory: vi.fn(),
         setAutoLockMinutes: vi.fn(),
         setPageOpen: vi.fn(),
         fetchOnChainHistory: vi.fn(() => []),
+        getHistory: vi.fn(() => Promise.resolve([])),
       })
     })() as any,
     tonBridgeCoordinator: {
@@ -1047,6 +1051,82 @@ describe('IPC Handlers', () => {
         { autoDismiss: false }
       )
       expect(mockRegistry.walletManager.send).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('wallet history', () => {
+    const transaction = {
+      id: 'current-history',
+      type: 'receive' as const,
+      amount: '1',
+      address: `0:${'11'.repeat(32)}`,
+      timestamp: 1,
+      status: 'confirmed' as const,
+    }
+
+    it('returns successful history reads with the requested limit', async () => {
+      vi.mocked(mockRegistry.walletManager.getHistory).mockResolvedValue([transaction])
+      const result = await mockHandlers.get(IPC_CHANNELS.WALLET_GET_HISTORY)!(createMockEvent(), 1)
+      expect(result).toEqual([transaction])
+      expect(mockRegistry.walletManager.getHistory).toHaveBeenCalledWith(1)
+      expect(mockRegistry.walletManager.snapshot).not.toHaveBeenCalled()
+    })
+
+    it.each([true, false])(
+      'returns the current snapshot after a superseded read (wallet present: %s)',
+      async (isCreated) => {
+        const pending = deferred<void>()
+        vi.mocked(mockRegistry.walletManager.getHistory).mockImplementationOnce(async () => {
+          await pending.promise
+          throw new WalletEngineError('SUPERSEDED', 'Wallet history request was superseded')
+        })
+        const loading = mockHandlers.get(IPC_CHANNELS.WALLET_GET_HISTORY)!(createMockEvent(), 1)
+        const previous = mockRegistry.walletManager.snapshot()
+        vi.mocked(mockRegistry.walletManager.snapshot)
+          .mockClear()
+          .mockReturnValue({
+            ...previous,
+            isCreated,
+            revision: previous.revision + 1,
+            sessionRevision: previous.sessionRevision + 1,
+            transactions: isCreated ? [transaction, { ...transaction, id: 'second' }] : [],
+          })
+        pending.resolve()
+        expect(await loading).toEqual(isCreated ? [transaction] : [])
+        expect(mockRegistry.walletManager.snapshot).toHaveBeenCalledOnce()
+      }
+    )
+
+    it.each([
+      new Error('Liteserver unavailable'),
+      new Error('Wallet history request was superseded'),
+      new WalletEngineError('SHUTDOWN', 'Wallet engine is shut down'),
+    ])('preserves genuine history failures: %s', async (error) => {
+      vi.mocked(mockRegistry.walletManager.getHistory).mockRejectedValue(error)
+      expect(await mockHandlers.get(IPC_CHANNELS.WALLET_GET_HISTORY)!(createMockEvent())).toEqual({
+        ok: false,
+        error: { code: 'WALLET_HISTORY_FAILED', message: 'Unable to load wallet history', retryable: false },
+      })
+      expect(mockRegistry.walletManager.snapshot).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('wallet snapshots', () => {
+    it('returns a view snapshot without the signed journal', async () => {
+      vi.mocked(mockRegistry.walletManager.snapshot).mockReturnValue({
+        isCreated: true,
+        address: 'wallet',
+        addressRaw: 'raw',
+        publicKey: 'key',
+        balance: '10',
+        revision: 5,
+        sessionRevision: 2,
+        transactions: [],
+        operations: [{ boc: 'signed' }],
+      } as never)
+      const result = await mockHandlers.get(IPC_CHANNELS.WALLET_GET_SNAPSHOT)!(createMockEvent())
+      expect(result).toMatchObject({ revision: 5, sessionRevision: 2, transactions: [] })
+      expect(result).not.toHaveProperty('operations')
     })
   })
 

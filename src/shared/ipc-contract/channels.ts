@@ -3,6 +3,7 @@ export const BOOKMARKS_CHANNELS = { load: 'bookmarks:load', save: 'bookmarks:sav
 export const WALLET_CONTRACT_CHANNELS = {
   create: 'wallet:create',
   getState: 'wallet:get-state',
+  getSnapshot: 'wallet:get-snapshot',
   retrySystemStorage: 'wallet:retry-system-storage',
   getBalance: 'wallet:get-balance',
   send: 'wallet:send',
@@ -30,6 +31,7 @@ export const WALLET_CONTRACT_CHANNELS = {
   dnsResolve: 'dns:resolve',
   balanceUpdated: 'wallet:balance-updated',
   stateChanged: 'wallet:state-changed',
+  snapshotChanged: 'wallet:snapshot-changed',
   newTransaction: 'wallet:new-transaction',
   paymentRequested: 'wallet:payment-req',
   paymentMade: 'wallet:payment-made',
@@ -217,6 +219,7 @@ export const MAIN_RENDERER_EVENT_CHANNELS = [
   SETTINGS_CHANNELS.changed,
   WALLET_CONTRACT_CHANNELS.balanceUpdated,
   WALLET_CONTRACT_CHANNELS.stateChanged,
+  WALLET_CONTRACT_CHANNELS.snapshotChanged,
   WALLET_CONTRACT_CHANNELS.newTransaction,
   WALLET_CONTRACT_CHANNELS.paymentRequested,
   WALLET_CONTRACT_CHANNELS.paymentMade,

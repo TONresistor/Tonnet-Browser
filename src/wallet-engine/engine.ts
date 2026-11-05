@@ -46,10 +46,35 @@ export interface WalletEngineOptions {
   autoLockMinutes?: number
   fallbackHistory?: (address: string, limit: number) => Promise<WalletTransaction[]>
 }
+export type WalletSnapshot = Readonly<
+  WalletState & {
+    revision: number
+    sessionRevision: number
+    operations: readonly WalletOperation[]
+    transactions: readonly WalletTransaction[]
+  }
+>
+
+function freezeSnapshot<T>(value: T): T {
+  if (value && typeof value === 'object' && !Object.isFrozen(value)) {
+    for (const child of Object.values(value)) freezeSnapshot(child)
+    Object.freeze(value)
+  }
+  return value
+}
+
 export class WalletEngine extends EventEmitter {
   private readonly log: WalletLogger
   private keyStorage: WalletKeyStorage
   private readonly disposeBridgeChanged: () => void
+  private readonly disposeHistoryChanged: () => void
+  private publishedSnapshot!: WalletSnapshot
+  private snapshotFingerprint = ''
+  private readonly snapshotWaiters = new Set<{
+    after: number
+    resolve: () => void
+    reject: (error: Error) => void
+  }>()
   private balanceGeneration = 0
   private historyGeneration = 0
   private historyVisible = true
@@ -130,6 +155,14 @@ export class WalletEngine extends EventEmitter {
       getPublicKey: () => this.publicKey,
       getContract: () => this.walletContract,
     })
+    this.publishedSnapshot = freezeSnapshot({
+      ...this.getState(),
+      revision: 0,
+      sessionRevision: 0,
+      operations: [],
+      transactions: [],
+    })
+    this.disposeHistoryChanged = options.history.onChanged(() => this.publishSnapshot())
     this.disposeBridgeChanged = this.bridgeProvider.onBridgeChanged((bridge) => {
       this.balanceGeneration++
       this.unsubscribeAccount()
@@ -339,7 +372,7 @@ export class WalletEngine extends EventEmitter {
         } finally {
           wipeKeypair(candidateKeys)
           this.replacingWallet = false
-          this.publishState()
+          this.publishSnapshot()
         }
       })
     } finally {
@@ -400,7 +433,7 @@ export class WalletEngine extends EventEmitter {
     this.stopRecovery()
     this.keyStorage.lock()
     this.keypair = null
-    this.publishState()
+    this.publishSnapshot()
     return this.getState()
   }
   async setupPassword(password: string): Promise<WalletState> {
@@ -507,7 +540,7 @@ export class WalletEngine extends EventEmitter {
     if (expectedIdentity) this.assertWalletIdentity(expectedIdentity)
     if (generation !== this.balanceGeneration) return this.runtime.balance
     if (this.runtime.setBalance(fetched)) {
-      this.publishState()
+      this.publishSnapshot()
       this.emit('balance-updated', fetched)
     }
     return this.runtime.balance
@@ -675,8 +708,10 @@ export class WalletEngine extends EventEmitter {
 
   destroy(): void {
     this.closed = true
+    this.rejectSnapshotWaiters()
     this.runtime.stopSubscription()
     this.disposeBridgeChanged()
+    this.disposeHistoryChanged()
     this.keyStorage.destroy()
     this.invalidateSession()
     this.journal.lock()
@@ -705,7 +740,7 @@ export class WalletEngine extends EventEmitter {
       },
       balanceChanged: (balance) => {
         this.runtime.setBalance(balance)
-        this.publishState()
+        this.publishSnapshot()
         this.emit('balance-updated', balance)
       },
       convertTransaction: (transaction) => this.queryService.convertRawTransaction(transaction),
@@ -751,12 +786,49 @@ export class WalletEngine extends EventEmitter {
   getSessionRevision(): number {
     return this.sessionRevision
   }
-  snapshot(): WalletState & { operations: WalletOperation[] } {
+  snapshot(): WalletSnapshot {
     if (this.closed) throw new WalletEngineError('SHUTDOWN', 'Wallet engine is shut down')
-    return { ...this.getState(), operations: this.journal.list() }
+    return this.publishedSnapshot
+  }
+  async waitForChange(afterRevision: number): Promise<WalletSnapshot> {
+    if (this.closed) throw new WalletEngineError('SHUTDOWN', 'Wallet engine is shut down')
+    if (!Number.isSafeInteger(afterRevision) || afterRevision < 0)
+      throw new WalletEngineError('INVALID_REVISION', 'Invalid wallet snapshot revision')
+    if (this.publishedSnapshot.revision <= afterRevision)
+      await new Promise<void>((resolve, reject) => this.snapshotWaiters.add({ after: afterRevision, resolve, reject }))
+    return this.snapshot()
+  }
+  private rejectSnapshotWaiters(): void {
+    for (const waiter of this.snapshotWaiters)
+      waiter.reject(new WalletEngineError('SHUTDOWN', 'Wallet engine is shut down'))
+    this.snapshotWaiters.clear()
   }
   private publishState(): void {
+    this.publishSnapshot()
     this.emit('state-changed', this.getState())
+  }
+  private publishSnapshot(): void {
+    if (this.closed || !this.publishedSnapshot) return
+    const value = {
+      ...this.getState(),
+      sessionRevision: this.sessionRevision,
+      operations: this.journal.list(),
+      transactions: this.walletContract && this.historyVisible ? this.options.history.snapshot() : [],
+    }
+    const fingerprint = JSON.stringify(value)
+    if (fingerprint === this.snapshotFingerprint) return
+    const revision = this.publishedSnapshot.revision + 1
+    if (!Number.isSafeInteger(revision))
+      throw new WalletEngineError('REVISION_EXHAUSTED', 'Wallet snapshot revision exhausted')
+    this.snapshotFingerprint = fingerprint
+    this.publishedSnapshot = freezeSnapshot({ ...value, revision })
+    for (const waiter of this.snapshotWaiters) {
+      if (revision > waiter.after) {
+        this.snapshotWaiters.delete(waiter)
+        waiter.resolve()
+      }
+    }
+    this.emit('snapshot-changed', this.publishedSnapshot)
   }
   shutdown(): Promise<void> {
     if (this.shutdownTask) return this.shutdownTask
@@ -771,6 +843,7 @@ export class WalletEngine extends EventEmitter {
       }
     })
     this.closed = true
+    this.rejectSnapshotWaiters()
     this.invalidateSession()
     this.stopRecovery()
     return this.shutdownTask
@@ -818,7 +891,7 @@ export class WalletEngine extends EventEmitter {
       if (!this.journal.isOpen()) throw new WalletEngineError('JOURNAL_LOCKED', 'Operation journal is locked')
     }
     assertCurrent()
-    this.publishState()
+    this.publishSnapshot()
     assertCurrent()
     this.emit('journal-opened', this.journal.list())
     assertCurrent()

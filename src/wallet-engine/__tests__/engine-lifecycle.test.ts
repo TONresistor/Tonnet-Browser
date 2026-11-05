@@ -218,6 +218,58 @@ describe('wallet lifecycle with real cryptography and no Electron', () => {
   })
 })
 
+it('rebuilds edited reviews and signs the exact prepared encrypted comment', async () => {
+  const s = await fixture(true)
+  try {
+    const created = await s.engine.create({ password: 'correct horse battery staple' })
+    const challenge = await s.engine.createBackupChallenge('correct horse battery staple')
+    await s.engine.verifyBackup(
+      challenge.challengeId,
+      'correct horse battery staple',
+      challenge.indexes.map((index) => created.mnemonic[index])
+    )
+    const recipient = Address.parseRaw('0:' + '22'.repeat(32)).toString()
+    s.engine.on('operation-changed', (operation: { id: string; phase: string }) => {
+      expect(s.engine.snapshot().operations.find((item) => item.id === operation.id)?.phase).toBe(operation.phase)
+    })
+    await expect(
+      s.engine.signTonConnectTransaction([{ address: recipient, amount: '10' }], created.addressRaw, 'no-authorization')
+    ).rejects.toThrow('authorization is required')
+    const reviews: Array<{ comment?: string; commentEncrypted: boolean }> = []
+    const result = await s.engine.sendNative(
+      { to: recipient, amount: '10', operationId: 'native-review' },
+      async (review) => {
+        reviews.push({ comment: review.comment, commentEncrypted: review.commentEncrypted })
+        if (reviews.length === 1) return { action: 'set-memo', comment: 'Thanks' }
+        if (reviews.length === 2) return { action: 'set-encryption', encrypted: true }
+        return { action: 'approve' }
+      }
+    )
+    expect(reviews).toEqual([
+      { comment: undefined, commentEncrypted: false },
+      { comment: 'Thanks', commentEncrypted: false },
+      { comment: 'Thanks', commentEncrypted: true },
+    ])
+    const operation = s.engine.getOperation('native-review')!
+    expect(Cell.fromBase64(operation.messages[0].payload!).beginParse().loadUint(32)).toBe(0x2167da4b)
+    const finalEmulation = vi.mocked(s.provider.emulateTransaction).mock.calls.at(-1)![1]
+    const outgoingBody = (boc: string) => {
+      const signed = loadMessage(Cell.fromBase64(boc).beginParse()).body.beginParse()
+      signed.skip(128)
+      const action = loadOutList(signed.loadMaybeRef()!.beginParse())[0]
+      if (action.type !== 'sendMsg') throw new Error('Expected send action')
+      return action.outMsg.body
+    }
+    expect(outgoingBody(finalEmulation).equals(outgoingBody(operation.boc!))).toBe(true)
+    expect(outgoingBody(operation.boc!).equals(Cell.fromBase64(operation.messages[0].payload!))).toBe(true)
+    expect(result).toMatchObject({ comment: 'Thanks', commentEncrypted: true, status: 'pending' })
+    expect(s.provider.broadcast).toHaveBeenCalledOnce()
+    created.mnemonic.fill('')
+  } finally {
+    await s.engine.shutdown()
+  }
+}, 20_000)
+
 it('invalidates a queued signature when the same phrase is imported again', async () => {
   const s = await fixture()
   try {
@@ -275,6 +327,168 @@ it('does not reopen a queued unlock after a later explicit lock', async () => {
   }
 }, 20_000)
 
+it('publishes immutable revisions, observes changes without races, and releases waiters at shutdown', async () => {
+  const s = await fixture(true)
+  try {
+    const first = s.engine.snapshot()
+    expect(first.revision).toBe(0)
+    const waiting = s.engine.waitForChange(first.revision)
+    const created = await s.engine.create({ password: 'correct horse battery staple' })
+    expect((await waiting).revision).toBeGreaterThan(first.revision)
+    const before = s.engine.snapshot()
+    const after = await s.engine.waitForChange(first.revision)
+    expect(after.revision).toBe(before.revision)
+    expect(() => {
+      ;(before.transactions as unknown[]).push({})
+    }).toThrow()
+    expect(first.isCreated).toBe(false)
+    const balance = before.balance
+    const changed = s.engine.waitForChange(before.revision)
+    await s.engine.getBalance()
+    expect((await changed).balance).toBe('100000000000')
+    expect(before.balance).toBe(balance)
+    const revision = s.engine.snapshot().revision
+    await s.engine.getBalance()
+    expect(s.engine.snapshot().revision).toBe(revision)
+    const lock = s.engine.waitForChange(revision)
+    s.engine.lock()
+    expect((await lock).isLocked).toBe(true)
+    expect(s.engine.snapshot().sessionRevision).toBeGreaterThan(before.sessionRevision)
+    const pending = expect(s.engine.waitForChange(s.engine.snapshot().revision)).rejects.toThrow('shut down')
+    await s.engine.shutdown()
+    await pending
+    expect(() => s.engine.snapshot()).toThrow('shut down')
+    created.mnemonic.fill('')
+  } finally {
+    await s.engine.shutdown()
+  }
+}, 20_000)
+
+it('discards an older history response after the same phrase replaces the active wallet', async () => {
+  const s = await fixture(true)
+  try {
+    const created = await s.engine.create({ password: 'correct horse battery staple' })
+    let finish!: (value: never[]) => void
+    vi.mocked(s.provider.getTransactions).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve
+        })
+    )
+    const old = expect(s.engine.getHistory()).rejects.toThrow('superseded')
+    await vi.waitFor(() => expect(s.provider.getTransactions).toHaveBeenCalledOnce())
+    vi.spyOn(s.options.history, 'clear').mockRejectedValue(new Error('History storage unavailable'))
+    await s.engine.importWallet([...created.mnemonic], 'correct horse battery staple')
+    finish([])
+    await old
+    expect(s.engine.snapshot().transactions).toEqual([])
+    await expect(s.engine.getHistory()).rejects.toThrow('History storage unavailable')
+    created.mnemonic.fill('')
+  } finally {
+    await s.engine.shutdown()
+  }
+}, 20_000)
+
+it('keeps the newest balance when older reads or observations finish late', async () => {
+  const s = await fixture(true)
+  try {
+    const created = await s.engine.create({ password: 'correct horse battery staple' })
+    created.mnemonic.fill('')
+    const older = deferred<string>()
+    const newer = deferred<string>()
+    vi.mocked(s.provider.getBalance).mockReturnValueOnce(older.promise).mockReturnValueOnce(newer.promise)
+    const first = s.engine.getBalance()
+    const second = s.engine.getBalance()
+    newer.resolve('200')
+    await second
+    const revision = s.engine.snapshot().revision
+    older.resolve('100')
+    expect(await first).toBe('200')
+    expect(s.engine.snapshot()).toMatchObject({ balance: '200', revision })
+
+    const stale = deferred<string>()
+    vi.mocked(s.provider.getBalance).mockReturnValueOnce(stale.promise)
+    const reading = s.engine.getBalance()
+    const observed = vi.mocked(s.provider.subscribeAccountState).mock.calls.at(-1)![1]
+    // An observation with the same balance still supersedes an older poll.
+    observed({
+      address: created.address,
+      balance: '200',
+      status: 'active',
+      last_tx_lt: '1',
+      last_tx_hash: 'hash',
+      block_seqno: 1,
+    })
+    stale.resolve('50')
+    expect(await reading).toBe('200')
+    expect(s.engine.snapshot()).toMatchObject({ balance: '200', revision })
+  } finally {
+    await s.engine.shutdown()
+  }
+}, 20_000)
+
+it.each(['lock', 'shutdown'] as const)(
+  'rechecks the current snapshot after a waiter wakes into %s',
+  async (action) => {
+    const s = await fixture(true)
+    try {
+      const created = await s.engine.create({ password: 'correct horse battery staple' })
+      created.mnemonic.fill('')
+      const waiting = s.engine.waitForChange(s.engine.snapshot().revision)
+      const result = action === 'shutdown' ? expect(waiting).rejects.toThrow('shut down') : undefined
+      s.engine.once('snapshot-changed', () => {
+        if (action === 'lock') s.engine.lock()
+        else s.engine.destroy()
+      })
+      await s.engine.getBalance()
+      if (result) await result
+      else {
+        expect(await waiting).toBe(s.engine.snapshot())
+        expect((await waiting).isLocked).toBe(true)
+      }
+    } finally {
+      await s.engine.shutdown()
+    }
+  },
+  20_000
+)
+
+it('keeps an engaged journal closed when locking interrupts the legacy read', async () => {
+  const legacy = deferred<Record<string, { seqno: number; validUntil: number }>>()
+  const readLegacy = vi.fn(async (): Promise<Record<string, { seqno: number; validUntil: number }>> => ({}))
+  const s = await fixture(true, { legacyPending: readLegacy })
+  try {
+    const created = await s.engine.create({ password: 'correct horse battery staple' })
+    await s.engine.importWallet([...created.mnemonic], 'correct horse battery staple')
+    created.mnemonic.fill('')
+    const operation = await s.engine.signForRelay(
+      { operationId: 'engaged', messages: [{ address: '0:' + '22'.repeat(32), amount: '5' }] },
+      async () => true
+    )
+    s.engine.lock()
+    const earlierReads = readLegacy.mock.calls.length
+    readLegacy.mockReturnValueOnce(legacy.promise)
+    const opened = vi.fn()
+    s.engine.on('journal-opened', opened)
+    const rejected = expect(s.engine.unlock('correct horse battery staple')).rejects.toThrow('session changed')
+    await vi.waitFor(() => expect(readLegacy).toHaveBeenCalledTimes(earlierReads + 1))
+    expect(s.engine.getOperation(operation.id)?.phase).toBe('handed-off')
+    s.engine.lock()
+    legacy.resolve({})
+    await rejected
+    expect(opened).not.toHaveBeenCalled()
+    expect(s.engine.snapshot().isLocked).toBe(true)
+    await s.engine.unlock('correct horse battery staple')
+    expect(opened).toHaveBeenCalledOnce()
+    expect(opened.mock.calls[0][0]).toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: operation.id, boc: operation.boc, phase: 'handed-off' })])
+    )
+  } finally {
+    legacy.resolve({})
+    await s.engine.shutdown()
+  }
+}, 20_000)
+
 it('does not let a cancelled unlock invalidate a newer queued unlock', async () => {
   const legacy = deferred<Record<string, { seqno: number; validUntil: number }>>()
   const readLegacy = vi.fn(async (): Promise<Record<string, { seqno: number; validUntil: number }>> => ({}))
@@ -296,6 +510,84 @@ it('does not let a cancelled unlock invalidate a newer queued unlock', async () 
     expect(opened.mock.results.map((result) => result.value)).toEqual([false])
   } finally {
     legacy.resolve({})
+    await s.engine.shutdown()
+  }
+}, 20_000)
+
+it.each(['snapshot-changed', 'journal-opened'] as const)(
+  'stops recovery when a %s observer locks during unlock',
+  async (event) => {
+    const s = await fixture()
+    try {
+      const created = await s.engine.create({ password: 'correct horse battery staple' })
+      created.mnemonic.fill('')
+      s.engine.lock()
+      const opened = vi.fn(() => s.engine.getState().isLocked)
+      s.engine.on('journal-opened', opened)
+      const resolving = vi.spyOn(s.engine, 'resolvePending')
+      s.engine.once(event, () => s.engine.lock())
+      await expect(s.engine.unlock('correct horse battery staple')).rejects.toThrow('session changed')
+      expect(s.engine.snapshot().isLocked).toBe(true)
+      expect(opened.mock.results.map((result) => result.value)).toEqual(event === 'snapshot-changed' ? [] : [false])
+      expect(resolving).not.toHaveBeenCalled()
+    } finally {
+      await s.engine.shutdown()
+    }
+  },
+  20_000
+)
+
+it('does not start recovery when locking interrupts wallet activation', async () => {
+  const s = await fixture()
+  const clearing = deferred<void>()
+  try {
+    const created = await s.engine.create({ password: 'correct horse battery staple' })
+    const clear = vi.spyOn(s.options.history, 'clear').mockImplementationOnce(() => clearing.promise)
+    const opened = vi.fn()
+    s.engine.on('journal-opened', opened)
+    const rejected = expect(
+      s.engine.importWallet([...created.mnemonic], 'correct horse battery staple')
+    ).rejects.toThrow('session changed')
+    await vi.waitFor(() => expect(clear).toHaveBeenCalledOnce())
+    s.engine.lock()
+    clearing.resolve()
+    await rejected
+    expect(s.engine.snapshot().isLocked).toBe(true)
+    expect(opened).not.toHaveBeenCalled()
+    created.mnemonic.fill('')
+  } finally {
+    clearing.resolve()
+    await s.engine.shutdown()
+  }
+}, 20_000)
+
+it('invalidates an unfinished balance read when its bridge disconnects', async () => {
+  let current: WalletBridgePort | null = null
+  let changed: (bridge: WalletBridgePort | null) => void = () => {}
+  const s = await fixture(true, {
+    bridge: {
+      getBridge: () => current,
+      onBridgeChanged: (listener) => {
+        changed = listener
+        return () => {}
+      },
+    },
+  })
+  try {
+    const created = await s.engine.create({ password: 'correct horse battery staple' })
+    created.mnemonic.fill('')
+    current = s.provider
+    changed(current)
+    await vi.waitFor(() => expect(s.engine.snapshot().balance).toBe('100000000000'))
+    const pending = deferred<string>()
+    vi.mocked(s.provider.getBalance).mockReturnValueOnce(pending.promise)
+    const reading = s.engine.getBalance()
+    current = null
+    changed(null)
+    pending.resolve('1')
+    expect(await reading).toBe('100000000000')
+    expect(s.engine.snapshot().balance).toBe('100000000000')
+  } finally {
     await s.engine.shutdown()
   }
 }, 20_000)
@@ -415,6 +707,72 @@ it('keeps the previous unlocked wallet usable after a rejected replacement', asy
     await s.engine.shutdown()
   }
 }, 20_000)
+
+it.each(['commit', 'rollback'] as const)(
+  'waits for an importing vault to %s before concurrent shutdown callers can reopen the profile',
+  async (outcome) => {
+    const s = await fixture()
+    const writing = deferred<void>()
+    const release = deferred<void>()
+    const password = 'correct horse battery staple'
+    let created: Awaited<ReturnType<WalletEngine['create']>> | undefined
+    let replacement: string[] = []
+    let importing: Promise<unknown> | undefined
+    const stopping: Promise<void>[] = []
+    const reopened = new WalletEngine(s.options)
+    try {
+      created = await s.engine.create({ password })
+      replacement = await mnemonicNew(24)
+      const write = s.options.vault.writeAtomic
+      let writes = 0
+      vi.spyOn(s.options.vault, 'writeAtomic').mockImplementation(async (...args) => {
+        const current = ++writes
+        if (current === (outcome === 'commit' ? 1 : 2)) {
+          writing.resolve()
+          await release.promise
+        }
+        await write(...args)
+        if (outcome === 'rollback' && current === 1) throw new Error('Vault write failed')
+      })
+      importing = s.engine.importWallet([...replacement], password).then(
+        (state) => ({ state }),
+        (error: unknown) => ({ error })
+      )
+      await writing.promise
+      const finished = vi.fn()
+      stopping.push(s.engine.shutdown().then(finished), s.engine.shutdown().then(finished))
+      await new Promise<void>((resolve) => setImmediate(resolve))
+      expect(finished).not.toHaveBeenCalled()
+      expect(() => s.engine.snapshot()).toThrow('shut down')
+      release.resolve()
+      expect(await importing).toMatchObject({ error: expect.any(Error) })
+      await Promise.all(stopping)
+      expect(finished).toHaveBeenCalledTimes(2)
+      expect(s.engine.getIdentitySnapshot()).toBeNull()
+      await expect(s.engine.unlock(password)).rejects.toThrow('shut down')
+
+      await reopened.init()
+      await reopened.unlock(password)
+      const exported = await reopened.exportMnemonic(password)
+      try {
+        expect(exported.mnemonic).toEqual(outcome === 'commit' ? replacement : created.mnemonic)
+        const account = await deriveWalletAccount(exported.mnemonic, 'v5R1')
+        expect(reopened.getState().addressRaw).toBe(account.addressRaw)
+      } finally {
+        exported.mnemonic.fill('')
+      }
+    } finally {
+      release.resolve()
+      await importing
+      await Promise.all(stopping)
+      await s.engine.shutdown()
+      await reopened.shutdown()
+      created?.mnemonic.fill('')
+      replacement.fill('')
+    }
+  },
+  20_000
+)
 
 it('shares startup initialization with import so a late legacy migration cannot overwrite the imported vault', async () => {
   const paused = await pauseLegacyRead()

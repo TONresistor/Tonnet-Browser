@@ -23,6 +23,7 @@ import type {
   walletGetBalanceContract,
   walletGetHistoryContract,
   walletGetStateContract,
+  walletGetSnapshotContract,
   walletRetrySystemStorageContract,
   walletImportContract,
   walletDiscoverAccountsContract,
@@ -326,6 +327,7 @@ const electronAPI = {
     create: (options: { password?: string }) =>
       invokeChannel<typeof walletCreateContract>(IPC_CHANNELS.WALLET_CREATE, options),
     getState: () => invokeChannel<typeof walletGetStateContract>(IPC_CHANNELS.WALLET_GET_STATE),
+    getSnapshot: () => invokeChannel<typeof walletGetSnapshotContract>(IPC_CHANNELS.WALLET_GET_SNAPSHOT),
     retrySystemStorage: () =>
       invokeChannel<typeof walletRetrySystemStorageContract>(IPC_CHANNELS.WALLET_RETRY_SYSTEM_STORAGE),
     getBalance: () => invokeChannel<typeof walletGetBalanceContract>(IPC_CHANNELS.WALLET_GET_BALANCE),

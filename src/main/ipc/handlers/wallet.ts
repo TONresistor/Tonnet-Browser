@@ -13,6 +13,8 @@ import type { ServiceRegistry } from '../../services'
 import {
   walletBalanceUpdatedContract,
   walletGetStateContract,
+  walletGetSnapshotContract,
+  walletSnapshotChangedContract,
   walletRetrySystemStorageContract,
   walletNewTransactionContract,
   walletStateChangedContract,
@@ -63,6 +65,7 @@ export function registerWalletHandlers(registry: ServiceRegistry): void {
       }
     }
   }
+  const getViewSnapshot = () => walletGetSnapshotContract.output.parse(walletManager.snapshot())
 
   ownIpcEmitterListener(walletManager, 'balance-updated', (balance: string) => {
     emitContractToRenderer(walletBalanceUpdatedContract, balance)
@@ -70,6 +73,10 @@ export function registerWalletHandlers(registry: ServiceRegistry): void {
 
   ownIpcEmitterListener(walletManager, 'state-changed', (state: WalletState) => {
     emitContractToRenderer(walletStateChangedContract, state)
+  })
+
+  ownIpcEmitterListener(walletManager, 'snapshot-changed', () => {
+    emitContractToRenderer(walletSnapshotChangedContract, getViewSnapshot())
   })
 
   ownIpcEmitterListener(walletManager, 'new-transaction', (tx: WalletTransaction) => {
@@ -95,6 +102,8 @@ export function registerWalletHandlers(registry: ServiceRegistry): void {
   secureContractHandle(walletGetStateContract, () => {
     return walletManager.getState()
   })
+
+  secureContractHandle(walletGetSnapshotContract, getViewSnapshot)
 
   secureContractHandle(walletRetrySystemStorageContract, () => {
     if (!walletManager.getState().systemStorageBlocked) {
@@ -225,6 +234,8 @@ export function registerWalletHandlers(registry: ServiceRegistry): void {
     try {
       return await walletManager.getHistory(safeLimit)
     } catch (error) {
+      if (error instanceof WalletEngineError && error.code === 'SUPERSEDED')
+        return getViewSnapshot().transactions.slice(0, safeLimit)
       ipcFailure('WALLET_HISTORY_FAILED', 'Unable to load wallet history', false, error)
     }
   })

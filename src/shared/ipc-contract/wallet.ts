@@ -42,6 +42,13 @@ export const WalletTransactionSchema = z.object({
 
 export type WalletTransaction = z.infer<typeof WalletTransactionSchema>
 
+export const WalletSnapshotSchema = WalletStateSchema.extend({
+  revision: z.number().int().nonnegative().safe(),
+  sessionRevision: z.number().int().nonnegative().safe(),
+  transactions: z.array(WalletTransactionSchema),
+})
+export type WalletSnapshot = z.infer<typeof WalletSnapshotSchema>
+
 export const DnsResolveResultSchema = z
   .object({
     wallet: z.string().nullable(),
@@ -115,6 +122,13 @@ export const walletGetStateContract = defineRequest({
   output: WalletStateSchema,
   errors: ['WALLET_STATE_UNAVAILABLE'],
   redaction: 'sensitive',
+})
+export const walletGetSnapshotContract = defineRequest({
+  ...mainBase,
+  channel: WALLET_CONTRACT_CHANNELS.getSnapshot,
+  input: z.tuple([]),
+  output: WalletSnapshotSchema,
+  errors: ['WALLET_STATE_UNAVAILABLE'],
 })
 export const walletRetrySystemStorageContract = defineRequest({
   ...mainBase,
@@ -371,6 +385,13 @@ export const walletStateChangedContract = defineEvent({
   payload: z.tuple([WalletStateSchema]),
   redaction: 'sensitive',
 })
+export const walletSnapshotChangedContract = defineEvent({
+  channel: WALLET_CONTRACT_CHANNELS.snapshotChanged,
+  direction: 'event',
+  recipient: 'main-renderer',
+  payload: z.tuple([WalletSnapshotSchema]),
+  redaction: 'sensitive',
+})
 
 export const walletNewTransactionContract = defineEvent({
   channel: WALLET_CONTRACT_CHANNELS.newTransaction,
@@ -399,6 +420,7 @@ export const WALLET_EVENT_CONTRACTS = [
   walletPaymentRequestedContract,
   walletPaymentMadeContract,
   walletPaymentFailedContract,
+  walletSnapshotChangedContract,
 ] as const
 
 export const walletRetryOperationContract = defineRequest({
@@ -411,6 +433,7 @@ export const walletRetryOperationContract = defineRequest({
 })
 
 export const WALLET_REQUEST_CONTRACTS = [
+  walletGetSnapshotContract,
   walletRetryOperationContract,
   walletCreateContract,
   walletGetStateContract,
