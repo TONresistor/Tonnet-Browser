@@ -4,11 +4,11 @@
  */
 
 import { promises as fs } from 'fs'
-import type { ISecureStorage } from '../../ports/secure-storage'
+import type { SecureStorage } from '../ports'
 
 // --- In-memory test adapter ---
 
-class InMemorySecureStorage implements ISecureStorage {
+class InMemorySecureStorage implements SecureStorage {
   private available = true
   private backendName = 'test-backend'
 
@@ -85,7 +85,7 @@ vi.mock('electron', () => ({
 }))
 
 // Import after mocks
-import { WalletKeyStorage, WalletDecryptionError, WalletSystemStorageError } from '../key-storage'
+import { WalletKeyStorage, WalletDecryptionError, WalletSystemStorageError } from './vault-adapter'
 import { mnemonicToPrivateKey } from '@ton/crypto'
 
 // --- Helpers ---
@@ -117,7 +117,24 @@ describe('WalletKeyStorage', () => {
   })
 
   // 1. generateFromMnemonic() produces 24 words and stores encrypted
+  it('never treats an access failure as an absent vault', async () => {
+    vi.mocked(fs.access).mockRejectedValueOnce(Object.assign(new Error('denied'), { code: 'EACCES' }))
+    await expect(ks.exists()).rejects.toThrow('Wallet storage is unavailable')
+  })
+
   describe('generateFromMnemonic()', () => {
+    it('preserves its lock listener after a failed creation is retried', async () => {
+      const listener = vi.fn()
+      ks.setOnLock(listener)
+      vi.mocked(fs.unlink).mockResolvedValue(undefined)
+      vi.mocked(fs.readFile).mockImplementation(async () => getLastAtomicWrite())
+      atomicHandleWriteFile.mockRejectedValueOnce(new Error('write failed'))
+      await expect(ks.generateFromMnemonic()).rejects.toThrow('write failed')
+      await ks.generateFromMnemonic()
+      ks.lock()
+      expect(listener).toHaveBeenCalledOnce()
+    })
+
     it('produces 24-word mnemonic and writes encrypted file', async () => {
       vi.mocked(fs.readFile).mockImplementation(async () => getLastAtomicWrite())
       const { keypair } = await ks.generateFromMnemonic()

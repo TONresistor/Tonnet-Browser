@@ -1,11 +1,13 @@
 import type { SettingsChangedEvent } from '@shared/ipc-events'
-import type { PaymentNotificationData, WalletState, WalletTransaction } from '@shared/types'
+import type { PaymentNotificationData, WalletState, WalletTransaction, WalletSnapshot } from '@shared/types'
 import type { WalletSettings } from '@shared/types'
 
 /** Typed main-process boundary owned by the wallet feature. */
 export const walletClient = {
   isAvailable: () => typeof window !== 'undefined' && Boolean(window.electron),
   getState: () => window.electron.wallet.getState(),
+  getSnapshot: () => window.electron.wallet.getSnapshot(),
+  decryptComment: (request: { sender: string; body: string }) => window.electron.wallet.decryptComment(request),
   retrySystemStorage: () => window.electron.wallet.retrySystemStorage(),
   create: (options: { password?: string }) => window.electron.wallet.create(options),
   discoverAccounts: (mnemonic: string[]) => window.electron.wallet.discoverAccounts(mnemonic),
@@ -25,8 +27,9 @@ export const walletClient = {
   setPageOpen: (open: boolean) => window.electron.wallet.setPageOpen(open),
   setSensitiveDisplay: (active: boolean) => window.electron.wallet.setSensitiveDisplay(active),
   getBalance: () => window.electron.wallet.getBalance(),
-  send: (to: string, amount: string, comment?: string, encryptedComment?: boolean) =>
-    window.electron.wallet.send(to, amount, comment, encryptedComment),
+  send: (to: string, amount: string, comment?: string, encryptedComment?: boolean, operationId?: string) =>
+    window.electron.wallet.send(to, amount, comment, encryptedComment, operationId),
+  retryOperation: (id: string) => window.electron.wallet.retryOperation(id),
   resolveRecipient: (recipient: string) => window.electron.wallet.resolveRecipient(recipient),
   getHistory: (limit?: number) => window.electron.wallet.getHistory(limit),
   clearHistory: () => window.electron.wallet.clearHistory(),
@@ -38,6 +41,8 @@ export const walletClient = {
   onNewTransaction: (listener: (transaction: WalletTransaction) => void) =>
     window.electron.on('wallet:new-transaction', listener),
   onStateChanged: (listener: (state: WalletState) => void) => window.electron.on('wallet:state-changed', listener),
+  onSnapshotChanged: (listener: (snapshot: WalletSnapshot) => void) =>
+    window.electron.on('wallet:snapshot-changed', listener),
   onSettingsChanged: (listener: (change: SettingsChangedEvent) => void) =>
     window.electron.on('settings:changed', listener),
   onPaymentRequested: (listener: (notification: PaymentNotificationData) => void) =>

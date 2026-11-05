@@ -2,6 +2,7 @@ import type {
   AppSettings,
   ProxyStatus,
   WalletState,
+  WalletSnapshot,
   WalletTransaction,
   PaymentNotificationData,
   StorageBag,
@@ -46,6 +47,7 @@ export interface IpcEventMap {
   'tab:history-reset': [tabId: string, url: string]
   'wallet:balance-updated': [balance: string]
   'wallet:state-changed': [state: WalletState]
+  'wallet:snapshot-changed': [snapshot: WalletSnapshot]
   'wallet:new-transaction': [tx: WalletTransaction]
   'wallet:payment-req': [notification: PaymentNotificationData]
   'wallet:payment-made': [notification: PaymentNotificationData]

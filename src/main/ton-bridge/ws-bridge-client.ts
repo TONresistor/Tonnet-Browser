@@ -5,11 +5,14 @@
  */
 
 import { createLogger, RepetitionAggregator } from '../../shared/logger'
+import { Address } from '@ton/core'
 import { JsonRpcRequestTracker, type JsonRpcResponse } from './json-rpc-peer'
 import {
+  WalletChainSnapshotSchema,
   AccountBalanceResultSchema,
   AccountInformationResultSchema,
   EmulateTransactionResultSchema,
+  EmulationTimingsSchema,
   BridgeAccountStateSchema,
   BridgeTransactionsResultSchema,
   BridgeTransactionSchema,
@@ -48,6 +51,7 @@ type RpcParams = Record<string, unknown>
 type EventCallback = BridgeEventCallback
 
 export class WsBridgeClient {
+  private connectionRevision = 0
   private wsPort: number
   private transport: WebSocketTransport
   private nextId = 0
@@ -91,6 +95,7 @@ export class WsBridgeClient {
         log.debug(`Connected to bridge on port ${this.wsPort}`)
       },
       onDisconnect: (error) => {
+        this.connectionRevision++
         this.requestTracker.rejectAll(error)
         this.transactionWatcher.rejectAll(error)
       },
@@ -107,6 +112,7 @@ export class WsBridgeClient {
   }
 
   disconnect(): void {
+    this.connectionRevision++
     this.requestTracker.rejectAll(new Error('Client disconnected'))
     this.transactionWatcher.rejectAll(new Error('Client disconnected'))
     // Drain request queue
@@ -121,6 +127,10 @@ export class WsBridgeClient {
 
   isConnected(): boolean {
     return this.transport.isConnected()
+  }
+
+  getConnectionRevision(): number {
+    return this.connectionRevision
   }
 
   // --- Wallet operations ---
@@ -146,14 +156,74 @@ export class WsBridgeClient {
     }
   }
 
+  async getWalletSnapshot(address: string, prepareEmulation = false) {
+    return WalletChainSnapshotSchema.parse(
+      await this.request('wallet.getSnapshot', {
+        address: Address.parse(address).toString({ bounceable: false }),
+        ...(prepareEmulation ? { prepare_emulation: true } : {}),
+      })
+    )
+  }
+
+  async getRawTransactions(
+    address: string,
+    limit: number,
+    lastLt: string,
+    lastHash: string,
+    masterSeqno?: number
+  ): Promise<BridgeTransaction[]> {
+    return (
+      BridgeTransactionsResultSchema.parse(
+        await this.request('lite.getTransactions', {
+          address: Address.parse(address).toString({ bounceable: false }),
+          limit,
+          last_lt: lastLt,
+          last_hash: lastHash,
+          include_boc: true,
+          ...(masterSeqno !== undefined ? { master_seqno: masterSeqno } : {}),
+        })
+      ).transactions ?? []
+    )
+  }
+
   async getAccountInformation(address: string): Promise<AccountInformationResult> {
     return AccountInformationResultSchema.parse(await this.request('lite.getAccountState', { address }))
   }
 
-  async emulateTransaction(address: string, boc: string): Promise<EmulateTransactionResult> {
-    return EmulateTransactionResultSchema.parse(
-      await this.request('lite.emulateTransaction', { address, boc, ignore_chksig: true })
-    )
+  async emulateTransaction(
+    address: string,
+    boc: string,
+    context?: { id: string; revalidate: boolean }
+  ): Promise<EmulateTransactionResult> {
+    const result = await this.request('lite.emulateTransaction', {
+      address,
+      boc,
+      ignore_chksig: true,
+      ...(context ? { emulation_context: context.id, revalidate_wallet: context.revalidate } : {}),
+    })
+    const parsed = EmulateTransactionResultSchema.parse(result)
+    // Temporary diagnostics only; no raw message, address or payload is logged.
+    if (context && typeof result === 'object' && result !== null && 'timings' in result) {
+      const timings = EmulationTimingsSchema.safeParse(result.timings)
+      if (timings.success) {
+        const phase = context.revalidate ? 'revalidation' : 'preparation'
+        try {
+          log.event('info', 'wallet.transfer.timing', 'Wallet transfer timing', {
+            phase: `${phase}-emulation`,
+            durationMs: Math.round(timings.data.emulation_ms),
+          })
+          if (timings.data.final_block_check_ms !== undefined)
+            log.event('info', 'wallet.transfer.timing', 'Wallet transfer timing', {
+              phase: `${phase}-final-block-check`,
+              durationMs: Math.round(timings.data.final_block_check_ms),
+              walletReread: timings.data.wallet_reread,
+            })
+        } catch {
+          /* diagnostics only */
+        }
+      }
+    }
+    return parsed
   }
 
   async getSeqno(address: string): Promise<number> {
@@ -164,7 +234,8 @@ export class WsBridgeClient {
 
   async broadcast(boc: Buffer): Promise<void> {
     const b64 = boc.toString('base64')
-    await this.request('lite.sendMessage', { boc: b64 })
+    const result = await this.request<{ status?: number }>('lite.sendMessage', { boc: b64 })
+    if (result?.status !== 1) throw new Error('Liteserver did not accept the transaction')
     log.info('Transaction broadcast successful')
   }
 
@@ -203,8 +274,8 @@ export class WsBridgeClient {
 
   // --- Payment flow ---
 
-  async sendAndWatch(boc: Buffer): Promise<string> {
-    return this.transactionWatcher.sendAndWatch(boc)
+  async sendAndWatch(boc: Buffer, onSubmitted?: (messageHash: string) => Promise<void>) {
+    return this.transactionWatcher.sendAndWatch(boc, onSubmitted)
   }
 
   // --- DNS ---

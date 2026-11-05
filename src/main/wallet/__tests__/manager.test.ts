@@ -27,6 +27,24 @@ class InMemorySecureStorage implements ISecureStorage {
 
 // --- Mocks (must be declared before imports that trigger them) ---
 
+vi.mock('../../history/safe-storage-wrapper', () => ({
+  SafeStorageWrapper: class {
+    async read() {
+      return null
+    }
+    async write() {}
+    async delete() {}
+  },
+}))
+vi.mock('../journal-store', () => ({
+  FileOperationJournalStore: class {
+    async read() {
+      return null
+    }
+    async compareExchange() {}
+  },
+}))
+
 vi.mock('fs', async () => {
   const actual = await vi.importActual<typeof import('fs')>('fs')
   return {
@@ -92,6 +110,7 @@ vi.mock('../../settings', () => ({
 // --- Import after mocks ---
 
 import { WalletManager } from '../manager'
+import { createWalletContract } from '../../../wallet-engine'
 import { Address } from '@ton/core'
 
 // --- Test constants ---
@@ -335,10 +354,12 @@ describe('WalletManager vault mutation safety', () => {
       publicKey: Buffer
       keypair: TestKeypair | null
       keyStorage: typeof keyStorage
+      walletContract: ReturnType<typeof createWalletContract>
     }
     state.publicKey = Buffer.from(keypair.publicKey)
     state.keypair = keypair
     state.keyStorage = keyStorage
+    state.walletContract = createWalletContract('v5R1', keypair.publicKey)
     return { state, keyStorage }
   }
 
@@ -525,7 +546,7 @@ describe('WalletManager.importWallet', () => {
     const secondResult = manager.importWallet(secondInput, 'correct horse battery staple')
     await Promise.resolve()
 
-    expect(importFromMnemonic).toHaveBeenCalledOnce()
+    await vi.waitFor(() => expect(importFromMnemonic).toHaveBeenCalledOnce())
 
     resolveFirst(firstKeypair)
     await firstResult
@@ -535,7 +556,7 @@ describe('WalletManager.importWallet', () => {
     expect(setup.state.keypair).toBe(secondKeypair)
   })
 
-  it('does not read the previous account while an import is pending', async () => {
+  it('rejects a queued signature instead of reinterpreting it for the imported account', async () => {
     const manager = new WalletManager(new InMemorySecureStorage())
     const input = Array(24).fill('word')
     const nextKeypair = { publicKey: Buffer.alloc(32, 7), secretKey: Buffer.alloc(64, 8) }
@@ -565,11 +586,10 @@ describe('WalletManager.importWallet', () => {
 
     resolveImport(nextKeypair)
     await importing
-    const signed = await signing
+    await expect(signing).rejects.toThrow('Wallet session changed')
 
     expect(readsBeforeImport).toBe(0)
     expect(readPreviousAccount).not.toHaveBeenCalled()
-    expect(signed.address).toBe('0:test...')
   })
 
   it('rejects an approved signing request when the wallet changes before signing', async () => {
@@ -595,6 +615,6 @@ describe('WalletManager.importWallet', () => {
     resolveImport(nextKeypair)
 
     await importing
-    await expect(signing).rejects.toThrow('Wallet changed while approval was pending')
+    await expect(signing).rejects.toThrow('Wallet session changed')
   })
 })

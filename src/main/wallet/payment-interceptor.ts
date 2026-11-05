@@ -67,6 +67,7 @@ export class PaymentInterceptor {
     }
     const walletIdentity = this.walletManager.getIdentitySnapshot()
     if (!walletIdentity) return
+    const walletSession = this.walletManager.getSessionRevision()
     const accountGeneration = this.accountGeneration
     const session = request.session
 
@@ -155,7 +156,15 @@ export class PaymentInterceptor {
     }
 
     if (mode === 'auto') {
-      await this.executePayment(request, paymentReq, originalDomain, walletIdentity, accountGeneration, reservationId)
+      await this.executePayment(
+        request,
+        paymentReq,
+        originalDomain,
+        walletIdentity,
+        accountGeneration,
+        walletSession,
+        reservationId
+      )
     } else {
       const paymentId = crypto.randomUUID()
 
@@ -179,6 +188,7 @@ export class PaymentInterceptor {
         paymentReq,
         domain: originalDomain,
         walletIdentity,
+        walletSession,
         accountGeneration,
         ttl: ttlTimeout,
         reservationId,
@@ -194,15 +204,18 @@ export class PaymentInterceptor {
     domain: string,
     walletIdentity: WalletIdentitySnapshot,
     accountGeneration: number,
+    walletSession: number,
     reservationId?: string
   ): Promise<void> {
     const paymentId = crypto.randomUUID()
     const session = request.session
+    let signed = false
 
     try {
       const pendingTx: WalletTransaction = {
         id: paymentId,
         type: 'x402',
+        operationId: paymentId,
         amount: paymentReq.amount,
         address: paymentReq.payTo,
         timestamp: Date.now(),
@@ -212,8 +225,11 @@ export class PaymentInterceptor {
       }
       await this.walletHistoryManager.add(pendingTx)
 
-      const payload = await this.walletManager.signX402Payment(paymentReq, walletIdentity)
-      if (accountGeneration !== this.accountGeneration || !this.isCurrentIdentity(walletIdentity)) {
+      if (!reservationId) throw new Error('Payment reservation missing')
+      await this.paymentPolicyStore.persistReservation(reservationId, paymentId, `mainnet:${walletIdentity.addressRaw}`)
+      const payload = await this.walletManager.signX402Payment(paymentReq, walletIdentity, paymentId, walletSession)
+      signed = true
+      if (accountGeneration !== this.accountGeneration || !this.isCurrentSession(walletIdentity, walletSession)) {
         throw new Error('Wallet changed before payment retry')
       }
 
@@ -232,9 +248,7 @@ export class PaymentInterceptor {
       })
 
       if (retryResponse.ok) {
-        if (reservationId) this.paymentPolicyStore.confirmPayment(reservationId)
-
-        await this.walletHistoryManager.updateStatus(paymentId, 'confirmed')
+        await this.walletHistoryManager.updateStatus(paymentId, 'pending')
 
         this.emitPaymentNotification(buildNotification(paymentId, domain, request.url, paymentReq, 'completed'))
 
@@ -250,9 +264,8 @@ export class PaymentInterceptor {
 
         log.event('info', 'payment.completed', 'HTTP 402 payment completed')
       } else {
-        if (reservationId) this.paymentPolicyStore.rollbackPayment(reservationId)
         const errorText = await readBoundedBody(retryResponse, MAX_RESPONSE_BODY).catch(() => 'read error')
-        await this.walletHistoryManager.updateStatus(paymentId, 'failed')
+        await this.walletHistoryManager.updateStatus(paymentId, 'pending')
 
         this.emitPaymentNotification(
           buildNotification(
@@ -268,9 +281,10 @@ export class PaymentInterceptor {
         log.event('warn', 'payment.retry.failed', 'payment retry failed', { status: retryResponse.status })
       }
     } catch (err) {
-      if (reservationId) this.paymentPolicyStore.rollbackPayment(reservationId)
+      if (reservationId && !signed && !this.walletManager.getOperation?.(paymentId))
+        this.paymentPolicyStore.rollbackPayment(reservationId)
       await this.walletHistoryManager
-        .updateStatus(paymentId, 'failed')
+        .updateStatus(paymentId, signed || Boolean(this.walletManager.getOperation?.(paymentId)) ? 'pending' : 'failed')
         .catch((err) => log.debug('Failed to update payment history status:', err))
 
       this.emitPaymentNotification(
@@ -291,7 +305,7 @@ export class PaymentInterceptor {
     clearTimeout(pending.ttl)
     this.pendingApprovals.delete(paymentId)
 
-    if (!this.isCurrentIdentity(pending.walletIdentity)) {
+    if (!this.isCurrentSession(pending.walletIdentity, pending.walletSession)) {
       if (pending.reservationId) this.paymentPolicyStore.rollbackPayment(pending.reservationId)
       this.emitPaymentNotification(
         buildNotification(
@@ -308,9 +322,25 @@ export class PaymentInterceptor {
     }
 
     if (pending.xhrResolver) {
+      let signed = false
       try {
-        const payload = await this.walletManager.signX402Payment(pending.paymentReq, pending.walletIdentity)
-        if (pending.accountGeneration !== this.accountGeneration || !this.isCurrentIdentity(pending.walletIdentity)) {
+        if (!pending.reservationId) throw new Error('Payment reservation missing')
+        await this.paymentPolicyStore.persistReservation(
+          pending.reservationId,
+          paymentId,
+          `mainnet:${pending.walletIdentity.addressRaw}`
+        )
+        const payload = await this.walletManager.signX402Payment(
+          pending.paymentReq,
+          pending.walletIdentity,
+          paymentId,
+          pending.walletSession
+        )
+        signed = true
+        if (
+          pending.accountGeneration !== this.accountGeneration ||
+          !this.isCurrentSession(pending.walletIdentity, pending.walletSession)
+        ) {
           throw new Error('Wallet changed before payment token registration')
         }
         const xPaymentHeader = JSON.stringify({ x402Version: X402_VERSION, payload })
@@ -322,15 +352,15 @@ export class PaymentInterceptor {
           pending.paymentReq.maxTimeoutSeconds * 1_000,
           pending.walletIdentity
         )
-        if (pending.reservationId) this.paymentPolicyStore.confirmPayment(pending.reservationId)
 
         const tx: WalletTransaction = {
           id: paymentId,
           type: 'x402',
+          operationId: paymentId,
           amount: pending.paymentReq.amount,
           address: pending.paymentReq.payTo,
           timestamp: Date.now(),
-          status: 'confirmed',
+          status: 'pending',
           x402Domain: pending.domain,
           x402Url: pending.request.url,
         }
@@ -343,7 +373,8 @@ export class PaymentInterceptor {
         pending.xhrResolver({ success: true })
       } catch (err) {
         this.xhrTokens.revoke(pending.request.webContentsId, pending.request.url)
-        if (pending.reservationId) this.paymentPolicyStore.rollbackPayment(pending.reservationId)
+        if (pending.reservationId && !signed && !this.walletManager.getOperation?.(paymentId))
+          this.paymentPolicyStore.rollbackPayment(pending.reservationId)
         this.emitPaymentNotification(
           buildNotification(
             paymentId,
@@ -364,6 +395,7 @@ export class PaymentInterceptor {
         pending.domain,
         pending.walletIdentity,
         this.accountGeneration,
+        pending.walletSession,
         pending.reservationId
       )
     }
@@ -429,6 +461,7 @@ export class PaymentInterceptor {
     }
     const walletIdentity = this.walletManager.getIdentitySnapshot()
     if (!walletIdentity) return { success: false, error: 'wallet-not-created' }
+    const walletSession = this.walletManager.getSessionRevision()
     const accountGeneration = this.accountGeneration
 
     const wc = webContents.fromId(webContentsId)
@@ -504,9 +537,16 @@ export class PaymentInterceptor {
 
     if (mode === 'auto') {
       const paymentId = crypto.randomUUID()
+      let signed = false
       try {
-        const payload = await this.walletManager.signX402Payment(paymentReq, walletIdentity)
-        if (accountGeneration !== this.accountGeneration || !this.isCurrentIdentity(walletIdentity)) {
+        await this.paymentPolicyStore.persistReservation(
+          reservationId,
+          paymentId,
+          `mainnet:${walletIdentity.addressRaw}`
+        )
+        const payload = await this.walletManager.signX402Payment(paymentReq, walletIdentity, paymentId, walletSession)
+        signed = true
+        if (accountGeneration !== this.accountGeneration || !this.isCurrentSession(walletIdentity, walletSession)) {
           throw new Error('Wallet changed before payment token registration')
         }
         const xPaymentHeader = JSON.stringify({ x402Version: X402_VERSION, payload })
@@ -519,15 +559,15 @@ export class PaymentInterceptor {
           walletIdentity,
           getUsesCount()
         )
-        this.paymentPolicyStore.confirmPayment(reservationId)
 
         const tx: WalletTransaction = {
           id: paymentId,
           type: 'x402',
+          operationId: paymentId,
           amount: paymentReq.amount,
           address: paymentReq.payTo,
           timestamp: Date.now(),
-          status: 'confirmed',
+          status: 'pending',
           x402Domain: originalDomain,
           x402Url: url,
         }
@@ -538,7 +578,8 @@ export class PaymentInterceptor {
         return { success: true }
       } catch (err) {
         this.xhrTokens.revoke(webContentsId, url)
-        this.paymentPolicyStore.rollbackPayment(reservationId)
+        if (!signed && !this.walletManager.getOperation?.(paymentId))
+          this.paymentPolicyStore.rollbackPayment(reservationId)
         log.event('error', 'payment.xhr_auto.failed', 'automatic XHR payment failed', { error: err })
         return { success: false, error: errorMessage(err) }
       }
@@ -567,6 +608,7 @@ export class PaymentInterceptor {
         paymentReq,
         domain: originalDomain,
         walletIdentity,
+        walletSession,
         accountGeneration,
         ttl: ttlTimeout,
         reservationId,
@@ -593,7 +635,10 @@ export class PaymentInterceptor {
     this.xhrTokens.clear()
     this.inflightXhrPayments.clear()
   }
-  private isCurrentIdentity(expected: WalletIdentitySnapshot): boolean {
-    return sameWalletIdentity(this.walletManager.getIdentitySnapshot(), expected)
+  private isCurrentSession(expected: WalletIdentitySnapshot, session: number): boolean {
+    return (
+      sameWalletIdentity(this.walletManager.getIdentitySnapshot(), expected) &&
+      this.walletManager.getSessionRevision() === session
+    )
   }
 }

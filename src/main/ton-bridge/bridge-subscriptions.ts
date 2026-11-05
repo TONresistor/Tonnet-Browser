@@ -132,6 +132,7 @@ export class BridgeSubscriptions {
     try {
       await this.request('subscribe.unsubscribe', { subscription_id: subscriptionId })
     } catch (error) {
+      if (error instanceof Error && error.message === `subscription not found: ${subscriptionId}`) return
       this.onError('unsubscribe', error)
     }
   }

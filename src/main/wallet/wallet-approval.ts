@@ -20,10 +20,12 @@ export function requestWalletTransferApproval(
   transfer: {
     address: string
     amount: string
+    recipients?: readonly { address: string; amount: string }[]
     domain?: string
     comment?: string
     commentEncrypted?: boolean
     estimatedFee: string
+    readOnly?: boolean
   },
   id = `wallet-transfer-${crypto.randomUUID()}`
 ): Promise<WalletTransferApprovalResult> {
@@ -51,28 +53,37 @@ export function requestWalletTransferApproval(
           subtitle: transfer.domain ? `Resolved from ${transfer.domain}` : 'TON Browser Wallet',
           amount: `${formatGram(transfer.amount)} GRAM`,
           rows: [
-            { label: 'To', value: transfer.address },
+            ...(transfer.recipients && transfer.recipients.length > 1
+              ? transfer.recipients.map((recipient, index) => ({
+                  label: `To ${index + 1}`,
+                  value: `${recipient.address} · ${formatGram(recipient.amount)} GRAM`,
+                }))
+              : [{ label: 'To', value: transfer.address }]),
             { label: 'Estimated fee', value: `~${formatGram(transfer.estimatedFee)} GRAM` },
             {
               label: 'Memo',
               value: transfer.comment ?? '',
-              action: {
-                id: 'set-memo',
-                label: 'Edit',
-                editable: true,
-                field: 'memo',
-                value: memoDraft ?? transfer.comment ?? '',
-                placeholder: 'Add a memo',
-                maxBytes: WALLET_MAX_COMMENT_BYTES,
-                error: memoError,
-                autoEdit: memoDraft !== undefined,
-              },
+              action: transfer.readOnly
+                ? undefined
+                : {
+                    id: 'set-memo',
+                    label: 'Edit',
+                    editable: true,
+                    field: 'memo',
+                    value: memoDraft ?? transfer.comment ?? '',
+                    placeholder: 'Add a memo',
+                    maxBytes: WALLET_MAX_COMMENT_BYTES,
+                    error: memoError,
+                    autoEdit: memoDraft !== undefined,
+                  },
             },
             ...(transfer.comment
               ? [
                   {
                     label: 'Encrypted',
-                    toggle: { id: 'set-encryption', checked: Boolean(transfer.commentEncrypted) },
+                    ...(transfer.readOnly
+                      ? { value: transfer.commentEncrypted ? 'Yes' : 'No' }
+                      : { toggle: { id: 'set-encryption', checked: Boolean(transfer.commentEncrypted) } }),
                   },
                 ]
               : []),

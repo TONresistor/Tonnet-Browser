@@ -138,6 +138,11 @@
   ],
   "forbiddenImports": [
     {
+      "id": "wallet-consumers-must-not-own-signing",
+      "from": ["src/main/wallet", "src/main/tonconnect", "src/main/ipc", "src/renderer", "src/preload"],
+      "imports": ["@ton/crypto", "@ton/ton"]
+    },
+    {
       "id": "native-managers-must-use-supervisor",
       "from": [
         "src/main/proxy/manager.ts",
@@ -166,6 +171,11 @@
         "src/main/cocoon/wallet-storage.ts"
       ],
       "imports": ["fs", "node:fs", "fs/promises", "node:fs/promises"]
+    },
+    {
+      "id": "wallet-engine-must-not-import-electron",
+      "from": ["src/wallet-engine"],
+      "imports": ["electron"]
     }
   ],
   "forbiddenDependencies": [
@@ -279,6 +289,11 @@
         "src/renderer/src/features/themes/store.ts",
         "src/renderer/src/features/settings/ui-store.ts"
       ]
+    },
+    {
+      "id": "wallet-engine-must-be-autonomous",
+      "from": ["src/wallet-engine"],
+      "to": ["src/main", "src/preload", "src/renderer", "src/shared"]
     }
   ]
 }

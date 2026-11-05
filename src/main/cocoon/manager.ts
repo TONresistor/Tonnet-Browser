@@ -13,6 +13,7 @@ import { createLogger, diagnosticLoggingStatus } from '../../shared/logger'
 import { getCocoonBinaryPath, getTonConfigPath, getClientConfigTemplatePath } from './paths'
 import { checkCocoonAvailability } from './platform'
 import { NativeProcessSupervisor } from '../native-process/supervisor'
+import { fetchJsonStats } from './runner-api'
 
 const log = createLogger('cocoon:manager')
 
@@ -49,7 +50,8 @@ export class CocoonManager extends EventEmitter {
   private state: CocoonState = { kind: 'stopped' }
   private runDir: string | null = null
   private httpPort: number = 10000
-  private stopping = false
+  private stopping = 0
+  private startAbort = new AbortController()
 
   constructor(private enabled = true) {
     super()
@@ -72,8 +74,14 @@ export class CocoonManager extends EventEmitter {
     return this.httpPort
   }
 
-  async start(config: CocoonConfig): Promise<void> {
+  getStartSignal(): AbortSignal {
+    return this.startAbort.signal
+  }
+
+  async start(config: CocoonConfig, signal: AbortSignal = this.getStartSignal()): Promise<void> {
     this.assertEnabled()
+    signal.throwIfAborted()
+    if (this.stopping) throw new Error('Cocoon is stopping')
     if (this.state.kind !== 'stopped') {
       throw new Error(`Cocoon already running (state=${this.state.kind})`)
     }
@@ -87,36 +95,56 @@ export class CocoonManager extends EventEmitter {
     this.httpPort = 10000 + instance * 10
     const rpcPort = 10001 + instance * 10
 
-    this.runDir = await this.createRunDir()
-    log.debug(`Cocoon runDir: ${this.runDir}`)
-
-    await Promise.all([this.renderClientConfig({ ...config, httpPort: this.httpPort, rpcPort }), this.copyTonConfig()])
-
+    const runDir = await this.createRunDir()
     try {
       this.assertEnabled()
+      signal.throwIfAborted()
+      this.runDir = runDir
+      log.debug(`Cocoon runDir: ${runDir}`)
+      await Promise.all([
+        this.renderClientConfig(runDir, { ...config, httpPort: this.httpPort, rpcPort }),
+        this.copyTonConfig(runDir),
+      ])
+      this.assertEnabled()
+      signal.throwIfAborted()
       this.transition({ kind: 'starting', phase: 'client-runner' })
+      signal.throwIfAborted()
       this.spawnRunner()
 
-      await this.waitForReady()
+      await this.waitForReady(signal)
       this.assertEnabled()
+      signal.throwIfAborted()
       this.transition({ kind: 'ready', httpPort: this.httpPort })
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       log.error(`Cocoon start failed: ${msg}`)
-      this.transition({ kind: 'crashed', error: msg })
-      await this.stop()
+      if (signal.aborted) {
+        await rm(runDir, { recursive: true, force: true }).catch(() => undefined)
+        if (this.runDir === runDir) this.runDir = null
+      } else {
+        this.transition({ kind: 'crashed', error: msg })
+        await this.stop(signal)
+      }
       throw err
     }
   }
 
-  async stop(): Promise<void> {
-    this.stopping = true
+  async stop(preserveStartSignal?: AbortSignal): Promise<void> {
+    if (preserveStartSignal) {
+      preserveStartSignal.throwIfAborted()
+      if (preserveStartSignal !== this.startAbort.signal) throw new Error('Cocoon activation cancelled')
+    } else {
+      const previous = this.startAbort
+      this.startAbort = new AbortController()
+      previous.abort(new Error('Cocoon activation cancelled'))
+    }
+    this.stopping++
     try {
       await this.supervisor.stop()
       await this.cleanupRunDir()
       this.transition({ kind: 'stopped' })
     } finally {
-      this.stopping = false
+      this.stopping--
     }
   }
 
@@ -137,9 +165,10 @@ export class CocoonManager extends EventEmitter {
     this.runDir = null
   }
 
-  private async renderClientConfig(vars: CocoonConfig & { httpPort: number; rpcPort: number }): Promise<void> {
-    if (!this.runDir) throw new Error('runDir not initialized')
-
+  private async renderClientConfig(
+    runDir: string,
+    vars: CocoonConfig & { httpPort: number; rpcPort: number }
+  ): Promise<void> {
     const template = await readFile(getClientConfigTemplatePath(), 'utf-8')
 
     const replacements: Record<string, string | number | boolean> = {
@@ -149,7 +178,7 @@ export class CocoonManager extends EventEmitter {
       OWNER_ADDRESS: vars.ownerAddress,
       ROOT_CONTRACT_ADDRESS: vars.rootContractAddress,
       NODE_WALLET_KEY: vars.nodeWalletKeyBase64,
-      TON_CONFIG_FILE: resolve(this.runDir, 'global.config.json'),
+      TON_CONFIG_FILE: resolve(runDir, 'global.config.json'),
     }
 
     let rendered = template
@@ -162,13 +191,12 @@ export class CocoonManager extends EventEmitter {
       rendered = rendered.split(unquoted).join(String(value))
     }
 
-    const configPath = resolve(this.runDir, 'client-config.json')
+    const configPath = resolve(runDir, 'client-config.json')
     await writeFile(configPath, rendered, { mode: 0o600 })
   }
 
-  private async copyTonConfig(): Promise<void> {
-    if (!this.runDir) throw new Error('runDir not initialized')
-    await copyFile(getTonConfigPath(), resolve(this.runDir, 'global.config.json'))
+  private async copyTonConfig(runDir: string): Promise<void> {
+    await copyFile(getTonConfigPath(), resolve(runDir, 'global.config.json'))
   }
 
   private spawnRunner(): void {
@@ -207,18 +235,18 @@ export class CocoonManager extends EventEmitter {
     })
   }
 
-  private async waitForReady(): Promise<void> {
-    const url = `http://127.0.0.1:${this.httpPort}/jsonstats`
-
+  private async waitForReady(signal: AbortSignal): Promise<void> {
+    const httpPort = this.httpPort
     this.transition({ kind: 'starting', phase: 'sync' })
     await this.supervisor.waitForReady({
+      signal,
       timeoutMs: READINESS_TIMEOUT_MS,
       intervalMs: READINESS_POLL_MS,
       probe: async () => {
         try {
-          const res = await fetchWithTimeout(url, READINESS_POLL_MS)
-          if (!res?.ok) return false
-          const data = await res.json()
+          if (signal.aborted) return false
+          const data = await fetchJsonStats(httpPort, READINESS_POLL_MS, signal)
+          if (signal.aborted) return false
           if (this.state.kind === 'starting' && this.state.phase === 'sync') {
             this.transition({ kind: 'starting', phase: 'staking' })
           }
@@ -279,16 +307,4 @@ function isFullyReady(data: unknown): boolean {
   const state = proxies?.[0]?.state
   const stakeActive = state === 0
   return isReady && stakeActive
-}
-
-async function fetchWithTimeout(url: string, timeoutMs: number): Promise<Response | null> {
-  const ctrl = new AbortController()
-  const t = setTimeout(() => ctrl.abort(), timeoutMs)
-  try {
-    return await fetch(url, { signal: ctrl.signal })
-  } catch {
-    return null
-  } finally {
-    clearTimeout(t)
-  }
 }

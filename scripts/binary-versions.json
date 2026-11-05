@@ -1,11 +1,11 @@
 {
-  "go_version": "1.26.7",
+  "go_version": "1.26.10",
   "binaries": [
     {
       "name": "tonutils-proxy",
       "repo": "TONresistor/Tonutils-Proxy",
-      "version": "v1.10.1",
-      "commit": "e43ef6d765b50ac1df0ec9becad9d8780a7bdf18",
+      "version": "v1.11.0",
+      "commit": "e7f2adfb11a019a677aa8b62b1d4f066c25532f6",
       "entry_point": "./cmd/proxy-cli/",
       "ldflags": "-s -w -X main.GitCommit=${VERSION}"
     },
@@ -15,7 +15,8 @@
       "version": "v0.5.1",
       "commit": "6b313f2f7773221b16b6394e99460e91382b3d79",
       "entry_point": ".",
-      "ldflags": "-s -w"
+      "ldflags": "-s -w",
+      "patch": "scripts/tonutils-bridge-wallet-engine.patch"
     },
     {
       "name": "tonnet-messenger",

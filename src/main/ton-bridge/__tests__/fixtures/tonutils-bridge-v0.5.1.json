@@ -3,18 +3,71 @@
   "version": "v0.5.1",
   "commit": "6b313f2f7773221b16b6394e99460e91382b3d79",
   "requests": [
-    { "method": "dns.resolve", "params": { "domain": "site.ton" } },
-    { "method": "adnl.connectByADNL", "params": { "adnl_id": "anchor" } },
-    { "method": "overlay.join", "params": { "overlay_id": "overlay", "peer_id": "peer" } },
-    { "method": "overlay.sendRaw", "params": { "overlay_id": "overlay", "data": "payload" } },
-    { "method": "adnl.ping", "params": { "peer_id": "peer" } },
-    { "method": "overlay.leave", "params": { "overlay_id": "overlay" } },
-    { "method": "adnl.disconnect", "params": { "peer_id": "peer" } },
-    { "method": "dht.findValue", "params": { "key_id": "key", "name": "address", "index": 0 } },
-    { "method": "subscribe.unsubscribe", "params": { "subscription_id": "sub" } },
+    {
+      "method": "dns.resolve",
+      "params": {
+        "domain": "site.ton"
+      }
+    },
+    {
+      "method": "adnl.connectByADNL",
+      "params": {
+        "adnl_id": "anchor"
+      }
+    },
+    {
+      "method": "overlay.join",
+      "params": {
+        "overlay_id": "overlay",
+        "peer_id": "peer"
+      }
+    },
+    {
+      "method": "overlay.sendRaw",
+      "params": {
+        "overlay_id": "overlay",
+        "data": "payload"
+      }
+    },
+    {
+      "method": "adnl.ping",
+      "params": {
+        "peer_id": "peer"
+      }
+    },
+    {
+      "method": "overlay.leave",
+      "params": {
+        "overlay_id": "overlay"
+      }
+    },
+    {
+      "method": "adnl.disconnect",
+      "params": {
+        "peer_id": "peer"
+      }
+    },
+    {
+      "method": "dht.findValue",
+      "params": {
+        "key_id": "key",
+        "name": "address",
+        "index": 0
+      }
+    },
+    {
+      "method": "subscribe.unsubscribe",
+      "params": {
+        "subscription_id": "sub"
+      }
+    },
     {
       "method": "lite.emulateTransaction",
-      "params": { "address": "0:abc", "boc": "te6ccg==", "ignore_chksig": true }
+      "params": {
+        "address": "0:abc",
+        "boc": "te6ccg==",
+        "ignore_chksig": true
+      }
     }
   ],
   "responses": {
@@ -25,20 +78,65 @@
       "owner": "0:def",
       "initialized": true,
       "expiring_at": 2000000000,
-      "text_records": { "description": "fixture" }
+      "text_records": {
+        "description": "fixture"
+      }
     },
-    "adnl.connectByADNL": { "connected": true, "peer_id": "peer", "remote_addr": "1.2.3.4:5" },
-    "dht.findValue": { "data": "dmFsdWU=", "ttl": 2000000000 },
-    "subscribe": { "subscription_id": "sub" },
+    "adnl.connectByADNL": {
+      "connected": true,
+      "peer_id": "peer",
+      "remote_addr": "1.2.3.4:5"
+    },
+    "dht.findValue": {
+      "data": "dmFsdWU=",
+      "ttl": 2000000000
+    },
+    "subscribe": {
+      "subscription_id": "sub"
+    },
     "lite.emulateTransaction": {
       "accepted": true,
       "success": true,
       "exit_code": 0,
       "total_fees": "42",
-      "fees": { "storage_fee": "1", "gas_fee": "2", "fwd_fee": "3", "action_fee": "4" }
+      "fees": {
+        "storage_fee": "1",
+        "gas_fee": "2",
+        "fwd_fee": "3",
+        "action_fee": "4"
+      }
+    },
+    "wallet.getSnapshot": {
+      "address": "0:0000000000000000000000000000000000000000000000000000000000000000",
+      "balance": "0",
+      "status": "uninit",
+      "seqno": 0,
+      "last_tx_lt": "0",
+      "last_tx_hash": "",
+      "block_time": 2000000000,
+      "block": {
+        "workchain": 0,
+        "shard": "8000000000000000",
+        "seqno": 1,
+        "root_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+        "file_hash": "0000000000000000000000000000000000000000000000000000000000000000"
+      },
+      "masterchain": {
+        "workchain": -1,
+        "shard": "8000000000000000",
+        "seqno": 1,
+        "root_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+        "file_hash": "0000000000000000000000000000000000000000000000000000000000000000"
+      }
     }
   },
   "events": {
-    "overlay.message": { "overlay_id": "overlay", "message": "payload", "trusted": true }
-  }
+    "overlay.message": {
+      "overlay_id": "overlay",
+      "message": "payload",
+      "trusted": true
+    }
+  },
+  "patch": "scripts/tonutils-bridge-wallet-engine.patch",
+  "patchSha256": "679184d4be530678f0d8fbbaf5d4d429d346ec85bc023782b40b8221de93a984"
 }

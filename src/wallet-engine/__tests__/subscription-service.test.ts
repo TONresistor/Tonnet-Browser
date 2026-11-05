@@ -18,6 +18,7 @@ function setup() {
   }
   const callbacks = {
     currentBalance: vi.fn(() => '10'),
+    accountObserved: vi.fn(),
     balanceChanged: vi.fn(),
     convertTransaction: vi.fn((transaction) => ({ ...transaction, id: 'formatted' })),
     transactionReceived: vi.fn(),
@@ -53,6 +54,7 @@ describe('WalletSubscriptionService', () => {
     transactionCallback({ hash: 'hash', lt: '1', now: 1 })
     expect(setupResult.callbacks.balanceChanged).toHaveBeenCalledOnce()
     expect(setupResult.callbacks.balanceChanged).toHaveBeenCalledWith('11')
+    expect(setupResult.callbacks.accountObserved).toHaveBeenCalledTimes(2)
     expect(setupResult.callbacks.transactionReceived).toHaveBeenCalledWith(expect.objectContaining({ id: 'formatted' }))
     await vi.waitFor(() => expect(setupResult.callbacks.refreshBalance).toHaveBeenCalledOnce())
   })
@@ -68,5 +70,10 @@ describe('WalletSubscriptionService', () => {
     service.stop()
     expect(second.disposeAccount).toHaveBeenCalledOnce()
     expect(second.disposeTransactions).toHaveBeenCalledOnce()
+    first.bridge.subscribeAccountState.mock.calls[0][1]({ balance: '999' })
+    first.bridge.subscribeTransactions.mock.calls[0][1]({ hash: 'late' })
+    expect(first.callbacks.balanceChanged).not.toHaveBeenCalled()
+    expect(first.callbacks.accountObserved).not.toHaveBeenCalled()
+    expect(first.callbacks.transactionReceived).not.toHaveBeenCalled()
   })
 })

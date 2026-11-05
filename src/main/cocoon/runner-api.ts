@@ -68,16 +68,24 @@ export interface RunnerJsonStats {
  * Fetch /jsonstats and return the parsed snapshot.
  * Throws on network error, non-200 status, or invalid JSON.
  */
-export async function fetchJsonStats(httpPort: number, timeoutMs = DEFAULT_TIMEOUT_MS): Promise<RunnerJsonStats> {
+export async function fetchJsonStats(
+  httpPort: number,
+  timeoutMs = DEFAULT_TIMEOUT_MS,
+  signal?: AbortSignal
+): Promise<RunnerJsonStats> {
+  signal?.throwIfAborted()
   const url = `http://127.0.0.1:${httpPort}/jsonstats`
   const ctrl = new AbortController()
+  const requestSignal = signal ? AbortSignal.any([ctrl.signal, signal]) : ctrl.signal
   const timer = setTimeout(() => ctrl.abort(), timeoutMs)
   try {
-    const res = await fetch(url, { signal: ctrl.signal })
+    const res = await fetch(url, { signal: requestSignal })
     if (!res.ok) {
+      ctrl.abort()
       throw new Error(`/jsonstats returned ${res.status} ${res.statusText}`)
     }
     const data = (await res.json()) as RunnerJsonStats
+    requestSignal.throwIfAborted()
     return data
   } finally {
     clearTimeout(timer)

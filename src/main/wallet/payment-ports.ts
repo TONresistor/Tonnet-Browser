@@ -8,12 +8,20 @@ import type {
 import type { WalletIdentitySnapshot } from './wallet-identity'
 
 export interface PaymentWalletPort {
+  getOperation?(id: string): import('../../wallet-engine').WalletOperation | undefined
   getState(): WalletState
+  getSessionRevision(): number
   getIdentitySnapshot(): WalletIdentitySnapshot | null
-  signX402Payment(requirements: PaymentRequirements, expectedIdentity: WalletIdentitySnapshot): Promise<ExactTonPayload>
+  signX402Payment(
+    requirements: PaymentRequirements,
+    expectedIdentity: WalletIdentitySnapshot,
+    operationId?: string,
+    expectedSession?: number
+  ): Promise<ExactTonPayload>
 }
 
 export interface PaymentPolicyPort {
+  persistReservation(reservationId: string, operationId: string, account: string): Promise<void>
   getSiteMode(domain: string): PaymentMode
   reservePayment(domain: string, amountNano: string): string | null
   confirmPayment(reservationId: string): void

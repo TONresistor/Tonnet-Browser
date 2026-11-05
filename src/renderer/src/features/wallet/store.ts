@@ -5,12 +5,14 @@
 
 import { errorMessage } from '@shared/errors'
 import { create } from 'zustand'
-import type { WalletTransaction, PaymentNotificationData, NotificationStyle } from '@shared/types'
+import type { WalletTransaction, WalletSnapshot, PaymentNotificationData, NotificationStyle } from '@shared/types'
 import { WALLET_TX_DISPLAY_CAP } from '@shared/constants'
 import { walletClient } from '@/features/wallet/client'
 import type { WalletAccountCandidate } from '@shared/ipc-contract/wallet'
 
 interface WalletStore {
+  snapshotRevision: number
+  sessionRevision: number
   isCreated: boolean
   address: string
   addressRaw: string
@@ -57,59 +59,62 @@ interface WalletStore {
   setError: (error: string | null) => void
 }
 
-export const useWalletStore = create<WalletStore>((set, get) => {
-  // IPC event listeners — stored for cleanup
-  let unsubBalance: (() => void) | null = null
-  let unsubState: (() => void) | null = null
-  let unsubNewTx: (() => void) | null = null
-
-  const setupListeners = () => {
-    if (unsubBalance) unsubBalance()
-    if (unsubState) unsubState()
-    if (unsubNewTx) unsubNewTx()
-
-    unsubBalance = walletClient.onBalanceUpdated((balance) => {
-      if (typeof balance === 'string') {
-        set({ balance })
-      }
-    })
-
-    unsubNewTx = walletClient.onNewTransaction((tx) => {
-      if (!tx || typeof tx !== 'object' || typeof tx.id !== 'string') return
-      // Functional set for atomic dedup: two pushes arriving back-to-back both
-      // read the same snapshot with get(), so the check-then-set would race.
-      set((state) => {
-        if (state.transactions.some((t) => t.id === tx.id)) return state
-        const next = [tx, ...state.transactions]
-          .sort((a, b) => b.timestamp - a.timestamp)
-          .slice(0, WALLET_TX_DISPLAY_CAP)
-        return { transactions: next }
-      })
-    })
-
-    unsubState = walletClient.onStateChanged((state) => {
-      if (state && typeof state === 'object') {
-        set({
-          isCreated: state.isCreated ?? get().isCreated,
-          address: state.address ?? get().address,
-          addressRaw: state.addressRaw ?? get().addressRaw,
-          publicKey: state.publicKey ?? get().publicKey,
-          balance: state.balance ?? get().balance,
-          decryptFailed: state.decryptFailed ?? get().decryptFailed,
-          systemStorageBlocked: state.systemStorageBlocked ?? get().systemStorageBlocked,
-          weakEncryption: state.weakEncryption ?? get().weakEncryption,
-          isLocked: state.isLocked ?? get().isLocked,
-          needsPasswordSetup: state.needsPasswordSetup ?? get().needsPasswordSetup,
-          passwordProtected: state.passwordProtected ?? get().passwordProtected,
-          backupVerified: state.backupVerified ?? get().backupVerified,
-        })
-      }
-    })
+const PENDING_SEND_KEY = 'wallet-pending-send'
+function pendingSend(): { id: string; intent: string } | null {
+  try {
+    const saved = JSON.parse(sessionStorage.getItem(PENDING_SEND_KEY) ?? 'null')
+    return typeof saved?.id === 'string' && typeof saved.intent === 'string' ? saved : null
+  } catch {
+    return null
   }
+}
+function forgetPendingSend(id: string): void {
+  try {
+    if (pendingSend()?.id === id) sessionStorage.removeItem(PENDING_SEND_KEY)
+  } catch {
+    /* The engine also protects unresolved sends when browser storage is unavailable. */
+  }
+}
+function confirmedSend(transactions: readonly WalletTransaction[], id: string): boolean {
+  return transactions.some(
+    (transaction) => (transaction.operationId === id || transaction.id === id) && transaction.status === 'confirmed'
+  )
+}
 
-  setupListeners()
+export const useWalletStore = create<WalletStore>((set, get) => {
+  const applySnapshot = (snapshot: WalletSnapshot): void => {
+    let accepted = false
+    set((current) => {
+      if (snapshot.revision <= current.snapshotRevision) return current
+      accepted = true
+      return {
+        snapshotRevision: snapshot.revision,
+        sessionRevision: snapshot.sessionRevision,
+        isCreated: snapshot.isCreated,
+        address: snapshot.address,
+        addressRaw: snapshot.addressRaw,
+        publicKey: snapshot.publicKey,
+        balance: snapshot.balance,
+        transactions: snapshot.transactions.slice(0, WALLET_TX_DISPLAY_CAP),
+        decryptFailed: snapshot.decryptFailed ?? false,
+        systemStorageBlocked: snapshot.systemStorageBlocked ?? false,
+        weakEncryption: snapshot.weakEncryption ?? false,
+        isLocked: snapshot.isLocked ?? false,
+        needsPasswordSetup: snapshot.needsPasswordSetup ?? false,
+        passwordProtected: snapshot.passwordProtected ?? false,
+        backupVerified: snapshot.backupVerified ?? false,
+      }
+    })
+    const saved = accepted ? pendingSend() : null
+    if (saved && confirmedSend(snapshot.transactions, saved.id)) forgetPendingSend(saved.id)
+  }
+  const refreshSnapshot = async (): Promise<void> => applySnapshot(await walletClient.getSnapshot())
+  const unsubscribe = walletClient.onSnapshotChanged(applySnapshot)
+  if (import.meta.hot) import.meta.hot.dispose(unsubscribe)
 
   return {
+    snapshotRevision: -1,
+    sessionRevision: 0,
     isCreated: false,
     address: '',
     addressRaw: '',
@@ -160,23 +165,7 @@ export const useWalletStore = create<WalletStore>((set, get) => {
       if (get().initialized || get().isLoading) return
       set({ isLoading: true, error: null })
       try {
-        const state = await walletClient.getState()
-        if (state) {
-          set({
-            isCreated: state.isCreated ?? false,
-            address: state.address ?? '',
-            addressRaw: state.addressRaw ?? '',
-            publicKey: state.publicKey ?? '',
-            balance: state.balance ?? '0',
-            decryptFailed: state.decryptFailed ?? false,
-            systemStorageBlocked: state.systemStorageBlocked ?? false,
-            weakEncryption: state.weakEncryption ?? false,
-            isLocked: state.isLocked ?? false,
-            needsPasswordSetup: state.needsPasswordSetup ?? false,
-            passwordProtected: state.passwordProtected ?? false,
-            backupVerified: state.backupVerified ?? false,
-          })
-        }
+        await refreshSnapshot()
         const walletSettings = await walletClient.getSettings()
         if (walletSettings?.notificationStyle) {
           set({ notificationStyle: walletSettings.notificationStyle })
@@ -194,18 +183,7 @@ export const useWalletStore = create<WalletStore>((set, get) => {
       try {
         const result = await walletClient.create(options)
         if (result) {
-          set({
-            isCreated: result.isCreated ?? true,
-            address: result.address ?? '',
-            addressRaw: result.addressRaw ?? '',
-            publicKey: result.publicKey ?? '',
-            balance: result.balance ?? '0',
-            systemStorageBlocked: false,
-            isLocked: result.isLocked ?? false,
-            needsPasswordSetup: result.needsPasswordSetup ?? false,
-            passwordProtected: result.passwordProtected ?? false,
-            backupVerified: result.backupVerified ?? false,
-          })
+          await refreshSnapshot()
           return result.mnemonic ?? null
         }
         return null
@@ -222,21 +200,8 @@ export const useWalletStore = create<WalletStore>((set, get) => {
     importWallet: async (mnemonic: string[], password: string, walletVersion: WalletAccountCandidate['version']) => {
       set({ isLoading: true, error: null })
       try {
-        const result = await walletClient.importWallet(mnemonic, password, walletVersion)
-        set({
-          isCreated: result.isCreated ?? true,
-          address: result.address ?? '',
-          addressRaw: result.addressRaw ?? '',
-          publicKey: result.publicKey ?? '',
-          balance: result.balance ?? '0',
-          decryptFailed: false,
-          systemStorageBlocked: false,
-          weakEncryption: false,
-          isLocked: result.isLocked ?? false,
-          needsPasswordSetup: result.needsPasswordSetup ?? false,
-          passwordProtected: result.passwordProtected ?? false,
-          backupVerified: result.backupVerified ?? true,
-        })
+        await walletClient.importWallet(mnemonic, password, walletVersion)
+        await refreshSnapshot()
       } catch (err) {
         set({ error: errorMessage(err) })
         throw err
@@ -251,54 +216,71 @@ export const useWalletStore = create<WalletStore>((set, get) => {
     },
 
     unlock: async (password: string) => {
-      const state = await walletClient.unlock(password)
-      set({ isLocked: state.isLocked ?? false, error: null })
+      await walletClient.unlock(password)
+      await refreshSnapshot()
+      set({ error: null })
     },
 
     lock: async () => {
-      const state = await walletClient.lock()
-      set({ isLocked: state.isLocked ?? true })
+      await walletClient.lock()
+      await refreshSnapshot()
     },
 
     setupPassword: async (password: string) => {
-      const state = await walletClient.setupPassword(password)
-      set({
-        needsPasswordSetup: false,
-        passwordProtected: true,
-        weakEncryption: false,
-        isLocked: state.isLocked ?? false,
-      })
+      await walletClient.setupPassword(password)
+      await refreshSnapshot()
     },
 
     createBackupChallenge: (password?: string) => walletClient.createBackupChallenge(password),
 
     markBackupVerified: async (challengeId: string, password: string | undefined, answers: string[]) => {
-      const state = await walletClient.markBackupVerified(challengeId, password, answers)
-      set({ backupVerified: state.backupVerified ?? true })
+      await walletClient.markBackupVerified(challengeId, password, answers)
+      await refreshSnapshot()
     },
 
     changePassword: async (currentPassword: string, nextPassword: string) => {
-      const state = await walletClient.changePassword(currentPassword, nextPassword)
-      set({ isLocked: state.isLocked ?? false, error: null })
+      await walletClient.changePassword(currentPassword, nextPassword)
+      await refreshSnapshot()
+      set({ error: null })
     },
 
     refreshBalance: async () => {
       try {
-        const result = await walletClient.getBalance()
-        if (typeof result === 'string') {
-          set({ balance: result })
-        }
+        await walletClient.getBalance()
+        await refreshSnapshot()
       } catch (err) {
         set({ error: errorMessage(err) })
       }
     },
 
     send: async (to: string, amount: string, comment?: string, encryptedComment?: boolean) => {
+      const saved = pendingSend()
+      const completedAtEntry = saved ? confirmedSend(get().transactions, saved.id) : false
+      const intent = Array.from(
+        new Uint8Array(
+          await crypto.subtle.digest(
+            'SHA-256',
+            new TextEncoder().encode(JSON.stringify([to, amount, comment, encryptedComment]))
+          )
+        ),
+        (byte) => byte.toString(16).padStart(2, '0')
+      ).join('')
+      let operationId: string = crypto.randomUUID()
+      try {
+        if (saved?.intent === intent && !completedAtEntry) operationId = saved.id
+        sessionStorage.setItem(PENDING_SEND_KEY, JSON.stringify({ intent, id: operationId }))
+      } catch {
+        /* the engine also guards unresolved operations */
+      }
       set({ isSending: true, error: null })
       try {
-        await walletClient.send(to, amount, comment, encryptedComment)
-        await get().refreshBalance()
-        await get().loadHistory()
+        const transaction = await walletClient.send(to, amount, comment, encryptedComment, operationId)
+        if (transaction.status !== 'pending') forgetPendingSend(operationId)
+        void refreshSnapshot().catch(() => undefined)
+        if (transaction.status === 'failed')
+          throw new Error(
+            transaction.operationState === 'expired' ? 'Transfer expired without execution' : 'Transfer failed'
+          )
       } catch (err) {
         set({ error: errorMessage(err) })
         throw err
@@ -309,10 +291,8 @@ export const useWalletStore = create<WalletStore>((set, get) => {
 
     loadHistory: async (limit?: number) => {
       try {
-        const result = await walletClient.getHistory(limit)
-        if (Array.isArray(result)) {
-          set({ transactions: result })
-        }
+        await walletClient.getHistory(limit)
+        await refreshSnapshot()
       } catch (err) {
         set({ error: errorMessage(err) })
       }
@@ -321,22 +301,8 @@ export const useWalletStore = create<WalletStore>((set, get) => {
     deleteWallet: async (password: string) => {
       try {
         await walletClient.deleteWallet(password)
-        set({
-          isCreated: false,
-          address: '',
-          addressRaw: '',
-          publicKey: '',
-          balance: '0',
-          transactions: [],
-          decryptFailed: false,
-          systemStorageBlocked: false,
-          weakEncryption: false,
-          isLocked: false,
-          needsPasswordSetup: false,
-          passwordProtected: false,
-          backupVerified: false,
-          error: null,
-        })
+        await refreshSnapshot()
+        set({ error: null })
       } catch (err) {
         set({ error: errorMessage(err) })
         throw err
@@ -346,22 +312,8 @@ export const useWalletStore = create<WalletStore>((set, get) => {
     forgetWallet: async () => {
       try {
         await walletClient.forgetWallet()
-        set({
-          isCreated: false,
-          address: '',
-          addressRaw: '',
-          publicKey: '',
-          balance: '0',
-          transactions: [],
-          decryptFailed: false,
-          systemStorageBlocked: false,
-          weakEncryption: false,
-          isLocked: false,
-          needsPasswordSetup: false,
-          passwordProtected: false,
-          backupVerified: false,
-          error: null,
-        })
+        await refreshSnapshot()
+        set({ error: null })
       } catch (err) {
         set({ error: errorMessage(err) })
         throw err
@@ -371,7 +323,7 @@ export const useWalletStore = create<WalletStore>((set, get) => {
     clearHistory: async () => {
       try {
         await walletClient.clearHistory()
-        set({ transactions: [] })
+        await refreshSnapshot()
       } catch (err) {
         set({ error: errorMessage(err) })
       }

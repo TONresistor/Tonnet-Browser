@@ -248,17 +248,21 @@ export async function unstake(manager: CocoonManager): Promise<void> {
 export async function cashout(
   manager: CocoonManager,
   bridge: TonBridgePort,
-  destination: string
+  destination: string,
+  startSignal?: AbortSignal
 ): Promise<{
   totalSent: string
   txs: Array<{ source: 'node' | 'owner'; bocHash: string; sentAmount: string }>
 }> {
   const wallet = await loadCocoonWallet()
+  startSignal?.throwIfAborted()
   if (!wallet) throw new Error('Cocoon wallet not initialized')
 
   if (manager.getState().kind !== 'stopped') {
     log.info('Cashout: stopping runner before sweeping cocoon-controlled wallets')
-    await manager.stop()
+    if (startSignal) await manager.stop(startSignal)
+    else await manager.stop()
+    startSignal?.throwIfAborted()
   }
 
   const dest = Address.parse(destination)

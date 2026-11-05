@@ -16,6 +16,8 @@ import {
   walletSendContract,
   WalletStateSchema,
   WalletTransactionSchema,
+  walletGetSnapshotContract,
+  walletDecryptCommentContract,
 } from '../wallet'
 
 describe('wallet IPC contract', () => {
@@ -45,6 +47,7 @@ describe('wallet IPC contract', () => {
       'wallet:payment-req',
       'wallet:payment-made',
       'wallet:payment-failed',
+      'wallet:snapshot-changed',
     ])
     expect(WALLET_EVENT_CONTRACTS[0].payload.parse(['42'])).toEqual(['42'])
     expect(() => WALLET_EVENT_CONTRACTS[0].payload.parse(['-1'])).toThrow()
@@ -125,5 +128,21 @@ describe('wallet IPC contract', () => {
     }
     expect(PaymentNotificationSchema.parse(notification)).toEqual(notification)
     expect(() => PaymentNotificationSchema.parse({ ...notification, amount: '-1' })).toThrow()
+  })
+
+  it('exposes versioned view snapshots without the signed operation journal', () => {
+    const view = walletGetSnapshotContract.output.parse({
+      ...state,
+      revision: 5,
+      sessionRevision: 2,
+      transactions: [],
+      operations: [{ boc: 'signed' }],
+    })
+    expect(view).toMatchObject({ revision: 5, sessionRevision: 2, transactions: [] })
+    expect(view).not.toHaveProperty('operations')
+    expect(() => walletGetSnapshotContract.output.parse({ ...view, revision: -1 })).toThrow()
+    expect(walletDecryptCommentContract.caller).toBe('main-renderer')
+    expect(walletDecryptCommentContract.redaction).toBe('secret')
+    expect(() => walletDecryptCommentContract.input.parse([{ sender: 'sender', body: 'x'.repeat(8193) }])).toThrow()
   })
 })

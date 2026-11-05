@@ -1,6 +1,6 @@
 import { beginCell, Cell, type Address } from '@ton/core'
 import { sha256_sync } from '@ton/crypto'
-import type { SignDataPayloadInput, SignDataResult, TonProofReplyPayload } from '../tonconnect/types'
+import type { SignDataPayloadInput, SignDataResult, TonProofReplyPayload } from './signing-types'
 
 export interface WalletSigningContext {
   getAddress(): Address | null

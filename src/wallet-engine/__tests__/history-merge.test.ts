@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { mergeHistory, historyKey, sameHistory } from '../history-merge'
-import type { WalletTransaction } from '../../../shared/types'
+import type { WalletTransaction } from '../schemas'
 
 function tx(p: Partial<WalletTransaction>): WalletTransaction {
   return {
@@ -72,6 +72,29 @@ describe('mergeHistory', () => {
     expect(merged).toHaveLength(1)
     expect(merged[0]).toMatchObject({ comment: 'private memo', commentEncrypted: true })
   })
+
+  it.each(['failed', 'partial', 'unknown'] as const)(
+    'preserves the engine %s outcome on a chain re-fetch',
+    (execution) => {
+      const cached = tx({
+        id: 'operation',
+        hash: 'HASH-OP',
+        operationId: 'operation',
+        operationState: 'included',
+        execution,
+        status: execution === 'failed' ? 'failed' : 'pending',
+      })
+      const refetched = tx({ id: 'chain', hash: 'HASH-OP', status: 'confirmed' })
+      expect(mergeHistory([cached], [refetched], LIMIT)[0]).toMatchObject({
+        operationId: 'operation',
+        operationState: 'included',
+        execution,
+        status: cached.status,
+      })
+      const resolved = { ...cached, status: 'confirmed' as const, execution: 'succeeded' as const }
+      expect(mergeHistory([cached], [resolved], LIMIT)[0]).toMatchObject(resolved)
+    }
+  )
 
   it('sorts newest-first and caps to the limit', () => {
     const cached = Array.from({ length: 5 }, (_, i) => tx({ id: `c${i}`, hash: `H${i}`, timestamp: i }))

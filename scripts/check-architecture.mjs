@@ -150,6 +150,22 @@ for (const [source, specifiers] of importSpecifiers) {
 }
 
 for (const [source, dependencies] of graph) {
+  const sourceNameForWallet = relative(source)
+  for (const dependency of dependencies) {
+    const targetNameForWallet = relative(dependency)
+    if (
+      !sourceNameForWallet.startsWith('src/wallet-engine/') &&
+      targetNameForWallet.startsWith('src/wallet-engine/') &&
+      targetNameForWallet !== 'src/wallet-engine/index.ts'
+    )
+      errors.push(`wallet-engine-public-entry-only: ${sourceNameForWallet} -> ${targetNameForWallet}`)
+    if (
+      (sourceNameForWallet.startsWith('src/renderer/') || sourceNameForWallet.startsWith('src/preload/')) &&
+      targetNameForWallet.startsWith('src/wallet-engine/')
+    )
+      errors.push(`wallet-engine-main-process-only: ${sourceNameForWallet} -> ${targetNameForWallet}`)
+  }
+
   const sourceName = relative(source)
   for (const dependency of dependencies) {
     const targetName = relative(dependency)

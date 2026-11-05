@@ -401,4 +401,23 @@ describe('cashout', () => {
     await cashout(manager, bridge, NATIVE_ADDR)
     expect(manager.stop).not.toHaveBeenCalled()
   })
+
+  it('preserves the activation signal when stopping internally to retire a previous cycle', async () => {
+    const manager = makeManager('ready')
+    const signal = new AbortController().signal
+    const bridge = makeBridge()
+    await expect(cashout(manager, bridge, NATIVE_ADDR, signal)).rejects.toThrow('Nothing to cashout')
+    expect(manager.stop).toHaveBeenCalledWith(signal)
+    expect(signal.aborted).toBe(false)
+  })
+
+  it('rejects a cancelled activation before stopping or sweeping its wallet', async () => {
+    const manager = makeManager('ready')
+    const cancelled = new AbortController()
+    cancelled.abort(new Error('Cocoon activation cancelled'))
+    await expect(cashout(manager, makeBridge(), NATIVE_ADDR, cancelled.signal)).rejects.toThrow('cancelled')
+    expect(manager.stop).not.toHaveBeenCalled()
+    expect(sendFromCocoonWallet).not.toHaveBeenCalled()
+    expect(sendFromOwnerWallet).not.toHaveBeenCalled()
+  })
 })

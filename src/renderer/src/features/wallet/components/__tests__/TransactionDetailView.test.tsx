@@ -5,6 +5,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { TransactionDetailView } from '../TransactionDetailView'
 import type { WalletTransaction } from '@shared/types'
 
+vi.mock('../../store', async () => {
+  const { create } = await import('zustand')
+  return { useWalletStore: create(() => ({ isLocked: false, sessionRevision: 1 })) }
+})
+
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (key: string, options?: { defaultValue?: string }) => options?.defaultValue ?? key,

@@ -3,6 +3,6 @@
   "compilerOptions": {
     "noEmit": true
   },
-  "include": ["src/test-globals.d.ts", "src/main/**/*", "src/shared/**/*"],
+  "include": ["src/test-globals.d.ts", "src/main/**/*", "src/shared/**/*", "src/wallet-engine/**/*"],
   "exclude": []
 }

@@ -1,4 +1,4 @@
-import type { WalletState } from '../../shared/types'
+import type { WalletState } from './schemas'
 import type { SupportedWalletContract, WalletVersion } from './wallet-versions'
 
 export function buildWalletState(input: {

@@ -37,13 +37,6 @@ const EmulationFeesSchema = z.object({
   fwd_fee: z.string().regex(/^\d+$/),
   action_fee: z.string().regex(/^\d+$/),
 })
-export const EmulateTransactionResultSchema: z.ZodType<EmulateTransactionResult> = z.object({
-  accepted: z.boolean(),
-  success: z.boolean(),
-  exit_code: z.number().int(),
-  total_fees: z.string().regex(/^\d+$/),
-  fees: EmulationFeesSchema.optional(),
-})
 
 export const SeqnoResultSchema = z.object({
   seqno: z.union([z.number().int().nonnegative(), z.string().regex(/^\d+$/)]).transform((value) => Number(value)),
@@ -70,6 +63,7 @@ export const BridgeAccountStateSchema: z.ZodType<BridgeAccountState> = z.object(
 })
 
 const BridgeMessageSchema: z.ZodType<BridgeMessage> = z.object({
+  hash: z.string().optional(),
   source: z.string(),
   destination: z.string(),
   value: DecimalSchema,
@@ -77,6 +71,9 @@ const BridgeMessageSchema: z.ZodType<BridgeMessage> = z.object({
 })
 
 export const BridgeTransactionSchema: z.ZodType<BridgeTransaction> = z.object({
+  boc: z.string().optional(),
+  prev_tx_lt: z.string().optional(),
+  prev_tx_hash: z.string().optional(),
   hash: z.string().min(1),
   lt: z.string().min(1),
   now: z.number().int().nonnegative(),
@@ -87,11 +84,6 @@ export const BridgeTransactionSchema: z.ZodType<BridgeTransaction> = z.object({
 
 export const BridgeTransactionsResultSchema = z.object({
   transactions: z.array(BridgeTransactionSchema).optional(),
-})
-
-export const TxConfirmedEventSchema = z.object({
-  msg_hash: z.string().min(1),
-  transaction: z.object({ hash: z.string().min(1) }).optional(),
 })
 
 export const TxTimeoutEventSchema = z.object({
@@ -146,3 +138,68 @@ export const DnsResolveResultSchema = z
     text_records: z.record(z.string(), z.string()).optional(),
   })
   .passthrough()
+
+const BlockReferenceSchema = z.object({
+  workchain: z.number().int(),
+  shard: z.string().regex(/^[0-9a-f]{16}$/),
+  seqno: z.number().int().nonnegative(),
+  root_hash: z.string().regex(/^[0-9a-f]{64}$/),
+  file_hash: z.string().regex(/^[0-9a-f]{64}$/),
+})
+export const WalletConfirmationReceiptSchema: z.ZodType<import('../../wallet-engine').WalletConfirmationReceipt> =
+  z.object({
+    account: z.object({
+      address: z.string().min(1),
+      status: z.enum(['active', 'uninit', 'frozen']),
+      code_hash: z
+        .string()
+        .regex(/^[0-9a-f]{64}$/)
+        .optional(),
+      data_boc: z.string().optional(),
+      last_tx_lt: DecimalSchema,
+      last_tx_hash: z.string().regex(/^[0-9a-f]{64}$/),
+    }),
+    masterchain: BlockReferenceSchema,
+    transactions: z
+      .array(BridgeTransactionSchema.and(z.object({ boc: z.string().min(1) })))
+      .min(1)
+      .max(100),
+  })
+export const TxConfirmedEventSchema = z.object({
+  msg_hash: z.string().min(1),
+  transaction: z.object({ hash: z.string().min(1) }).optional(),
+  receipt: z.unknown().optional(),
+})
+export const WalletChainSnapshotSchema: z.ZodType<import('../../wallet-engine').WalletChainSnapshot> = z.object({
+  emulation_context: z.string().min(1).max(128).optional(),
+  address: z.string(),
+  balance: DecimalSchema,
+  status: z.enum(['active', 'uninit', 'frozen']),
+  seqno: z.number().int().nonnegative().max(0xffffffff),
+  last_tx_lt: DecimalSchema,
+  last_tx_hash: z.string(),
+  block_time: z.number().int().positive(),
+  code_hash: z
+    .string()
+    .regex(/^[0-9a-f]{64}$/)
+    .optional(),
+  data_boc: z.string().optional(),
+  block: BlockReferenceSchema,
+  masterchain: BlockReferenceSchema,
+})
+
+export const EmulateTransactionResultSchema: z.ZodType<EmulateTransactionResult> = z.object({
+  accepted: z.boolean(),
+  success: z.boolean(),
+  exit_code: z.number().int(),
+  total_fees: z.string().regex(/^\d+$/),
+  fees: EmulationFeesSchema.optional(),
+  wallet_snapshot: WalletChainSnapshotSchema.optional(),
+})
+
+// Temporary diagnostics are parsed separately so they cannot reject a valid wallet result.
+export const EmulationTimingsSchema = z.object({
+  emulation_ms: z.number().finite().nonnegative(),
+  final_block_check_ms: z.number().finite().nonnegative().optional(),
+  wallet_reread: z.boolean().optional(),
+})

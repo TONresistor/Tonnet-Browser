@@ -1,0 +1,1240 @@
+diff --git a/wsbridge/bridge.go b/wsbridge/bridge.go
+index 21a4c24..1273b13 100644
+--- a/wsbridge/bridge.go
++++ b/wsbridge/bridge.go
+@@ -104,11 +104,13 @@ type wsClient struct {
+ 	wg         sync.WaitGroup  // tracks in-flight handleRequest goroutines
+ 	activeSubs int32           // number of active subscriptions (accessed via sync/atomic)
+ 
+-	subscriptionsMu sync.Mutex                    // guards subscriptions map
+-	subscriptions   map[string]context.CancelFunc // subscription ID → cancel function
+-	subCounter      uint64                        // monotonic counter for subscription IDs
+-	inflightSem     chan struct{}                 // limits concurrent in-flight requests
+-	broadcastSem    chan struct{}                 // bounds long-lived FEC broadcasters
++	subscriptionsMu   sync.Mutex                    // guards subscriptions map
++	subscriptions     map[string]context.CancelFunc // subscription ID → cancel function
++	subCounter        uint64                        // monotonic counter for subscription IDs
++	inflightSem       chan struct{}                 // limits concurrent in-flight requests
++	broadcastSem      chan struct{}                 // bounds long-lived FEC broadcasters
++	walletEmulationMu sync.Mutex
++	walletEmulations  map[string]*walletEmulationState
+ }
+ 
+ // WSBridge exposes ADNL/DHT/Lite/DNS operations via WebSocket
+@@ -492,6 +494,8 @@ func (b *WSBridge) handleRequest(client *wsClient, req *WSRequest) {
+ 		b.handleNFTGetRoyaltyParams(client, req)
+ 	case "nft.getContent":
+ 		b.handleNFTGetContent(client, req)
++	case "wallet.getSnapshot":
++		b.handleWalletGetSnapshot(client, req)
+ 	case "wallet.getSeqno":
+ 		b.handleWalletGetSeqno(client, req)
+ 	case "wallet.getPublicKey":
+diff --git a/wsbridge/lite.go b/wsbridge/lite.go
+index 0320c42..1bfbff0 100644
+--- a/wsbridge/lite.go
++++ b/wsbridge/lite.go
+@@ -13,6 +13,7 @@ import (
+ 	"sync/atomic"
+ 	"time"
+ 
++	"github.com/xssnick/tonutils-go/address"
+ 	"github.com/xssnick/tonutils-go/tl"
+ 	"github.com/xssnick/tonutils-go/tlb"
+ 	"github.com/xssnick/tonutils-go/ton"
+@@ -57,12 +58,12 @@ func (b *WSBridge) handleGetAccountState(client *wsClient, req *WSRequest) {
+ 	ctx, cancel := context.WithTimeout(client.ctx, b.cfg.Namespaces.Lite.Timeout)
+ 	defer cancel()
+ 
+-	block, err := b.api.CurrentMasterchainInfo(ctx)
++	ctx, block, reader, err := walletReadContext(ctx, b.api)
+ 	if err != nil {
+ 		b.sendError(client, req.ID, "failed to get masterchain info: "+err.Error())
+ 		return
+ 	}
+-	acc, err := b.api.GetAccount(ctx, block, addr)
++	acc, err := reader.GetAccount(ctx, block, addr)
+ 	if err != nil {
+ 		b.sendError(client, req.ID, "failed to get account: "+err.Error())
+ 		return
+@@ -129,7 +130,7 @@ func (b *WSBridge) handleRunMethod(client *wsClient, req *WSRequest) {
+ 	ctx, cancel := context.WithTimeout(client.ctx, b.cfg.Namespaces.Lite.Timeout)
+ 	defer cancel()
+ 
+-	block, err := b.api.CurrentMasterchainInfo(ctx)
++	ctx, block, reader, err := walletReadContext(ctx, b.api)
+ 	if err != nil {
+ 		b.sendError(client, req.ID, "failed to get masterchain info: "+err.Error())
+ 		return
+@@ -146,7 +147,7 @@ func (b *WSBridge) handleRunMethod(client *wsClient, req *WSRequest) {
+ 		methodParams = append(methodParams, converted)
+ 	}
+ 
+-	res, err := b.api.RunGetMethod(ctx, block, addr, params.Method, methodParams...)
++	res, err := reader.RunGetMethod(ctx, block, addr, params.Method, methodParams...)
+ 	if err != nil {
+ 		b.sendError(client, req.ID, "run method failed: "+err.Error())
+ 		return
+@@ -372,9 +373,11 @@ func (b *WSBridge) handleEmulateMessage(client *wsClient, req *WSRequest) {
+ // may still be uninitialized when the message carries its StateInit.
+ // The TVM emulator is alpha upstream; results may differ in edge cases.
+ type emulateTransactionParams struct {
+-	Address      string `json:"address"`
+-	BOC          string `json:"boc"`
+-	IgnoreChkSig bool   `json:"ignore_chksig"`
++	Address          string `json:"address"`
++	BOC              string `json:"boc"`
++	IgnoreChkSig     bool   `json:"ignore_chksig"`
++	EmulationContext string `json:"emulation_context"`
++	RevalidateWallet bool   `json:"revalidate_wallet"`
+ }
+ 
+ func parseEmulateTransactionParams(raw json.RawMessage) (emulateTransactionParams, error) {
+@@ -396,6 +399,29 @@ func accountStateForTransactionEmulation(acc *tlb.Account) (*tlb.AccountState, e
+ 	return acc.State, nil
+ }
+ 
++func loadTransactionEmulationState(ctx context.Context, api ton.APIClientWrapped, addr *address.Address) (*walletEmulationState, error) {
++	ctx, block, reader, err := walletReadContext(ctx, api)
++	if err != nil {
++		return nil, err
++	}
++	now, err := reader.GetTime(ctx)
++	if err != nil {
++		return nil, err
++	}
++	account, err := reader.GetAccount(ctx, block, addr)
++	if err != nil {
++		return nil, err
++	}
++	if _, err := accountStateForTransactionEmulation(account); err != nil {
++		return nil, err
++	}
++	config, err := reader.GetBlockchainConfig(ctx, block)
++	if err != nil {
++		return nil, err
++	}
++	return &walletEmulationState{address: addr, master: block, account: account, config: config, now: now}, nil
++}
++
+ func (b *WSBridge) handleEmulateTransaction(client *wsClient, req *WSRequest) {
+ 	params, err := parseEmulateTransactionParams(req.Params)
+ 	if err != nil {
+@@ -423,22 +449,23 @@ func (b *WSBridge) handleEmulateTransaction(client *wsClient, req *WSRequest) {
+ 	ctx, cancel := context.WithTimeout(client.ctx, b.cfg.Namespaces.Lite.Timeout)
+ 	defer cancel()
+ 
+-	block, err := b.api.CurrentMasterchainInfo(ctx)
+-	if err != nil {
+-		b.sendError(client, req.ID, "failed to get masterchain info: "+err.Error())
++	if params.RevalidateWallet && params.EmulationContext == "" {
++		b.sendError(client, req.ID, "wallet revalidation requires an emulation context", -32602)
+ 		return
+ 	}
+-	networkNow, err := b.api.GetTime(ctx)
+-	if err != nil {
+-		b.sendError(client, req.ID, "failed to get network time: "+err.Error())
+-		return
++	var state *walletEmulationState
++	if params.EmulationContext != "" {
++		state, err = client.takeWalletEmulation(params.EmulationContext, addr)
++	} else {
++		state, err = loadTransactionEmulationState(ctx, b.api, addr)
+ 	}
+-
+-	acc, err := b.api.GetAccount(ctx, block, addr)
+ 	if err != nil {
+-		b.sendError(client, req.ID, "failed to get account: "+err.Error())
++		b.sendError(client, req.ID, "failed to prepare transaction emulation: "+err.Error())
+ 		return
+ 	}
++	acc, networkNow := state.account, state.now
++	// Temporary latency diagnostics; no additional network reads.
++	emulationStarted := time.Now()
+ 	accountState, err := accountStateForTransactionEmulation(acc)
+ 	if err != nil {
+ 		b.sendError(client, req.ID, err.Error(), -32602)
+@@ -457,12 +484,7 @@ func (b *WSBridge) handleEmulateTransaction(client *wsClient, req *WSRequest) {
+ 		LastTransLT:   acc.LastTxLT,
+ 	}
+ 
+-	bcCfg, err := b.api.GetBlockchainConfig(ctx, block)
+-	if err != nil {
+-		b.sendError(client, req.ID, "failed to get blockchain config: "+err.Error())
+-		return
+-	}
+-	preparedCfg, err := tvm.PrepareBlockchainConfig(bcCfg.Root)
++	preparedCfg, err := tvm.PrepareBlockchainConfig(state.config.Root)
+ 	if err != nil {
+ 		b.sendError(client, req.ID, "failed to prepare blockchain config: "+err.Error())
+ 		return
+@@ -512,6 +534,21 @@ func (b *WSBridge) handleEmulateTransaction(client *wsClient, req *WSRequest) {
+ 		summarizeTxPhases(tx, result)
+ 	}
+ 
++	timings := map[string]any{"emulation_ms": time.Since(emulationStarted).Milliseconds()}
++	result["timings"] = timings
++	if params.RevalidateWallet && result["accepted"] == true && result["success"] == true {
++		validationStarted := time.Now()
++		snapshot, err := revalidateWalletEmulation(ctx, b.api, state)
++		if err != nil {
++			b.sendError(client, req.ID, "wallet revalidation failed: "+err.Error())
++			return
++		}
++		timings["final_block_check_ms"] = time.Since(validationStarted).Milliseconds()
++		if master, ok := snapshot["masterchain"].(map[string]any); ok {
++			timings["wallet_reread"] = master["seqno"] != state.master.SeqNo
++		}
++		result["wallet_snapshot"] = snapshot
++	}
+ 	b.sendResult(client, req.ID, result)
+ }
+ 
+@@ -718,10 +755,12 @@ func (b *WSBridge) handleSendMessageWait(client *wsClient, req *WSRequest) {
+ 
+ func (b *WSBridge) handleGetTransactions(client *wsClient, req *WSRequest) {
+ 	var params struct {
+-		Address  string `json:"address"`
+-		Limit    uint32 `json:"limit"`
+-		LastLT   string `json:"last_lt"`   // optional, for pagination
+-		LastHash string `json:"last_hash"` // optional, hex-encoded
++		IncludeBOC  bool   `json:"include_boc"`
++		MasterSeqno uint32 `json:"master_seqno"`
++		Address     string `json:"address"`
++		Limit       uint32 `json:"limit"`
++		LastLT      string `json:"last_lt"`   // optional, for pagination
++		LastHash    string `json:"last_hash"` // optional, hex-encoded
+ 	}
+ 	if err := json.Unmarshal(req.Params, &params); err != nil {
+ 		b.sendError(client, req.ID, "invalid params: "+err.Error(), -32602)
+@@ -787,6 +826,20 @@ func (b *WSBridge) handleGetTransactions(client *wsClient, req *WSRequest) {
+ 		startHash = acc.LastTxHash
+ 	}
+ 
++	if params.IncludeBOC {
++		reader := b.api
++		if params.MasterSeqno > 0 {
++			reader = reader.WaitForBlock(params.MasterSeqno)
++		}
++		records, err := readWalletTransactionRecords(ctx, reader, addr, params.Limit, startLT, startHash)
++		if err != nil {
++			b.sendError(client, req.ID, "invalid raw transaction evidence: "+err.Error())
++			return
++		}
++		b.sendResult(client, req.ID, map[string]any{"transactions": records})
++		return
++	}
++
+ 	txList, err := b.api.ListTransactions(ctx, addr, params.Limit, startLT, startHash)
+ 	if err != nil {
+ 		b.sendError(client, req.ID, "failed to list transactions: "+err.Error())
+@@ -1335,7 +1388,8 @@ func (b *WSBridge) handleSendAndWatch(client *wsClient, req *WSRequest) {
+ 	defer atomic.AddInt32(&client.activeSubs, -1)
+ 
+ 	var params struct {
+-		BOC string `json:"boc"` // base64-encoded external message BOC
++		BOC            string `json:"boc"`
++		IncludeReceipt bool   `json:"include_receipt"`
+ 	}
+ 	if err := json.Unmarshal(req.Params, &params); err != nil {
+ 		b.sendError(client, req.ID, "invalid params: "+err.Error(), -32602)
+@@ -1391,12 +1445,12 @@ func (b *WSBridge) handleSendAndWatch(client *wsClient, req *WSRequest) {
+ 		client.subscriptionsMu.Unlock()
+ 	}()
+ 
+-	block, err := b.api.CurrentMasterchainInfo(ctx)
++	ctx, block, reader, err := walletReadContext(ctx, b.api)
+ 	if err != nil {
+ 		b.sendError(client, req.ID, "failed to get masterchain info: "+err.Error())
+ 		return
+ 	}
+-	acc, err := b.api.GetAccount(ctx, block, extMsg.DstAddr)
++	acc, err := reader.GetAccount(ctx, block, extMsg.DstAddr)
+ 	if err != nil {
+ 		b.sendError(client, req.ID, "failed to get account state: "+err.Error())
+ 		return
+@@ -1412,7 +1466,7 @@ func (b *WSBridge) handleSendAndWatch(client *wsClient, req *WSRequest) {
+ 		"msg_hash":        hex.EncodeToString(msgHash),
+ 	})
+ 
+-	tx, confirmedAt, err := b.waitForExternalMessage(ctx, &extMsg, block, acc)
++	confirmation, err := b.waitForExternalMessage(ctx, &extMsg, block, acc, params.IncludeReceipt)
+ 	if err != nil {
+ 		b.sendEvent(client, "tx_timeout", map[string]any{
+ 			"msg_hash": hex.EncodeToString(msgHash),
+@@ -1422,16 +1476,23 @@ func (b *WSBridge) handleSendAndWatch(client *wsClient, req *WSRequest) {
+ 	}
+ 	b.sendEvent(client, "tx_confirmed", map[string]any{
+ 		"msg_hash":    hex.EncodeToString(msgHash),
+-		"transaction": serializeTransaction(tx),
++		"transaction": serializeTransaction(confirmation.transaction),
++		"receipt":     confirmation.receipt,
+ 		"block": map[string]any{
+-			"seqno":     confirmedAt.SeqNo,
+-			"workchain": confirmedAt.Workchain,
+-			"shard":     fmt.Sprintf("%016x", uint64(confirmedAt.Shard)),
++			"seqno":     confirmation.block.SeqNo,
++			"workchain": confirmation.block.Workchain,
++			"shard":     fmt.Sprintf("%016x", uint64(confirmation.block.Shard)),
+ 		},
+ 	})
+ }
+ 
+-func (b *WSBridge) waitForExternalMessage(ctx context.Context, ext *tlb.ExternalMessage, block *ton.BlockIDExt, acc *tlb.Account) (*tlb.Transaction, *ton.BlockIDExt, error) {
++type walletWatchConfirmation struct {
++	transaction *tlb.Transaction
++	block       *ton.BlockIDExt
++	receipt     map[string]any
++}
++
++func (b *WSBridge) waitForExternalMessage(ctx context.Context, ext *tlb.ExternalMessage, block *ton.BlockIDExt, acc *tlb.Account, includeReceipt bool) (*walletWatchConfirmation, error) {
+ nextBlock:
+ 	for ctx.Err() == nil {
+ 		newBlock, err := b.api.WaitForBlock(block.SeqNo + 1).GetMasterchainInfo(ctx)
+@@ -1452,16 +1513,51 @@ nextBlock:
+ 		}
+ 
+ 		lastLT, lastHash := newAcc.LastTxLT, newAcc.LastTxHash
++		var chain []map[string]any
++		completeReceipt := includeReceipt
+ 		for ctx.Err() == nil && lastLT != 0 {
+-			txList, err := b.api.WaitForBlock(block.SeqNo).ListTransactions(ctx, ext.DstAddr, 20, lastLT, lastHash)
++			var txList []*tlb.Transaction
++			var records []map[string]any
++			var err error
++			reader := b.api.WaitForBlock(block.SeqNo)
++			if includeReceipt {
++				records, err = readWalletTransactionRecords(ctx, reader, ext.DstAddr, 20, lastLT, lastHash)
++				if err != nil {
++					continue nextBlock
++				}
++				for _, record := range records {
++					encoded, decodeErr := decodeBase64(record["boc"].(string))
++					if decodeErr != nil {
++						continue nextBlock
++					}
++					raw, parseErr := cell.FromBOC(encoded)
++					if parseErr != nil {
++						continue nextBlock
++					}
++					var tx tlb.Transaction
++					if parseErr = tlb.Parse(&tx, raw); parseErr != nil {
++						continue nextBlock
++					}
++					tx.Hash = raw.Hash()
++					txList = append(txList, &tx)
++				}
++			} else {
++				txList, err = reader.ListTransactions(ctx, ext.DstAddr, 20, lastLT, lastHash)
++			}
+ 			if err != nil {
+ 				continue nextBlock
+ 			}
+ 
+ 			sawPrevious := false
+ 			for i, tx := range txList {
+-				if i == 0 {
+-					lastLT, lastHash = tx.PrevTxLT, tx.PrevTxHash
++				lastLT, lastHash = tx.PrevTxLT, tx.PrevTxHash
++				if completeReceipt {
++					if len(chain) < 100 {
++						chain = append(chain, records[i])
++					} else {
++						completeReceipt = false
++						chain = nil
++					}
+ 				}
+ 				if tx.PrevTxLT == acc.LastTxLT && bytes.Equal(tx.PrevTxHash, acc.LastTxHash) {
+ 					sawPrevious = true
+@@ -1479,7 +1575,11 @@ nextBlock:
+ 					}
+ 				}
+ 				if in.Body != nil && ext.Body != nil && in.Body.HashKey() == ext.Body.HashKey() {
+-					return tx, block, nil
++					confirmation := &walletWatchConfirmation{transaction: tx, block: block}
++					if completeReceipt {
++						confirmation.receipt = walletConfirmationReceipt(ext.DstAddr, newAcc, block, chain)
++					}
++					return confirmation, nil
+ 				}
+ 			}
+ 			if sawPrevious || len(txList) == 0 {
+@@ -1489,7 +1589,7 @@ nextBlock:
+ 		acc = newAcc
+ 	}
+ 	if ctx.Err() != nil {
+-		return nil, nil, ctx.Err()
++		return nil, ctx.Err()
+ 	}
+-	return nil, nil, fmt.Errorf("transaction was not confirmed")
++	return nil, fmt.Errorf("transaction was not confirmed")
+ }
+diff --git a/wsbridge/lite_test.go b/wsbridge/lite_test.go
+index ce6585f..e50039f 100644
+--- a/wsbridge/lite_test.go
++++ b/wsbridge/lite_test.go
+@@ -339,20 +339,21 @@ func TestWaitForExternalMessageRetriesTransactionScanOnNextBlock(t *testing.T) {
+ 
+ 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+ 	defer cancel()
+-	got, block, err := bridge.waitForExternalMessage(
++	confirmation, err := bridge.waitForExternalMessage(
+ 		ctx,
+ 		&tlb.ExternalMessage{DstAddr: destination, Body: body},
+ 		&ton.BlockIDExt{SeqNo: 10},
+ 		&tlb.Account{LastTxLT: 1, LastTxHash: previousHash},
++		false,
+ 	)
+ 	if err != nil {
+ 		t.Fatalf("wait for external message: %v", err)
+ 	}
+-	if got != tx {
++	if confirmation.transaction != tx {
+ 		t.Fatal("returned a different transaction")
+ 	}
+-	if block == nil || block.SeqNo != 12 {
+-		t.Fatalf("confirmed block = %#v, want seqno 12", block)
++	if confirmation.block == nil || confirmation.block.SeqNo != 12 {
++		t.Fatalf("confirmed block = %#v, want seqno 12", confirmation.block)
+ 	}
+ 	if api.masterCalls != 2 || api.listCalls != 2 {
+ 		t.Fatalf("master calls = %d, list calls = %d; want 2 and 2", api.masterCalls, api.listCalls)
+diff --git a/wsbridge/wallet_snapshot.go b/wsbridge/wallet_snapshot.go
+new file mode 100644
+index 0000000..5aab545
+--- /dev/null
++++ b/wsbridge/wallet_snapshot.go
+@@ -0,0 +1,367 @@
++package wsbridge
++
++import (
++	"bytes"
++	"context"
++	"encoding/base64"
++	"encoding/hex"
++	"encoding/json"
++	"fmt"
++	"math/big"
++	"sync"
++	"sync/atomic"
++	"time"
++
++	"github.com/xssnick/tonutils-go/address"
++	"github.com/xssnick/tonutils-go/tl"
++	"github.com/xssnick/tonutils-go/tlb"
++	"github.com/xssnick/tonutils-go/ton"
++	"github.com/xssnick/tonutils-go/tvm/cell"
++)
++
++// walletSnapshotAPI anchors account and getter reads to one masterchain block.
++type walletSnapshotAPI interface {
++	Client() ton.LiteClient
++	WaitForBlock(uint32) ton.APIClientWrapped
++	CurrentMasterchainInfo(context.Context) (*ton.BlockIDExt, error)
++	GetBlockShardsInfo(context.Context, *ton.BlockIDExt) ([]*ton.BlockIDExt, error)
++	GetBlockHeader(context.Context, *ton.BlockIDExt) (*tlb.BlockHeader, error)
++	GetAccount(context.Context, *ton.BlockIDExt, *address.Address) (*tlb.Account, error)
++	RunGetMethod(context.Context, *ton.BlockIDExt, *address.Address, string, ...any) (*ton.ExecutionResult, error)
++}
++
++type walletMasterAPI interface {
++	Client() ton.LiteClient
++	CurrentMasterchainInfo(context.Context) (*ton.BlockIDExt, error)
++	WaitForBlock(uint32) ton.APIClientWrapped
++}
++
++func walletReadContext(ctx context.Context, api walletMasterAPI) (context.Context, *ton.BlockIDExt, ton.APIClientWrapped, error) {
++	ctx = api.Client().StickyContext(ctx)
++	master, err := api.CurrentMasterchainInfo(ctx)
++	if err != nil {
++		return ctx, nil, nil, err
++	}
++	return ctx, master, api.WaitForBlock(master.SeqNo), nil
++}
++
++func walletSnapshot(ctx context.Context, api walletSnapshotAPI, addr *address.Address) (map[string]any, error) {
++	ctx, master, reader, err := walletReadContext(ctx, api)
++	if err != nil {
++		return nil, err
++	}
++	state, err := walletSnapshotAt(ctx, reader, addr, master)
++	if err != nil {
++		return nil, err
++	}
++	return state.snapshot, nil
++}
++
++type walletEmulationState struct {
++	nodeContext context.Context
++	address     *address.Address
++	master      *ton.BlockIDExt
++	account     *tlb.Account
++	config      *tlb.BlockchainConfig
++	now         uint32
++	snapshot    map[string]any
++	created     time.Time
++}
++
++func walletSnapshotHeader(ctx context.Context, api walletSnapshotAPI, addr *address.Address, master *ton.BlockIDExt) (*ton.BlockIDExt, *tlb.BlockHeader, error) {
++	block := master
++	if addr.Workchain() != -1 {
++		shards, err := api.GetBlockShardsInfo(ctx, master)
++		if err != nil {
++			return nil, nil, err
++		}
++		block = nil
++		for _, shard := range shards {
++			if shard.Workchain == addr.Workchain() && tlb.ShardID(uint64(shard.Shard)).ContainsAddress(addr) {
++				block = shard
++				break
++			}
++		}
++		if block == nil {
++			return nil, nil, fmt.Errorf("account shard unavailable")
++		}
++	}
++	header, err := api.GetBlockHeader(ctx, block)
++	if err != nil {
++		return nil, nil, err
++	}
++	return block, header, nil
++}
++
++func walletSnapshotAt(ctx context.Context, api walletSnapshotAPI, addr *address.Address, master *ton.BlockIDExt) (*walletEmulationState, error) {
++	ctx, cancel := context.WithCancel(ctx)
++	var block *ton.BlockIDExt
++	var header *tlb.BlockHeader
++	var headerErr error
++	headerDone := make(chan struct{})
++	go func() {
++		defer close(headerDone)
++		block, header, headerErr = walletSnapshotHeader(ctx, api, addr, master)
++	}()
++	defer func() { cancel(); <-headerDone }()
++	account, err := api.GetAccount(ctx, master, addr)
++	if err != nil {
++		return nil, err
++	}
++	if account == nil {
++		return nil, fmt.Errorf("incomplete wallet snapshot")
++	}
++	var seqno uint64
++	if account.State != nil && account.State.IsValid && account.State.Status == tlb.AccountStatusActive {
++		value, err := api.RunGetMethod(ctx, master, addr, "seqno")
++		if err != nil {
++			return nil, err
++		}
++		values := value.AsTuple()
++		if len(values) != 1 {
++			return nil, fmt.Errorf("invalid wallet seqno stack")
++		}
++		n, ok := values[0].(*big.Int)
++		if !ok || !n.IsUint64() || n.BitLen() > 32 {
++			return nil, fmt.Errorf("invalid wallet seqno")
++		}
++		seqno = n.Uint64()
++	}
++	<-headerDone
++	if headerErr != nil {
++		return nil, headerErr
++	}
++	if header == nil {
++		return nil, fmt.Errorf("incomplete wallet snapshot")
++	}
++	result := map[string]any{
++		"address": addr.String(), "status": "uninit", "balance": "0", "seqno": seqno,
++		"last_tx_lt": fmt.Sprint(account.LastTxLT), "last_tx_hash": hex.EncodeToString(account.LastTxHash),
++		"block": snapshotBlockID(block), "masterchain": snapshotBlockID(master), "block_time": header.GenUtime,
++	}
++	if account.State != nil && account.State.IsValid {
++		result["balance"] = account.State.Balance.Nano().String()
++		if account.State.Status == tlb.AccountStatusFrozen {
++			result["status"] = "frozen"
++		}
++		if account.State.Status == tlb.AccountStatusActive {
++			result["status"] = "active"
++		}
++	}
++	if account.Code != nil {
++		result["code_hash"] = hex.EncodeToString(account.Code.Hash())
++	}
++	if account.Data != nil {
++		result["data_boc"] = base64.StdEncoding.EncodeToString(account.Data.ToBOCWithOptions(cell.BOCSerializeOptions{}))
++	}
++	return &walletEmulationState{address: addr, master: master, account: account, snapshot: result, created: time.Now()}, nil
++}
++
++func prepareWalletEmulation(ctx context.Context, api ton.APIClientWrapped, addr *address.Address) (*walletEmulationState, error) {
++	ctx, master, reader, err := walletReadContext(ctx, api)
++	if err != nil {
++		return nil, err
++	}
++	ctx, cancel := context.WithCancel(ctx)
++	defer cancel()
++	var state *walletEmulationState
++	var config *tlb.BlockchainConfig
++	var now uint32
++	var group sync.WaitGroup
++	failures := make(chan error, 3)
++	run := func(fn func() error) {
++		group.Add(1)
++		go func() {
++			defer group.Done()
++			if err := fn(); err != nil {
++				failures <- err
++				cancel()
++			}
++		}()
++	}
++	run(func() error { var err error; state, err = walletSnapshotAt(ctx, reader, addr, master); return err })
++	run(func() error { var err error; config, err = reader.GetBlockchainConfig(ctx, master); return err })
++	run(func() error { var err error; now, err = reader.GetTime(ctx); return err })
++	group.Wait()
++	close(failures)
++	if err := <-failures; err != nil {
++		return nil, err
++	}
++	if config == nil {
++		return nil, fmt.Errorf("blockchain configuration unavailable")
++	}
++	state.config, state.now = config, now
++	state.nodeContext = context.WithoutCancel(ctx)
++	return state, nil
++}
++
++type walletNodeContext struct {
++	context.Context
++	values context.Context
++}
++
++func (ctx walletNodeContext) Value(key any) any {
++	if value := ctx.values.Value(key); value != nil {
++		return value
++	}
++	return ctx.Context.Value(key)
++}
++
++const walletEmulationLifetime = 30 * time.Second
++const walletEmulationLimit = 4
++
++func (client *wsClient) keepWalletEmulation(state *walletEmulationState) (string, error) {
++	client.walletEmulationMu.Lock()
++	defer client.walletEmulationMu.Unlock()
++	if client.walletEmulations == nil {
++		client.walletEmulations = make(map[string]*walletEmulationState)
++	}
++	for id, pending := range client.walletEmulations {
++		if time.Since(pending.created) > walletEmulationLifetime {
++			delete(client.walletEmulations, id)
++		}
++	}
++	if len(client.walletEmulations) >= walletEmulationLimit {
++		return "", fmt.Errorf("too many prepared wallet emulations")
++	}
++	id := fmt.Sprintf("wallet_%d", atomic.AddUint64(&client.subCounter, 1))
++	client.walletEmulations[id] = state
++	return id, nil
++}
++
++func (client *wsClient) takeWalletEmulation(id string, addr *address.Address) (*walletEmulationState, error) {
++	client.walletEmulationMu.Lock()
++	defer client.walletEmulationMu.Unlock()
++	state := client.walletEmulations[id]
++	delete(client.walletEmulations, id)
++	if state == nil || time.Since(state.created) > walletEmulationLifetime || !state.address.Equals(addr) {
++		return nil, fmt.Errorf("wallet emulation context unavailable")
++	}
++	return state, nil
++}
++
++func revalidateWalletEmulation(ctx context.Context, api ton.APIClientWrapped, state *walletEmulationState) (map[string]any, error) {
++	if state.nodeContext != nil {
++		ctx = walletNodeContext{Context: ctx, values: state.nodeContext}
++	} else {
++		ctx = api.Client().StickyContext(ctx)
++	}
++	master, err := api.WaitForBlock(state.master.SeqNo).GetMasterchainInfo(ctx)
++	if err != nil {
++		return nil, err
++	}
++	if master.SeqNo < state.master.SeqNo {
++		return nil, fmt.Errorf("wallet masterchain state regressed")
++	}
++	if master.SeqNo == state.master.SeqNo {
++		if master.Workchain != state.master.Workchain || master.Shard != state.master.Shard || !bytes.Equal(master.RootHash, state.master.RootHash) || !bytes.Equal(master.FileHash, state.master.FileHash) {
++			return nil, fmt.Errorf("wallet masterchain reference changed")
++		}
++		return state.snapshot, nil
++	}
++	fresh, err := walletSnapshotAt(ctx, api.WaitForBlock(master.SeqNo), state.address, master)
++	if err != nil {
++		return nil, err
++	}
++	return fresh.snapshot, nil
++}
++
++func snapshotBlockID(block *ton.BlockIDExt) map[string]any {
++	return map[string]any{"workchain": block.Workchain, "shard": fmt.Sprintf("%016x", uint64(block.Shard)), "seqno": block.SeqNo, "root_hash": hex.EncodeToString(block.RootHash), "file_hash": hex.EncodeToString(block.FileHash)}
++}
++
++func (b *WSBridge) handleWalletGetSnapshot(client *wsClient, req *WSRequest) {
++	var params struct {
++		Address          string `json:"address"`
++		PrepareEmulation bool   `json:"prepare_emulation"`
++	}
++	if err := json.Unmarshal(req.Params, &params); err != nil {
++		b.sendError(client, req.ID, "invalid params", -32602)
++		return
++	}
++	addr, err := parseAddress(params.Address)
++	if err != nil {
++		b.sendError(client, req.ID, "invalid address", -32602)
++		return
++	}
++	ctx, cancel := context.WithTimeout(client.ctx, b.cfg.Namespaces.Wallet.Timeout)
++	defer cancel()
++	var result map[string]any
++	if params.PrepareEmulation {
++		var state *walletEmulationState
++		state, err = prepareWalletEmulation(ctx, b.api, addr)
++		if err == nil {
++			var id string
++			id, err = client.keepWalletEmulation(state)
++			if err == nil {
++				result = make(map[string]any, len(state.snapshot)+1)
++				for key, value := range state.snapshot {
++					result[key] = value
++				}
++				result["emulation_context"] = id
++			}
++		}
++	} else {
++		result, err = walletSnapshot(ctx, b.api, addr)
++	}
++	if err != nil {
++		b.sendError(client, req.ID, "wallet snapshot failed: "+err.Error())
++		return
++	}
++	b.sendResult(client, req.ID, result)
++}
++
++// Preserve the original network cells: reserialization may change a valid dictionary encoding and its hash.
++func rawTransactionRecords(cells []*cell.Cell, addr *address.Address, expectedLT uint64, expectedHash []byte) ([]map[string]any, error) {
++	records := make([]map[string]any, 0, len(cells))
++	for _, raw := range cells {
++		if !bytes.Equal(raw.Hash(), expectedHash) {
++			return nil, fmt.Errorf("transaction hash mismatch")
++		}
++		var tx tlb.Transaction
++		if err := tlb.Parse(&tx, raw); err != nil {
++			return nil, err
++		}
++		if tx.LT != expectedLT || !bytes.Equal(tx.AccountAddr, addr.Data()) || (tx.PrevTxLT != 0 && tx.PrevTxLT >= tx.LT) {
++			return nil, fmt.Errorf("transaction chain mismatch")
++		}
++		tx.Hash = raw.Hash()
++		record := serializeTransaction(&tx)
++		record["boc"] = base64.StdEncoding.EncodeToString(raw.ToBOCWithOptions(cell.BOCSerializeOptions{}))
++		records = append(records, record)
++		expectedLT = tx.PrevTxLT
++		expectedHash = tx.PrevTxHash
++	}
++	return records, nil
++}
++
++func readWalletTransactionRecords(ctx context.Context, api ton.APIClientWrapped, addr *address.Address, limit uint32, lt uint64, hash []byte) ([]map[string]any, error) {
++	var response tl.Serializable
++	if err := api.Client().QueryLiteserver(ctx, ton.GetTransactions{Limit: int32(limit), AccID: &ton.AccountID{Workchain: addr.Workchain(), ID: addr.Data()}, LT: int64(lt), TxHash: hash}, &response); err != nil {
++		return nil, err
++	}
++	list, ok := response.(ton.TransactionList)
++	if !ok {
++		return nil, fmt.Errorf("raw transaction history unavailable")
++	}
++	cells, err := cell.FromBOCMultiRoot(list.Transactions)
++	if err != nil || len(cells) > int(limit) {
++		return nil, fmt.Errorf("invalid raw transaction page")
++	}
++	return rawTransactionRecords(cells, addr, lt, hash)
++}
++
++func walletConfirmationReceipt(addr *address.Address, account *tlb.Account, master *ton.BlockIDExt, records []map[string]any) map[string]any {
++	if account == nil || account.State == nil || !account.State.IsValid || account.State.Status != tlb.AccountStatusActive || account.Code == nil || account.Data == nil || len(records) == 0 || len(records) > 100 {
++		return nil
++	}
++	return map[string]any{
++		"account": map[string]any{
++			"address": addr.String(), "status": "active",
++			"code_hash":  hex.EncodeToString(account.Code.Hash()),
++			"data_boc":   base64.StdEncoding.EncodeToString(account.Data.ToBOCWithOptions(cell.BOCSerializeOptions{})),
++			"last_tx_lt": fmt.Sprint(account.LastTxLT), "last_tx_hash": hex.EncodeToString(account.LastTxHash),
++		},
++		"masterchain": snapshotBlockID(master), "transactions": records,
++	}
++}
+diff --git a/wsbridge/wallet_snapshot_test.go b/wsbridge/wallet_snapshot_test.go
+new file mode 100644
+index 0000000..095c10a
+--- /dev/null
++++ b/wsbridge/wallet_snapshot_test.go
+@@ -0,0 +1,460 @@
++package wsbridge
++
++import (
++	"bytes"
++	"context"
++	"encoding/base64"
++	"encoding/hex"
++	"errors"
++	"fmt"
++	"github.com/xssnick/tonutils-go/address"
++	"github.com/xssnick/tonutils-go/tl"
++	"github.com/xssnick/tonutils-go/tlb"
++	"github.com/xssnick/tonutils-go/ton"
++	"github.com/xssnick/tonutils-go/tvm/cell"
++	"math/big"
++	"sync"
++	"sync/atomic"
++	"testing"
++	"time"
++)
++
++type snapshotNodeKey struct{}
++
++type snapshotClient struct{ ton.LiteClient }
++
++func (snapshotClient) StickyContext(ctx context.Context) context.Context {
++	return context.WithValue(ctx, snapshotNodeKey{}, true)
++}
++
++type snapshotMock struct {
++	ton.APIClientWrapped
++	waited        uint32
++	master, shard *ton.BlockIDExt
++	account       *tlb.Account
++	readsMu       sync.Mutex
++	reads         []*ton.BlockIDExt
++	fail          bool
++}
++
++func (m *snapshotMock) Client() ton.LiteClient                         { return snapshotClient{} }
++func (m *snapshotMock) WaitForBlock(seqno uint32) ton.APIClientWrapped { m.waited = seqno; return m }
++func (m *snapshotMock) CurrentMasterchainInfo(ctx context.Context) (*ton.BlockIDExt, error) {
++	if ctx.Value(snapshotNodeKey{}) != true {
++		return nil, errors.New("node context was not pinned")
++	}
++	return m.master, nil
++}
++func (m *snapshotMock) GetBlockShardsInfo(context.Context, *ton.BlockIDExt) ([]*ton.BlockIDExt, error) {
++	if m.waited != m.master.SeqNo {
++		return nil, errors.New("code 651: master block not available")
++	}
++	return []*ton.BlockIDExt{m.shard}, nil
++}
++func (m *snapshotMock) GetBlockHeader(_ context.Context, b *ton.BlockIDExt) (*tlb.BlockHeader, error) {
++	m.readsMu.Lock()
++	m.reads = append(m.reads, b)
++	m.readsMu.Unlock()
++	header := &tlb.BlockHeader{}
++	header.GenUtime = 1000
++	return header, nil
++}
++func (m *snapshotMock) GetAccount(_ context.Context, b *ton.BlockIDExt, _ *address.Address) (*tlb.Account, error) {
++	if m.waited != m.master.SeqNo || b != m.master {
++		return nil, errors.New("code 651: account block not available")
++	}
++	m.readsMu.Lock()
++	m.reads = append(m.reads, b)
++	m.readsMu.Unlock()
++	return m.account, nil
++}
++func (m *snapshotMock) RunGetMethod(_ context.Context, b *ton.BlockIDExt, _ *address.Address, _ string, _ ...any) (*ton.ExecutionResult, error) {
++	if m.waited != m.master.SeqNo || b != m.master {
++		return nil, errors.New("code 651: getter block not available")
++	}
++	m.readsMu.Lock()
++	m.reads = append(m.reads, b)
++	m.readsMu.Unlock()
++	if m.fail {
++		return nil, errors.New("seqno unavailable")
++	}
++	return ton.NewExecutionResult([]any{big.NewInt(7)}), nil
++}
++func TestWalletSnapshotWaitsForMasterAndPinsAccountAndSeqno(t *testing.T) {
++	mock := &snapshotMock{master: &ton.BlockIDExt{Workchain: -1, SeqNo: 42}, shard: &ton.BlockIDExt{Workchain: 0, Shard: -9223372036854775808, SeqNo: 8}, account: &tlb.Account{State: &tlb.AccountState{IsValid: true, AccountStorage: tlb.AccountStorage{Status: tlb.AccountStatusActive, Balance: tlb.FromNanoTONU(123)}}}}
++	addr := address.NewAddress(0, 0, make([]byte, 32))
++	result, err := walletSnapshot(context.Background(), mock, addr)
++	if err != nil {
++		t.Fatal(err)
++	}
++	if result["seqno"] != uint64(7) || result["balance"] != "123" || result["block_time"] != uint32(1000) {
++		t.Fatalf("unexpected snapshot: %v", result)
++	}
++	anchors := map[*ton.BlockIDExt]int{}
++	for _, block := range mock.reads {
++		anchors[block]++
++	}
++	if len(mock.reads) != 3 || anchors[mock.master] != 2 || anchors[mock.shard] != 1 {
++		t.Fatal("account and getter must use the same master anchor; timestamp must use its shard")
++	}
++	mock.fail = true
++	if _, err = walletSnapshot(context.Background(), mock, addr); err == nil {
++		t.Fatal("getter failure must not become seqno zero")
++	}
++	mock.account = &tlb.Account{}
++	result, err = walletSnapshot(context.Background(), mock, addr)
++	if err != nil || result["seqno"] != uint64(0) || result["status"] != "uninit" {
++		t.Fatalf("invalid undeployed snapshot: %v %v", result, err)
++	}
++}
++
++func TestRawTransactionRecordsPreserveEvidenceAndRejectForeignChains(t *testing.T) {
++	addr := address.NewAddress(0, 0, make([]byte, 32))
++	tx := &tlb.Transaction{AccountAddr: addr.Data(), LT: 100, PrevTxHash: make([]byte, 32), OrigStatus: tlb.AccountStatusActive, EndStatus: tlb.AccountStatusActive, StateUpdate: tlb.HashUpdate{OldHash: make([]byte, 32), NewHash: make([]byte, 32)}, Description: tlb.TransactionDescriptionOrdinary{ComputePhase: tlb.ComputePhase{Phase: tlb.ComputePhaseSkipped{Reason: tlb.ComputeSkipReason{Type: tlb.ComputeSkipReasonNoGas}}}}}
++	raw, err := tlb.ToCell(tx)
++	if err != nil {
++		t.Fatal(err)
++	}
++	records, err := rawTransactionRecords([]*cell.Cell{raw}, addr, 100, raw.Hash())
++	if err != nil {
++		t.Fatal(err)
++	}
++	encoded, err := base64.StdEncoding.DecodeString(records[0]["boc"].(string))
++	if err != nil {
++		t.Fatal(err)
++	}
++	preserved, err := cell.FromBOC(encoded)
++	if err != nil {
++		t.Fatal(err)
++	}
++	if !bytes.Equal(preserved.Hash(), raw.Hash()) {
++		t.Fatal("transaction cell hash changed")
++	}
++	if _, err = rawTransactionRecords([]*cell.Cell{raw}, addr, 100, make([]byte, 32)); err == nil {
++		t.Fatal("accepted wrong hash")
++	}
++	if _, err = rawTransactionRecords([]*cell.Cell{raw}, addr, 101, raw.Hash()); err == nil {
++		t.Fatal("accepted wrong logical time")
++	}
++	foreign := address.NewAddress(0, 0, bytes.Repeat([]byte{1}, 32))
++	if _, err = rawTransactionRecords([]*cell.Cell{raw}, foreign, 100, raw.Hash()); err == nil {
++		t.Fatal("accepted foreign wallet evidence")
++	}
++}
++
++func TestWalletReadContextWaitsOnTheSelectedNode(t *testing.T) {
++	mock := &snapshotMock{master: &ton.BlockIDExt{Workchain: -1, SeqNo: 42}}
++	ctx, block, reader, err := walletReadContext(context.Background(), mock)
++	if err != nil {
++		t.Fatal(err)
++	}
++	if ctx.Value(snapshotNodeKey{}) != true || block != mock.master || reader != mock || mock.waited != 42 {
++		t.Fatal("account and emulation readers must pin a node and wait for the selected master block")
++	}
++}
++
++type preparationMock struct {
++	*snapshotMock
++	clockReads, configReads, masterReads atomic.Int32
++	latest                               *ton.BlockIDExt
++	started                              chan string
++	release                              chan struct{}
++}
++
++func (m *preparationMock) WaitForBlock(seqno uint32) ton.APIClientWrapped { m.waited = seqno; return m }
++func (m *preparationMock) enter(kind string) {
++	if m.started != nil {
++		m.started <- kind
++		<-m.release
++	}
++}
++func (m *preparationMock) GetAccount(ctx context.Context, block *ton.BlockIDExt, addr *address.Address) (*tlb.Account, error) {
++	m.enter("account")
++	return m.snapshotMock.GetAccount(ctx, block, addr)
++}
++func (m *preparationMock) GetTime(ctx context.Context) (uint32, error) {
++	if ctx.Value(snapshotNodeKey{}) != true {
++		return 0, errors.New("clock node not pinned")
++	}
++	m.clockReads.Add(1)
++	m.enter("clock")
++	return 1001, nil
++}
++func (m *preparationMock) GetBlockchainConfig(ctx context.Context, block *ton.BlockIDExt, _ ...int32) (*tlb.BlockchainConfig, error) {
++	if ctx.Value(snapshotNodeKey{}) != true || m.waited != block.SeqNo {
++		return nil, errors.New("configuration block not pinned")
++	}
++	m.configReads.Add(1)
++	m.enter("config")
++	return &tlb.BlockchainConfig{}, nil
++}
++func (m *preparationMock) GetMasterchainInfo(ctx context.Context) (*ton.BlockIDExt, error) {
++	if ctx.Value(snapshotNodeKey{}) != true {
++		return nil, errors.New("revalidation node not pinned")
++	}
++	m.masterReads.Add(1)
++	if m.latest != nil {
++		m.master = m.latest
++	}
++	return m.master, nil
++}
++func newPreparationMock() *preparationMock {
++	return &preparationMock{snapshotMock: &snapshotMock{
++		master:  &ton.BlockIDExt{Workchain: -1, SeqNo: 42, RootHash: make([]byte, 32), FileHash: make([]byte, 32)},
++		shard:   &ton.BlockIDExt{Workchain: 0, Shard: -9223372036854775808, SeqNo: 8},
++		account: &tlb.Account{State: &tlb.AccountState{IsValid: true, AccountStorage: tlb.AccountStorage{Status: tlb.AccountStatusActive, Balance: tlb.FromNanoTONU(123)}}},
++	}}
++}
++func TestWalletPreparationSharesVerifiedReadsAndRunsIndependentReadsConcurrently(t *testing.T) {
++	mock := newPreparationMock()
++	mock.started, mock.release = make(chan string, 3), make(chan struct{})
++	done := make(chan *walletEmulationState, 1)
++	failure := make(chan error, 1)
++	addr := address.NewAddress(0, 0, make([]byte, 32))
++	go func() {
++		state, err := prepareWalletEmulation(context.Background(), mock, addr)
++		done <- state
++		failure <- err
++	}()
++	seen := map[string]bool{}
++	for len(seen) < 3 {
++		select {
++		case name := <-mock.started:
++			seen[name] = true
++		case <-time.After(3 * time.Second):
++			close(mock.release)
++			t.Fatal("account, clock and configuration reads did not start concurrently")
++		}
++	}
++	close(mock.release)
++	state := <-done
++	if err := <-failure; err != nil {
++		t.Fatal(err)
++	}
++	if state.account != mock.account || state.master != mock.master || state.config == nil || state.now != 1001 {
++		t.Fatal("emulation must reuse the exact verified account, configuration and time")
++	}
++	if len(mock.reads) != 3 || mock.clockReads.Load() != 1 || mock.configReads.Load() != 1 {
++		t.Fatal("preparation repeated a network read")
++	}
++	client := &wsClient{}
++	id, err := client.keepWalletEmulation(state)
++	if err != nil {
++		t.Fatal(err)
++	}
++	reused, err := client.takeWalletEmulation(id, addr)
++	if err != nil || reused != state {
++		t.Fatal("prepared state was not preserved")
++	}
++	if len(mock.reads) != 3 {
++		t.Fatal("consuming prepared state fetched the account again")
++	}
++}
++func TestWalletPreparationContextsAreSingleUseBoundedAndClientScoped(t *testing.T) {
++	addr := address.NewAddress(0, 0, make([]byte, 32))
++	client, foreign := &wsClient{}, &wsClient{}
++	state := &walletEmulationState{address: addr, created: time.Now()}
++	id, err := client.keepWalletEmulation(state)
++	if err != nil {
++		t.Fatal(err)
++	}
++	if _, err = foreign.takeWalletEmulation(id, addr); err == nil {
++		t.Fatal("cross-client context accepted")
++	}
++	if _, err = client.takeWalletEmulation(id, addr); err != nil {
++		t.Fatal(err)
++	}
++	if _, err = client.takeWalletEmulation(id, addr); err == nil {
++		t.Fatal("context replay accepted")
++	}
++	id, _ = client.keepWalletEmulation(state)
++	other := address.NewAddress(0, 0, bytes.Repeat([]byte{1}, 32))
++	if _, err = client.takeWalletEmulation(id, other); err == nil {
++		t.Fatal("foreign account accepted")
++	}
++	expired := &walletEmulationState{address: addr, created: time.Now().Add(-walletEmulationLifetime - time.Second)}
++	id, _ = client.keepWalletEmulation(expired)
++	if _, err = client.takeWalletEmulation(id, addr); err == nil {
++		t.Fatal("expired context accepted")
++	}
++	for i := 0; i < walletEmulationLimit; i++ {
++		if _, err = client.keepWalletEmulation(state); err != nil {
++			t.Fatal(err)
++		}
++	}
++	if _, err = client.keepWalletEmulation(state); err == nil {
++		t.Fatal("unbounded context retention")
++	}
++}
++func TestWalletRevalidationChecksFreshMasterAndRereadsOnlyWhenItChanges(t *testing.T) {
++	mock := newPreparationMock()
++	addr := address.NewAddress(0, 0, make([]byte, 32))
++	state := &walletEmulationState{address: addr, master: mock.master, snapshot: map[string]any{"seqno": uint64(0)}}
++	same, err := revalidateWalletEmulation(context.Background(), mock, state)
++	if err != nil || same["seqno"] != uint64(0) || len(mock.reads) != 0 || mock.masterReads.Load() != 1 {
++		t.Fatalf("same-block revalidation must only read the current master: %v %v", same, err)
++	}
++	mock.latest = &ton.BlockIDExt{Workchain: -1, SeqNo: 43}
++	fresh, err := revalidateWalletEmulation(context.Background(), mock, state)
++	if err != nil || fresh["seqno"] != uint64(7) || len(mock.reads) != 3 || state.snapshot["seqno"] != uint64(0) {
++		t.Fatalf("a new block must revalidate the account and seqno without mutating the prepared state: %v %v", fresh, err)
++	}
++	mock.latest = &ton.BlockIDExt{Workchain: -1, SeqNo: 41}
++	if _, err = revalidateWalletEmulation(context.Background(), mock, state); err == nil {
++		t.Fatal("regressed block accepted")
++	}
++	mock.latest = &ton.BlockIDExt{Workchain: -1, SeqNo: 42, RootHash: bytes.Repeat([]byte{1}, 32)}
++	if _, err = revalidateWalletEmulation(context.Background(), mock, state); err == nil {
++		t.Fatal("conflicting block reference accepted")
++	}
++}
++func TestStandaloneEmulationKeepsItsVerifiedAccountAndConfigurationReads(t *testing.T) {
++	mock := newPreparationMock()
++	addr := address.NewAddress(0, 0, make([]byte, 32))
++	state, err := loadTransactionEmulationState(context.Background(), mock, addr)
++	if err != nil || state.account != mock.account || state.config == nil || state.now != 1001 || len(mock.reads) != 1 {
++		t.Fatalf("standalone emulation path changed: %v", err)
++	}
++}
++
++func TestWalletRevalidationKeepsThePreparedNodeAndCurrentRequestCancellation(t *testing.T) {
++	prepared, cancelPrepared := context.WithCancel(context.WithValue(context.Background(), snapshotNodeKey{}, true))
++	values := context.WithoutCancel(prepared)
++	cancelPrepared()
++	current, cancelCurrent := context.WithCancel(context.Background())
++	ctx := walletNodeContext{Context: current, values: values}
++	if ctx.Value(snapshotNodeKey{}) != true || ctx.Err() != nil {
++		t.Fatal("prepared cancellation must not leak into revalidation")
++	}
++	cancelCurrent()
++	if ctx.Err() != context.Canceled {
++		t.Fatal("revalidation must observe the current request cancellation")
++	}
++}
++
++type parallelSnapshotMock struct {
++	*preparationMock
++	accountStarted, headerStarted chan struct{}
++	failAccount                   bool
++}
++
++func (m *parallelSnapshotMock) WaitForBlock(seqno uint32) ton.APIClientWrapped {
++	m.waited = seqno
++	return m
++}
++func (m *parallelSnapshotMock) GetAccount(ctx context.Context, block *ton.BlockIDExt, addr *address.Address) (*tlb.Account, error) {
++	close(m.accountStarted)
++	if m.failAccount {
++		return nil, errors.New("account unavailable")
++	}
++	select {
++	case <-m.headerStarted:
++	case <-ctx.Done():
++		return nil, ctx.Err()
++	}
++	return m.preparationMock.GetAccount(ctx, block, addr)
++}
++func (m *parallelSnapshotMock) GetBlockHeader(ctx context.Context, block *ton.BlockIDExt) (*tlb.BlockHeader, error) {
++	close(m.headerStarted)
++	if m.failAccount {
++		<-ctx.Done()
++		return nil, ctx.Err()
++	}
++	select {
++	case <-m.accountStarted:
++	case <-ctx.Done():
++		return nil, ctx.Err()
++	}
++	return m.snapshotMock.GetBlockHeader(ctx, block)
++}
++func TestWalletSnapshotReadsAccountAndShardConcurrentlyAndDrainsOnFailure(t *testing.T) {
++	for _, fail := range []bool{false, true} {
++		t.Run(fmt.Sprint(fail), func(t *testing.T) {
++			mock := &parallelSnapshotMock{preparationMock: newPreparationMock(), accountStarted: make(chan struct{}), headerStarted: make(chan struct{}), failAccount: fail}
++			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
++			defer cancel()
++			result, err := walletSnapshot(ctx, mock, address.NewAddress(0, 0, make([]byte, 32)))
++			if fail {
++				if err == nil || err.Error() != "account unavailable" {
++					t.Fatalf("account failure changed: %v", err)
++				}
++				select {
++				case <-mock.headerStarted:
++				default:
++					t.Fatal("header read was not drained")
++				}
++			} else if err != nil || result["seqno"] != uint64(7) || result["block_time"] != uint32(1000) {
++				t.Fatalf("parallel reads lost a verified field: %v %v", result, err)
++			}
++		})
++	}
++}
++
++type receiptClient struct {
++	ton.LiteClient
++	raw   []byte
++	calls int
++}
++
++func (c *receiptClient) QueryLiteserver(_ context.Context, request tl.Serializable, result tl.Serializable) error {
++	if _, ok := request.(ton.GetTransactions); !ok {
++		return fmt.Errorf("unexpected receipt query %T", request)
++	}
++	c.calls++
++	*(result.(*tl.Serializable)) = ton.TransactionList{Transactions: c.raw}
++	return nil
++}
++
++type receiptAPI struct {
++	ton.APIClientWrapped
++	account *tlb.Account
++	client  *receiptClient
++}
++
++func (a *receiptAPI) Client() ton.LiteClient                   { return a.client }
++func (a *receiptAPI) WaitForBlock(uint32) ton.APIClientWrapped { return a }
++func (a *receiptAPI) GetMasterchainInfo(context.Context) (*ton.BlockIDExt, error) {
++	return &ton.BlockIDExt{Workchain: -1, Shard: -9223372036854775808, SeqNo: 42, RootHash: make([]byte, 32), FileHash: make([]byte, 32)}, nil
++}
++func (a *receiptAPI) GetAccount(context.Context, *ton.BlockIDExt, *address.Address) (*tlb.Account, error) {
++	return a.account, nil
++}
++func TestWalletConfirmationReceiptPreservesOriginalCellsAndObservedAccount(t *testing.T) {
++	addr := address.NewAddress(0, 0, make([]byte, 32))
++	body := cell.BeginCell().MustStoreUInt(0x1234, 16).EndCell()
++	tx := &tlb.Transaction{AccountAddr: addr.Data(), LT: 100, PrevTxHash: make([]byte, 32), PrevTxLT: 1, OrigStatus: tlb.AccountStatusActive, EndStatus: tlb.AccountStatusActive, StateUpdate: tlb.HashUpdate{OldHash: make([]byte, 32), NewHash: make([]byte, 32)}, Description: tlb.TransactionDescriptionOrdinary{ComputePhase: tlb.ComputePhase{Phase: tlb.ComputePhaseSkipped{Reason: tlb.ComputeSkipReason{Type: tlb.ComputeSkipReasonNoGas}}}}}
++	tx.IO.In = &tlb.Message{MsgType: tlb.MsgTypeExternalIn, Msg: &tlb.ExternalMessage{DstAddr: addr, Body: body}}
++	raw, err := tlb.ToCell(tx)
++	if err != nil {
++		t.Fatal(err)
++	}
++	account := &tlb.Account{LastTxLT: 100, LastTxHash: raw.Hash(), Code: cell.BeginCell().EndCell(), Data: body, State: &tlb.AccountState{IsValid: true, AccountStorage: tlb.AccountStorage{Status: tlb.AccountStatusActive}}}
++	api := &receiptAPI{account: account, client: &receiptClient{raw: raw.ToBOCWithOptions(cell.BOCSerializeOptions{})}}
++	bridge := testBridge()
++	bridge.api = api
++	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
++	defer cancel()
++	confirmed, err := bridge.waitForExternalMessage(ctx, &tlb.ExternalMessage{DstAddr: addr, Body: body}, &ton.BlockIDExt{SeqNo: 41}, &tlb.Account{LastTxLT: 1, LastTxHash: make([]byte, 32)}, true)
++	if err != nil {
++		t.Fatal(err)
++	}
++	if confirmed.receipt == nil || api.client.calls != 1 {
++		t.Fatal("confirmation did not reuse the original verified read")
++	}
++	observed := confirmed.receipt["account"].(map[string]any)
++	records := confirmed.receipt["transactions"].([]map[string]any)
++	if observed["last_tx_hash"] != hex.EncodeToString(raw.Hash()) || observed["data_boc"] != base64.StdEncoding.EncodeToString(body.ToBOCWithOptions(cell.BOCSerializeOptions{})) {
++		t.Fatal("receipt changed the observed account")
++	}
++	encoded, err := base64.StdEncoding.DecodeString(records[0]["boc"].(string))
++	if err != nil {
++		t.Fatal(err)
++	}
++	original, err := cell.FromBOC(encoded)
++	if err != nil || !bytes.Equal(original.Hash(), raw.Hash()) {
++		t.Fatal("receipt reserialized the transaction")
++	}
++	if walletConfirmationReceipt(addr, account, confirmed.block, make([]map[string]any, 101)) != nil {
++		t.Fatal("unbounded confirmation receipt")
++	}
++}
