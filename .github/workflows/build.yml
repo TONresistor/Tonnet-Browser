@@ -68,11 +68,20 @@ jobs:
       - name: Install Electron runtime dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y xvfb libgtk-3-0 libnss3 libgbm1 libasound2t64
+          sudo apt-get install -y xvfb libgtk-3-0 libnss3 libgbm1 libasound2t64 dbus-daemon gnome-keyring libsecret-1-0
           sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
 
       - name: Electron runtime smoke
-        run: xvfb-run -a npm run test:browser-runtime
+        run: |
+          runtime_home=$(mktemp -d)
+          trap 'rm -rf "$runtime_home"' EXIT
+          mkdir -m 700 "$runtime_home/runtime"
+          env HOME="$runtime_home" XDG_CONFIG_HOME="$runtime_home/config" \
+            XDG_DATA_HOME="$runtime_home/data" XDG_CACHE_HOME="$runtime_home/cache" \
+            XDG_RUNTIME_DIR="$runtime_home/runtime" dbus-run-session -- bash -euo pipefail -c '
+              printf "%s" "runtime-keyring" | gnome-keyring-daemon --unlock --components=secrets
+              xvfb-run -a npm run test:browser-runtime
+            '
 
       - name: Security audit
         run: npm audit --audit-level=high
