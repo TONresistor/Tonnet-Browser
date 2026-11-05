@@ -73,3 +73,9 @@ export interface WalletChainSnapshot {
   block: { workchain: number; shard: string; seqno: number; root_hash: string; file_hash: string }
   masterchain: { workchain: number; shard: string; seqno: number; root_hash: string; file_hash: string }
 }
+
+export interface WalletConfirmationReceipt {
+  account: Pick<WalletChainSnapshot, 'address' | 'status' | 'code_hash' | 'data_boc' | 'last_tx_lt' | 'last_tx_hash'>
+  masterchain: WalletChainSnapshot['masterchain']
+  transactions: Array<BridgeTransaction & { boc: string }>
+}

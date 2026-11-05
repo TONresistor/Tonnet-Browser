@@ -969,6 +969,12 @@ export class WalletEngine extends EventEmitter {
     const prior = this.journal.get(input.operationId)
     if (prior) {
       if (prior.requestHash !== requestHash) throw new Error('Operation content changed')
+      if (['ready', 'submitting', 'unknown', 'seqno-consumed'].includes(prior.phase))
+        throw new WalletEngineError(
+          'TRANSACTION_PENDING',
+          'Transfer status is uncertain. Check its history before retrying.',
+          true
+        )
       return this.operationTransaction(prior)
     }
     const recipient = await this.resolveRecipient(input.to)
@@ -983,7 +989,7 @@ export class WalletEngine extends EventEmitter {
       if (session !== this.sessionRevision) throw new Error('Wallet session changed')
       const message = createTonTransferMessage(recipient.address, input.amount, comment, body).message
       try {
-        const operation = await this.sendTransfer(
+        const operation = await this.transfers.sendTransfer(
           {
             operationId: input.operationId,
             requestHash,
@@ -1010,10 +1016,19 @@ export class WalletEngine extends EventEmitter {
               throw new Error('REVIEW_EDIT')
             }
             return decision.action === 'approve'
-          }
+          },
+          false
         )
-        const tx = this.operationTransaction(operation)
-        await this.options.history.reconcile([tx])
+        this.assertWalletSession(session)
+        this.assertWalletIdentity(identity)
+        const current = this.journal.get(operation.id) ?? operation
+        if (['ready', 'submitting', 'unknown', 'seqno-consumed'].includes(current.phase))
+          throw new WalletEngineError(
+            'TRANSACTION_PENDING',
+            'Transfer status is uncertain. Check its history before retrying.',
+            true
+          )
+        const tx = this.operationTransaction(current)
         return tx
       } catch (error) {
         if (!changed) throw error
@@ -1027,6 +1042,7 @@ export class WalletEngine extends EventEmitter {
       }
     }
   }
+
   private operationTransaction(op: WalletOperation): WalletTransaction {
     return {
       id: op.id,

@@ -287,23 +287,32 @@ it('does not turn a confirmed send into a storage cleanup error', async () => {
   expect(remove).toHaveBeenCalledOnce()
 })
 
-it('releases Sending after the send result without waiting for network or cached snapshot refreshes', async () => {
-  let finishSnapshot!: (value: WalletSnapshot) => void
-  mocks.getSnapshot.mockImplementation(() => new Promise((resolve) => (finishSnapshot = resolve)))
-  mocks.getBalance.mockImplementation(() => new Promise(() => {}))
-  mocks.getHistory.mockImplementation(() => new Promise(() => {}))
-  mocks.send.mockResolvedValue(transaction({ status: 'confirmed', operationState: 'included', execution: 'succeeded' }))
+it.each(['pending', 'confirmed'] as const)(
+  'releases Sending after a %s send result without waiting for network or cached snapshot refreshes',
+  async (status) => {
+    let finishSnapshot!: (value: WalletSnapshot) => void
+    mocks.getSnapshot.mockImplementation(() => new Promise((resolve) => (finishSnapshot = resolve)))
+    mocks.getBalance.mockImplementation(() => new Promise(() => {}))
+    mocks.getHistory.mockImplementation(() => new Promise(() => {}))
+    mocks.send.mockResolvedValue(
+      transaction({
+        status,
+        operationState: status === 'pending' ? 'submitted' : 'included',
+        execution: status === 'pending' ? undefined : 'succeeded',
+      })
+    )
 
-  await useWalletStore.getState().send('recipient', '1', undefined, false)
+    await useWalletStore.getState().send('recipient', '1', undefined, false)
 
-  expect(useWalletStore.getState()).toMatchObject({ isSending: false, error: null })
-  expect(mocks.getBalance).not.toHaveBeenCalled()
-  expect(mocks.getHistory).not.toHaveBeenCalled()
-  expect(mocks.getSnapshot).toHaveBeenCalledOnce()
-  finishSnapshot(snapshot({ revision: 10, balance: '90' }))
-  await Promise.resolve()
-  expect(useWalletStore.getState().balance).toBe('90')
-})
+    expect(useWalletStore.getState()).toMatchObject({ isSending: false, error: null })
+    expect(mocks.getBalance).not.toHaveBeenCalled()
+    expect(mocks.getHistory).not.toHaveBeenCalled()
+    expect(mocks.getSnapshot).toHaveBeenCalledOnce()
+    finishSnapshot(snapshot({ revision: 10, balance: '90' }))
+    await Promise.resolve()
+    expect(useWalletStore.getState().balance).toBe('90')
+  }
+)
 
 it('preserves a confirmed send when refreshing the cached snapshot fails', async () => {
   mocks.send.mockResolvedValue(transaction({ status: 'confirmed', operationState: 'included', execution: 'succeeded' }))

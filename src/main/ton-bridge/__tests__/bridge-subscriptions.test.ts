@@ -10,6 +10,30 @@ function deferred<T>() {
 }
 
 describe('BridgeSubscriptions', () => {
+  it('treats an already cleaned remote subscription as successfully disposed', async () => {
+    const onError = vi.fn()
+    const request = vi.fn(async () => {
+      throw new Error('subscription not found: completed-id')
+    })
+    const subscriptions = new BridgeSubscriptions(request, onError)
+    await expect(subscriptions.unsubscribe('completed-id')).resolves.toBeUndefined()
+    expect(onError).not.toHaveBeenCalled()
+    expect(request).toHaveBeenCalledWith('subscribe.unsubscribe', { subscription_id: 'completed-id' })
+  })
+
+  it.each(['Request timeout', 'subscription not found: other-id'])(
+    'keeps genuine unsubscribe errors visible: %s',
+    async (message) => {
+      const onError = vi.fn()
+      const error = new Error(message)
+      const subscriptions = new BridgeSubscriptions(async () => {
+        throw error
+      }, onError)
+      await subscriptions.unsubscribe('completed-id')
+      expect(onError).toHaveBeenCalledWith('unsubscribe', error)
+    }
+  )
+
   it('delivers events and unsubscribes the current server id', async () => {
     const request = vi.fn(async (method: string) =>
       method === 'subscribe.unsubscribe' ? {} : { subscription_id: 'sub-1' }

@@ -194,14 +194,14 @@ export class WsBridgeClient {
     boc: string,
     context?: { id: string; revalidate: boolean }
   ): Promise<EmulateTransactionResult> {
-    return EmulateTransactionResultSchema.parse(
-      await this.request('lite.emulateTransaction', {
-        address,
-        boc,
-        ignore_chksig: true,
-        ...(context ? { emulation_context: context.id, revalidate_wallet: context.revalidate } : {}),
-      })
-    )
+    const result = await this.request('lite.emulateTransaction', {
+      address,
+      boc,
+      ignore_chksig: true,
+      ...(context ? { emulation_context: context.id, revalidate_wallet: context.revalidate } : {}),
+    })
+    const parsed = EmulateTransactionResultSchema.parse(result)
+    return parsed
   }
 
   async getSeqno(address: string): Promise<number> {
@@ -252,8 +252,8 @@ export class WsBridgeClient {
 
   // --- Payment flow ---
 
-  async sendAndWatch(boc: Buffer): Promise<string> {
-    return this.transactionWatcher.sendAndWatch(boc)
+  async sendAndWatch(boc: Buffer, onSubmitted?: (messageHash: string) => Promise<void>) {
+    return this.transactionWatcher.sendAndWatch(boc, onSubmitted)
   }
 
   // --- DNS ---

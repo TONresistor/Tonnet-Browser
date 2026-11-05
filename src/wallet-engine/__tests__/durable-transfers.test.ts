@@ -4,6 +4,7 @@ import {
   beginCell,
   Cell,
   loadMessage,
+  loadTransaction,
   loadOutList,
   storeTransaction,
   storeMessage,
@@ -18,7 +19,7 @@ import { OperationJournal, isOperationPending } from '../journal'
 import { WalletTransfers, normalizedExternalHash, type TransferIntent } from '../transactions'
 import type { JournalStore } from '../ports'
 import type { WalletBridgePort } from '../bridge-port'
-import type { WalletChainSnapshot } from '../network-types'
+import type { WalletChainSnapshot, WalletConfirmationReceipt } from '../network-types'
 
 function setup(version: 'v3R1' | 'v3R2' | 'v4R2' | 'v5R1' = 'v5R1') {
   const pair = keyPairFromSeed(Buffer.alloc(32, 7))
@@ -80,6 +81,8 @@ function setup(version: 'v3R1' | 'v3R2' | 'v4R2' | 'v5R1' = 'v5R1') {
     getRawTransactions: vi.fn(async () => []),
   } as unknown as WalletBridgePort
   const changed = vi.fn()
+  const signing = vi.fn()
+  const submissionFailed = vi.fn()
   const transfers = new WalletTransfers(
     {
       identity: () => identity,
@@ -90,8 +93,12 @@ function setup(version: 'v3R1' | 'v3R2' | 'v4R2' | 'v5R1' = 'v5R1') {
         if (epoch) throw new Error('Locked')
       },
       provider: () => provider,
-      withSecret: async (fn) => fn(pair.secretKey),
+      withSecret: async (fn) => {
+        signing()
+        return fn(pair.secretKey)
+      },
       changed,
+      submissionFailed,
     },
     journal
   )
@@ -111,6 +118,8 @@ function setup(version: 'v3R1' | 'v3R2' | 'v4R2' | 'v5R1' = 'v5R1') {
     provider,
     transfers,
     changed,
+    signing,
+    submissionFailed,
     intent,
     lock: () => {
       epoch++
@@ -608,6 +617,268 @@ function transactionRecord(
 }
 
 describe('chain evidence and replay boundaries', () => {
+  function receiptFor(
+    s: ReturnType<typeof setup>,
+    operation: NonNullable<ReturnType<OperationJournal['get']>>,
+    execution: Parameters<typeof transactionRecord>[2] = 'success'
+  ): WalletConfirmationReceipt {
+    const record = transactionRecord(s, operation, execution)
+    const data = s.contract.init.data!.beginParse()
+    const next = beginCell()
+    if ('walletId' in s.contract && typeof s.contract.walletId === 'object') next.storeBit(data.loadBit())
+    s.snapshot.status = 'active'
+    s.snapshot.code_hash = s.contract.init.code!.hash().toString('hex')
+    s.snapshot.data_boc = next.storeUint(1, 32).storeSlice(data.skip(32)).endCell().toBoc().toString('base64')
+    return {
+      account: {
+        address: s.snapshot.address,
+        status: 'active',
+        code_hash: s.snapshot.code_hash,
+        data_boc: s.snapshot.data_boc,
+        last_tx_lt: record.lt,
+        last_tx_hash: record.hash,
+      },
+      masterchain: s.snapshot.masterchain,
+      transactions: [record],
+    }
+  }
+
+  it.each(['v3R1', 'v3R2', 'v4R2', 'v5R1'] as const)(
+    'verifies a %s receipt without fetching the account or transactions again',
+    async (version) => {
+      const s = setup(version)
+      await s.journal.open(s.pair.secretKey, s.account)
+      vi.mocked(s.provider.sendAndWatch).mockImplementation(async (bytes, acknowledge) => {
+        await acknowledge?.(Cell.fromBoc(bytes)[0].hash().toString('hex'))
+        return receiptFor(s, s.journal.get(s.intent.operationId)!)
+      })
+      await expect(s.transfers.sendTransfer(s.intent, async () => true)).resolves.toMatchObject({
+        phase: 'included',
+        execution: 'succeeded',
+        closed: true,
+      })
+      expect(s.provider.getWalletSnapshot).toHaveBeenCalledTimes(2)
+      expect(s.provider.getRawTransactions).not.toHaveBeenCalled()
+      expect(s.signing).toHaveBeenCalledOnce()
+    }
+  )
+
+  it.each([
+    ['failed', 'failed'],
+    ['partial', 'partial'],
+    ['no-actions', 'unknown'],
+    ['missing-output', 'partial'],
+  ] as const)('preserves %s action results from a receipt', async (execution, expected) => {
+    const s = setup()
+    await s.journal.open(s.pair.secretKey, s.account)
+    vi.mocked(s.provider.sendAndWatch).mockImplementation(async () =>
+      receiptFor(s, s.journal.get(s.intent.operationId)!, execution)
+    )
+    await expect(s.transfers.sendTransfer(s.intent, async () => true)).resolves.toMatchObject({
+      phase: 'included',
+      execution: expected,
+      closed: true,
+    })
+    expect(s.provider.getRawTransactions).not.toHaveBeenCalled()
+  })
+
+  it('returns only after an accepted broadcast is journaled and completes confirmation in the background', async () => {
+    const s = setup()
+    await s.journal.open(s.pair.secretKey, s.account)
+    let confirm!: (receipt: WalletConfirmationReceipt) => void
+    vi.mocked(s.provider.sendAndWatch).mockImplementation(async (bytes, acknowledge) => {
+      await acknowledge?.(Cell.fromBoc(bytes)[0].hash().toString('hex'))
+      return new Promise((resolve) => (confirm = resolve))
+    })
+    const op = await s.transfers.sendTransfer(s.intent, async () => true, false)
+    expect(op.phase).toBe('submitted')
+    const persisted = new OperationJournal(s.store)
+    await persisted.open(s.pair.secretKey, s.account)
+    expect(persisted.get(op.id)).toMatchObject({ phase: 'submitted', boc: op.boc })
+    persisted.lock()
+    await vi.waitFor(() => expect(confirm).toBeTypeOf('function'))
+    confirm(receiptFor(s, op))
+    await vi.waitFor(() => expect(s.journal.get(op.id)?.phase).toBe('included'))
+    expect(s.provider.getRawTransactions).not.toHaveBeenCalled()
+    expect(s.signing).toHaveBeenCalledOnce()
+  })
+
+  it('does not release the caller before the acknowledgement write finishes', async () => {
+    const s = setup()
+    await s.journal.open(s.pair.secretKey, s.account)
+    let release!: () => void
+    vi.mocked(s.store.compareExchange).mockImplementation(async (account, revision, value) => {
+      if (revision === 2) await new Promise<void>((resolve) => (release = resolve))
+      const before = s.data.get(account)
+      if ((before ? JSON.parse(before.toString()).revision : 0) !== revision) throw new Error('Conflict')
+      s.data.set(account, Buffer.from(value))
+    })
+    vi.mocked(s.provider.sendAndWatch).mockImplementation(async (bytes, acknowledge) => {
+      await acknowledge?.(Cell.fromBoc(bytes)[0].hash().toString('hex'))
+      return 'confirmation-hint'
+    })
+    const done = vi.fn()
+    const sending = s.transfers
+      .sendTransfer(s.intent, async () => true, false)
+      .then((op) => {
+        done()
+        return op
+      })
+    await vi.waitFor(() => expect(release).toBeTypeOf('function'))
+    expect(done).not.toHaveBeenCalled()
+    release()
+    await expect(sending).resolves.toMatchObject({ phase: 'submitted' })
+  })
+
+  it('checks the receipt chain from the observed head through the signed transfer', async () => {
+    const s = setup()
+    await s.journal.open(s.pair.secretKey, s.account)
+    vi.mocked(s.provider.sendAndWatch).mockImplementation(async () => {
+      const receipt = receiptFor(s, s.journal.get(s.intent.operationId)!)
+      const previous = receipt.transactions[0]
+      const transaction = loadTransaction(Cell.fromBase64(previous.boc).beginParse())
+      const head = beginCell()
+        .store(
+          storeTransaction({
+            ...transaction,
+            lt: 200n,
+            prevTransactionLt: 100n,
+            prevTransactionHash: BigInt('0x' + previous.hash),
+            inMessage: undefined,
+          })
+        )
+        .endCell()
+      const hash = head.hash().toString('hex')
+      receipt.transactions.unshift({ hash, lt: '200', now: 1003, boc: head.toBoc().toString('base64') })
+      receipt.account.last_tx_lt = '200'
+      receipt.account.last_tx_hash = hash
+      return receipt
+    })
+    await expect(s.transfers.sendTransfer(s.intent, async () => true)).resolves.toMatchObject({
+      phase: 'included',
+      transactionLt: '100',
+      execution: 'succeeded',
+      closed: true,
+    })
+    expect(
+      s.submissionFailed.mock.calls.map(([error]) => (error instanceof Error ? error.message : String(error)))
+    ).toEqual([])
+    expect(s.provider.getRawTransactions).not.toHaveBeenCalled()
+  })
+
+  it('reuses a receipt on explicit retry without creating another signature', async () => {
+    const s = setup()
+    await s.journal.open(s.pair.secretKey, s.account)
+    const original = await s.transfers.sendTransfer(s.intent, async () => true)
+    vi.mocked(s.provider.sendAndWatch).mockImplementation(async (bytes, acknowledge) => {
+      await acknowledge?.(Cell.fromBoc(bytes)[0].hash().toString('hex'))
+      return receiptFor(s, s.journal.get(original.id)!)
+    })
+    await expect(s.transfers.retryOperation(original.id, async () => true)).resolves.toMatchObject({
+      phase: 'included',
+      boc: original.boc,
+      closed: true,
+    })
+    expect(s.signing).toHaveBeenCalledOnce()
+    expect(vi.mocked(s.provider.sendAndWatch).mock.calls.map(([bytes]) => bytes.toString('base64'))).toEqual([
+      original.boc,
+      original.boc,
+    ])
+    expect(s.provider.getRawTransactions).not.toHaveBeenCalled()
+  })
+
+  it('still reconciles a rejected receipt if warning logging fails', async () => {
+    const s = setup()
+    await s.journal.open(s.pair.secretKey, s.account)
+    s.submissionFailed.mockImplementation(() => {
+      throw new Error('Logger unavailable')
+    })
+    vi.mocked(s.provider.sendAndWatch).mockImplementation(async () => {
+      const receipt = receiptFor(s, s.journal.get(s.intent.operationId)!)
+      receipt.account.address = `0:${'55'.repeat(32)}`
+      return receipt
+    })
+    await expect(s.transfers.sendTransfer(s.intent, async () => true)).resolves.toMatchObject({
+      phase: 'included',
+      execution: 'succeeded',
+      closed: true,
+    })
+    expect(s.provider.getRawTransactions).toHaveBeenCalledOnce()
+  })
+
+  it.each(['address', 'key', 'seqno', 'hash', 'gap'])(
+    'falls back to reconciliation for a receipt with invalid %s',
+    async (invalid) => {
+      const s = setup()
+      await s.journal.open(s.pair.secretKey, s.account)
+      vi.mocked(s.provider.sendAndWatch).mockImplementation(async () => {
+        const receipt = receiptFor(s, s.journal.get(s.intent.operationId)!)
+        if (invalid === 'address') receipt.account.address = `0:${'55'.repeat(32)}`
+        if (invalid === 'key')
+          receipt.account.data_boc = beginCell()
+            .storeBit(true)
+            .storeUint(1, 32)
+            .storeUint(0, 32)
+            .storeBuffer(Buffer.alloc(32, 9))
+            .endCell()
+            .toBoc()
+            .toString('base64')
+        if (invalid === 'seqno') receipt.account.data_boc = s.contract.init.data!.toBoc().toString('base64')
+        if (invalid === 'hash')
+          receipt.transactions[0].boc = beginCell().storeUint(1, 1).endCell().toBoc().toString('base64')
+        if (invalid === 'gap') {
+          receipt.account.last_tx_lt = '200'
+          receipt.account.last_tx_hash = '77'.repeat(32)
+        }
+        vi.mocked(s.provider.getWalletSnapshot).mockRejectedValue(new Error('Offline'))
+        return receipt
+      })
+      await expect(s.transfers.sendTransfer(s.intent, async () => true)).resolves.toMatchObject({
+        phase: 'submitted',
+        closed: false,
+      })
+      expect(s.provider.getWalletSnapshot).toHaveBeenCalledTimes(3)
+      expect(s.provider.broadcast).not.toHaveBeenCalled()
+      expect(s.signing).toHaveBeenCalledOnce()
+    }
+  )
+
+  it('does not publish a receipt after the acknowledged session is locked', async () => {
+    const s = setup()
+    await s.journal.open(s.pair.secretKey, s.account)
+    let confirm!: (receipt: WalletConfirmationReceipt) => void
+    vi.mocked(s.provider.sendAndWatch).mockImplementation(async (bytes, acknowledge) => {
+      await acknowledge?.(Cell.fromBoc(bytes)[0].hash().toString('hex'))
+      return new Promise((resolve) => (confirm = resolve))
+    })
+    const op = await s.transfers.sendTransfer(s.intent, async () => true, false)
+    await vi.waitFor(() => expect(confirm).toBeTypeOf('function'))
+    const receipt = receiptFor(s, op)
+    s.lock()
+    const published = s.changed.mock.calls.length
+    confirm(receipt)
+    await new Promise<void>((resolve) => setImmediate(resolve))
+    expect(s.changed).toHaveBeenCalledTimes(published)
+    const reopened = new OperationJournal(s.store)
+    await reopened.open(s.pair.secretKey, s.account)
+    expect(reopened.get(op.id)?.phase).toBe('submitted')
+    reopened.lock()
+  })
+
+  it('rejects an unrelated broadcast acknowledgement without marking it submitted', async () => {
+    const s = setup()
+    await s.journal.open(s.pair.secretKey, s.account)
+    vi.mocked(s.provider.sendAndWatch).mockImplementation(async (_bytes, acknowledge) => {
+      await acknowledge?.('00'.repeat(32))
+      return 'hint'
+    })
+    await expect(s.transfers.sendTransfer(s.intent, async () => true, false)).resolves.toMatchObject({
+      phase: 'unknown',
+    })
+    expect(s.journal.get(s.intent.operationId)?.phase).toBe('unknown')
+    expect(s.signing).toHaveBeenCalledOnce()
+  })
+
   function includeFirstTransfer(
     s: ReturnType<typeof setup>,
     operation: NonNullable<ReturnType<OperationJournal['get']>>

@@ -86,11 +86,6 @@ export const BridgeTransactionsResultSchema = z.object({
   transactions: z.array(BridgeTransactionSchema).optional(),
 })
 
-export const TxConfirmedEventSchema = z.object({
-  msg_hash: z.string().min(1),
-  transaction: z.object({ hash: z.string().min(1) }).optional(),
-})
-
 export const TxTimeoutEventSchema = z.object({
   msg_hash: z.string().min(1),
   reason: z.string().optional(),
@@ -150,6 +145,30 @@ const BlockReferenceSchema = z.object({
   seqno: z.number().int().nonnegative(),
   root_hash: z.string().regex(/^[0-9a-f]{64}$/),
   file_hash: z.string().regex(/^[0-9a-f]{64}$/),
+})
+export const WalletConfirmationReceiptSchema: z.ZodType<import('../../wallet-engine').WalletConfirmationReceipt> =
+  z.object({
+    account: z.object({
+      address: z.string().min(1),
+      status: z.enum(['active', 'uninit', 'frozen']),
+      code_hash: z
+        .string()
+        .regex(/^[0-9a-f]{64}$/)
+        .optional(),
+      data_boc: z.string().optional(),
+      last_tx_lt: DecimalSchema,
+      last_tx_hash: z.string().regex(/^[0-9a-f]{64}$/),
+    }),
+    masterchain: BlockReferenceSchema,
+    transactions: z
+      .array(BridgeTransactionSchema.and(z.object({ boc: z.string().min(1) })))
+      .min(1)
+      .max(100),
+  })
+export const TxConfirmedEventSchema = z.object({
+  msg_hash: z.string().min(1),
+  transaction: z.object({ hash: z.string().min(1) }).optional(),
+  receipt: z.unknown().optional(),
 })
 export const WalletChainSnapshotSchema: z.ZodType<import('../../wallet-engine').WalletChainSnapshot> = z.object({
   emulation_context: z.string().min(1).max(128).optional(),

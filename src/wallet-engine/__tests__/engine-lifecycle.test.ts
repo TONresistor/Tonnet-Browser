@@ -278,6 +278,48 @@ it('rebuilds edited reviews and signs the exact prepared encrypted comment', asy
   }
 }, 20_000)
 
+it.each([false, true])(
+  'ends native Sending only after an accepted durable broadcast (failure: %s)',
+  async (fail) => {
+    const s = await fixture(true)
+    try {
+      const created = await s.engine.create({ password: 'correct horse battery staple' })
+      const challenge = await s.engine.createBackupChallenge('correct horse battery staple')
+      await s.engine.verifyBackup(
+        challenge.challengeId,
+        'correct horse battery staple',
+        challenge.indexes.map((index) => created.mnemonic[index])
+      )
+      vi.mocked(s.provider.sendAndWatch).mockImplementation(async (bytes, acknowledge) => {
+        if (fail) throw new Error('Connection lost before acknowledgement')
+        await acknowledge?.(Cell.fromBoc(bytes)[0].hash().toString('hex'))
+        return new Promise(() => {})
+      })
+      const input = { to: Address.parseRaw(`0:${'22'.repeat(32)}`).toString(), amount: '10', operationId: 'native-ack' }
+      if (fail) {
+        await expect(s.engine.sendNative(input, async () => ({ action: 'approve' }))).rejects.toMatchObject({
+          code: 'TRANSACTION_PENDING',
+        })
+        await expect(s.engine.sendNative(input, async () => ({ action: 'approve' }))).rejects.toMatchObject({
+          code: 'TRANSACTION_PENDING',
+        })
+        expect(s.engine.getOperation(input.operationId)?.phase).toBe('unknown')
+      } else {
+        await expect(s.engine.sendNative(input, async () => ({ action: 'approve' }))).resolves.toMatchObject({
+          status: 'pending',
+          operationState: 'submitted',
+        })
+        expect(s.engine.getOperation(input.operationId)?.boc).toBeTruthy()
+      }
+      expect(s.provider.sendAndWatch).toHaveBeenCalledOnce()
+      created.mnemonic.fill('')
+    } finally {
+      await s.engine.shutdown()
+    }
+  },
+  20_000
+)
+
 it('invalidates a queued signature when the same phrase is imported again', async () => {
   const s = await fixture()
   try {

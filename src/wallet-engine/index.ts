@@ -19,6 +19,7 @@ export type {
   BridgeTransaction,
   TonBridgePort,
   WalletChainSnapshot,
+  WalletConfirmationReceipt,
 } from './network-types'
 export { isContractNotDeployedError } from './network-types'
 export {

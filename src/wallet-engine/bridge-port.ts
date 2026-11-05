@@ -4,6 +4,7 @@ import type {
   BridgeAccountState,
   BridgeTransaction,
   EmulateTransactionResult,
+  WalletConfirmationReceipt,
 } from './network-types'
 
 export interface WalletBridgePort {
@@ -25,7 +26,10 @@ export interface WalletBridgePort {
   ): Promise<EmulateTransactionResult>
   getSeqno(address: string): Promise<number>
   getTransactions(address: string, limit?: number, lastLt?: string, lastHash?: string): Promise<BridgeTransaction[]>
-  sendAndWatch(boc: Buffer): Promise<string>
+  sendAndWatch(
+    boc: Buffer,
+    onSubmitted?: (messageHash: string) => Promise<void>
+  ): Promise<string | WalletConfirmationReceipt>
   broadcast(boc: Buffer): Promise<void>
   resolveDomain(domain: string): Promise<DnsResolveResult>
   runMethod(address: string, method: string, params?: unknown[]): Promise<unknown>

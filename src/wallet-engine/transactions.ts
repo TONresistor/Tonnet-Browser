@@ -10,7 +10,7 @@ import {
 } from '@ton/core'
 import { randomUUID } from 'node:crypto'
 import type { WalletBridgePort } from './bridge-port'
-import type { WalletChainSnapshot } from './network-types'
+import type { WalletChainSnapshot, WalletConfirmationReceipt } from './network-types'
 import type { WalletIdentitySnapshot } from './wallet-identity'
 import type { SupportedWalletContract } from './wallet-versions'
 import { OperationJournal, intentFingerprint, isOperationPending, type WalletOperation } from './journal'
@@ -147,27 +147,47 @@ export class WalletTransfers {
     )
     return this.validateSnapshot(snapshot, token)
   }
-  private validateSnapshot(snapshot: WalletChainSnapshot, token: ReturnType<WalletTransfers['capture']>) {
+  private accountSeqno(
+    account: WalletConfirmationReceipt['account'],
+    token: ReturnType<WalletTransfers['capture']>
+  ): number {
     this.check(token)
-    if (
-      !Address.parse(snapshot.address).equals(Address.parse(token.identity.addressRaw)) ||
-      snapshot.status === 'frozen'
-    )
+    if (!Address.parse(account.address).equals(Address.parse(token.identity.addressRaw)) || account.status === 'frozen')
       throw new WalletEngineError('INVALID_ACCOUNT', 'Wallet account is unavailable')
+    if (account.status !== 'active') return 0
     const contract = this.host.contract()
-    if (snapshot.status === 'active') {
-      if (snapshot.code_hash !== contract.init.code?.hash().toString('hex') || !snapshot.data_boc)
-        throw new WalletEngineError('INVALID_ACCOUNT', 'Wallet contract changed')
-      const data = Cell.fromBase64(snapshot.data_boc).beginParse()
-      // V5 has the signature-auth bit before seqno; V3/V4 start with seqno.
-      if ('walletId' in contract && typeof contract.walletId === 'object') data.skip(1)
-      if (data.loadUint(32) !== snapshot.seqno)
-        throw new WalletEngineError('INVALID_ACCOUNT', 'Inconsistent wallet state')
-      data.skip(32)
-      if (data.loadBuffer(32).toString('hex') !== token.identity.publicKey)
-        throw new WalletEngineError('INVALID_ACCOUNT', 'Wallet signing key changed')
-    }
+    if (account.code_hash !== contract.init.code?.hash().toString('hex') || !account.data_boc)
+      throw new WalletEngineError('INVALID_ACCOUNT', 'Wallet contract changed')
+    const data = Cell.fromBase64(account.data_boc).beginParse()
+    if ('walletId' in contract && typeof contract.walletId === 'object') data.skip(1)
+    const seqno = data.loadUint(32)
+    data.skip(32)
+    if (data.loadBuffer(32).toString('hex') !== token.identity.publicKey)
+      throw new WalletEngineError('INVALID_ACCOUNT', 'Wallet signing key changed')
+    return seqno
+  }
+  private validateSnapshot(snapshot: WalletChainSnapshot, token: ReturnType<WalletTransfers['capture']>) {
+    const seqno = this.accountSeqno(snapshot, token)
+    if (snapshot.status === 'active' && seqno !== snapshot.seqno)
+      throw new WalletEngineError('INVALID_ACCOUNT', 'Inconsistent wallet state')
     return snapshot
+  }
+  private receiptState(receipt: WalletConfirmationReceipt, token: ReturnType<WalletTransfers['capture']>) {
+    if (
+      receipt.account.status !== 'active' ||
+      receipt.masterchain.workchain !== -1 ||
+      !Number.isSafeInteger(receipt.masterchain.seqno) ||
+      receipt.masterchain.seqno < 0 ||
+      receipt.transactions.length < 1 ||
+      receipt.transactions.length > 100
+    )
+      throw new WalletEngineError('INVALID_EVIDENCE', 'Incomplete wallet confirmation receipt')
+    return {
+      ...receipt.account,
+      seqno: this.accountSeqno(receipt.account, token),
+      masterchain: receipt.masterchain,
+      block_time: 0,
+    }
   }
   async previewTransfer(intent: TransferIntent): Promise<TransferReview> {
     const token = this.capture()
@@ -266,8 +286,12 @@ export class WalletTransfers {
     }
     return { review, snapshot, signingSnapshot }
   }
-  sendTransfer(intent: TransferIntent, authorize?: TransferAuthorization): Promise<WalletOperation> {
-    return this.execute(intent, 'direct', authorize)
+  sendTransfer(
+    intent: TransferIntent,
+    authorize?: TransferAuthorization,
+    waitForConfirmation = true
+  ): Promise<WalletOperation> {
+    return this.execute(intent, 'direct', authorize, waitForConfirmation)
   }
   signForRelay(intent: TransferIntent, authorize?: TransferAuthorization): Promise<WalletOperation> {
     return this.execute(intent, 'relay', authorize)
@@ -275,7 +299,8 @@ export class WalletTransfers {
   private execute(
     input: TransferIntent,
     mode: 'direct' | 'relay',
-    authorize?: TransferAuthorization
+    authorize?: TransferAuthorization,
+    waitForConfirmation = true
   ): Promise<WalletOperation> {
     this.host.assertReady()
     const intent = structuredClone(input)
@@ -298,7 +323,7 @@ export class WalletTransfers {
       if (this.active.id === intent.operationId && this.active.hash === hash) return this.active.promise
       return Promise.reject(new WalletEngineError('SEND_IN_PROGRESS', 'A wallet operation is already active', true))
     }
-    const promise = this.perform(intent, hash, mode, authorize).finally(() => {
+    const promise = this.perform(intent, hash, mode, authorize, waitForConfirmation).finally(() => {
       if (this.active?.promise === promise) this.active = null
     })
     this.active = { id: intent.operationId, hash, promise }
@@ -308,7 +333,8 @@ export class WalletTransfers {
     intent: TransferIntent,
     hash: string,
     mode: 'direct' | 'relay',
-    authorize?: TransferAuthorization
+    authorize?: TransferAuthorization,
+    waitForConfirmation = true
   ): Promise<WalletOperation> {
     const token = this.capture()
     if (!authorize && !this.journal.get(intent.operationId))
@@ -335,6 +361,7 @@ export class WalletTransfers {
         throw new WalletEngineError('USER_CANCELLED', 'Transfer cancelled')
       this.check(token)
       const fresh = await this.prepareTransfer({ ...intent, validUntil: prepared.review.validUntil }, token, true)
+      this.check(token)
       snapshot = fresh.signingSnapshot
       if (
         BigInt(fresh.review.estimatedFee) > BigInt(prepared.review.estimatedFee) ||
@@ -391,21 +418,78 @@ export class WalletTransfers {
     if (mode === 'direct') {
       this.host.changed(op)
       this.check(token)
-      try {
-        await this.observed(this.host.provider().sendAndWatch(Buffer.from(signed.boc, 'base64')), token)
-        op = { ...op, phase: 'submitted' }
-      } catch (error) {
-        op = { ...op, phase: 'unknown' }
-        this.host.submissionFailed?.(error)
-      }
-      // If the session ended, the already durable "submitting" record remains recoverable.
-      this.check(token)
-      await this.journal.save(op)
-      await this.resolveAfterSubmission(token)
+      let accepted!: (operation: WalletOperation) => void
+      const submitted = new Promise<WalletOperation>((resolve) => {
+        accepted = resolve
+      })
+      const completion = this.finishSubmission(op, token, accepted)
+      if (!waitForConfirmation)
+        void completion.catch((error) => {
+          if (this.host.session() === token.session) this.reportSubmissionFailure(error)
+        })
+      return waitForConfirmation ? completion : Promise.race([submitted, completion])
     }
-    op = this.journal.get(op.id) ?? op
     this.host.changed(op)
     return op
+  }
+  private async finishSubmission(
+    operation: WalletOperation,
+    token: ReturnType<WalletTransfers['capture']>,
+    accepted?: (operation: WalletOperation) => void
+  ): Promise<WalletOperation> {
+    let op = operation
+    let result: string | WalletConfirmationReceipt | undefined
+    try {
+      result = await this.observed(
+        this.host.provider().sendAndWatch(Buffer.from(op.boc!, 'base64'), async (hash) => {
+          this.check(token)
+          if (hash !== operation.messageHash)
+            throw new WalletEngineError(
+              'INVALID_EVIDENCE',
+              'Broadcast acknowledgement does not match the signed message'
+            )
+          await this.journal.save({ ...op, phase: 'submitted' })
+          this.check(token)
+          op = this.journal.get(op.id) ?? op
+          this.host.changed(op)
+          this.check(token)
+          accepted?.(op)
+        }),
+        token
+      )
+      this.check(token)
+      op = this.journal.get(op.id) ?? op
+      if (!op.closed && op.phase === 'submitting') op = { ...op, phase: 'submitted' }
+    } catch (error) {
+      this.check(token)
+      op = this.journal.get(op.id) ?? op
+      if (!op.closed && op.phase !== 'submitted') op = { ...op, phase: 'unknown' }
+      this.reportSubmissionFailure(error)
+    }
+    await this.journal.save(op)
+    this.check(token)
+    if (typeof result === 'object' && result) {
+      try {
+        await this.resolve(result, op.id)
+      } catch (error) {
+        this.check(token)
+        this.reportSubmissionFailure(error)
+      }
+    }
+    this.check(token)
+    const pending = this.journal.get(op.id)
+    if (pending && isOperationPending(pending)) await this.resolveAfterSubmission(token)
+    this.check(token)
+    const current = this.journal.get(op.id) ?? op
+    this.host.changed(current)
+    return current
+  }
+  private reportSubmissionFailure(error: unknown): void {
+    try {
+      this.host.submissionFailed?.(error)
+    } catch {
+      /* diagnostics only */
+    }
   }
   async retryOperation(id: string, authorize: TransferAuthorization): Promise<WalletOperation> {
     const token = this.capture()
@@ -440,22 +524,11 @@ export class WalletTransfers {
     this.check(token)
     await this.journal.save({ ...current, phase: 'submitting' })
     this.check(token)
-    this.host.changed({ ...current, phase: 'submitting' })
+    const stored = this.journal.get(current.id) ?? current
+    if (stored.closed) return stored
+    this.host.changed(stored)
     this.check(token)
-    let next: WalletOperation
-    try {
-      await this.observed(this.host.provider().sendAndWatch(Buffer.from(current.boc!, 'base64')), token)
-      next = { ...current, phase: 'submitted' }
-    } catch (error) {
-      next = { ...current, phase: 'unknown' }
-      this.host.submissionFailed?.(error)
-    }
-    this.check(token)
-    await this.journal.save(next)
-    await this.resolveAfterSubmission(token)
-    next = this.journal.get(next.id) ?? next
-    this.host.changed(next)
-    return next
+    return this.finishSubmission({ ...current, phase: 'submitting' }, token)
   }
   private async resolveAfterSubmission(token: ReturnType<WalletTransfers['capture']>): Promise<void> {
     const earlier = this.resolving
@@ -466,17 +539,21 @@ export class WalletTransfers {
   }
   resolvePending(): Promise<void> {
     if (this.resolving) return this.resolving
-    this.resolving = this.resolve().finally(() => {
-      this.resolving = null
-    })
+    this.resolving = this.resolve()
+      .then(() => undefined)
+      .finally(() => {
+        this.resolving = null
+      })
     return this.resolving
   }
-  private async resolve(): Promise<void> {
-    if (!this.journal.isOpen()) return
+  private async resolve(receipt?: WalletConfirmationReceipt, operationId?: string): Promise<boolean> {
+    if (!this.journal.isOpen()) return false
     const token = this.capture()
     const operation = this.journal.pending()
-    if (!operation) return
-    const snapshot = await this.chain(token)
+    if (!operation || (operationId && operation.id !== operationId)) return false
+    const snapshot = receipt ? this.receiptState(receipt, token) : await this.chain(token)
+    if (receipt && snapshot.seqno <= operation.seqno)
+      throw new WalletEngineError('INVALID_EVIDENCE', 'Confirmation receipt does not prove seqno consumption')
     if (operation.phase === 'legacy-pending') {
       if (snapshot.seqno > operation.seqno || snapshot.block_time > operation.validUntil + 60) {
         const next: WalletOperation = {
@@ -486,12 +563,12 @@ export class WalletTransfers {
         }
         await this.journal.save(next)
         this.check(token)
-        this.host.changed(next)
+        this.host.changed(this.journal.get(next.id) ?? next)
       }
-      return
+      return false
     }
     const resume =
-      operation.scan?.headLt === snapshot.last_tx_lt && operation.scan.headHash === snapshot.last_tx_hash
+      !receipt && operation.scan?.headLt === snapshot.last_tx_lt && operation.scan.headHash === snapshot.last_tx_hash
         ? operation.scan
         : undefined
     let lt = resume?.nextLt ?? snapshot.last_tx_lt
@@ -499,18 +576,22 @@ export class WalletTransfers {
     let complete = lt === operation.baselineLt && hash === operation.baselineHash
     // Bound each sweep. Incomplete/archive-unavailable history never proves absence.
     for (let page = 0; page < 20 && !complete && lt !== '0'; page++) {
-      const transactions = await this.host
-        .provider()
-        .getRawTransactions(token.identity.addressRaw, 100, lt, hash, snapshot.masterchain.seqno)
+      const transactions = receipt
+        ? page === 0
+          ? receipt.transactions
+          : []
+        : await this.host
+            .provider()
+            .getRawTransactions(token.identity.addressRaw, 100, lt, hash, snapshot.masterchain.seqno)
       this.check(token)
-      if (transactions.length === 0) return
+      if (transactions.length === 0) return false
       const ordered = [...transactions].sort((a, b) => (BigInt(a.lt) > BigInt(b.lt) ? -1 : 1))
       for (const record of ordered) {
         if (record.lt === operation.baselineLt && record.hash === operation.baselineHash) {
           complete = true
           break
         }
-        if (record.lt !== lt || record.hash !== hash || !record.boc) return
+        if (record.lt !== lt || record.hash !== hash || !record.boc) return false
         const tx = loadTransaction(Cell.fromBase64(record.boc).beginParse())
         if (
           tx.hash().toString('hex') !== hash ||
@@ -559,8 +640,10 @@ export class WalletTransfers {
             }
             await this.journal.save(included)
             this.check(token)
-            this.host.changed(included)
-            return
+            const stored = this.journal.get(included.id) ?? included
+            const includedHere = stored.phase === 'included' && stored.transactionHash === hash
+            this.host.changed(stored)
+            return includedHere
           }
         }
         lt = tx.prevTransactionLt.toString()
@@ -571,6 +654,7 @@ export class WalletTransfers {
         }
       }
     }
+    if (receipt) return false
     if (lt === '0' && operation.baselineLt === '0') complete = true
     if (!complete) {
       if (lt !== snapshot.last_tx_lt)
@@ -578,11 +662,11 @@ export class WalletTransfers {
           ...operation,
           scan: { headLt: snapshot.last_tx_lt, headHash: snapshot.last_tx_hash, nextLt: lt, nextHash: hash },
         })
-      return
+      return false
     }
     // Re-observe after the scan: a transaction committed between reads invalidates absence.
     const after = await this.chain(token)
-    if (after.last_tx_lt !== snapshot.last_tx_lt || after.last_tx_hash !== snapshot.last_tx_hash) return
+    if (after.last_tx_lt !== snapshot.last_tx_lt || after.last_tx_hash !== snapshot.last_tx_hash) return false
     let next: WalletOperation | null = null
     if (after.seqno > operation.seqno)
       next = { ...operation, phase: 'seqno-consumed', execution: 'unknown', closed: true }
@@ -591,8 +675,9 @@ export class WalletTransfers {
     if (next) {
       await this.journal.save(next)
       this.check(token)
-      this.host.changed(next)
+      this.host.changed(this.journal.get(next.id) ?? next)
     }
+    return false
   }
   newOperationId(): string {
     return randomUUID()

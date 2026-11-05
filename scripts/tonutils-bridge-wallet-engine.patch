@@ -31,7 +31,7 @@ index 21a4c24..1273b13 100644
  		b.handleWalletGetSeqno(client, req)
  	case "wallet.getPublicKey":
 diff --git a/wsbridge/lite.go b/wsbridge/lite.go
-index 0320c42..51f409e 100644
+index 0320c42..8b7a7f2 100644
 --- a/wsbridge/lite.go
 +++ b/wsbridge/lite.go
 @@ -13,6 +13,7 @@ import (
@@ -198,7 +198,7 @@ index 0320c42..51f409e 100644
  	}
  	if err := json.Unmarshal(req.Params, &params); err != nil {
  		b.sendError(client, req.ID, "invalid params: "+err.Error(), -32602)
-@@ -787,6 +817,36 @@ func (b *WSBridge) handleGetTransactions(client *wsClient, req *WSRequest) {
+@@ -787,6 +817,20 @@ func (b *WSBridge) handleGetTransactions(client *wsClient, req *WSRequest) {
  		startHash = acc.LastTxHash
  	}
  
@@ -207,23 +207,7 @@ index 0320c42..51f409e 100644
 +		if params.MasterSeqno > 0 {
 +			reader = reader.WaitForBlock(params.MasterSeqno)
 +		}
-+		var response tl.Serializable
-+		err := reader.Client().QueryLiteserver(ctx, ton.GetTransactions{Limit: int32(params.Limit), AccID: &ton.AccountID{Workchain: addr.Workchain(), ID: addr.Data()}, LT: int64(startLT), TxHash: startHash}, &response)
-+		if err != nil {
-+			b.sendError(client, req.ID, "failed to read raw transactions: "+err.Error())
-+			return
-+		}
-+		list, ok := response.(ton.TransactionList)
-+		if !ok {
-+			b.sendError(client, req.ID, "raw transaction history unavailable")
-+			return
-+		}
-+		cells, err := cell.FromBOCMultiRoot(list.Transactions)
-+		if err != nil || len(cells) > int(params.Limit) {
-+			b.sendError(client, req.ID, "invalid raw transaction page")
-+			return
-+		}
-+		records, err := rawTransactionRecords(cells, addr, startLT, startHash)
++		records, err := readWalletTransactionRecords(ctx, reader, addr, params.Limit, startLT, startHash)
 +		if err != nil {
 +			b.sendError(client, req.ID, "invalid raw transaction evidence: "+err.Error())
 +			return
@@ -235,12 +219,183 @@ index 0320c42..51f409e 100644
  	txList, err := b.api.ListTransactions(ctx, addr, params.Limit, startLT, startHash)
  	if err != nil {
  		b.sendError(client, req.ID, "failed to list transactions: "+err.Error())
+@@ -1335,7 +1379,8 @@ func (b *WSBridge) handleSendAndWatch(client *wsClient, req *WSRequest) {
+ 	defer atomic.AddInt32(&client.activeSubs, -1)
+ 
+ 	var params struct {
+-		BOC string `json:"boc"` // base64-encoded external message BOC
++		BOC            string `json:"boc"`
++		IncludeReceipt bool   `json:"include_receipt"`
+ 	}
+ 	if err := json.Unmarshal(req.Params, &params); err != nil {
+ 		b.sendError(client, req.ID, "invalid params: "+err.Error(), -32602)
+@@ -1391,12 +1436,12 @@ func (b *WSBridge) handleSendAndWatch(client *wsClient, req *WSRequest) {
+ 		client.subscriptionsMu.Unlock()
+ 	}()
+ 
+-	block, err := b.api.CurrentMasterchainInfo(ctx)
++	ctx, block, reader, err := walletReadContext(ctx, b.api)
+ 	if err != nil {
+ 		b.sendError(client, req.ID, "failed to get masterchain info: "+err.Error())
+ 		return
+ 	}
+-	acc, err := b.api.GetAccount(ctx, block, extMsg.DstAddr)
++	acc, err := reader.GetAccount(ctx, block, extMsg.DstAddr)
+ 	if err != nil {
+ 		b.sendError(client, req.ID, "failed to get account state: "+err.Error())
+ 		return
+@@ -1412,7 +1457,7 @@ func (b *WSBridge) handleSendAndWatch(client *wsClient, req *WSRequest) {
+ 		"msg_hash":        hex.EncodeToString(msgHash),
+ 	})
+ 
+-	tx, confirmedAt, err := b.waitForExternalMessage(ctx, &extMsg, block, acc)
++	confirmation, err := b.waitForExternalMessage(ctx, &extMsg, block, acc, params.IncludeReceipt)
+ 	if err != nil {
+ 		b.sendEvent(client, "tx_timeout", map[string]any{
+ 			"msg_hash": hex.EncodeToString(msgHash),
+@@ -1422,16 +1467,23 @@ func (b *WSBridge) handleSendAndWatch(client *wsClient, req *WSRequest) {
+ 	}
+ 	b.sendEvent(client, "tx_confirmed", map[string]any{
+ 		"msg_hash":    hex.EncodeToString(msgHash),
+-		"transaction": serializeTransaction(tx),
++		"transaction": serializeTransaction(confirmation.transaction),
++		"receipt":     confirmation.receipt,
+ 		"block": map[string]any{
+-			"seqno":     confirmedAt.SeqNo,
+-			"workchain": confirmedAt.Workchain,
+-			"shard":     fmt.Sprintf("%016x", uint64(confirmedAt.Shard)),
++			"seqno":     confirmation.block.SeqNo,
++			"workchain": confirmation.block.Workchain,
++			"shard":     fmt.Sprintf("%016x", uint64(confirmation.block.Shard)),
+ 		},
+ 	})
+ }
+ 
+-func (b *WSBridge) waitForExternalMessage(ctx context.Context, ext *tlb.ExternalMessage, block *ton.BlockIDExt, acc *tlb.Account) (*tlb.Transaction, *ton.BlockIDExt, error) {
++type walletWatchConfirmation struct {
++	transaction *tlb.Transaction
++	block       *ton.BlockIDExt
++	receipt     map[string]any
++}
++
++func (b *WSBridge) waitForExternalMessage(ctx context.Context, ext *tlb.ExternalMessage, block *ton.BlockIDExt, acc *tlb.Account, includeReceipt bool) (*walletWatchConfirmation, error) {
+ nextBlock:
+ 	for ctx.Err() == nil {
+ 		newBlock, err := b.api.WaitForBlock(block.SeqNo + 1).GetMasterchainInfo(ctx)
+@@ -1452,16 +1504,51 @@ nextBlock:
+ 		}
+ 
+ 		lastLT, lastHash := newAcc.LastTxLT, newAcc.LastTxHash
++		var chain []map[string]any
++		completeReceipt := includeReceipt
+ 		for ctx.Err() == nil && lastLT != 0 {
+-			txList, err := b.api.WaitForBlock(block.SeqNo).ListTransactions(ctx, ext.DstAddr, 20, lastLT, lastHash)
++			var txList []*tlb.Transaction
++			var records []map[string]any
++			var err error
++			reader := b.api.WaitForBlock(block.SeqNo)
++			if includeReceipt {
++				records, err = readWalletTransactionRecords(ctx, reader, ext.DstAddr, 20, lastLT, lastHash)
++				if err != nil {
++					continue nextBlock
++				}
++				for _, record := range records {
++					encoded, decodeErr := decodeBase64(record["boc"].(string))
++					if decodeErr != nil {
++						continue nextBlock
++					}
++					raw, parseErr := cell.FromBOC(encoded)
++					if parseErr != nil {
++						continue nextBlock
++					}
++					var tx tlb.Transaction
++					if parseErr = tlb.Parse(&tx, raw); parseErr != nil {
++						continue nextBlock
++					}
++					tx.Hash = raw.Hash()
++					txList = append(txList, &tx)
++				}
++			} else {
++				txList, err = reader.ListTransactions(ctx, ext.DstAddr, 20, lastLT, lastHash)
++			}
+ 			if err != nil {
+ 				continue nextBlock
+ 			}
+ 
+ 			sawPrevious := false
+ 			for i, tx := range txList {
+-				if i == 0 {
+-					lastLT, lastHash = tx.PrevTxLT, tx.PrevTxHash
++				lastLT, lastHash = tx.PrevTxLT, tx.PrevTxHash
++				if completeReceipt {
++					if len(chain) < 100 {
++						chain = append(chain, records[i])
++					} else {
++						completeReceipt = false
++						chain = nil
++					}
+ 				}
+ 				if tx.PrevTxLT == acc.LastTxLT && bytes.Equal(tx.PrevTxHash, acc.LastTxHash) {
+ 					sawPrevious = true
+@@ -1479,7 +1566,11 @@ nextBlock:
+ 					}
+ 				}
+ 				if in.Body != nil && ext.Body != nil && in.Body.HashKey() == ext.Body.HashKey() {
+-					return tx, block, nil
++					confirmation := &walletWatchConfirmation{transaction: tx, block: block}
++					if completeReceipt {
++						confirmation.receipt = walletConfirmationReceipt(ext.DstAddr, newAcc, block, chain)
++					}
++					return confirmation, nil
+ 				}
+ 			}
+ 			if sawPrevious || len(txList) == 0 {
+@@ -1489,7 +1580,7 @@ nextBlock:
+ 		acc = newAcc
+ 	}
+ 	if ctx.Err() != nil {
+-		return nil, nil, ctx.Err()
++		return nil, ctx.Err()
+ 	}
+-	return nil, nil, fmt.Errorf("transaction was not confirmed")
++	return nil, fmt.Errorf("transaction was not confirmed")
+ }
+diff --git a/wsbridge/lite_test.go b/wsbridge/lite_test.go
+index ce6585f..e50039f 100644
+--- a/wsbridge/lite_test.go
++++ b/wsbridge/lite_test.go
+@@ -339,20 +339,21 @@ func TestWaitForExternalMessageRetriesTransactionScanOnNextBlock(t *testing.T) {
+ 
+ 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+ 	defer cancel()
+-	got, block, err := bridge.waitForExternalMessage(
++	confirmation, err := bridge.waitForExternalMessage(
+ 		ctx,
+ 		&tlb.ExternalMessage{DstAddr: destination, Body: body},
+ 		&ton.BlockIDExt{SeqNo: 10},
+ 		&tlb.Account{LastTxLT: 1, LastTxHash: previousHash},
++		false,
+ 	)
+ 	if err != nil {
+ 		t.Fatalf("wait for external message: %v", err)
+ 	}
+-	if got != tx {
++	if confirmation.transaction != tx {
+ 		t.Fatal("returned a different transaction")
+ 	}
+-	if block == nil || block.SeqNo != 12 {
+-		t.Fatalf("confirmed block = %#v, want seqno 12", block)
++	if confirmation.block == nil || confirmation.block.SeqNo != 12 {
++		t.Fatalf("confirmed block = %#v, want seqno 12", confirmation.block)
+ 	}
+ 	if api.masterCalls != 2 || api.listCalls != 2 {
+ 		t.Fatalf("master calls = %d, list calls = %d; want 2 and 2", api.masterCalls, api.listCalls)
 diff --git a/wsbridge/wallet_snapshot.go b/wsbridge/wallet_snapshot.go
 new file mode 100644
-index 0000000..6674046
+index 0000000..5aab545
 --- /dev/null
 +++ b/wsbridge/wallet_snapshot.go
-@@ -0,0 +1,335 @@
+@@ -0,0 +1,367 @@
 +package wsbridge
 +
 +import (
@@ -256,6 +411,7 @@ index 0000000..6674046
 +	"time"
 +
 +	"github.com/xssnick/tonutils-go/address"
++	"github.com/xssnick/tonutils-go/tl"
 +	"github.com/xssnick/tonutils-go/tlb"
 +	"github.com/xssnick/tonutils-go/ton"
 +	"github.com/xssnick/tonutils-go/tvm/cell"
@@ -576,21 +732,54 @@ index 0000000..6674046
 +	}
 +	return records, nil
 +}
++
++func readWalletTransactionRecords(ctx context.Context, api ton.APIClientWrapped, addr *address.Address, limit uint32, lt uint64, hash []byte) ([]map[string]any, error) {
++	var response tl.Serializable
++	if err := api.Client().QueryLiteserver(ctx, ton.GetTransactions{Limit: int32(limit), AccID: &ton.AccountID{Workchain: addr.Workchain(), ID: addr.Data()}, LT: int64(lt), TxHash: hash}, &response); err != nil {
++		return nil, err
++	}
++	list, ok := response.(ton.TransactionList)
++	if !ok {
++		return nil, fmt.Errorf("raw transaction history unavailable")
++	}
++	cells, err := cell.FromBOCMultiRoot(list.Transactions)
++	if err != nil || len(cells) > int(limit) {
++		return nil, fmt.Errorf("invalid raw transaction page")
++	}
++	return rawTransactionRecords(cells, addr, lt, hash)
++}
++
++func walletConfirmationReceipt(addr *address.Address, account *tlb.Account, master *ton.BlockIDExt, records []map[string]any) map[string]any {
++	if account == nil || account.State == nil || !account.State.IsValid || account.State.Status != tlb.AccountStatusActive || account.Code == nil || account.Data == nil || len(records) == 0 || len(records) > 100 {
++		return nil
++	}
++	return map[string]any{
++		"account": map[string]any{
++			"address": addr.String(), "status": "active",
++			"code_hash":  hex.EncodeToString(account.Code.Hash()),
++			"data_boc":   base64.StdEncoding.EncodeToString(account.Data.ToBOCWithOptions(cell.BOCSerializeOptions{})),
++			"last_tx_lt": fmt.Sprint(account.LastTxLT), "last_tx_hash": hex.EncodeToString(account.LastTxHash),
++		},
++		"masterchain": snapshotBlockID(master), "transactions": records,
++	}
++}
 diff --git a/wsbridge/wallet_snapshot_test.go b/wsbridge/wallet_snapshot_test.go
 new file mode 100644
-index 0000000..28362ff
+index 0000000..095c10a
 --- /dev/null
 +++ b/wsbridge/wallet_snapshot_test.go
-@@ -0,0 +1,389 @@
+@@ -0,0 +1,460 @@
 +package wsbridge
 +
 +import (
 +	"bytes"
 +	"context"
 +	"encoding/base64"
++	"encoding/hex"
 +	"errors"
 +	"fmt"
 +	"github.com/xssnick/tonutils-go/address"
++	"github.com/xssnick/tonutils-go/tl"
 +	"github.com/xssnick/tonutils-go/tlb"
 +	"github.com/xssnick/tonutils-go/ton"
 +	"github.com/xssnick/tonutils-go/tvm/cell"
@@ -969,5 +1158,74 @@ index 0000000..28362ff
 +				t.Fatalf("parallel reads lost a verified field: %v %v", result, err)
 +			}
 +		})
++	}
++}
++
++type receiptClient struct {
++	ton.LiteClient
++	raw   []byte
++	calls int
++}
++
++func (c *receiptClient) QueryLiteserver(_ context.Context, request tl.Serializable, result tl.Serializable) error {
++	if _, ok := request.(ton.GetTransactions); !ok {
++		return fmt.Errorf("unexpected receipt query %T", request)
++	}
++	c.calls++
++	*(result.(*tl.Serializable)) = ton.TransactionList{Transactions: c.raw}
++	return nil
++}
++
++type receiptAPI struct {
++	ton.APIClientWrapped
++	account *tlb.Account
++	client  *receiptClient
++}
++
++func (a *receiptAPI) Client() ton.LiteClient                   { return a.client }
++func (a *receiptAPI) WaitForBlock(uint32) ton.APIClientWrapped { return a }
++func (a *receiptAPI) GetMasterchainInfo(context.Context) (*ton.BlockIDExt, error) {
++	return &ton.BlockIDExt{Workchain: -1, Shard: -9223372036854775808, SeqNo: 42, RootHash: make([]byte, 32), FileHash: make([]byte, 32)}, nil
++}
++func (a *receiptAPI) GetAccount(context.Context, *ton.BlockIDExt, *address.Address) (*tlb.Account, error) {
++	return a.account, nil
++}
++func TestWalletConfirmationReceiptPreservesOriginalCellsAndObservedAccount(t *testing.T) {
++	addr := address.NewAddress(0, 0, make([]byte, 32))
++	body := cell.BeginCell().MustStoreUInt(0x1234, 16).EndCell()
++	tx := &tlb.Transaction{AccountAddr: addr.Data(), LT: 100, PrevTxHash: make([]byte, 32), PrevTxLT: 1, OrigStatus: tlb.AccountStatusActive, EndStatus: tlb.AccountStatusActive, StateUpdate: tlb.HashUpdate{OldHash: make([]byte, 32), NewHash: make([]byte, 32)}, Description: tlb.TransactionDescriptionOrdinary{ComputePhase: tlb.ComputePhase{Phase: tlb.ComputePhaseSkipped{Reason: tlb.ComputeSkipReason{Type: tlb.ComputeSkipReasonNoGas}}}}}
++	tx.IO.In = &tlb.Message{MsgType: tlb.MsgTypeExternalIn, Msg: &tlb.ExternalMessage{DstAddr: addr, Body: body}}
++	raw, err := tlb.ToCell(tx)
++	if err != nil {
++		t.Fatal(err)
++	}
++	account := &tlb.Account{LastTxLT: 100, LastTxHash: raw.Hash(), Code: cell.BeginCell().EndCell(), Data: body, State: &tlb.AccountState{IsValid: true, AccountStorage: tlb.AccountStorage{Status: tlb.AccountStatusActive}}}
++	api := &receiptAPI{account: account, client: &receiptClient{raw: raw.ToBOCWithOptions(cell.BOCSerializeOptions{})}}
++	bridge := testBridge()
++	bridge.api = api
++	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
++	defer cancel()
++	confirmed, err := bridge.waitForExternalMessage(ctx, &tlb.ExternalMessage{DstAddr: addr, Body: body}, &ton.BlockIDExt{SeqNo: 41}, &tlb.Account{LastTxLT: 1, LastTxHash: make([]byte, 32)}, true)
++	if err != nil {
++		t.Fatal(err)
++	}
++	if confirmed.receipt == nil || api.client.calls != 1 {
++		t.Fatal("confirmation did not reuse the original verified read")
++	}
++	observed := confirmed.receipt["account"].(map[string]any)
++	records := confirmed.receipt["transactions"].([]map[string]any)
++	if observed["last_tx_hash"] != hex.EncodeToString(raw.Hash()) || observed["data_boc"] != base64.StdEncoding.EncodeToString(body.ToBOCWithOptions(cell.BOCSerializeOptions{})) {
++		t.Fatal("receipt changed the observed account")
++	}
++	encoded, err := base64.StdEncoding.DecodeString(records[0]["boc"].(string))
++	if err != nil {
++		t.Fatal(err)
++	}
++	original, err := cell.FromBOC(encoded)
++	if err != nil || !bytes.Equal(original.Hash(), raw.Hash()) {
++		t.Fatal("receipt reserialized the transaction")
++	}
++	if walletConfirmationReceipt(addr, account, confirmed.block, make([]map[string]any, 101)) != nil {
++		t.Fatal("unbounded confirmation receipt")
 +	}
 +}
