@@ -402,9 +402,11 @@ function createMockRegistry(): ServiceRegistry {
     } as any,
     cocoonManager: (() => {
       const emitter = new EventEmitter()
+      const startSignal = new AbortController().signal
       return Object.assign(emitter, {
         getState: vi.fn(() => ({ kind: 'stopped' })),
         getHttpPort: vi.fn(() => 10000),
+        getStartSignal: vi.fn(() => startSignal),
         start: vi.fn(() => Promise.resolve()),
         stop: vi.fn(() => Promise.resolve()),
         on: emitter.on.bind(emitter),
@@ -1408,11 +1410,14 @@ describe('Cocoon AI Handlers', () => {
 
       expect(result.success).toBe(true)
       expect(result.httpPort).toBe(10000)
-      expect(mockRegistry.cocoonManager.start).toHaveBeenCalledWith({
-        ownerAddress: MOCK_COCOON_WALLET.ownerAddress,
-        nodeWalletKeyBase64: MOCK_COCOON_WALLET.nodeSecretBase64,
-        rootContractAddress: COCOON_ROOT_MAINNET,
-      })
+      expect(mockRegistry.cocoonManager.start).toHaveBeenCalledWith(
+        {
+          ownerAddress: MOCK_COCOON_WALLET.ownerAddress,
+          nodeWalletKeyBase64: MOCK_COCOON_WALLET.nodeSecretBase64,
+          rootContractAddress: COCOON_ROOT_MAINNET,
+        },
+        mockRegistry.cocoonManager.getStartSignal()
+      )
     })
 
     it('does not expose any secret values in the success envelope', async () => {
@@ -1435,6 +1440,7 @@ describe('Cocoon AI Handlers', () => {
         ok: false,
         error: { code: 'START_FAILED', message: 'Operation failed', retryable: false },
       })
+      expect(loadCocoonWallet).toHaveBeenCalledOnce()
       expect(mockRegistry.cocoonManager.start).not.toHaveBeenCalled()
     })
 
@@ -1483,9 +1489,17 @@ describe('Cocoon AI Handlers', () => {
 
       const result = await handler(createMockEvent())
 
-      expect(mockRegistry.cocoonManager.stop).toHaveBeenCalledTimes(1)
+      const signal = mockRegistry.cocoonManager.getStartSignal()
+      expect(mockRegistry.cocoonManager.stop).toHaveBeenCalledExactlyOnceWith(signal)
       expect(result.success).toBe(true)
-      expect(mockRegistry.cocoonManager.start).toHaveBeenCalledTimes(1)
+      expect(mockRegistry.cocoonManager.start).toHaveBeenCalledExactlyOnceWith(
+        {
+          ownerAddress: MOCK_COCOON_WALLET.ownerAddress,
+          nodeWalletKeyBase64: MOCK_COCOON_WALLET.nodeSecretBase64,
+          rootContractAddress: COCOON_ROOT_MAINNET,
+        },
+        signal
+      )
     })
   })
 
