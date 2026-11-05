@@ -1,5 +1,5 @@
 import type { MessageRelaxed } from '@ton/core'
-import type { EmulateTransactionResult } from './network-types'
+import type { EmulateTransactionResult, WalletChainSnapshot } from './network-types'
 import { buildExternalWalletBoc } from './wallet-boc'
 import type { WalletContractShape } from './wallet-versions'
 
@@ -7,6 +7,7 @@ export interface TransferPreflightResult {
   estimatedFee: string
   destinationStatus: string
   walletBalance: string
+  signingSnapshot?: WalletChainSnapshot
 }
 
 export async function preflightTonTransfer(options: {
@@ -53,5 +54,6 @@ export async function preflightTonTransfer(options: {
     estimatedFee: estimatedFee.toString(),
     destinationStatus: options.destinationStatus,
     walletBalance: options.walletBalance,
+    ...(emulation.wallet_snapshot ? { signingSnapshot: emulation.wallet_snapshot } : {}),
   }
 }

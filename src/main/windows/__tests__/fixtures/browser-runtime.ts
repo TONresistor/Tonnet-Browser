@@ -71,6 +71,7 @@ void app
       getBalance: async () => '100000000000',
       getAccountInformation: async () => ({ balance: '100000000000', status: 'active' as const }),
       getWalletSnapshot: async () => ({
+        emulation_context: 'runtime-context',
         address: walletAddress,
         balance: '100000000000',
         status: 'uninit' as const,
@@ -93,7 +94,13 @@ void app
           file_hash: '00'.repeat(32),
         },
       }),
-      emulateTransaction: async () => ({ accepted: true, success: true, exit_code: 0, total_fees: '100' }),
+      emulateTransaction: async () => ({
+        accepted: true,
+        success: true,
+        exit_code: 0,
+        total_fees: '100',
+        wallet_snapshot: await walletProvider.getWalletSnapshot(),
+      }),
       broadcast: async () => {
         throw new Error('The main wallet must submit through sendAndWatch')
       },

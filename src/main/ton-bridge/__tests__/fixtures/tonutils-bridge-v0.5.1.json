@@ -138,5 +138,5 @@
     }
   },
   "patch": "scripts/tonutils-bridge-wallet-engine.patch",
-  "patchSha256": "f06fd58d3c1976158008a93c10274cd5f6aee0a20b500c297a58f9b34ae14632"
+  "patchSha256": "002f1a2517379cc687388b4cb557f132cbcde843a5d81846af55595c53fac6c6"
 }

@@ -6,6 +6,12 @@ import fixture from './fixtures/tonutils-bridge-v0.5.1.json'
 afterEach(() => vi.useRealTimers())
 
 describe('WsBridgeClient queued requests', () => {
+  it('invalidates connection-scoped reads when the client is disconnected', () => {
+    const client = new WsBridgeClient(1)
+    const revision = client.getConnectionRevision()
+    client.disconnect()
+    expect(client.getConnectionRevision()).toBeGreaterThan(revision)
+  })
   it('rejects a request whose reconnect queue budget expires', async () => {
     vi.useFakeTimers()
     const client = new WsBridgeClient(1)
@@ -64,6 +70,40 @@ describe('wallet bridge address encoding', () => {
       last_hash: 'ab'.repeat(32),
       include_boc: true,
     })
+    client.disconnect()
+  })
+
+  it('preserves the verified emulation context and requests final wallet revalidation', async () => {
+    const snapshot = { ...fixture.responses['wallet.getSnapshot'], address: friendly, emulation_context: 'wallet_1' }
+    const { client, rpc } = clientWithRpc(snapshot)
+    await expect(client.getWalletSnapshot(raw, true)).resolves.toMatchObject({ emulation_context: 'wallet_1' })
+    expect(rpc).toHaveBeenLastCalledWith('wallet.getSnapshot', { address: friendly, prepare_emulation: true })
+    rpc.mockResolvedValue({ ...fixture.responses['lite.emulateTransaction'], wallet_snapshot: snapshot })
+    await expect(
+      client.emulateTransaction(friendly, 'unsigned-boc', { id: 'wallet_1', revalidate: true })
+    ).resolves.toMatchObject({ wallet_snapshot: snapshot, total_fees: '42' })
+    expect(rpc).toHaveBeenLastCalledWith('lite.emulateTransaction', {
+      address: friendly,
+      boc: 'unsigned-boc',
+      ignore_chksig: true,
+      emulation_context: 'wallet_1',
+      revalidate_wallet: true,
+    })
+    client.disconnect()
+  })
+
+  it('keeps standalone emulation requests compatible and rejects malformed signing snapshots', async () => {
+    const { client, rpc } = clientWithRpc(fixture.responses['lite.emulateTransaction'])
+    await client.emulateTransaction(friendly, 'unsigned-boc')
+    expect(rpc).toHaveBeenLastCalledWith('lite.emulateTransaction', {
+      address: friendly,
+      boc: 'unsigned-boc',
+      ignore_chksig: true,
+    })
+    rpc.mockResolvedValue({ ...fixture.responses['lite.emulateTransaction'], wallet_snapshot: { seqno: -1 } })
+    await expect(
+      client.emulateTransaction(friendly, 'unsigned-boc', { id: 'wallet_1', revalidate: true })
+    ).rejects.toThrow()
     client.disconnect()
   })
 

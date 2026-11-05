@@ -8,6 +8,7 @@ export interface EmulateTransactionResult {
   success: boolean
   exit_code: number
   total_fees: string
+  wallet_snapshot?: WalletChainSnapshot
   fees?: {
     storage_fee: string
     gas_fee: string
@@ -59,6 +60,7 @@ export function isContractNotDeployedError(error: unknown): boolean {
 }
 
 export interface WalletChainSnapshot {
+  emulation_context?: string
   address: string
   status: 'active' | 'uninit' | 'frozen'
   balance: string

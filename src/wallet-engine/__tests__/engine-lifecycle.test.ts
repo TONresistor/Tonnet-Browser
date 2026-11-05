@@ -76,6 +76,7 @@ async function fixture(
     subscribeAccountState: vi.fn(() => () => {}),
     subscribeTransactions: () => () => {},
     getWalletSnapshot: async () => ({
+      emulation_context: 'test-context',
       address: engine.getState().address,
       balance: '100000000000',
       status: 'uninit' as const,
@@ -87,7 +88,13 @@ async function fixture(
       masterchain: { ...block, workchain: -1 },
     }),
     getAccountInformation: async () => ({ balance: '100000000000', status: 'active' as const }),
-    emulateTransaction: vi.fn(async () => ({ accepted: true, success: true, exit_code: 0, total_fees: '100' })),
+    emulateTransaction: vi.fn(async () => ({
+      accepted: true,
+      success: true,
+      exit_code: 0,
+      total_fees: '100',
+      wallet_snapshot: await provider.getWalletSnapshot(engine.getState().address),
+    })),
     runMethod: async () => ({
       stack: [BigInt('0x' + keyPairFromSeed(Buffer.alloc(32, 8)).publicKey.toString('hex')).toString()],
     }),

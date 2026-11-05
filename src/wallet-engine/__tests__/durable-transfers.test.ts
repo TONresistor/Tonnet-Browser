@@ -42,6 +42,7 @@ function setup(version: 'v3R1' | 'v3R2' | 'v4R2' | 'v5R1' = 'v5R1') {
   const account = `mainnet:${identity.addressRaw}`
   const journal = new OperationJournal(store)
   const snapshot: WalletChainSnapshot = {
+    emulation_context: 'test-context',
     address: contract.address.toString(),
     balance: '100000000000',
     status: 'uninit',
@@ -67,7 +68,13 @@ function setup(version: 'v3R1' | 'v3R2' | 'v4R2' | 'v5R1' = 'v5R1') {
   const provider = {
     getWalletSnapshot: vi.fn(async () => structuredClone(snapshot)),
     getAccountInformation: vi.fn(async () => ({ balance: '100000000000', status: 'active' as const })),
-    emulateTransaction: vi.fn(async () => ({ accepted: true, success: true, exit_code: 0, total_fees: '100' })),
+    emulateTransaction: vi.fn(async () => ({
+      accepted: true,
+      success: true,
+      exit_code: 0,
+      total_fees: '100',
+      wallet_snapshot: structuredClone(snapshot),
+    })),
     broadcast: vi.fn(async () => {}),
     sendAndWatch: vi.fn(async () => 'confirmed-hint'),
     getRawTransactions: vi.fn(async () => []),
@@ -114,14 +121,264 @@ function setup(version: 'v3R1' | 'v3R2' | 'v4R2' | 'v5R1' = 'v5R1') {
 }
 
 describe('durable wallet transfers without Electron', () => {
-  it.each(['snapshot', 'emulation'] as const)(
+  it.each([undefined, false])('skips recipient reads when bounce is %s', async (bounce) => {
+    const s = setup()
+    await s.journal.open(s.pair.secretKey, s.account)
+    vi.mocked(s.provider.getAccountInformation).mockRejectedValue(new Error('Recipient lookup unavailable'))
+    const operation = await s.transfers.signForRelay(
+      { ...s.intent, messages: [{ ...s.intent.messages[0], bounce }] },
+      async () => true
+    )
+    expect(operation.phase).toBe('handed-off')
+    expect(s.provider.getAccountInformation).not.toHaveBeenCalled()
+    expect(s.provider.getWalletSnapshot).toHaveBeenCalledTimes(2)
+    expect(s.provider.emulateTransaction).toHaveBeenCalledTimes(2)
+    expect(vi.mocked(s.provider.emulateTransaction).mock.calls.map(([, , context]) => context)).toEqual([
+      { id: 'test-context', revalidate: false },
+      { id: 'test-context', revalidate: true },
+    ])
+    const message = loadMessage(Cell.fromBase64(operation.boc!).beginParse()).body.beginParse()
+    message.skip(64 + 32 + 32)
+    const actions = loadOutList(message.loadMaybeRef()!.beginParse())
+    expect(actions[0]).toMatchObject({ type: 'sendMsg', outMsg: { info: { bounce: false } } })
+  })
+
+  it('reads the sender and bounceable recipients concurrently while preserving batch order', async () => {
+    const s = setup()
+    let releaseSnapshot!: (snapshot: WalletChainSnapshot) => void
+    vi.mocked(s.provider.getWalletSnapshot).mockImplementation(
+      () => new Promise((resolve) => (releaseSnapshot = resolve))
+    )
+    const recipients: Array<(value: { balance: string; status: 'active' }) => void> = []
+    vi.mocked(s.provider.getAccountInformation).mockImplementation(
+      () => new Promise((resolve) => recipients.push(resolve))
+    )
+    const messages = [
+      { ...s.intent.messages[0], bounce: true },
+      { address: `0:${'33'.repeat(32)}`, amount: '5678', bounce: false },
+      { address: `0:${'44'.repeat(32)}`, amount: '999', bounce: true },
+    ]
+    const preview = s.transfers.previewTransfer({ ...s.intent, messages })
+    expect(s.provider.getWalletSnapshot).toHaveBeenCalledOnce()
+    expect(vi.mocked(s.provider.getAccountInformation).mock.calls.map(([address]) => address)).toEqual([
+      Address.parse(messages[0].address).toString(),
+      Address.parse(messages[2].address).toString(),
+    ])
+    recipients[1]({ balance: '0', status: 'active' })
+    recipients[0]({ balance: '0', status: 'active' })
+    await new Promise<void>((resolve) => setImmediate(resolve))
+    expect(s.provider.emulateTransaction).not.toHaveBeenCalled()
+    releaseSnapshot(structuredClone(s.snapshot))
+    await expect(preview).resolves.toMatchObject({ messages, estimatedFee: '105' })
+    const body = loadMessage(
+      Cell.fromBase64(vi.mocked(s.provider.emulateTransaction).mock.calls[0][1]).beginParse()
+    ).body.beginParse()
+    body.skip(64 + 32 + 32)
+    const actions = loadOutList(body.loadMaybeRef()!.beginParse())
+    expect(
+      actions.map((action) =>
+        action.type === 'sendMsg' && action.outMsg.info.type === 'internal'
+          ? {
+              address: action.outMsg.info.dest.toRawString(),
+              amount: action.outMsg.info.value.coins.toString(),
+              bounce: action.outMsg.info.bounce,
+            }
+          : null
+      )
+    ).toEqual(messages.map((message) => ({ ...message, address: Address.parse(message.address).toRawString() })))
+  })
+
+  it.each([0, 1])('rejects an inactive bounceable recipient at batch index %s', async (inactiveIndex) => {
+    const s = setup()
+    await s.journal.open(s.pair.secretKey, s.account)
+    vi.mocked(s.provider.getAccountInformation)
+      .mockResolvedValueOnce({ balance: '0', status: inactiveIndex === 0 ? 'uninit' : 'active' })
+      .mockResolvedValueOnce({ balance: '0', status: inactiveIndex === 1 ? 'frozen' : 'active' })
+    const authorize = vi.fn(async () => true)
+    await expect(
+      s.transfers.signForRelay(
+        {
+          ...s.intent,
+          messages: [
+            { ...s.intent.messages[0], bounce: true },
+            { address: `0:${'33'.repeat(32)}`, amount: '1', bounce: true },
+          ],
+        },
+        authorize
+      )
+    ).rejects.toMatchObject({ code: 'INVALID_RECIPIENT' })
+    expect(authorize).not.toHaveBeenCalled()
+    expect(s.provider.emulateTransaction).not.toHaveBeenCalled()
+    expect(s.provider.sendAndWatch).not.toHaveBeenCalled()
+    expect(s.data.size).toBe(0)
+  })
+
+  it('aborts parallel reads on lock and ignores late successes and failures', async () => {
+    const s = setup()
+    await s.journal.open(s.pair.secretKey, s.account)
+    let releaseSnapshot!: (snapshot: WalletChainSnapshot) => void
+    let releaseRecipient!: (value: { balance: string; status: 'active' }) => void
+    let rejectRecipient!: (error: Error) => void
+    vi.mocked(s.provider.getWalletSnapshot).mockImplementation(
+      () => new Promise((resolve) => (releaseSnapshot = resolve))
+    )
+    vi.mocked(s.provider.getAccountInformation)
+      .mockImplementationOnce(() => new Promise((resolve) => (releaseRecipient = resolve)))
+      .mockImplementationOnce(() => new Promise((_, reject) => (rejectRecipient = reject)))
+    const authorize = vi.fn(async () => true)
+    const operation = s.transfers.sendTransfer(
+      {
+        ...s.intent,
+        messages: [
+          { ...s.intent.messages[0], bounce: true },
+          { address: `0:${'33'.repeat(32)}`, amount: '1', bounce: true },
+        ],
+      },
+      authorize
+    )
+    expect(s.provider.getAccountInformation).toHaveBeenCalledTimes(2)
+    const rejected = expect(operation).rejects.toThrow('Locked')
+    s.lock()
+    await rejected
+    releaseSnapshot(structuredClone(s.snapshot))
+    releaseRecipient({ balance: '0', status: 'active' })
+    rejectRecipient(new Error('Late network failure'))
+    await new Promise<void>((resolve) => setImmediate(resolve))
+    expect(authorize).not.toHaveBeenCalled()
+    expect(s.provider.emulateTransaction).not.toHaveBeenCalled()
+    expect(s.provider.sendAndWatch).not.toHaveBeenCalled()
+    expect(s.changed).not.toHaveBeenCalled()
+    expect(s.data.size).toBe(0)
+  })
+
+  it('reconfirms when the freshly observed seqno changes during emulation', async () => {
+    const s = setup()
+    await s.journal.open(s.pair.secretKey, s.account)
+    let calls = 0
+    vi.mocked(s.provider.emulateTransaction).mockImplementation(async () => {
+      if (++calls === 2) {
+        const tail = s.contract.init.data!.beginParse()
+        tail.skip(33)
+        Object.assign(s.snapshot, {
+          status: 'active',
+          seqno: 1,
+          code_hash: s.contract.init.code!.hash().toString('hex'),
+          data_boc: beginCell().storeBit(true).storeUint(1, 32).storeSlice(tail).endCell().toBoc().toString('base64'),
+        })
+      }
+      return {
+        accepted: true,
+        success: true,
+        exit_code: 0,
+        total_fees: '100',
+        wallet_snapshot: structuredClone(s.snapshot),
+      }
+    })
+    const authorize = vi.fn(async () => true)
+    const operation = await s.transfers.signForRelay(s.intent, authorize)
+    expect(authorize).toHaveBeenCalledTimes(2)
+    expect(operation.seqno).toBe(1)
+    const body = loadMessage(Cell.fromBase64(operation.boc!).beginParse()).body.beginParse()
+    body.skip(96)
+    expect(body.loadUint(32)).toBe(1)
+  })
+
+  it.each([
+    ['balance', 'INSUFFICIENT_BALANCE'],
+    ['expiry', 'TRANSFER_EXPIRED'],
+    ['address', 'INVALID_ACCOUNT'],
+    ['frozen', 'INVALID_ACCOUNT'],
+    ['contract', 'INVALID_ACCOUNT'],
+    ['key', 'INVALID_ACCOUNT'],
+  ])('rejects changed final %s before signing or persisting', async (change, code) => {
+    const s = setup()
+    await s.journal.open(s.pair.secretKey, s.account)
+    vi.mocked(s.provider.emulateTransaction).mockImplementation(async (_address, _boc, context) => {
+      const final = structuredClone(s.snapshot)
+      if (context?.revalidate) {
+        if (change === 'balance') final.balance = '0'
+        if (change === 'expiry') final.block_time = 1300
+        if (change === 'address') final.address = `0:${'33'.repeat(32)}`
+        if (change === 'frozen') final.status = 'frozen'
+        if (change === 'contract' || change === 'key') {
+          final.status = 'active'
+          final.code_hash = change === 'contract' ? '00'.repeat(32) : s.contract.init.code!.hash().toString('hex')
+          final.data_boc = beginCell()
+            .storeBit(true)
+            .storeUint(0, 32)
+            .storeUint(0, 32)
+            .storeBuffer(Buffer.alloc(32, 9))
+            .endCell()
+            .toBoc()
+            .toString('base64')
+        }
+      }
+      return { accepted: true, success: true, exit_code: 0, total_fees: '100', wallet_snapshot: final }
+    })
+    const authorize = vi.fn(async () => true)
+    await expect(s.transfers.sendTransfer(s.intent, authorize)).rejects.toMatchObject({ code })
+    expect(authorize).toHaveBeenCalledOnce()
+    expect(s.data.size).toBe(0)
+    expect(s.provider.sendAndWatch).not.toHaveBeenCalled()
+  })
+
+  it.each(['context', 'signing state'])('fails closed when the verified %s is missing', async (missing) => {
+    const s = setup()
+    await s.journal.open(s.pair.secretKey, s.account)
+    if (missing === 'context') {
+      delete s.snapshot.emulation_context
+    } else {
+      vi.mocked(s.provider.emulateTransaction).mockResolvedValue({
+        accepted: true,
+        success: true,
+        exit_code: 0,
+        total_fees: '100',
+      })
+    }
+    await expect(s.transfers.sendTransfer(s.intent, async () => true)).rejects.toMatchObject({
+      code: 'TRANSFER_PREFLIGHT_FAILED',
+    })
+    expect(s.data.size).toBe(0)
+    expect(s.provider.sendAndWatch).not.toHaveBeenCalled()
+  })
+
+  it('aborts final emulation on lock and ignores the late validated state', async () => {
+    const s = setup()
+    await s.journal.open(s.pair.secretKey, s.account)
+    let complete!: (value: Awaited<ReturnType<WalletBridgePort['emulateTransaction']>>) => void
+    vi.mocked(s.provider.emulateTransaction).mockImplementation(async (_address, _boc, context) => {
+      if (context?.revalidate) return new Promise((resolve) => (complete = resolve))
+      return { accepted: true, success: true, exit_code: 0, total_fees: '100' }
+    })
+    const sending = s.transfers.sendTransfer(s.intent, async () => true)
+    const rejected = expect(sending).rejects.toThrow('Locked')
+    await vi.waitFor(() => expect(complete).toBeTypeOf('function'))
+    s.lock()
+    await rejected
+    complete({
+      accepted: true,
+      success: true,
+      exit_code: 0,
+      total_fees: '100',
+      wallet_snapshot: structuredClone(s.snapshot),
+    })
+    await new Promise<void>((resolve) => setImmediate(resolve))
+    expect(s.data.size).toBe(0)
+    expect(s.changed).not.toHaveBeenCalled()
+    expect(s.provider.sendAndWatch).not.toHaveBeenCalled()
+  })
+
+  it.each(['snapshot', 'recipient', 'emulation'] as const)(
     'reports a %s failure as preflight failure before authorization',
     async (stage) => {
       const s = setup()
       await s.journal.open(s.pair.secretKey, s.account)
       const cause = new Error('lite server error, code 651: cannot load block')
       if (stage === 'snapshot') vi.mocked(s.provider.getWalletSnapshot).mockRejectedValue(cause)
-      else vi.mocked(s.provider.emulateTransaction).mockRejectedValue(cause)
+      else if (stage === 'recipient') {
+        s.intent.messages[0].bounce = true
+        vi.mocked(s.provider.getAccountInformation).mockRejectedValue(cause)
+      } else vi.mocked(s.provider.emulateTransaction).mockRejectedValue(cause)
       const authorize = vi.fn(async () => true)
       await expect(s.transfers.sendTransfer(s.intent, authorize)).rejects.toMatchObject({
         code: 'TRANSFER_PREFLIGHT_FAILED',
@@ -487,6 +744,7 @@ describe('chain evidence and replay boundaries', () => {
       success: true,
       exit_code: 0,
       total_fees: fees.shift()!,
+      wallet_snapshot: structuredClone(s.snapshot),
     }))
     const approved: string[] = []
     const operation = await s.transfers.sendTransfer(s.intent, async (review) => {

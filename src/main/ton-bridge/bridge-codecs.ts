@@ -37,13 +37,6 @@ const EmulationFeesSchema = z.object({
   fwd_fee: z.string().regex(/^\d+$/),
   action_fee: z.string().regex(/^\d+$/),
 })
-export const EmulateTransactionResultSchema: z.ZodType<EmulateTransactionResult> = z.object({
-  accepted: z.boolean(),
-  success: z.boolean(),
-  exit_code: z.number().int(),
-  total_fees: z.string().regex(/^\d+$/),
-  fees: EmulationFeesSchema.optional(),
-})
 
 export const SeqnoResultSchema = z.object({
   seqno: z.union([z.number().int().nonnegative(), z.string().regex(/^\d+$/)]).transform((value) => Number(value)),
@@ -159,6 +152,7 @@ const BlockReferenceSchema = z.object({
   file_hash: z.string().regex(/^[0-9a-f]{64}$/),
 })
 export const WalletChainSnapshotSchema: z.ZodType<import('../../wallet-engine').WalletChainSnapshot> = z.object({
+  emulation_context: z.string().min(1).max(128).optional(),
   address: z.string(),
   balance: DecimalSchema,
   status: z.enum(['active', 'uninit', 'frozen']),
@@ -173,4 +167,13 @@ export const WalletChainSnapshotSchema: z.ZodType<import('../../wallet-engine').
   data_boc: z.string().optional(),
   block: BlockReferenceSchema,
   masterchain: BlockReferenceSchema,
+})
+
+export const EmulateTransactionResultSchema: z.ZodType<EmulateTransactionResult> = z.object({
+  accepted: z.boolean(),
+  success: z.boolean(),
+  exit_code: z.number().int(),
+  total_fees: z.string().regex(/^\d+$/),
+  fees: EmulationFeesSchema.optional(),
+  wallet_snapshot: WalletChainSnapshotSchema.optional(),
 })

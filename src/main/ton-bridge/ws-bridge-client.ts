@@ -50,6 +50,7 @@ type RpcParams = Record<string, unknown>
 type EventCallback = BridgeEventCallback
 
 export class WsBridgeClient {
+  private connectionRevision = 0
   private wsPort: number
   private transport: WebSocketTransport
   private nextId = 0
@@ -93,6 +94,7 @@ export class WsBridgeClient {
         log.debug(`Connected to bridge on port ${this.wsPort}`)
       },
       onDisconnect: (error) => {
+        this.connectionRevision++
         this.requestTracker.rejectAll(error)
         this.transactionWatcher.rejectAll(error)
       },
@@ -109,6 +111,7 @@ export class WsBridgeClient {
   }
 
   disconnect(): void {
+    this.connectionRevision++
     this.requestTracker.rejectAll(new Error('Client disconnected'))
     this.transactionWatcher.rejectAll(new Error('Client disconnected'))
     // Drain request queue
@@ -123,6 +126,10 @@ export class WsBridgeClient {
 
   isConnected(): boolean {
     return this.transport.isConnected()
+  }
+
+  getConnectionRevision(): number {
+    return this.connectionRevision
   }
 
   // --- Wallet operations ---
@@ -148,9 +155,12 @@ export class WsBridgeClient {
     }
   }
 
-  async getWalletSnapshot(address: string) {
+  async getWalletSnapshot(address: string, prepareEmulation = false) {
     return WalletChainSnapshotSchema.parse(
-      await this.request('wallet.getSnapshot', { address: Address.parse(address).toString({ bounceable: false }) })
+      await this.request('wallet.getSnapshot', {
+        address: Address.parse(address).toString({ bounceable: false }),
+        ...(prepareEmulation ? { prepare_emulation: true } : {}),
+      })
     )
   }
 
@@ -179,9 +189,18 @@ export class WsBridgeClient {
     return AccountInformationResultSchema.parse(await this.request('lite.getAccountState', { address }))
   }
 
-  async emulateTransaction(address: string, boc: string): Promise<EmulateTransactionResult> {
+  async emulateTransaction(
+    address: string,
+    boc: string,
+    context?: { id: string; revalidate: boolean }
+  ): Promise<EmulateTransactionResult> {
     return EmulateTransactionResultSchema.parse(
-      await this.request('lite.emulateTransaction', { address, boc, ignore_chksig: true })
+      await this.request('lite.emulateTransaction', {
+        address,
+        boc,
+        ignore_chksig: true,
+        ...(context ? { emulation_context: context.id, revalidate_wallet: context.revalidate } : {}),
+      })
     )
   }
 

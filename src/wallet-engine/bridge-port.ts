@@ -7,7 +7,8 @@ import type {
 } from './network-types'
 
 export interface WalletBridgePort {
-  getWalletSnapshot(address: string): Promise<import('./network-types').WalletChainSnapshot>
+  getConnectionRevision?(): number
+  getWalletSnapshot(address: string, prepareEmulation?: boolean): Promise<import('./network-types').WalletChainSnapshot>
   getRawTransactions(
     address: string,
     limit: number,
@@ -17,7 +18,11 @@ export interface WalletBridgePort {
   ): Promise<BridgeTransaction[]>
   getBalance(address: string): Promise<string>
   getAccountInformation(address: string): Promise<AccountInformationResult>
-  emulateTransaction(address: string, boc: string): Promise<EmulateTransactionResult>
+  emulateTransaction(
+    address: string,
+    boc: string,
+    context?: { id: string; revalidate: boolean }
+  ): Promise<EmulateTransactionResult>
   getSeqno(address: string): Promise<number>
   getTransactions(address: string, limit?: number, lastLt?: string, lastHash?: string): Promise<BridgeTransaction[]>
   sendAndWatch(boc: Buffer): Promise<string>

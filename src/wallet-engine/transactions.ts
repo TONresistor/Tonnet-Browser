@@ -10,6 +10,7 @@ import {
 } from '@ton/core'
 import { randomUUID } from 'node:crypto'
 import type { WalletBridgePort } from './bridge-port'
+import type { WalletChainSnapshot } from './network-types'
 import type { WalletIdentitySnapshot } from './wallet-identity'
 import type { SupportedWalletContract } from './wallet-versions'
 import { OperationJournal, intentFingerprint, isOperationPending, type WalletOperation } from './journal'
@@ -139,8 +140,14 @@ export class WalletTransfers {
       )
     })
   }
-  private async chain(token: ReturnType<WalletTransfers['capture']>) {
-    const snapshot = await this.observed(this.host.provider().getWalletSnapshot(token.identity.addressRaw), token)
+  private async chain(token: ReturnType<WalletTransfers['capture']>, prepareEmulation = false) {
+    const snapshot = await this.observed(
+      this.host.provider().getWalletSnapshot(token.identity.addressRaw, prepareEmulation),
+      token
+    )
+    return this.validateSnapshot(snapshot, token)
+  }
+  private validateSnapshot(snapshot: WalletChainSnapshot, token: ReturnType<WalletTransfers['capture']>) {
     this.check(token)
     if (
       !Address.parse(snapshot.address).equals(Address.parse(token.identity.addressRaw)) ||
@@ -166,9 +173,13 @@ export class WalletTransfers {
     const token = this.capture()
     return (await this.prepareTransfer(intent, token)).review
   }
-  private async prepareTransfer(intent: TransferIntent, token: ReturnType<WalletTransfers['capture']>) {
+  private async prepareTransfer(
+    intent: TransferIntent,
+    token: ReturnType<WalletTransfers['capture']>,
+    revalidate = false
+  ) {
     try {
-      return await this.loadTransferReview(intent, token)
+      return await this.loadTransferReview(intent, token, revalidate)
     } catch (error) {
       this.check(token)
       if (error instanceof WalletEngineError) throw error
@@ -181,9 +192,31 @@ export class WalletTransfers {
       throw failure
     }
   }
-  private async loadTransferReview(intent: TransferIntent, token: ReturnType<WalletTransfers['capture']>) {
+  private async loadTransferReview(
+    intent: TransferIntent,
+    token: ReturnType<WalletTransfers['capture']>,
+    revalidate: boolean
+  ) {
     const messages = messagesFor(intent)
-    const snapshot = await this.chain(token)
+    const [snapshot, destinations] = await this.observed(
+      Promise.all([
+        this.chain(token, true),
+        Promise.all(
+          messages.map(async (message) => {
+            const info = message.info
+            if (info.type !== 'internal') throw new Error('Expected internal message')
+            if (!info.bounce) return 'unknown'
+            const destination = await this.host.provider().getAccountInformation(info.dest.toString())
+            this.check(token)
+            if (destination.status !== 'active')
+              throw new WalletEngineError('INVALID_RECIPIENT', 'Bounceable recipient is not an active contract')
+            return destination.status
+          })
+        ),
+      ]),
+      token
+    )
+    this.check(token)
     const validUntil = Math.min(
       snapshot.block_time + (intent.timeoutSeconds ?? 300),
       intent.validUntil ?? Number.MAX_SAFE_INTEGER
@@ -195,18 +228,9 @@ export class WalletTransfers {
       (intent.timeoutSeconds ?? 300) < 1
     )
       throw new WalletEngineError('TRANSFER_EXPIRED', 'Transaction expired')
-    const destinations: string[] = []
-    for (const message of messages) {
-      const info = message.info
-      if (info.type !== 'internal') throw new Error('Expected internal message')
-      const destination = await this.host.provider().getAccountInformation(info.dest.toString())
-      this.check(token)
-      if (info.bounce && destination.status !== 'active')
-        throw new WalletEngineError('INVALID_RECIPIENT', 'Bounceable recipient is not an active contract')
-      destinations.push(destination.status)
-    }
     const first = messages[0].info
     if (first.type !== 'internal') throw new Error('Expected internal message')
+    if (!snapshot.emulation_context) throw new Error('Verified wallet emulation context is unavailable')
     const preview = await preflightTonTransfer({
       walletContract: this.host.contract(),
       destinationBounceable: first.bounce,
@@ -216,9 +240,18 @@ export class WalletTransfers {
       messages,
       seqno: snapshot.seqno,
       validUntil,
-      emulateTransaction: (address, boc) => this.host.provider().emulateTransaction(address, boc),
+      emulateTransaction: (address, boc) =>
+        this.observed(
+          this.host.provider().emulateTransaction(address, boc, {
+            id: snapshot.emulation_context!,
+            revalidate,
+          }),
+          token
+        ),
     })
     this.check(token)
+    if (revalidate && !preview.signingSnapshot) throw new Error('Fresh wallet signing state is unavailable')
+    const signingSnapshot = preview.signingSnapshot ? this.validateSnapshot(preview.signingSnapshot, token) : snapshot
     const fee = BigInt(preview.estimatedFee)
     const total = intent.messages.reduce((sum, msg) => sum + BigInt(msg.amount), 0n)
     if (total + fee > BigInt(snapshot.balance))
@@ -231,7 +264,7 @@ export class WalletTransfers {
       walletBalance: snapshot.balance,
       validUntil,
     }
-    return { review, snapshot }
+    return { review, snapshot, signingSnapshot }
   }
   sendTransfer(intent: TransferIntent, authorize?: TransferAuthorization): Promise<WalletOperation> {
     return this.execute(intent, 'direct', authorize)
@@ -301,8 +334,8 @@ export class WalletTransfers {
       if (!authorize || !(await this.observed(authorize(structuredClone(prepared.review)), token)))
         throw new WalletEngineError('USER_CANCELLED', 'Transfer cancelled')
       this.check(token)
-      const fresh = await this.prepareTransfer({ ...intent, validUntil: prepared.review.validUntil }, token)
-      snapshot = await this.chain(token)
+      const fresh = await this.prepareTransfer({ ...intent, validUntil: prepared.review.validUntil }, token, true)
+      snapshot = fresh.signingSnapshot
       if (
         BigInt(fresh.review.estimatedFee) > BigInt(prepared.review.estimatedFee) ||
         snapshot.seqno !== fresh.snapshot.seqno

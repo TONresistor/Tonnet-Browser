@@ -170,6 +170,7 @@ export class WalletEngine extends EventEmitter {
     })
     this.disposeHistoryChanged = options.history.onChanged(() => this.publishSnapshot())
     this.disposeBridgeChanged = this.bridgeProvider.onBridgeChanged((bridge) => {
+      this.queryService.clearRecipientCache()
       this.balanceGeneration++
       this.unsubscribeAccount()
       if (!bridge || !this.initialized || !this.walletContract) return
@@ -714,6 +715,7 @@ export class WalletEngine extends EventEmitter {
 
   destroy(): void {
     this.closed = true
+    this.queryService.clearRecipientCache()
     this.rejectSnapshotWaiters()
     this.runtime.stopSubscription()
     this.disposeBridgeChanged()
