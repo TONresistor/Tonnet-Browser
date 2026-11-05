@@ -11,6 +11,7 @@ import type { WalletBridgePort } from '../bridge-port'
 import { WalletEngine, type WalletEngineOptions } from '../engine'
 import { deriveWalletAccount } from '../wallet-versions'
 import { WalletHistoryManager } from '../history'
+import { createLogger } from '../logger'
 import type { JournalStore, SecureStorage, VaultPersistence } from '../ports'
 import { writeSecureFileAtomic } from '../../main/utils/secure-fs'
 import {
@@ -227,7 +228,8 @@ describe('wallet lifecycle with real cryptography and no Electron', () => {
 })
 
 it('rebuilds edited reviews and signs the exact prepared encrypted comment', async () => {
-  const s = await fixture(true)
+  const event = vi.fn()
+  const s = await fixture(true, { logger: { ...createLogger('test'), event } })
   try {
     const created = await s.engine.create({ password: 'correct horse battery staple' })
     const challenge = await s.engine.createBackupChallenge('correct horse battery staple')
@@ -272,6 +274,25 @@ it('rebuilds edited reviews and signs the exact prepared encrypted comment', asy
     expect(outgoingBody(operation.boc!).equals(Cell.fromBase64(operation.messages[0].payload!))).toBe(true)
     expect(result).toMatchObject({ comment: 'Thanks', commentEncrypted: true, status: 'pending' })
     expect(s.provider.sendAndWatch).toHaveBeenCalledOnce()
+    const timings = event.mock.calls.filter(([, name]) => name === 'wallet.transfer.timing')
+    const mainPhases = new Set(['preparation', 'revalidation', 'reconciliation', 'send-total'])
+    expect(timings.map(([, , , fields]) => fields.phase).filter((phase) => mainPhases.has(phase))).toEqual([
+      'preparation',
+      'preparation',
+      'preparation',
+      'revalidation',
+      'reconciliation',
+      'send-total',
+    ])
+    expect(timings.filter(([, , , fields]) => fields.phase === 'preparation-state-read')).toHaveLength(3)
+    expect(timings.filter(([, , , fields]) => fields.phase === 'preparation-encrypted-comment')).toHaveLength(1)
+    for (const [, , , fields] of timings) {
+      expect(Object.keys(fields).sort()).toEqual(
+        fields.phase === 'reconciliation' ? ['durationMs', 'phase', 'source'] : ['durationMs', 'phase']
+      )
+      expect(fields.durationMs).toBeGreaterThanOrEqual(0)
+      if (fields.phase === 'reconciliation') expect(fields.source).toBe('fallback')
+    }
     created.mnemonic.fill('')
   } finally {
     await s.engine.shutdown()

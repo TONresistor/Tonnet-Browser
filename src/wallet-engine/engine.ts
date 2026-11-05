@@ -140,6 +140,7 @@ export class WalletEngine extends EventEmitter {
         withSecret: (operation) => this.signWithKeyUnlocked(operation),
         changed: (operation) => this.publishOperation(operation),
         submissionFailed: (error) => this.log.warn('Wallet submission was not confirmed:', error),
+        timing: (phase, durationMs, source) => this.logTransferTiming(phase, durationMs, source),
       },
       this.journal
     )
@@ -977,16 +978,21 @@ export class WalletEngine extends EventEmitter {
         )
       return this.operationTransaction(prior)
     }
+    let preparationStarted = performance.now()
+    let sendingStarted: number | undefined
     const recipient = await this.resolveRecipient(input.to)
     this.assertWalletIdentity(identity)
     if (session !== this.sessionRevision) throw new Error('Wallet session changed')
+    this.logTransferTiming('preparation-recipient', Math.round(performance.now() - preparationStarted))
     let comment = input.comment
     let encrypted = Boolean(input.encrypted && comment)
     for (;;) {
       let changed: Awaited<ReturnType<typeof authorize>> | null = null
+      const commentStarted = performance.now()
       const body =
         encrypted && comment ? await this.prepareEncryptedComment(recipient.address, comment, identity) : undefined
       if (session !== this.sessionRevision) throw new Error('Wallet session changed')
+      if (body) this.logTransferTiming('preparation-encrypted-comment', Math.round(performance.now() - commentStarted))
       const message = createTonTransferMessage(recipient.address, input.amount, comment, body).message
       try {
         const operation = await this.transfers.sendTransfer(
@@ -1005,12 +1011,15 @@ export class WalletEngine extends EventEmitter {
             ],
           },
           async (review) => {
+            this.logTransferTiming('preparation', Math.round(performance.now() - preparationStarted))
             const decision = await authorize({
               ...review,
               domain: recipient.domain,
               comment,
               commentEncrypted: encrypted,
             })
+            preparationStarted = performance.now()
+            if (decision.action === 'approve') sendingStarted = preparationStarted
             if (decision.action === 'set-memo' || decision.action === 'set-encryption') {
               changed = decision
               throw new Error('REVIEW_EDIT')
@@ -1029,6 +1038,8 @@ export class WalletEngine extends EventEmitter {
             true
           )
         const tx = this.operationTransaction(current)
+        if (sendingStarted !== undefined)
+          this.logTransferTiming('send-total', Math.round(performance.now() - sendingStarted))
         return tx
       } catch (error) {
         if (!changed) throw error
@@ -1042,7 +1053,18 @@ export class WalletEngine extends EventEmitter {
       }
     }
   }
-
+  // Temporary latency diagnostics, using the application's existing request context.
+  private logTransferTiming(phase: string, durationMs: number, source?: 'receipt' | 'fallback'): void {
+    try {
+      this.log.event('info', 'wallet.transfer.timing', 'Wallet transfer timing', {
+        phase,
+        durationMs,
+        ...(source ? { source } : {}),
+      })
+    } catch {
+      /* diagnostics only */
+    }
+  }
   private operationTransaction(op: WalletOperation): WalletTransaction {
     return {
       id: op.id,

@@ -54,6 +54,7 @@ export interface TransferHost {
   withSecret<T>(operation: (key: Buffer) => T): Promise<T>
   changed(operation: WalletOperation): void
   submissionFailed?(error: unknown): void
+  timing?(phase: string, durationMs: number, source?: 'receipt' | 'fallback'): void
 }
 export function normalizedExternalHash(boc: string): string {
   const msg = loadMessage(Cell.fromBase64(boc).beginParse())
@@ -102,6 +103,21 @@ export class WalletTransfers {
   ) {}
   setJournal(journal: OperationJournal): void {
     this.journal = journal
+  }
+  // Temporary latency diagnostics; timing failures must not affect transfers.
+  private async measured<T>(phase: string, run: () => Promise<T>, source?: () => 'receipt' | 'fallback'): Promise<T> {
+    const started = performance.now()
+    try {
+      return await run()
+    } finally {
+      try {
+        const durationMs = Math.round(performance.now() - started)
+        if (source) this.host.timing?.(phase, durationMs, source())
+        else this.host.timing?.(phase, durationMs)
+      } catch {
+        /* diagnostics only */
+      }
+    }
   }
   private capture(): { identity: WalletIdentitySnapshot; session: number; signal?: AbortSignal } {
     this.host.assertReady()
@@ -218,9 +234,10 @@ export class WalletTransfers {
     revalidate: boolean
   ) {
     const messages = messagesFor(intent)
+    const phase = revalidate ? 'revalidation' : 'preparation'
     const [snapshot, destinations] = await this.observed(
       Promise.all([
-        this.chain(token, true),
+        this.measured(`${phase}-state-read`, () => this.chain(token, true)),
         Promise.all(
           messages.map(async (message) => {
             const info = message.info
@@ -261,12 +278,14 @@ export class WalletTransfers {
       seqno: snapshot.seqno,
       validUntil,
       emulateTransaction: (address, boc) =>
-        this.observed(
-          this.host.provider().emulateTransaction(address, boc, {
-            id: snapshot.emulation_context!,
-            revalidate,
-          }),
-          token
+        this.measured(`${phase}-emulation-rpc`, () =>
+          this.observed(
+            this.host.provider().emulateTransaction(address, boc, {
+              id: snapshot.emulation_context!,
+              revalidate,
+            }),
+            token
+          )
         ),
     })
     this.check(token)
@@ -360,7 +379,9 @@ export class WalletTransfers {
       if (!authorize || !(await this.observed(authorize(structuredClone(prepared.review)), token)))
         throw new WalletEngineError('USER_CANCELLED', 'Transfer cancelled')
       this.check(token)
-      const fresh = await this.prepareTransfer({ ...intent, validUntil: prepared.review.validUntil }, token, true)
+      const fresh = await this.measured('revalidation', () =>
+        this.prepareTransfer({ ...intent, validUntil: prepared.review.validUntil }, token, true)
+      )
       this.check(token)
       snapshot = fresh.signingSnapshot
       if (
@@ -466,19 +487,29 @@ export class WalletTransfers {
       if (!op.closed && op.phase !== 'submitted') op = { ...op, phase: 'unknown' }
       this.reportSubmissionFailure(error)
     }
-    await this.journal.save(op)
-    this.check(token)
-    if (typeof result === 'object' && result) {
-      try {
-        await this.resolve(result, op.id)
-      } catch (error) {
+    let source: 'receipt' | 'fallback' = 'fallback'
+    await this.measured(
+      'reconciliation',
+      async () => {
+        await this.journal.save(op)
         this.check(token)
-        this.reportSubmissionFailure(error)
-      }
-    }
-    this.check(token)
-    const pending = this.journal.get(op.id)
-    if (pending && isOperationPending(pending)) await this.resolveAfterSubmission(token)
+        if (typeof result === 'object' && result) {
+          try {
+            if (await this.resolve(result, op.id)) source = 'receipt'
+          } catch (error) {
+            this.check(token)
+            this.reportSubmissionFailure(error)
+          }
+        }
+        this.check(token)
+        const current = this.journal.get(op.id)
+        if (current && isOperationPending(current)) {
+          source = 'fallback'
+          await this.resolveAfterSubmission(token)
+        }
+      },
+      () => source
+    )
     this.check(token)
     const current = this.journal.get(op.id) ?? op
     this.host.changed(current)

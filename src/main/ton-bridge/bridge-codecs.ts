@@ -196,3 +196,10 @@ export const EmulateTransactionResultSchema: z.ZodType<EmulateTransactionResult>
   fees: EmulationFeesSchema.optional(),
   wallet_snapshot: WalletChainSnapshotSchema.optional(),
 })
+
+// Temporary diagnostics are parsed separately so they cannot reject a valid wallet result.
+export const EmulationTimingsSchema = z.object({
+  emulation_ms: z.number().finite().nonnegative(),
+  final_block_check_ms: z.number().finite().nonnegative().optional(),
+  wallet_reread: z.boolean().optional(),
+})

@@ -12,6 +12,7 @@ import {
   AccountBalanceResultSchema,
   AccountInformationResultSchema,
   EmulateTransactionResultSchema,
+  EmulationTimingsSchema,
   BridgeAccountStateSchema,
   BridgeTransactionsResultSchema,
   BridgeTransactionSchema,
@@ -201,6 +202,27 @@ export class WsBridgeClient {
       ...(context ? { emulation_context: context.id, revalidate_wallet: context.revalidate } : {}),
     })
     const parsed = EmulateTransactionResultSchema.parse(result)
+    // Temporary diagnostics only; no raw message, address or payload is logged.
+    if (context && typeof result === 'object' && result !== null && 'timings' in result) {
+      const timings = EmulationTimingsSchema.safeParse(result.timings)
+      if (timings.success) {
+        const phase = context.revalidate ? 'revalidation' : 'preparation'
+        try {
+          log.event('info', 'wallet.transfer.timing', 'Wallet transfer timing', {
+            phase: `${phase}-emulation`,
+            durationMs: Math.round(timings.data.emulation_ms),
+          })
+          if (timings.data.final_block_check_ms !== undefined)
+            log.event('info', 'wallet.transfer.timing', 'Wallet transfer timing', {
+              phase: `${phase}-final-block-check`,
+              durationMs: Math.round(timings.data.final_block_check_ms),
+              walletReread: timings.data.wallet_reread,
+            })
+        } catch {
+          /* diagnostics only */
+        }
+      }
+    }
     return parsed
   }
 

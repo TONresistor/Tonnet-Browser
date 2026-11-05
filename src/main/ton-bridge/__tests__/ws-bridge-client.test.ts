@@ -3,7 +3,19 @@ import { Address } from '@ton/core'
 import { WsBridgeClient } from '../ws-bridge-client'
 import fixture from './fixtures/tonutils-bridge-v0.5.1.json'
 
-afterEach(() => vi.useRealTimers())
+const logging = vi.hoisted(() => ({ event: vi.fn() }))
+vi.mock('../../../shared/logger', async (importOriginal) => {
+  const original = await importOriginal<typeof import('../../../shared/logger')>()
+  return {
+    ...original,
+    createLogger: (scope: string) => ({ ...original.createLogger(scope), event: logging.event }),
+  }
+})
+
+afterEach(() => {
+  vi.useRealTimers()
+  logging.event.mockReset()
+})
 
 describe('WsBridgeClient queued requests', () => {
   it('invalidates connection-scoped reads when the client is disconnected', () => {
@@ -118,6 +130,62 @@ describe('wallet bridge address encoding', () => {
       include_boc: true,
       master_seqno: 123,
     })
+    client.disconnect()
+  })
+
+  it.each([false, true])(
+    'logs native emulation details for revalidation=%s without exposing the raw result',
+    async (revalidate) => {
+      const { client, rpc } = clientWithRpc({
+        ...fixture.responses['lite.emulateTransaction'],
+        timings: {
+          emulation_ms: 17,
+          ...(revalidate ? { final_block_check_ms: 88, wallet_reread: true } : {}),
+          boc: 'private-boc',
+        },
+      })
+      const result = await client.emulateTransaction(friendly, 'private-boc', { id: 'wallet_1', revalidate })
+      expect(result).toMatchObject({ accepted: true, success: true, total_fees: '42' })
+      expect(result).not.toHaveProperty('timings')
+      const phase = revalidate ? 'revalidation' : 'preparation'
+      expect(logging.event.mock.calls).toEqual([
+        ['info', 'wallet.transfer.timing', 'Wallet transfer timing', { phase: `${phase}-emulation`, durationMs: 17 }],
+        ...(revalidate
+          ? [
+              [
+                'info',
+                'wallet.transfer.timing',
+                'Wallet transfer timing',
+                { phase: `${phase}-final-block-check`, durationMs: 88, walletReread: true },
+              ],
+            ]
+          : []),
+      ])
+      expect(rpc).toHaveBeenCalledOnce()
+      client.disconnect()
+    }
+  )
+
+  it.each([undefined, { emulation_ms: -1 }, { emulation_ms: 'invalid' }])(
+    'ignores unavailable or malformed timing data: %s',
+    async (timings) => {
+      const { client } = clientWithRpc({ ...fixture.responses['lite.emulateTransaction'], timings })
+      await expect(
+        client.emulateTransaction(friendly, 'boc', { id: 'wallet_1', revalidate: false })
+      ).resolves.toMatchObject({ accepted: true, total_fees: '42' })
+      expect(logging.event).not.toHaveBeenCalled()
+      client.disconnect()
+    }
+  )
+
+  it('does not let native diagnostic logging change an emulation result', async () => {
+    logging.event.mockImplementation(() => {
+      throw new Error('Logger unavailable')
+    })
+    const { client } = clientWithRpc({ ...fixture.responses['lite.emulateTransaction'], timings: { emulation_ms: 1 } })
+    await expect(
+      client.emulateTransaction(friendly, 'boc', { id: 'wallet_1', revalidate: false })
+    ).resolves.toMatchObject({ accepted: true, total_fees: '42' })
     client.disconnect()
   })
 })

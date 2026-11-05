@@ -5,8 +5,11 @@ import {
   WalletConfirmationReceiptSchema,
 } from './bridge-codecs'
 import type { BridgeEventCallback } from './bridge-event-bus'
+import { createLogger } from '../../shared/logger'
 import { Cell } from '@ton/core'
 import type { WalletConfirmationReceipt } from '../../wallet-engine'
+
+const log = createLogger('ton-bridge:watch')
 
 type Request = (method: string, params: Record<string, unknown>) => Promise<unknown>
 
@@ -33,9 +36,11 @@ export class BridgeTransactionWatcher {
     boc: Buffer,
     onSubmitted?: (messageHash: string) => Promise<void>
   ): Promise<string | WalletConfirmationReceipt> {
+    const started = performance.now()
     const cells = Cell.fromBoc(boc)
     if (cells.length !== 1) throw new Error('Expected one signed external message')
     const expectedHash = cells[0].hash().toString('hex')
+    let acknowledgedAt: number | undefined
     let subscriptionId: string | undefined
     let unsubscribed = false
     let timer: ReturnType<typeof setTimeout> | undefined
@@ -91,6 +96,7 @@ export class BridgeTransactionWatcher {
       if (settled) unsubscribe()
       if (result.msg_hash !== expectedHash)
         throw new Error('Broadcast acknowledgement does not match the signed message')
+      acknowledgedAt = performance.now()
       if (!settled)
         timer = setTimeout(
           () => rejectWatch(new Error(`Transaction confirmation timeout (${this.timeoutMs}ms)`)),
@@ -101,6 +107,22 @@ export class BridgeTransactionWatcher {
     } catch (error) {
       rejectWatch(error instanceof Error ? error : new Error(String(error)))
       throw error
+    } finally {
+      // Keep logging after listener setup/settlement and in the caller's request context.
+      const finished = performance.now()
+      try {
+        log.event('info', 'wallet.transfer.timing', 'Wallet transfer timing', {
+          phase: 'broadcast',
+          durationMs: Math.round((acknowledgedAt ?? finished) - started),
+        })
+        if (acknowledgedAt !== undefined)
+          log.event('info', 'wallet.transfer.timing', 'Wallet transfer timing', {
+            phase: 'confirmation',
+            durationMs: Math.round(finished - acknowledgedAt),
+          })
+      } catch {
+        /* diagnostics only */
+      }
     }
   }
 

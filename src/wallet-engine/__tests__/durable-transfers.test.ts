@@ -81,6 +81,7 @@ function setup(version: 'v3R1' | 'v3R2' | 'v4R2' | 'v5R1' = 'v5R1') {
     getRawTransactions: vi.fn(async () => []),
   } as unknown as WalletBridgePort
   const changed = vi.fn()
+  const timing = vi.fn()
   const signing = vi.fn()
   const submissionFailed = vi.fn()
   const transfers = new WalletTransfers(
@@ -98,6 +99,7 @@ function setup(version: 'v3R1' | 'v3R2' | 'v4R2' | 'v5R1' = 'v5R1') {
         return fn(pair.secretKey)
       },
       changed,
+      timing,
       submissionFailed,
     },
     journal
@@ -118,6 +120,7 @@ function setup(version: 'v3R1' | 'v3R2' | 'v4R2' | 'v5R1' = 'v5R1') {
     provider,
     transfers,
     changed,
+    timing,
     signing,
     submissionFailed,
     intent,
@@ -130,6 +133,75 @@ function setup(version: 'v3R1' | 'v3R2' | 'v4R2' | 'v5R1' = 'v5R1') {
 }
 
 describe('durable wallet transfers without Electron', () => {
+  it('times revalidation and reconciliation without counting the user decision', async () => {
+    let now = 0
+    const clock = vi.spyOn(performance, 'now').mockImplementation(() => now)
+    const s = setup()
+    try {
+      await s.journal.open(s.pair.secretKey, s.account)
+      vi.mocked(s.provider.getWalletSnapshot).mockImplementation(async () => {
+        now += 50
+        return structuredClone(s.snapshot)
+      })
+      vi.mocked(s.provider.emulateTransaction).mockImplementation(async (_address, _boc, context) => {
+        if (context?.revalidate) now += 125
+        return {
+          accepted: true,
+          success: true,
+          exit_code: 0,
+          total_fees: '100',
+          wallet_snapshot: structuredClone(s.snapshot),
+        }
+      })
+      const operation = await s.transfers.sendTransfer(s.intent, async () => {
+        now += 10_000
+        return true
+      })
+      expect(s.timing.mock.calls).toEqual([
+        ['preparation-state-read', 50],
+        ['preparation-emulation-rpc', 0],
+        ['revalidation-state-read', 50],
+        ['revalidation-emulation-rpc', 125],
+        ['revalidation', 175],
+        ['reconciliation', 100, 'fallback'],
+      ])
+      const recorded = s.timing.mock.calls.length
+      await s.transfers.sendTransfer(s.intent)
+      expect(s.timing).toHaveBeenCalledTimes(recorded)
+      expect(s.provider.sendAndWatch).toHaveBeenCalledOnce()
+      expect(operation.boc).toBe(s.journal.get(operation.id)?.boc)
+    } finally {
+      clock.mockRestore()
+    }
+  })
+
+  it('does not change a transfer when diagnostic recording fails', async () => {
+    const s = setup()
+    await s.journal.open(s.pair.secretKey, s.account)
+    s.timing.mockImplementation(() => {
+      throw new Error('Logger unavailable')
+    })
+    await expect(s.transfers.signForRelay(s.intent, async () => true)).resolves.toMatchObject({ phase: 'handed-off' })
+    expect(s.journal.get(s.intent.operationId)?.boc).toBeTruthy()
+  })
+
+  it.each(['revalidation', 'reconciliation'])('checks the session again after recording %s', async (phase) => {
+    const s = setup()
+    await s.journal.open(s.pair.secretKey, s.account)
+    let publishedAtLock = -1
+    s.timing.mockImplementation((current) => {
+      if (current === phase) {
+        publishedAtLock = s.changed.mock.calls.length
+        s.lock()
+      }
+    })
+    await expect(s.transfers.sendTransfer(s.intent, async () => true)).rejects.toThrow('Locked')
+    expect(s.changed).toHaveBeenCalledTimes(publishedAtLock)
+    expect(s.signing).toHaveBeenCalledTimes(phase === 'revalidation' ? 0 : 1)
+    if (phase === 'revalidation') expect(s.provider.sendAndWatch).not.toHaveBeenCalled()
+    else expect(s.data.size).toBe(1)
+  })
+
   it.each([undefined, false])('skips recipient reads when bounce is %s', async (bounce) => {
     const s = setup()
     await s.journal.open(s.pair.secretKey, s.account)
@@ -660,6 +732,7 @@ describe('chain evidence and replay boundaries', () => {
       expect(s.provider.getWalletSnapshot).toHaveBeenCalledTimes(2)
       expect(s.provider.getRawTransactions).not.toHaveBeenCalled()
       expect(s.signing).toHaveBeenCalledOnce()
+      expect(s.timing).toHaveBeenCalledWith('reconciliation', expect.any(Number), 'receipt')
     }
   )
 
@@ -838,6 +911,7 @@ describe('chain evidence and replay boundaries', () => {
         closed: false,
       })
       expect(s.provider.getWalletSnapshot).toHaveBeenCalledTimes(3)
+      expect(s.timing).toHaveBeenCalledWith('reconciliation', expect.any(Number), 'fallback')
       expect(s.provider.broadcast).not.toHaveBeenCalled()
       expect(s.signing).toHaveBeenCalledOnce()
     }

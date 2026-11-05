@@ -1,11 +1,15 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { BridgeEventBus } from '../bridge-event-bus'
 import { BridgeTransactionWatcher } from '../bridge-transaction-watcher'
+import { AsyncLocalStorage } from 'node:async_hooks'
 import { beginCell } from '@ton/core'
 
 const MESSAGE = beginCell().endCell()
 const BOC = MESSAGE.toBoc()
 const HASH = MESSAGE.hash().toString('hex')
+
+const logging = vi.hoisted(() => ({ event: vi.fn() }))
+vi.mock('../../../shared/logger', () => ({ createLogger: () => logging }))
 
 function setup(timeoutMs = 1_000) {
   const bus = new BridgeEventBus(vi.fn())
@@ -22,6 +26,7 @@ function setup(timeoutMs = 1_000) {
 afterEach(() => {
   vi.useRealTimers()
   vi.restoreAllMocks()
+  logging.event.mockReset()
 })
 
 describe('BridgeTransactionWatcher', () => {
@@ -91,6 +96,56 @@ describe('BridgeTransactionWatcher', () => {
     bus.emit('tx_confirmed', { msg_hash: HASH, transaction: { hash: 'tx-hash' } })
     reject(new Error('Disk full'))
     await rejected
+    expect(unsubscribe).toHaveBeenCalledOnce()
+  })
+
+  it('separates broadcast and confirmation timing and preserves the caller context', async () => {
+    let now = 0
+    vi.spyOn(performance, 'now').mockImplementation(() => now)
+    const context = new AsyncLocalStorage<string>()
+    const contexts: Array<string | undefined> = []
+    logging.event.mockImplementation(() => contexts.push(context.getStore()))
+    const { bus, request, watcher } = setup()
+    let acknowledge!: (value: { subscription_id: string; msg_hash: string }) => void
+    request.mockImplementationOnce(() => new Promise((resolve) => (acknowledge = resolve)))
+    const result = context.run('send-request', () => watcher.sendAndWatch(BOC))
+    now = 120
+    acknowledge({ subscription_id: 'sub', msg_hash: HASH })
+    await vi.waitFor(() => expect(bus.listenerCount('tx_confirmed')).toBe(1))
+    now = 460
+    bus.emit('tx_confirmed', { msg_hash: HASH, transaction: { hash: 'tx-hash' } })
+    await expect(result).resolves.toBe('tx-hash')
+    expect(logging.event.mock.calls).toEqual([
+      ['info', 'wallet.transfer.timing', 'Wallet transfer timing', { phase: 'broadcast', durationMs: 120 }],
+      ['info', 'wallet.transfer.timing', 'Wallet transfer timing', { phase: 'confirmation', durationMs: 340 }],
+    ])
+    expect(contexts).toEqual(['send-request', 'send-request'])
+    expect(request).toHaveBeenCalledOnce()
+  })
+
+  it('records a failed broadcast without inventing a confirmation duration', async () => {
+    let now = 0
+    vi.spyOn(performance, 'now').mockImplementation(() => now)
+    const { request, watcher } = setup()
+    request.mockImplementationOnce(async () => {
+      now = 75
+      throw new Error('Disconnected')
+    })
+    await expect(watcher.sendAndWatch(BOC)).rejects.toThrow('Disconnected')
+    expect(logging.event.mock.calls).toEqual([
+      ['info', 'wallet.transfer.timing', 'Wallet transfer timing', { phase: 'broadcast', durationMs: 75 }],
+    ])
+  })
+
+  it('preserves confirmation and subscription cleanup when diagnostic logging fails', async () => {
+    logging.event.mockImplementation(() => {
+      throw new Error('Logger unavailable')
+    })
+    const { bus, watcher, unsubscribe } = setup()
+    const result = watcher.sendAndWatch(BOC)
+    await vi.waitFor(() => expect(bus.listenerCount('tx_confirmed')).toBe(1))
+    bus.emit('tx_confirmed', { msg_hash: HASH, transaction: { hash: 'tx-hash' } })
+    await expect(result).resolves.toBe('tx-hash')
     expect(unsubscribe).toHaveBeenCalledOnce()
   })
 
