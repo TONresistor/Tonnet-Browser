@@ -4,8 +4,8 @@
     {
       "name": "tonutils-proxy",
       "repo": "TONresistor/Tonutils-Proxy",
-      "version": "v1.10.1",
-      "commit": "e43ef6d765b50ac1df0ec9becad9d8780a7bdf18",
+      "version": "v1.11.0",
+      "commit": "e7f2adfb11a019a677aa8b62b1d4f066c25532f6",
       "entry_point": "./cmd/proxy-cli/",
       "ldflags": "-s -w -X main.GitCommit=${VERSION}"
     },
