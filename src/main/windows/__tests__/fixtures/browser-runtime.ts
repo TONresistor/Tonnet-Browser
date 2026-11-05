@@ -1,5 +1,5 @@
 /** Isolated Electron fixture: real tab lifecycle/preload, local proxy, disposable profile. */
-import { app, BrowserWindow } from 'electron'
+import { app, BrowserWindow, safeStorage } from 'electron'
 import { mkdirSync } from 'node:fs'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { createServer } from 'node:http'
@@ -15,7 +15,7 @@ const report = (message: string): void => {
 if (!profile) throw new Error('Runtime checks require a disposable profile')
 mkdirSync(join(profile, 'logs'), { recursive: true })
 if (process.platform === 'darwin') app.commandLine.appendSwitch('use-mock-keychain')
-if (process.platform === 'linux') app.commandLine.appendSwitch('password-store', 'basic')
+if (process.platform === 'linux') app.commandLine.appendSwitch('password-store', 'gnome-libsecret')
 app.setName('Tonnet Runtime Check')
 app.setPath('userData', profile)
 app.setPath('logs', join(profile, 'logs'))
@@ -63,6 +63,10 @@ process.on('unhandledRejection', (error) => {
 void app
   .whenReady()
   .then(async () => {
+    if (process.platform === 'linux') {
+      assert.equal(safeStorage.getSelectedStorageBackend(), 'gnome_libsecret', 'Runtime smoke requires GNOME Keyring')
+      assert.equal(safeStorage.isEncryptionAvailable(), true, 'Runtime smoke requires an unlocked keyring')
+    }
     const { WalletManager } = await import('../../../wallet/manager')
     const { WalletContractV5R1 } = await import('@ton/ton')
     let walletAddress = ''
