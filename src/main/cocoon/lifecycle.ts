@@ -25,17 +25,23 @@ const AUTO_RETRY_DELAY_MS = 1_500
  * Throws if no wallet has been generated, so callers can surface a clear
  * "complete setup first" error.
  */
-export async function startCocoonManager(manager: CocoonManager): Promise<void> {
+export async function startCocoonManager(
+  manager: CocoonManager,
+  signal: AbortSignal = manager.getStartSignal()
+): Promise<void> {
+  signal.throwIfAborted()
   const state = manager.getState()
   if (state.kind === 'ready') return
   if (state.kind === 'starting') {
     throw new Error('Cocoon is already starting')
   }
   if (state.kind === 'crashed') {
-    await manager.stop()
+    await manager.stop(signal)
+    signal.throwIfAborted()
   }
 
   const wallet = await loadCocoonWallet()
+  signal.throwIfAborted()
   if (!wallet) throw new Error('Cocoon wallet not initialized — complete setup first')
 
   const config = {
@@ -45,13 +51,17 @@ export async function startCocoonManager(manager: CocoonManager): Promise<void> 
   }
 
   try {
-    await manager.start(config)
+    await manager.start(config, signal)
+    signal.throwIfAborted()
   } catch (err) {
     const message = errorMessage(err)
-    if (!message.includes('Cocoon not ready after')) throw err
+    if (!/^Process readiness timed out after \d+ms$/.test(message)) throw err
+    signal.throwIfAborted()
 
     log.warn(`Cocoon did not become ready on first attempt (${message}); retrying once`)
     await new Promise<void>((resolve) => setTimeout(resolve, AUTO_RETRY_DELAY_MS))
-    await manager.start(config)
+    signal.throwIfAborted()
+    await manager.start(config, signal)
+    signal.throwIfAborted()
   }
 }

@@ -29,8 +29,12 @@ import { flowStake, type CocoonActivationPorts } from './activation'
 const NATIVE_IDENTITY = { publicKey: '11'.repeat(32), addressRaw: '0:' + '22'.repeat(32), revision: 1 }
 
 function createPorts(overrides: Partial<CocoonActivationPorts> = {}): CocoonActivationPorts {
+  const signal = new AbortController().signal
   return {
-    cocoonManager: { getHttpPort: vi.fn(() => 10_000) } as unknown as CocoonActivationPorts['cocoonManager'],
+    cocoonManager: {
+      getHttpPort: vi.fn(() => 10_000),
+      getStartSignal: () => signal,
+    } as unknown as CocoonActivationPorts['cocoonManager'],
     getBridge: vi.fn(() => ({ getBalance: vi.fn(() => Promise.resolve('0')) }) as never),
     getNativeIdentity: vi.fn(() => NATIVE_IDENTITY),
     getNativeBalance: vi.fn(() => Promise.resolve('30000000000')),
@@ -71,7 +75,7 @@ describe('Cocoon activation ports', () => {
 
     await expect(flowStake(ports)).resolves.toEqual({ httpPort: 10_000 })
 
-    expect(startCocoonManager).toHaveBeenCalledWith(ports.cocoonManager)
+    expect(startCocoonManager).toHaveBeenCalledWith(ports.cocoonManager, ports.cocoonManager.getStartSignal())
     expect(ports.sendNative).not.toHaveBeenCalled()
     expect(generateCocoonWallet).not.toHaveBeenCalled()
   })
@@ -87,7 +91,7 @@ describe('Cocoon activation ports', () => {
     expect(generateCocoonWallet).toHaveBeenCalledOnce()
     expect(ports.getNativeBalance).toHaveBeenCalledWith(NATIVE_IDENTITY)
     expect(ports.sendNative).toHaveBeenCalledWith('UQ-node', '20000000000', NATIVE_IDENTITY)
-    expect(startCocoonManager).toHaveBeenCalledWith(ports.cocoonManager)
+    expect(startCocoonManager).toHaveBeenCalledWith(ports.cocoonManager, ports.cocoonManager.getStartSignal())
   })
 
   it('keeps the activation funding bound to the identity captured at entry', async () => {
@@ -186,7 +190,7 @@ describe('Cocoon activation ports', () => {
       await vi.runAllTimersAsync()
       expect(await activation).toEqual({ value: { httpPort: 10_000 } })
       expect(ports.sendNative).toHaveBeenCalledExactlyOnceWith('old-node', '20000000000', NATIVE_IDENTITY)
-      expect(startCocoonManager).toHaveBeenCalledWith(ports.cocoonManager)
+      expect(startCocoonManager).toHaveBeenCalledWith(ports.cocoonManager, ports.cocoonManager.getStartSignal())
       expect(ports.getNativeBalance).not.toHaveBeenCalled()
       expect(retireCurrentCocoonWallet).not.toHaveBeenCalled()
       expect(generateCocoonWallet).not.toHaveBeenCalled()

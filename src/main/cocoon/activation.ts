@@ -190,18 +190,22 @@ export async function retireTerminalWalletBeforeCreate(ports: CocoonActivationPo
  */
 export async function flowStake(ports: CocoonActivationPorts): Promise<{ httpPort: number }> {
   const { cocoonManager } = ports
+  const signal = cocoonManager.getStartSignal()
+  signal.throwIfAborted()
   const bridge = requireBridge(ports)
   const nativeIdentity = requireNativeIdentity(ports, 'activate Cocoon')
 
   // 1. Inspect current state. wallet may be null on first ever use.
   const currentWallet = await loadCocoonWallet()
+  signal.throwIfAborted()
   const stakeInfo = currentWallet ? await getStakeInfo(cocoonManager, bridge, ports.persistence.stakeCache) : null
+  signal.throwIfAborted()
 
   // 2. Idempotent fast path: already active → ensure the runner is up.
   //    Re-clicking Activate while the SC is live must not rotate or spend.
   if (stakeInfo && stakeInfo.status === 'active') {
     log.info('Activate: stake already active, ensuring runner is started')
-    await startCocoonManager(cocoonManager)
+    await startCocoonManager(cocoonManager, signal)
     return { httpPort: cocoonManager.getHttpPort() }
   }
 
@@ -214,20 +218,24 @@ export async function flowStake(ports: CocoonActivationPorts): Promise<{ httpPor
   //    If the existing node wallet already holds >= MIN_STAKE_NANO, just
   //    start the runner against it and let it complete the registration.
   const stakeCache = currentWallet ? await ports.persistence.stakeCache.load() : null
+  signal.throwIfAborted()
   if (currentWallet && !stakeInfo && !stakeCache?.clientSCAddress) {
     const nodeBalance = BigInt(await bridge.getBalance(currentWallet.nodeAddress))
+    signal.throwIfAborted()
     if (nodeBalance >= MIN_STAKE_NANO) {
       log.info(`Activate: cocoon_node already funded (${nodeBalance} nanoTON), resuming without rotation`)
-      await startCocoonManager(cocoonManager)
+      await startCocoonManager(cocoonManager, signal)
       return { httpPort: cocoonManager.getHttpPort() }
     }
     const funding = stakeCache?.fundingOperations?.[`activation:${currentWallet.nodeAddress}`]
     if (funding) {
       await ports.sendNative(currentWallet.nodeAddress, funding.amount, nativeIdentity)
+      signal.throwIfAborted()
       await new Promise<void>((resolve) => setTimeout(resolve, FUND_PROPAGATION_MS))
+      signal.throwIfAborted()
       // Registration may have already moved the confirmed funding into the
       // client contract before its addresses were cached. Resume the same node.
-      await startCocoonManager(cocoonManager)
+      await startCocoonManager(cocoonManager, signal)
       return { httpPort: cocoonManager.getHttpPort() }
     }
   }
@@ -240,13 +248,15 @@ export async function flowStake(ports: CocoonActivationPorts): Promise<{ httpPor
     if (stakeInfo?.status === 'closed' || noKnownClient) {
       log.info('Activate: retiring terminal Cocoon identity before restake')
       try {
-        await cashout(cocoonManager, bridge, nativeIdentity.addressRaw)
+        await cashout(cocoonManager, bridge, nativeIdentity.addressRaw, signal)
       } catch (err) {
         const msg = errorMessage(err)
         if (!msg.includes('Nothing to cashout')) throw err
         log.info('Activate: terminal Cocoon identity has no residual balance to cashout')
       }
+      signal.throwIfAborted()
       await retireCurrentCocoonWallet('restake', ports.persistence)
+      signal.throwIfAborted()
     } else {
       throw new Error(
         `Cannot activate a new Cocoon stake while previous stake is ${stakeInfo?.status ?? 'unknown'}. Finish withdrawal/recovery first.`
@@ -256,9 +266,11 @@ export async function flowStake(ports: CocoonActivationPorts): Promise<{ httpPor
 
   // 5. Generate a fresh wallet (owner V4R2 + cocoon_node ed25519 pair).
   const fresh = await generateCocoonWallet()
+  signal.throwIfAborted()
 
   // 6. Fund 20 TON from the user's native wallet to the fresh cocoon_node.
   const nativeBalance = BigInt(await ports.getNativeBalance(nativeIdentity))
+  signal.throwIfAborted()
   const required = MIN_STAKE_NANO + FUND_GAS_RESERVE_NANO
   if (nativeBalance < required) {
     throw new Error(`Top up your TON wallet to at least ${required / 1_000_000_000n} GRAM to activate Cocoon`)
@@ -266,9 +278,11 @@ export async function flowStake(ports: CocoonActivationPorts): Promise<{ httpPor
 
   log.info(`Activate: native wallet → fresh cocoon_node, ${MIN_STAKE_NANO} nanoTON`)
   await ports.sendNative(fresh.nodeAddress, MIN_STAKE_NANO.toString(), nativeIdentity)
+  signal.throwIfAborted()
   await new Promise<void>((r) => setTimeout(r, FUND_PROPAGATION_MS))
+  signal.throwIfAborted()
 
   // 7. Start the runner. It registers a new client SC against the fresh node.
-  await startCocoonManager(cocoonManager)
+  await startCocoonManager(cocoonManager, signal)
   return { httpPort: cocoonManager.getHttpPort() }
 }
