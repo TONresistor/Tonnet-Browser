@@ -1,6 +1,6 @@
 import { Address } from '@ton/core'
 import { describe, expect, it, vi } from 'vitest'
-import type { DnsResolveResult } from '../../../shared/types'
+import type { DnsResolveResult } from '../schemas'
 import { WalletQueryService, type WalletQueryBridge } from '../query-service'
 
 const RAW = '0:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'

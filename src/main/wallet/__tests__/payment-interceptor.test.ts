@@ -74,6 +74,7 @@ function createMockWalletManager() {
       publicKey: WALLET_A.publicKey,
     })),
     getIdentitySnapshot: vi.fn(() => WALLET_A),
+    getSessionRevision: vi.fn(() => 1),
     signX402Payment: vi.fn().mockResolvedValue({
       signedBoc: 'base64boc',
       walletPublicKey: 'pubkey',
@@ -88,6 +89,7 @@ function createMockWalletManager() {
 function createMockPolicyStore() {
   return {
     getSiteMode: vi.fn((): 'auto' | 'manual' | 'off' => 'auto'),
+    persistReservation: vi.fn(async () => {}),
     reservePayment: vi.fn((): string | null => 'reservation-1'),
     confirmPayment: vi.fn(),
     rollbackPayment: vi.fn(),
@@ -381,8 +383,8 @@ describe('PaymentInterceptor', () => {
 
       expect(walletManager.signX402Payment).toHaveBeenCalled()
       expect(historyManager.add).toHaveBeenCalledWith(expect.objectContaining({ type: 'x402', status: 'pending' }))
-      expect(policyStore.confirmPayment).toHaveBeenCalledWith('reservation-1')
-      expect(historyManager.updateStatus).toHaveBeenCalledWith(expect.any(String), 'confirmed')
+      expect(policyStore.confirmPayment).not.toHaveBeenCalled()
+      expect(historyManager.updateStatus).toHaveBeenCalledWith(expect.any(String), 'pending')
       expect(mockEmitToRenderer).toHaveBeenCalledWith(expect.objectContaining({ status: 'completed' }))
     })
 
@@ -411,7 +413,7 @@ describe('PaymentInterceptor', () => {
       )
     })
 
-    it('rolls back reservation on payment failure (server error)', async () => {
+    it('keeps the reservation when HTTP fails after signed-message handoff', async () => {
       const paymentReq = makePaymentReq()
       const session = createMockSession()
       session.fetch
@@ -440,8 +442,8 @@ describe('PaymentInterceptor', () => {
       })
       await vi.runAllTimersAsync()
 
-      expect(policyStore.rollbackPayment).toHaveBeenCalledWith('reservation-1')
-      expect(historyManager.updateStatus).toHaveBeenCalledWith(expect.any(String), 'failed')
+      expect(policyStore.rollbackPayment).not.toHaveBeenCalled()
+      expect(historyManager.updateStatus).toHaveBeenCalledWith(expect.any(String), 'pending')
       expect(mockEmitToRenderer).toHaveBeenCalledWith(expect.objectContaining({ status: 'failed' }))
     })
 
@@ -563,7 +565,7 @@ describe('PaymentInterceptor', () => {
       await flushPromises()
 
       expect(walletManager.signX402Payment).toHaveBeenCalled()
-      expect(policyStore.confirmPayment).toHaveBeenCalledWith('reservation-1')
+      expect(policyStore.confirmPayment).not.toHaveBeenCalled()
     })
 
     it('rejects a queued payment when the active wallet identity changed', async () => {
@@ -588,6 +590,16 @@ describe('PaymentInterceptor', () => {
 
       interceptor.clearAccountState()
 
+      expect(policyStore.rollbackPayment).toHaveBeenCalledWith('reservation-1')
+    })
+
+    it('rejects an approval from a previous unlock session of the same wallet', async () => {
+      const session = setupManualMode()
+      await trigger402(session)
+      const pending = mockEmitToRenderer.mock.calls.find((call) => call[0].status === 'pending')![0]
+      walletManager.getSessionRevision.mockReturnValue(2)
+      await interceptor.approvePayment(pending.id)
+      expect(walletManager.signX402Payment).not.toHaveBeenCalled()
       expect(policyStore.rollbackPayment).toHaveBeenCalledWith('reservation-1')
     })
 
@@ -841,9 +853,9 @@ describe('PaymentInterceptor', () => {
 
       expect(result).toEqual({ success: true })
       expect(walletManager.signX402Payment).toHaveBeenCalled()
-      expect(policyStore.confirmPayment).toHaveBeenCalledWith('reservation-1')
+      expect(policyStore.confirmPayment).not.toHaveBeenCalled()
       expect(mockEmitToRenderer).toHaveBeenCalledWith(expect.objectContaining({ status: 'completed', url: XHR_URL }))
-      expect(historyManager.add).toHaveBeenCalledWith(expect.objectContaining({ type: 'x402', status: 'confirmed' }))
+      expect(historyManager.add).toHaveBeenCalledWith(expect.objectContaining({ type: 'x402', status: 'pending' }))
       const token = interceptor.consumeXhrPaymentToken(WC_ID, XHR_URL)
       expect(token).not.toBeNull()
     })

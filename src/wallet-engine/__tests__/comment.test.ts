@@ -8,7 +8,7 @@
 import { describe, it, expect } from 'vitest'
 import { beginCell } from '@ton/core'
 import { encodeCommentBody, decodeCommentBody, commentByteLength, isCommentWithinLimit } from '../comment'
-import { WALLET_MAX_COMMENT_BYTES } from '../../../shared/constants'
+import { WALLET_MAX_COMMENT_BYTES } from '../constants'
 
 /** Encode → BOC base64, the shape the bridge delivers msg.body in. */
 function bodyToBase64(text: string): string {

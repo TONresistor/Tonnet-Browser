@@ -6,6 +6,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { EventEmitter } from 'events'
 import { mnemonicNew } from '@ton/crypto'
 import { beginCell } from '@ton/core'
+import { WalletEngineError } from '../../../wallet-engine'
 
 const tabsMocks = vi.hoisted(() => ({
   createTab: vi.fn(() => Promise.resolve(true)),
@@ -314,6 +315,18 @@ function createMockRegistry(): ServiceRegistry {
         ),
         prepareEncryptedComment: vi.fn(() => Promise.resolve(beginCell().storeUint(1, 1).endCell())),
         send: vi.fn(),
+        sendNative: vi.fn(),
+        retryOperation: vi.fn(),
+        getOperation: vi.fn(),
+        snapshot: vi.fn(() => ({
+          isCreated: false,
+          address: '',
+          addressRaw: '',
+          publicKey: '',
+          balance: '0',
+          operations: [],
+        })),
+        clearHistory: vi.fn(),
         setAutoLockMinutes: vi.fn(),
         setPageOpen: vi.fn(),
         fetchOnChainHistory: vi.fn(() => []),
@@ -837,7 +850,7 @@ describe('IPC Handlers', () => {
       await expect(handler(createMockEvent())).resolves.toMatchObject({ isCreated: false })
       expect(mockRegistry.walletManager.authenticatePassword).not.toHaveBeenCalled()
       expect(mockRegistry.walletManager.forgetWallet).toHaveBeenCalledWith('wallet-fingerprint')
-      expect(mockRegistry.walletHistoryManager.clear).toHaveBeenCalledOnce()
+      expect(mockRegistry.walletHistoryManager.clear).not.toHaveBeenCalled()
     })
 
     it('forgets an unreadable wallet without requiring a loaded identity', async () => {
@@ -867,12 +880,9 @@ describe('IPC Handlers', () => {
 
       expect(result).toMatchObject({ isCreated: true, address: 'UQImported' })
       expect(mockRegistry.walletManager.importWallet).toHaveBeenCalledWith(mnemonic, password, 'v5R1')
-      expect(mockRegistry.walletHistoryManager.clear).toHaveBeenCalledOnce()
+      expect(mockRegistry.walletHistoryManager.clear).not.toHaveBeenCalled()
       expect(mockRegistry.tonConnectService.clearSessions).toHaveBeenCalledOnce()
       expect(mockRegistry.paymentInterceptor.clearAccountState).toHaveBeenCalledOnce()
-      expect(vi.mocked(mockRegistry.walletManager.importWallet).mock.invocationCallOrder[0]).toBeLessThan(
-        vi.mocked(mockRegistry.walletHistoryManager.clear).mock.invocationCallOrder[0]
-      )
       expect(vi.mocked(mockRegistry.walletManager.importWallet).mock.invocationCallOrder[0]).toBeLessThan(
         vi.mocked(mockRegistry.tonConnectService.clearSessions).mock.invocationCallOrder[0]
       )
@@ -922,286 +932,121 @@ describe('IPC Handlers', () => {
       expect(mockRegistry.walletManager.importWallet).not.toHaveBeenCalled()
     })
 
-    it('reports an insufficient balance as a stable business failure', async () => {
-      vi.mocked(mockRegistry.walletManager.getState).mockReturnValueOnce({
-        isCreated: true,
-        isLocked: false,
-        needsPasswordSetup: false,
-        backupVerified: true,
-      } as never)
-      vi.mocked(mockRegistry.tonBridgeProviders.wallet.getBridge).mockReturnValueOnce({} as never)
-      vi.mocked(mockRegistry.walletManager.preflightTransfer).mockResolvedValueOnce({
-        estimatedFee: '1',
-        destinationStatus: 'active',
-        walletBalance: '10',
-      })
-      const handler = mockHandlers.get(IPC_CHANNELS.WALLET_SEND)!
-
-      const result = await handler(createMockEvent(), 'EQRecipient', '11')
-
-      expect(result).toEqual({
-        ok: false,
-        error: { code: 'INSUFFICIENT_BALANCE', message: 'Insufficient balance', retryable: false },
-      })
-      expect(mockRegistry.walletManager.send).not.toHaveBeenCalled()
-    })
-
-    it('reserves network fees in the main-process balance check', async () => {
-      vi.mocked(mockRegistry.walletManager.getState).mockReturnValueOnce({
-        isCreated: true,
-        isLocked: false,
-        needsPasswordSetup: false,
-        backupVerified: true,
-      } as never)
-      vi.mocked(mockRegistry.tonBridgeProviders.wallet.getBridge).mockReturnValueOnce({} as never)
-      vi.mocked(mockRegistry.walletManager.preflightTransfer).mockResolvedValueOnce({
-        estimatedFee: '10000000',
-        destinationStatus: 'active',
-        walletBalance: '10000009',
-      })
-      const handler = mockHandlers.get(IPC_CHANNELS.WALLET_SEND)!
-      await expect(handler(createMockEvent(), 'EQRecipient', '10')).resolves.toEqual({
-        ok: false,
-        error: { code: 'INSUFFICIENT_BALANCE', message: 'Insufficient balance', retryable: false },
-      })
-      expect(mockRegistry.walletManager.send).not.toHaveBeenCalled()
-    })
-
-    it('requires a main-process approval before a renderer transfer', async () => {
+    it.each([
+      ['INSUFFICIENT_BALANCE', 'Insufficient balance', false],
+      ['TRANSFER_PREFLIGHT_FAILED', 'Unable to verify transaction fees and recipient', true],
+    ] as const)('preserves engine failure %s at the IPC boundary', async (code, message, retryable) => {
       vi.mocked(mockRegistry.walletManager.getState).mockReturnValue({
         isCreated: true,
         isLocked: false,
-        needsPasswordSetup: false,
         backupVerified: true,
       } as never)
       vi.mocked(mockRegistry.tonBridgeProviders.wallet.getBridge).mockReturnValue({} as never)
-      vi.mocked(mockRegistry.walletManager.getBalance).mockResolvedValue('100000000')
-      vi.mocked(mockRegistry.walletManager.resolveRecipient).mockResolvedValue({
-        address: 'EQRecipient',
-        domain: 'example.ton',
+      vi.mocked(mockRegistry.walletManager.sendNative).mockRejectedValue(
+        new WalletEngineError(code, message, retryable)
+      )
+      const result = await mockHandlers.get(IPC_CHANNELS.WALLET_SEND)!(createMockEvent(), 'EQRecipient', '11')
+      expect(result).toEqual({
+        ok: false,
+        error: { code, message, retryable },
       })
-      vi.mocked(mockRegistry.walletManager.send).mockResolvedValue({
-        id: 'tx-1',
-        type: 'send',
-        amount: '10',
-        address: 'EQRecipient',
-        timestamp: 1,
-        status: 'pending',
-      })
+      expect(mockRegistry.overlayManager.show).not.toHaveBeenCalled()
+    })
+
+    it('delegates the complete intent and hosts the engine confirmation', async () => {
+      vi.mocked(mockRegistry.walletManager.getState).mockReturnValue({
+        isCreated: true,
+        isLocked: false,
+        backupVerified: true,
+      } as never)
+      vi.mocked(mockRegistry.tonBridgeProviders.wallet.getBridge).mockReturnValue({} as never)
       vi.mocked(mockRegistry.overlayManager.show).mockImplementation((_id, _bounds, _content, callback) => {
         callback?.('approve', {})
         return true
       })
-
-      const handler = mockHandlers.get(IPC_CHANNELS.WALLET_SEND)!
-      await expect(handler(createMockEvent(), 'example.ton', '10')).resolves.toMatchObject({ id: 'tx-1' })
+      vi.mocked(mockRegistry.walletManager.sendNative).mockImplementation(async (input, authorize) => {
+        const decision = await authorize({
+          operationId: input.operationId,
+          identity: mockRegistry.walletManager.getIdentitySnapshot()!,
+          messages: [{ address: 'EQRecipient', amount: input.amount }],
+          estimatedFee: '1',
+          walletBalance: '100',
+          validUntil: 2000000000,
+          comment: input.comment,
+          commentEncrypted: Boolean(input.encrypted),
+        })
+        expect(decision.action).toBe('approve')
+        return {
+          id: input.operationId,
+          type: 'send',
+          address: 'EQRecipient',
+          amount: input.amount,
+          timestamp: 1,
+          status: 'pending',
+        }
+      })
+      const id = '11111111-1111-4111-8111-111111111111'
+      const result = await mockHandlers.get(IPC_CHANNELS.WALLET_SEND)!(
+        createMockEvent(),
+        'example.ton',
+        '10',
+        'Thanks',
+        true,
+        id
+      )
+      expect(result).toMatchObject({ id, status: 'pending' })
+      expect(mockRegistry.walletManager.sendNative).toHaveBeenCalledWith(
+        { to: 'example.ton', amount: '10', comment: 'Thanks', encrypted: true, operationId: id },
+        expect.any(Function)
+      )
       expect(mockRegistry.overlayManager.show).toHaveBeenCalledWith(
         expect.stringContaining('wallet-transfer-'),
         expect.any(Object),
         expect.objectContaining({
-          title: 'Confirm wallet transfer',
-          amount: '0.00000001 GRAM',
+          rows: expect.arrayContaining([expect.objectContaining({ label: 'Memo', value: 'Thanks' })]),
+        }),
+        expect.any(Function),
+        { autoDismiss: false }
+      )
+      expect(mockRegistry.walletManager.send).not.toHaveBeenCalled()
+    })
+
+    it('shows every recipient and the total before retrying a signed batch', async () => {
+      vi.mocked(mockRegistry.overlayManager.show).mockImplementation((_id, _bounds, _content, callback) => {
+        callback?.('approve', {})
+        return true
+      })
+      vi.mocked(mockRegistry.walletManager.retryOperation).mockImplementation(async (id, authorize) => {
+        expect(
+          await authorize({
+            operationId: id,
+            identity: mockRegistry.walletManager.getIdentitySnapshot()!,
+            messages: [
+              { address: 'first', amount: '1000000000' },
+              { address: 'second', amount: '2000000000' },
+            ],
+            estimatedFee: '100',
+            walletBalance: '5000000000',
+            validUntil: 2000000000,
+          })
+        ).toBe(true)
+        return { id, type: 'send', address: 'first', amount: '1000000000', timestamp: 1, status: 'pending' }
+      })
+      await mockHandlers.get(IPC_CHANNELS.WALLET_RETRY_OPERATION)!(createMockEvent(), 'batch')
+      expect(mockRegistry.overlayManager.show).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.any(Object),
+        expect.objectContaining({
+          amount: '3 GRAM',
           rows: expect.arrayContaining([
-            expect.objectContaining({
-              label: 'Memo',
-              value: '',
-              action: expect.objectContaining({ id: 'set-memo', label: 'Edit', editable: true }),
-            }),
+            { label: 'To 1', value: 'first · 1 GRAM' },
+            { label: 'To 2', value: 'second · 2 GRAM' },
           ]),
         }),
         expect.any(Function),
         { autoDismiss: false }
       )
-      expect(mockRegistry.walletManager.send).toHaveBeenCalledWith(
-        'EQRecipient',
-        '10',
-        undefined,
-        expect.objectContaining({ publicKey: expect.any(String), addressRaw: expect.any(String) })
-      )
-    })
-
-    it('revalidates an edited memo before showing the final approval', async () => {
-      vi.mocked(mockRegistry.walletManager.getState).mockReturnValue({
-        isCreated: true,
-        isLocked: false,
-        needsPasswordSetup: false,
-        backupVerified: true,
-      } as never)
-      vi.mocked(mockRegistry.tonBridgeProviders.wallet.getBridge).mockReturnValue({} as never)
-      vi.mocked(mockRegistry.walletManager.resolveRecipient).mockResolvedValue({ address: 'EQRecipient' })
-      vi.mocked(mockRegistry.walletManager.send).mockResolvedValue({
-        id: 'tx-with-memo',
-        type: 'send',
-        amount: '10',
-        address: 'EQRecipient',
-        timestamp: 1,
-        status: 'pending',
-      })
-
-      let approvalCount = 0
-      vi.mocked(mockRegistry.overlayManager.show).mockImplementation((_id, _bounds, _content, callback) => {
-        if (approvalCount++ === 0) callback?.('set-memo', { memo: 'Thanks' })
-        else callback?.('approve', {})
-        return true
-      })
-
-      const handler = mockHandlers.get(IPC_CHANNELS.WALLET_SEND)!
-      await expect(handler(createMockEvent(), 'EQRecipient', '10')).resolves.toMatchObject({ id: 'tx-with-memo' })
-
-      expect(mockRegistry.walletManager.preflightTransfer).toHaveBeenNthCalledWith(
-        1,
-        'EQRecipient',
-        '10',
-        undefined,
-        expect.any(Object),
-        undefined
-      )
-      expect(mockRegistry.walletManager.preflightTransfer).toHaveBeenNthCalledWith(
-        2,
-        'EQRecipient',
-        '10',
-        'Thanks',
-        expect.any(Object),
-        undefined
-      )
-      expect(mockRegistry.walletManager.send).toHaveBeenCalledWith('EQRecipient', '10', 'Thanks', expect.any(Object))
-      const approvalIds = vi.mocked(mockRegistry.overlayManager.show).mock.calls.map(([id]) => id)
-      expect(new Set(approvalIds).size).toBe(1)
-      expect(mockRegistry.overlayManager.show).toHaveBeenLastCalledWith(
-        expect.stringContaining('wallet-transfer-'),
-        expect.any(Object),
-        expect.objectContaining({
-          rows: expect.arrayContaining([{ label: 'Encrypted', toggle: { id: 'set-encryption', checked: false } }]),
-        }),
-        expect.any(Function),
-        { autoDismiss: false }
-      )
-    })
-
-    it('revalidates a memo after encryption is enabled from the approval', async () => {
-      const encryptedBody = beginCell().storeUint(0x2167da4b, 32).endCell()
-      vi.mocked(mockRegistry.walletManager.getState).mockReturnValue({
-        isCreated: true,
-        isLocked: false,
-        needsPasswordSetup: false,
-        backupVerified: true,
-      } as never)
-      vi.mocked(mockRegistry.tonBridgeProviders.wallet.getBridge).mockReturnValue({} as never)
-      vi.mocked(mockRegistry.walletManager.resolveRecipient).mockResolvedValue({ address: 'EQRecipient' })
-      vi.mocked(mockRegistry.walletManager.prepareEncryptedComment).mockResolvedValue(encryptedBody)
-      vi.mocked(mockRegistry.walletManager.send).mockResolvedValue({
-        id: 'tx-encrypted-from-approval',
-        type: 'send',
-        amount: '10',
-        address: 'EQRecipient',
-        timestamp: 1,
-        status: 'pending',
-      })
-
-      let reviewCount = 0
-      vi.mocked(mockRegistry.overlayManager.show).mockImplementation((_id, _bounds, _content, callback) => {
-        if (reviewCount++ === 0) callback?.('set-encryption', { enabled: true })
-        else callback?.('approve', {})
-        return true
-      })
-
-      const handler = mockHandlers.get(IPC_CHANNELS.WALLET_SEND)!
-      await expect(handler(createMockEvent(), 'EQRecipient', '10', 'Thanks')).resolves.toMatchObject({
-        id: 'tx-encrypted-from-approval',
-      })
-
-      expect(mockRegistry.walletManager.prepareEncryptedComment).toHaveBeenCalledWith(
-        'EQRecipient',
-        'Thanks',
-        expect.any(Object)
-      )
-      expect(mockRegistry.walletManager.preflightTransfer).toHaveBeenLastCalledWith(
-        'EQRecipient',
-        '10',
-        'Thanks',
-        expect.any(Object),
-        encryptedBody
-      )
-      expect(mockRegistry.walletManager.send).toHaveBeenCalledWith(
-        'EQRecipient',
-        '10',
-        'Thanks',
-        expect.any(Object),
-        encryptedBody,
-        true
-      )
-      expect(mockRegistry.overlayManager.show).toHaveBeenLastCalledWith(
-        expect.stringContaining('wallet-transfer-'),
-        expect.any(Object),
-        expect.objectContaining({
-          rows: expect.arrayContaining([{ label: 'Encrypted', toggle: { id: 'set-encryption', checked: true } }]),
-        }),
-        expect.any(Function),
-        { autoDismiss: false }
-      )
-    })
-
-    it('reuses the prepared encrypted comment for preflight and send', async () => {
-      const encryptedBody = beginCell().storeUint(0x2167da4b, 32).endCell()
-      vi.mocked(mockRegistry.walletManager.getState).mockReturnValue({
-        isCreated: true,
-        isLocked: false,
-        needsPasswordSetup: false,
-        backupVerified: true,
-      } as never)
-      vi.mocked(mockRegistry.tonBridgeProviders.wallet.getBridge).mockReturnValue({} as never)
-      vi.mocked(mockRegistry.walletManager.resolveRecipient).mockResolvedValue({ address: 'EQRecipient' })
-      vi.mocked(mockRegistry.walletManager.prepareEncryptedComment).mockResolvedValue(encryptedBody)
-      vi.mocked(mockRegistry.walletManager.send).mockResolvedValue({
-        id: 'tx-encrypted',
-        type: 'send',
-        amount: '10',
-        address: 'EQRecipient',
-        timestamp: 1,
-        status: 'pending',
-        comment: 'private memo',
-        commentEncrypted: true,
-      })
-      vi.mocked(mockRegistry.overlayManager.show).mockImplementation((_id, _bounds, _content, callback) => {
-        callback?.('approve', {})
-        return true
-      })
-
-      const handler = mockHandlers.get(IPC_CHANNELS.WALLET_SEND)!
-      await expect(handler(createMockEvent(), 'EQRecipient', '10', 'private memo', true)).resolves.toMatchObject({
-        id: 'tx-encrypted',
-      })
-
-      const identity = expect.objectContaining({ publicKey: expect.any(String), addressRaw: expect.any(String) })
-      expect(mockRegistry.walletManager.prepareEncryptedComment).toHaveBeenCalledWith(
-        'EQRecipient',
-        'private memo',
-        identity
-      )
-      expect(mockRegistry.walletManager.preflightTransfer).toHaveBeenCalledWith(
-        'EQRecipient',
-        '10',
-        'private memo',
-        identity,
-        encryptedBody
-      )
-      expect(mockRegistry.walletManager.send).toHaveBeenCalledWith(
-        'EQRecipient',
-        '10',
-        'private memo',
-        identity,
-        encryptedBody,
-        true
-      )
-      expect(mockRegistry.overlayManager.show).toHaveBeenCalledWith(
-        expect.stringContaining('wallet-transfer-'),
-        expect.any(Object),
-        expect.objectContaining({
-          rows: expect.arrayContaining([{ label: 'Encrypted', toggle: { id: 'set-encryption', checked: true } }]),
-        }),
-        expect.any(Function),
-        { autoDismiss: false }
-      )
+      expect(mockRegistry.walletManager.send).not.toHaveBeenCalled()
     })
   })
 

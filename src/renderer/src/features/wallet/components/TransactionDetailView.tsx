@@ -1,4 +1,5 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
+import { walletClient } from '../client'
 import { ArrowUp, ArrowDown, Globe } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatTonAmount } from '@/lib/ton-utils'
@@ -39,6 +40,8 @@ export function TransactionDetailView({
   density = 'regular',
 }: TransactionDetailViewProps) {
   const { t, i18n } = useTranslation('wallet')
+  const [retrying, setRetrying] = useState(false)
+  const [retryError, setRetryError] = useState<string | null>(null)
   const compact = density === 'compact'
 
   useEffect(() => {
@@ -129,7 +132,12 @@ export function TransactionDetailView({
             {new Date(transaction.timestamp).toLocaleString(i18n.language)}
           </DetailRow>
           <DetailRow label={t('detail.status', { defaultValue: 'Status' })} compact={compact}>
-            {t(`history.status.${transaction.status}`)}
+            {transaction.operationState
+              ? t(
+                  `history.operation.${transaction.operationState === 'included' && transaction.execution && transaction.execution !== 'succeeded' ? `included-${transaction.execution}` : transaction.operationState}`,
+                  { defaultValue: t(`history.status.${transaction.status}`) }
+                )
+              : t(`history.status.${transaction.status}`)}
           </DetailRow>
           {transaction.hash && (
             <DetailRow label={t('detail.hash', { defaultValue: 'Hash' })} compact={compact}>
@@ -144,6 +152,33 @@ export function TransactionDetailView({
           )}
         </InsetGroup>
       </div>
+      {transaction.operationId && ['unknown', 'submitted', 'submitting'].includes(transaction.operationState ?? '') && (
+        <div className="mt-4 space-y-2">
+          <button
+            type="button"
+            disabled={retrying}
+            className="w-full rounded-xl bg-muted px-4 py-3 text-sm disabled:opacity-50"
+            onClick={async () => {
+              setRetrying(true)
+              setRetryError(null)
+              try {
+                await walletClient.retryOperation(transaction.operationId!)
+              } catch {
+                setRetryError(t('history.retryFailed'))
+              } finally {
+                setRetrying(false)
+              }
+            }}
+          >
+            {t('history.retrySameMessage')}
+          </button>
+          {retryError && (
+            <p role="alert" className="text-sm text-destructive">
+              {retryError}
+            </p>
+          )}
+        </div>
+      )}
     </section>
   )
 }

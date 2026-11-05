@@ -12,6 +12,6 @@
     "declaration": false,
     "sourceMap": true
   },
-  "include": ["src/main/**/*", "src/shared/**/*"],
-  "exclude": ["src/main/**/__tests__/**", "src/main/**/*.test.ts"]
+  "include": ["src/main/**/*", "src/shared/**/*", "src/wallet-engine/**/*"],
+  "exclude": ["src/main/**/__tests__/**", "src/main/**/*.test.ts", "src/wallet-engine/**/__tests__/**"]
 }

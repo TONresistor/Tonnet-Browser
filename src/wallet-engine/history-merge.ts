@@ -4,7 +4,7 @@
  * encrypted store) so the merge is unit tested without electron.
  */
 
-import type { WalletTransaction } from '../../shared/types'
+import type { WalletTransaction } from './schemas'
 
 /** Dedup key: on-chain txs key by hash, local optimistic ones by id. */
 export function historyKey(tx: WalletTransaction): string {
@@ -30,14 +30,21 @@ export function sameHistory(a: WalletTransaction[], b: WalletTransaction[]): boo
 const MATCH_WINDOW_MS = 120_000
 
 function contentMatch(a: WalletTransaction, b: WalletTransaction): boolean {
+  if (a.operationId || b.operationId) return false
   return a.address === b.address && a.amount === b.amount && Math.abs(a.timestamp - b.timestamp) < MATCH_WINDOW_MS
 }
 
-function carryLocalMetadata(local: WalletTransaction, onChain: WalletTransaction): void {
+export function carryLocalMetadata(local: WalletTransaction, onChain: WalletTransaction): void {
+  if (local.operationId && local.operationState && !onChain.operationState) {
+    onChain.operationId = local.operationId
+    onChain.operationState = local.operationState
+    onChain.execution = local.execution
+    onChain.status = local.status
+  }
   if (local.type === 'x402') {
     onChain.type = 'x402'
-    onChain.x402Domain = local.x402Domain
-    onChain.x402Url = local.x402Url
+    onChain.x402Domain ??= local.x402Domain
+    onChain.x402Url ??= local.x402Url
   }
   if (local.commentEncrypted) {
     onChain.commentEncrypted = true
@@ -75,7 +82,7 @@ export function mergeHistory(
     // Content-match a local optimistic (i:) tx of a different key.
     for (const [k, local] of byKey) {
       if (!k.startsWith('i:') || supersededLocalKeys.has(k) || k === onKey) continue
-      if (!contentMatch(local, onCopy)) continue
+      if (!(local.operationId && local.operationId === onCopy.operationId) && !contentMatch(local, onCopy)) continue
       carryLocalMetadata(local, onCopy)
       supersededLocalKeys.add(k)
       break // one local per on-chain tx

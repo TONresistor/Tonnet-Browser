@@ -1,6 +1,8 @@
 import { Address } from '@ton/core'
 import { describe, expect, it, vi } from 'vitest'
 import { TonConnectSigningWorkflow } from '../signing-workflow'
+import { WalletEngineError, type TransferAuthorization } from '../../../wallet-engine'
+import type { TonConnectOutMessage } from '../types'
 
 const destination = Address.parseRaw(`0:${'22'.repeat(32)}`).toString({ bounceable: false })
 
@@ -12,7 +14,30 @@ function setup(approved = true) {
       walletStateInit: 'boc',
     })),
     signTonProof: vi.fn(),
-    signTonConnectTransaction: vi.fn(async () => 'signed-boc'),
+    signTonConnectTransaction: vi.fn(
+      async (
+        messages: TonConnectOutMessage[],
+        _address: string,
+        _id?: string,
+        _validUntil?: number,
+        _session?: number,
+        authorize?: TransferAuthorization
+      ) => {
+        if (
+          !authorize ||
+          !(await authorize({
+            operationId: _id!,
+            identity: { publicKey: 'aa', addressRaw: _address, revision: 1 },
+            messages,
+            estimatedFee: '100',
+            walletBalance: '2000000000',
+            validUntil: 2000000000,
+          }))
+        )
+          throw new WalletEngineError('USER_CANCELLED', 'Transfer cancelled')
+        return 'signed-boc'
+      }
+    ),
     signData: vi.fn(async (_domain, payload) => ({
       signature: 'signature',
       address: `0:${'11'.repeat(32)}`,
@@ -21,7 +46,7 @@ function setup(approved = true) {
       payload,
     })),
   }
-  const approval = { request: vi.fn(async () => approved) }
+  const approval = { request: vi.fn(async (_content: { type: string; [key: string]: unknown }) => approved) }
   return { wallet, approval, workflow: new TonConnectSigningWorkflow(wallet, approval) }
 }
 
@@ -36,7 +61,20 @@ describe('TonConnectSigningWorkflow', () => {
     })
     expect(result).toEqual({ id: '1', result: 'signed-boc' })
     expect(approval.request).toHaveBeenCalledWith(expect.objectContaining({ amount: '1.5 GRAM', domain: 'app.ton' }))
-    expect(wallet.signTonConnectTransaction).toHaveBeenCalledWith(expect.any(Array), expectedAddress)
+    expect(approval.request.mock.calls[0][0]).toMatchObject({
+      rows: expect.arrayContaining([
+        { label: 'Estimated fee', value: '~0.0000001 GRAM' },
+        { label: 'Valid until', value: new Date(2000000000 * 1000).toISOString() },
+      ]),
+    })
+    expect(wallet.signTonConnectTransaction).toHaveBeenCalledWith(
+      expect.any(Array),
+      expectedAddress,
+      expect.any(String),
+      undefined,
+      undefined,
+      expect.any(Function)
+    )
   })
 
   it('never signs a rejected transaction', async () => {
@@ -47,7 +85,7 @@ describe('TonConnectSigningWorkflow', () => {
       params: [JSON.stringify({ messages: [{ address: destination, amount: '1' }] })],
     })
     expect(result).toMatchObject({ id: '2', error: { code: 300 } })
-    expect(wallet.signTonConnectTransaction).not.toHaveBeenCalled()
+    expect(wallet.signTonConnectTransaction).toHaveBeenCalledOnce()
   })
 
   it('rejects malformed signData before approval or signing', async () => {

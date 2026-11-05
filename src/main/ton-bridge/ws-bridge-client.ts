@@ -5,8 +5,10 @@
  */
 
 import { createLogger, RepetitionAggregator } from '../../shared/logger'
+import { Address } from '@ton/core'
 import { JsonRpcRequestTracker, type JsonRpcResponse } from './json-rpc-peer'
 import {
+  WalletChainSnapshotSchema,
   AccountBalanceResultSchema,
   AccountInformationResultSchema,
   EmulateTransactionResultSchema,
@@ -146,6 +148,33 @@ export class WsBridgeClient {
     }
   }
 
+  async getWalletSnapshot(address: string) {
+    return WalletChainSnapshotSchema.parse(
+      await this.request('wallet.getSnapshot', { address: Address.parse(address).toString({ bounceable: false }) })
+    )
+  }
+
+  async getRawTransactions(
+    address: string,
+    limit: number,
+    lastLt: string,
+    lastHash: string,
+    masterSeqno?: number
+  ): Promise<BridgeTransaction[]> {
+    return (
+      BridgeTransactionsResultSchema.parse(
+        await this.request('lite.getTransactions', {
+          address: Address.parse(address).toString({ bounceable: false }),
+          limit,
+          last_lt: lastLt,
+          last_hash: lastHash,
+          include_boc: true,
+          ...(masterSeqno !== undefined ? { master_seqno: masterSeqno } : {}),
+        })
+      ).transactions ?? []
+    )
+  }
+
   async getAccountInformation(address: string): Promise<AccountInformationResult> {
     return AccountInformationResultSchema.parse(await this.request('lite.getAccountState', { address }))
   }
@@ -164,7 +193,8 @@ export class WsBridgeClient {
 
   async broadcast(boc: Buffer): Promise<void> {
     const b64 = boc.toString('base64')
-    await this.request('lite.sendMessage', { boc: b64 })
+    const result = await this.request<{ status?: number }>('lite.sendMessage', { boc: b64 })
+    if (result?.status !== 1) throw new Error('Liteserver did not accept the transaction')
     log.info('Transaction broadcast successful')
   }
 

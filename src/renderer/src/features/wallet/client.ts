@@ -25,8 +25,9 @@ export const walletClient = {
   setPageOpen: (open: boolean) => window.electron.wallet.setPageOpen(open),
   setSensitiveDisplay: (active: boolean) => window.electron.wallet.setSensitiveDisplay(active),
   getBalance: () => window.electron.wallet.getBalance(),
-  send: (to: string, amount: string, comment?: string, encryptedComment?: boolean) =>
-    window.electron.wallet.send(to, amount, comment, encryptedComment),
+  send: (to: string, amount: string, comment?: string, encryptedComment?: boolean, operationId?: string) =>
+    window.electron.wallet.send(to, amount, comment, encryptedComment, operationId),
+  retryOperation: (id: string) => window.electron.wallet.retryOperation(id),
   resolveRecipient: (recipient: string) => window.electron.wallet.resolveRecipient(recipient),
   getHistory: (limit?: number) => window.electron.wallet.getHistory(limit),
   clearHistory: () => window.electron.wallet.clearHistory(),

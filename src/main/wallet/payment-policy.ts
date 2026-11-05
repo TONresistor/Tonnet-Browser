@@ -25,6 +25,10 @@ const log = createLogger('payment-policy')
 interface SpendingRecord {
   amount: string
   timestamp: number
+  reservationId?: string
+  operationId?: string
+  account?: string
+  pending?: boolean
 }
 
 interface RateLimitEntry {
@@ -33,10 +37,19 @@ interface RateLimitEntry {
 
 const SpendingFileSchema = z.record(
   z.string(),
-  z.array(z.object({ amount: z.string().regex(/^\d+$/), timestamp: z.number().finite() }))
+  z.array(
+    z.object({
+      amount: z.string().regex(/^\d+$/),
+      timestamp: z.number().finite(),
+      reservationId: z.string().optional(),
+      operationId: z.string().optional(),
+      account: z.string().optional(),
+      pending: z.boolean().optional(),
+    })
+  )
 )
 type SpendingFile = z.infer<typeof SpendingFileSchema>
-const SPENDING_SCHEMA_VERSION = 1
+const SPENDING_SCHEMA_VERSION = 2
 
 export function normalizePaymentOrigin(value: string): string {
   const trimmed = value.trim()
@@ -64,6 +77,7 @@ function legacyKeyForOrigin(origin: string): string {
 }
 
 export class PaymentPolicyStore {
+  private blocked = false
   private siteModes: Map<string, PaymentMode> = new Map()
   private spending: Map<string, SpendingRecord[]> = new Map()
   private rateLimits: Map<string, RateLimitEntry> = new Map()
@@ -92,13 +106,19 @@ export class PaymentPolicyStore {
                 ? legacySpendingKey(domain)
                 : normalizePaymentOrigin(domain)
             this.spending.set(key, [...(this.spending.get(key) ?? []), ...records])
+            for (const record of records) {
+              if (record.pending && record.reservationId)
+                this.reservations.set(record.reservationId, { domain: key, record })
+            }
           } catch (error) {
             log.warn(`Ignoring invalid legacy spending key: ${domain}`, error)
           }
         }
       }
     } catch (err) {
+      this.blocked = true
       log.error('Failed to load spending records:', err)
+      throw err
     }
   }
 
@@ -132,7 +152,7 @@ export class PaymentPolicyStore {
     let removed = 0
 
     for (const [domain, records] of this.spending) {
-      const filtered = records.filter((r) => now - r.timestamp < thirtyDaysMs)
+      const filtered = records.filter((r) => r.pending || now - r.timestamp < thirtyDaysMs)
       removed += records.length - filtered.length
       if (filtered.length === 0) {
         this.spending.delete(domain)
@@ -208,6 +228,7 @@ export class PaymentPolicyStore {
   }
 
   canPay(domain: string, amount: string): boolean {
+    if (this.blocked) return false
     const normalized = normalizePaymentOrigin(domain)
     const walletSettings = getSetting('wallet')
     const limits = walletSettings.limits
@@ -230,7 +251,9 @@ export class PaymentPolicyStore {
     // Per-day limit: rolling 24h
     if (limits.perDay !== '0') {
       const dayAgo = now - ONE_DAY_MS
-      const dayTotal = records.filter((r) => r.timestamp >= dayAgo).reduce((sum, r) => sum + BigInt(r.amount), 0n)
+      const dayTotal = records
+        .filter((r) => r.pending || r.timestamp >= dayAgo)
+        .reduce((sum, r) => sum + BigInt(r.amount), 0n)
       if (dayTotal + BigInt(amount) > BigInt(limits.perDay)) {
         log.event('warn', 'payment.daily_limit.exceeded', 'payment daily limit exceeded')
         return false
@@ -240,7 +263,9 @@ export class PaymentPolicyStore {
     // Per-site-per-month limit: rolling 30d
     if (limits.perSitePerMonth !== '0') {
       const monthAgo = now - SPENDING_RETENTION_MS
-      const monthTotal = records.filter((r) => r.timestamp >= monthAgo).reduce((sum, r) => sum + BigInt(r.amount), 0n)
+      const monthTotal = records
+        .filter((r) => r.pending || r.timestamp >= monthAgo)
+        .reduce((sum, r) => sum + BigInt(r.amount), 0n)
       if (monthTotal + BigInt(amount) > BigInt(limits.perSitePerMonth)) {
         log.event('warn', 'payment.monthly_limit.exceeded', 'payment monthly limit exceeded')
         return false
@@ -261,7 +286,7 @@ export class PaymentPolicyStore {
     const normalized = normalizePaymentOrigin(domain)
     const now = Date.now()
     const reservationId = `${normalized}:${now}:${crypto.randomUUID()}`
-    const record: SpendingRecord = { amount, timestamp: now }
+    const record: SpendingRecord = { amount, timestamp: now, reservationId, pending: true }
 
     const records = this.spending.get(normalized) || []
     records.push(record)
@@ -281,10 +306,57 @@ export class PaymentPolicyStore {
   /**
    * Confirm a reservation (payment succeeded). Clears the reservation tracking.
    */
+  async persistReservation(reservationId: string, operationId: string, account: string): Promise<void> {
+    if (this.blocked) throw new Error('Payment budget storage is unavailable')
+    const reservation = this.reservations.get(reservationId)
+    if (!reservation) throw new Error('Payment reservation is unavailable')
+    if (reservation.record.operationId && reservation.record.operationId !== operationId)
+      throw new Error('Payment reservation operation changed')
+    if (reservation.record.account && reservation.record.account !== account)
+      throw new Error('Payment reservation account changed')
+    reservation.record.operationId = operationId
+    reservation.record.account = account
+    try {
+      await this.persistSpending()
+    } catch (error) {
+      this.blocked = true
+      throw error
+    }
+  }
+
+  async reconcileOperations(
+    operations: readonly import('../../wallet-engine').WalletOperation[],
+    startup = false,
+    account?: string
+  ): Promise<void> {
+    for (const [id, reservation] of this.reservations) {
+      if (!reservation.record.operationId) {
+        if (startup) this.rollbackPayment(id)
+        continue
+      }
+      const operation = operations.find(
+        (op) =>
+          op.id === reservation.record.operationId &&
+          (!reservation.record.account || op.account === reservation.record.account)
+      )
+      // Absence is meaningful only in the complete journal of this reservation's account.
+      if (
+        (startup &&
+          ((!operation && account && account === reservation.record.account) || operation?.phase === 'ready')) ||
+        operation?.phase === 'expired'
+      )
+        this.rollbackPayment(id)
+      else if (operation?.phase === 'included' && operation.closed) this.confirmPayment(id)
+    }
+    await this.persistSpending()
+  }
+
   confirmPayment(reservationId: string): void {
     const reservation = this.reservations.get(reservationId)
     if (!reservation) return
+    reservation.record.pending = false
     this.reservations.delete(reservationId)
+    this.scheduleSave()
     log.event('info', 'payment.reservation.confirmed', 'payment reservation confirmed')
   }
 
@@ -323,12 +395,12 @@ export class PaymentPolicyStore {
     const monthAgo = now - SPENDING_RETENTION_MS
 
     const day = records
-      .filter((r) => r.timestamp >= dayAgo)
+      .filter((r) => r.pending || r.timestamp >= dayAgo)
       .reduce((sum, r) => sum + BigInt(r.amount), 0n)
       .toString()
 
     const month = records
-      .filter((r) => r.timestamp >= monthAgo)
+      .filter((r) => r.pending || r.timestamp >= monthAgo)
       .reduce((sum, r) => sum + BigInt(r.amount), 0n)
       .toString()
 

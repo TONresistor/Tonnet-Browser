@@ -35,6 +35,7 @@ import type {
   walletRejectPaymentContract,
   walletResolveRecipientContract,
   walletSendContract,
+  walletRetryOperationContract,
   walletSetupPasswordContract,
   walletUnlockContract,
 } from '../shared/ipc-contract/wallet'
@@ -328,8 +329,17 @@ const electronAPI = {
     retrySystemStorage: () =>
       invokeChannel<typeof walletRetrySystemStorageContract>(IPC_CHANNELS.WALLET_RETRY_SYSTEM_STORAGE),
     getBalance: () => invokeChannel<typeof walletGetBalanceContract>(IPC_CHANNELS.WALLET_GET_BALANCE),
-    send: (to: string, amount: string, comment?: string, encryptedComment?: boolean) =>
-      invokeChannel<typeof walletSendContract>(IPC_CHANNELS.WALLET_SEND, to, amount, comment, encryptedComment),
+    send: (to: string, amount: string, comment?: string, encryptedComment?: boolean, operationId?: string) =>
+      invokeChannel<typeof walletSendContract>(
+        IPC_CHANNELS.WALLET_SEND,
+        to,
+        amount,
+        comment,
+        encryptedComment,
+        operationId
+      ),
+    retryOperation: (id: string) =>
+      invokeChannel<typeof walletRetryOperationContract>(IPC_CHANNELS.WALLET_RETRY_OPERATION, id),
     resolveRecipient: (input: string) =>
       invokeChannel<typeof walletResolveRecipientContract>(IPC_CHANNELS.WALLET_RESOLVE_RECIPIENT, input),
     getHistory: (limit?: number) =>

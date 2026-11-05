@@ -59,6 +59,7 @@ export interface CocoonActivationPorts {
   getBridge(): TonBridgePort | null
   getNativeIdentity(): WalletIdentitySnapshot | null
   getNativeBalance(expectedIdentity: WalletIdentitySnapshot): Promise<string>
+  /** Resolves after the stable funding operation is confirmed on-chain; uncertainty rejects. */
   sendNative(to: string, amount: string, expectedIdentity: WalletIdentitySnapshot): Promise<unknown>
   persistence: CocoonPersistence
 }
@@ -212,10 +213,20 @@ export async function flowStake(ports: CocoonActivationPorts): Promise<{ httpPor
   //    drain those funds back, regenerate, and re-fund — for nothing.
   //    If the existing node wallet already holds >= MIN_STAKE_NANO, just
   //    start the runner against it and let it complete the registration.
-  if (currentWallet) {
+  const stakeCache = currentWallet ? await ports.persistence.stakeCache.load() : null
+  if (currentWallet && !stakeInfo && !stakeCache?.clientSCAddress) {
     const nodeBalance = BigInt(await bridge.getBalance(currentWallet.nodeAddress))
     if (nodeBalance >= MIN_STAKE_NANO) {
       log.info(`Activate: cocoon_node already funded (${nodeBalance} nanoTON), resuming without rotation`)
+      await startCocoonManager(cocoonManager)
+      return { httpPort: cocoonManager.getHttpPort() }
+    }
+    const funding = stakeCache?.fundingOperations?.[`activation:${currentWallet.nodeAddress}`]
+    if (funding) {
+      await ports.sendNative(currentWallet.nodeAddress, funding.amount, nativeIdentity)
+      await new Promise<void>((resolve) => setTimeout(resolve, FUND_PROPAGATION_MS))
+      // Registration may have already moved the confirmed funding into the
+      // client contract before its addresses were cached. Resume the same node.
       await startCocoonManager(cocoonManager)
       return { httpPort: cocoonManager.getHttpPort() }
     }
@@ -225,7 +236,6 @@ export async function flowStake(ports: CocoonActivationPorts): Promise<{ httpPor
   // a fresh wallet. Non-terminal states must not rotate, because that would
   // orphan the node key that owns the active/closing client SC.
   if (currentWallet) {
-    const stakeCache = await ports.persistence.stakeCache.load()
     const noKnownClient = !stakeInfo && !stakeCache?.clientSCAddress
     if (stakeInfo?.status === 'closed' || noKnownClient) {
       log.info('Activate: retiring terminal Cocoon identity before restake')

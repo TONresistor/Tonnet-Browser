@@ -15,7 +15,8 @@
       "version": "v0.5.1",
       "commit": "6b313f2f7773221b16b6394e99460e91382b3d79",
       "entry_point": ".",
-      "ldflags": "-s -w"
+      "ldflags": "-s -w",
+      "patch": "scripts/tonutils-bridge-wallet-engine.patch"
     },
     {
       "name": "tonnet-messenger",

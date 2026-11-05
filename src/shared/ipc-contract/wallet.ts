@@ -22,6 +22,9 @@ export const WalletStateSchema = z.object({
 export type WalletState = z.infer<typeof WalletStateSchema>
 
 export const WalletTransactionSchema = z.object({
+  execution: z.enum(['succeeded', 'failed', 'partial', 'unknown']).optional(),
+  operationId: z.string().optional(),
+  operationState: z.string().optional(),
   id: z.string().min(1),
   type: z.enum(['send', 'receive', 'x402']),
   amount: z.string().regex(/^\d+$/),
@@ -145,6 +148,7 @@ export const walletSendContract = defineRequest({
       .refine((value) => new TextEncoder().encode(value).length <= WALLET_MAX_COMMENT_BYTES)
       .optional(),
     z.boolean().optional(),
+    z.string().uuid().optional(),
   ]),
   output: WalletTransactionSchema,
   errors: [
@@ -163,6 +167,13 @@ export const walletSendContract = defineRequest({
     'WALLET_BACKUP_REQUIRED',
     'USER_CANCELLED',
     'SIGNING_FAILED',
+    'TRANSFER_EXPIRED',
+    'TRANSACTION_PENDING',
+    'OPERATION_CONFLICT',
+    'JOURNAL_UNREADABLE',
+    'JOURNAL_LOCKED',
+    'IDENTITY_CHANGED',
+    'INVALID_ACCOUNT',
   ],
   redaction: 'secret',
 })
@@ -390,7 +401,17 @@ export const WALLET_EVENT_CONTRACTS = [
   walletPaymentFailedContract,
 ] as const
 
+export const walletRetryOperationContract = defineRequest({
+  ...mainBase,
+  channel: WALLET_CONTRACT_CHANNELS.retryOperation,
+  input: z.tuple([z.string().min(1).max(256)]),
+  output: WalletTransactionSchema,
+  errors: ['OPERATION_RETRY_FAILED'],
+  redaction: 'secret',
+})
+
 export const WALLET_REQUEST_CONTRACTS = [
+  walletRetryOperationContract,
   walletCreateContract,
   walletGetStateContract,
   walletRetrySystemStorageContract,

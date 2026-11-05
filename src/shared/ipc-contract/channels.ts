@@ -6,6 +6,7 @@ export const WALLET_CONTRACT_CHANNELS = {
   retrySystemStorage: 'wallet:retry-system-storage',
   getBalance: 'wallet:get-balance',
   send: 'wallet:send',
+  retryOperation: 'wallet:retry-operation',
   resolveRecipient: 'wallet:resolve-recipient',
   getHistory: 'wallet:get-history',
   clearHistory: 'wallet:clear-history',

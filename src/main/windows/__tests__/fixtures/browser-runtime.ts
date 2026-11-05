@@ -15,6 +15,7 @@ const report = (message: string): void => {
 if (!profile) throw new Error('Runtime checks require a disposable profile')
 mkdirSync(join(profile, 'logs'), { recursive: true })
 if (process.platform === 'darwin') app.commandLine.appendSwitch('use-mock-keychain')
+if (process.platform === 'linux') app.commandLine.appendSwitch('password-store', 'basic')
 app.setName('Tonnet Runtime Check')
 app.setPath('userData', profile)
 app.setPath('logs', join(profile, 'logs'))
@@ -62,6 +63,81 @@ process.on('unhandledRejection', (error) => {
 void app
   .whenReady()
   .then(async () => {
+    const { WalletManager } = await import('../../../wallet/manager')
+    const { WalletContractV5R1 } = await import('@ton/ton')
+    let walletAddress = ''
+    let broadcasts = 0
+    const walletProvider = {
+      getBalance: async () => '100000000000',
+      getAccountInformation: async () => ({ balance: '100000000000', status: 'active' as const }),
+      getWalletSnapshot: async () => ({
+        address: walletAddress,
+        balance: '100000000000',
+        status: 'uninit' as const,
+        seqno: 0,
+        last_tx_lt: '0',
+        last_tx_hash: '',
+        block_time: Math.floor(Date.now() / 1000),
+        block: {
+          workchain: 0,
+          shard: '8000000000000000',
+          seqno: 1,
+          root_hash: '00'.repeat(32),
+          file_hash: '00'.repeat(32),
+        },
+        masterchain: {
+          workchain: -1,
+          shard: '8000000000000000',
+          seqno: 1,
+          root_hash: '00'.repeat(32),
+          file_hash: '00'.repeat(32),
+        },
+      }),
+      emulateTransaction: async () => ({ accepted: true, success: true, exit_code: 0, total_fees: '100' }),
+      broadcast: async () => {
+        throw new Error('The main wallet must submit through sendAndWatch')
+      },
+      getRawTransactions: async () => [],
+      getTransactions: async () => [],
+      subscribeAccountState: () => () => {},
+      subscribeTransactions: () => () => {},
+      getSeqno: async () => 0,
+      runMethod: async () => [],
+      resolveDomain: async () => {
+        throw new Error('No external DNS in runtime test')
+      },
+      sendAndWatch: async () => {
+        broadcasts++
+        return 'runtime-confirmation-hint'
+      },
+    }
+    const walletBridge = { getBridge: () => walletProvider, onBridgeChanged: () => () => {} }
+    const wallet = new WalletManager(undefined, walletBridge)
+    const created = await wallet.create({ password: 'runtime-wallet-password' })
+    walletAddress = WalletContractV5R1.create({ publicKey: Buffer.from(created.publicKey, 'hex') }).address.toString()
+    const challenge = await wallet.createBackupChallenge('runtime-wallet-password')
+    await wallet.verifyBackup(
+      challenge.challengeId,
+      'runtime-wallet-password',
+      challenge.indexes.map((index) => created.mnemonic[index])
+    )
+    created.mnemonic.fill('')
+    const operationId = 'runtime-signed-operation'
+    const operation = await wallet.sendTransfer(
+      { operationId, messages: [{ address: walletAddress, amount: '1' }] },
+      async () => true
+    )
+    assert.equal(operation.phase, 'submitted')
+    await wallet.shutdown()
+    const reopenedWallet = new WalletManager(undefined, walletBridge)
+    await reopenedWallet.init()
+    assert.equal(reopenedWallet.getState().isLocked, true)
+    await reopenedWallet.unlock('runtime-wallet-password')
+    assert.equal(reopenedWallet.getOperation(operationId)?.boc, operation.boc)
+    assert.equal(broadcasts, 1)
+    await reopenedWallet.shutdown()
+    report('PASS: wallet vault, backup, durable send and locked restart use disposable Electron storage')
+
     const { TabManager } = await import('../../tabs')
     const { setMainWindow } = await import('../../main')
     const events: Array<{ channel: string; args: unknown[] }> = []

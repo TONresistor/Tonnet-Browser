@@ -1,5 +1,5 @@
 import type { MessageRelaxed } from '@ton/core'
-import type { EmulateTransactionResult } from '../ports/ton-bridge'
+import type { EmulateTransactionResult } from './network-types'
 import { buildExternalWalletBoc } from './wallet-boc'
 import type { WalletContractShape } from './wallet-versions'
 
@@ -15,6 +15,8 @@ export async function preflightTonTransfer(options: {
   destinationStatus: string
   walletBalance: string
   message: MessageRelaxed
+  messages?: MessageRelaxed[]
+  validUntil?: number
   seqno: number
   emulateTransaction(address: string, boc: string): Promise<EmulateTransactionResult>
 }): Promise<TransferPreflightResult> {
@@ -28,9 +30,10 @@ export async function preflightTonTransfer(options: {
     boc = buildExternalWalletBoc({
       walletContract: options.walletContract,
       secretKey,
-      messages: [options.message],
+      messages: options.messages ?? [options.message],
       seqno: options.seqno,
       maxTimeout: 300,
+      validUntil: options.validUntil,
     }).boc
   } finally {
     secretKey.fill(0)

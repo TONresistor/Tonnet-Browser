@@ -1,8 +1,10 @@
 import { readFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
   AdnlConnectionResultSchema,
+  WalletChainSnapshotSchema,
   DhtValueResultSchema,
   DnsResolveResultSchema,
   EmulateTransactionResultSchema,
@@ -30,10 +32,19 @@ describe('pinned tonutils-bridge compatibility fixture', () => {
       version: fixture.version,
       commit: fixture.commit,
     })
-    expect(pin).not.toHaveProperty('patch')
+    expect(pin?.patch).toBe(fixture.patch)
+    expect(
+      createHash('sha256')
+        .update(readFileSync(resolve(fixture.patch)))
+        .digest('hex')
+    ).toBe(fixture.patchSha256)
   })
 
   it('accepts pinned response and event shapes at the runtime codec boundary', () => {
+    expect(WalletChainSnapshotSchema.parse(fixture.responses['wallet.getSnapshot'])).toMatchObject({
+      seqno: 0,
+      block_time: 2000000000,
+    })
     expect(DnsResolveResultSchema.parse(fixture.responses['dns.resolve'])).toMatchObject({ wallet: '0:abc' })
     expect(AdnlConnectionResultSchema.parse(fixture.responses['adnl.connectByADNL'])).toEqual({ peer_id: 'peer' })
     expect(DhtValueResultSchema.parse(fixture.responses['dht.findValue'])).toEqual({

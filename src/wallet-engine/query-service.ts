@@ -1,11 +1,9 @@
-import type { DnsResolveResult, WalletTransaction } from '../../shared/types'
-import { TON_DOMAIN_REGEX } from '../../shared/utils/ton'
-import { createLogger } from '../../shared/logger'
+import type { DnsResolveResult, WalletTransaction } from './schemas'
+const TON_DOMAIN_REGEX = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+ton$/
+import { createLogger, type WalletLogger } from './logger'
 import { decodeCommentBody } from './comment'
 import { parseMainnetAddress } from './address-utils'
-import type { BridgeTransaction } from '../ports/ton-bridge'
-
-const log = createLogger('wallet:queries')
+import type { BridgeTransaction } from './network-types'
 
 export interface WalletQueryBridge {
   getBalance(address: string): Promise<string>
@@ -15,7 +13,10 @@ export interface WalletQueryBridge {
 
 /** Read-only wallet capabilities, independent from key storage and signing. */
 export class WalletQueryService {
-  constructor(private readonly getBridge: () => WalletQueryBridge | null) {}
+  constructor(
+    private readonly getBridge: () => WalletQueryBridge | null,
+    private readonly log: WalletLogger = createLogger('wallet:queries')
+  ) {}
 
   async getBalance(address: string | null, currentBalance: string): Promise<string> {
     const bridge = this.getBridge()
@@ -23,7 +24,7 @@ export class WalletQueryService {
     try {
       return await bridge.getBalance(address)
     } catch (error) {
-      log.error('Failed to fetch balance:', error)
+      this.log.error('Failed to fetch balance:', error)
       return currentBalance
     }
   }
@@ -44,7 +45,7 @@ export class WalletQueryService {
         if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 600))
       }
     }
-    log.error('Failed to fetch on-chain history:', lastError)
+    this.log.error('Failed to fetch on-chain history:', lastError)
     throw lastError
   }
 

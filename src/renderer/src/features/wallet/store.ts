@@ -57,6 +57,28 @@ interface WalletStore {
   setError: (error: string | null) => void
 }
 
+const PENDING_SEND_KEY = 'wallet-pending-send'
+function pendingSend(): { id: string; intent: string } | null {
+  try {
+    const saved = JSON.parse(sessionStorage.getItem(PENDING_SEND_KEY) ?? 'null')
+    return typeof saved?.id === 'string' && typeof saved.intent === 'string' ? saved : null
+  } catch {
+    return null
+  }
+}
+function forgetPendingSend(id: string): void {
+  try {
+    if (pendingSend()?.id === id) sessionStorage.removeItem(PENDING_SEND_KEY)
+  } catch {
+    /* The engine also protects unresolved sends when browser storage is unavailable. */
+  }
+}
+function confirmedSend(transactions: readonly WalletTransaction[], id: string): boolean {
+  return transactions.some(
+    (transaction) => (transaction.operationId === id || transaction.id === id) && transaction.status === 'confirmed'
+  )
+}
+
 export const useWalletStore = create<WalletStore>((set, get) => {
   // IPC event listeners — stored for cleanup
   let unsubBalance: (() => void) | null = null
@@ -79,8 +101,21 @@ export const useWalletStore = create<WalletStore>((set, get) => {
       // Functional set for atomic dedup: two pushes arriving back-to-back both
       // read the same snapshot with get(), so the check-then-set would race.
       set((state) => {
-        if (state.transactions.some((t) => t.id === tx.id)) return state
-        const next = [tx, ...state.transactions]
+        const matches = (existing: WalletTransaction) =>
+          existing.id === tx.id ||
+          Boolean(existing.operationId && existing.operationId === tx.operationId) ||
+          Boolean(existing.hash && existing.hash === tx.hash)
+        const previous =
+          state.transactions.find((existing) => Boolean(tx.operationId && existing.operationId === tx.operationId)) ??
+          state.transactions.find(matches)
+        const merged = { ...previous, ...tx, ...(previous?.type === 'x402' ? { type: 'x402' as const } : {}) }
+        if (previous?.operationState && !tx.operationState) {
+          merged.operationId = previous.operationId
+          merged.operationState = previous.operationState
+          merged.execution = previous.execution
+          merged.status = previous.status
+        }
+        const next = [merged, ...state.transactions.filter((existing) => !matches(existing))]
           .sort((a, b) => b.timestamp - a.timestamp)
           .slice(0, WALLET_TX_DISPLAY_CAP)
         return { transactions: next }
@@ -294,11 +329,34 @@ export const useWalletStore = create<WalletStore>((set, get) => {
     },
 
     send: async (to: string, amount: string, comment?: string, encryptedComment?: boolean) => {
+      const saved = pendingSend()
+      const completedAtEntry = saved ? confirmedSend(get().transactions, saved.id) : false
+      const intent = Array.from(
+        new Uint8Array(
+          await crypto.subtle.digest(
+            'SHA-256',
+            new TextEncoder().encode(JSON.stringify([to, amount, comment, encryptedComment]))
+          )
+        ),
+        (byte) => byte.toString(16).padStart(2, '0')
+      ).join('')
+      let operationId: string = crypto.randomUUID()
+      try {
+        if (saved?.intent === intent && !completedAtEntry) operationId = saved.id
+        sessionStorage.setItem(PENDING_SEND_KEY, JSON.stringify({ intent, id: operationId }))
+      } catch {
+        /* the engine also guards unresolved operations */
+      }
       set({ isSending: true, error: null })
       try {
-        await walletClient.send(to, amount, comment, encryptedComment)
+        const transaction = await walletClient.send(to, amount, comment, encryptedComment, operationId)
+        if (transaction.status !== 'pending') forgetPendingSend(operationId)
         await get().refreshBalance()
         await get().loadHistory()
+        if (transaction.status === 'failed')
+          throw new Error(
+            transaction.operationState === 'expired' ? 'Transfer expired without execution' : 'Transfer failed'
+          )
       } catch (err) {
         set({ error: errorMessage(err) })
         throw err

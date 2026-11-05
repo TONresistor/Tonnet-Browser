@@ -1,5 +1,5 @@
 import { Address, beginCell, storeStateInit } from '@ton/core'
-import type { TonConnectAccount } from '../tonconnect/wallet-port'
+import type { TonConnectAccount } from './signing-types'
 import type { SupportedWalletContract } from './wallet-versions'
 
 export interface WalletAccountContext {

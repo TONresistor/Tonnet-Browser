@@ -70,6 +70,7 @@ export const BridgeAccountStateSchema: z.ZodType<BridgeAccountState> = z.object(
 })
 
 const BridgeMessageSchema: z.ZodType<BridgeMessage> = z.object({
+  hash: z.string().optional(),
   source: z.string(),
   destination: z.string(),
   value: DecimalSchema,
@@ -77,6 +78,9 @@ const BridgeMessageSchema: z.ZodType<BridgeMessage> = z.object({
 })
 
 export const BridgeTransactionSchema: z.ZodType<BridgeTransaction> = z.object({
+  boc: z.string().optional(),
+  prev_tx_lt: z.string().optional(),
+  prev_tx_hash: z.string().optional(),
   hash: z.string().min(1),
   lt: z.string().min(1),
   now: z.number().int().nonnegative(),
@@ -146,3 +150,27 @@ export const DnsResolveResultSchema = z
     text_records: z.record(z.string(), z.string()).optional(),
   })
   .passthrough()
+
+const BlockReferenceSchema = z.object({
+  workchain: z.number().int(),
+  shard: z.string().regex(/^[0-9a-f]{16}$/),
+  seqno: z.number().int().nonnegative(),
+  root_hash: z.string().regex(/^[0-9a-f]{64}$/),
+  file_hash: z.string().regex(/^[0-9a-f]{64}$/),
+})
+export const WalletChainSnapshotSchema: z.ZodType<import('../../wallet-engine').WalletChainSnapshot> = z.object({
+  address: z.string(),
+  balance: DecimalSchema,
+  status: z.enum(['active', 'uninit', 'frozen']),
+  seqno: z.number().int().nonnegative().max(0xffffffff),
+  last_tx_lt: DecimalSchema,
+  last_tx_hash: z.string(),
+  block_time: z.number().int().positive(),
+  code_hash: z
+    .string()
+    .regex(/^[0-9a-f]{64}$/)
+    .optional(),
+  data_boc: z.string().optional(),
+  block: BlockReferenceSchema,
+  masterchain: BlockReferenceSchema,
+})

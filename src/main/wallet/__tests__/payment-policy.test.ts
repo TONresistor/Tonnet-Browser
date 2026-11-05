@@ -249,7 +249,7 @@ describe('PaymentPolicyStore', () => {
     })
 
     it('drops payments older than 24h from the day total but keeps them in the month total', () => {
-      store.reservePayment('shop.ton', '5')
+      store.confirmPayment(reserve(store, 'shop.ton', '5'))
       advanceClock(ONE_DAY_MS + 1000)
       const spending = store.getSpending('shop.ton')
       expect(spending.day).toBe('0')
@@ -258,6 +258,61 @@ describe('PaymentPolicyStore', () => {
   })
 
   describe('persistence', () => {
+    it('keeps a handed-off reservation when a different wallet journal is opened', async () => {
+      const id = reserve(store, 'shop.ton', '5')
+      await store.persistReservation(id, 'payment-1', 'mainnet:first')
+      await store.reconcileOperations([], true, 'mainnet:second')
+      expect(store.getSpending('shop.ton').day).toBe('5')
+    })
+
+    it('keeps uncertain spending in the limits after the rolling time windows', async () => {
+      setLimits({ perDay: '5', perSitePerMonth: '5' })
+      const id = reserve(store, 'shop.ton', '5')
+      await store.persistReservation(id, 'payment-1', 'mainnet:test')
+      advanceClock(31 * ONE_DAY_MS)
+      store.cleanup()
+      expect(store.getSpending('shop.ton')).toEqual({ day: '5', month: '5' })
+      expect(store.canPay('shop.ton', '1')).toBe(false)
+    })
+
+    it('persists the operation reference and keeps an uncertain handoff reserved across restart', async () => {
+      const id = reserve(store, 'shop.ton', '5')
+      await store.persistReservation(id, 'payment-1', 'mainnet:test')
+      expect(storageBackend.data).toMatchObject({
+        'https://shop.ton': [expect.objectContaining({ operationId: 'payment-1', pending: true })],
+      })
+      await store.destroy()
+      store = new PaymentPolicyStore()
+      await store.init()
+      const operation: import('../../../wallet-engine').WalletOperation = {
+        id: 'payment-1',
+        intentHash: 'hash',
+        account: 'mainnet:test',
+        phase: 'handed-off',
+        seqno: 0,
+        validUntil: 2000000000,
+        startedAt: Date.now(),
+        baselineLt: '0',
+        baselineHash: '',
+        messages: [],
+        estimatedFee: '0',
+        closed: false,
+      }
+      await store.reconcileOperations([operation], true)
+      expect(store.getSpending('shop.ton').day).toBe('5')
+      await store.reconcileOperations([{ ...operation, phase: 'expired', closed: true }])
+      expect(store.getSpending('shop.ton').day).toBe('0')
+    })
+
+    it('does not refund an in-flight reservation absent from a partial live journal snapshot', async () => {
+      const id = reserve(store, 'shop.ton', '5')
+      await store.persistReservation(id, 'payment-1', 'mainnet:test')
+      await store.reconcileOperations([])
+      expect(store.getSpending('shop.ton').day).toBe('5')
+      await store.reconcileOperations([], true, 'mainnet:test')
+      expect(store.getSpending('shop.ton').day).toBe('0')
+    })
+
     it('reloads spending recorded by a previous session', async () => {
       const first = new PaymentPolicyStore()
       await first.init()

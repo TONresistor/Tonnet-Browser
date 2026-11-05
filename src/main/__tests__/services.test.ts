@@ -209,4 +209,104 @@ describe('services composition root', () => {
       expect(spy).toHaveBeenCalledOnce()
     }
   })
+
+  function funding(phase: 'ready' | 'unknown' | 'expired' = 'ready') {
+    const identity = { publicKey: '11'.repeat(32), addressRaw: '0:' + '22'.repeat(32), revision: 1 }
+    const to = '0:' + '33'.repeat(32)
+    const transaction: Awaited<ReturnType<ServiceRegistry['walletManager']['send']>> = {
+      id: 'funding-operation',
+      operationId: 'funding-operation',
+      type: 'send',
+      amount: '20000000000',
+      address: to,
+      timestamp: 1000,
+      status: phase === 'expired' ? 'failed' : 'pending',
+      operationState: phase,
+    }
+    const operation = {
+      id: transaction.id,
+      intentHash: 'intent',
+      account: `mainnet:${identity.addressRaw}`,
+      phase: 'included' as const,
+      execution: 'succeeded' as const,
+      closed: true,
+      seqno: 0,
+      validUntil: 1300,
+      startedAt: 1000,
+      baselineLt: '0',
+      baselineHash: '',
+      messages: [{ address: to, amount: transaction.amount }],
+      estimatedFee: '1',
+    }
+    vi.spyOn(registry.cocoonPersistence.stakeCache, 'reserveFunding').mockResolvedValue(transaction.id)
+    vi.spyOn(registry.walletManager, 'resolvePending').mockResolvedValue()
+    vi.spyOn(registry.walletManager, 'send').mockResolvedValue(transaction)
+    vi.spyOn(registry.walletManager, 'waitForOperation').mockResolvedValue(operation)
+    return { identity, to, transaction, operation }
+  }
+
+  it('resumes a ready Cocoon funding through the existing explicit retry API', async () => {
+    const s = funding()
+    const retry = vi.spyOn(registry.walletManager, 'retryOperation').mockImplementation(async (id, authorize) => {
+      expect(id).toBe(s.transaction.id)
+      expect(
+        await authorize({
+          operationId: id,
+          identity: s.identity,
+          messages: s.operation.messages,
+          estimatedFee: '1',
+          walletBalance: '30000000000',
+          validUntil: 1300,
+        })
+      ).toBe(true)
+      return { ...s.transaction, operationState: 'submitted' }
+    })
+    await registry.cocoonActivation.sendNative(s.to, s.transaction.amount, s.identity)
+    expect(retry).toHaveBeenCalledOnce()
+    expect(registry.walletManager.send).toHaveBeenCalledExactlyOnceWith(
+      s.to,
+      s.transaction.amount,
+      undefined,
+      s.identity,
+      undefined,
+      false,
+      s.transaction.id
+    )
+    expect(registry.walletManager.waitForOperation).toHaveBeenCalledWith(s.transaction.id)
+  })
+
+  it.each(['unknown', 'expired'] as const)('does not automatically replay %s Cocoon funding', async (phase) => {
+    const s = funding(phase)
+    const retry = vi.spyOn(registry.walletManager, 'retryOperation')
+    vi.mocked(registry.walletManager.waitForOperation).mockResolvedValue({
+      ...s.operation,
+      phase,
+      execution: undefined,
+      closed: phase === 'expired',
+    })
+    await expect(registry.cocoonActivation.sendNative(s.to, s.transaction.amount, s.identity)).rejects.toThrow(
+      'pending confirmation'
+    )
+    expect(retry).not.toHaveBeenCalled()
+    expect(registry.walletManager.send).toHaveBeenCalledOnce()
+  })
+
+  it('rejects a Cocoon retry authorization after the native identity changes', async () => {
+    const s = funding()
+    vi.spyOn(registry.walletManager, 'retryOperation').mockImplementation(async (id, authorize) => {
+      await authorize({
+        operationId: id,
+        identity: { ...s.identity, revision: s.identity.revision + 1 },
+        messages: s.operation.messages,
+        estimatedFee: '1',
+        walletBalance: '30000000000',
+        validUntil: 1300,
+      })
+      return s.transaction
+    })
+    await expect(registry.cocoonActivation.sendNative(s.to, s.transaction.amount, s.identity)).rejects.toThrow(
+      'Native wallet changed'
+    )
+    expect(registry.walletManager.waitForOperation).not.toHaveBeenCalled()
+  })
 })

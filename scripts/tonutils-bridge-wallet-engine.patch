@@ -1,0 +1,443 @@
+diff --git a/wsbridge/bridge.go b/wsbridge/bridge.go
+index 21a4c24..1ed5326 100644
+--- a/wsbridge/bridge.go
++++ b/wsbridge/bridge.go
+@@ -492,6 +492,8 @@ func (b *WSBridge) handleRequest(client *wsClient, req *WSRequest) {
+ 		b.handleNFTGetRoyaltyParams(client, req)
+ 	case "nft.getContent":
+ 		b.handleNFTGetContent(client, req)
++	case "wallet.getSnapshot":
++		b.handleWalletGetSnapshot(client, req)
+ 	case "wallet.getSeqno":
+ 		b.handleWalletGetSeqno(client, req)
+ 	case "wallet.getPublicKey":
+diff --git a/wsbridge/lite.go b/wsbridge/lite.go
+index 0320c42..72c7150 100644
+--- a/wsbridge/lite.go
++++ b/wsbridge/lite.go
+@@ -57,12 +57,12 @@ func (b *WSBridge) handleGetAccountState(client *wsClient, req *WSRequest) {
+ 	ctx, cancel := context.WithTimeout(client.ctx, b.cfg.Namespaces.Lite.Timeout)
+ 	defer cancel()
+ 
+-	block, err := b.api.CurrentMasterchainInfo(ctx)
++	ctx, block, reader, err := walletReadContext(ctx, b.api)
+ 	if err != nil {
+ 		b.sendError(client, req.ID, "failed to get masterchain info: "+err.Error())
+ 		return
+ 	}
+-	acc, err := b.api.GetAccount(ctx, block, addr)
++	acc, err := reader.GetAccount(ctx, block, addr)
+ 	if err != nil {
+ 		b.sendError(client, req.ID, "failed to get account: "+err.Error())
+ 		return
+@@ -129,7 +129,7 @@ func (b *WSBridge) handleRunMethod(client *wsClient, req *WSRequest) {
+ 	ctx, cancel := context.WithTimeout(client.ctx, b.cfg.Namespaces.Lite.Timeout)
+ 	defer cancel()
+ 
+-	block, err := b.api.CurrentMasterchainInfo(ctx)
++	ctx, block, reader, err := walletReadContext(ctx, b.api)
+ 	if err != nil {
+ 		b.sendError(client, req.ID, "failed to get masterchain info: "+err.Error())
+ 		return
+@@ -146,7 +146,7 @@ func (b *WSBridge) handleRunMethod(client *wsClient, req *WSRequest) {
+ 		methodParams = append(methodParams, converted)
+ 	}
+ 
+-	res, err := b.api.RunGetMethod(ctx, block, addr, params.Method, methodParams...)
++	res, err := reader.RunGetMethod(ctx, block, addr, params.Method, methodParams...)
+ 	if err != nil {
+ 		b.sendError(client, req.ID, "run method failed: "+err.Error())
+ 		return
+@@ -423,7 +423,7 @@ func (b *WSBridge) handleEmulateTransaction(client *wsClient, req *WSRequest) {
+ 	ctx, cancel := context.WithTimeout(client.ctx, b.cfg.Namespaces.Lite.Timeout)
+ 	defer cancel()
+ 
+-	block, err := b.api.CurrentMasterchainInfo(ctx)
++	ctx, block, reader, err := walletReadContext(ctx, b.api)
+ 	if err != nil {
+ 		b.sendError(client, req.ID, "failed to get masterchain info: "+err.Error())
+ 		return
+@@ -434,7 +434,7 @@ func (b *WSBridge) handleEmulateTransaction(client *wsClient, req *WSRequest) {
+ 		return
+ 	}
+ 
+-	acc, err := b.api.GetAccount(ctx, block, addr)
++	acc, err := reader.GetAccount(ctx, block, addr)
+ 	if err != nil {
+ 		b.sendError(client, req.ID, "failed to get account: "+err.Error())
+ 		return
+@@ -457,7 +457,7 @@ func (b *WSBridge) handleEmulateTransaction(client *wsClient, req *WSRequest) {
+ 		LastTransLT:   acc.LastTxLT,
+ 	}
+ 
+-	bcCfg, err := b.api.GetBlockchainConfig(ctx, block)
++	bcCfg, err := reader.GetBlockchainConfig(ctx, block)
+ 	if err != nil {
+ 		b.sendError(client, req.ID, "failed to get blockchain config: "+err.Error())
+ 		return
+@@ -718,10 +718,12 @@ func (b *WSBridge) handleSendMessageWait(client *wsClient, req *WSRequest) {
+ 
+ func (b *WSBridge) handleGetTransactions(client *wsClient, req *WSRequest) {
+ 	var params struct {
+-		Address  string `json:"address"`
+-		Limit    uint32 `json:"limit"`
+-		LastLT   string `json:"last_lt"`   // optional, for pagination
+-		LastHash string `json:"last_hash"` // optional, hex-encoded
++		IncludeBOC  bool   `json:"include_boc"`
++		MasterSeqno uint32 `json:"master_seqno"`
++		Address     string `json:"address"`
++		Limit       uint32 `json:"limit"`
++		LastLT      string `json:"last_lt"`   // optional, for pagination
++		LastHash    string `json:"last_hash"` // optional, hex-encoded
+ 	}
+ 	if err := json.Unmarshal(req.Params, &params); err != nil {
+ 		b.sendError(client, req.ID, "invalid params: "+err.Error(), -32602)
+@@ -787,6 +789,36 @@ func (b *WSBridge) handleGetTransactions(client *wsClient, req *WSRequest) {
+ 		startHash = acc.LastTxHash
+ 	}
+ 
++	if params.IncludeBOC {
++		reader := b.api
++		if params.MasterSeqno > 0 {
++			reader = reader.WaitForBlock(params.MasterSeqno)
++		}
++		var response tl.Serializable
++		err := reader.Client().QueryLiteserver(ctx, ton.GetTransactions{Limit: int32(params.Limit), AccID: &ton.AccountID{Workchain: addr.Workchain(), ID: addr.Data()}, LT: int64(startLT), TxHash: startHash}, &response)
++		if err != nil {
++			b.sendError(client, req.ID, "failed to read raw transactions: "+err.Error())
++			return
++		}
++		list, ok := response.(ton.TransactionList)
++		if !ok {
++			b.sendError(client, req.ID, "raw transaction history unavailable")
++			return
++		}
++		cells, err := cell.FromBOCMultiRoot(list.Transactions)
++		if err != nil || len(cells) > int(params.Limit) {
++			b.sendError(client, req.ID, "invalid raw transaction page")
++			return
++		}
++		records, err := rawTransactionRecords(cells, addr, startLT, startHash)
++		if err != nil {
++			b.sendError(client, req.ID, "invalid raw transaction evidence: "+err.Error())
++			return
++		}
++		b.sendResult(client, req.ID, map[string]any{"transactions": records})
++		return
++	}
++
+ 	txList, err := b.api.ListTransactions(ctx, addr, params.Limit, startLT, startHash)
+ 	if err != nil {
+ 		b.sendError(client, req.ID, "failed to list transactions: "+err.Error())
+diff --git a/wsbridge/wallet_snapshot.go b/wsbridge/wallet_snapshot.go
+new file mode 100644
+index 0000000..e546156
+--- /dev/null
++++ b/wsbridge/wallet_snapshot.go
+@@ -0,0 +1,163 @@
++package wsbridge
++
++import (
++	"bytes"
++	"context"
++	"encoding/base64"
++	"encoding/hex"
++	"encoding/json"
++	"fmt"
++	"math/big"
++
++	"github.com/xssnick/tonutils-go/address"
++	"github.com/xssnick/tonutils-go/tlb"
++	"github.com/xssnick/tonutils-go/ton"
++	"github.com/xssnick/tonutils-go/tvm/cell"
++)
++
++// walletSnapshotAPI anchors account and getter reads to one masterchain block.
++type walletSnapshotAPI interface {
++	Client() ton.LiteClient
++	WaitForBlock(uint32) ton.APIClientWrapped
++	CurrentMasterchainInfo(context.Context) (*ton.BlockIDExt, error)
++	GetBlockShardsInfo(context.Context, *ton.BlockIDExt) ([]*ton.BlockIDExt, error)
++	GetBlockHeader(context.Context, *ton.BlockIDExt) (*tlb.BlockHeader, error)
++	GetAccount(context.Context, *ton.BlockIDExt, *address.Address) (*tlb.Account, error)
++	RunGetMethod(context.Context, *ton.BlockIDExt, *address.Address, string, ...any) (*ton.ExecutionResult, error)
++}
++
++type walletMasterAPI interface {
++	Client() ton.LiteClient
++	CurrentMasterchainInfo(context.Context) (*ton.BlockIDExt, error)
++	WaitForBlock(uint32) ton.APIClientWrapped
++}
++
++func walletReadContext(ctx context.Context, api walletMasterAPI) (context.Context, *ton.BlockIDExt, ton.APIClientWrapped, error) {
++	ctx = api.Client().StickyContext(ctx)
++	master, err := api.CurrentMasterchainInfo(ctx)
++	if err != nil {
++		return ctx, nil, nil, err
++	}
++	return ctx, master, api.WaitForBlock(master.SeqNo), nil
++}
++
++func walletSnapshot(ctx context.Context, api walletSnapshotAPI, addr *address.Address) (map[string]any, error) {
++	ctx, master, reader, err := walletReadContext(ctx, api)
++	if err != nil {
++		return nil, err
++	}
++	api = reader
++	account, err := api.GetAccount(ctx, master, addr)
++	if err != nil {
++		return nil, err
++	}
++	block := master
++	if addr.Workchain() != -1 {
++		shards, err := api.GetBlockShardsInfo(ctx, master)
++		if err != nil {
++			return nil, err
++		}
++		block = nil
++		for _, shard := range shards {
++			if shard.Workchain == addr.Workchain() && tlb.ShardID(uint64(shard.Shard)).ContainsAddress(addr) {
++				block = shard
++				break
++			}
++		}
++		if block == nil {
++			return nil, fmt.Errorf("account shard unavailable")
++		}
++	}
++	header, err := api.GetBlockHeader(ctx, block)
++	if err != nil {
++		return nil, err
++	}
++	if header == nil || account == nil {
++		return nil, fmt.Errorf("incomplete wallet snapshot")
++	}
++	result := map[string]any{
++		"address": addr.String(), "status": "uninit", "balance": "0", "seqno": uint64(0),
++		"last_tx_lt": fmt.Sprint(account.LastTxLT), "last_tx_hash": hex.EncodeToString(account.LastTxHash),
++		"block": snapshotBlockID(block), "masterchain": snapshotBlockID(master), "block_time": header.GenUtime,
++	}
++	if account.State != nil && account.State.IsValid {
++		result["balance"] = account.State.Balance.Nano().String()
++		if account.State.Status == tlb.AccountStatusFrozen {
++			result["status"] = "frozen"
++		}
++		if account.State.Status == tlb.AccountStatusActive {
++			result["status"] = "active"
++			seqno, err := api.RunGetMethod(ctx, master, addr, "seqno")
++			if err != nil {
++				return nil, err
++			}
++			values := seqno.AsTuple()
++			if len(values) != 1 {
++				return nil, fmt.Errorf("invalid wallet seqno stack")
++			}
++			n, ok := values[0].(*big.Int)
++			if !ok || !n.IsUint64() || n.BitLen() > 32 {
++				return nil, fmt.Errorf("invalid wallet seqno")
++			}
++			result["seqno"] = n.Uint64()
++		}
++	}
++	if account.Code != nil {
++		result["code_hash"] = hex.EncodeToString(account.Code.Hash())
++	}
++	if account.Data != nil {
++		result["data_boc"] = base64.StdEncoding.EncodeToString(account.Data.ToBOCWithOptions(cell.BOCSerializeOptions{}))
++	}
++	return result, nil
++}
++
++func snapshotBlockID(block *ton.BlockIDExt) map[string]any {
++	return map[string]any{"workchain": block.Workchain, "shard": fmt.Sprintf("%016x", uint64(block.Shard)), "seqno": block.SeqNo, "root_hash": hex.EncodeToString(block.RootHash), "file_hash": hex.EncodeToString(block.FileHash)}
++}
++
++func (b *WSBridge) handleWalletGetSnapshot(client *wsClient, req *WSRequest) {
++	var params struct {
++		Address string `json:"address"`
++	}
++	if err := json.Unmarshal(req.Params, &params); err != nil {
++		b.sendError(client, req.ID, "invalid params", -32602)
++		return
++	}
++	addr, err := parseAddress(params.Address)
++	if err != nil {
++		b.sendError(client, req.ID, "invalid address", -32602)
++		return
++	}
++	ctx, cancel := context.WithTimeout(client.ctx, b.cfg.Namespaces.Wallet.Timeout)
++	defer cancel()
++	result, err := walletSnapshot(ctx, b.api, addr)
++	if err != nil {
++		b.sendError(client, req.ID, "wallet snapshot failed: "+err.Error())
++		return
++	}
++	b.sendResult(client, req.ID, result)
++}
++
++// Preserve the original network cells: reserialization may change a valid dictionary encoding and its hash.
++func rawTransactionRecords(cells []*cell.Cell, addr *address.Address, expectedLT uint64, expectedHash []byte) ([]map[string]any, error) {
++	records := make([]map[string]any, 0, len(cells))
++	for _, raw := range cells {
++		if !bytes.Equal(raw.Hash(), expectedHash) {
++			return nil, fmt.Errorf("transaction hash mismatch")
++		}
++		var tx tlb.Transaction
++		if err := tlb.Parse(&tx, raw); err != nil {
++			return nil, err
++		}
++		if tx.LT != expectedLT || !bytes.Equal(tx.AccountAddr, addr.Data()) || (tx.PrevTxLT != 0 && tx.PrevTxLT >= tx.LT) {
++			return nil, fmt.Errorf("transaction chain mismatch")
++		}
++		tx.Hash = raw.Hash()
++		record := serializeTransaction(&tx)
++		record["boc"] = base64.StdEncoding.EncodeToString(raw.ToBOCWithOptions(cell.BOCSerializeOptions{}))
++		records = append(records, record)
++		expectedLT = tx.PrevTxLT
++		expectedHash = tx.PrevTxHash
++	}
++	return records, nil
++}
+diff --git a/wsbridge/wallet_snapshot_test.go b/wsbridge/wallet_snapshot_test.go
+new file mode 100644
+index 0000000..d2b3098
+--- /dev/null
++++ b/wsbridge/wallet_snapshot_test.go
+@@ -0,0 +1,137 @@
++package wsbridge
++
++import (
++	"bytes"
++	"context"
++	"encoding/base64"
++	"errors"
++	"github.com/xssnick/tonutils-go/address"
++	"github.com/xssnick/tonutils-go/tlb"
++	"github.com/xssnick/tonutils-go/ton"
++	"github.com/xssnick/tonutils-go/tvm/cell"
++	"math/big"
++	"testing"
++)
++
++type snapshotNodeKey struct{}
++
++type snapshotClient struct{ ton.LiteClient }
++
++func (snapshotClient) StickyContext(ctx context.Context) context.Context {
++	return context.WithValue(ctx, snapshotNodeKey{}, true)
++}
++
++type snapshotMock struct {
++	ton.APIClientWrapped
++	waited        uint32
++	master, shard *ton.BlockIDExt
++	account       *tlb.Account
++	reads         []*ton.BlockIDExt
++	fail          bool
++}
++
++func (m *snapshotMock) Client() ton.LiteClient                         { return snapshotClient{} }
++func (m *snapshotMock) WaitForBlock(seqno uint32) ton.APIClientWrapped { m.waited = seqno; return m }
++func (m *snapshotMock) CurrentMasterchainInfo(ctx context.Context) (*ton.BlockIDExt, error) {
++	if ctx.Value(snapshotNodeKey{}) != true {
++		return nil, errors.New("node context was not pinned")
++	}
++	return m.master, nil
++}
++func (m *snapshotMock) GetBlockShardsInfo(context.Context, *ton.BlockIDExt) ([]*ton.BlockIDExt, error) {
++	if m.waited != m.master.SeqNo {
++		return nil, errors.New("code 651: master block not available")
++	}
++	return []*ton.BlockIDExt{m.shard}, nil
++}
++func (m *snapshotMock) GetBlockHeader(_ context.Context, b *ton.BlockIDExt) (*tlb.BlockHeader, error) {
++	m.reads = append(m.reads, b)
++	header := &tlb.BlockHeader{}
++	header.GenUtime = 1000
++	return header, nil
++}
++func (m *snapshotMock) GetAccount(_ context.Context, b *ton.BlockIDExt, _ *address.Address) (*tlb.Account, error) {
++	if m.waited != m.master.SeqNo || b != m.master {
++		return nil, errors.New("code 651: account block not available")
++	}
++	m.reads = append(m.reads, b)
++	return m.account, nil
++}
++func (m *snapshotMock) RunGetMethod(_ context.Context, b *ton.BlockIDExt, _ *address.Address, _ string, _ ...any) (*ton.ExecutionResult, error) {
++	if m.waited != m.master.SeqNo || b != m.master {
++		return nil, errors.New("code 651: getter block not available")
++	}
++	m.reads = append(m.reads, b)
++	if m.fail {
++		return nil, errors.New("seqno unavailable")
++	}
++	return ton.NewExecutionResult([]any{big.NewInt(7)}), nil
++}
++func TestWalletSnapshotWaitsForMasterAndPinsAccountAndSeqno(t *testing.T) {
++	mock := &snapshotMock{master: &ton.BlockIDExt{Workchain: -1, SeqNo: 42}, shard: &ton.BlockIDExt{Workchain: 0, Shard: -9223372036854775808, SeqNo: 8}, account: &tlb.Account{State: &tlb.AccountState{IsValid: true, AccountStorage: tlb.AccountStorage{Status: tlb.AccountStatusActive, Balance: tlb.FromNanoTONU(123)}}}}
++	addr := address.NewAddress(0, 0, make([]byte, 32))
++	result, err := walletSnapshot(context.Background(), mock, addr)
++	if err != nil {
++		t.Fatal(err)
++	}
++	if result["seqno"] != uint64(7) || result["balance"] != "123" || result["block_time"] != uint32(1000) {
++		t.Fatalf("unexpected snapshot: %v", result)
++	}
++	if len(mock.reads) != 3 || mock.reads[0] != mock.master || mock.reads[1] != mock.shard || mock.reads[2] != mock.master {
++		t.Fatal("account and getter must use the same master anchor; timestamp must use its shard")
++	}
++	mock.fail = true
++	if _, err = walletSnapshot(context.Background(), mock, addr); err == nil {
++		t.Fatal("getter failure must not become seqno zero")
++	}
++	mock.account = &tlb.Account{}
++	result, err = walletSnapshot(context.Background(), mock, addr)
++	if err != nil || result["seqno"] != uint64(0) || result["status"] != "uninit" {
++		t.Fatalf("invalid undeployed snapshot: %v %v", result, err)
++	}
++}
++
++func TestRawTransactionRecordsPreserveEvidenceAndRejectForeignChains(t *testing.T) {
++	addr := address.NewAddress(0, 0, make([]byte, 32))
++	tx := &tlb.Transaction{AccountAddr: addr.Data(), LT: 100, PrevTxHash: make([]byte, 32), OrigStatus: tlb.AccountStatusActive, EndStatus: tlb.AccountStatusActive, StateUpdate: tlb.HashUpdate{OldHash: make([]byte, 32), NewHash: make([]byte, 32)}, Description: tlb.TransactionDescriptionOrdinary{ComputePhase: tlb.ComputePhase{Phase: tlb.ComputePhaseSkipped{Reason: tlb.ComputeSkipReason{Type: tlb.ComputeSkipReasonNoGas}}}}}
++	raw, err := tlb.ToCell(tx)
++	if err != nil {
++		t.Fatal(err)
++	}
++	records, err := rawTransactionRecords([]*cell.Cell{raw}, addr, 100, raw.Hash())
++	if err != nil {
++		t.Fatal(err)
++	}
++	encoded, err := base64.StdEncoding.DecodeString(records[0]["boc"].(string))
++	if err != nil {
++		t.Fatal(err)
++	}
++	preserved, err := cell.FromBOC(encoded)
++	if err != nil {
++		t.Fatal(err)
++	}
++	if !bytes.Equal(preserved.Hash(), raw.Hash()) {
++		t.Fatal("transaction cell hash changed")
++	}
++	if _, err = rawTransactionRecords([]*cell.Cell{raw}, addr, 100, make([]byte, 32)); err == nil {
++		t.Fatal("accepted wrong hash")
++	}
++	if _, err = rawTransactionRecords([]*cell.Cell{raw}, addr, 101, raw.Hash()); err == nil {
++		t.Fatal("accepted wrong logical time")
++	}
++	foreign := address.NewAddress(0, 0, bytes.Repeat([]byte{1}, 32))
++	if _, err = rawTransactionRecords([]*cell.Cell{raw}, foreign, 100, raw.Hash()); err == nil {
++		t.Fatal("accepted foreign wallet evidence")
++	}
++}
++
++func TestWalletReadContextWaitsOnTheSelectedNode(t *testing.T) {
++	mock := &snapshotMock{master: &ton.BlockIDExt{Workchain: -1, SeqNo: 42}}
++	ctx, block, reader, err := walletReadContext(context.Background(), mock)
++	if err != nil {
++		t.Fatal(err)
++	}
++	if ctx.Value(snapshotNodeKey{}) != true || block != mock.master || reader != mock || mock.waited != 42 {
++		t.Fatal("account and emulation readers must pin a node and wait for the selected master block")
++	}
++}

@@ -60,7 +60,23 @@
       "confirmed": "Confirmed",
       "failed": "Failed"
     },
-    "x402Payment": "HTTP 402 Payment"
+    "x402Payment": "HTTP 402 Payment",
+    "operation": {
+      "ready": "Ready to send",
+      "submitting": "Submission in progress",
+      "submitted": "Submitted · awaiting chain confirmation",
+      "unknown": "Submission outcome unknown",
+      "handed-off": "Handed to site · awaiting chain confirmation",
+      "included": "Included on chain",
+      "expired": "Expired without execution",
+      "seqno-consumed": "Sequence consumed · payment outcome unverified",
+      "legacy-pending": "Previous operation under verification",
+      "included-failed": "Included · actions failed",
+      "included-partial": "Included · some actions were skipped",
+      "included-unknown": "Included · action outcome unverified"
+    },
+    "retrySameMessage": "Retry the same signed message",
+    "retryFailed": "Unable to retry this operation"
   },
   "dropdown": {
     "title": "Wallet",

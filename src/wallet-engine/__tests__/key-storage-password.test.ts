@@ -4,10 +4,10 @@ import { join } from 'node:path'
 import { mnemonicNew, mnemonicToPrivateKey } from '@ton/crypto'
 import { WalletContractV5R1 } from '@ton/ton'
 import { afterEach, describe, expect, it } from 'vitest'
-import type { ISecureStorage } from '../../ports/secure-storage'
-import { WalletDecryptionError, WalletKeyStorage } from '../key-storage'
+import type { SecureStorage } from '../ports'
+import { WalletDecryptionError, WalletKeyStorage } from './vault-adapter'
 
-class TestSecureStorage implements ISecureStorage {
+class TestSecureStorage implements SecureStorage {
   failEncryption = false
   isAvailable = () => true
   encrypt = (plaintext: string) => {
@@ -26,7 +26,7 @@ class DeviceSecureStorage extends TestSecureStorage {
   getBackendName = () => 'keychain'
 }
 
-async function writeV250Wallet(directory: string, storage: ISecureStorage, mnemonic: string[]): Promise<Buffer> {
+async function writeV250Wallet(directory: string, storage: SecureStorage, mnemonic: string[]): Promise<Buffer> {
   const document = JSON.stringify({ schemaVersion: 1, data: { type: 'mnemonic', mnemonic } })
   const raw = Buffer.concat([Buffer.from('SENC'), storage.encrypt(document)])
   await writeFile(join(directory, 'wallet-key.dat'), raw, { mode: 0o600 })

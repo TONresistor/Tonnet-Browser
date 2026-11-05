@@ -209,6 +209,7 @@ export class TonConnectService {
     if (protocolVersion && protocolVersion > TONCONNECT_PROTOCOL_VERSION) {
       return connectError(CONNECT_ERROR.BAD_REQUEST, 'Unsupported protocol version')
     }
+    const signingSession = this.wallet.getSessionRevision?.()
     const account = this.wallet.getTonConnectAccount()
     if (!account) {
       return connectError(CONNECT_ERROR.UNKNOWN, 'No wallet available')
@@ -264,7 +265,12 @@ export class TonConnectService {
     const proofItem = request.items.find((i): i is TonProofItem => i.name === 'ton_proof')
     if (proofItem) {
       try {
-        const proof = await this.wallet.signTonProof(domain, proofItem.payload, approvedAccount.addressRaw)
+        const proof = await this.wallet.signTonProof(
+          domain,
+          proofItem.payload,
+          approvedAccount.addressRaw,
+          signingSession
+        )
         items.push({ name: 'ton_proof', proof })
       } catch (err) {
         items.push({ name: 'ton_proof', error: { code: 0, message: errorMessage(err) } })
@@ -361,7 +367,13 @@ export class TonConnectService {
 
     switch (message.method) {
       case 'sendTransaction':
-        return this.signingWorkflow.sendTransaction(domain, session.appName, session.address, message)
+        return this.signingWorkflow.sendTransaction(
+          domain,
+          session.appName,
+          session.address,
+          message,
+          session.grantedAt
+        )
       case 'signData':
         return this.signingWorkflow.signData(domain, session.appName, session.address, message)
       default:

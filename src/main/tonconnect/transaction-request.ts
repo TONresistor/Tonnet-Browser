@@ -10,7 +10,7 @@ interface RawSendMessage {
 
 export type ParsedTransactionRequest =
   | { ok: false; error: string }
-  | { ok: true; messages: TonConnectOutMessage[]; totalNano: bigint; hasContractPayload: boolean }
+  | { ok: true; messages: TonConnectOutMessage[]; validUntil?: number; totalNano: bigint; hasContractPayload: boolean }
 
 /** Pure decode and validation boundary for TonConnect sendTransaction params. */
 export function parseTransactionRequest(
@@ -31,7 +31,8 @@ export function parseTransactionRequest(
   if (parsed.from && accountAddress && !sameAddress(parsed.from, accountAddress)) {
     return { ok: false, error: 'Invalid sender address' }
   }
-  if (parsed.valid_until && parsed.valid_until < nowSec) return { ok: false, error: 'Transaction expired' }
+  if (parsed.valid_until !== undefined && (!Number.isInteger(parsed.valid_until) || parsed.valid_until <= nowSec))
+    return { ok: false, error: 'Transaction expired' }
 
   const messages: TonConnectOutMessage[] = []
   for (const message of parsed.messages) {
@@ -58,6 +59,7 @@ export function parseTransactionRequest(
   return {
     ok: true,
     messages,
+    validUntil: parsed.valid_until,
     totalNano: messages.reduce((total, message) => total + BigInt(message.amount), 0n),
     hasContractPayload: messages.some((message) => Boolean(message.payload || message.stateInit)),
   }

@@ -60,7 +60,23 @@
       "confirmed": "Confirmé",
       "failed": "Échoué"
     },
-    "x402Payment": "Paiement HTTP 402"
+    "x402Payment": "Paiement HTTP 402",
+    "operation": {
+      "ready": "Prêt à envoyer",
+      "submitting": "Diffusion en cours",
+      "submitted": "Diffusé · confirmation sur chaîne en attente",
+      "unknown": "Résultat de diffusion inconnu",
+      "handed-off": "Remis au site · confirmation sur chaîne en attente",
+      "included": "Inclus sur chaîne",
+      "expired": "Expiré sans exécution",
+      "seqno-consumed": "Séquence consommée · paiement non vérifié",
+      "legacy-pending": "Ancienne opération en cours de vérification",
+      "included-failed": "Inclus · échec des actions",
+      "included-partial": "Inclus · certaines actions ont été ignorées",
+      "included-unknown": "Inclus · résultat des actions non vérifié"
+    },
+    "retrySameMessage": "Rediffuser le même message signé",
+    "retryFailed": "Impossible de rediffuser cette opération"
   },
   "dropdown": {
     "title": "Portefeuille",

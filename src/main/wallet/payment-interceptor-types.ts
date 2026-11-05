@@ -15,6 +15,7 @@ export interface PendingPaymentApproval {
   paymentReq: PaymentRequirements
   domain: string
   walletIdentity: WalletIdentitySnapshot
+  walletSession: number
   accountGeneration: number
   ttl: ReturnType<typeof setTimeout>
   reservationId?: string

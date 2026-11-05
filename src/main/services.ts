@@ -8,6 +8,7 @@
 import { ElectronSafeStorageAdapter } from './adapters/electron-secure-storage'
 import { ProxyManager } from './proxy/manager'
 import { StorageManager } from './storage/daemon'
+import { fetchHistoryViaIndexer } from './wallet/indexer-client'
 import { WalletManager } from './wallet/manager'
 import { WalletHistoryManager } from './wallet/history'
 import { PaymentInterceptor } from './wallet/payment-interceptor'
@@ -120,7 +121,26 @@ export function createServices(): ServiceRegistry {
   }
   const tonBridgeCoordinator = new TonBridgeCoordinator(proxyManager, tonBridgeRuntime, bridgeInterceptor)
   const paymentPolicyStore = new PaymentPolicyStore()
-  const walletManager = new WalletManager(secureStorage, tonBridgeProviders.wallet)
+  const walletManager = new WalletManager(
+    secureStorage,
+    tonBridgeProviders.wallet,
+    walletHistoryManager,
+    async (address, limit) =>
+      tonIndexerClient.isEnabled() ? fetchHistoryViaIndexer(tonIndexerClient, address, limit) : []
+  )
+  lifecycleRegistrations.add(
+    onEmitter(walletManager, 'journal-opened', (operations: import('../wallet-engine').WalletOperation[]) => {
+      const address = walletManager.getIdentitySnapshot()?.addressRaw
+      void paymentPolicyStore
+        .reconcileOperations(operations, true, address ? `mainnet:${address}` : undefined)
+        .catch(() => undefined)
+    })
+  )
+  lifecycleRegistrations.add(
+    onEmitter(walletManager, 'operation-changed', () => {
+      void paymentPolicyStore.reconcileOperations(walletManager.snapshot().operations).catch(() => undefined)
+    })
+  )
   const paymentInterceptor = new PaymentInterceptor(
     walletManager,
     paymentPolicyStore,
@@ -150,7 +170,27 @@ export function createServices(): ServiceRegistry {
     () => walletManager.getIdentitySnapshot(),
     cocoonPersistence,
     async (nodeAddress, amountNano, expectedIdentity) => {
-      await walletManager.send(nodeAddress, amountNano.toString(), undefined, expectedIdentity)
+      const pending = await cocoonPersistence.stakeCache.getPendingWithdraw()
+      const operationId = await cocoonPersistence.stakeCache.reserveFunding(
+        `withdraw:${pending?.startedAt ?? 0}:${nodeAddress}`,
+        amountNano.toString(),
+        expectedIdentity.addressRaw
+      )
+      await walletManager.resolvePending()
+      const transaction = await walletManager.send(
+        nodeAddress,
+        amountNano.toString(),
+        undefined,
+        expectedIdentity,
+        undefined,
+        false,
+        operationId
+      )
+      if (transaction.status !== 'confirmed') {
+        const operation = await walletManager.waitForOperation(operationId)
+        if (operation?.phase !== 'included' || operation.execution !== 'succeeded')
+          throw new Error('Cocoon funding is pending confirmation')
+      }
     }
   )
   // React to runner state changes so refundable transitions are picked up
@@ -171,7 +211,33 @@ export function createServices(): ServiceRegistry {
     getBridge: () => tonBridgeProviders.ton.getBridge(),
     getNativeIdentity: () => walletManager.getIdentitySnapshot(),
     getNativeBalance: (expectedIdentity) => walletManager.getBalance(expectedIdentity),
-    sendNative: (to, amount, expectedIdentity) => walletManager.send(to, amount, undefined, expectedIdentity),
+    sendNative: async (to, amount, expectedIdentity) => {
+      const operationId = await cocoonPersistence.stakeCache.reserveFunding(
+        `activation:${to}`,
+        amount,
+        expectedIdentity.addressRaw
+      )
+      await walletManager.resolvePending()
+      let transaction = await walletManager.send(to, amount, undefined, expectedIdentity, undefined, false, operationId)
+      if (transaction.operationState === 'ready') {
+        // This explicit activation retry resumes the persisted BOC, never a new signature.
+        transaction = await walletManager.retryOperation(operationId, async (review) => {
+          if (
+            review.identity.publicKey !== expectedIdentity.publicKey ||
+            review.identity.addressRaw !== expectedIdentity.addressRaw ||
+            review.identity.revision !== expectedIdentity.revision
+          )
+            throw new Error('Native wallet changed during Cocoon funding retry')
+          return true
+        })
+      }
+      if (transaction.status !== 'confirmed') {
+        const operation = await walletManager.waitForOperation(operationId)
+        if (operation?.phase !== 'included' || operation.execution !== 'succeeded')
+          throw new Error('Cocoon funding is pending confirmation')
+      }
+      return transaction
+    },
     persistence: cocoonPersistence,
   }
   const settingsCoordinator = new SettingsCoordinator({
@@ -238,7 +304,7 @@ export async function destroyServices(registry: ServiceRegistry): Promise<void> 
   await registry.paymentPolicyStore.destroy()
   registry.withdrawDriver.stop()
   registry.recoveryDriver.stop()
-  registry.walletManager.destroy()
+  await registry.walletManager.shutdown()
   await registry.tonBridgeCoordinator.destroy()
   registry.bridgeInterceptor.destroy()
   registry.overlayManager.destroy()

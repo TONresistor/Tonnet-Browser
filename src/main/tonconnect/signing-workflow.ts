@@ -1,4 +1,6 @@
 import { Address } from '@ton/core'
+import { createHash } from 'node:crypto'
+import { WalletEngineError } from '../../wallet-engine'
 import { errorMessage } from '../../shared/errors'
 import type { TonConnectApprovalPort } from './approval'
 import { buildSignDataRows, validateSignDataPayload } from './sign-data-preview'
@@ -21,37 +23,54 @@ export class TonConnectSigningWorkflow {
     domain: string,
     appName: string,
     expectedAddress: string,
-    message: AppRequest
+    message: AppRequest,
+    sessionId = 0
   ): Promise<WalletResponse> {
+    const signingSession = this.wallet.getSessionRevision?.()
     const account = this.wallet.getTonConnectAccount()
     const parsed = parseTransactionRequest(message.params?.[0], account?.addressRaw ?? null)
     if (!parsed.ok) return rpcError(message.id, TONCONNECT_ERROR.BAD_REQUEST, parsed.error)
 
-    const approved = await this.approval.request({
-      type: 'approval',
-      iconFallback: '↑',
-      title: 'Confirm transaction',
-      subtitle: appName,
-      domain,
-      amount: `${formatGram(parsed.totalNano.toString())} GRAM`,
-      warning: parsed.hasContractPayload ? 'Includes a contract payload — this is not a plain transfer.' : undefined,
-      rows: parsed.messages.map((item, index) => ({
-        label: parsed.messages.length > 1 ? `To ${index + 1}` : 'To',
-        value: shortAddress(item.address),
-      })),
-      actions: [
-        { id: 'deny', label: 'Reject' },
-        { id: 'approve', label: 'Confirm', primary: true },
-      ],
-    })
-    if (!approved) return rpcError(message.id, TONCONNECT_ERROR.USER_DECLINED, 'Transaction rejected by user')
-
     try {
       return {
         id: message.id,
-        result: await this.wallet.signTonConnectTransaction(parsed.messages, expectedAddress),
+        result: await this.wallet.signTonConnectTransaction(
+          parsed.messages,
+          expectedAddress,
+          createHash('sha256')
+            .update(JSON.stringify([domain, sessionId, message.id]))
+            .digest('hex'),
+          parsed.validUntil,
+          signingSession,
+          async (review) =>
+            this.approval.request({
+              type: 'approval',
+              iconFallback: '↑',
+              title: 'Confirm transaction',
+              subtitle: appName,
+              domain,
+              amount: `${formatGram(parsed.totalNano.toString())} GRAM`,
+              warning: parsed.hasContractPayload
+                ? 'Includes a contract payload — this is not a plain transfer.'
+                : undefined,
+              rows: [
+                ...review.messages.map((item, index) => ({
+                  label: review.messages.length > 1 ? `To ${index + 1}` : 'To',
+                  value: `${Address.parse(item.address).toString({ bounceable: item.bounce })} · ${formatGram(item.amount)} GRAM`,
+                })),
+                { label: 'Estimated fee', value: `~${formatGram(review.estimatedFee)} GRAM` },
+                { label: 'Valid until', value: new Date(review.validUntil * 1000).toISOString() },
+              ],
+              actions: [
+                { id: 'deny', label: 'Reject' },
+                { id: 'approve', label: 'Confirm', primary: true },
+              ],
+            })
+        ),
       }
     } catch (error) {
+      if (error instanceof WalletEngineError && error.code === 'USER_CANCELLED')
+        return rpcError(message.id, TONCONNECT_ERROR.USER_DECLINED, 'Transaction rejected by user')
       return rpcError(message.id, TONCONNECT_ERROR.UNKNOWN, errorMessage(error))
     }
   }
@@ -62,6 +81,7 @@ export class TonConnectSigningWorkflow {
     expectedAddress: string,
     message: AppRequest
   ): Promise<WalletResponse> {
+    const signingSession = this.wallet.getSessionRevision?.()
     let raw: unknown
     try {
       raw = JSON.parse(message.params?.[0] ?? '')
@@ -87,21 +107,11 @@ export class TonConnectSigningWorkflow {
     if (!approved) return rpcError(message.id, TONCONNECT_ERROR.USER_DECLINED, 'Sign request rejected by user')
 
     try {
-      return { id: message.id, result: await this.wallet.signData(domain, raw, expectedAddress) }
+      return { id: message.id, result: await this.wallet.signData(domain, raw, expectedAddress, signingSession) }
     } catch (error) {
       return rpcError(message.id, TONCONNECT_ERROR.UNKNOWN, errorMessage(error))
     }
   }
-}
-
-function shortAddress(value: string): string {
-  let normalized = value
-  try {
-    normalized = Address.parse(value).toString({ bounceable: false })
-  } catch {
-    // Keep the already validated input for presentation.
-  }
-  return normalized.length > 14 ? `${normalized.slice(0, 6)}…${normalized.slice(-4)}` : normalized
 }
 
 function formatGram(nano: string): string {
