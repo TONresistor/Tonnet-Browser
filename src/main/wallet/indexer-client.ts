@@ -1,4 +1,5 @@
 import { Address } from '@ton/core'
+import { isEncryptedCommentBody } from '../../wallet-engine'
 import { createLogger } from '../../shared/logger'
 import type { WalletTransaction } from '../../shared/types'
 import type { TonIndexerClient, TonIndexerMessage, TonIndexerTransaction } from '../indexer/client'
@@ -56,6 +57,8 @@ function mapTransaction(tx: TonIndexerTransaction): WalletTransaction | null {
   if (!rawTime || !Number.isFinite(rawTime)) return null
 
   const hash = toHexHash(tx.hash)
+  const message = type === 'send' ? outs[0] : inMsg
+  const body = message?.message_content?.body
   return {
     id: hash || tx.lt || '',
     type,
@@ -66,7 +69,13 @@ function mapTransaction(tx: TonIndexerTransaction): WalletTransaction | null {
     hash,
     lt: tx.lt || undefined,
     fee: tx.total_fees,
-    comment: comment || undefined,
+    comment: isEncryptedCommentBody(body ?? undefined) ? undefined : comment || undefined,
+    ...(isEncryptedCommentBody(body ?? undefined) && body && message?.source
+      ? {
+          commentEncrypted: true,
+          encryptedComment: { sender: message.source, body },
+        }
+      : {}),
   }
 }
 

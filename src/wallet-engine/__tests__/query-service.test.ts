@@ -1,4 +1,4 @@
-import { Address } from '@ton/core'
+import { Address, beginCell } from '@ton/core'
 import { describe, expect, it, vi } from 'vitest'
 import type { DnsResolveResult } from '../schemas'
 import { WalletQueryService, type WalletQueryBridge } from '../query-service'
@@ -72,5 +72,23 @@ describe('WalletQueryService', () => {
       })
     ).toMatchObject({ id: 'hash', type: 'receive', amount: '5', timestamp: 10_000 })
     expect(service.convertRawTransaction({ hash: 'hash', lt: '1', now: 0 })).toBeNull()
+  })
+
+  it('keeps an encrypted message body and its sender for explicit decryption', () => {
+    const service = new WalletQueryService(() => bridge())
+    const body = beginCell()
+      .storeUint(0x2167da4b, 32)
+      .storeBuffer(Buffer.alloc(64))
+      .endCell()
+      .toBoc()
+      .toString('base64')
+    const transaction = service.convertRawTransaction({
+      hash: 'encrypted',
+      lt: '1',
+      now: 10,
+      in_msg: { source: RAW, destination: RAW, value: '1', body },
+    })
+    expect(transaction).toMatchObject({ commentEncrypted: true, encryptedComment: { sender: RAW, body } })
+    expect(transaction?.comment).toBeUndefined()
   })
 })

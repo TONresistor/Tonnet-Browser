@@ -6,6 +6,7 @@ import { createHash } from 'node:crypto'
 import { mnemonicNew, keyPairFromSeed } from '@ton/crypto'
 import { Address, Cell, loadOutList, loadMessage } from '@ton/core'
 import { WalletContractV5R1 } from '@ton/ton'
+import { createEncryptedCommentBody } from '../encrypted-comment'
 import type { WalletBridgePort } from '../bridge-port'
 import { WalletEngine, type WalletEngineOptions } from '../engine'
 import { deriveWalletAccount } from '../wallet-versions'
@@ -263,7 +264,7 @@ it('rebuilds edited reviews and signs the exact prepared encrypted comment', asy
     expect(outgoingBody(finalEmulation).equals(outgoingBody(operation.boc!))).toBe(true)
     expect(outgoingBody(operation.boc!).equals(Cell.fromBase64(operation.messages[0].payload!))).toBe(true)
     expect(result).toMatchObject({ comment: 'Thanks', commentEncrypted: true, status: 'pending' })
-    expect(s.provider.broadcast).toHaveBeenCalledOnce()
+    expect(s.provider.sendAndWatch).toHaveBeenCalledOnce()
     created.mnemonic.fill('')
   } finally {
     await s.engine.shutdown()
@@ -359,6 +360,50 @@ it('publishes immutable revisions, observes changes without races, and releases 
     await pending
     expect(() => s.engine.snapshot()).toThrow('shut down')
     created.mnemonic.fill('')
+  } finally {
+    await s.engine.shutdown()
+  }
+}, 20_000)
+
+it('decrypts incoming chain comments only in the current unlocked session without persisting plaintext', async () => {
+  const s = await fixture(true)
+  try {
+    const created = await s.engine.create({ password: 'correct horse battery staple' })
+    const sender = keyPairFromSeed(Buffer.alloc(32, 9))
+    const senderAddress = WalletContractV5R1.create({ publicKey: sender.publicKey, workchain: 0 }).address
+    const body = (
+      await createEncryptedCommentBody({
+        senderAddress,
+        senderSecretKey: sender.secretKey,
+        recipientPublicKey: Buffer.from(created.publicKey, 'hex'),
+        comment: 'received privately',
+      })
+    )
+      .toBoc()
+      .toString('base64')
+    const request = { sender: senderAddress.toRawString(), body }
+    vi.mocked(s.provider.getTransactions).mockResolvedValue([
+      {
+        hash: 'incoming',
+        lt: '1',
+        now: 1000,
+        in_msg: { source: request.sender, destination: created.addressRaw, value: '10', body },
+      },
+    ])
+    const history = await s.engine.getHistory()
+    expect(history[0]).toMatchObject({ commentEncrypted: true, encryptedComment: request })
+    expect(history[0].comment).toBeUndefined()
+    await expect(s.engine.decryptComment(request)).resolves.toBe('received privately')
+    expect(JSON.stringify(s.engine.snapshot())).not.toContain('received privately')
+    const interrupted = expect(s.engine.decryptComment(request)).rejects.toThrow('current wallet session')
+    s.engine.lock()
+    await interrupted
+    await expect(s.engine.decryptComment(request)).rejects.toThrow('locked')
+    await s.engine.unlock('correct horse battery staple')
+    await expect(s.engine.decryptComment(request)).resolves.toBe('received privately')
+    expect(JSON.stringify(s.engine.snapshot())).not.toContain('received privately')
+    created.mnemonic.fill('')
+    sender.secretKey.fill(0)
   } finally {
     await s.engine.shutdown()
   }

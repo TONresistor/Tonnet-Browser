@@ -1,5 +1,12 @@
-import { createCipheriv } from 'node:crypto'
-import { Address, beginCell, type Cell } from '@ton/core'
+import {
+  createCipheriv,
+  createDecipheriv,
+  createPrivateKey,
+  createPublicKey,
+  diffieHellman,
+  timingSafeEqual,
+} from 'node:crypto'
+import { Address, beginCell, Cell } from '@ton/core'
 import { getSecureRandomBytes, hmac_sha512, keyPairFromSeed, sha512 } from '@ton/crypto'
 
 export const ENCRYPTED_COMMENT_OP = 0x2167da4b
@@ -7,6 +14,79 @@ export const ENCRYPTED_COMMENT_OP = 0x2167da4b
 const MAX_ENCRYPTED_COMMENT_BYTES = 960
 const MAX_ENCRYPTED_PAYLOAD_BYTES = 1024
 const CURVE_25519_PRIME = (1n << 255n) - 19n
+
+export interface DecryptCommentRequest {
+  sender: string
+  body: string
+}
+
+export function isEncryptedCommentBody(body?: string): boolean {
+  if (!body || body.length > 8192) return false
+  try {
+    const slice = Cell.fromBase64(body).beginParse()
+    return slice.remainingBits >= 32 && slice.loadUint(32) === ENCRYPTED_COMMENT_OP
+  } catch {
+    return false
+  }
+}
+
+export function validateEncryptedCommentBody(body: string): Buffer {
+  if (!body || body.length > 8192) throw new Error('Invalid encrypted comment body')
+  let slice = Cell.fromBase64(body).beginParse()
+  if (slice.loadUint(32) !== ENCRYPTED_COMMENT_OP) throw new Error('Invalid encrypted comment opcode')
+  const chunks: Buffer[] = []
+  let length = 0
+  for (;;) {
+    if (slice.remainingBits % 8 || slice.remainingRefs > 1) throw new Error('Invalid encrypted comment cells')
+    const chunk = slice.loadBuffer(slice.remainingBits / 8)
+    length += chunk.length
+    if (length > MAX_ENCRYPTED_PAYLOAD_BYTES || chunks.length >= 16) throw new Error('Encrypted comment is too long')
+    chunks.push(chunk)
+    if (!slice.remainingRefs) break
+    slice = slice.loadRef().beginParse()
+  }
+  if (length < 64 || (length - 48) % 16) throw new Error('Invalid encrypted comment length')
+  return Buffer.concat(chunks)
+}
+
+export async function decryptEncryptedComment(request: DecryptCommentRequest, secretKey: Buffer): Promise<string> {
+  const payload = validateEncryptedCommentBody(request.body)
+  const sender = Address.parse(request.sender)
+  if (secretKey.length !== 64) throw new Error('Invalid wallet signing key')
+  const seed = Buffer.from(secretKey.subarray(0, 32))
+  const peer = xor32(payload.subarray(0, 32), secretKey.subarray(32, 64))
+  let shared: Buffer | undefined
+  let derived: Buffer | undefined
+  let plaintext: Buffer | undefined
+  let authentication: Buffer | undefined
+  try {
+    const messageKey = payload.subarray(32, 48)
+    shared = await deriveTonSharedSecret(peer, seed)
+    derived = Buffer.from(await hmac_sha512(shared, messageKey))
+    const decipher = createDecipheriv('aes-256-cbc', derived.subarray(0, 32), derived.subarray(32, 48))
+    decipher.setAutoPadding(false)
+    plaintext = Buffer.concat([decipher.update(payload.subarray(48)), decipher.final()])
+    const salt = sender.toString({ bounceable: true, testOnly: false, urlSafe: true })
+    authentication = Buffer.from(await hmac_sha512(salt, plaintext))
+    if (!timingSafeEqual(authentication.subarray(0, 16), messageKey))
+      throw new Error('Encrypted comment authentication failed')
+    const prefix = plaintext[0]
+    if (
+      prefix < 16 ||
+      prefix > 31 ||
+      prefix > plaintext.length ||
+      plaintext.length - prefix > MAX_ENCRYPTED_COMMENT_BYTES
+    )
+      throw new Error('Invalid encrypted comment padding')
+    return new TextDecoder('utf-8', { fatal: true }).decode(plaintext.subarray(prefix))
+  } finally {
+    seed.fill(0)
+    shared?.fill(0)
+    derived?.fill(0)
+    plaintext?.fill(0)
+    authentication?.fill(0)
+  }
+}
 
 export function parseRecipientPublicKey(result: unknown): Buffer {
   if (!result || typeof result !== 'object') throw new Error('get_public_key returned no result')
@@ -40,7 +120,9 @@ export async function createEncryptedCommentBody(args: {
   }
 
   const senderSeed = Buffer.from(args.senderSecretKey.subarray(0, 32))
-  const senderPublicKey = Buffer.from(keyPairFromSeed(senderSeed).publicKey)
+  const senderKeys = keyPairFromSeed(senderSeed)
+  const senderPublicKey = senderKeys.publicKey
+  senderKeys.secretKey.fill(0)
   const recipientPublicKey = Buffer.from(args.recipientPublicKey)
   let sharedSecret: Buffer | undefined
   let derived: Buffer | undefined
@@ -61,6 +143,7 @@ export async function createEncryptedCommentBody(args: {
 
     return encryptedCommentToCell(Buffer.concat([xor32(senderPublicKey, recipientPublicKey), msgKey, ciphertext]))
   } finally {
+    comment.fill(0)
     senderSeed.fill(0)
     sharedSecret?.fill(0)
     derived?.fill(0)
@@ -74,13 +157,38 @@ export async function deriveTonSharedSecret(peerPublicKey: Buffer, privateSeed: 
   const publicY = Buffer.from(peerPublicKey)
   publicY[31] &= 127
   const y = leToBigInt(publicY)
+  const signBit = peerPublicKey[31] >> 7
+  const ySquared = mod(y * y)
+  const denominator = mod(mod(-121665n * inv(121666n)) * ySquared + 1n)
+  const xSquared = mod((ySquared - 1n) * inv(denominator))
+  if (
+    y >= CURVE_25519_PRIME ||
+    denominator === 0n ||
+    (xSquared === 0n ? signBit !== 0 : modPow(xSquared, (CURVE_25519_PRIME - 1n) / 2n) !== 1n)
+  )
+    throw new Error('Invalid peer public key')
   const u = mod((y + 1n) * inv(1n - y))
   const hash = await sha512(privateSeed)
   const scalar = Buffer.from(hash.subarray(0, 32))
+  scalar[0] &= 248
+  scalar[31] = (scalar[31] & 127) | 64
+  const privateDer = Buffer.concat([Buffer.from('302e020100300506032b656e04220420', 'hex'), scalar])
   try {
-    return x25519(scalar, bigIntToLe(u, 32))
+    const privateKey = createPrivateKey({ key: privateDer, format: 'der', type: 'pkcs8' })
+    const publicKey = createPublicKey({
+      key: Buffer.concat([Buffer.from('302a300506032b656e032100', 'hex'), bigIntToLe(u, 32)]),
+      format: 'der',
+      type: 'spki',
+    })
+    const shared = diffieHellman({ privateKey, publicKey })
+    if (shared.every((byte) => byte === 0)) throw new Error('Invalid peer public key')
+    return shared
+  } catch {
+    throw new Error('Invalid peer public key')
   } finally {
+    privateDer.fill(0)
     scalar.fill(0)
+    hash.fill(0)
   }
 }
 
@@ -119,63 +227,6 @@ function bigIntToLe(value: bigint, size: number): Buffer {
     value >>= 8n
   }
   return bytes
-}
-
-function x25519(scalar: Buffer, uBytes: Buffer): Buffer {
-  const clamped = Buffer.from(scalar)
-  clamped[0] &= 248
-  clamped[31] &= 127
-  clamped[31] |= 64
-
-  const x1 = leToBigInt(uBytes)
-  let x2 = 1n
-  let z2 = 0n
-  let x3 = x1
-  let z3 = 1n
-  let swap = 0n
-  const scalarNumber = leToBigInt(clamped)
-
-  for (let bit = 254; bit >= 0; bit--) {
-    const scalarBit = (scalarNumber >> BigInt(bit)) & 1n
-    swap ^= scalarBit
-    if (swap) {
-      const previousX2 = x2
-      const previousZ2 = z2
-      x2 = x3
-      z2 = z3
-      x3 = previousX2
-      z3 = previousZ2
-    }
-    swap = scalarBit
-
-    const a = mod(x2 + z2)
-    const aa = mod(a * a)
-    const b = mod(x2 - z2)
-    const bb = mod(b * b)
-    const e = mod(aa - bb)
-    const c = mod(x3 + z3)
-    const d = mod(x3 - z3)
-    const da = mod(d * a)
-    const cb = mod(c * b)
-    const daPlusCb = mod(da + cb)
-    const daMinusCb = mod(da - cb)
-
-    x3 = mod(daPlusCb * daPlusCb)
-    z3 = mod(x1 * mod(daMinusCb * daMinusCb))
-    x2 = mod(aa * bb)
-    z2 = mod(e * mod(aa + 121665n * e))
-  }
-
-  if (swap) {
-    const previousX2 = x2
-    const previousZ2 = z2
-    x2 = x3
-    z2 = z3
-    x3 = previousX2
-    z3 = previousZ2
-  }
-  clamped.fill(0)
-  return bigIntToLe(mod(x2 * inv(z2)), 32)
 }
 
 function xor32(left: Buffer, right: Buffer): Buffer {

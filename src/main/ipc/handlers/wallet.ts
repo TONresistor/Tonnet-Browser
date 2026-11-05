@@ -14,6 +14,7 @@ import {
   walletBalanceUpdatedContract,
   walletGetStateContract,
   walletGetSnapshotContract,
+  walletDecryptCommentContract,
   walletSnapshotChangedContract,
   walletRetrySystemStorageContract,
   walletNewTransactionContract,
@@ -104,6 +105,15 @@ export function registerWalletHandlers(registry: ServiceRegistry): void {
   })
 
   secureContractHandle(walletGetSnapshotContract, getViewSnapshot)
+
+  secureContractHandle(walletDecryptCommentContract, async (request) => {
+    if (walletManager.getState().isLocked) ipcFailure('WALLET_LOCKED', 'Unlock the wallet to decrypt this comment')
+    try {
+      return await walletManager.decryptComment(request)
+    } catch (error) {
+      ipcFailure('ENCRYPTED_COMMENT_UNAVAILABLE', 'Unable to decrypt this comment', false, error)
+    }
+  })
 
   secureContractHandle(walletRetrySystemStorageContract, () => {
     if (!walletManager.getState().systemStorageBlocked) {

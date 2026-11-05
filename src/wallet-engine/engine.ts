@@ -8,7 +8,13 @@ import type { SecureStorage, VaultPersistence, JournalStore } from './ports'
 import { OperationJournal, intentFingerprint, type WalletOperation } from './journal'
 import { WalletTransfers, type TransferIntent, type TransferAuthorization } from './transactions'
 import { createTonTransferMessage } from './transfer-message'
-import { createEncryptedCommentBody, parseRecipientPublicKey } from './encrypted-comment'
+import {
+  createEncryptedCommentBody,
+  parseRecipientPublicKey,
+  decryptEncryptedComment,
+  validateEncryptedCommentBody,
+  type DecryptCommentRequest,
+} from './encrypted-comment'
 import { WalletEngineError } from './errors'
 import { WalletHistoryManager } from './history'
 import { WalletBackupVerifier } from './backup-verifier'
@@ -1131,6 +1137,24 @@ export class WalletEngine extends EventEmitter {
       this.historyVisible = true
     } catch {
       this.log.warn('Wallet history is unavailable for the current account')
+    }
+  }
+  async decryptComment(request: DecryptCommentRequest): Promise<string> {
+    this.assertUnlocked()
+    const session = this.sessionRevision
+    const identity = this.getIdentitySnapshot()!
+    try {
+      validateEncryptedCommentBody(request.body)
+      const comment = await this.withUnlockedKey((secret) => decryptEncryptedComment(request, secret))
+      this.assertUnlocked()
+      this.assertWalletIdentity(identity)
+      if (session !== this.sessionRevision) throw new Error('Wallet session changed')
+      return comment
+    } catch {
+      throw new WalletEngineError(
+        'ENCRYPTED_COMMENT_UNAVAILABLE',
+        'Unable to decrypt this comment in the current wallet session'
+      )
     }
   }
   async prepareEncryptedComment(to: string, comment: string, identity: WalletIdentitySnapshot): Promise<Cell> {

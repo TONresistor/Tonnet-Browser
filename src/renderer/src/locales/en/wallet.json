@@ -263,5 +263,11 @@
         "description": "A withdraw is in progress. Funds will return to your wallet automatically."
       }
     }
+  },
+  "detail": {
+    "decryptComment": "Decrypt comment",
+    "unlockToDecrypt": "Unlock to read",
+    "decrypting": "Decrypting…",
+    "decryptFailed": "Unable to decrypt this comment"
   }
 }

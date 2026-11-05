@@ -32,6 +32,7 @@ export const WalletTransactionSchema = z.object({
   fee: z.string().optional(),
   comment: z.string().optional(),
   commentEncrypted: z.boolean().optional(),
+  encryptedComment: z.object({ sender: z.string(), body: z.string().max(8192) }).optional(),
   x402Domain: z.string().optional(),
   x402Url: z.string().optional(),
 })

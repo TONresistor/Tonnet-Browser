@@ -17,6 +17,7 @@ import {
   WalletStateSchema,
   WalletTransactionSchema,
   walletGetSnapshotContract,
+  walletDecryptCommentContract,
 } from '../wallet'
 
 describe('wallet IPC contract', () => {
@@ -140,5 +141,8 @@ describe('wallet IPC contract', () => {
     expect(view).toMatchObject({ revision: 5, sessionRevision: 2, transactions: [] })
     expect(view).not.toHaveProperty('operations')
     expect(() => walletGetSnapshotContract.output.parse({ ...view, revision: -1 })).toThrow()
+    expect(walletDecryptCommentContract.caller).toBe('main-renderer')
+    expect(walletDecryptCommentContract.redaction).toBe('secret')
+    expect(() => walletDecryptCommentContract.input.parse([{ sender: 'sender', body: 'x'.repeat(8193) }])).toThrow()
   })
 })

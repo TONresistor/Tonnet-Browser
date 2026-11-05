@@ -2,6 +2,7 @@ import type { DnsResolveResult, WalletTransaction } from './schemas'
 const TON_DOMAIN_REGEX = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+ton$/
 import { createLogger, type WalletLogger } from './logger'
 import { decodeCommentBody } from './comment'
+import { isEncryptedCommentBody } from './encrypted-comment'
 import { parseMainnetAddress } from './address-utils'
 import type { BridgeTransaction } from './network-types'
 
@@ -112,6 +113,12 @@ export class WalletQueryService {
       lt: transaction.lt || undefined,
       fee: transaction.total_fees,
       comment: decodeCommentBody(message?.body),
+      ...(isEncryptedCommentBody(message?.body)
+        ? {
+            commentEncrypted: true,
+            encryptedComment: { sender: message!.source, body: message!.body! },
+          }
+        : {}),
     }
   }
 }

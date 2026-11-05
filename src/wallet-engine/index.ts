@@ -1,5 +1,7 @@
 export { WalletEngine } from './engine'
 export type { WalletEngineOptions, WalletSnapshot } from './engine'
+export type { DecryptCommentRequest } from './encrypted-comment'
+export { isEncryptedCommentBody } from './encrypted-comment'
 export type { SecureStorage, VaultPersistence, HistoryStore, BridgeProvider, JournalStore } from './ports'
 export { WalletDecryptionError, WalletSystemStorageError } from './key-storage'
 export { WalletEngineError } from './errors'

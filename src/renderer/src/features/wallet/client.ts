@@ -7,6 +7,7 @@ export const walletClient = {
   isAvailable: () => typeof window !== 'undefined' && Boolean(window.electron),
   getState: () => window.electron.wallet.getState(),
   getSnapshot: () => window.electron.wallet.getSnapshot(),
+  decryptComment: (request: { sender: string; body: string }) => window.electron.wallet.decryptComment(request),
   retrySystemStorage: () => window.electron.wallet.retrySystemStorage(),
   create: (options: { password?: string }) => window.electron.wallet.create(options),
   discoverAccounts: (mnemonic: string[]) => window.electron.wallet.discoverAccounts(mnemonic),

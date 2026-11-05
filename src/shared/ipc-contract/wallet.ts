@@ -36,6 +36,7 @@ export const WalletTransactionSchema = z.object({
   fee: z.string().optional(),
   comment: z.string().optional(),
   commentEncrypted: z.boolean().optional(),
+  encryptedComment: z.object({ sender: z.string(), body: z.string().max(8192) }).optional(),
   x402Domain: z.string().optional(),
   x402Url: z.string().optional(),
 })
@@ -129,6 +130,14 @@ export const walletGetSnapshotContract = defineRequest({
   input: z.tuple([]),
   output: WalletSnapshotSchema,
   errors: ['WALLET_STATE_UNAVAILABLE'],
+})
+export const walletDecryptCommentContract = defineRequest({
+  ...mainBase,
+  channel: WALLET_CONTRACT_CHANNELS.decryptComment,
+  input: z.tuple([z.object({ sender: z.string().min(1).max(128), body: z.string().min(1).max(8192) })]),
+  output: z.string(),
+  errors: ['WALLET_LOCKED', 'ENCRYPTED_COMMENT_UNAVAILABLE'],
+  redaction: 'secret',
 })
 export const walletRetrySystemStorageContract = defineRequest({
   ...mainBase,
@@ -434,6 +443,7 @@ export const walletRetryOperationContract = defineRequest({
 
 export const WALLET_REQUEST_CONTRACTS = [
   walletGetSnapshotContract,
+  walletDecryptCommentContract,
   walletRetryOperationContract,
   walletCreateContract,
   walletGetStateContract,

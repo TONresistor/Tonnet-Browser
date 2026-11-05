@@ -329,6 +329,7 @@ function createMockRegistry(): ServiceRegistry {
           transactions: [],
           operations: [],
         })),
+        decryptComment: vi.fn(),
         clearHistory: vi.fn(),
         setAutoLockMinutes: vi.fn(),
         setPageOpen: vi.fn(),
@@ -1111,7 +1112,7 @@ describe('IPC Handlers', () => {
     })
   })
 
-  describe('wallet snapshots', () => {
+  describe('wallet snapshots and comment decryption', () => {
     it('returns a view snapshot without the signed journal', async () => {
       vi.mocked(mockRegistry.walletManager.snapshot).mockReturnValue({
         isCreated: true,
@@ -1127,6 +1128,18 @@ describe('IPC Handlers', () => {
       const result = await mockHandlers.get(IPC_CHANNELS.WALLET_GET_SNAPSHOT)!(createMockEvent())
       expect(result).toMatchObject({ revision: 5, sessionRevision: 2, transactions: [] })
       expect(result).not.toHaveProperty('operations')
+    })
+
+    it('rejects decryption while locked and delegates it to the engine after unlock', async () => {
+      const request = { sender: '0:' + '11'.repeat(32), body: 'encoded-comment' }
+      const handler = mockHandlers.get(IPC_CHANNELS.WALLET_DECRYPT_COMMENT)!
+      vi.mocked(mockRegistry.walletManager.getState).mockReturnValue({ isLocked: true } as never)
+      expect(await handler(createMockEvent(), request)).toMatchObject({ ok: false, error: { code: 'WALLET_LOCKED' } })
+      expect(mockRegistry.walletManager.decryptComment).not.toHaveBeenCalled()
+      vi.mocked(mockRegistry.walletManager.getState).mockReturnValue({ isLocked: false } as never)
+      vi.mocked(mockRegistry.walletManager.decryptComment).mockResolvedValue('authenticated comment')
+      expect(await handler(createMockEvent(), request)).toBe('authenticated comment')
+      expect(mockRegistry.walletManager.decryptComment).toHaveBeenCalledWith(request)
     })
   })
 

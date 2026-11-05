@@ -263,5 +263,11 @@
         "description": "Un retrait est en cours. Les fonds reviendront automatiquement sur votre wallet."
       }
     }
+  },
+  "detail": {
+    "decryptComment": "Déchiffrer le commentaire",
+    "unlockToDecrypt": "Déverrouiller pour lire",
+    "decrypting": "Déchiffrement…",
+    "decryptFailed": "Impossible de déchiffrer ce commentaire"
   }
 }

@@ -4,6 +4,7 @@ export const WALLET_CONTRACT_CHANNELS = {
   create: 'wallet:create',
   getState: 'wallet:get-state',
   getSnapshot: 'wallet:get-snapshot',
+  decryptComment: 'wallet:decrypt-comment',
   retrySystemStorage: 'wallet:retry-system-storage',
   getBalance: 'wallet:get-balance',
   send: 'wallet:send',
