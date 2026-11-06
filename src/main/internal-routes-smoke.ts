@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict'
-import { mkdir, writeFile } from 'node:fs/promises'
-import { join } from 'node:path'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { join, sep } from 'node:path'
 import type { BrowserWindow } from 'electron'
 import { STATIC_INTERNAL_ROUTE_PATHS, type StaticInternalRoutePath } from '../shared/internal-route-paths'
 import type { ServiceRegistry } from './services'
 import { assertStorageTable, waitForPackageCheck } from './packaged-page-assertions'
+import { resolveBagFilePath } from './windows/tabs-storage'
 
 interface Context {
   window: BrowserWindow
@@ -12,10 +13,18 @@ interface Context {
   profile: string
   submit: (url: string) => Promise<void>
   pass: (message: string) => void
+  onlyStorageRemoval?: boolean
 }
 
 /** Page-level navigation only; no wallet creation, Messenger join or Cocoon activation. */
-export async function runInternalRoutesSmoke({ window, services, profile, submit, pass }: Context): Promise<string[]> {
+export async function runInternalRoutesSmoke({
+  window,
+  services,
+  profile,
+  submit,
+  pass,
+  onlyStorageRemoval = false,
+}: Context): Promise<string[]> {
   const routes: string[] = []
   const until = (check: () => Promise<boolean>, label: string | (() => string)) =>
     waitForPackageCheck(check, () => `Internal route timed out: ${typeof label === 'function' ? label() : label}`)
@@ -71,7 +80,59 @@ export async function runInternalRoutesSmoke({ window, services, profile, submit
   const created = await client.createBag(fixture, 'Disposable internal-route smoke fixture')
   assert(created.bag_id && /^[a-f0-9]{64}$/i.test(created.bag_id), 'Storage did not create a real fixture bag')
   const bagId = created.bag_id
+  let removed = false
+  const removeThroughUi = async () => {
+    await visit('ton://storage', 'storage', 'storage', 'input')
+    const [csvFile, textFile] = await Promise.all([
+      resolveBagFilePath(services.tabManager.storage, bagId, 'smoke.csv'),
+      resolveBagFilePath(services.tabManager.storage, bagId, 'hello.txt'),
+    ])
+    assert(
+      [csvFile, textFile].every((path) => path.startsWith(profile + sep)),
+      'Fixture files escaped the test profile'
+    )
+    const row = `[data-bag-row="${bagId}"]`
+    await until(
+      () => window.webContents.executeJavaScript(`Boolean(document.querySelector(${JSON.stringify(row)}))`),
+      'fixture bag listed in Storage'
+    )
+    assert(
+      await window.webContents.executeJavaScript(
+        `(() => { const row = document.querySelector(${JSON.stringify(row)}); if (!row) return false; row.click(); return true })()`
+      ),
+      'Fixture bag row unavailable'
+    )
+    const removeButton = `${row} button[aria-label="Remove"]`
+    await until(
+      () =>
+        window.webContents.executeJavaScript(
+          `(() => { const button = document.querySelector(${JSON.stringify(removeButton)}); return Boolean(button && getComputedStyle(button.parentElement).pointerEvents !== 'none') })()`
+        ),
+      'Storage remove action available'
+    )
+    assert(
+      await window.webContents.executeJavaScript(
+        `(() => { const button = document.querySelector(${JSON.stringify(removeButton)}); if (!button) return false; button.click(); return true })()`
+      ),
+      'Storage remove action unavailable'
+    )
+    await until(async () => {
+      const visible = await window.webContents.executeJavaScript(
+        `Boolean(document.querySelector(${JSON.stringify(row)}))`
+      )
+      const bags = await client.listBags()
+      return !visible && !bags.some((bag) => bag.bag_id === bagId)
+    }, 'fixture bag removed from UI and Storage')
+    removed = true
+    assert.equal(await readFile(csvFile, 'utf8'), 'name,value\nsmoke-route,42\n')
+    assert.equal(await readFile(textFile, 'utf8'), rawText)
+    pass('storage: removed the fixture bag through the UI and preserved its files')
+  }
   try {
+    if (onlyStorageRemoval) {
+      await removeThroughUi()
+      return routes
+    }
     for (const path of STATIC_INTERNAL_ROUTE_PATHS) {
       const { page, selector } = expected[path]
       await visit(`ton://${path}`, path, page, selector)
@@ -110,12 +171,13 @@ export async function runInternalRoutesSmoke({ window, services, profile, submit
     }, 'raw Storage file rendered in native view')
     routes.push(fileUrl)
     pass('internal route: ton://storage/file/<bag>/hello.txt rendered the real fixture file')
+    await removeThroughUi()
     await visit('ton://smoke-unknown', 'fallback', 'start', 'form input')
     await visit('ton://start', 'start', 'start', 'form input')
     // The final StartPage navigation is cleanup, not another distinct route.
     routes.pop()
   } finally {
-    await client.removeBag({ bag_id: bagId, with_files: false })
+    if (!removed) await client.removeBag({ bag_id: bagId, with_files: false })
   }
   return routes
 }
