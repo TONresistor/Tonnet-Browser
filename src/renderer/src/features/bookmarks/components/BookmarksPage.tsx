@@ -10,7 +10,6 @@ import {
   DragEndEvent,
   DragOverlay,
   DragStartEvent,
-  closestCenter,
   PointerSensor,
   KeyboardSensor,
   useSensor,
@@ -22,6 +21,7 @@ import { RotateCcw, Search, Plus, Download, GripVertical } from 'lucide-react'
 import { useBookmarksStore } from '@/features/bookmarks/store'
 import { useAddBrowserTab, useNavigateActiveBrowserTab } from '@/features/browser/navigation'
 import { useTranslation } from 'react-i18next'
+import { bookmarkCollisionDetection } from '@/lib/bookmark-dnd'
 import { downloadJson } from '@/lib/download'
 import { Favicon } from '@/components/ui/Favicon'
 import { useConfirmAction } from '@/hooks/useConfirmAction'
@@ -35,15 +35,12 @@ export const BookmarksPage = memo(function BookmarksPage() {
   // Store selectors
   const bookmarks = useBookmarksStore((s) => s.bookmarks)
   const folders = useBookmarksStore((s) => s.folders)
-  const searchBookmarks = useBookmarksStore((s) => s.searchBookmarks)
   const removeBookmark = useBookmarksStore((s) => s.removeBookmark)
   const updateBookmark = useBookmarksStore((s) => s.updateBookmark)
-  const getBookmarksByFolder = useBookmarksStore((s) => s.getBookmarksByFolder)
   const addFolder = useBookmarksStore((s) => s.addFolder)
   const updateFolder = useBookmarksStore((s) => s.updateFolder)
   const removeFolder = useBookmarksStore((s) => s.removeFolder)
   const getFolderDepth = useBookmarksStore((s) => s.getFolderDepth)
-  const getSubfolders = useBookmarksStore((s) => s.getSubfolders)
   const resetBookmarks = useBookmarksStore((s) => s.resetBookmarks)
   const reorderBookmarks = useBookmarksStore((s) => s.reorderBookmarks)
   const navigateActiveTab = useNavigateActiveBrowserTab()
@@ -83,10 +80,17 @@ export const BookmarksPage = memo(function BookmarksPage() {
 
   // Display bookmarks based on search/folder selection
   const displayBookmarks = useMemo(() => {
-    if (query) return searchBookmarks(query)
-    if (selectedFolderId === null) return bookmarks
-    return getBookmarksByFolder(selectedFolderId)
-  }, [query, selectedFolderId, bookmarks, searchBookmarks, getBookmarksByFolder])
+    if (query) {
+      const normalized = query.toLowerCase()
+      return bookmarks.filter(
+        (bookmark) =>
+          bookmark.title.toLowerCase().includes(normalized) || bookmark.url.toLowerCase().includes(normalized)
+      )
+    }
+    return selectedFolderId === null
+      ? bookmarks
+      : bookmarks.filter((bookmark) => bookmark.folderId === selectedFolderId)
+  }, [query, selectedFolderId, bookmarks])
 
   // Sorted for the current view (for dnd-kit)
   const sortedDisplayBookmarks = useMemo(() => {
@@ -228,11 +232,11 @@ export const BookmarksPage = memo(function BookmarksPage() {
 
   // Render folder tree recursively
   const renderFolderTree = (parentId: string | null, level: number): React.ReactNode => {
-    const subfolders = getSubfolders(parentId)
+    const subfolders = folders.filter((folder) => folder.parentId === parentId).sort((a, b) => a.order - b.order)
     return subfolders.map((folder) => {
-      const childFolders = getSubfolders(folder.id)
+      const childFolders = folders.filter((child) => child.parentId === folder.id)
       const isExpanded = expandedFolders.has(folder.id)
-      const count = getBookmarksByFolder(folder.id).length
+      const count = bookmarks.filter((bookmark) => bookmark.folderId === folder.id).length
 
       return (
         <DroppableFolderItem
@@ -260,7 +264,7 @@ export const BookmarksPage = memo(function BookmarksPage() {
     <div className="flex h-full bg-background-secondary" style={{ fontFamily: 'Inter, sans-serif' }}>
       <DndContext
         sensors={sensors}
-        collisionDetection={closestCenter}
+        collisionDetection={bookmarkCollisionDetection}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >

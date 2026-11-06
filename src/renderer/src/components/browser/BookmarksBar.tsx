@@ -10,7 +10,6 @@ import {
   DragEndEvent,
   DragOverlay,
   DragStartEvent,
-  closestCenter,
   PointerSensor,
   KeyboardSensor,
   useSensor,
@@ -22,7 +21,7 @@ import { useTabsStore } from '@/stores/tabs'
 import { ErrorBoundary } from '../ErrorBoundary'
 import { SortableBookmarkItem } from './SortableBookmarkItem'
 import { DroppableFolder } from './DroppableFolder'
-import { classifyDrop } from '@/lib/bookmark-dnd'
+import { classifyDrop, bookmarkCollisionDetection } from '@/lib/bookmark-dnd'
 import { useBookmarkContextMenu } from '@/hooks/useBookmarkContextMenu'
 import { useTranslation } from 'react-i18next'
 
@@ -100,7 +99,7 @@ export function BookmarksBar() {
     <ErrorBoundary>
       <DndContext
         sensors={sensors}
-        collisionDetection={closestCenter}
+        collisionDetection={bookmarkCollisionDetection}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
         accessibility={{

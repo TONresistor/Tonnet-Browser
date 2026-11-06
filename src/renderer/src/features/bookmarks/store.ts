@@ -72,20 +72,24 @@ export const useBookmarksStore = create<BookmarksState>((set, get) => ({
   },
 
   removeFolder: (id) => {
-    set((state) => ({
-      bookmarks: state.bookmarks.map((b) => (b.folderId === id ? { ...b, folderId: null } : b)),
-      folders: state.folders.filter((f) => {
-        if (f.id === id) return false
-        let current = f
-        while (current.parentId) {
-          if (current.parentId === id) return false
-          const parent = state.folders.find((p) => p.id === current.parentId)
-          if (!parent) break
-          current = parent
+    set((state) => {
+      const removed = new Set([id])
+      // Collect the whole subtree first so descendant bookmarks survive too.
+      let changed = true
+      while (changed) {
+        changed = false
+        for (const folder of state.folders) {
+          if (folder.parentId && removed.has(folder.parentId) && !removed.has(folder.id)) {
+            removed.add(folder.id)
+            changed = true
+          }
         }
-        return true
-      }),
-    }))
+      }
+      return {
+        bookmarks: state.bookmarks.map((b) => (b.folderId && removed.has(b.folderId) ? { ...b, folderId: null } : b)),
+        folders: state.folders.filter((f) => !removed.has(f.id)),
+      }
+    })
   },
 
   getFolderDepth: (folderId, visited: Set<string> = new Set()) => {
@@ -230,7 +234,7 @@ export const useBookmarksStore = create<BookmarksState>((set, get) => ({
 export async function loadBookmarksFromMain(): Promise<void> {
   try {
     const data = await bookmarksClient.load()
-    if (data?.bookmarks?.length > 0) {
+    if (data) {
       useBookmarksStore.setState({
         bookmarks: data.bookmarks,
         folders: data.folders ?? [],
