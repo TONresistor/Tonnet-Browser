@@ -5,7 +5,7 @@
  * bookmark reorder / nothing) without performing any side effects, so the
  * decision is unit-testable in isolation from the store and dnd-kit runtime.
  */
-import type { Active, Over } from '@dnd-kit/core'
+import { closestCenter, pointerWithin, type Active, type Over, type CollisionDetection } from '@dnd-kit/core'
 import type { Bookmark, BookmarkFolder } from '@/features/bookmarks/store'
 
 export type DropAction =
@@ -52,4 +52,24 @@ export function classifyDrop(
   }
 
   return { kind: 'none' }
+}
+
+// A wide bookmark row is dragged by its left handle. Its center can remain in
+// the content list even while the pointer is over the folder sidebar.
+export const bookmarkCollisionDetection: CollisionDetection = (args) => {
+  if (!String(args.active.id).startsWith('folder-')) {
+    const foldersUnderPointer = pointerWithin(args).filter((collision) =>
+      args.droppableContainers.some(
+        (container) => container.id === collision.id && container.data.current?.type === 'folder'
+      )
+    )
+    if (foldersUnderPointer.length) return foldersUnderPointer
+  }
+  // Folders expose both a sortable zone and a bookmark drop zone on the same
+  // node. The latter follows the dragged node and must not win against another
+  // folder when reordering the folder itself.
+  return closestCenter({
+    ...args,
+    droppableContainers: args.droppableContainers.filter((container) => container.id !== `droppable-${args.active.id}`),
+  })
 }

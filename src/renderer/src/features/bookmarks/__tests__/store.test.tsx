@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { useBookmarksStore } from '../store'
+import { useBookmarksStore, loadBookmarksFromMain } from '../store'
+import { bookmarksClient } from '../client'
 
 // Mock crypto.randomUUID for deterministic IDs
 let uuidCounter = 0
@@ -24,6 +25,21 @@ beforeEach(() => {
 })
 
 describe('bookmarks store', () => {
+  it('restores folders even when no bookmarks are saved', async () => {
+    const saved = {
+      bookmarks: [],
+      folders: [{ id: 'folder-only', name: 'Empty folder', parentId: null, createdAt: 1, order: 0 }],
+    }
+    const load = vi.spyOn(bookmarksClient, 'load').mockResolvedValue(saved)
+    try {
+      await loadBookmarksFromMain()
+      expect(useBookmarksStore.getState().folders).toEqual(saved.folders)
+      expect(useBookmarksStore.getState().bookmarks).toEqual([])
+    } finally {
+      load.mockRestore()
+    }
+  })
+
   describe('addBookmark', () => {
     it('adds a bookmark to root (folderId = null)', () => {
       const { addBookmark } = useBookmarksStore.getState()
@@ -214,13 +230,18 @@ describe('bookmarks store', () => {
         expect(bookmark.folderId).toBeNull()
       })
 
-      it('removes subfolders when parent is removed', () => {
-        const parentId = useBookmarksStore.getState().addFolder('Parent', null)!
-        useBookmarksStore.getState().addFolder('Child', parentId)
-
-        useBookmarksStore.getState().removeFolder(parentId)
-
-        expect(useBookmarksStore.getState().folders).toHaveLength(0)
+      it('keeps bookmarks from every deleted descendant at root and preserves unrelated folders', () => {
+        const store = useBookmarksStore.getState()
+        const parent = store.addFolder('Parent', null)!
+        const child = store.addFolder('Child', parent)!
+        const leaf = store.addFolder('Leaf', child)!
+        const other = store.addFolder('Other', null)!
+        store.addBookmark('http://a.ton', 'Child bookmark', child)
+        store.addBookmark('http://b.ton', 'Leaf bookmark', leaf)
+        store.addBookmark('http://c.ton', 'Unrelated bookmark', other)
+        store.removeFolder(parent)
+        expect(useBookmarksStore.getState().folders.map((f) => f.id)).toEqual([other])
+        expect(useBookmarksStore.getState().bookmarks.map((b) => b.folderId)).toEqual([null, null, other])
       })
     })
 

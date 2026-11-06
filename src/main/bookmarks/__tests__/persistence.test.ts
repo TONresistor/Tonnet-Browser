@@ -57,3 +57,14 @@ describe('bookmark repository compatibility', () => {
     expect(JSON.parse(await readFile(file, 'utf8')).schemaVersion).toBe(1)
   })
 })
+
+it.each([
+  { bookmarks: [], folders: [] },
+  { bookmarks: [], folders: [{ id: 'folder-only', name: 'Empty folder', parentId: null, createdAt: 1, order: 0 }] },
+])('preserves intentionally empty saved favorites across repository reload: %j', async (saved) => {
+  const { saveBookmarks } = await import('../index')
+  await saveBookmarks(saved)
+  vi.resetModules()
+  const { loadBookmarks } = await import('../index')
+  expect(await loadBookmarks()).toEqual(saved)
+})

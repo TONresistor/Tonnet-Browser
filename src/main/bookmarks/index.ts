@@ -63,7 +63,11 @@ function migrateBookmarks(raw: unknown): BookmarksData {
     return parsed.success ? [parsed.data] : []
   })
 
-  return bookmarks.length > 0 ? { bookmarks, folders } : defaults()
+  // An explicitly empty list is a saved user choice (reset or folders-only),
+  // not a missing document that should be repopulated with defaults.
+  return Array.isArray(legacyState.bookmarks) && (rawBookmarks.length === 0 || bookmarks.length > 0)
+    ? { bookmarks, folders }
+    : defaults()
 }
 
 let repository: VersionedJsonRepository<BookmarksData> | null = null
