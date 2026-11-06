@@ -189,12 +189,14 @@ export function BookmarksBar() {
         <div className="flex items-center gap-2 px-3 py-1.5 text-sm bg-destructive/15 border-t border-destructive/30 text-destructive">
           <span className="flex-1">{t('bookmarks.deleteFolderConfirm')}</span>
           <button
+            data-testid="folder-delete-confirm"
             onClick={confirmFolderDelete}
             className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-destructive/25 hover:bg-destructive/40 transition-colors"
           >
             {t('bookmarks.confirm')}
           </button>
           <button
+            data-testid="folder-delete-cancel"
             onClick={cancelFolderDelete}
             className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-surface-hover hover:bg-surface-active transition-colors text-chrome-foreground"
           >

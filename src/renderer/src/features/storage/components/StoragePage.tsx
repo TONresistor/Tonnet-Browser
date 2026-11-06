@@ -163,6 +163,7 @@ export function StoragePage() {
 
   return (
     <div
+      data-testid="internal-page-storage"
       className="flex h-full bg-background-secondary"
       style={{ fontFamily: 'Inter, sans-serif' }}
       onPointerDown={handlePagePointerDown}

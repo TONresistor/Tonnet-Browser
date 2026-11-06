@@ -261,7 +261,11 @@ export const BookmarksPage = memo(function BookmarksPage() {
   }
 
   return (
-    <div className="flex h-full bg-background-secondary" style={{ fontFamily: 'Inter, sans-serif' }}>
+    <div
+      data-testid="internal-page-bookmarks"
+      className="flex h-full bg-background-secondary"
+      style={{ fontFamily: 'Inter, sans-serif' }}
+    >
       <DndContext
         sensors={sensors}
         collisionDetection={bookmarkCollisionDetection}
@@ -273,6 +277,7 @@ export const BookmarksPage = memo(function BookmarksPage() {
           <div className="flex items-center justify-between px-4 pb-2 pt-4">
             <h1 className="text-[22px] font-bold tracking-tight text-heading">{t('bookmarks.title')}</h1>
             <button
+              data-testid="folder-new"
               onClick={() => handleNewFolder(selectedFolderId)}
               className="grid h-7 w-7 place-items-center rounded-full bg-primary text-identity-foreground transition-colors hover:bg-primary/90"
               title={t('bookmarks.newFolder')}
@@ -280,7 +285,11 @@ export const BookmarksPage = memo(function BookmarksPage() {
               <Plus className="h-4 w-4" />
             </button>
           </div>
-          {maxDepthWarning && <p className="px-4 pb-1 text-xs text-warning">{t('bookmarks.maxDepthReached')}</p>}
+          {maxDepthWarning && (
+            <p data-testid="folder-depth-warning" className="px-4 pb-1 text-xs text-warning">
+              {t('bookmarks.maxDepthReached')}
+            </p>
+          )}
 
           <nav className="min-h-0 flex-1 space-y-0.5 overflow-y-auto px-2 py-2">
             <DroppableFolderItem
@@ -302,6 +311,7 @@ export const BookmarksPage = memo(function BookmarksPage() {
 
           <div className="shrink-0 space-y-0.5 border-t border-border-subtle p-2">
             <button
+              data-testid="bookmarks-export"
               onClick={handleExport}
               className="flex w-full items-center gap-2 rounded-control px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
             >
@@ -309,6 +319,7 @@ export const BookmarksPage = memo(function BookmarksPage() {
               {t('bookmarks.export')}
             </button>
             <button
+              data-testid="bookmarks-reset"
               onClick={() => setShowResetModal(true)}
               className="flex w-full items-center gap-2 rounded-control px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
             >
@@ -325,6 +336,7 @@ export const BookmarksPage = memo(function BookmarksPage() {
               <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <input
                 type="text"
+                data-testid="bookmarks-search"
                 placeholder={t('bookmarks.searchPlaceholder')}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
@@ -395,6 +407,7 @@ export const BookmarksPage = memo(function BookmarksPage() {
               <div>
                 <label className="text-sm text-muted-foreground block mb-2">{t('bookmarks.bookmarkTitle')}</label>
                 <input
+                  data-testid="bookmark-title"
                   value={editingBookmark.title}
                   onChange={(e) => setEditingBookmark({ ...editingBookmark, title: e.target.value })}
                   className="w-full rounded-card bg-surface px-4 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
@@ -404,6 +417,7 @@ export const BookmarksPage = memo(function BookmarksPage() {
               <div>
                 <label className="text-sm text-muted-foreground block mb-2">{t('bookmarks.url')}</label>
                 <input
+                  data-testid="bookmark-url"
                   value={editingBookmark.url}
                   onChange={(e) => setEditingBookmark({ ...editingBookmark, url: e.target.value })}
                   className="w-full rounded-card bg-surface px-4 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
@@ -412,6 +426,7 @@ export const BookmarksPage = memo(function BookmarksPage() {
               <div>
                 <label className="text-sm text-muted-foreground block mb-2">{t('bookmarks.folder')}</label>
                 <select
+                  data-testid="bookmark-folder"
                   value={editingBookmark.folderId ?? ''}
                   onChange={(e) => setEditingBookmark({ ...editingBookmark, folderId: e.target.value || null })}
                   className="w-full rounded-card bg-surface px-4 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
@@ -428,12 +443,14 @@ export const BookmarksPage = memo(function BookmarksPage() {
             <div className="flex gap-3 mt-6">
               <button
                 className="flex-1 rounded-full border border-border-subtle bg-surface-hover py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-surface-active"
+                data-testid="bookmark-cancel"
                 onClick={() => setEditingBookmark(null)}
               >
                 {t('bookmarks.cancel')}
               </button>
               <button
                 className="flex-1 rounded-full bg-primary py-2.5 text-sm font-medium text-identity-foreground transition-colors hover:bg-primary/90"
+                data-testid="bookmark-save"
                 onClick={handleSaveEdit}
               >
                 {t('bookmarks.save')}
@@ -458,6 +475,7 @@ export const BookmarksPage = memo(function BookmarksPage() {
               <div>
                 <label className="text-sm text-muted-foreground block mb-2">{t('bookmarks.name')}</label>
                 <input
+                  data-testid="folder-name"
                   value={creatingFolder.name}
                   onChange={(e) => setCreatingFolder({ ...creatingFolder, name: e.target.value })}
                   onKeyDown={(e) => {
@@ -472,12 +490,14 @@ export const BookmarksPage = memo(function BookmarksPage() {
             <div className="flex gap-3 mt-6">
               <button
                 className="flex-1 rounded-full border border-border-subtle bg-surface-hover py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-surface-active"
+                data-testid="folder-cancel"
                 onClick={() => setCreatingFolder(null)}
               >
                 {t('bookmarks.cancel')}
               </button>
               <button
                 className="flex-1 rounded-full bg-primary py-2.5 text-sm font-medium text-identity-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+                data-testid="folder-create"
                 onClick={handleSaveNewFolder}
                 disabled={!creatingFolder.name.trim()}
               >
@@ -503,6 +523,7 @@ export const BookmarksPage = memo(function BookmarksPage() {
               <div>
                 <label className="text-sm text-muted-foreground block mb-2">{t('bookmarks.name')}</label>
                 <input
+                  data-testid="folder-name"
                   value={editingFolder.name}
                   onChange={(e) => setEditingFolder({ ...editingFolder, name: e.target.value })}
                   onKeyDown={(e) => {
@@ -516,12 +537,14 @@ export const BookmarksPage = memo(function BookmarksPage() {
             <div className="flex gap-3 mt-6">
               <button
                 className="flex-1 rounded-full border border-border-subtle bg-surface-hover py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-surface-active"
+                data-testid="folder-cancel"
                 onClick={() => setEditingFolder(null)}
               >
                 {t('bookmarks.cancel')}
               </button>
               <button
                 className="flex-1 rounded-full bg-primary py-2.5 text-sm font-medium text-identity-foreground transition-colors hover:bg-primary/90"
+                data-testid="folder-save"
                 onClick={handleSaveFolderEdit}
               >
                 {t('bookmarks.save')}
@@ -546,12 +569,14 @@ export const BookmarksPage = memo(function BookmarksPage() {
             <div className="flex gap-3">
               <button
                 className="flex-1 rounded-full border border-border-subtle bg-surface-hover py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-surface-active"
+                data-testid="bookmarks-reset-cancel"
                 onClick={() => setShowResetModal(false)}
               >
                 {t('bookmarks.cancel')}
               </button>
               <button
                 className="flex-1 rounded-full bg-destructive py-2.5 text-sm font-medium text-destructive-foreground transition-colors hover:bg-destructive/90"
+                data-testid="bookmarks-reset-confirm"
                 onClick={handleReset}
               >
                 {t('bookmarks.confirm')}

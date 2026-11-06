@@ -13,7 +13,11 @@ interface SettingsLayoutProps {
 
 export function SettingsLayout({ sidebar, content, actions }: SettingsLayoutProps) {
   return (
-    <div className="flex h-full bg-background-secondary flex-col" style={{ fontFamily: 'Inter, sans-serif' }}>
+    <div
+      data-testid="internal-page-settings"
+      className="flex h-full bg-background-secondary flex-col"
+      style={{ fontFamily: 'Inter, sans-serif' }}
+    >
       <div className="flex flex-1 min-h-0">
         {/* Sidebar */}
         {sidebar}

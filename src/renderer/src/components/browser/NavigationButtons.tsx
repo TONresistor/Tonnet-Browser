@@ -47,6 +47,7 @@ export function NavigationButtons() {
       <Button
         variant="ghost"
         size="icon"
+        data-testid="browser-back"
         onClick={handleBack}
         disabled={!canGoBack}
         className="h-7 w-7 rounded-full text-icon hover:text-icon"
@@ -59,6 +60,7 @@ export function NavigationButtons() {
       <Button
         variant="ghost"
         size="icon"
+        data-testid="browser-forward"
         onClick={handleForward}
         disabled={!canGoForward}
         className="h-7 w-7 rounded-full text-icon hover:text-icon"
@@ -71,6 +73,7 @@ export function NavigationButtons() {
       <Button
         variant="ghost"
         size="icon"
+        data-testid={isLoading ? 'browser-stop' : 'browser-reload'}
         onClick={handleReload}
         className="h-7 w-7 rounded-full text-icon hover:text-icon"
         title={isLoading ? t('navigation.stop') : t('navigation.reload')}

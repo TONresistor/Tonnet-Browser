@@ -181,7 +181,7 @@ export function HistoryPage() {
   return (
     <ErrorBoundary>
       <div className="h-full overflow-auto bg-background-secondary" style={{ fontFamily: 'Inter, sans-serif' }}>
-        <div className="mx-auto max-w-3xl p-5">
+        <div data-testid="internal-page-history" className="mx-auto max-w-3xl p-5">
           {/* Header */}
           <div className="mb-4 flex items-center gap-2">
             <History className="h-5 w-5 text-primary" />

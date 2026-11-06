@@ -479,7 +479,11 @@ export function WalletPage() {
   }
 
   return (
-    <div className="h-full bg-background-secondary overflow-auto" style={{ fontFamily: 'Inter, sans-serif' }}>
+    <div
+      data-testid="internal-page-wallet"
+      className="h-full bg-background-secondary overflow-auto"
+      style={{ fontFamily: 'Inter, sans-serif' }}
+    >
       <div className="p-5 max-w-4xl mx-auto">
         {/* Header */}
         <div className="mb-5 flex items-center justify-center gap-2">

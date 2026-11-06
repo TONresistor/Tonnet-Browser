@@ -270,7 +270,7 @@ export function ThemePage() {
   }
 
   return (
-    <div className="theme-page-shell h-full overflow-hidden bg-background-secondary">
+    <div data-testid="internal-page-theme" className="theme-page-shell h-full overflow-hidden bg-background-secondary">
       {workspace === 'library' || workspace === 'edit' ? (
         <div className="theme-page-layout h-full min-h-0">
           <ThemeLibrary

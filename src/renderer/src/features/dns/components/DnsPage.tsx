@@ -126,7 +126,11 @@ function DnsPage() {
       (result.text_records && Object.keys(result.text_records).length > 0))
 
   return (
-    <div className="h-full overflow-auto bg-background-secondary" style={{ fontFamily: 'Inter, sans-serif' }}>
+    <div
+      data-testid="internal-page-dns"
+      className="h-full overflow-auto bg-background-secondary"
+      style={{ fontFamily: 'Inter, sans-serif' }}
+    >
       <div className="mx-auto max-w-lg p-5">
         <h1 className="mb-5 text-center text-xl font-semibold text-heading">{t('title')}</h1>
 

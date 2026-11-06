@@ -30,7 +30,10 @@ export function StartPage() {
   }
 
   return (
-    <div className="relative flex flex-col items-center justify-center h-full w-full bg-background-secondary">
+    <div
+      data-testid="internal-page-start"
+      className="relative flex flex-col items-center justify-center h-full w-full bg-background-secondary"
+    >
       <Lottie animationData={currentExplorerAnimation} className="w-[280px] h-[280px] mb-8" loop autoplay />
 
       <p className="text-heading text-2xl font-bold mb-8">{t('start.subtitle')}</p>

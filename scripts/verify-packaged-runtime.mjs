@@ -1,7 +1,8 @@
-import { spawn } from 'node:child_process'
+import { createReadStream } from 'node:fs'
+import { runPackageTestProcess as run } from './run-package-test-process.mjs'
 import { createServer } from 'node:net'
 import { createSocket } from 'node:dgram'
-import { generateKeyPairSync } from 'node:crypto'
+import { generateKeyPairSync, createHash, randomUUID } from 'node:crypto'
 import { mkdtemp, readdir, readFile, rm, cp, access, mkdir, writeFile, realpath } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, join, resolve } from 'node:path'
@@ -9,7 +10,10 @@ import { fileURLToPath } from 'node:url'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
 const visible = process.argv.includes('--visible') && !process.env.CI
-const positional = process.argv.slice(2).filter((value) => value !== '--visible')
+const suite = process.argv.find((arg) => arg.startsWith('--suite='))?.slice('--suite='.length) ?? 'smoke'
+const contract = JSON.parse(await readFile(join(root, 'src/shared/packaged-test-contract.json'), 'utf8'))
+if (!Object.hasOwn(contract.suites, suite)) throw new Error(`Unknown test suite: ${suite}`)
+const positional = process.argv.slice(2).filter((value) => value !== '--visible' && !value.startsWith('--suite='))
 const platform = positional[0] ?? { darwin: 'mac', win32: 'win', linux: 'linux' }[process.platform]
 const arch = positional[1] ?? process.arch
 const host = { mac: 'darwin', win: 'win32', linux: 'linux' }[platform]
@@ -30,47 +34,27 @@ const patterns = {
   win: [/^TON-Browser-Setup-.*\.exe$/, /^TON-Browser-Portable-.*\.exe$/],
 }[platform]
 if (!patterns) throw new Error('Usage: node scripts/verify-packaged-runtime.mjs [mac|linux|win] [x64|arm64]')
-const artifacts = patterns.map((pattern) => {
+// Every format gets the release smoke; deeper suites use one package per runner.
+const artifacts = (suite === 'smoke' ? patterns : patterns.slice(0, 1)).map((pattern) => {
   const matches = files.filter((file) => pattern.test(file))
   if (matches.length !== 1)
     throw new Error(`Expected exactly one artifact matching ${pattern}; found ${matches.length}`)
   return join(release, matches[0])
 })
 const scratch = await realpath(await mkdtemp(join(tmpdir(), 'ton-browser-package-smoke-')))
-const summary = { version: expectedVersion, platform, arch, visible, ok: false, artifacts: [] }
-
-async function run(command, args, { streamOutput = false, ...options } = {}) {
-  const env = { ...process.env }
-  delete env.ELECTRON_RUN_AS_NODE
-  delete env.ELECTRON_NO_ASAR
-  return new Promise((resolveExit, reject) => {
-    const child = spawn(command, args, { env, stdio: ['ignore', 'pipe', 'pipe'], ...options })
-    let output = ''
-    const recordOutput = (chunk) => {
-      output = (output + chunk.toString()).slice(-20_000)
-      if (streamOutput) process.stdout.write(chunk)
-    }
-    child.stdout.on('data', recordOutput)
-    child.stderr.on('data', recordOutput)
-    let timedOut = false
-    const timeout = setTimeout(() => {
-      timedOut = true
-      if (process.platform === 'win32') {
-        const killer = spawn('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore' })
-        killer.on('error', () => child.kill())
-      } else child.kill('SIGKILL')
-    }, 360_000)
-    child.once('error', (error) => {
-      clearTimeout(timeout)
-      reject(error)
-    })
-    child.once('close', (code, signal) => {
-      clearTimeout(timeout)
-      if (timedOut) reject(new Error(`${basename(command)} exceeded 360 seconds\n${output}`))
-      else if (code === 0) resolveExit()
-      else reject(new Error(`${basename(command)} failed (exit ${code}, signal ${signal})\n${output}`))
-    })
-  })
+const runId = randomUUID()
+const startedAt = Date.now()
+const summary = {
+  runId,
+  suite,
+  scenario: contract.scenario,
+  startedAt: new Date(startedAt).toISOString(),
+  version: expectedVersion,
+  platform,
+  arch,
+  visible,
+  ok: false,
+  artifacts: [],
 }
 
 async function findFile(directory, predicate) {
@@ -124,10 +108,21 @@ async function executableFromArtifact(artifact, directory) {
   return executable
 }
 
+async function artifactDigest(path) {
+  const digest = createHash('sha256')
+  for await (const chunk of createReadStream(path)) digest.update(chunk)
+  return digest.digest('hex')
+}
+
 try {
   const url = 'http://manifesto.ton/'
   for (const [index, artifact] of artifacts.entries()) {
-    const artifactResult = { artifact: basename(artifact), phases: [], ok: false }
+    const artifactResult = {
+      artifact: basename(artifact),
+      sha256: await artifactDigest(artifact),
+      phases: [],
+      ok: false,
+    }
     summary.artifacts.push(artifactResult)
     const directory = await mkdtemp(join(scratch, `artifact-${index}-`))
     const executable = await executableFromArtifact(artifact, directory)
@@ -149,6 +144,7 @@ try {
       join(profile, 'app-settings.json'),
       JSON.stringify({
         schemaVersion: 4,
+        privacy: { clearOnExit: true },
         network: { proxyPort: ports[0], wsPort: ports[1], storagePort: ports[2], autoConnect: false },
       })
     )
@@ -178,23 +174,41 @@ try {
       { mode: 0o600 }
     )
     await new Promise((resolveClose) => udp.close(resolveClose))
-    for (const phase of ['live']) {
-      const report = join(profile, `${phase}.json`)
-      await run(
-        executable,
-        [
-          `--tonnet-package-smoke=${resolve(profile)}`,
-          `--tonnet-package-smoke-phase=${phase}`,
-          `--tonnet-package-smoke-report=${resolve(report)}`,
-          `--tonnet-package-smoke-url=${url}`,
-          `--tonnet-package-smoke-version=${expectedVersion}`,
-          ...(visible ? ['--tonnet-package-smoke-visible'] : []),
-          ...(platform === 'mac' ? ['--use-mock-keychain'] : []),
-        ],
-        { streamOutput: visible }
-      )
+    for (const phase of contract.suites[suite]) {
+      const report = join(profile, `package-test-${phase}.json`)
+      const phaseStartedAt = Date.now()
+      try {
+        await run(
+          executable,
+          [
+            `--tonnet-package-smoke=${resolve(profile)}`,
+            `--tonnet-package-smoke-phase=${phase}`,
+            `--tonnet-package-smoke-suite=${suite}`,
+            `--tonnet-package-smoke-report=${resolve(report)}`,
+            `--tonnet-package-smoke-url=${url}`,
+            `--tonnet-package-smoke-version=${expectedVersion}`,
+            ...(visible ? ['--tonnet-package-smoke-visible'] : []),
+            ...(platform === 'mac' ? ['--use-mock-keychain'] : []),
+          ],
+          { streamOutput: true }
+        )
+      } catch (error) {
+        const diagnostics = join(root, '.cache', 'package-smoke', runId, basename(artifact))
+        await mkdir(diagnostics, { recursive: true })
+        await writeFile(join(diagnostics, `${phase}-output.txt`), error.message)
+        for (const name of await readdir(profile)) {
+          if (contract.suites[suite].some((p) => name === `package-test-${p}.json` || name === `${p}-failure.png`)) {
+            await cp(join(profile, name), join(diagnostics, name))
+          }
+        }
+        artifactResult.phases.push({ phase, ok: false, durationMs: Date.now() - phaseStartedAt })
+        summary.diagnostics = `${runId}/${basename(artifact)}`
+        throw error
+      }
       const result = JSON.parse(await readFile(report, 'utf8'))
       if (
+        result.scenario !== contract.scenario ||
+        result.suite !== suite ||
         result.ok !== true ||
         result.packaged !== true ||
         result.version !== expectedVersion ||
@@ -204,16 +218,26 @@ try {
       ) {
         throw new Error(`Invalid or unsuccessful ${phase} report: ${JSON.stringify(result)}`)
       }
-      artifactResult.phases.push({ phase, checks: result.checks, ok: true })
-      if (!visible) for (const check of result.checks) console.log(`  PASS ${phase}: ${check}`)
+      artifactResult.phases.push({
+        phase,
+        checks: result.checks,
+        internalRoutes: result.internalRoutes,
+        durationMs: Date.now() - phaseStartedAt,
+        ok: true,
+      })
     }
     artifactResult.ok = true
-    console.log(`PASS ${basename(artifact)}: real TON connection, manifesto.ton navigation and clean disconnect`)
+    console.log(`PASS ${basename(artifact)}: ${suite} suite and real process restart validation`)
   }
   summary.ok = true
+} catch (error) {
+  summary.error = error.message
+  throw error
 } finally {
   await rm(scratch, { recursive: true, force: true })
   const reportDirectory = join(root, '.cache', 'package-smoke')
   await mkdir(reportDirectory, { recursive: true })
+  summary.durationMs = Date.now() - startedAt
+  await writeFile(join(reportDirectory, `latest-${suite}-report.json`), `${JSON.stringify(summary, null, 2)}\n`)
   await writeFile(join(reportDirectory, 'latest-report.json'), `${JSON.stringify(summary, null, 2)}\n`)
 }

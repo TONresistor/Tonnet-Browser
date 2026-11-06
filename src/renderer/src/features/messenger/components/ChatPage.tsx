@@ -479,6 +479,7 @@ function ChatPage(): React.JSX.Element {
 
   return (
     <div
+      data-testid="internal-page-chat"
       className="flex h-full w-full bg-background-secondary text-foreground"
       style={{ fontFamily: 'Inter, sans-serif' }}
     >
