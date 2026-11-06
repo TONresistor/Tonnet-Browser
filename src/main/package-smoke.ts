@@ -9,10 +9,11 @@ import testContract from '../shared/packaged-test-contract.json'
 import { getSetting } from './settings'
 import { assertLivePage, type LivePageSnapshot } from './packaged-page-assertions'
 import { runInternalRoutesSmoke } from './internal-routes-smoke'
+import { runWalletScenario } from './wallet-runtime-tests'
 
 interface PackageSmoke {
   profile: string
-  suite: 'smoke' | 'bookmarks'
+  suite: 'smoke' | 'bookmarks' | 'wallet' | 'storage'
   phase: string
   report: string
   url: string
@@ -34,7 +35,10 @@ export function preparePackageSmoke(): PackageSmoke | null {
   assert(existsSync(join(profile, '.tonnet-package-smoke')), 'Disposable profile marker missing')
   assert.equal(realpathSync(profile), resolve(profile), 'Profile must not be a symlink')
   const suite = argument('-suite')
-  assert(suite === 'smoke' || suite === 'bookmarks', 'Invalid package test suite')
+  assert(
+    suite === 'smoke' || suite === 'bookmarks' || suite === 'wallet' || suite === 'storage',
+    'Invalid package test suite'
+  )
   const phase = argument('-phase')
   assert(phase && testContract.suites[suite].includes(phase), 'Invalid package smoke phase for suite')
   const report = argument('-report')
@@ -49,6 +53,8 @@ export function preparePackageSmoke(): PackageSmoke | null {
   // Chromium cookie encryption otherwise reaches the real macOS Keychain even
   // with a fresh profile. This switch is confined to the validated smoke invocation.
   if (process.platform === 'darwin') app.commandLine.appendSwitch('use-mock-keychain')
+  if (process.platform === 'linux' && suite === 'wallet')
+    app.commandLine.appendSwitch('password-store', 'gnome-libsecret')
   app.setPath('userData', profile)
   // Electron defaults sessionData to userData, but bind it explicitly before readiness.
   app.setPath('sessionData', profile)
@@ -316,14 +322,28 @@ export async function runPackageSmoke(
       await waitPage(manifestoPage.url, manifestoPage.identity)
       pass('step 3: closing Piracy destroyed its view and restored Manifesto in the first tab')
     }
-    assert(getSetting('privacy').clearOnExit, 'Package tests must exercise clear-on-exit with preserved bookmarks')
-    await runBookmarksScenario({
-      window,
-      services,
-      profile: config.profile,
-      phase: config.phase === 'live' ? 'smoke' : config.phase,
-      pass,
-    })
+    if (config.suite === 'wallet') {
+      await services.walletManager.init()
+      await runWalletScenario({ window, profile: config.profile, phase: config.phase, pass })
+    } else if (config.suite === 'storage') {
+      internalRoutes = await runInternalRoutesSmoke({
+        window,
+        services,
+        profile: config.profile,
+        submit,
+        pass,
+        onlyStorageRemoval: true,
+      })
+    } else {
+      assert(getSetting('privacy').clearOnExit, 'Package tests must exercise clear-on-exit with preserved bookmarks')
+      await runBookmarksScenario({
+        window,
+        services,
+        profile: config.profile,
+        phase: config.phase === 'live' ? 'smoke' : config.phase,
+        pass,
+      })
+    }
     if (!config.visible) assert(!window.isVisible(), 'Invisible live flow displayed a window')
     if (config.visible) await new Promise((resolvePause) => setTimeout(resolvePause, 2000))
     await window.webContents.executeJavaScript('window.electron.proxy.disconnect()')

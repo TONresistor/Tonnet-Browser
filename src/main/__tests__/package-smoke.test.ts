@@ -78,6 +78,20 @@ describe('packaged smoke isolation', () => {
     if (process.platform === 'darwin')
       expect(mockApp.commandLine.appendSwitch).toHaveBeenCalledWith('use-mock-keychain')
   })
+  it.each([
+    ['wallet', 'wallet-create'],
+    ['wallet', 'wallet-resume'],
+    ['storage', 'storage-remove'],
+  ])('accepts the isolated %s phase %s', (suite, phase) => {
+    process.argv = process.argv.map((arg) => {
+      if (arg.startsWith('--tonnet-package-smoke-suite=')) return `--tonnet-package-smoke-suite=${suite}`
+      if (arg.startsWith('--tonnet-package-smoke-phase=')) return `--tonnet-package-smoke-phase=${phase}`
+      if (arg.startsWith('--tonnet-package-smoke-report='))
+        return `--tonnet-package-smoke-report=${join(profile, `package-test-${phase}.json`)}`
+      return arg
+    })
+    expect(preparePackageSmoke()).toMatchObject({ suite, phase, profile })
+  })
   it('refuses a profile without the disposable marker before setting any paths', () => {
     rmSync(join(profile, '.tonnet-package-smoke'))
     expect(() => preparePackageSmoke()).toThrow('marker missing')
