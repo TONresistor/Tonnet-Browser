@@ -17,6 +17,8 @@ export const DEFAULT_BOOKMARKS = [
   { id: '0', url: 'http://manifesto.ton', title: 'manifesto.ton', createdAt: Date.now() },
 ]
 
+export const BOOKMARKS_SAVE_DEBOUNCE_MS = 300
+
 // UI timing
 export const UI_COPY_FEEDBACK_MS = 2_000
 export const UI_NOTIFICATION_TIMEOUT_MS = 3_000

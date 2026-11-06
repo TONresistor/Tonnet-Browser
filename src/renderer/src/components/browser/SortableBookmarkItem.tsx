@@ -33,6 +33,7 @@ export const SortableBookmarkItem = memo(function SortableBookmarkItem({
 
   return (
     <button
+      data-bookmark-bar-id={bookmark.id}
       ref={setNodeRef}
       style={style}
       {...attributes}

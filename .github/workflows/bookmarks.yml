@@ -1,0 +1,142 @@
+name: Bookmarks E2E
+
+on:
+  push:
+    branches: ['**']
+    paths:
+      - 'src/**/bookmarks/**'
+      - 'src/main/app-cleanup.ts'
+      - 'src/main/ipc/handlers/bookmarks.ts'
+      - 'src/main/windows/overlay-manager.ts'
+      - 'src/preload/index.ts'
+      - 'src/renderer/src/App.tsx'
+      - 'src/renderer/src/components/browser/*Bookmark*.tsx'
+      - 'src/renderer/src/components/browser/DroppableFolder.tsx'
+      - 'src/renderer/src/hooks/useBookmarkContextMenu.ts'
+      - 'src/renderer/src/lib/bookmark-dnd.ts'
+      - 'src/shared/constants.ts'
+      - 'src/shared/ipc-contract/bookmarks.ts'
+      - 'resources/overlay/**'
+      - 'src/main/bookmarks-runtime-tests.ts'
+      - 'src/main/package-smoke.ts'
+      - 'src/main/packaged-page-assertions.ts'
+      - 'src/shared/packaged-test-contract.json'
+      - 'scripts/verify-packaged-runtime.mjs'
+      - 'scripts/run-package-test-process.mjs'
+      - '.github/workflows/bookmarks.yml'
+  pull_request:
+    branches: [main, dev]
+    paths:
+      - 'src/**/bookmarks/**'
+      - 'src/main/app-cleanup.ts'
+      - 'src/main/ipc/handlers/bookmarks.ts'
+      - 'src/main/windows/overlay-manager.ts'
+      - 'src/preload/index.ts'
+      - 'src/renderer/src/App.tsx'
+      - 'src/renderer/src/components/browser/*Bookmark*.tsx'
+      - 'src/renderer/src/components/browser/DroppableFolder.tsx'
+      - 'src/renderer/src/hooks/useBookmarkContextMenu.ts'
+      - 'src/renderer/src/lib/bookmark-dnd.ts'
+      - 'src/shared/constants.ts'
+      - 'src/shared/ipc-contract/bookmarks.ts'
+      - 'resources/overlay/**'
+      - 'src/main/bookmarks-runtime-tests.ts'
+      - 'src/main/package-smoke.ts'
+      - 'src/main/packaged-page-assertions.ts'
+      - 'src/shared/packaged-test-contract.json'
+      - 'scripts/verify-packaged-runtime.mjs'
+      - 'scripts/run-package-test-process.mjs'
+      - '.github/workflows/bookmarks.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bookmarks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  bookmarks:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux
+            goarch: amd64
+            electron_args: --linux AppImage --x64
+          - os: windows-latest
+            platform: win
+            goarch: amd64
+            electron_args: --win nsis --x64
+          - os: macos-latest
+            platform: mac
+            goarch: universal
+            electron_args: --mac dmg
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Read Go version
+        id: go-version
+        shell: bash
+        run: node -e "console.log('version=' + require('./scripts/binary-versions.json').go_version)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Go binaries
+        id: go-bin-cache
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v4
+        with:
+          path: resources/bin/${{ matrix.platform }}
+          key: go-binaries-${{ matrix.platform }}-${{ matrix.goarch }}-${{ hashFiles('scripts/binary-versions.json', 'scripts/build-binaries-from-source.sh', '**/*.patch') }}
+
+      - name: Setup Go
+        if: steps.go-bin-cache.outputs.cache-hit != 'true'
+        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v5
+        with:
+          go-version: ${{ steps.go-version.outputs.version }}
+
+      - name: Build Go binaries from source
+        if: steps.go-bin-cache.outputs.cache-hit != 'true'
+        shell: bash
+        run: bash scripts/build-binaries-from-source.sh ${{ matrix.platform }} ${{ matrix.goarch }}
+
+      - name: Verify Go binaries
+        run: node scripts/verify-binaries.mjs ${{ matrix.platform }} ${{ matrix.goarch }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build representative package
+        run: npm run build && npx electron-builder ${{ matrix.electron_args }} --publish never
+
+      - name: Install Linux runtime dependencies
+        if: matrix.platform == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb libgtk-3-0 libnss3 libgbm1 libasound2t64
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+
+      - name: E2E bookmarks on Linux
+        if: matrix.platform == 'linux'
+        run: xvfb-run -a npm run test:e2e:bookmarks -- linux
+
+      - name: E2E bookmarks on macOS and Windows
+        if: matrix.platform != 'linux'
+        run: npm run test:e2e:bookmarks -- ${{ matrix.platform }}
+
+      - name: Upload bookmarks report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: bookmarks-${{ matrix.platform }}
+          path: .cache/package-smoke/
+          include-hidden-files: true
+          if-no-files-found: ignore

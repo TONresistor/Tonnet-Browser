@@ -1,0 +1,7 @@
+{
+  "scenario": "packaged-browser-v3",
+  "suites": {
+    "smoke": ["live", "smoke-resume"],
+    "bookmarks": ["bookmarks", "bookmarks-resume", "bookmarks-folders-resume", "bookmarks-empty-resume"]
+  }
+}

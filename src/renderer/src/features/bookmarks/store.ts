@@ -5,6 +5,7 @@
  */
 
 import { create } from 'zustand'
+import { BOOKMARKS_SAVE_DEBOUNCE_MS } from '@shared/constants'
 import { bookmarksClient } from '@/features/bookmarks/client'
 import { newId } from '@/lib/id'
 import type { Bookmark, BookmarkFolder } from '@shared/ipc-contract/bookmarks'
@@ -257,7 +258,7 @@ useBookmarksStore.subscribe((state) => {
         folders: state.folders,
       })
       .catch(() => {})
-  }, 300)
+  }, BOOKMARKS_SAVE_DEBOUNCE_MS)
 })
 
 // Flush pending save before app exit

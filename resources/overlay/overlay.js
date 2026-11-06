@@ -12,6 +12,7 @@ function renderSuggestions(items) {
     const el = document.createElement('div')
     el.className = 'suggestion-item'
     el.dataset.index = i
+    el.dataset.action = item.id
 
     const row = document.createElement('div')
     row.className = 'suggestion-row'
@@ -60,6 +61,7 @@ function renderMenu(items) {
     const el = document.createElement('div')
     el.className = 'menu-item' + (item.disabled ? ' disabled' : '') + (item.destructive ? ' destructive' : '')
     el.dataset.index = i
+    el.dataset.action = item.id
 
     if (item.icon) {
       const icon = document.createElement('span')
@@ -188,6 +190,7 @@ function renderForm(content) {
     } else {
       const input = document.createElement('input')
       input.className = 'form-input'
+      input.dataset.field = field.id
       input.value = field.value || ''
       input.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
@@ -218,6 +221,7 @@ function renderForm(content) {
 
   for (const action of (content.actions || [])) {
     const btn = document.createElement('button')
+    btn.dataset.action = action.id
     btn.className = 'form-btn ' + (action.primary ? 'form-btn-primary' : 'form-btn-secondary')
     btn.textContent = action.label || action.id
     btn.addEventListener('click', () => {

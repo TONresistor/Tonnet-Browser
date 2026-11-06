@@ -1,3 +1,4 @@
+import type { StaticInternalRoutePath } from '@shared/internal-route-paths'
 import i18n from '@/i18n'
 import bookmarkIcon from '@/assets/bookmark.svg'
 import cocoonIcon from '@/assets/cocoon.png'
@@ -97,7 +98,7 @@ const routes = {
   },
   dns: { kind: 'dns', view: 'dns', title: () => i18n.t('title', { ns: 'dns' }), favicon: dnsIcon },
   loading: { kind: 'loading', view: 'loading', title: () => i18n.t('appName', { ns: 'common' }) },
-} satisfies Record<string, RouteMetadata>
+} satisfies Record<StaticInternalRoutePath, RouteMetadata>
 
 export function isInternalUrl(url: string): boolean {
   return url.startsWith('ton://')

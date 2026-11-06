@@ -121,7 +121,10 @@ function App() {
   useWalletPageOpen(walletSidebarOpen || internalRoute?.kind === 'wallet')
 
   const loadingContent: ReactNode = (
-    <div className="w-full h-full flex flex-col items-center justify-center bg-background-secondary">
+    <div
+      data-testid="internal-page-loading"
+      className="w-full h-full flex flex-col items-center justify-center bg-background-secondary"
+    >
       <div className="w-16 h-16 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
     </div>
   )
@@ -266,7 +269,11 @@ function App() {
         )}
 
         {/* Content Area */}
-        <div className="flex-1 overflow-auto min-h-0">
+        <div
+          data-testid="internal-content"
+          data-internal-route={internalRoute?.kind}
+          className="flex-1 overflow-auto min-h-0"
+        >
           <Suspense
             fallback={
               <div className="w-full h-full flex flex-col items-center justify-center bg-background-secondary">

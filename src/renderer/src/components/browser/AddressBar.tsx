@@ -401,6 +401,7 @@ export const AddressBar = memo(function AddressBar() {
               'h-6 w-6 rounded-full flex-shrink-0',
               showTipButton || show402 ? 'mr-1' : 'absolute right-1 top-1/2 -translate-y-1/2'
             )}
+            data-testid="bookmark-toggle"
             onClick={toggleBookmark}
             disabled={!currentUrl || isInternalPage}
             title={isBookmarked ? t('addressBar.removeBookmarkTitle') : t('addressBar.addBookmarkTitle')}

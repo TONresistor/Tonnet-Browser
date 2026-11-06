@@ -52,6 +52,7 @@ export function DroppableFolder({ folder, onClick, onContextMenu }: DroppableFol
 
   return (
     <button
+      data-folder-bar-id={folder.id}
       ref={setRefs}
       style={style}
       {...attributes}

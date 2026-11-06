@@ -362,6 +362,7 @@ export const TabBar = memo(function TabBar({ sidebarWidth }: TabBarProps) {
 
       <button
         className={`${isVertical ? 'w-full py-2 rounded-lg' : 'h-7 w-7 shrink-0 rounded-full'} no-drag flex items-center justify-center transition-all duration-200 bg-surface text-icon/60 hover:bg-surface-active hover:text-icon`}
+        data-testid="browser-new-tab"
         onClick={() => addTab()}
         title={t('tabs.newTab')}
         aria-label={t('tabs.openNewTab')}

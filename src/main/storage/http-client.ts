@@ -105,6 +105,14 @@ export class StorageHTTPClient {
     })
   }
 
+  /** Create a bag from an existing local directory using this daemon's authentication. */
+  async createBag(path: string, description: string): Promise<{ bag_id: string }> {
+    return this.fetch<{ bag_id: string }>('/api/v1/create', {
+      method: 'POST',
+      body: JSON.stringify({ path, description }),
+    })
+  }
+
   /**
    * Remove a bag
    */

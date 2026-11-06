@@ -1,3 +1,4 @@
+import { STATIC_INTERNAL_ROUTE_PATHS } from '@shared/internal-route-paths'
 import { describe, expect, it, vi } from 'vitest'
 import { getInternalPageFavicon, getInternalPageTitle, isInternalUrl, resolveInternalRoute } from '../internal-routes'
 
@@ -16,6 +17,10 @@ vi.mock('@/i18n', () => ({
 }))
 
 describe('internal route registry', () => {
+  it.each(STATIC_INTERNAL_ROUTE_PATHS)('registers the static page exercised by packaged smoke: %s', (path) => {
+    expect(resolveInternalRoute(`ton://${path}`)).toEqual({ kind: path, view: path })
+  })
+
   it('distinguishes internal and external URLs', () => {
     expect(isInternalUrl('ton://wallet')).toBe(true)
     expect(resolveInternalRoute('https://example.com')).toBeNull()

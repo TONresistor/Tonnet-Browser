@@ -39,7 +39,10 @@ export class ErrorBoundary extends Component<Props, State> {
   render(): ReactNode {
     if (this.state.hasError) {
       return (
-        <div className="flex flex-col items-center justify-center h-screen bg-background-secondary text-foreground p-8">
+        <div
+          data-testid="application-error"
+          className="flex flex-col items-center justify-center h-screen bg-background-secondary text-foreground p-8"
+        >
           <TriangleAlert className="h-16 w-16 text-destructive mb-4" aria-hidden="true" />
           <h1 className="text-2xl font-bold text-heading mb-2">{i18n.t('error.title')}</h1>
           <p className="text-muted-foreground mb-4 text-center max-w-md">{i18n.t('error.description')}</p>

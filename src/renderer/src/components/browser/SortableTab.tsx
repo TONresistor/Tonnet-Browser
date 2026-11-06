@@ -63,6 +63,7 @@ export const SortableTab = memo(function SortableTab({
       {...attributes}
       {...listeners}
       role="tab"
+      data-tab-id={tab.id}
       aria-selected={isActive}
       tabIndex={isActive ? 0 : -1}
       className={`no-drag group flex items-center gap-2 px-2.5 py-1.5 ${isVertical ? 'rounded-lg w-full' : 'rounded-full min-w-[100px] max-w-[200px] flex-[1_1_200px]'} cursor-pointer transition-all duration-200 border ${
@@ -94,6 +95,7 @@ export const SortableTab = memo(function SortableTab({
             className="absolute inset-0 opacity-0 group-hover:opacity-100 focus:opacity-100 rounded-full text-icon transition-opacity flex items-center justify-center bg-surface-active"
             aria-label={`Close ${tab.title || t('tabs.closeTab')}`}
             tabIndex={0}
+            data-testid="browser-close-tab"
             onClick={(e) => onClose(e, tab.id)}
           >
             <X className="h-3.5 w-3.5" />
@@ -119,6 +121,7 @@ export const SortableTab = memo(function SortableTab({
           className="shrink-0 opacity-0 group-hover:opacity-100 focus:opacity-100 hover:bg-surface-active rounded-full p-0.5 text-icon transition-opacity"
           aria-label={`Close ${tab.title || t('tabs.closeTab')}`}
           tabIndex={0}
+          data-testid="browser-close-tab"
           onClick={(e) => onClose(e, tab.id)}
         >
           <X className="h-3.5 w-3.5" />

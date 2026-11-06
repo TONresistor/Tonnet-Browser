@@ -113,7 +113,11 @@ export function StorageFileViewerPage({ bagId, filePath }: { bagId: string; file
   for (let i = start; i < end; i++) visible.push(i)
 
   return (
-    <div className="flex h-full flex-col bg-background-secondary" style={{ fontFamily: 'Inter, sans-serif' }}>
+    <div
+      data-testid="internal-page-storage-view"
+      className="flex h-full flex-col bg-background-secondary"
+      style={{ fontFamily: 'Inter, sans-serif' }}
+    >
       {/* Header */}
       <header className="flex shrink-0 items-center gap-3 border-b border-border-subtle px-4 py-3">
         <button
@@ -180,16 +184,28 @@ export function StorageFileViewerPage({ bagId, filePath }: { bagId: string; file
         </div>
       ) : (
         <div ref={scrollRef} onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)} className="flex-1 overflow-auto">
-          <div style={{ width: totalWidth, minWidth: '100%' }} className="text-[13px]">
+          <div
+            role="table"
+            aria-label={fileName}
+            style={{ width: totalWidth, minWidth: '100%' }}
+            className="text-[13px]"
+          >
             {/* Sticky header row */}
             <div
+              role="row"
               className="sticky top-0 z-10 flex bg-background-secondary"
               style={{ height: HEADER_H, width: totalWidth }}
             >
-              <div className="shrink-0 border-b border-border-subtle" style={{ width: INDEX_W }} />
+              <div
+                role="columnheader"
+                aria-label="Row"
+                className="shrink-0 border-b border-border-subtle"
+                style={{ width: INDEX_W }}
+              />
               {table.columns.map((col, c) => (
                 <div
                   key={c}
+                  role="columnheader"
                   style={{ width: widths[c] }}
                   className="flex shrink-0 items-center truncate border-b border-border-subtle px-3 font-semibold text-foreground"
                   title={col}
@@ -204,10 +220,13 @@ export function StorageFileViewerPage({ bagId, filePath }: { bagId: string; file
               {visible.map((i) => (
                 <div
                   key={i}
+                  role="row"
+                  data-row-index={i}
                   className="absolute left-0 flex border-b border-border-subtle/60 hover:bg-surface-hover"
                   style={{ top: i * ROW_H, height: ROW_H, width: totalWidth }}
                 >
                   <div
+                    role="rowheader"
                     className="flex shrink-0 items-center justify-end px-2 font-mono text-[11px] text-muted-foreground/50 tabular-nums"
                     style={{ width: INDEX_W }}
                   >
@@ -216,6 +235,7 @@ export function StorageFileViewerPage({ bagId, filePath }: { bagId: string; file
                   {table.columns.map((_, c) => (
                     <div
                       key={c}
+                      role="cell"
                       style={{ width: widths[c] }}
                       className="flex shrink-0 items-center truncate px-3 font-mono text-foreground"
                       title={rows[i][c] ?? ''}

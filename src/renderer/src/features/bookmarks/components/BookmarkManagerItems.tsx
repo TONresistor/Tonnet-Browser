@@ -40,6 +40,7 @@ export function SortableBookmarkRow({
 
   return (
     <div
+      data-bookmark-row={bookmark.id}
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 }}
       className={cn(
@@ -48,6 +49,7 @@ export function SortableBookmarkRow({
       )}
     >
       <div
+        data-testid="bookmark-drag"
         {...attributes}
         {...listeners}
         className="cursor-grab p-1 text-muted-foreground/40 transition-colors hover:text-muted-foreground active:cursor-grabbing"
@@ -61,6 +63,7 @@ export function SortableBookmarkRow({
       />
       <div className="min-w-0 flex-1">
         <button
+          data-testid="bookmark-open"
           onClick={() => onNavigate(bookmark.url)}
           className="block truncate text-left text-[14px] font-medium text-foreground transition-colors hover:text-primary"
         >
@@ -70,6 +73,7 @@ export function SortableBookmarkRow({
       </div>
       <div className="flex flex-shrink-0 items-center gap-1">
         <button
+          data-testid="bookmark-open-new"
           onClick={() => onOpenNewTab(bookmark.url)}
           className="rounded-full p-2 text-muted-foreground transition-colors hover:bg-surface hover:text-foreground"
           title={t('bookmarks.openInNewTab')}
@@ -77,6 +81,7 @@ export function SortableBookmarkRow({
           <ExternalLink className="h-4 w-4 text-foreground" />
         </button>
         <button
+          data-testid="bookmark-edit"
           onClick={() => onEdit(bookmark)}
           className="rounded-full p-2 text-muted-foreground transition-colors hover:bg-surface hover:text-foreground"
           title={t('bookmarks.edit')}
@@ -84,6 +89,7 @@ export function SortableBookmarkRow({
           <SquarePen className="h-4 w-4 text-foreground" />
         </button>
         <button
+          data-testid="bookmark-delete"
           onClick={() => onDelete(bookmark.id)}
           className={cn(
             'rounded-full p-2 transition-colors',
@@ -141,6 +147,7 @@ export function DroppableFolderItem({
   return (
     <div>
       <button
+        data-folder-row={folder?.id ?? 'root'}
         ref={setNodeRef}
         onClick={() => {
           if (hasSubfolders && !isRoot) onToggleExpand()
@@ -182,6 +189,7 @@ export function DroppableFolderItem({
         {!isRoot && folder && (
           <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
             <span
+              data-testid="folder-rename"
               onClick={(event) => {
                 event.stopPropagation()
                 onEdit()
@@ -192,6 +200,7 @@ export function DroppableFolderItem({
               <Pen className="h-3.5 w-3.5" />
             </span>
             <span
+              data-testid="folder-delete"
               onClick={(event) => {
                 event.stopPropagation()
                 onDelete(event)

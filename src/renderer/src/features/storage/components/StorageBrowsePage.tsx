@@ -168,7 +168,7 @@ export function StorageBrowsePage({ bagId }: { bagId: string }) {
       </aside>
 
       {/* Main: file browser */}
-      <main className="flex min-w-0 flex-1 flex-col overflow-auto">
+      <main data-testid="internal-page-storage-browse" className="flex min-w-0 flex-1 flex-col overflow-auto">
         {loading ? (
           <div className="flex flex-1 items-center justify-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />

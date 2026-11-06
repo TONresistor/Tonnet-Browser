@@ -2,6 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import type { BrowserWindow } from 'electron'
+import type { ServiceRegistry } from '../services'
+import { runBookmarksScenario } from '../bookmarks-runtime-tests'
 
 const mockApp = vi.hoisted(() => ({
   isPackaged: true,
@@ -26,15 +29,38 @@ beforeEach(() => {
     'app',
     `--tonnet-package-smoke=${profile}`,
     '--tonnet-package-smoke-phase=live',
-    `--tonnet-package-smoke-report=${join(profile, 'write.json')}`,
+    '--tonnet-package-smoke-suite=smoke',
+    `--tonnet-package-smoke-report=${join(profile, 'package-test-live.json')}`,
     '--tonnet-package-smoke-version=2.7.1',
     '--tonnet-package-smoke-url=http://manifesto.ton/',
   ]
 })
 afterEach(() => {
+  vi.useRealTimers()
   vi.unstubAllEnvs()
   process.argv = originalArgs
   rmSync(profile, { recursive: true, force: true })
+})
+
+it('rejects a cancelled bookmark dialog that remains open even when data is unchanged', async () => {
+  vi.useFakeTimers()
+  const commands: string[] = []
+  const window = {
+    webContents: {
+      executeJavaScript: vi.fn(async (script: string) => {
+        commands.push(script)
+        if (script === 'window.electron.bookmarks.load()') return { bookmarks: [], folders: [] }
+        if (script.startsWith('!document.querySelector')) return false
+        return true
+      }),
+    },
+  } as unknown as BrowserWindow
+  const result = expect(
+    runBookmarksScenario({ window, services: {} as ServiceRegistry, profile, phase: 'bookmarks', pass: vi.fn() })
+  ).rejects.toThrow('Cancelled reset: dialog closed')
+  await vi.advanceTimersByTimeAsync(31_000)
+  await result
+  expect(commands.some((script) => script.includes('bookmarks-reset-confirm'))).toBe(false)
 })
 
 describe('packaged smoke isolation', () => {
@@ -60,11 +86,23 @@ describe('packaged smoke isolation', () => {
   it.each([
     ['--tonnet-package-smoke-url=', 'https://example.com/', 'manifesto.ton'],
     ['--tonnet-package-smoke-report=', join(tmpdir(), 'outside.json'), 'inside'],
+    ['--tonnet-package-smoke-report=', 'bookmarks.json', 'inside'],
     ['--tonnet-package-smoke-phase=', 'other', 'phase'],
+    ['--tonnet-package-smoke-suite=', 'other', 'suite'],
+    ['--tonnet-package-smoke-phase=', 'bookmarks', 'phase'],
     ['--tonnet-package-smoke-version=', '0.0.0', 'version'],
   ])('refuses invalid invocation %s', (prefix, value, error) => {
     process.argv = process.argv.map((argument) => (argument.startsWith(prefix) ? prefix + value : argument))
     expect(() => preparePackageSmoke()).toThrow(error)
+    expect(mockApp.setPath).not.toHaveBeenCalled()
+  })
+  it('refuses report filenames that would overwrite user data before changing any paths', () => {
+    process.argv = process.argv.map((arg) =>
+      arg.startsWith('--tonnet-package-smoke-report=')
+        ? `--tonnet-package-smoke-report=${join(profile, 'bookmarks.json')}`
+        : arg
+    )
+    expect(() => preparePackageSmoke()).toThrow('dedicated package-test filename')
     expect(mockApp.setPath).not.toHaveBeenCalled()
   })
   it('allows visible mode only when explicitly requested locally', () => {
