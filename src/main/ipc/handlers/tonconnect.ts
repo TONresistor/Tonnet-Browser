@@ -33,7 +33,10 @@ export function registerTonConnectHandlers(registry: ServiceRegistry): void {
   tonsiteContractHandle(
     tonConnectAvailabilityContract,
     (event) => registry.tabManager.resolveSenderIdentity(event.sender),
-    () => ({ enabled: getSetting('advanced').tonConnectEnabled && tonConnectService.isAvailable() })
+    () => {
+      const enabled = getSetting('advanced').tonConnectEnabled && tonConnectService.isAvailable()
+      return enabled ? { enabled, features: tonConnectService.getFeatures() } : { enabled }
+    }
   )
 
   tonsiteContractHandle(

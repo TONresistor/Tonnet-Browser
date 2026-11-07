@@ -11,6 +11,8 @@ export type { WalletState, WalletTransaction, DnsResolveResult } from './schemas
 export type { WalletOperation, OperationPhase } from './journal'
 export type { TransferIntent, TransferMessage, TransferReview, TransferAuthorization } from './transactions'
 export type { WalletBridgePort } from './bridge-port'
+export type { StructuredTransferItem } from './structured-transfers'
+export { StructuredTransferItemSchema } from './structured-transfers'
 export type {
   AccountInformationResult,
   EmulateTransactionResult,

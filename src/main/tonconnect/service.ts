@@ -17,6 +17,7 @@ import {
   type ConnectItemReply,
   type ConnectRequest,
   type DeviceInfo,
+  type DeviceFeature,
   type DisconnectEvent,
   type TonProofItem,
   type WalletResponse,
@@ -430,6 +431,15 @@ export class TonConnectService {
           )
         case 'signData':
           return await this.signingWorkflow.signData(domain, session.appName, session.address, message, signal)
+        case 'signMessage':
+          return await this.signingWorkflow.signMessage(
+            domain,
+            session.appName,
+            session.address,
+            message,
+            session.grantedAt,
+            signal
+          )
         default:
           return rpcError(message.id, TONCONNECT_ERROR.METHOD_NOT_SUPPORTED, `Method ${message.method} not supported`)
       }
@@ -460,16 +470,28 @@ export class TonConnectService {
     if (pending?.size === 0) this.pendingRequests.delete(domain)
   }
 
+  getFeatures(): DeviceFeature[] {
+    const transactions = {
+      maxMessages: TONCONNECT_MAX_MESSAGES,
+      extraCurrencySupported: false,
+      itemTypes: ['ton', 'jetton', 'nft'],
+    }
+    return [
+      { name: 'SendTransaction', ...transactions },
+      { name: 'SignData', types: ['text', 'binary', 'cell'] },
+      ...(this.wallet.getState().walletVersion === 'v5R1' && this.wallet.getTonConnectAccount()
+        ? [{ name: 'SignMessage', ...transactions }]
+        : []),
+    ]
+  }
+
   private buildDeviceInfo(): DeviceInfo {
     return {
       platform: platform(),
       appName: 'tonnet',
       appVersion: APP_VERSION,
       maxProtocolVersion: TONCONNECT_PROTOCOL_VERSION,
-      features: [
-        { name: 'SendTransaction', maxMessages: TONCONNECT_MAX_MESSAGES, extraCurrencySupported: false },
-        { name: 'SignData', types: ['text', 'binary', 'cell'] },
-      ],
+      features: this.getFeatures(),
     }
   }
 

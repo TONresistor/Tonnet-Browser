@@ -14,12 +14,12 @@ import { IPC_CHANNELS } from '../ipc-channels'
 const source = readFileSync(resolve(process.cwd(), 'resources/preload/tonsite.js'), 'utf-8')
 const catalogueUrl = 'https://config.ton.org/wallets-v2.json'
 
-function install(originalFetch = vi.fn<typeof fetch>(), enabled = true) {
+function install(originalFetch = vi.fn<typeof fetch>(), enabled = true, features?: unknown[]) {
   const window = { fetch: originalFetch as typeof fetch, location: { href: 'http://app.ton/' } }
   const page = { window, Response, Request, URL }
   const ipcRenderer = {
     invoke: vi.fn(async (channel: string) =>
-      channel === IPC_CHANNELS.TONCONNECT_AVAILABILITY ? { enabled } : { success: true }
+      channel === IPC_CHANNELS.TONCONNECT_AVAILABILITY ? { enabled, features } : { success: true }
     ),
     on: vi.fn(),
     removeListener: vi.fn(),
@@ -39,6 +39,16 @@ function install(originalFetch = vi.fn<typeof fetch>(), enabled = true) {
 }
 
 describe('tonsite.js fetch compatibility', () => {
+  it('uses native account capabilities in the local catalogue, including conditional signMessage', async () => {
+    for (const v5 of [false, true]) {
+      const features = [
+        { name: 'SendTransaction', maxMessages: 4, itemTypes: ['ton', 'jetton', 'nft'] },
+        ...(v5 ? [{ name: 'SignMessage', maxMessages: 4, itemTypes: ['ton', 'jetton', 'nft'] }] : []),
+      ]
+      const { window } = install(vi.fn<typeof fetch>(), true, features)
+      expect((await (await window.fetch(catalogueUrl)).json())[0].features).toEqual(features)
+    }
+  })
   it('uses the current IPC channels', () => {
     for (const channel of [
       IPC_CHANNELS.WALLET_PAY_FOR_XHR,

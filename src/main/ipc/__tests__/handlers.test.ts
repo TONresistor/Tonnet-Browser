@@ -380,6 +380,7 @@ function createMockRegistry(): ServiceRegistry {
     bridgeInterceptor: { handleRequest: vi.fn(), init: vi.fn(), destroy: vi.fn() } as any,
     bridgePermissionStore: { getAllPermissions: vi.fn(() => []), revokePermission: vi.fn() } as any,
     tonConnectService: {
+      getFeatures: vi.fn(() => [{ name: 'SendTransaction', maxMessages: 4, itemTypes: ['ton', 'jetton', 'nft'] }]),
       init: vi.fn(),
       isAvailable: vi.fn(() => true),
       handleRequest: vi.fn(),
@@ -598,6 +599,17 @@ describe('IPC Handlers', () => {
       })
 
       expect(mockRegistry.tonConnectService.handleRequest).toHaveBeenCalledOnce()
+    })
+
+    it('preserves structured item capabilities in the native availability response', async () => {
+      settingsMocks.getSetting.mockImplementation((category: string) =>
+        category === 'advanced' ? { tonConnectEnabled: true } : {}
+      )
+      const availability = mockHandlers.get(IPC_CHANNELS.TONCONNECT_AVAILABILITY)!
+      expect(await availability(tonsiteEvent)).toEqual({
+        enabled: true,
+        features: [{ name: 'SendTransaction', maxMessages: 4, itemTypes: ['ton', 'jetton', 'nft'] }],
+      })
     })
   })
 

@@ -618,7 +618,7 @@ contextBridge.exposeInMainWorld('tonBridge', {
 })
 
 var TONCONNECT_FEATURES = [
-  { name: 'SendTransaction', maxMessages: 4, extraCurrencySupported: false },
+  { name: 'SendTransaction', maxMessages: 4, extraCurrencySupported: false, itemTypes: ['ton', 'jetton', 'nft'] },
   { name: 'SignData', types: ['text', 'binary', 'cell'] },
 ]
 var TONNET_WALLET_IMAGE =
@@ -649,13 +649,17 @@ function ensureTonconnectListener() {
   })
 }
 
-async function isTonconnectEnabled() {
+async function getTonconnectAvailability() {
   try {
     var availability = await ipcRenderer.invoke('tonconnect:availability')
-    return availability && availability.enabled === true
+    return availability || { enabled: false }
   } catch (_error) {
-    return false
+    return { enabled: false }
   }
+}
+
+async function isTonconnectEnabled() {
+  return (await getTonconnectAvailability()).enabled === true
 }
 
 contextBridge.exposeInMainWorld('tonnet', {
@@ -678,6 +682,7 @@ contextBridge.exposeInMainWorld('tonnet', {
     protocolVersion: 2,
     isWalletBrowser: true,
     isEnabled: isTonconnectEnabled,
+    getAvailability: getTonconnectAvailability,
     connect: function (protocolVersion, request) {
       if (request && typeof request.manifestUrl === 'string' && request.manifestUrl.length > MAX_MANIFEST_URL) {
         return Promise.reject(new Error('tonconnect: manifestUrl too large'))
@@ -740,21 +745,24 @@ function installFetchShim() {
     var bridge = window.tonnet && window.tonnet.tonconnect
     if (
       String(method).toUpperCase() === 'GET' && catalogueUrls.includes(catalogueUrl) &&
-      bridge && bridge.walletInfo && await bridge.isEnabled()
+      bridge && bridge.walletInfo
     ) {
-      var signal = init && 'signal' in init ? init.signal : input && input.signal
-      if (signal) signal.throwIfAborted()
-      var wi = bridge.walletInfo
-      var entry = {
-        app_name: wi.app_name,
-        name: wi.name,
-        image: wi.image,
-        about_url: wi.about_url,
-        bridge: [{ type: 'js', key: 'tonnet' }],
-        platforms: wi.platforms,
-        features: wi.features,
+      var availability = await bridge.getAvailability()
+      if (availability.enabled === true) {
+        var signal = init && 'signal' in init ? init.signal : input && input.signal
+        if (signal) signal.throwIfAborted()
+        var wi = bridge.walletInfo
+        var entry = {
+          app_name: wi.app_name,
+          name: wi.name,
+          image: wi.image,
+          about_url: wi.about_url,
+          bridge: [{ type: 'js', key: 'tonnet' }],
+          platforms: wi.platforms,
+          features: availability.features || wi.features,
       }
       return new Response(JSON.stringify([entry]), { headers: { 'content-type': 'application/json' } })
+      }
     }
     if (!window.tonBridge || typeof window.tonBridge.payForXhr !== 'function') return origFetch(input, init)
     var req

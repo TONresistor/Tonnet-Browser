@@ -31,6 +31,8 @@ describe('TON Connect startup isolation', () => {
       getTonConnectAccount: vi.fn(),
       signTonProof: vi.fn(),
       signTonConnectTransaction: vi.fn(),
+      resolveTonConnectItems: vi.fn(),
+      signTonConnectMessage: vi.fn(),
       signData: vi.fn(),
     }
     const approval = { request: vi.fn(), requestUnlock: vi.fn() }

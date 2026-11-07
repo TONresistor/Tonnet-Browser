@@ -1,5 +1,6 @@
 import { Address, Cell } from '@ton/core'
 import { TONCONNECT_MAX_MESSAGES, TON_MAINNET_CHAIN, type TonConnectOutMessage } from './types'
+import { StructuredTransferItemSchema, type StructuredTransferItem } from '../../wallet-engine'
 
 interface RawSendMessage {
   address?: unknown
@@ -10,7 +11,14 @@ interface RawSendMessage {
 
 export type ParsedTransactionRequest =
   | { ok: false; error: string }
-  | { ok: true; messages: TonConnectOutMessage[]; validUntil?: number; totalNano: bigint; hasContractPayload: boolean }
+  | {
+      ok: true
+      messages: TonConnectOutMessage[]
+      items?: StructuredTransferItem[]
+      validUntil?: number
+      totalNano: bigint
+      hasContractPayload: boolean
+    }
 
 /** Pure decode and validation boundary for TonConnect sendTransaction params. */
 export function parseTransactionRequest(
@@ -18,30 +26,54 @@ export function parseTransactionRequest(
   accountAddress: string | null,
   nowSec = Math.floor(Date.now() / 1000)
 ): ParsedTransactionRequest {
-  let parsed: { network?: string; from?: string; valid_until?: number; messages?: RawSendMessage[] }
+  let parsed: { network?: unknown; from?: unknown; valid_until?: number; messages?: RawSendMessage[]; items?: unknown }
   try {
     parsed = JSON.parse(encoded ?? '')
   } catch {
     return { ok: false, error: 'Invalid transaction payload' }
   }
 
-  if (!Array.isArray(parsed.messages) || parsed.messages.length === 0) return { ok: false, error: 'No messages' }
-  if (parsed.messages.length > TONCONNECT_MAX_MESSAGES) return { ok: false, error: 'Too many messages' }
-  if (parsed.network && parsed.network !== TON_MAINNET_CHAIN) return { ok: false, error: 'Network mismatch' }
-  if (parsed.from && accountAddress && !sameAddress(parsed.from, accountAddress)) {
+  if (!parsed || typeof parsed !== 'object') return { ok: false, error: 'Invalid transaction payload' }
+  if (parsed.messages !== undefined && parsed.items !== undefined)
+    return { ok: false, error: 'Specify either messages or items' }
+  if (parsed.network !== undefined && parsed.network !== TON_MAINNET_CHAIN)
+    return { ok: false, error: 'Network mismatch' }
+  if (
+    parsed.from !== undefined &&
+    (typeof parsed.from !== 'string' || !accountAddress || !sameAddress(parsed.from, accountAddress))
+  ) {
     return { ok: false, error: 'Invalid sender address' }
   }
   if (parsed.valid_until !== undefined && (!Number.isInteger(parsed.valid_until) || parsed.valid_until <= nowSec))
     return { ok: false, error: 'Transaction expired' }
 
+  if (parsed.items !== undefined) {
+    const result = StructuredTransferItemSchema.array().min(1).max(TONCONNECT_MAX_MESSAGES).safeParse(parsed.items)
+    if (!result.success) return { ok: false, error: 'Invalid structured transfer items' }
+    return {
+      ok: true,
+      items: result.data,
+      messages: [],
+      validUntil: parsed.valid_until,
+      totalNano: 0n,
+      hasContractPayload: result.data.some((item) => item.type !== 'ton' || Boolean(item.payload || item.stateInit)),
+    }
+  }
+  if (!Array.isArray(parsed.messages) || parsed.messages.length === 0) return { ok: false, error: 'No messages' }
+  if (parsed.messages.length > TONCONNECT_MAX_MESSAGES) return { ok: false, error: 'Too many messages' }
+
   const messages: TonConnectOutMessage[] = []
   for (const message of parsed.messages) {
+    if (!message || typeof message !== 'object') return { ok: false, error: 'Invalid message' }
     if (typeof message.address !== 'string' || !isFriendlyAddress(message.address)) {
       return { ok: false, error: 'Address must be user-friendly' }
     }
     if (typeof message.amount !== 'string' || !/^[0-9]+$/.test(message.amount)) {
       return { ok: false, error: 'Amount must be a string of nanocoins' }
     }
+    if (BigInt(message.amount) >= 1n << 120n) return { ok: false, error: 'Amount exceeds coin limit' }
+    if ('extra_currency' in message || 'extraCurrency' in message)
+      return { ok: false, error: 'Extra currencies are not supported' }
     if (message.payload !== undefined && (typeof message.payload !== 'string' || !isValidBoc(message.payload))) {
       return { ok: false, error: 'Invalid payload BoC' }
     }
@@ -83,8 +115,7 @@ function parseAddress(value: string): Address {
 
 function isFriendlyAddress(value: string): boolean {
   try {
-    Address.parseFriendly(value)
-    return true
+    return !Address.parseFriendly(value).isTestOnly
   } catch {
     return false
   }

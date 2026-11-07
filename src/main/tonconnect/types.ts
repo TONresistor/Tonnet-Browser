@@ -49,6 +49,7 @@ export interface DeviceFeature {
   maxMessages?: number
   extraCurrencySupported?: boolean
   types?: string[]
+  itemTypes?: string[]
 }
 
 export interface DeviceInfo {

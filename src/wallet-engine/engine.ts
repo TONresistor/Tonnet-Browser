@@ -26,6 +26,7 @@ import { WalletQueryService } from './query-service'
 import { WalletSigningService } from './signing-service'
 
 import { WalletAccountService } from './account-service'
+import { resolveStructuredTransfers, type StructuredTransferItem } from './structured-transfers'
 import { warmupWalletBridge } from './bridge-warmup'
 import type { WalletBridgePort } from './bridge-port'
 
@@ -564,6 +565,52 @@ export class WalletEngine extends EventEmitter {
 
   getTonConnectAccount(): { addressRaw: string; publicKey: string; walletStateInit: string } | null {
     return this.accountService.getTonConnectAccount()
+  }
+
+  async resolveTonConnectItems(
+    items: readonly StructuredTransferItem[],
+    expectedAddress: string,
+    expectedSession = this.sessionRevision,
+    signal?: AbortSignal
+  ) {
+    const assertCurrent = () => {
+      signal?.throwIfAborted()
+      this.assertSigningReady()
+      if (expectedSession !== this.sessionRevision) throw new Error('Wallet session changed')
+      this.accountService.assertTonConnectAccount(expectedAddress)
+    }
+    assertCurrent()
+    const bridge = this.getBridge()
+    if (!bridge) throw new Error('Bridge not connected')
+    return resolveStructuredTransfers(items, expectedAddress, bridge, assertCurrent)
+  }
+
+  async signTonConnectMessage(
+    messages: TonConnectOutMessage[],
+    expectedAddress: string,
+    operationId: string,
+    validUntil: number | undefined,
+    expectedSession: number | undefined,
+    authorize: TransferAuthorization,
+    signal?: AbortSignal
+  ): Promise<string> {
+    if (expectedSession !== undefined && expectedSession !== this.sessionRevision)
+      throw new Error('Wallet session changed')
+    this.accountService.assertTonConnectAccount(expectedAddress)
+    const operation = await this.transfers.signMessage(
+      {
+        operationId,
+        validUntil,
+        messages: messages.map((message) => ({
+          ...message,
+          bounce: Address.parseFriendly(message.address).isBounceable,
+        })),
+      },
+      authorize,
+      signal
+    )
+    if (!operation.boc) throw new Error('Signed message unavailable')
+    return operation.boc
   }
 
   async signTonConnectTransaction(

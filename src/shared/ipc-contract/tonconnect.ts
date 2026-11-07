@@ -56,6 +56,7 @@ const DeviceInfoSchema = z.object({
       maxMessages: z.number().int().optional(),
       extraCurrencySupported: z.boolean().optional(),
       types: z.array(z.string()).optional(),
+      itemTypes: z.array(z.string()).optional(),
     })
   ),
 })
@@ -112,7 +113,7 @@ export const tonConnectAvailabilityContract = defineRequest({
   authorization: 'owning-tonsite-session',
   rateLimit: { kind: 'none' },
   input: z.tuple([]),
-  output: z.object({ enabled: z.boolean() }),
+  output: z.object({ enabled: z.boolean(), features: DeviceInfoSchema.shape.features.optional() }),
   errors: ['TONCONNECT_AVAILABILITY_FAILED'],
   redaction: 'public',
 })

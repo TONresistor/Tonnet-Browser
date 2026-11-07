@@ -39,6 +39,7 @@ export const OperationSchema = z.object({
     .default([]),
   estimatedFee: z.string().default('0'),
   boc: z.string().optional(),
+  messageType: z.literal('internal').optional(),
   messageHash: z.string().optional(),
   normalizedHash: z.string().optional(),
   scan: z.object({ headLt: z.string(), headHash: z.string(), nextLt: z.string(), nextHash: z.string() }).optional(),

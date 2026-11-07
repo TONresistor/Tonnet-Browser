@@ -14,13 +14,16 @@ function deferred<T>() {
   return { promise, resolve }
 }
 
-async function connectedTonSite(domain = 'app.ton', options: { locked?: boolean; connect?: boolean } = {}) {
+async function connectedTonSite(
+  domain = 'app.ton',
+  options: { locked?: boolean; connect?: boolean; version?: string } = {}
+) {
   const sessions = new Map<string, StoredTonConnectSession>()
   const account = { addressRaw: firstAddress, publicKey: 'aa', walletStateInit: 'state' }
   let locked = options.locked ?? false
   let revision = 1
   const wallet = {
-    getState: () => ({ isLocked: locked, needsPasswordSetup: false }),
+    getState: () => ({ isLocked: locked, needsPasswordSetup: false, walletVersion: options.version ?? 'v5R1' }),
     unlock: vi.fn(async (_password: string) => {
       locked = false
       revision += 1
@@ -34,6 +37,8 @@ async function connectedTonSite(domain = 'app.ton', options: { locked?: boolean;
       payload: 'nonce',
     })),
     signTonConnectTransaction: vi.fn(),
+    resolveTonConnectItems: vi.fn(),
+    signTonConnectMessage: vi.fn(),
     signData: vi.fn(async (_domain, payload) => ({
       signature: 'signature',
       address: firstAddress,
@@ -96,6 +101,22 @@ async function connectedTonSite(domain = 'app.ton', options: { locked?: boolean;
 }
 
 describe('TonConnectService tonsite sessions', () => {
+  it.each(['v4R2', 'v5R1'])(
+    'advertises structured items and only exposes signMessage for V5R1 (%s)',
+    async (version) => {
+      const s = await connectedTonSite('app.ton', { version })
+      const features = s.service.getFeatures()
+      expect(features).toContainEqual({
+        name: 'SendTransaction',
+        maxMessages: 4,
+        extraCurrencySupported: false,
+        itemTypes: ['ton', 'jetton', 'nft'],
+      })
+      expect(features.some((feature) => feature.name === 'SignMessage')).toBe(version === 'v5R1')
+      expect(s.connected).toMatchObject({ payload: { device: { features } } })
+    }
+  )
+
   it.each(['app.ton', 'storage.app.eth'])(
     'connects, restores and signs for http://%s through the tonsite session',
     async (domain) => {
@@ -240,6 +261,8 @@ describe('TonConnectService wallet identity', () => {
       getTonConnectAccount: vi.fn(() => currentAccount),
       signTonProof: vi.fn(),
       signTonConnectTransaction: vi.fn(),
+      resolveTonConnectItems: vi.fn(),
+      signTonConnectMessage: vi.fn(),
       signData: vi.fn(),
     }
     const sessionStore = {
@@ -301,6 +324,8 @@ describe('TonConnectService wallet identity', () => {
       getTonConnectAccount: vi.fn(() => account),
       signTonProof: vi.fn(),
       signTonConnectTransaction: vi.fn(),
+      resolveTonConnectItems: vi.fn(),
+      signTonConnectMessage: vi.fn(),
       signData: vi.fn(),
     }
     const sessionStore = {
