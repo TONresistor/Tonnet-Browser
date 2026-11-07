@@ -94,6 +94,13 @@ export async function runCleanup(services: ServiceRegistry): Promise<void> {
     } catch (error) {
       log.error(`Failed to clear browsing traces from settings: ${String(error)}`)
     }
+
+    try {
+      await services.tonConnectService.clearSessions()
+      log.info('Cleared TON Connect sessions')
+    } catch (error) {
+      log.error(`Failed to clear TON Connect sessions: ${String(error)}`)
+    }
   }
 
   await destroyServices(services)
