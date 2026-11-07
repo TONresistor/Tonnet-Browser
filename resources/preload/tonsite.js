@@ -719,63 +719,55 @@ contextBridge.exposeInMainWorld('tonnet', {
   },
 })
 
-function doInjectFetchShim(parent) {
-  var script = document.createElement('script')
-  script.textContent = [
-    ';(function(){',
-    '  if (window.__tonnetFetchPatched) return;',
-    '  window.__tonnetFetchPatched = true;',
-    '  var origFetch = window.fetch.bind(window);',
-    '  window.fetch = async function(input, init){',
-    '    var url = "";',
-    '    try { url = (typeof input === "string") ? input : (input && input.url) || ""; } catch (e) {}',
-    '    if (/wallets-v2\\.json/.test(url) && window.tonnet && window.tonnet.tonconnect && window.tonnet.tonconnect.walletInfo && await window.tonnet.tonconnect.isEnabled()) {',
-    '      var response = await origFetch(input, init);',
-    '      if (!response.ok) return response;',
-    '      var wallets;',
-    '      try { wallets = await response.clone().json(); } catch (e) { return response; }',
-    '      if (!Array.isArray(wallets)) return response;',
-    '      var wi = window.tonnet.tonconnect.walletInfo;',
-    '      var entry = { app_name: wi.app_name, name: wi.name, image: wi.image, about_url: wi.about_url, bridge: [{ type: "js", key: "tonnet" }], platforms: wi.platforms, features: wi.features };',
-    '      wallets = wallets.filter(function(wallet) { return !wallet || wallet.app_name !== "tonnet"; });',
-    '      wallets.unshift(entry);',
-    '      var headers = new Headers(response.headers);',
-    '      headers.delete("content-length");',
-    '      headers.delete("content-encoding");',
-    '      headers.delete("etag");',
-    '      headers.set("content-type", "application/json");',
-    '      return new Response(JSON.stringify(wallets), { status: response.status, statusText: response.statusText, headers: headers });',
-    '    }',
-    '    if (!window.tonBridge || typeof window.tonBridge.payForXhr !== "function") return origFetch(input, init);',
-    '    var req;',
-    '    try { req = new Request(input, init); } catch (e) { return origFetch(input, init); }',
-    '    var cloned = req.clone();',
-    '    var res = await origFetch(req);',
-    '    if (res.status !== 402) return res;',
-    '    var u = req.url;',
-    '    try {',
-    '      var result = await window.tonBridge.payForXhr(u);',
-    '      if (!result || !result.success) return res;',
-    '      return await origFetch(cloned);',
-    '    } catch (e) { return res; }',
-    '  };',
-    '})();',
-  ].join('\n')
-  parent.appendChild(script)
-  script.remove()
+function installFetchShim() {
+  if (window.__tonnetFetchPatched) return
+  window.__tonnetFetchPatched = true
+  var origFetch = window.fetch.bind(window)
+  var catalogueUrls = [
+    'https://config.ton.org/wallets-v2.json',
+    'https://raw.githubusercontent.com/ton-connect/wallets-list/main/wallets-v2.json',
+    'https://raw.githubusercontent.com/ton-connect/wallets-list/refs/heads/main/wallets-v2.json',
+    'https://raw.githubusercontent.com/ton-blockchain/wallets-list/main/wallets-v2.json',
+    'https://raw.githubusercontent.com/ton-blockchain/wallets-list/refs/heads/main/wallets-v2.json',
+  ]
+  window.fetch = async function(input, init) {
+    var catalogueUrl = ''
+    try {
+      var url = new URL(typeof input === 'string' ? input : input.url || input.href, window.location.href)
+      catalogueUrl = url.origin + url.pathname
+    } catch (e) {}
+    var method = (init && init.method) || (input && input.method) || 'GET'
+    var bridge = window.tonnet && window.tonnet.tonconnect
+    if (
+      String(method).toUpperCase() === 'GET' && catalogueUrls.includes(catalogueUrl) &&
+      bridge && bridge.walletInfo && await bridge.isEnabled()
+    ) {
+      var signal = init && 'signal' in init ? init.signal : input && input.signal
+      if (signal) signal.throwIfAborted()
+      var wi = bridge.walletInfo
+      var entry = {
+        app_name: wi.app_name,
+        name: wi.name,
+        image: wi.image,
+        about_url: wi.about_url,
+        bridge: [{ type: 'js', key: 'tonnet' }],
+        platforms: wi.platforms,
+        features: wi.features,
+      }
+      return new Response(JSON.stringify([entry]), { headers: { 'content-type': 'application/json' } })
+    }
+    if (!window.tonBridge || typeof window.tonBridge.payForXhr !== 'function') return origFetch(input, init)
+    var req
+    try { req = new Request(input, init) } catch (e) { return origFetch(input, init) }
+    var cloned = req.clone()
+    var res = await origFetch(req)
+    if (res.status !== 402) return res
+    try {
+      var result = await window.tonBridge.payForXhr(req.url)
+      if (!result || !result.success) return res
+      return await origFetch(cloned)
+    } catch (e) { return res }
+  }
 }
 
-function injectFetchShim() {
-  if (document.documentElement) {
-    doInjectFetchShim(document.documentElement)
-    return
-  }
-  var obs = new MutationObserver(function () {
-    if (document.documentElement) {
-      obs.disconnect()
-      doInjectFetchShim(document.documentElement)
-    }
-  })
-  obs.observe(document, { childList: true, subtree: true })
-}
-injectFetchShim()
+contextBridge.executeInMainWorld({ func: installFetchShim })
