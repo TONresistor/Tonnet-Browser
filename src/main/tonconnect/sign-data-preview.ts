@@ -43,6 +43,8 @@ function isValidBoc(b64: string): boolean {
 export function validateSignDataPayload(payload: unknown): payload is SignDataPayloadInput {
   if (!payload || typeof payload !== 'object') return false
   const p = payload as Record<string, unknown>
+  if (p.network !== undefined && typeof p.network !== 'string') return false
+  if (p.from !== undefined && typeof p.from !== 'string') return false
   if (p.type === 'text') return typeof p.text === 'string'
   if (p.type === 'binary') return typeof p.bytes === 'string' && BASE64_RE.test(p.bytes)
   if (p.type === 'cell') return typeof p.schema === 'string' && typeof p.cell === 'string' && isValidBoc(p.cell)

@@ -133,6 +133,41 @@ function setup(version: 'v3R1' | 'v3R2' | 'v4R2' | 'v5R1' = 'v5R1') {
 }
 
 describe('durable wallet transfers without Electron', () => {
+  it.each(['approval', 'revalidation', 'key-access'])(
+    'does not sign a TON Connect transfer revoked during %s',
+    async (phase) => {
+      const s = setup()
+      await s.journal.open(s.pair.secretKey, s.account)
+      const controller = new AbortController()
+      if (phase === 'revalidation') {
+        vi.mocked(s.provider.emulateTransaction).mockImplementation(async (_address, _boc, context) => {
+          if (context?.revalidate) controller.abort()
+          return {
+            accepted: true,
+            success: true,
+            exit_code: 0,
+            total_fees: '100',
+            wallet_snapshot: structuredClone(s.snapshot),
+          }
+        })
+      }
+      if (phase === 'key-access') s.signing.mockImplementationOnce(() => controller.abort())
+      const sending = s.transfers.sendTransfer(
+        s.intent,
+        async () => {
+          if (phase === 'approval') controller.abort()
+          return true
+        },
+        true,
+        controller.signal
+      )
+      await expect(sending).rejects.toThrow()
+      expect(controller.signal.aborted).toBe(true)
+      expect(s.journal.get(s.intent.operationId)).toBeUndefined()
+      expect(s.provider.sendAndWatch).not.toHaveBeenCalled()
+    }
+  )
+
   it('times revalidation and reconciliation without counting the user decision', async () => {
     let now = 0
     const clock = vi.spyOn(performance, 'now').mockImplementation(() => now)

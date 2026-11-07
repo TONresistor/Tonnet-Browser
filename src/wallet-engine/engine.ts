@@ -156,7 +156,11 @@ export class WalletEngine extends EventEmitter {
     this.signingService = new WalletSigningService({
       getAddress: () => this.walletContract?.address ?? null,
       nowSeconds: () => Math.floor(Date.now() / 1000),
-      signDigest: (digest) => this.signWithKeyUnlocked((secretKey) => Buffer.from(sign(digest, secretKey))),
+      signDigest: (digest, signal) =>
+        this.signWithKeyUnlocked((secretKey) => {
+          signal?.throwIfAborted()
+          return Buffer.from(sign(digest, secretKey))
+        }),
     })
     this.accountService = new WalletAccountService({
       getPublicKey: () => this.publicKey,
@@ -567,12 +571,13 @@ export class WalletEngine extends EventEmitter {
     operationId: string = randomUUID(),
     validUntil?: number,
     expectedSession?: number,
-    authorize?: TransferAuthorization
+    authorize?: TransferAuthorization,
+    signal?: AbortSignal
   ): Promise<string> {
     if (expectedSession !== undefined && expectedSession !== this.sessionRevision)
       throw new Error('Wallet session changed')
     this.accountService.assertTonConnectAccount(expectedAddress)
-    const op = await this.sendTransfer(
+    const op = await this.transfers.sendTransfer(
       {
         operationId,
         validUntil,
@@ -581,7 +586,9 @@ export class WalletEngine extends EventEmitter {
           bounce: Address.parseFriendly(message.address).isBounceable,
         })),
       },
-      authorize
+      authorize,
+      true,
+      signal
     )
     if (!op.boc) throw new Error('Signed operation unavailable')
     return op.boc
@@ -607,15 +614,17 @@ export class WalletEngine extends EventEmitter {
     domain: string,
     payload: SignDataPayloadInput,
     expectedAddress?: string,
-    expectedSession?: number
+    expectedSession?: number,
+    signal?: AbortSignal
   ): Promise<SignDataResult> {
     if (expectedSession !== undefined && expectedSession !== this.sessionRevision)
       throw new Error('Wallet session changed')
     const session = expectedSession ?? this.sessionRevision
     return this.runExclusive(() => {
+      signal?.throwIfAborted()
       if (session !== this.sessionRevision) throw new Error('Wallet session changed')
       this.accountService.assertTonConnectAccount(expectedAddress)
-      return this.signingService.signData(domain, payload)
+      return this.signingService.signData(domain, payload, signal)
     })
   }
 

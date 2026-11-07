@@ -4,7 +4,7 @@ import type { SignDataPayloadInput, SignDataResult, TonProofReplyPayload } from 
 
 export interface WalletSigningContext {
   getAddress(): Address | null
-  signDigest(digest: Buffer): Promise<Buffer>
+  signDigest(digest: Buffer, signal?: AbortSignal): Promise<Buffer>
   nowSeconds(): number
 }
 
@@ -45,14 +45,15 @@ export class WalletSigningService {
     }
   }
 
-  async signData(domain: string, payload: SignDataPayloadInput): Promise<SignDataResult> {
+  async signData(domain: string, payload: SignDataPayloadInput, signal?: AbortSignal): Promise<SignDataResult> {
     const address = this.requireAddress()
     const timestamp = this.context.nowSeconds()
     const digest =
       payload.type === 'cell'
         ? this.cellDigest(address, domain, timestamp, payload.schema, payload.cell)
         : this.binaryDigest(address, domain, timestamp, payload)
-    const signature = await this.context.signDigest(digest)
+    signal?.throwIfAborted()
+    const signature = await this.context.signDigest(digest, signal)
 
     return {
       signature: signature.toString('base64'),
@@ -75,7 +76,7 @@ export class WalletSigningService {
       .storeUint(crc32(schema), 32)
       .storeUint(timestamp, 64)
       .storeAddress(address)
-      .storeStringRefTail(domain)
+      .storeStringRefTail(domain.split('.').reverse().join('\0') + '\0')
       .storeRef(Cell.fromBase64(cellBoc))
       .endCell()
       .hash()

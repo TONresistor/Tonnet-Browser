@@ -52,7 +52,7 @@ describe('WalletSigningService', () => {
     },
     {
       type: 'cell' as const,
-      expectedDigest: '738acd6cc4b74a2eb4213df87430531352fdd974f481c36b51f00995407b559f',
+      expectedDigest: '2647e85fde2641756ee205b44389b98bec51a3eff2a649e578cd7b9fe645ecf4',
       schema: 'value:uint32',
       cell: beginCell().storeUint(7, 32).endCell().toBoc().toString('base64'),
     },

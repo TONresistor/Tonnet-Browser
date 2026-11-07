@@ -5,7 +5,7 @@ import { errorMessage } from '../../shared/errors'
 import type { TonConnectApprovalPort } from './approval'
 import { buildSignDataRows, validateSignDataPayload } from './sign-data-preview'
 import { parseTransactionRequest } from './transaction-request'
-import { TONCONNECT_ERROR, type AppRequest, type WalletResponse } from './types'
+import { TONCONNECT_ERROR, TON_MAINNET_CHAIN, type AppRequest, type WalletResponse } from './types'
 import type { TonConnectWalletPort } from './wallet-port'
 
 function rpcError(id: string, code: number, message: string): WalletResponse {
@@ -24,7 +24,8 @@ export class TonConnectSigningWorkflow {
     appName: string,
     expectedAddress: string,
     message: AppRequest,
-    sessionId = 0
+    sessionId = 0,
+    signal?: AbortSignal
   ): Promise<WalletResponse> {
     const signingSession = this.wallet.getSessionRevision?.()
     const account = this.wallet.getTonConnectAccount()
@@ -42,33 +43,42 @@ export class TonConnectSigningWorkflow {
             .digest('hex'),
           parsed.validUntil,
           signingSession,
-          async (review) =>
-            this.approval.request({
-              type: 'approval',
-              iconFallback: '↑',
-              title: 'Confirm transaction',
-              subtitle: appName,
-              domain,
-              amount: `${formatGram(parsed.totalNano.toString())} GRAM`,
-              warning: parsed.hasContractPayload
-                ? 'Includes a contract payload — this is not a plain transfer.'
-                : undefined,
-              rows: [
-                ...review.messages.map((item, index) => ({
-                  label: review.messages.length > 1 ? `To ${index + 1}` : 'To',
-                  value: `${Address.parse(item.address).toString({ bounceable: item.bounce })} · ${formatGram(item.amount)} GRAM`,
-                })),
-                { label: 'Estimated fee', value: `~${formatGram(review.estimatedFee)} GRAM` },
-                { label: 'Valid until', value: new Date(review.validUntil * 1000).toISOString() },
-              ],
-              actions: [
-                { id: 'deny', label: 'Reject' },
-                { id: 'approve', label: 'Confirm', primary: true },
-              ],
-            })
+          async (review) => {
+            signal?.throwIfAborted()
+            const approved = await this.approval.request(
+              {
+                type: 'approval',
+                iconFallback: '↑',
+                title: 'Confirm transaction',
+                subtitle: appName,
+                domain,
+                amount: `${formatGram(parsed.totalNano.toString())} GRAM`,
+                warning: parsed.hasContractPayload
+                  ? 'Includes a contract payload — this is not a plain transfer.'
+                  : undefined,
+                rows: [
+                  ...review.messages.map((item, index) => ({
+                    label: review.messages.length > 1 ? `To ${index + 1}` : 'To',
+                    value: `${Address.parse(item.address).toString({ bounceable: item.bounce })} · ${formatGram(item.amount)} GRAM`,
+                  })),
+                  { label: 'Estimated fee', value: `~${formatGram(review.estimatedFee)} GRAM` },
+                  { label: 'Valid until', value: new Date(review.validUntil * 1000).toISOString() },
+                ],
+                actions: [
+                  { id: 'deny', label: 'Reject' },
+                  { id: 'approve', label: 'Confirm', primary: true },
+                ],
+              },
+              signal
+            )
+            signal?.throwIfAborted()
+            return approved
+          },
+          signal
         ),
       }
     } catch (error) {
+      if (signal?.aborted) return rpcError(message.id, TONCONNECT_ERROR.UNKNOWN_APP, 'TON Connect session revoked')
       if (error instanceof WalletEngineError && error.code === 'USER_CANCELLED')
         return rpcError(message.id, TONCONNECT_ERROR.USER_DECLINED, 'Transaction rejected by user')
       return rpcError(message.id, TONCONNECT_ERROR.UNKNOWN, errorMessage(error))
@@ -79,7 +89,8 @@ export class TonConnectSigningWorkflow {
     domain: string,
     appName: string,
     expectedAddress: string,
-    message: AppRequest
+    message: AppRequest,
+    signal?: AbortSignal
   ): Promise<WalletResponse> {
     const signingSession = this.wallet.getSessionRevision?.()
     let raw: unknown
@@ -91,24 +102,42 @@ export class TonConnectSigningWorkflow {
     if (!validateSignDataPayload(raw)) {
       return rpcError(message.id, TONCONNECT_ERROR.BAD_REQUEST, 'Invalid or unsupported sign-data payload')
     }
+    if (raw.network !== undefined && raw.network !== TON_MAINNET_CHAIN) {
+      return rpcError(message.id, TONCONNECT_ERROR.BAD_REQUEST, 'Network mismatch')
+    }
+    if (raw.from !== undefined) {
+      try {
+        if (!Address.parse(raw.from).equals(Address.parse(expectedAddress))) throw new Error('Signer mismatch')
+      } catch {
+        return rpcError(message.id, TONCONNECT_ERROR.BAD_REQUEST, 'Invalid signer address')
+      }
+    }
 
-    const approved = await this.approval.request({
-      type: 'approval',
-      iconFallback: '✎',
-      title: 'Sign data',
-      subtitle: appName,
-      domain,
-      rows: buildSignDataRows(raw),
-      actions: [
-        { id: 'deny', label: 'Reject' },
-        { id: 'approve', label: 'Sign', primary: true },
-      ],
-    })
+    const approved = await this.approval.request(
+      {
+        type: 'approval',
+        iconFallback: '✎',
+        title: 'Sign data',
+        subtitle: appName,
+        domain,
+        rows: buildSignDataRows(raw),
+        actions: [
+          { id: 'deny', label: 'Reject' },
+          { id: 'approve', label: 'Sign', primary: true },
+        ],
+      },
+      signal
+    )
+    if (signal?.aborted) return rpcError(message.id, TONCONNECT_ERROR.UNKNOWN_APP, 'TON Connect session revoked')
     if (!approved) return rpcError(message.id, TONCONNECT_ERROR.USER_DECLINED, 'Sign request rejected by user')
 
     try {
-      return { id: message.id, result: await this.wallet.signData(domain, raw, expectedAddress, signingSession) }
+      return {
+        id: message.id,
+        result: await this.wallet.signData(domain, raw, expectedAddress, signingSession, signal),
+      }
     } catch (error) {
+      if (signal?.aborted) return rpcError(message.id, TONCONNECT_ERROR.UNKNOWN_APP, 'TON Connect session revoked')
       return rpcError(message.id, TONCONNECT_ERROR.UNKNOWN, errorMessage(error))
     }
   }

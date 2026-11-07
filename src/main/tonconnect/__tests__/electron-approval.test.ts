@@ -49,4 +49,25 @@ describe('ElectronTonConnectApproval', () => {
     expect(new Set(ids).size).toBe(4)
     expect(overlay.hide.mock.calls.map(([id]) => id)).toEqual(ids)
   })
+
+  it('closes a revoked approval and ignores a late approve action', async () => {
+    let callback: ((action: string) => void) | undefined
+    const overlay = {
+      show: vi.fn((_id, _bounds, _content, action) => {
+        callback = action
+        return true
+      }),
+      hide: vi.fn(),
+    }
+    const window = { getContentBounds: () => ({ width: 800, height: 600 }) }
+    const approval = new ElectronTonConnectApproval(overlay as never, () => window as never)
+    const controller = new AbortController()
+    const result = approval.request({ type: 'approval' }, controller.signal)
+    controller.abort()
+    await expect(result).resolves.toBe(false)
+    callback?.('approve')
+    expect(overlay.hide).toHaveBeenCalledOnce()
+    await expect(approval.request({ type: 'approval' }, controller.signal)).resolves.toBe(false)
+    expect(overlay.show).toHaveBeenCalledOnce()
+  })
 })

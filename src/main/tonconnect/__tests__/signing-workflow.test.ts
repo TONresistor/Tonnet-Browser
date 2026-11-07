@@ -60,7 +60,10 @@ describe('TonConnectSigningWorkflow', () => {
       params: [JSON.stringify({ messages: [{ address: destination, amount: '1500000000' }] })],
     })
     expect(result).toEqual({ id: '1', result: 'signed-boc' })
-    expect(approval.request).toHaveBeenCalledWith(expect.objectContaining({ amount: '1.5 GRAM', domain: 'app.ton' }))
+    expect(approval.request).toHaveBeenCalledWith(
+      expect.objectContaining({ amount: '1.5 GRAM', domain: 'app.ton' }),
+      undefined
+    )
     expect(approval.request.mock.calls[0][0]).toMatchObject({
       rows: expect.arrayContaining([
         { label: 'Estimated fee', value: '~0.0000001 GRAM' },
@@ -73,7 +76,8 @@ describe('TonConnectSigningWorkflow', () => {
       expect.any(String),
       undefined,
       undefined,
-      expect.any(Function)
+      expect.any(Function),
+      undefined
     )
   })
 
@@ -98,5 +102,41 @@ describe('TonConnectSigningWorkflow', () => {
     expect(result).toMatchObject({ id: '3', error: { code: 1 } })
     expect(approval.request).not.toHaveBeenCalled()
     expect(wallet.signData).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    { network: '-3' },
+    { network: 239 },
+    { from: `0:${'22'.repeat(32)}` },
+    { from: 'invalid-address' },
+    { from: 123 },
+  ])('rejects incompatible signData context %j before approval', async (context) => {
+    const { workflow, wallet, approval } = setup()
+    const result = await workflow.signData('app.ton', 'App', `0:${'11'.repeat(32)}`, {
+      id: '4',
+      method: 'signData',
+      params: [JSON.stringify({ type: 'text', text: 'ownership', ...context })],
+    })
+    expect(result).toMatchObject({ id: '4', error: { code: 1 } })
+    expect(approval.request).not.toHaveBeenCalled()
+    expect(wallet.signData).not.toHaveBeenCalled()
+  })
+
+  it.each([false, true])('accepts the connected signer in raw/friendly form (%s)', async (friendly) => {
+    const { workflow, wallet } = setup()
+    const expectedAddress = `0:${'11'.repeat(32)}`
+    const payload = {
+      type: 'text',
+      text: 'ownership',
+      network: '-239',
+      from: friendly ? Address.parse(expectedAddress).toString() : expectedAddress,
+    }
+    const result = await workflow.signData('app.ton', 'App', expectedAddress, {
+      id: '5',
+      method: 'signData',
+      params: [JSON.stringify(payload)],
+    })
+    expect(result).toMatchObject({ id: '5', result: { payload } })
+    expect(wallet.signData).toHaveBeenCalledOnce()
   })
 })

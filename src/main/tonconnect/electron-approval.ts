@@ -12,26 +12,33 @@ export class ElectronTonConnectApproval implements TonConnectApprovalPort {
     private readonly getWindow: () => BrowserWindow | null = getMainWindow
   ) {}
 
-  request(content: { type: string; [key: string]: unknown }): Promise<boolean> {
+  request(content: { type: string; [key: string]: unknown }, signal?: AbortSignal): Promise<boolean> {
     return new Promise((resolve) => {
       const window = this.getWindow()
-      if (!window) {
+      if (!window || signal?.aborted) {
         resolve(false)
         return
       }
       const id = `tonconnect-approve-${++this.counter}`
+      let settled = false
+      const finish = (approved: boolean) => {
+        if (settled) return
+        settled = true
+        signal?.removeEventListener('abort', abort)
+        this.overlayManager.hide(id)
+        resolve(approved)
+      }
+      const abort = () => finish(false)
+      signal?.addEventListener('abort', abort, { once: true })
       const bounds = window.getContentBounds()
       const shown = this.overlayManager.show(
         id,
         { x: 0, y: 0, width: bounds.width, height: bounds.height },
         content,
-        (actionType) => {
-          this.overlayManager.hide(id)
-          resolve(actionType === 'approve')
-        },
+        (actionType) => finish(actionType === 'approve'),
         { autoDismiss: false }
       )
-      if (!shown) resolve(false)
+      if (!shown) finish(false)
     })
   }
 }

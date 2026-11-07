@@ -308,9 +308,10 @@ export class WalletTransfers {
   sendTransfer(
     intent: TransferIntent,
     authorize?: TransferAuthorization,
-    waitForConfirmation = true
+    waitForConfirmation = true,
+    signal?: AbortSignal
   ): Promise<WalletOperation> {
-    return this.execute(intent, 'direct', authorize, waitForConfirmation)
+    return this.execute(intent, 'direct', authorize, waitForConfirmation, signal)
   }
   signForRelay(intent: TransferIntent, authorize?: TransferAuthorization): Promise<WalletOperation> {
     return this.execute(intent, 'relay', authorize)
@@ -319,7 +320,8 @@ export class WalletTransfers {
     input: TransferIntent,
     mode: 'direct' | 'relay',
     authorize?: TransferAuthorization,
-    waitForConfirmation = true
+    waitForConfirmation = true,
+    signal?: AbortSignal
   ): Promise<WalletOperation> {
     this.host.assertReady()
     const intent = structuredClone(input)
@@ -342,7 +344,7 @@ export class WalletTransfers {
       if (this.active.id === intent.operationId && this.active.hash === hash) return this.active.promise
       return Promise.reject(new WalletEngineError('SEND_IN_PROGRESS', 'A wallet operation is already active', true))
     }
-    const promise = this.perform(intent, hash, mode, authorize, waitForConfirmation).finally(() => {
+    const promise = this.perform(intent, hash, mode, authorize, waitForConfirmation, signal).finally(() => {
       if (this.active?.promise === promise) this.active = null
     })
     this.active = { id: intent.operationId, hash, promise }
@@ -353,9 +355,14 @@ export class WalletTransfers {
     hash: string,
     mode: 'direct' | 'relay',
     authorize?: TransferAuthorization,
-    waitForConfirmation = true
+    waitForConfirmation = true,
+    signal?: AbortSignal
   ): Promise<WalletOperation> {
     const token = this.capture()
+    signal?.throwIfAborted()
+    const approvalToken = signal
+      ? { ...token, signal: AbortSignal.any([signal, ...(token.signal ? [token.signal] : [])]) }
+      : token
     if (!authorize && !this.journal.get(intent.operationId))
       throw new WalletEngineError('AUTHORIZATION_REQUIRED', 'Transfer authorization is required')
     if (!this.journal.isOpen())
@@ -375,8 +382,9 @@ export class WalletTransfers {
     let prepared = await this.prepareTransfer(intent, token)
     let snapshot: Awaited<ReturnType<WalletTransfers['chain']>>
     for (;;) {
+      signal?.throwIfAborted()
       this.check(token)
-      if (!authorize || !(await this.observed(authorize(structuredClone(prepared.review)), token)))
+      if (!authorize || !(await this.observed(authorize(structuredClone(prepared.review)), approvalToken)))
         throw new WalletEngineError('USER_CANCELLED', 'Transfer cancelled')
       this.check(token)
       const fresh = await this.measured('revalidation', () =>
@@ -399,8 +407,10 @@ export class WalletTransfers {
     const total = intent.messages.reduce((sum, message) => sum + BigInt(message.amount), 0n)
     if (total + BigInt(review.estimatedFee) > BigInt(snapshot.balance))
       throw new WalletEngineError('INSUFFICIENT_BALANCE', 'Insufficient balance')
-    const signed = await this.host.withSecret((secretKey) =>
-      buildExternalWalletBoc({
+    const signed = await this.host.withSecret((secretKey) => {
+      signal?.throwIfAborted()
+      this.check(token)
+      return buildExternalWalletBoc({
         walletContract: this.host.contract(),
         secretKey,
         messages: messagesFor(intent),
@@ -408,7 +418,7 @@ export class WalletTransfers {
         maxTimeout: intent.timeoutSeconds ?? 300,
         validUntil: review.validUntil,
       })
-    )
+    })
     this.check(token)
     let op: WalletOperation = {
       id: intent.operationId,

@@ -358,6 +358,26 @@ it('invalidates a queued signature when the same phrase is imported again', asyn
   }
 }, 20_000)
 
+it('rejects a queued TON Connect signature after its request is revoked', async () => {
+  const s = await fixture()
+  try {
+    const created = await s.engine.create({ password: 'correct horse battery staple' })
+    const controller = new AbortController()
+    const signing = s.engine.signData(
+      'app.ton',
+      { type: 'text', text: 'ownership' },
+      created.addressRaw,
+      s.engine.getSessionRevision(),
+      controller.signal
+    )
+    controller.abort()
+    await expect(signing).rejects.toMatchObject({ name: 'AbortError' })
+    created.mnemonic.fill('')
+  } finally {
+    await s.engine.shutdown()
+  }
+}, 20_000)
+
 it('restores the previous vault if a replacement write fails after rename', async () => {
   const s = await fixture()
   try {

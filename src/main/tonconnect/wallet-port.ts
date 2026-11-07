@@ -23,12 +23,14 @@ export interface TonConnectWalletPort {
     operationId?: string,
     validUntil?: number,
     expectedSession?: number,
-    authorize?: TransferAuthorization
+    authorize?: TransferAuthorization,
+    signal?: AbortSignal
   ): Promise<string>
   signData(
     domain: string,
     payload: SignDataPayloadInput,
     expectedAddress: string,
-    expectedSession?: number
+    expectedSession?: number,
+    signal?: AbortSignal
   ): Promise<SignDataResult>
 }

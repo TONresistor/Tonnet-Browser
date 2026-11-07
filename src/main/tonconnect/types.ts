@@ -119,10 +119,11 @@ export interface TonConnectOutMessage {
   stateInit?: string
 }
 
-export type SignDataPayloadInput =
+export type SignDataPayloadInput = (
   | { type: 'text'; text: string }
   | { type: 'binary'; bytes: string }
   | { type: 'cell'; schema: string; cell: string }
+) & { network?: string; from?: string }
 
 export interface SignDataResult {
   signature: string

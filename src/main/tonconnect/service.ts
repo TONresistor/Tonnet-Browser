@@ -94,6 +94,7 @@ export class TonConnectService {
   private eventDelivery: TonConnectEventDeliveryPort
   private signingWorkflow: TonConnectSigningWorkflow
   private sessionGeneration = 0
+  private pendingRequests = new Map<string, Set<AbortController>>()
   private lastGrantedAt = 0
   // Per-domain so one noisy tonsite cannot exhaust another's request budget.
   private limiter = new KeyedRateLimiter(10, 1000)
@@ -158,6 +159,7 @@ export class TonConnectService {
         case 'send':
           return await this.send(domain, event, payload.message)
         case 'disconnect':
+          this.cancelRequests(domain)
           await this.sessionStore.delete(domain)
           this.limiter.forget(domain)
           return { id: '0', result: {} }
@@ -183,8 +185,10 @@ export class TonConnectService {
 
   async disconnectSession(domain: string): Promise<void> {
     this.assertAvailable()
-    await this.emitDisconnect(domain)
+    const event = this.disconnectEvent(domain)
+    this.cancelRequests(domain)
     await this.sessionStore.delete(domain)
+    this.eventDelivery.emitDisconnect(domain, event)
     this.limiter.forget(domain)
   }
 
@@ -192,11 +196,11 @@ export class TonConnectService {
     // Disabling a failed service must not attempt another write to its unreadable store.
     if (!this.isAvailable()) return
     this.sessionGeneration += 1
+    const events = this.sessionStore.list().map(({ domain }) => ({ domain, event: this.disconnectEvent(domain) }))
+    for (const domain of this.pendingRequests.keys()) this.cancelRequests(domain)
     this.limiter.clear()
-    for (const domain of this.sessionStore.list().map((s) => s.domain)) {
-      await this.emitDisconnect(domain)
-    }
     await this.sessionStore.clear()
+    for (const { domain, event } of events) this.eventDelivery.emitDisconnect(domain, event)
   }
 
   private async connect(
@@ -288,6 +292,7 @@ export class TonConnectService {
 
     const grantedAt = Math.max(Date.now(), this.lastGrantedAt + 1)
     this.lastGrantedAt = grantedAt
+    this.cancelRequests(domain)
     await this.sessionStore.set({
       domain,
       manifestUrl: request.manifestUrl,
@@ -356,29 +361,54 @@ export class TonConnectService {
     this.eventDelivery.track(domain, event.sender)
 
     if (message.method === 'disconnect') {
+      this.cancelRequests(domain)
       await this.sessionStore.delete(domain)
       this.limiter.forget(domain)
       return { id: message.id, result: {} }
     }
 
-    if (!(await this.sessionStore.acceptRpcId(domain, message.id))) {
-      return rpcError(message.id, TONCONNECT_ERROR.BAD_REQUEST, 'Request id must strictly increase')
+    const controller = new AbortController()
+    const pending = this.pendingRequests.get(domain) ?? new Set<AbortController>()
+    pending.add(controller)
+    this.pendingRequests.set(domain, pending)
+    try {
+      if (!(await this.sessionStore.acceptRpcId(domain, message.id))) {
+        return rpcError(message.id, TONCONNECT_ERROR.BAD_REQUEST, 'Request id must strictly increase')
+      }
+      if (controller.signal.aborted) {
+        return rpcError(message.id, TONCONNECT_ERROR.UNKNOWN_APP, 'TON Connect session revoked')
+      }
+      switch (message.method) {
+        case 'sendTransaction':
+          return await this.signingWorkflow.sendTransaction(
+            domain,
+            session.appName,
+            session.address,
+            message,
+            session.grantedAt,
+            controller.signal
+          )
+        case 'signData':
+          return await this.signingWorkflow.signData(
+            domain,
+            session.appName,
+            session.address,
+            message,
+            controller.signal
+          )
+        default:
+          return rpcError(message.id, TONCONNECT_ERROR.METHOD_NOT_SUPPORTED, `Method ${message.method} not supported`)
+      }
+    } finally {
+      pending.delete(controller)
+      if (pending.size === 0 && this.pendingRequests.get(domain) === pending) this.pendingRequests.delete(domain)
     }
+  }
 
-    switch (message.method) {
-      case 'sendTransaction':
-        return this.signingWorkflow.sendTransaction(
-          domain,
-          session.appName,
-          session.address,
-          message,
-          session.grantedAt
-        )
-      case 'signData':
-        return this.signingWorkflow.signData(domain, session.appName, session.address, message)
-      default:
-        return rpcError(message.id, TONCONNECT_ERROR.METHOD_NOT_SUPPORTED, `Method ${message.method} not supported`)
-    }
+  private cancelRequests(domain: string): void {
+    const pending = this.pendingRequests.get(domain)
+    this.pendingRequests.delete(domain)
+    for (const controller of pending ?? []) controller.abort()
   }
 
   private buildDeviceInfo(): DeviceInfo {
@@ -394,8 +424,8 @@ export class TonConnectService {
     }
   }
 
-  private async emitDisconnect(domain: string): Promise<void> {
-    const evt: DisconnectEvent = { event: 'disconnect', id: await this.sessionStore.nextEventId(domain), payload: {} }
-    this.eventDelivery.emitDisconnect(domain, evt)
+  private disconnectEvent(domain: string): DisconnectEvent {
+    const session = this.sessionStore.get(domain)
+    return { event: 'disconnect', id: session ? session.lastEventId + 1 : Date.now(), payload: {} }
   }
 }
