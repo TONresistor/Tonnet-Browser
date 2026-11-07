@@ -9,6 +9,8 @@ export interface TonConnectAccount {
 
 /** Capabilities TonConnect needs from a wallet, independent of its implementation. */
 export interface TonConnectWalletPort {
+  getState(): { isLocked?: boolean; needsPasswordSetup?: boolean }
+  unlock(password: string, signal?: AbortSignal): Promise<unknown>
   getSessionRevision?(): number
   getTonConnectAccount(): TonConnectAccount | null
   signTonProof(

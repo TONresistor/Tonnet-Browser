@@ -14,11 +14,18 @@ function deferred<T>() {
   return { promise, resolve }
 }
 
-async function connectedTonSite(domain = 'app.ton') {
+async function connectedTonSite(domain = 'app.ton', options: { locked?: boolean; connect?: boolean } = {}) {
   const sessions = new Map<string, StoredTonConnectSession>()
   const account = { addressRaw: firstAddress, publicKey: 'aa', walletStateInit: 'state' }
+  let locked = options.locked ?? false
+  let revision = 1
   const wallet = {
-    getSessionRevision: () => 1,
+    getState: () => ({ isLocked: locked, needsPasswordSetup: false }),
+    unlock: vi.fn(async (_password: string) => {
+      locked = false
+      revision += 1
+    }),
+    getSessionRevision: () => revision,
     getTonConnectAccount: () => account,
     signTonProof: vi.fn(async () => ({
       timestamp: 1,
@@ -48,7 +55,12 @@ async function connectedTonSite(domain = 'app.ton') {
     list: () => [...sessions.values()],
     acceptRpcId: async () => true,
   }
-  const approval = { request: vi.fn(async (_content: { type: string; [key: string]: unknown }) => true) }
+  const approval = {
+    request: vi.fn(async (_content: { type: string; [key: string]: unknown }) => true),
+    requestUnlock: vi.fn(async (_domain: string, unlock: (password: string) => Promise<boolean>) =>
+      unlock('fixture-password')
+    ),
+  }
   const fetch = vi.fn(
     async () =>
       new Response(
@@ -74,7 +86,7 @@ async function connectedTonSite(domain = 'app.ton') {
         items: [{ name: 'ton_addr' }, { name: 'ton_proof', payload: 'nonce' }],
       },
     })
-  const connected = await connect()
+  const connected = options.connect === false ? undefined : await connect()
   const sign = () =>
     service.handleRequest(domain, event, {
       method: 'send',
@@ -102,6 +114,7 @@ describe('TonConnectService tonsite sessions', () => {
         expect.objectContaining({ signal: expect.any(AbortSignal) })
       )
       expect(s.wallet.signTonProof).toHaveBeenCalledWith(domain, 'nonce', firstAddress, 1)
+      expect(s.approval.requestUnlock).not.toHaveBeenCalled()
       await expect(s.service.handleRequest(domain, s.event, { method: 'restore' })).resolves.toMatchObject({
         event: 'connect',
       })
@@ -146,17 +159,85 @@ describe('TonConnectService tonsite sessions', () => {
   })
 })
 
+describe('TonConnectService wallet unlock', () => {
+  it('unlocks first, then asks for connection consent and signs with the new session revision', async () => {
+    const s = await connectedTonSite('app.ton', { locked: true })
+    expect(s.connected).toMatchObject({
+      event: 'connect',
+      payload: { items: [{ name: 'ton_addr' }, { name: 'ton_proof', proof: { domain: { value: 'app.ton' } } }] },
+    })
+    expect(s.wallet.unlock).toHaveBeenCalledWith('fixture-password', expect.any(AbortSignal))
+    expect(s.wallet.unlock.mock.invocationCallOrder[0]).toBeLessThan(s.approval.request.mock.invocationCallOrder[0])
+    expect(s.wallet.signTonProof).toHaveBeenCalledWith('app.ton', 'nonce', firstAddress, 2)
+  })
+
+  it('does not connect or sign when unlocking is cancelled', async () => {
+    const s = await connectedTonSite('app.ton', { locked: true, connect: false })
+    s.approval.requestUnlock.mockResolvedValueOnce(false)
+    await expect(s.connect()).resolves.toMatchObject({ event: 'connect_error', payload: { code: 300 } })
+    expect(s.wallet.unlock).not.toHaveBeenCalled()
+    expect(s.approval.request).not.toHaveBeenCalled()
+    expect(s.wallet.signTonProof).not.toHaveBeenCalled()
+    expect(s.store.list()).toEqual([])
+  })
+
+  it('requires connection consent after a successful unlock', async () => {
+    const s = await connectedTonSite('app.ton', { locked: true, connect: false })
+    s.approval.request.mockResolvedValueOnce(false)
+    await expect(s.connect()).resolves.toMatchObject({ event: 'connect_error', payload: { code: 300 } })
+    expect(s.wallet.unlock).toHaveBeenCalledOnce()
+    expect(s.wallet.signTonProof).not.toHaveBeenCalled()
+    expect(s.store.list()).toEqual([])
+  })
+
+  it('invalidates a pending unlock on disconnect without unlocking or signing later', async () => {
+    const s = await connectedTonSite('app.ton', { locked: true, connect: false })
+    const shown = deferred<void>()
+    const release = deferred<void>()
+    s.approval.requestUnlock.mockImplementationOnce(async (_domain, unlock) => {
+      shown.resolve()
+      await release.promise
+      return unlock('fixture-password')
+    })
+    const connecting = s.connect()
+    await shown.promise
+    await s.service.disconnectSession(s.domain)
+    release.resolve()
+    await expect(connecting).resolves.toMatchObject({ event: 'connect_error' })
+    expect(s.wallet.unlock).not.toHaveBeenCalled()
+    expect(s.wallet.signTonProof).not.toHaveBeenCalled()
+    expect(s.store.list()).toEqual([])
+  })
+
+  it('does not unlock a wallet replaced while the password prompt is open', async () => {
+    const s = await connectedTonSite('app.ton', { locked: true, connect: false })
+    s.approval.requestUnlock.mockImplementationOnce(async (_domain, unlock) => {
+      vi.spyOn(s.wallet, 'getTonConnectAccount').mockReturnValue({
+        addressRaw: secondAddress,
+        publicKey: 'bb',
+        walletStateInit: 'other',
+      })
+      return unlock('fixture-password')
+    })
+    await expect(s.connect()).resolves.toMatchObject({ event: 'connect_error' })
+    expect(s.wallet.unlock).not.toHaveBeenCalled()
+    expect(s.wallet.signTonProof).not.toHaveBeenCalled()
+    expect(s.store.list()).toEqual([])
+  })
+})
+
 describe('TonConnectService wallet identity', () => {
   it('rejects a connection when the wallet changes during approval', async () => {
     let approve: (value: boolean) => void = () => {}
     const approval = new Promise<boolean>((resolve) => {
       approve = resolve
     })
+    let currentAccount = { addressRaw: firstAddress, publicKey: 'first', walletStateInit: 'first-state' }
+    const approvalPort = { request: vi.fn(() => approval), requestUnlock: vi.fn() }
     const wallet = {
-      getTonConnectAccount: vi
-        .fn()
-        .mockReturnValueOnce({ addressRaw: firstAddress, publicKey: 'first', walletStateInit: 'first-state' })
-        .mockReturnValueOnce({ addressRaw: secondAddress, publicKey: 'second', walletStateInit: 'second-state' }),
+      getState: () => ({ isLocked: false, needsPasswordSetup: false }),
+      unlock: vi.fn(),
+      getTonConnectAccount: vi.fn(() => currentAccount),
       signTonProof: vi.fn(),
       signTonConnectTransaction: vi.fn(),
       signData: vi.fn(),
@@ -172,7 +253,7 @@ describe('TonConnectService wallet identity', () => {
     const service = new TonConnectService(
       wallet,
       sessionStore as never,
-      { request: vi.fn(() => approval) },
+      approvalPort,
       {
         load: vi.fn(async () => null),
         loadIcon: vi.fn(async () => null),
@@ -196,6 +277,8 @@ describe('TonConnectService wallet identity', () => {
       }
     )
 
+    await vi.waitFor(() => expect(approvalPort.request).toHaveBeenCalledOnce())
+    currentAccount = { addressRaw: secondAddress, publicKey: 'second', walletStateInit: 'second-state' }
     approve(true)
 
     await expect(request).resolves.toMatchObject({
@@ -210,8 +293,11 @@ describe('TonConnectService wallet identity', () => {
     const approval = new Promise<boolean>((resolve) => {
       approve = resolve
     })
+    const approvalPort = { request: vi.fn(() => approval), requestUnlock: vi.fn() }
     const account = { addressRaw: firstAddress, publicKey: 'first', walletStateInit: 'first-state' }
     const wallet = {
+      getState: () => ({ isLocked: false, needsPasswordSetup: false }),
+      unlock: vi.fn(),
       getTonConnectAccount: vi.fn(() => account),
       signTonProof: vi.fn(),
       signTonConnectTransaction: vi.fn(),
@@ -228,7 +314,7 @@ describe('TonConnectService wallet identity', () => {
     const service = new TonConnectService(
       wallet,
       sessionStore as never,
-      { request: vi.fn(() => approval) },
+      approvalPort,
       {
         load: vi.fn(async () => null),
         loadIcon: vi.fn(async () => null),
@@ -252,6 +338,7 @@ describe('TonConnectService wallet identity', () => {
       }
     )
 
+    await vi.waitFor(() => expect(approvalPort.request).toHaveBeenCalledOnce())
     await service.clearSessions()
     approve(true)
 

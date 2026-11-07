@@ -153,7 +153,9 @@ export class TonConnectService {
     try {
       switch (payload?.method) {
         case 'connect':
-          return await this.connect(domain, event, payload.request, payload.protocolVersion)
+          return await this.withRequest(domain, (signal) =>
+            this.connect(domain, event, payload.request, payload.protocolVersion, signal)
+          )
         case 'restore':
           return this.restore(domain, event)
         case 'send':
@@ -207,13 +209,14 @@ export class TonConnectService {
     domain: string,
     event: TonConnectRequestContext,
     request?: ConnectRequest,
-    protocolVersion?: number
+    protocolVersion?: number,
+    signal?: AbortSignal
   ): Promise<ConnectEvent> {
     const sessionGeneration = this.sessionGeneration
     if (protocolVersion && protocolVersion > TONCONNECT_PROTOCOL_VERSION) {
       return connectError(CONNECT_ERROR.BAD_REQUEST, 'Unsupported protocol version')
     }
-    const signingSession = this.wallet.getSessionRevision?.()
+    let signingSession = this.wallet.getSessionRevision?.()
     const account = this.wallet.getTonConnectAccount()
     if (!account) {
       return connectError(CONNECT_ERROR.UNKNOWN, 'No wallet available')
@@ -234,22 +237,61 @@ export class TonConnectService {
     const appIconUrl = manifest?.iconUrl
 
     const icon = await this.manifestLoader.loadIcon(event.sender.session, manifest?.iconUrl)
-    const approved = await this.approval.request({
-      type: 'approval',
-      icon: icon ?? undefined,
-      iconTon: icon ? undefined : true,
-      title: appName,
-      subtitle: 'wants to connect to your wallet',
-      domain,
-      rows: [{ label: 'Wallet', value: shortAddress(account.addressRaw) }],
-      actions: [
-        { id: 'deny', label: 'Cancel' },
-        { id: 'approve', label: 'Connect', primary: true },
-      ],
-    })
+    const assertCurrent = () => {
+      const current = this.wallet.getTonConnectAccount()
+      if (
+        signal?.aborted ||
+        sessionGeneration !== this.sessionGeneration ||
+        signingSession !== this.wallet.getSessionRevision?.() ||
+        !current ||
+        !sameAddress(account.addressRaw, current.addressRaw)
+      )
+        throw new Error('Wallet changed while connection approval was pending')
+    }
+    assertCurrent()
+    if (this.wallet.getState().needsPasswordSetup) {
+      return connectError(CONNECT_ERROR.UNKNOWN, 'Set a wallet password before connecting')
+    }
+    if (this.wallet.getState().isLocked !== false) {
+      const unlocked = await this.approval.requestUnlock(
+        domain,
+        async (password) => {
+          assertCurrent()
+          try {
+            await this.wallet.unlock(password, signal)
+          } catch {
+            assertCurrent()
+            return false
+          }
+          signingSession = this.wallet.getSessionRevision?.()
+          assertCurrent()
+          return this.wallet.getState().isLocked === false
+        },
+        signal
+      )
+      if (!unlocked) return connectError(CONNECT_ERROR.USER_DECLINED, 'Wallet unlock cancelled')
+    }
+    assertCurrent()
+    const approved = await this.approval.request(
+      {
+        type: 'approval',
+        icon: icon ?? undefined,
+        iconTon: icon ? undefined : true,
+        title: appName,
+        subtitle: 'wants to connect to your wallet',
+        domain,
+        rows: [{ label: 'Wallet', value: shortAddress(account.addressRaw) }],
+        actions: [
+          { id: 'deny', label: 'Cancel' },
+          { id: 'approve', label: 'Connect', primary: true },
+        ],
+      },
+      signal
+    )
     if (!approved) {
       return connectError(CONNECT_ERROR.USER_DECLINED, 'User declined the connection')
     }
+    assertCurrent()
 
     const approvedAccount = this.wallet.getTonConnectAccount()
     if (!approvedAccount || !sameAddress(account.addressRaw, approvedAccount.addressRaw)) {
@@ -283,6 +325,7 @@ export class TonConnectService {
 
     const currentAccount = this.wallet.getTonConnectAccount()
     if (
+      signal?.aborted ||
       sessionGeneration !== this.sessionGeneration ||
       !currentAccount ||
       !sameAddress(approvedAccount.addressRaw, currentAccount.addressRaw)
@@ -292,7 +335,7 @@ export class TonConnectService {
 
     const grantedAt = Math.max(Date.now(), this.lastGrantedAt + 1)
     this.lastGrantedAt = grantedAt
-    this.cancelRequests(domain)
+    this.cancelRequests(domain, signal)
     await this.sessionStore.set({
       domain,
       manifestUrl: request.manifestUrl,
@@ -308,6 +351,7 @@ export class TonConnectService {
     const stored = this.sessionStore.get(domain)
     const finalAccount = this.wallet.getTonConnectAccount()
     if (
+      signal?.aborted ||
       sessionGeneration !== this.sessionGeneration ||
       !finalAccount ||
       !sameAddress(approvedAccount.addressRaw, finalAccount.addressRaw)
@@ -367,15 +411,11 @@ export class TonConnectService {
       return { id: message.id, result: {} }
     }
 
-    const controller = new AbortController()
-    const pending = this.pendingRequests.get(domain) ?? new Set<AbortController>()
-    pending.add(controller)
-    this.pendingRequests.set(domain, pending)
-    try {
+    return this.withRequest(domain, async (signal) => {
       if (!(await this.sessionStore.acceptRpcId(domain, message.id))) {
         return rpcError(message.id, TONCONNECT_ERROR.BAD_REQUEST, 'Request id must strictly increase')
       }
-      if (controller.signal.aborted) {
+      if (signal.aborted) {
         return rpcError(message.id, TONCONNECT_ERROR.UNKNOWN_APP, 'TON Connect session revoked')
       }
       switch (message.method) {
@@ -386,29 +426,38 @@ export class TonConnectService {
             session.address,
             message,
             session.grantedAt,
-            controller.signal
+            signal
           )
         case 'signData':
-          return await this.signingWorkflow.signData(
-            domain,
-            session.appName,
-            session.address,
-            message,
-            controller.signal
-          )
+          return await this.signingWorkflow.signData(domain, session.appName, session.address, message, signal)
         default:
           return rpcError(message.id, TONCONNECT_ERROR.METHOD_NOT_SUPPORTED, `Method ${message.method} not supported`)
       }
+    })
+  }
+
+  private async withRequest<T>(domain: string, handler: (signal: AbortSignal) => Promise<T>): Promise<T> {
+    const controller = new AbortController()
+    const pending = this.pendingRequests.get(domain) ?? new Set<AbortController>()
+    pending.add(controller)
+    this.pendingRequests.set(domain, pending)
+    try {
+      return await handler(controller.signal)
     } finally {
+      controller.abort()
       pending.delete(controller)
       if (pending.size === 0 && this.pendingRequests.get(domain) === pending) this.pendingRequests.delete(domain)
     }
   }
 
-  private cancelRequests(domain: string): void {
+  private cancelRequests(domain: string, keep?: AbortSignal): void {
     const pending = this.pendingRequests.get(domain)
-    this.pendingRequests.delete(domain)
-    for (const controller of pending ?? []) controller.abort()
+    for (const controller of pending ?? []) {
+      if (controller.signal === keep) continue
+      pending?.delete(controller)
+      controller.abort()
+    }
+    if (pending?.size === 0) this.pendingRequests.delete(domain)
   }
 
   private buildDeviceInfo(): DeviceInfo {

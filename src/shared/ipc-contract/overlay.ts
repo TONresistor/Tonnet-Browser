@@ -61,7 +61,7 @@ export const overlayActionRequestContract = defineRequest({
   input: z.tuple([z.string().min(1).max(128), z.unknown()]),
   output: z.void(),
   errors: ['RATE_LIMITED', 'UNAUTHORIZED_OVERLAY', 'INVALID_ACTION'],
-  redaction: 'sensitive',
+  redaction: 'secret',
 })
 export const overlayActionEventContract = defineEvent({
   direction: 'event',

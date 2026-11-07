@@ -8,6 +8,8 @@ const destination = Address.parseRaw(`0:${'22'.repeat(32)}`).toString({ bounceab
 
 function setup(approved = true) {
   const wallet = {
+    getState: () => ({ isLocked: false, needsPasswordSetup: false }),
+    unlock: vi.fn(),
     getTonConnectAccount: vi.fn(() => ({
       addressRaw: `0:${'11'.repeat(32)}`,
       publicKey: 'aa',
@@ -46,7 +48,10 @@ function setup(approved = true) {
       payload,
     })),
   }
-  const approval = { request: vi.fn(async (_content: { type: string; [key: string]: unknown }) => approved) }
+  const approval = {
+    request: vi.fn(async (_content: { type: string; [key: string]: unknown }) => approved),
+    requestUnlock: vi.fn(),
+  }
   return { wallet, approval, workflow: new TonConnectSigningWorkflow(wallet, approval) }
 }
 

@@ -431,11 +431,12 @@ export class WalletEngine extends EventEmitter {
     }
     return result
   }
-  async unlock(password: string): Promise<WalletState> {
+  async unlock(password: string, signal?: AbortSignal): Promise<WalletState> {
     const session = this.sessionRevision
     return this.runExclusive(() => {
+      signal?.throwIfAborted()
       if (session !== this.sessionRevision) throw new Error('Wallet session changed')
-      return this.unlockUnlocked(password)
+      return this.unlockUnlocked(password, signal)
     })
   }
   lock(): WalletState {
@@ -662,11 +663,12 @@ export class WalletEngine extends EventEmitter {
     return result
   }
 
-  private async unlockUnlocked(password: string): Promise<WalletState> {
+  private async unlockUnlocked(password: string, signal?: AbortSignal): Promise<WalletState> {
     const session = this.sessionRevision
     const keypair = await this.keyStorage.load(password)
-    if (session !== this.sessionRevision) {
+    if (session !== this.sessionRevision || signal?.aborted) {
       this.keyStorage.lock()
+      signal?.throwIfAborted()
       throw new Error('Wallet session changed')
     }
     if (!this.publicKey || !keypair.publicKey.equals(this.publicKey)) throw new Error('Wallet identity mismatch')
@@ -675,6 +677,7 @@ export class WalletEngine extends EventEmitter {
     const unlockedSession = this.sessionRevision
     try {
       await this.openJournal()
+      signal?.throwIfAborted()
       this.assertWalletSession(unlockedSession)
     } catch (error) {
       if (this.sessionRevision === unlockedSession) this.lock()
