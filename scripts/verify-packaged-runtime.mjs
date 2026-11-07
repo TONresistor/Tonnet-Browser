@@ -9,8 +9,8 @@ import { basename, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
-const visible = process.argv.includes('--visible') && !process.env.CI
 const suite = process.argv.find((arg) => arg.startsWith('--suite='))?.slice('--suite='.length) ?? 'smoke'
+const visible = suite === 'bookmarks' || (process.argv.includes('--visible') && !process.env.CI)
 const contract = JSON.parse(await readFile(join(root, 'src/shared/packaged-test-contract.json'), 'utf8'))
 if (!Object.hasOwn(contract.suites, suite)) throw new Error(`Unknown test suite: ${suite}`)
 const positional = process.argv.slice(2).filter((value) => value !== '--visible' && !value.startsWith('--suite='))

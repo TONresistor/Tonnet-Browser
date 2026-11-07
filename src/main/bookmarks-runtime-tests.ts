@@ -8,6 +8,7 @@ import { BOOKMARKS_SAVE_DEBOUNCE_MS } from '../shared/constants'
 import {
   assertLivePage,
   assertPackageOverlayClosed,
+  focusPackageInput,
   packageTestStep,
   waitForPackageCheck,
 } from './packaged-page-assertions'
@@ -18,6 +19,61 @@ interface SmokeContext {
   profile: string
   phase: string
   pass: (message: string) => void
+}
+
+export async function waitForBookmarkedPage(
+  window: BrowserWindow,
+  services: ServiceRegistry,
+  url: string
+): Promise<void> {
+  let lastFailure = 'page not ready'
+  await waitForPackageCheck(
+    async () => {
+      const view = services.tabManager.getActiveView()
+      if (!view || view.webContents.isDestroyed()) {
+        lastFailure = 'active page missing or destroyed'
+        return false
+      }
+      const contents = view.webContents
+      const nativeUrl = contents.getURL()
+      const loading = contents.isLoading()
+      const attached = window.contentView.children.includes(view)
+      lastFailure = `view=${contents.id}; url=${nativeUrl}; loading=${loading}; attached=${attached}`
+      if (nativeUrl !== url || loading || !attached) return false
+      const snapshot = await packageTestStep<import('./packaged-page-assertions').LivePageSnapshot>(
+        () =>
+          contents.executeJavaScript(
+            `({url:location.href,title:document.title,text:document.body?.innerText ?? '',headings:Array.from(document.querySelectorAll('h1,h2'),h=>h.textContent.trim()), formCount:document.querySelectorAll('form').length, links:Array.from(document.querySelectorAll('a[href]'),a=>a.href)})`,
+            true
+          ),
+        `Bookmarked page renderer did not respond: ${lastFailure}`,
+        120_000
+      ).catch((error) => {
+        lastFailure = String(error)
+        return null
+      })
+      if (!snapshot) return false
+      if (
+        contents.isDestroyed() ||
+        services.tabManager.getActiveView() !== view ||
+        !window.contentView.children.includes(view) ||
+        contents.getURL() !== url ||
+        contents.isLoading()
+      ) {
+        lastFailure = `view=${contents.id} changed while reading page content`
+        return false
+      }
+      try {
+        assertLivePage(snapshot, url)
+        return true
+      } catch (error) {
+        lastFailure = error instanceof Error ? error.message : String(error)
+        return false
+      }
+    },
+    () => `Bookmarks timed out: real bookmarked page ${url}; last failure: ${lastFailure}`,
+    120_000
+  )
 }
 
 // All mutations go through rendered controls; IPC is used only to observe the
@@ -119,35 +175,7 @@ export async function runBookmarksScenario({ window, services, profile, phase, p
       }, `${label}: rendered titles, URLs and order unchanged`)
     }
   }
-  const waitSite = async (url: string) => {
-    let lastFailure = 'page not ready'
-    await until(
-      async () => {
-        const view = services.tabManager.getActiveView()
-        if (!view || view.webContents.isLoading() || !window.contentView.children.includes(view)) {
-          lastFailure = 'active page missing, loading or detached'
-          return false
-        }
-        const snapshot = await evaluate<import('./packaged-page-assertions').LivePageSnapshot>(
-          `({url:location.href,title:document.title,text:document.body?.innerText ?? '',headings:Array.from(document.querySelectorAll('h1,h2'),h=>h.textContent.trim()), formCount:document.querySelectorAll('form').length, links:Array.from(document.querySelectorAll('a[href]'),a=>a.href)})`,
-          view.webContents
-        ).catch((error) => {
-          lastFailure = String(error)
-          return null
-        })
-        if (!snapshot) return false
-        try {
-          assertLivePage(snapshot, url)
-          return true
-        } catch (error) {
-          lastFailure = error instanceof Error ? error.message : String(error)
-          return false
-        }
-      },
-      () => `real bookmarked page ${url}; last failure: ${lastFailure}`,
-      120_000
-    )
-  }
+  const waitSite = (url: string) => waitForBookmarkedPage(window, services, url)
   const navigate = async (url: string) => {
     await fill('#address-bar-input', url)
     await evaluate("document.getElementById('address-bar-input').closest('form').requestSubmit()")
@@ -273,6 +301,7 @@ export async function runBookmarksScenario({ window, services, profile, phase, p
   }
   const menuClick = async (id: string, contents: WebContents) => click(`[data-action="${id}"]:not(.disabled)`, contents)
   const drag = async (source: string, target: string, axis: 'x' | 'y' = 'y') => {
+    await focusPackageInput(window, chrome)
     const bounds = await evaluate<Array<{ x: number; y: number }>>(`(() => {
       const elements = [${JSON.stringify(source)}, ${JSON.stringify(target)}].map(selector => {
         const el = document.querySelector(selector);
@@ -575,6 +604,7 @@ export async function runBookmarksScenario({ window, services, profile, phase, p
     'Empty folder was not indicated'
   )
   // Dismiss via the overlay Escape handler, as with a physical keyboard.
+  await focusPackageInput(window, menu)
   menu.sendInputEvent({ type: 'keyDown', keyCode: 'Escape' })
   menu.sendInputEvent({ type: 'keyUp', keyCode: 'Escape' })
   await assertPackageOverlayClosed(window, menu, 'Empty folder Escape')

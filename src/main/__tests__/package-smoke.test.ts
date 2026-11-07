@@ -124,10 +124,21 @@ describe('packaged smoke isolation', () => {
     process.argv.push('--tonnet-package-smoke-visible')
     expect(preparePackageSmoke()?.visible).toBe(true)
   })
-  it('keeps CI invisible even when the visible flag is passed', () => {
+  it('keeps the release smoke invisible in CI even when the visible flag is passed', () => {
     vi.stubEnv('CI', 'true')
     process.argv.push('--tonnet-package-smoke-visible')
     expect(preparePackageSmoke()?.visible).toBe(false)
+  })
+  it.each(['', 'true'])('opens bookmark E2E for native input without an explicit visible flag (CI=%s)', (ci) => {
+    vi.stubEnv('CI', ci)
+    process.argv = process.argv.map((arg) => {
+      if (arg.startsWith('--tonnet-package-smoke-suite=')) return '--tonnet-package-smoke-suite=bookmarks'
+      if (arg.startsWith('--tonnet-package-smoke-phase=')) return '--tonnet-package-smoke-phase=bookmarks'
+      if (arg.startsWith('--tonnet-package-smoke-report='))
+        return `--tonnet-package-smoke-report=${join(profile, 'package-test-bookmarks.json')}`
+      return arg
+    })
+    expect(preparePackageSmoke()).toMatchObject({ suite: 'bookmarks', visible: true })
   })
   it('refuses source Electron as a substitute for the package', () => {
     mockApp.isPackaged = false

@@ -61,7 +61,7 @@ export function preparePackageSmoke(): PackageSmoke | null {
   const logs = join(profile, 'logs')
   mkdirSync(logs, { recursive: true, mode: 0o700 })
   app.setPath('logs', logs)
-  const visible = process.argv.includes('--tonnet-package-smoke-visible') && !process.env.CI
+  const visible = suite === 'bookmarks' || (process.argv.includes('--tonnet-package-smoke-visible') && !process.env.CI)
   return { profile, suite, phase, report, url, visible }
 }
 

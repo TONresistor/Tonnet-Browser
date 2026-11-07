@@ -46,6 +46,16 @@ export async function assertPackageOverlayClosed(
   )
 }
 
+export async function focusPackageInput(window: BrowserWindow, contents: WebContents): Promise<void> {
+  assert(window.isVisible(), 'Native package input requires a visible window')
+  window.focus()
+  contents.focus()
+  await waitForPackageCheck(
+    () => window.isFocused() && contents.isFocused(),
+    'Native package input did not receive focus'
+  )
+}
+
 export interface LivePageSnapshot {
   url: string
   title: string
