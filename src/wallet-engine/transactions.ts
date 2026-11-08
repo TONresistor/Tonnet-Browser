@@ -15,7 +15,8 @@ import type { WalletIdentitySnapshot } from './wallet-identity'
 import type { SupportedWalletContract } from './wallet-versions'
 import { OperationJournal, intentFingerprint, isOperationPending, type WalletOperation } from './journal'
 import { WalletEngineError } from './errors'
-import { buildExternalWalletBoc } from './wallet-boc'
+import { buildExternalWalletBoc, buildInternalWalletBoc } from './wallet-boc'
+import { WalletContractV5R1 } from '@ton/ton'
 import { preflightTonTransfer } from './transfer-preflight'
 
 export interface TransferMessage {
@@ -212,10 +213,11 @@ export class WalletTransfers {
   private async prepareTransfer(
     intent: TransferIntent,
     token: ReturnType<WalletTransfers['capture']>,
-    revalidate = false
+    revalidate = false,
+    signedInternal = false
   ) {
     try {
-      return await this.loadTransferReview(intent, token, revalidate)
+      return await this.loadTransferReview(intent, token, revalidate, signedInternal)
     } catch (error) {
       this.check(token)
       if (error instanceof WalletEngineError) throw error
@@ -231,13 +233,14 @@ export class WalletTransfers {
   private async loadTransferReview(
     intent: TransferIntent,
     token: ReturnType<WalletTransfers['capture']>,
-    revalidate: boolean
+    revalidate: boolean,
+    signedInternal: boolean
   ) {
     const messages = messagesFor(intent)
     const phase = revalidate ? 'revalidation' : 'preparation'
     const [snapshot, destinations] = await this.observed(
       Promise.all([
-        this.measured(`${phase}-state-read`, () => this.chain(token, true)),
+        this.measured(`${phase}-state-read`, () => this.chain(token, !signedInternal)),
         Promise.all(
           messages.map(async (message) => {
             const info = message.info
@@ -267,33 +270,39 @@ export class WalletTransfers {
       throw new WalletEngineError('TRANSFER_EXPIRED', 'Transaction expired')
     const first = messages[0].info
     if (first.type !== 'internal') throw new Error('Expected internal message')
-    if (!snapshot.emulation_context) throw new Error('Verified wallet emulation context is unavailable')
-    const preview = await preflightTonTransfer({
-      walletContract: this.host.contract(),
-      destinationBounceable: first.bounce,
-      destinationStatus: destinations[0],
-      walletBalance: snapshot.balance,
-      message: messages[0],
-      messages,
-      seqno: snapshot.seqno,
-      validUntil,
-      emulateTransaction: (address, boc) =>
-        this.measured(`${phase}-emulation-rpc`, () =>
-          this.observed(
-            this.host.provider().emulateTransaction(address, boc, {
-              id: snapshot.emulation_context!,
-              revalidate,
-            }),
-            token
-          )
-        ),
-    })
+    if (signedInternal && snapshot.status === 'active' && !Cell.fromBase64(snapshot.data_boc!).beginParse().loadBit())
+      throw new WalletEngineError('INVALID_ACCOUNT', 'Wallet signature authentication is disabled')
+    if (!signedInternal && !snapshot.emulation_context)
+      throw new Error('Verified wallet emulation context is unavailable')
+    const preview = signedInternal
+      ? { estimatedFee: '0', signingSnapshot: snapshot }
+      : await preflightTonTransfer({
+          walletContract: this.host.contract(),
+          destinationBounceable: first.bounce,
+          destinationStatus: destinations[0],
+          walletBalance: snapshot.balance,
+          message: messages[0],
+          messages,
+          seqno: snapshot.seqno,
+          validUntil,
+          emulateTransaction: (address, boc) =>
+            this.measured(`${phase}-emulation-rpc`, () =>
+              this.observed(
+                this.host.provider().emulateTransaction(address, boc, {
+                  id: snapshot.emulation_context!,
+                  revalidate,
+                }),
+                token
+              )
+            ),
+        })
     this.check(token)
-    if (revalidate && !preview.signingSnapshot) throw new Error('Fresh wallet signing state is unavailable')
+    if (revalidate && !signedInternal && !preview.signingSnapshot)
+      throw new Error('Fresh wallet signing state is unavailable')
     const signingSnapshot = preview.signingSnapshot ? this.validateSnapshot(preview.signingSnapshot, token) : snapshot
     const fee = BigInt(preview.estimatedFee)
     const total = intent.messages.reduce((sum, msg) => sum + BigInt(msg.amount), 0n)
-    if (total + fee > BigInt(snapshot.balance))
+    if (!signedInternal && total + fee > BigInt(snapshot.balance))
       throw new WalletEngineError('INSUFFICIENT_BALANCE', 'Insufficient balance')
     const review: TransferReview = {
       operationId: intent.operationId,
@@ -308,18 +317,29 @@ export class WalletTransfers {
   sendTransfer(
     intent: TransferIntent,
     authorize?: TransferAuthorization,
-    waitForConfirmation = true
+    waitForConfirmation = true,
+    signal?: AbortSignal
   ): Promise<WalletOperation> {
-    return this.execute(intent, 'direct', authorize, waitForConfirmation)
+    return this.execute(intent, 'direct', authorize, waitForConfirmation, signal)
   }
   signForRelay(intent: TransferIntent, authorize?: TransferAuthorization): Promise<WalletOperation> {
     return this.execute(intent, 'relay', authorize)
   }
+  signMessage(
+    intent: TransferIntent,
+    authorize: TransferAuthorization,
+    signal?: AbortSignal
+  ): Promise<WalletOperation> {
+    if (!(this.host.contract() instanceof WalletContractV5R1))
+      return Promise.reject(new WalletEngineError('METHOD_NOT_SUPPORTED', 'signMessage requires a V5R1 wallet'))
+    return this.execute(intent, 'internal', authorize, false, signal)
+  }
   private execute(
     input: TransferIntent,
-    mode: 'direct' | 'relay',
+    mode: 'direct' | 'relay' | 'internal',
     authorize?: TransferAuthorization,
-    waitForConfirmation = true
+    waitForConfirmation = true,
+    signal?: AbortSignal
   ): Promise<WalletOperation> {
     this.host.assertReady()
     const intent = structuredClone(input)
@@ -342,7 +362,7 @@ export class WalletTransfers {
       if (this.active.id === intent.operationId && this.active.hash === hash) return this.active.promise
       return Promise.reject(new WalletEngineError('SEND_IN_PROGRESS', 'A wallet operation is already active', true))
     }
-    const promise = this.perform(intent, hash, mode, authorize, waitForConfirmation).finally(() => {
+    const promise = this.perform(intent, hash, mode, authorize, waitForConfirmation, signal).finally(() => {
       if (this.active?.promise === promise) this.active = null
     })
     this.active = { id: intent.operationId, hash, promise }
@@ -351,11 +371,16 @@ export class WalletTransfers {
   private async perform(
     intent: TransferIntent,
     hash: string,
-    mode: 'direct' | 'relay',
+    mode: 'direct' | 'relay' | 'internal',
     authorize?: TransferAuthorization,
-    waitForConfirmation = true
+    waitForConfirmation = true,
+    signal?: AbortSignal
   ): Promise<WalletOperation> {
     const token = this.capture()
+    signal?.throwIfAborted()
+    const approvalToken = signal
+      ? { ...token, signal: AbortSignal.any([signal, ...(token.signal ? [token.signal] : [])]) }
+      : token
     if (!authorize && !this.journal.get(intent.operationId))
       throw new WalletEngineError('AUTHORIZATION_REQUIRED', 'Transfer authorization is required')
     if (!this.journal.isOpen())
@@ -372,15 +397,16 @@ export class WalletTransfers {
         throw new WalletEngineError('TRANSACTION_PENDING', 'An earlier wallet operation is unresolved', true)
     }
     // Host callbacks run without holding the vault/lifecycle mutation queue.
-    let prepared = await this.prepareTransfer(intent, token)
+    let prepared = await this.prepareTransfer(intent, token, false, mode === 'internal')
     let snapshot: Awaited<ReturnType<WalletTransfers['chain']>>
     for (;;) {
+      signal?.throwIfAborted()
       this.check(token)
-      if (!authorize || !(await this.observed(authorize(structuredClone(prepared.review)), token)))
+      if (!authorize || !(await this.observed(authorize(structuredClone(prepared.review)), approvalToken)))
         throw new WalletEngineError('USER_CANCELLED', 'Transfer cancelled')
       this.check(token)
       const fresh = await this.measured('revalidation', () =>
-        this.prepareTransfer({ ...intent, validUntil: prepared.review.validUntil }, token, true)
+        this.prepareTransfer({ ...intent, validUntil: prepared.review.validUntil }, token, true, mode === 'internal')
       )
       this.check(token)
       snapshot = fresh.signingSnapshot
@@ -397,18 +423,21 @@ export class WalletTransfers {
     const review = prepared.review
     if (review.validUntil <= snapshot.block_time) throw new WalletEngineError('TRANSFER_EXPIRED', 'Transaction expired')
     const total = intent.messages.reduce((sum, message) => sum + BigInt(message.amount), 0n)
-    if (total + BigInt(review.estimatedFee) > BigInt(snapshot.balance))
+    if (mode !== 'internal' && total + BigInt(review.estimatedFee) > BigInt(snapshot.balance))
       throw new WalletEngineError('INSUFFICIENT_BALANCE', 'Insufficient balance')
-    const signed = await this.host.withSecret((secretKey) =>
-      buildExternalWalletBoc({
+    const signed = await this.host.withSecret((secretKey) => {
+      signal?.throwIfAborted()
+      this.check(token)
+      const options = {
         walletContract: this.host.contract(),
         secretKey,
         messages: messagesFor(intent),
         seqno: snapshot.seqno,
         maxTimeout: intent.timeoutSeconds ?? 300,
         validUntil: review.validUntil,
-      })
-    )
+      }
+      return mode === 'internal' ? buildInternalWalletBoc(options) : buildExternalWalletBoc(options)
+    })
     this.check(token)
     let op: WalletOperation = {
       id: intent.operationId,
@@ -425,7 +454,9 @@ export class WalletTransfers {
       validUntil: signed.validUntil,
       boc: signed.boc,
       messageHash: Cell.fromBase64(signed.boc).hash().toString('hex'),
-      normalizedHash: normalizedExternalHash(signed.boc),
+      ...(mode === 'internal'
+        ? { messageType: 'internal' as const }
+        : { normalizedHash: normalizedExternalHash(signed.boc) }),
       startedAt: snapshot.block_time * 1000,
       baselineLt: snapshot.last_tx_lt,
       baselineHash: snapshot.last_tx_hash,
@@ -433,9 +464,10 @@ export class WalletTransfers {
     }
     await this.journal.save(op)
     this.check(token)
-    op = { ...op, phase: mode === 'relay' ? 'handed-off' : 'submitting' }
+    op = { ...op, phase: mode !== 'direct' ? 'handed-off' : 'submitting' }
     await this.journal.save(op)
     this.check(token)
+    if (mode === 'internal') signal?.throwIfAborted()
     if (mode === 'direct') {
       this.host.changed(op)
       this.check(token)
@@ -530,7 +562,7 @@ export class WalletTransfers {
     this.check(token)
     const current = this.journal.get(id)!
     if (!isOperationPending(current)) return current
-    if (current.phase === 'handed-off')
+    if (current.phase === 'handed-off' || current.messageType === 'internal')
       throw new WalletEngineError('RELAY_OPERATION', 'Only the original relay may receive this operation')
     const snapshot = await this.chain(token)
     if (snapshot.seqno !== current.seqno || snapshot.block_time >= current.validUntil)
@@ -631,19 +663,26 @@ export class WalletTransfers {
         )
           throw new WalletEngineError('INVALID_EVIDENCE', 'Invalid transaction evidence')
         const incoming = tx.inMessage
-        if (incoming?.info.type === 'external-in') {
-          const normalized = beginCell()
-            .storeUint(2, 2)
-            .storeAddress(null)
-            .storeAddress(incoming.info.dest)
-            .storeCoins(0)
-            .storeBit(false)
-            .storeBit(true)
-            .storeRef(incoming.body)
-            .endCell()
-            .hash()
-            .toString('hex')
-          if (normalized === operation.normalizedHash) {
+        if (incoming?.info.type === 'external-in' || incoming?.info.type === 'internal') {
+          const normalized =
+            incoming.info.type === 'external-in'
+              ? beginCell()
+                  .storeUint(2, 2)
+                  .storeAddress(null)
+                  .storeAddress(incoming.info.dest)
+                  .storeCoins(0)
+                  .storeBit(false)
+                  .storeBit(true)
+                  .storeRef(incoming.body)
+                  .endCell()
+                  .hash()
+                  .toString('hex')
+              : null
+          const matches =
+            operation.messageType === 'internal'
+              ? incoming.info.type === 'internal' && incoming.body.hash().toString('hex') === operation.messageHash
+              : normalized !== null && normalized === operation.normalizedHash
+          if (matches) {
             let execution: WalletOperation['execution'] = 'unknown'
             if (tx.description.type === 'generic') {
               const description = tx.description

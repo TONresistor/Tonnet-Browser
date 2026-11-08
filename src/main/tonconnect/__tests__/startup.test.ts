@@ -26,12 +26,16 @@ describe('TON Connect startup isolation', () => {
       set: vi.fn(),
     }
     const wallet = {
+      getState: vi.fn(),
+      unlock: vi.fn(),
       getTonConnectAccount: vi.fn(),
       signTonProof: vi.fn(),
       signTonConnectTransaction: vi.fn(),
+      resolveTonConnectItems: vi.fn(),
+      signTonConnectMessage: vi.fn(),
       signData: vi.fn(),
     }
-    const approval = { request: vi.fn() }
+    const approval = { request: vi.fn(), requestUnlock: vi.fn() }
     const service = new TonConnectService(wallet, store as never, approval, {} as never, {} as never)
     expect(service.isAvailable()).toBe(false)
     expect(await initializeTonConnect(service, false, vi.fn())).toBe(false)

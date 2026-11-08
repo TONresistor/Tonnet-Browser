@@ -23,7 +23,10 @@ const release = join(root, 'release')
 const files = await readdir(release)
 const patterns = {
   mac: [/\.dmg$/],
-  linux: [new RegExp(`-${arch}\\.AppImage$`), new RegExp(`-${arch}\\.deb$`)],
+  linux: [
+    new RegExp(`-${arch === 'x64' ? 'x86_64' : arch}\\.AppImage$`),
+    new RegExp(`-${arch === 'x64' ? 'amd64' : arch}\\.deb$`),
+  ],
   win: [/^TON-Browser-Setup-.*\.exe$/, /^TON-Browser-Portable-.*\.exe$/],
 }[platform]
 if (!patterns) throw new Error('Usage: node scripts/verify-packaged-runtime.mjs [mac|linux|win] [x64|arm64]')

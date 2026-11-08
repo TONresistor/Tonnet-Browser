@@ -26,6 +26,7 @@ import { WalletQueryService } from './query-service'
 import { WalletSigningService } from './signing-service'
 
 import { WalletAccountService } from './account-service'
+import { resolveStructuredTransfers, type StructuredTransferItem } from './structured-transfers'
 import { warmupWalletBridge } from './bridge-warmup'
 import type { WalletBridgePort } from './bridge-port'
 
@@ -156,7 +157,11 @@ export class WalletEngine extends EventEmitter {
     this.signingService = new WalletSigningService({
       getAddress: () => this.walletContract?.address ?? null,
       nowSeconds: () => Math.floor(Date.now() / 1000),
-      signDigest: (digest) => this.signWithKeyUnlocked((secretKey) => Buffer.from(sign(digest, secretKey))),
+      signDigest: (digest, signal) =>
+        this.signWithKeyUnlocked((secretKey) => {
+          signal?.throwIfAborted()
+          return Buffer.from(sign(digest, secretKey))
+        }),
     })
     this.accountService = new WalletAccountService({
       getPublicKey: () => this.publicKey,
@@ -427,11 +432,12 @@ export class WalletEngine extends EventEmitter {
     }
     return result
   }
-  async unlock(password: string): Promise<WalletState> {
+  async unlock(password: string, signal?: AbortSignal): Promise<WalletState> {
     const session = this.sessionRevision
     return this.runExclusive(() => {
+      signal?.throwIfAborted()
       if (session !== this.sessionRevision) throw new Error('Wallet session changed')
-      return this.unlockUnlocked(password)
+      return this.unlockUnlocked(password, signal)
     })
   }
   lock(): WalletState {
@@ -561,18 +567,37 @@ export class WalletEngine extends EventEmitter {
     return this.accountService.getTonConnectAccount()
   }
 
-  async signTonConnectTransaction(
+  async resolveTonConnectItems(
+    items: readonly StructuredTransferItem[],
+    expectedAddress: string,
+    expectedSession = this.sessionRevision,
+    signal?: AbortSignal
+  ) {
+    const assertCurrent = () => {
+      signal?.throwIfAborted()
+      this.assertSigningReady()
+      if (expectedSession !== this.sessionRevision) throw new Error('Wallet session changed')
+      this.accountService.assertTonConnectAccount(expectedAddress)
+    }
+    assertCurrent()
+    const bridge = this.getBridge()
+    if (!bridge) throw new Error('Bridge not connected')
+    return resolveStructuredTransfers(items, expectedAddress, bridge, assertCurrent)
+  }
+
+  async signTonConnectMessage(
     messages: TonConnectOutMessage[],
-    expectedAddress?: string,
-    operationId: string = randomUUID(),
-    validUntil?: number,
-    expectedSession?: number,
-    authorize?: TransferAuthorization
+    expectedAddress: string,
+    operationId: string,
+    validUntil: number | undefined,
+    expectedSession: number | undefined,
+    authorize: TransferAuthorization,
+    signal?: AbortSignal
   ): Promise<string> {
     if (expectedSession !== undefined && expectedSession !== this.sessionRevision)
       throw new Error('Wallet session changed')
     this.accountService.assertTonConnectAccount(expectedAddress)
-    const op = await this.sendTransfer(
+    const operation = await this.transfers.signMessage(
       {
         operationId,
         validUntil,
@@ -581,7 +606,37 @@ export class WalletEngine extends EventEmitter {
           bounce: Address.parseFriendly(message.address).isBounceable,
         })),
       },
-      authorize
+      authorize,
+      signal
+    )
+    if (!operation.boc) throw new Error('Signed message unavailable')
+    return operation.boc
+  }
+
+  async signTonConnectTransaction(
+    messages: TonConnectOutMessage[],
+    expectedAddress?: string,
+    operationId: string = randomUUID(),
+    validUntil?: number,
+    expectedSession?: number,
+    authorize?: TransferAuthorization,
+    signal?: AbortSignal
+  ): Promise<string> {
+    if (expectedSession !== undefined && expectedSession !== this.sessionRevision)
+      throw new Error('Wallet session changed')
+    this.accountService.assertTonConnectAccount(expectedAddress)
+    const op = await this.transfers.sendTransfer(
+      {
+        operationId,
+        validUntil,
+        messages: messages.map((message) => ({
+          ...message,
+          bounce: Address.parseFriendly(message.address).isBounceable,
+        })),
+      },
+      authorize,
+      true,
+      signal
     )
     if (!op.boc) throw new Error('Signed operation unavailable')
     return op.boc
@@ -607,15 +662,17 @@ export class WalletEngine extends EventEmitter {
     domain: string,
     payload: SignDataPayloadInput,
     expectedAddress?: string,
-    expectedSession?: number
+    expectedSession?: number,
+    signal?: AbortSignal
   ): Promise<SignDataResult> {
     if (expectedSession !== undefined && expectedSession !== this.sessionRevision)
       throw new Error('Wallet session changed')
     const session = expectedSession ?? this.sessionRevision
     return this.runExclusive(() => {
+      signal?.throwIfAborted()
       if (session !== this.sessionRevision) throw new Error('Wallet session changed')
       this.accountService.assertTonConnectAccount(expectedAddress)
-      return this.signingService.signData(domain, payload)
+      return this.signingService.signData(domain, payload, signal)
     })
   }
 
@@ -653,11 +710,12 @@ export class WalletEngine extends EventEmitter {
     return result
   }
 
-  private async unlockUnlocked(password: string): Promise<WalletState> {
+  private async unlockUnlocked(password: string, signal?: AbortSignal): Promise<WalletState> {
     const session = this.sessionRevision
     const keypair = await this.keyStorage.load(password)
-    if (session !== this.sessionRevision) {
+    if (session !== this.sessionRevision || signal?.aborted) {
       this.keyStorage.lock()
+      signal?.throwIfAborted()
       throw new Error('Wallet session changed')
     }
     if (!this.publicKey || !keypair.publicKey.equals(this.publicKey)) throw new Error('Wallet identity mismatch')
@@ -666,6 +724,7 @@ export class WalletEngine extends EventEmitter {
     const unlockedSession = this.sessionRevision
     try {
       await this.openJournal()
+      signal?.throwIfAborted()
       this.assertWalletSession(unlockedSession)
     } catch (error) {
       if (this.sessionRevision === unlockedSession) this.lock()

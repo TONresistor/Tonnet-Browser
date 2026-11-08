@@ -358,6 +358,63 @@ it('invalidates a queued signature when the same phrase is imported again', asyn
   }
 }, 20_000)
 
+it('rejects a queued TON Connect signature after its request is revoked', async () => {
+  const s = await fixture()
+  try {
+    const created = await s.engine.create({ password: 'correct horse battery staple' })
+    const controller = new AbortController()
+    const signing = s.engine.signData(
+      'app.ton',
+      { type: 'text', text: 'ownership' },
+      created.addressRaw,
+      s.engine.getSessionRevision(),
+      controller.signal
+    )
+    controller.abort()
+    await expect(signing).rejects.toMatchObject({ name: 'AbortError' })
+    created.mnemonic.fill('')
+  } finally {
+    await s.engine.shutdown()
+  }
+}, 20_000)
+
+it('keeps the wallet locked when a TON Connect unlock is cancelled during vault access', async () => {
+  const reading = deferred<void>()
+  const release = deferred<void>()
+  let pause = false
+  const s = await fixture(false, {}, (vault) => ({
+    ...vault,
+    files: {
+      ...vault.files,
+      readFile: (async (...args: Parameters<typeof fs.readFile>) => {
+        const bytes = await fs.readFile(...args)
+        if (pause && String(args[0]) === vault.filePath) {
+          reading.resolve()
+          await release.promise
+        }
+        return bytes
+      }) as typeof fs.readFile,
+    },
+  }))
+  try {
+    const created = await s.engine.create({ password: 'correct horse battery staple' })
+    created.mnemonic.fill('')
+    s.engine.lock()
+    pause = true
+    const controller = new AbortController()
+    const unlocking = s.engine.unlock('correct horse battery staple', controller.signal)
+    const rejected = expect(unlocking).rejects.toMatchObject({ name: 'AbortError' })
+    await reading.promise
+    controller.abort()
+    release.resolve()
+    await rejected
+    expect(s.engine.getState().isLocked).toBe(true)
+  } finally {
+    release.resolve()
+    await s.engine.shutdown()
+  }
+}, 20_000)
+
 it('restores the previous vault if a replacement write fails after rename', async () => {
   const s = await fixture()
   try {

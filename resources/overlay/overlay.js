@@ -247,12 +247,17 @@ function renderApproval(content, animate = true) {
   scrim.className = 'tc-scrim'
 
   const card = document.createElement('div')
-  card.className = 'tc-card' + (animate ? '' : ' tc-card-static')
+  card.className = 'tc-card' + (content.passwordLabel ? ' tc-unlock' : '') + (animate ? '' : ' tc-card-static')
   card.addEventListener('click', (e) => e.stopPropagation())
   let actionPending = false
+  let passwordInput = null
   const dispatchAction = (action, data) => {
     if (actionPending) return
     actionPending = true
+    if (passwordInput) {
+      passwordInput.value = ''
+      passwordInput.disabled = true
+    }
     for (const button of card.querySelectorAll('button')) button.disabled = true
     window.overlayBridge.sendAction(action, data)
   }
@@ -269,6 +274,13 @@ function renderApproval(content, animate = true) {
     fb.className = 'tc-icon-ton'
     fb.innerHTML =
       '<svg width="52" height="52" viewBox="0 0 237 237" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M118.204 0.000292436C183.486 0.000292436 236.408 52.9224 236.408 118.205C236.408 183.487 183.486 236.408 118.204 236.408C52.9216 236.408 0.000184007 183.487 0 118.205C0 52.9225 52.9215 0.000452012 118.204 0.000292436ZM74.1011 62.1965C57.6799 62.1965 47.268 79.912 55.5308 94.2347L109.964 188.582C113.619 194.922 122.781 194.922 126.436 188.582L180.88 94.2347C189.132 79.9343 178.72 62.1966 162.31 62.1965H74.1011ZM162.288 78.8412C166.031 78.8412 168.234 82.8121 166.45 85.9075L137.856 137.091L137.851 137.099L126.506 159.046V78.8412H162.288ZM109.872 78.8517V159.024L98.5376 137.088L98.5334 137.08L69.9294 85.9215L69.8468 85.7725C68.2134 82.6997 70.405 78.8517 74.0899 78.8517H109.872Z" fill="#4DB8FF"/></svg>'
+    card.appendChild(fb)
+  } else if (content.iconLock) {
+    const fb = document.createElement('div')
+    fb.className = 'tc-icon-fallback'
+    fb.setAttribute('aria-hidden', 'true')
+    fb.innerHTML =
+      '<svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M10.3281 9.52747C10.3281 7.44029 11.9766 5.73992 14 5.73992C16.0234 5.73992 17.6719 7.44029 17.6719 9.52747V12.63C17.2734 12.622 16.8281 12.622 16.3125 12.622H11.6875C11.1719 12.622 10.7266 12.622 10.3281 12.63V9.52747ZM7.67188 13.178V9.52747C7.67188 5.92527 10.5078 3 14 3C17.4922 3 20.3281 5.92527 20.3281 9.52747V13.178C20.875 13.5326 21.3203 14.0322 21.6094 14.6286C22 15.4103 22 16.4337 22 18.4886V19.1333C22 21.1883 22 22.2117 21.6094 23.0015C21.2734 23.6864 20.7266 24.2505 20.0625 24.5971C19.2969 25 18.3047 25 16.3125 25H11.6875C9.69531 25 8.70312 25 7.9375 24.5971C7.27344 24.2505 6.72656 23.6864 6.39062 23.0015C6 22.2117 6 21.1883 6 19.1333V18.4886C6 16.4337 6 15.4103 6.39062 14.6286C6.67969 14.0322 7.125 13.5326 7.67188 13.178Z" fill="currentColor"/></svg>'
     card.appendChild(fb)
   } else if (content.iconFallback) {
     const fb = document.createElement('div')
@@ -298,7 +310,8 @@ function renderApproval(content, animate = true) {
     const span = document.createElement('span')
     span.textContent = content.domain
     d.appendChild(span)
-    card.appendChild(d)
+    if (content.passwordLabel) card.insertBefore(d, card.firstChild)
+    else card.appendChild(d)
   }
   if (content.amount) {
     const a = document.createElement('div')
@@ -450,19 +463,46 @@ function renderApproval(content, animate = true) {
     card.appendChild(rows)
   }
 
+  if (content.passwordLabel) {
+    const field = document.createElement('div')
+    field.className = 'tc-password'
+    passwordInput = document.createElement('input')
+    passwordInput.className = 'form-input'
+    passwordInput.type = 'password'
+    passwordInput.placeholder = content.passwordLabel
+    passwordInput.autocomplete = 'current-password'
+    passwordInput.maxLength = 256
+    passwordInput.spellcheck = false
+    passwordInput.setAttribute('aria-label', content.passwordLabel)
+    passwordInput.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter' && event.key !== 'Escape') return
+      event.preventDefault()
+      event.stopPropagation()
+      dispatchAction(
+        event.key === 'Enter' ? 'approve' : 'dismiss',
+        event.key === 'Enter' ? { password: passwordInput.value } : {}
+      )
+    })
+    field.appendChild(passwordInput)
+    card.appendChild(field)
+  }
+
   const actions = document.createElement('div')
   actions.className = 'tc-actions'
   for (const action of (content.actions || [])) {
     const btn = document.createElement('button')
     btn.className = 'tc-btn ' + (action.primary ? 'tc-btn-primary' : 'tc-btn-secondary')
     btn.textContent = action.label || action.id
-    btn.addEventListener('click', () => dispatchAction(action.id, {}))
+    btn.addEventListener('click', () =>
+      dispatchAction(action.id, passwordInput && action.id === 'approve' ? { password: passwordInput.value } : {})
+    )
     actions.appendChild(btn)
   }
   card.appendChild(actions)
 
   scrim.appendChild(card)
   root.appendChild(scrim)
+  if (passwordInput) passwordInput.focus()
 }
 
 function updateSelection(index) {
@@ -515,6 +555,7 @@ window.overlayBridge.onTheme((theme) => {
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     e.preventDefault()
+    for (const input of root.querySelectorAll('input[type="password"]')) input.value = ''
     window.overlayBridge.sendAction('dismiss', {})
     return
   }

@@ -1,10 +1,50 @@
 import { Address, beginCell, Cell, internal, loadMessage, loadMessageRelaxed, loadOutList, SendMode } from '@ton/core'
-import { keyPairFromSeed } from '@ton/crypto'
+import { keyPairFromSeed, signVerify } from '@ton/crypto'
 import { describe, expect, it } from 'vitest'
-import { buildExternalWalletBoc } from '../wallet-boc'
+import { buildExternalWalletBoc, buildInternalWalletBoc } from '../wallet-boc'
 import { createWalletContract, WalletVersionSchema } from '../wallet-versions'
 
 describe('buildExternalWalletBoc', () => {
+  it('builds a verifiable V5R1 signed internal body with send mode 3', () => {
+    const keys = keyPairFromSeed(Buffer.alloc(32, 7))
+    const contract = createWalletContract('v5R1', keys.publicKey)
+    const result = buildInternalWalletBoc({
+      walletContract: contract,
+      secretKey: keys.secretKey,
+      messages: [internal({ to: Address.parseRaw(`0:${'22'.repeat(32)}`), value: 7n })],
+      seqno: 8,
+      validUntil: 1300,
+    })
+    const body = Cell.fromBase64(result.boc)
+    const signed = body.beginParse()
+    const unsigned = beginCell().storeBits(signed.loadBits(signed.remainingBits - 512))
+    for (const ref of body.refs) unsigned.storeRef(ref)
+    const signature = signed.loadBuffer(64)
+    expect(signVerify(unsigned.endCell().hash(), signature, keys.publicKey)).toBe(true)
+    const payload = body.beginParse()
+    expect(payload.loadUint(32)).toBe(0x73696e74)
+    payload.skip(32)
+    expect(payload.loadUint(32)).toBe(1300)
+    expect(payload.loadUint(32)).toBe(8)
+    const actions = loadOutList(payload.loadMaybeRef()!.beginParse())
+    expect(actions).toHaveLength(1)
+    expect(actions[0]).toMatchObject({ type: 'sendMsg', mode: 3 })
+    keys.secretKey.fill(0)
+  })
+
+  it('refuses signed internal messages for legacy wallet contracts', () => {
+    const keys = keyPairFromSeed(Buffer.alloc(32, 7))
+    expect(() =>
+      buildInternalWalletBoc({
+        walletContract: createWalletContract('v4R2', keys.publicKey),
+        secretKey: keys.secretKey,
+        messages: [],
+        seqno: 1,
+        validUntil: 1300,
+      })
+    ).toThrow('V5R1')
+    keys.secretKey.fill(0)
+  })
   it.each(WalletVersionSchema.options)('builds a first transfer for %s', (version) => {
     const keypair = keyPairFromSeed(Buffer.alloc(32, 7))
     const walletContract = createWalletContract(version, keypair.publicKey)

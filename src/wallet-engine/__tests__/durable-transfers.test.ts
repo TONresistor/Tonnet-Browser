@@ -133,6 +133,102 @@ function setup(version: 'v3R1' | 'v3R2' | 'v4R2' | 'v5R1' = 'v5R1') {
 }
 
 describe('durable wallet transfers without Electron', () => {
+  it('journals signed internal messages before returning and never broadcasts or retries them itself', async () => {
+    const s = setup()
+    await s.journal.open(s.pair.secretKey, s.account)
+    const op = await s.transfers.signMessage(s.intent, async (review) => {
+      expect(review.estimatedFee).toBe('0')
+      return true
+    })
+    expect(op).toMatchObject({ phase: 'handed-off', messageType: 'internal', closed: false })
+    expect(Cell.fromBase64(op.boc!).beginParse().loadUint(32)).toBe(0x73696e74)
+    const restored = new OperationJournal(s.store)
+    await restored.open(s.pair.secretKey, s.account)
+    expect(restored.get(op.id)).toMatchObject({ boc: op.boc, messageType: 'internal' })
+    await expect(s.transfers.retryOperation(op.id, async () => true)).rejects.toThrow('original relay')
+    await expect(s.transfers.sendTransfer({ ...s.intent, operationId: 'another' }, async () => true)).rejects.toThrow(
+      'unresolved'
+    )
+    expect(s.provider.broadcast).not.toHaveBeenCalled()
+    expect(s.provider.sendAndWatch).not.toHaveBeenCalled()
+    expect(s.provider.emulateTransaction).not.toHaveBeenCalled()
+  })
+
+  it('does not require a wallet gas balance for a message the relay will fund', async () => {
+    const s = setup()
+    s.snapshot.balance = '0'
+    await s.journal.open(s.pair.secretKey, s.account)
+    await expect(s.transfers.signMessage(s.intent, async () => true)).resolves.toMatchObject({
+      messageType: 'internal',
+    })
+    expect(s.provider.sendAndWatch).not.toHaveBeenCalled()
+  })
+
+  it('does not sign an internal message after rejection or revocation during approval', async () => {
+    for (const revoked of [false, true]) {
+      const s = setup()
+      await s.journal.open(s.pair.secretKey, s.account)
+      const controller = new AbortController()
+      await expect(
+        s.transfers.signMessage(
+          s.intent,
+          async () => {
+            if (revoked) controller.abort()
+            return revoked
+          },
+          controller.signal
+        )
+      ).rejects.toThrow()
+      expect(s.signing).not.toHaveBeenCalled()
+      expect(s.provider.sendAndWatch).not.toHaveBeenCalled()
+    }
+  })
+
+  it('does not expose a signed internal body if durable persistence fails', async () => {
+    const s = setup()
+    await s.journal.open(s.pair.secretKey, s.account)
+    s.store.compareExchange = vi.fn(async () => {
+      throw new Error('disk failure')
+    })
+    await expect(s.transfers.signMessage(s.intent, async () => true)).rejects.toThrow('disk failure')
+    expect(s.provider.sendAndWatch).not.toHaveBeenCalled()
+  })
+
+  it.each(['approval', 'revalidation', 'key-access'])(
+    'does not sign a TON Connect transfer revoked during %s',
+    async (phase) => {
+      const s = setup()
+      await s.journal.open(s.pair.secretKey, s.account)
+      const controller = new AbortController()
+      if (phase === 'revalidation') {
+        vi.mocked(s.provider.emulateTransaction).mockImplementation(async (_address, _boc, context) => {
+          if (context?.revalidate) controller.abort()
+          return {
+            accepted: true,
+            success: true,
+            exit_code: 0,
+            total_fees: '100',
+            wallet_snapshot: structuredClone(s.snapshot),
+          }
+        })
+      }
+      if (phase === 'key-access') s.signing.mockImplementationOnce(() => controller.abort())
+      const sending = s.transfers.sendTransfer(
+        s.intent,
+        async () => {
+          if (phase === 'approval') controller.abort()
+          return true
+        },
+        true,
+        controller.signal
+      )
+      await expect(sending).rejects.toThrow()
+      expect(controller.signal.aborted).toBe(true)
+      expect(s.journal.get(s.intent.operationId)).toBeUndefined()
+      expect(s.provider.sendAndWatch).not.toHaveBeenCalled()
+    }
+  )
+
   it('times revalidation and reconciliation without counting the user decision', async () => {
     let now = 0
     const clock = vi.spyOn(performance, 'now').mockImplementation(() => now)
@@ -612,7 +708,25 @@ function transactionRecord(
     outMessagesCount: 0,
     oldStatus: s.snapshot.status === 'uninit' ? 'uninitialized' : 'active',
     endStatus: 'active',
-    inMessage: loadMessage(Cell.fromBase64(operation.boc!).beginParse()),
+    inMessage:
+      operation.messageType === 'internal'
+        ? {
+            info: {
+              type: 'internal',
+              ihrDisabled: true,
+              bounce: true,
+              bounced: false,
+              src: Address.parseRaw(`0:${'55'.repeat(32)}`),
+              dest: s.contract.address,
+              value: { coins: 100000000n },
+              ihrFee: 0n,
+              forwardFee: 0n,
+              createdLt: 99n,
+              createdAt: 1001,
+            },
+            body: Cell.fromBase64(operation.boc!),
+          }
+        : loadMessage(Cell.fromBase64(operation.boc!).beginParse()),
     outMessages: Dictionary.empty<number, Message>(Dictionary.Keys.Uint(15), {
       serialize: (message, builder) => builder.storeRef(beginCell().store(storeMessage(message)).endCell()),
       parse: (slice) => loadMessage(slice.loadRef().beginParse()),
@@ -714,6 +828,17 @@ describe('chain evidence and replay boundaries', () => {
       transactions: [record],
     }
   }
+
+  it('recognizes a relayed internal signature from validated transaction evidence and releases its seqno', async () => {
+    const s = setup()
+    await s.journal.open(s.pair.secretKey, s.account)
+    const operation = await s.transfers.signMessage(s.intent, async () => true)
+    receiptFor(s, operation)
+    await s.transfers.resolvePending()
+    expect(s.journal.get(operation.id)).toMatchObject({ phase: 'included', execution: 'succeeded', closed: true })
+    expect(s.journal.pending()).toBeUndefined()
+    expect(s.provider.sendAndWatch).not.toHaveBeenCalled()
+  })
 
   it.each(['v3R1', 'v3R2', 'v4R2', 'v5R1'] as const)(
     'verifies a %s receipt without fetching the account or transactions again',
