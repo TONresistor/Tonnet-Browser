@@ -26,6 +26,16 @@ import type { OverlayMenuItem } from '../../shared/types'
 import type { TabStorageState } from './tabs-storage'
 
 const log = createLogger('tabs-events')
+
+function copyText(text: string, message: string): void {
+  try {
+    // Electron's clipboard API is synchronous. Tests model a rejected promise.
+    const result = clipboard.writeText(text) as void | Promise<void>
+    void Promise.resolve(result).catch((error: unknown) => log.error(message, error))
+  } catch (error) {
+    log.error(message, error)
+  }
+}
 const PAGE_SCROLLBAR_CSS = `
   * { scrollbar-color: rgb(160 160 160 / 80%) transparent !important; }
   :root { scrollbar-width: thin !important; scrollbar-gutter: auto !important; }
@@ -265,11 +275,7 @@ export function setupViewEventListeners(view: WebContentsView, tabId: string, de
               break
             case 'copy-link':
             case 'copy-image-url':
-              try {
-                clipboard.writeText(d.url)
-              } catch (error) {
-                log.error('Failed to copy URL:', error)
-              }
+              copyText(d.url, 'Failed to copy URL:')
               break
             case 'back':
               deps.cancelNavigation(tabId)

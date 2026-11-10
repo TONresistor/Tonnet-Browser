@@ -13,6 +13,16 @@ import { createLogger } from '../../shared/logger'
 
 const log = createLogger('main-context-menu')
 
+function copyText(text: string, message: string): void {
+  try {
+    // Electron's clipboard API is synchronous. Tests model a rejected promise.
+    const result = clipboard.writeText(text) as void | Promise<void>
+    void Promise.resolve(result).catch((error: unknown) => log.error(message, error))
+  } catch (error) {
+    log.error(message, error)
+  }
+}
+
 export function setupMainContextMenu(mainWindow: BrowserWindow, overlayManager: OverlayManager): IDisposable {
   return onWebContents(mainWindow.webContents, 'context-menu', (_e: unknown, params: Electron.ContextMenuParams) => {
     const items: OverlayMenuItem[] = []
@@ -64,11 +74,7 @@ export function setupMainContextMenu(mainWindow: BrowserWindow, overlayManager: 
             mainWindow.webContents.selectAll()
             break
           case 'copy-link':
-            try {
-              clipboard.writeText((actionData as Record<string, string>).url)
-            } catch (error) {
-              log.error('Failed to copy link:', error)
-            }
+            copyText((actionData as Record<string, string>).url, 'Failed to copy link:')
             break
           case 'dismiss':
             break
