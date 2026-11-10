@@ -681,9 +681,7 @@ describe('WalletManager TON Connect encryption', () => {
     ).withSigningState.bind(manager)
 
     state.encryptionService = {
-      encryptTonConnectPayload: vi.fn((_plain, _peer, identity) =>
-        withSigningState(identity, async () => 'encrypted')
-      ),
+      encryptTonConnectPayload: vi.fn((_plain, _peer, identity) => withSigningState(identity, async () => 'encrypted')),
       decryptTonConnectPayload: vi.fn((_envelope, _salt, identity) =>
         withSigningState(identity, async () => Buffer.from('plain'))
       ),
@@ -707,10 +705,7 @@ describe('WalletManager TON Connect encryption', () => {
   it('encryptData settles without deadlocking runExclusive', async () => {
     const { manager, addressRaw, recipientPublicKey } = prepareEncryptionManager()
     const result = await expectSettlesWithin(
-      manager.encryptData(
-        { bytes: Buffer.from('hello').toString('base64'), recipientPublicKey },
-        addressRaw
-      ),
+      manager.encryptData({ bytes: Buffer.from('hello').toString('base64'), recipientPublicKey }, addressRaw),
       500
     )
     expect(result).toBe('encrypted')
@@ -720,10 +715,7 @@ describe('WalletManager TON Connect encryption', () => {
     const { manager, addressRaw } = prepareEncryptionManager()
     const salt = Address.parse(VALID_ADDRESS).toString({ bounceable: true, urlSafe: true })
     const result = await expectSettlesWithin(
-      manager.decryptData(
-        { encrypted: Buffer.from('env').toString('base64'), salt },
-        addressRaw
-      ),
+      manager.decryptData({ encrypted: Buffer.from('env').toString('base64'), salt }, addressRaw),
       500
     )
     expect(result).toBe(Buffer.from('plain').toString('base64'))

@@ -64,9 +64,11 @@ export function setupMainContextMenu(mainWindow: BrowserWindow, overlayManager: 
             mainWindow.webContents.selectAll()
             break
           case 'copy-link':
-            void clipboard
-              .writeText((actionData as Record<string, string>).url)
-              .catch((error) => log.error('Failed to copy link:', error))
+            try {
+              clipboard.writeText((actionData as Record<string, string>).url)
+            } catch (error) {
+              log.error('Failed to copy link:', error)
+            }
             break
           case 'dismiss':
             break

@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Fixed
 
 - Sync the npm lockfile so a clean install succeeds on the Node 22 release runners.
+- Fix release type errors: drop an unused wallet import, and copy context-menu links with the synchronous clipboard API.
 
 ## [2.7.1] - 2026-09-27
 

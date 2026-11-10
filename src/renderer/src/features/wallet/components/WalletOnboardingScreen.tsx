@@ -7,11 +7,7 @@ import { ActionButton } from '@/components/ui/ios/ActionButton'
 import { Button } from '@/components/ui/button'
 import { WalletPasswordFields } from './WalletPasswordFields'
 import { WalletAccountCandidates } from './WalletAccountCandidates'
-import {
-  WalletVersionSelect,
-  pickDefaultAccount,
-  type WalletVersionOption,
-} from './WalletVersionSelect'
+import { WalletVersionSelect, pickDefaultAccount, type WalletVersionOption } from './WalletVersionSelect'
 import type { WalletAccountCandidate } from '@shared/ipc-contract/wallet'
 import { cn } from '@/lib/utils'
 
@@ -263,11 +259,7 @@ export function WalletOnboardingScreen({
               <span className={wordCount === 24 ? 'text-success' : 'text-muted-foreground'}>{wordCount} words</span>
             </div>
             <WalletVersionSelect value={preferredVersion} onChange={setPreferredVersion} disabled={isLoading} />
-            <WalletAccountCandidates
-              candidates={candidates}
-              selected={selectedAccount}
-              onSelect={setSelectedAccount}
-            />
+            <WalletAccountCandidates candidates={candidates} selected={selectedAccount} onSelect={setSelectedAccount} />
           </>
         )}
 
