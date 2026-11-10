@@ -221,4 +221,26 @@ The GitHub Actions workflow (`.github/workflows/build.yml`) handles:
 3. Uploading binaries as artifacts
 4. Creating releases with all binaries attached
 
-To publish, create an annotated `v*` tag on `main` and push it. A manual workflow run builds packages without creating a GitHub release.
+Publishing uses the git remote named `fork` (`enlighTON/Tonnet-Browser`). The publish script sets `remote.pushDefault` to `fork`, so a later plain `git push` goes there too. It does not push to `upstream`.
+
+```bash
+./scripts/publish-release.sh --dry-run   # checks only
+./scripts/publish-release.sh             # annotated tag + fast-forward fork/main
+```
+
+Before running it:
+
+1. Set `version` in `package.json` and both version fields in `package-lock.json` to the same `major.minor.patch`.
+2. Move `## [Unreleased]` in `CHANGELOG.md` to `## [x.y.z] - YYYY-MM-DD` and add a fresh `## [Unreleased]` section.
+3. Commit. The working tree must be clean.
+4. `fork/main` must be an ancestor of `HEAD`. The script fast-forwards `fork/main` to `HEAD` and refuses to force-push.
+
+The workflow then requires:
+
+- The tag equals `package.json` (`v2.8.0` for version `2.8.0`) and the tagged commit is on the fork's `main`. A manual **Run workflow** builds packages and does not create a release.
+- Actions enabled on the fork, with workflow permissions allowed to write contents, so the release job can upload assets. No extra token is required for that upload.
+- The release assets are the Windows setup and portable `.exe`, the universal macOS `.dmg`, Linux x64 and arm64 `.AppImage` and `.deb` files, update metadata, SBOM, provenance, and `SHA256SUMS.txt`.
+- macOS is ad-hoc signed (`identity: "-"`). Windows is unsigned, so SmartScreen warns. No Apple or Windows signing secrets are used.
+- WinGet publishing runs after the release and needs a `WINGET_TOKEN` secret on the fork. Without it, that job fails and the GitHub Release stays up.
+
+Download page: `https://github.com/enlighTON/Tonnet-Browser/releases/latest`

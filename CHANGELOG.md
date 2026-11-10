@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Release script that tags the current version and pushes that tag to the `fork` remote, which is also the default `git push` target.
 - Decryption of encrypted transfer memos in transaction details, for both sent and received messages. Recovered text is held in memory only and cleared on lock, account change or history clear.
 - TON Connect `encryptData` and `decryptData`, so .ton sites can exchange encrypted payloads with the built-in wallet.
 - `docs/ENCRYPTION.md` describing the `ton-simple-v2` envelope, both transports, the salt rules, the threat model and the interoperability matrix.

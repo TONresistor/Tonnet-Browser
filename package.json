@@ -56,6 +56,7 @@
     "build:linux:arm64": "npm run build:binaries:linux:arm64 && npm run verify:binaries:linux:arm64 && npm run build && electron-builder --linux --arm64",
     "build:win": "npm run build:binaries:win && npm run verify:binaries:win && npm run build && electron-builder --win",
     "build:mac": "npm run build:binaries:mac && npm run verify:binaries:mac && npm run build && electron-builder --mac",
+    "publish:release": "bash scripts/publish-release.sh",
     "clean": "rimraf out dist release",
     "validate": "npm run architecture && npm run verify:theme-tokens && npm run type-check && npm run lint && npm run format:check && npm test"
   },
