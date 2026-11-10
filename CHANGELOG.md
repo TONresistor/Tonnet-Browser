@@ -22,6 +22,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - X25519 key agreement moves to `@noble/curves`, replacing the hand-rolled ladder. Peer public keys are now validated and low-order keys rejected.
 - TON Connect validates `from` and `network` on every method; `signData` previously accepted both without checking them.
 
+### Fixed
+
+- Sync the npm lockfile so a clean install succeeds on the Node 22 release runners.
+
 ## [2.7.1] - 2026-09-27
 
 ### Changed
