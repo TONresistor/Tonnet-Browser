@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.7.11] - 2026-11-10
+
 ### Added
 
 - Release script that tags the current version and pushes that tag to the `fork` remote, which is also the default `git push` target.
@@ -16,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- This build is the enlighTON fork of TONresistor's Tonnet Browser. Download links open this fork's GitHub releases.
 - X25519 key agreement moves to `@noble/curves`, replacing the hand-rolled ladder. Peer public keys are now validated and low-order keys rejected.
 - TON Connect validates `from` and `network` on every method; `signData` previously accepted both without checking them.
 
@@ -466,7 +469,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Preload script path for ES module builds.
 - Utya Duck theme persistence and colors.
 
-[Unreleased]: https://github.com/TONresistor/Tonnet-Browser/compare/v2.7.0...HEAD
+[Unreleased]: https://github.com/enlighTON/Tonnet-Browser/compare/v2.7.11...HEAD
+[2.7.11]: https://github.com/enlighTON/Tonnet-Browser/compare/v2.7.1...v2.7.11
 [2.7.0]: https://github.com/TONresistor/Tonnet-Browser/compare/v2.6.0...v2.7.0
 [2.6.0]: https://github.com/TONresistor/Tonnet-Browser/compare/v2.5.0...v2.6.0
 [2.5.0]: https://github.com/TONresistor/Tonnet-Browser/compare/v2.4.0...v2.5.0

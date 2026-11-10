@@ -21,7 +21,7 @@ import {
 const log = createLogger('updater')
 
 const MANIFEST_URL = 'https://tonnet.resistance.dog/updates.json'
-const DOWNLOAD_PAGE_URL = 'https://tonnet.resistance.dog/download'
+const DOWNLOAD_PAGE_URL = 'https://github.com/enlighTON/Tonnet-Browser/releases/latest'
 const FETCH_TIMEOUT_MS = 10_000
 /** Hard cap on the manifest body so a hostile/broken server can't grow memory. */
 const MANIFEST_MAX_BYTES = 64 * 1024

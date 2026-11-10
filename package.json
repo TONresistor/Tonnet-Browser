@@ -1,14 +1,14 @@
 {
   "name": "ton-browser",
-  "version": "2.7.1",
+  "version": "2.7.11",
   "description": "Browse tonsites on The Open Network, Privately.",
   "homepage": "https://tonnet.resistance.dog",
   "bugs": {
-    "url": "https://github.com/TONresistor/Tonnet-Browser/issues"
+    "url": "https://github.com/enlighTON/Tonnet-Browser/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/TONresistor/Tonnet-Browser.git"
+    "url": "git+https://github.com/enlighTON/Tonnet-Browser.git"
   },
   "main": "./out/main/index.js",
   "author": {

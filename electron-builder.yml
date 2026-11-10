@@ -7,7 +7,7 @@ afterPack: "./scripts/afterPack.cjs"
 
 publish:
   provider: github
-  owner: TONresistor
+  owner: enlighTON
   repo: Tonnet-Browser
 
 files:
