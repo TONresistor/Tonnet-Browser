@@ -5,8 +5,6 @@ All notable changes to Tonnet Browser are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
-
 ## [2.7.11] - 2026-11-10
 
 ### Added
@@ -474,7 +472,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Preload script path for ES module builds.
 - Utya Duck theme persistence and colors.
 
-[Unreleased]: https://github.com/enlighTON/Tonnet-Browser/compare/v2.7.11...HEAD
 [2.7.11]: https://github.com/enlighTON/Tonnet-Browser/compare/v2.7.1...v2.7.11
 [2.7.0]: https://github.com/TONresistor/Tonnet-Browser/compare/v2.6.0...v2.7.0
 [2.6.0]: https://github.com/TONresistor/Tonnet-Browser/compare/v2.5.0...v2.6.0

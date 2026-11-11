@@ -231,7 +231,7 @@ Publishing uses the git remote named `fork` (`enlighTON/Tonnet-Browser`). The pu
 Before running it:
 
 1. Set `version` in `package.json` and both version fields in `package-lock.json` to the same `major.minor.patch`.
-2. Move `## [Unreleased]` in `CHANGELOG.md` to `## [x.y.z] - YYYY-MM-DD` and add a fresh `## [Unreleased]` section.
+2. Move `## [Unreleased]` in `CHANGELOG.md` to `## [x.y.z] - YYYY-MM-DD`. Do not leave an Unreleased heading. The release notes are that version section only.
 3. Commit. The working tree must be clean.
 4. `fork/main` must be an ancestor of `HEAD`. The script fast-forwards `fork/main` to `HEAD` and refuses to force-push.
 

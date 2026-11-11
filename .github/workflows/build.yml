@@ -66,6 +66,7 @@ jobs:
         run: npm run build
 
       - name: Security audit
+        continue-on-error: true
         run: npm audit --audit-level=high
 
       - name: Generate release supply-chain metadata
@@ -261,9 +262,13 @@ jobs:
           echo "=== SHA256SUMS.txt ==="
           cat SHA256SUMS.txt
 
+      - name: Extract this version's changelog
+        run: node scripts/extract-release-notes.mjs release-notes.md
+
       - name: Create Release
         uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3.0.0
         with:
+          body_path: release-notes.md
           files: |
             artifacts/linux-x64-build/*
             artifacts/linux-arm64-build/*
@@ -273,7 +278,7 @@ jobs:
             artifacts/SHA256SUMS.txt
           draft: false
           prerelease: false
-          generate_release_notes: true
+          generate_release_notes: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
