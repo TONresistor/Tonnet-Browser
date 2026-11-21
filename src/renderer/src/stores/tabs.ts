@@ -11,7 +11,7 @@ import { shortId } from '@/lib/id'
 import { createLogger } from '@/logger'
 import { browserClient } from '@/features/browser/client'
 import { usePreferencesStore } from '@/features/settings/preferences-store'
-import { selectTabTraversal } from '@/features/browser/tab-history'
+import { sameUrl, selectTabTraversal, tabNavigationFlags } from '@/features/browser/tab-history'
 import {
   getInternalPageFavicon,
   getInternalPageTitle,
@@ -43,6 +43,7 @@ interface TabsState {
   closeTab: (id: string) => Promise<void>
   setActiveTab: (id: string) => Promise<void>
   updateTab: (id: string, updates: Partial<Tab>) => void
+  recordViewRecreated: (tabId: string, url: string) => void
   navigateActiveTab: (url: string) => Promise<void>
   openOrSwitchToTab: (url: string) => Promise<void>
   ensureDefaultTab: () => Promise<void>
@@ -259,6 +260,47 @@ export const useTabsStore = create<TabsState>((set, get) => ({
     }))
   },
 
+  /**
+   * A different domain recreated the tab's view, so Chromium's history for the
+   * previous document is gone. The app-level list is the only survivor: keep it
+   * and append the page that was just loaded instead of starting from scratch.
+   */
+  recordViewRecreated: (tabId: string, url: string) => {
+    const tab = get().tabs.find((candidate) => candidate.id === tabId)
+    if (!tab) return
+    const previousUrl = tab.url
+    let history = tab.history.slice(0, tab.historyIndex + 1)
+    if (history.length === 0) history = previousUrl ? [previousUrl] : []
+    const target = history[history.length - 1]
+    if (!target || !sameUrl(target, url)) {
+      // Keep the page we are leaving even when it was only ever reached natively.
+      if (previousUrl && target && !sameUrl(target, previousUrl)) history[history.length - 1] = previousUrl
+      history = [...history, url]
+    }
+    let historyIndex = history.length - 1
+    if (history.length > MAX_HISTORY) {
+      const overflow = history.length - MAX_HISTORY
+      history = history.slice(overflow)
+      historyIndex -= overflow
+    }
+    const next: Tab = {
+      ...tab,
+      url,
+      history,
+      historyIndex: Math.max(0, historyIndex),
+      legacyStorageHistory: false,
+      nativeCanGoBack: false,
+      nativeCanGoForward: false,
+    }
+    const flags = tabNavigationFlags(next)
+    set((state) => ({
+      tabs: state.tabs.map((candidate) => (candidate.id === tabId ? { ...next, ...flags } : candidate)),
+    }))
+    if (get().activeTabId === tabId) {
+      useBrowserStore.getState().setNavigation(url, flags.canGoBack, flags.canGoForward)
+    }
+  },
+
   navigateActiveTab: async (url: string) => {
     const { activeTabId, ensureDefaultTab } = get()
 
@@ -296,7 +338,13 @@ export const useTabsStore = create<TabsState>((set, get) => ({
       url,
       history: newHistory,
       historyIndex: newHistoryIndex,
-      canGoBack: newHistoryIndex > 0,
+      canGoBack: tabNavigationFlags({
+        ...activeTab,
+        url,
+        history: newHistory,
+        historyIndex: newHistoryIndex,
+        legacyStorageHistory: false,
+      }).canGoBack,
       canGoForward: false,
     }
     if (internalTitle) {
@@ -354,12 +402,13 @@ export const useTabsStore = create<TabsState>((set, get) => ({
     const newIndex = target
     const newUrl = activeTab.history[newIndex]
     const internalTitle = getInternalPageTitle(newUrl)
+    const traversalFlags = tabNavigationFlags({ ...activeTab, url: newUrl, historyIndex: newIndex })
 
     const updates: Partial<Tab> = {
       url: newUrl,
       historyIndex: newIndex,
-      canGoBack: newIndex > 0,
-      canGoForward: true,
+      canGoBack: traversalFlags.canGoBack,
+      canGoForward: traversalFlags.canGoForward,
     }
     if (internalTitle) {
       updates.title = internalTitle
@@ -387,12 +436,13 @@ export const useTabsStore = create<TabsState>((set, get) => ({
     const newIndex = target
     const newUrl = activeTab.history[newIndex]
     const internalTitle = getInternalPageTitle(newUrl)
+    const traversalFlags = tabNavigationFlags({ ...activeTab, url: newUrl, historyIndex: newIndex })
 
     const updates: Partial<Tab> = {
       url: newUrl,
       historyIndex: newIndex,
-      canGoBack: true,
-      canGoForward: newIndex < activeTab.history.length - 1,
+      canGoBack: traversalFlags.canGoBack,
+      canGoForward: traversalFlags.canGoForward,
     }
     if (internalTitle) {
       updates.title = internalTitle
