@@ -1,74 +1,112 @@
 import type { WebContentsView } from 'electron'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { loadViewUrlBounded, PAGE_LOAD_TIMEOUT_MS } from '../page-load'
+import { armLoadWatchdog, loadUrlReportingFailure } from '../page-load'
+import { PAGE_LOAD_TIMEOUT_MS } from '../constants'
 
 interface StubView {
   view: WebContentsView
   stop: ReturnType<typeof vi.fn>
+  setLoading: (loading: boolean) => void
 }
 
-function stubView(loadURL: (url: string) => Promise<void>): StubView {
+function stubView(options: {
+  loadURL?: (url: string) => Promise<void>
+  loading?: boolean
+  destroyed?: boolean
+}): StubView {
   const stop = vi.fn()
-  const view = {
-    webContents: {
-      loadURL,
-      stop,
-      isDestroyed: () => false,
+  let loading = options.loading ?? true
+  const webContents = {
+    loadURL: options.loadURL ?? (() => Promise.resolve()),
+    stop,
+    isLoading: () => loading,
+    isDestroyed: () => options.destroyed ?? false,
+  }
+  return {
+    view: { webContents } as unknown as WebContentsView,
+    stop,
+    setLoading: (next: boolean) => {
+      loading = next
     },
   }
-  return { view: view as unknown as WebContentsView, stop }
 }
 
 afterEach(() => {
   vi.useRealTimers()
 })
 
-describe('loadViewUrlBounded', () => {
-  it('reports nothing when the load settles', async () => {
+describe('loadUrlReportingFailure', () => {
+  it('forwards an early rejection without waiting', async () => {
     vi.useFakeTimers()
-    const { view } = stubView(() => Promise.resolve())
+    const { view } = stubView({ loadURL: () => Promise.reject(new Error('ERR_CONNECTION_REFUSED')) })
     const onFailure = vi.fn()
 
-    loadViewUrlBounded(view, 'http://site.ton/', { isCurrent: () => true, onFailure })
-    await vi.advanceTimersByTimeAsync(PAGE_LOAD_TIMEOUT_MS * 2)
-
-    expect(onFailure).not.toHaveBeenCalled()
-  })
-
-  it('turns a load that never settles into a timeout failure', async () => {
-    vi.useFakeTimers()
-    const { view, stop } = stubView(() => new Promise<void>(() => undefined))
-    const onFailure = vi.fn()
-
-    loadViewUrlBounded(view, 'http://example.com/', { isCurrent: () => true, onFailure })
-    await vi.advanceTimersByTimeAsync(PAGE_LOAD_TIMEOUT_MS)
-
-    expect(stop).toHaveBeenCalledOnce()
-    expect(onFailure).toHaveBeenCalledOnce()
-    expect(onFailure.mock.calls[0][1]).toBe(true)
-  })
-
-  it('ignores the deadline once another navigation superseded the load', async () => {
-    vi.useFakeTimers()
-    const { view, stop } = stubView(() => new Promise<void>(() => undefined))
-    const onFailure = vi.fn()
-
-    loadViewUrlBounded(view, 'http://example.com/', { isCurrent: () => false, onFailure })
-    await vi.advanceTimersByTimeAsync(PAGE_LOAD_TIMEOUT_MS)
-
-    expect(stop).not.toHaveBeenCalled()
-    expect(onFailure).not.toHaveBeenCalled()
-  })
-
-  it('forwards an early load rejection without waiting for the deadline', async () => {
-    vi.useFakeTimers()
-    const { view } = stubView(() => Promise.reject(new Error('ERR_CONNECTION_REFUSED')))
-    const onFailure = vi.fn()
-
-    loadViewUrlBounded(view, 'http://example.com/', { isCurrent: () => true, onFailure })
+    loadUrlReportingFailure(view, 'http://example.com/', onFailure)
     await vi.advanceTimersByTimeAsync(0)
 
     expect(onFailure).toHaveBeenCalledOnce()
-    expect(onFailure.mock.calls[0][1]).toBe(false)
+    expect((onFailure.mock.calls[0][0] as Error).message).toBe('ERR_CONNECTION_REFUSED')
+  })
+
+  it('reports nothing when the load commits', async () => {
+    vi.useFakeTimers()
+    const { view } = stubView({})
+    const onFailure = vi.fn()
+
+    loadUrlReportingFailure(view, 'http://site.ton/', onFailure)
+    await vi.advanceTimersByTimeAsync(0)
+
+    expect(onFailure).not.toHaveBeenCalled()
+  })
+})
+
+describe('armLoadWatchdog', () => {
+  it('fires only after the deadline while the view is still loading', async () => {
+    vi.useFakeTimers()
+    const { view, stop } = stubView({})
+    const onTimeout = vi.fn()
+
+    armLoadWatchdog(view, onTimeout)
+    await vi.advanceTimersByTimeAsync(PAGE_LOAD_TIMEOUT_MS - 1)
+    expect(onTimeout).not.toHaveBeenCalled()
+
+    await vi.advanceTimersByTimeAsync(1)
+    expect(onTimeout).toHaveBeenCalledOnce()
+    expect(stop).not.toHaveBeenCalled()
+  })
+
+  it('stays silent when the page finished before the deadline', async () => {
+    vi.useFakeTimers()
+    const { view, setLoading } = stubView({})
+    const onTimeout = vi.fn()
+
+    armLoadWatchdog(view, onTimeout)
+    setLoading(false)
+    await vi.advanceTimersByTimeAsync(PAGE_LOAD_TIMEOUT_MS)
+
+    expect(onTimeout).not.toHaveBeenCalled()
+  })
+
+  it('can be disarmed by its cancel function', async () => {
+    vi.useFakeTimers()
+    const { view } = stubView({})
+    const onTimeout = vi.fn()
+
+    const cancel = armLoadWatchdog(view, onTimeout)
+    cancel()
+    await vi.advanceTimersByTimeAsync(PAGE_LOAD_TIMEOUT_MS)
+
+    expect(onTimeout).not.toHaveBeenCalled()
+  })
+
+  it('does not fire for a destroyed view', async () => {
+    vi.useFakeTimers()
+    const { view } = stubView({ destroyed: true })
+    const onTimeout = vi.fn()
+
+    armLoadWatchdog(view, onTimeout)
+    await vi.advanceTimersByTimeAsync(PAGE_LOAD_TIMEOUT_MS)
+
+    expect(onTimeout).not.toHaveBeenCalled()
   })
 })

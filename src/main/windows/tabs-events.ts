@@ -16,7 +16,8 @@ import {
   pageNavigateContract,
   pageTitleContract,
 } from '../../shared/ipc-contract/browsing'
-import { CONTEXT_MENU_WIDTH } from './constants'
+import { CONTEXT_MENU_WIDTH, PAGE_LOAD_TIMEOUT_MS } from './constants'
+import { armLoadWatchdog } from './page-load'
 import { clipboard } from 'electron'
 import { DisposableStore, onWebContents } from '../utils/disposable'
 import type { WebContentsInputHandler } from './browser-shortcuts'
@@ -61,6 +62,26 @@ export function setupViewEventListeners(view: WebContentsView, tabId: string, de
 
   const store = new DisposableStore()
 
+  // One deadline per view: a replacement navigation settles the previous
+  // loadURL promise with ERR_ABORTED, so a per-promise timer would be disarmed
+  // while the view keeps spinning.
+  let cancelLoadWatchdog: (() => void) | null = null
+  const clearLoadWatchdog = (): void => {
+    cancelLoadWatchdog?.()
+    cancelLoadWatchdog = null
+  }
+  const startLoadWatchdog = (): void => {
+    clearLoadWatchdog()
+    cancelLoadWatchdog = armLoadWatchdog(view, () => {
+      cancelLoadWatchdog = null
+      const url = view.webContents.getURL()
+      log.event('warn', 'page.load.timeout', 'page load exceeded the deadline', { timeoutMs: PAGE_LOAD_TIMEOUT_MS })
+      view.webContents.stop()
+      loadErrorPage(view, `The page did not respond within ${PAGE_LOAD_TIMEOUT_MS / 1000} seconds`, url)
+    })
+  }
+  store.add({ dispose: clearLoadWatchdog })
+
   store.add(onWebContents(view.webContents, 'before-input-event', deps.handleInput))
 
   store.add(
@@ -74,12 +95,14 @@ export function setupViewEventListeners(view: WebContentsView, tabId: string, de
 
   store.add(
     onWebContents(view.webContents, 'did-start-loading', () => {
+      startLoadWatchdog()
       emitContractToRenderer(pageLoadingContract, true, tabId)
     })
   )
 
   store.add(
     onWebContents(view.webContents, 'did-stop-loading', () => {
+      clearLoadWatchdog()
       emitContractToRenderer(pageLoadingContract, false, tabId)
     })
   )
