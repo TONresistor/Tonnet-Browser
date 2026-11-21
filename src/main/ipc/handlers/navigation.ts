@@ -85,6 +85,9 @@ export function registerNavigationHandlers(tabManager: TabManager): void {
     if (view.webContents.navigationHistory.canGoBack()) {
       const tabId = tabManager.getActiveTabId()
       if (tabId) tabManager.cancelNavigation(tabId)
+      // A pending load must be aborted first: Chromium cannot traverse its
+      // history while a provisional navigation is still in flight.
+      if (view.webContents.isLoading()) view.webContents.stop()
       view.webContents.navigationHistory.goBack()
       return { success: true }
     }
@@ -96,6 +99,7 @@ export function registerNavigationHandlers(tabManager: TabManager): void {
     if (view?.webContents.navigationHistory.canGoForward()) {
       const tabId = tabManager.getActiveTabId()
       if (tabId) tabManager.cancelNavigation(tabId)
+      if (view.webContents.isLoading()) view.webContents.stop()
       view.webContents.navigationHistory.goForward()
       return { success: true }
     }

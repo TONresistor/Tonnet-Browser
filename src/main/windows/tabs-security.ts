@@ -13,6 +13,7 @@ import { emitContractToRenderer } from '../events/renderer-events'
 import { BrowserUrlSchema, contextOpenLinkContract, pageNavigateContract } from '../../shared/ipc-contract/browsing'
 import { DisposableStore, onWebContents } from '../utils/disposable'
 import { isAbortedNavigation } from './navigation-failure'
+import { loadViewUrlBounded } from './page-load'
 
 const log = createLogger('tabs-security')
 
@@ -92,10 +93,13 @@ function handleNavigation(
       details.preventDefault()
       log.debug(`Normalizing URL: ${url} -> ${normalized}`)
       const isCurrent = captureNavigation()
-      view.webContents.loadURL(normalized).catch((error) => {
-        if (isAbortedNavigation(error) || !isCurrent()) return
-        log.error('loadURL failed (normalization):', error)
-        loadErrorPage(view, error.message, normalized)
+      loadViewUrlBounded(view, normalized, {
+        isCurrent,
+        onFailure: (error) => {
+          if (isAbortedNavigation(error) || !isCurrent()) return
+          log.error('loadURL failed (normalization):', error)
+          loadErrorPage(view, error.message, normalized)
+        },
       })
     }
   } catch (error) {
