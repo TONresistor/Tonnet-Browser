@@ -7,7 +7,6 @@
  */
 import log from '../shared/logger'
 import { app } from 'electron'
-import { existsSync, unlinkSync } from 'fs'
 import { readdir, rm } from 'fs/promises'
 import { join } from 'path'
 import { getSetting, loadSettings } from './settings'
@@ -62,18 +61,6 @@ export async function runCleanup(services: ServiceRegistry): Promise<void> {
       if (swept > 0) log.info(`Swept ${swept} domain partition director${swept === 1 ? 'y' : 'ies'}`)
     } catch (error) {
       log.error(`Failed to sweep domain partitions: ${String(error)}`)
-    }
-
-    // Clear bookmarks file (privacy: leave no browsing trace)
-    try {
-      const { getBookmarksFile } = await import('./bookmarks')
-      const file = getBookmarksFile()
-      if (existsSync(file)) {
-        unlinkSync(file)
-        log.info('Cleared bookmarks file')
-      }
-    } catch (error) {
-      log.error(`Failed to clear bookmarks: ${String(error)}`)
     }
 
     // Clear domain lists passively accumulated from prompts (permissions,
