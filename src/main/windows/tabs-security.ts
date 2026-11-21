@@ -13,15 +13,35 @@ import { emitContractToRenderer } from '../events/renderer-events'
 import { BrowserUrlSchema, contextOpenLinkContract, pageNavigateContract } from '../../shared/ipc-contract/browsing'
 import { DisposableStore, onWebContents } from '../utils/disposable'
 import { isAbortedNavigation } from './navigation-failure'
-import { loadViewUrlBounded } from './page-load'
+import { loadUrlReportingFailure } from './page-load'
 
 const log = createLogger('tabs-security')
 
 /** Allowed URL schemes for navigation. */
 export const ALLOWED_SCHEMES = ['http:']
 
+/** A document may rewrite this many URLs before the chain is treated as a loop. */
+const MAX_REWRITES_PER_DOCUMENT = 8
+
 type TopLevelNavigationHandler = (url: string) => boolean
 type NavigationDetails = Electron.Event<Electron.WebContentsWillNavigateEventParams>
+
+interface NavigationGuard {
+  onTopLevelNavigation?: TopLevelNavigationHandler
+  captureNavigation: () => () => boolean
+  /** Rewrite targets already used for this document; a repeat means a loop. */
+  rewrittenTargets: Set<string>
+}
+
+function rewriteLoopMessage(target: string): string {
+  let host = target
+  try {
+    host = new URL(target).hostname
+  } catch {
+    // Keep the whole URL when it does not parse; the message is diagnostic.
+  }
+  return `This page keeps redirecting through ${host}, which this browser cannot load over the TON proxy.`
+}
 
 async function openValidatedBagFile(
   view: WebContentsView,
@@ -59,12 +79,7 @@ async function openValidatedBagFile(
   }
 }
 
-function handleNavigation(
-  view: WebContentsView,
-  details: NavigationDetails,
-  onTopLevelNavigation: TopLevelNavigationHandler | undefined,
-  captureNavigation: () => () => boolean
-): void {
+function handleNavigation(view: WebContentsView, details: NavigationDetails, guard: NavigationGuard): void {
   const { url } = details
   try {
     const normalized = normalizeUrl(url)
@@ -84,22 +99,29 @@ function handleNavigation(
     }
 
     if (!details.isMainFrame || details.isSameDocument) return
-    if (onTopLevelNavigation?.(normalized)) {
+    if (guard.onTopLevelNavigation?.(normalized)) {
       details.preventDefault()
       return
     }
 
     if (normalized !== url) {
       details.preventDefault()
+      // An https target is rewritten to http, and a site that redirects back to
+      // https produces the same target again: that is a loop, not a navigation.
+      if (guard.rewrittenTargets.has(normalized) || guard.rewrittenTargets.size >= MAX_REWRITES_PER_DOCUMENT) {
+        log.event('warn', 'security.navigation.rewrite_cycle', 'stopped a URL rewrite loop', {
+          scheme: parsed.protocol,
+        })
+        loadErrorPage(view, rewriteLoopMessage(normalized), normalized)
+        return
+      }
+      guard.rewrittenTargets.add(normalized)
       log.debug(`Normalizing URL: ${url} -> ${normalized}`)
-      const isCurrent = captureNavigation()
-      loadViewUrlBounded(view, normalized, {
-        isCurrent,
-        onFailure: (error) => {
-          if (isAbortedNavigation(error) || !isCurrent()) return
-          log.error('loadURL failed (normalization):', error)
-          loadErrorPage(view, error.message, normalized)
-        },
+      const isCurrent = guard.captureNavigation()
+      loadUrlReportingFailure(view, normalized, (error) => {
+        if (isAbortedNavigation(error) || !isCurrent()) return
+        log.error('loadURL failed (normalization):', error)
+        loadErrorPage(view, error.message, normalized)
       })
     }
   } catch (error) {
@@ -117,6 +139,10 @@ export function setupSecurityHandlers(
   captureNavigation: () => () => boolean = () => () => !view.webContents.isDestroyed()
 ): DisposableStore {
   const store = new DisposableStore()
+  const guard: NavigationGuard = { onTopLevelNavigation, captureNavigation, rewrittenTargets: new Set() }
+
+  // A committed document is a new context: rewrite targets start over.
+  store.add(onWebContents(view.webContents, 'did-finish-load', () => guard.rewrittenTargets.clear()))
 
   // Security: Intercept navigation to validate URLs
   store.add(
@@ -143,7 +169,7 @@ export function setupSecurityHandlers(
           return
         }
 
-        handleNavigation(view, details, onTopLevelNavigation, captureNavigation)
+        handleNavigation(view, details, guard)
       }
     )
   )
@@ -153,7 +179,7 @@ export function setupSecurityHandlers(
       view.webContents,
       'will-redirect',
       (details: Electron.Event<Electron.WebContentsWillRedirectEventParams>) => {
-        handleNavigation(view, details, onTopLevelNavigation, captureNavigation)
+        handleNavigation(view, details, guard)
       }
     )
   )
