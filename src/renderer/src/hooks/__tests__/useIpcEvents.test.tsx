@@ -20,6 +20,7 @@ const mocks = vi.hoisted(() => ({
     ],
     activeTabId: 'tab-1' as string | null,
     updateTab: vi.fn(),
+    recordViewRecreated: vi.fn(),
   },
 }))
 
@@ -94,21 +95,13 @@ describe('useIpcEvents', () => {
     vi.unstubAllGlobals()
   })
 
-  it('resets an active tab to the target URL', async () => {
+  it('hands a recreated view to the store instead of wiping its history', async () => {
     await mount()
     mocks.listeners.get('tab:history-reset')?.('tab-1', 'http://second.ton/page')
 
-    expect(mocks.state.updateTab).toHaveBeenCalledWith('tab-1', {
-      url: 'http://second.ton/page',
-      history: ['http://second.ton/page'],
-      historyIndex: 0,
-      canGoBack: false,
-      canGoForward: false,
-      legacyStorageHistory: false,
-      nativeCanGoBack: false,
-      nativeCanGoForward: false,
-    })
-    expect(mocks.setNavigation).toHaveBeenCalledWith('http://second.ton/page', false, false)
+    // The store keeps the page the tab left and decides the history itself; a
+    // reset that overwrote it here would lose the pages ahead of it.
+    expect(mocks.state.recordViewRecreated).toHaveBeenCalledWith('tab-1', 'http://second.ton/page')
   })
 
   it('updates a background tab without changing active chrome', async () => {

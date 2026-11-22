@@ -15,6 +15,15 @@ export function sameUrl(a: string, b: string): boolean {
   }
 }
 
+/** Whether two pages live in different views, which Chromium cannot cross on its own. */
+function differentOrigin(a: string, b: string): boolean {
+  try {
+    return new URL(a).origin !== new URL(b).origin
+  } catch {
+    return !sameUrl(a, b)
+  }
+}
+
 function isReloadablePage(url: string): boolean {
   return url.startsWith('http://') || url.startsWith('https://')
 }
@@ -49,6 +58,13 @@ export function selectTabTraversal(tab: TabHistory, direction: 'back' | 'forward
     }
   }
   if (direction === 'forward' && internal !== null && sameUrl(tab.url, tab.history[tab.historyIndex])) return internal
+  // A domain change recreates the view, and Chromium keeps reporting a forward
+  // entry it can no longer reach: the page after the current one is in another
+  // view. The app-level list is the only place that still holds it.
+  if (direction === 'forward') {
+    const next = appLevelTraversal(tab, 'forward')
+    if (next !== null && differentOrigin(tab.url, tab.history[next])) return next
+  }
   if (direction === 'back' ? tab.nativeCanGoBack : tab.nativeCanGoForward) return 'native'
   // A page the app can reload is nearer than an internal route behind it: after a
   // view recreation the list is the only history left, and walking to the nearest

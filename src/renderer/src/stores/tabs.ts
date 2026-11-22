@@ -269,15 +269,25 @@ export const useTabsStore = create<TabsState>((set, get) => ({
     const tab = get().tabs.find((candidate) => candidate.id === tabId)
     if (!tab) return
     const previousUrl = tab.url
-    let history = tab.history.slice(0, tab.historyIndex + 1)
-    if (history.length === 0) history = previousUrl ? [previousUrl] : []
-    const target = history[history.length - 1]
-    if (!target || !sameUrl(target, url)) {
-      // Keep the page we are leaving even when it was only ever reached natively.
-      if (previousUrl && target && !sameUrl(target, previousUrl)) history[history.length - 1] = previousUrl
-      history = [...history, url]
+
+    // A view recreated for a page already in the list — going back and then
+    // landing on that page again in a new view — is that entry, not a new one:
+    // truncating here would throw away the pages ahead of it and with them the
+    // only history a cross-domain forward can use.
+    const existing = tab.history.findIndex((entry) => sameUrl(entry, url))
+    let history = existing >= 0 ? tab.history : tab.history.slice(0, tab.historyIndex + 1)
+
+    if (existing < 0) {
+      if (history.length === 0) history = previousUrl ? [previousUrl] : []
+      const target = history[history.length - 1]
+      if (!target || !sameUrl(target, url)) {
+        // Keep the page we are leaving even when it was only ever reached natively.
+        if (previousUrl && target && !sameUrl(target, previousUrl)) history[history.length - 1] = previousUrl
+        history = [...history, url]
+      }
     }
-    let historyIndex = history.length - 1
+
+    let historyIndex = existing >= 0 ? existing : history.length - 1
     if (history.length > MAX_HISTORY) {
       const overflow = history.length - MAX_HISTORY
       history = history.slice(overflow)

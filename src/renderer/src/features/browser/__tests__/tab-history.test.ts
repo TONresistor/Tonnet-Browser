@@ -49,6 +49,20 @@ describe('native and internal navigation boundaries', () => {
     expect(selectTabTraversal({ ...afterDomainChange, historyIndex: 0, url: 'http://a.com/' }, 'forward')).toBe(1)
   })
 
+  it('goes forward to the other domain after a back across domains', () => {
+    // A -> B -> Back to A. Chromium recreated the view for A, and it still
+    // reports a forward entry it cannot reach: B lives in the other view.
+    const afterBack = {
+      url: 'http://a.com/',
+      history: ['http://a.com/', 'http://b.com/'],
+      historyIndex: 0,
+      nativeCanGoBack: false,
+      nativeCanGoForward: true,
+    }
+    expect(selectTabTraversal(afterBack, 'forward')).toBe(1)
+    expect(tabNavigationFlags(afterBack)).toEqual({ canGoBack: false, canGoForward: true })
+  })
+
   it('prefers the page behind it over an internal route further back', () => {
     const afterBlockedLink = {
       url: 'http://me/krasovsky',
