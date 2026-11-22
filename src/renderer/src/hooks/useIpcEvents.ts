@@ -9,7 +9,7 @@ import { useTabsStore, type Tab } from '@/stores/tabs'
 import { IPC_CHANNELS } from '@shared/ipc-channels'
 import { browserClient } from '@/features/browser/client'
 import { resolveInternalRoute } from '@/app-shell/internal-routes'
-import { tabNavigationFlags } from '@/features/browser/tab-history'
+import { sameUrl, tabNavigationFlags } from '@/features/browser/tab-history'
 
 export function useIpcEvents(updateTab: ReturnType<typeof useTabsStore.getState>['updateTab']): void {
   useEffect(() => {
@@ -31,6 +31,8 @@ export function useIpcEvents(updateTab: ReturnType<typeof useTabsStore.getState>
         nativeCanGoBack: data.canGoBack,
         nativeCanGoForward: data.canGoForward,
       }
+      const listedIndex = page.history.findIndex((entry) => sameUrl(entry, data.url))
+      if (listedIndex !== -1) updates.historyIndex = listedIndex
       if (data.url !== page.url && data.url.startsWith('file:///') && data.url.includes('/storage/')) {
         updates.history = [...page.history.slice(0, page.historyIndex + 1), data.url]
         updates.historyIndex = updates.history.length - 1
@@ -68,24 +70,12 @@ export function useIpcEvents(updateTab: ReturnType<typeof useTabsStore.getState>
       useTabsStore.getState().addTab(url)
     })
 
-    // Handle first-party isolation view recreation: reset renderer history so
-    // back/forward buttons don't point to URLs of a destroyed WebContentsView
+    // Handle first-party isolation view recreation: the new view has no Chromium
+    // history, but the app-level list must survive so the previous page is still
+    // reachable.
     const unsubHistoryReset = browserClient.on(IPC_CHANNELS.TAB_HISTORY_RESET, (tabId, url) => {
       const state = useTabsStore.getState()
-      const tab = state.tabs.find((candidate) => candidate.id === tabId)
-      if (tab) {
-        state.updateTab(tabId, {
-          url,
-          history: [url],
-          historyIndex: 0,
-          canGoBack: false,
-          canGoForward: false,
-          legacyStorageHistory: false,
-          nativeCanGoBack: false,
-          nativeCanGoForward: false,
-        })
-        if (state.activeTabId === tabId) setNavigation(url, false, false)
-      }
+      state.recordViewRecreated(tabId, url)
     })
 
     return () => {

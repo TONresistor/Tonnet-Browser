@@ -8,6 +8,7 @@ import { attachActiveView } from './tabs-attach'
 import { extractDomain, type TabSessionManager } from './tabs-session'
 import { DisposableStore } from '../utils/disposable'
 import { isAbortedNavigation } from './navigation-failure'
+import { loadUrlReportingFailure } from './page-load'
 import { createLogger } from '../../shared/logger'
 import type { BrowserWindow } from 'electron'
 import type { TabStorageState } from './tabs-storage'
@@ -69,7 +70,7 @@ function createViewEventStore(manager: TabViewLifecycleManager, view: WebContent
 
 export function loadViewUrl(manager: TabViewLifecycleManager, view: WebContentsView, tabId: string, url: string): void {
   const isCurrent = manager.captureNavigation(tabId, view)
-  void view.webContents.loadURL(url).catch((error: Error) => {
+  loadUrlReportingFailure(view, url, (error) => {
     if (isAbortedNavigation(error) || !isCurrent()) return
     log.error('loadURL failed:', error)
     loadErrorPage(view, error.message, url)

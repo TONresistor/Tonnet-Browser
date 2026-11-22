@@ -40,3 +40,7 @@ export const USER_AGENT =
 
 /** Maximum favicon blob size accepted from web pages */
 export const FAVICON_MAX_SIZE_BYTES = 50_000
+
+// --- Page loading ---
+/** A load that has not settled after this long becomes an error page. */
+export const PAGE_LOAD_TIMEOUT_MS = 30_000

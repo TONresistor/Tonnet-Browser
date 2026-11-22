@@ -35,4 +35,60 @@ describe('native and internal navigation boundaries', () => {
     expect(selectTabTraversal(listing, 'forward')).toBe(1)
     expect(selectTabTraversal({ ...listing, url: listing.history[1], historyIndex: 1 }, 'back')).toBe(0)
   })
+
+  it('walks the app-level list when a new domain discarded Chromium history', () => {
+    const afterDomainChange = {
+      url: 'http://b.com/',
+      history: ['http://a.com/', 'http://b.com/'],
+      historyIndex: 1,
+      nativeCanGoBack: false,
+      nativeCanGoForward: false,
+    }
+    expect(selectTabTraversal(afterDomainChange, 'back')).toBe(0)
+    expect(tabNavigationFlags(afterDomainChange)).toEqual({ canGoBack: true, canGoForward: false })
+    expect(selectTabTraversal({ ...afterDomainChange, historyIndex: 0, url: 'http://a.com/' }, 'forward')).toBe(1)
+  })
+
+  it('goes forward to the other domain after a back across domains', () => {
+    // A -> B -> Back to A. Chromium recreated the view for A, and it still
+    // reports a forward entry it cannot reach: B lives in the other view.
+    const afterBack = {
+      url: 'http://a.com/',
+      history: ['http://a.com/', 'http://b.com/'],
+      historyIndex: 0,
+      nativeCanGoBack: false,
+      nativeCanGoForward: true,
+    }
+    expect(selectTabTraversal(afterBack, 'forward')).toBe(1)
+    expect(tabNavigationFlags(afterBack)).toEqual({ canGoBack: false, canGoForward: true })
+  })
+
+  it('prefers the page behind it over an internal route further back', () => {
+    const afterBlockedLink = {
+      url: 'http://me/krasovsky',
+      history: ['ton://start', 'http://krasovsky.ton/', 'http://me/krasovsky'],
+      historyIndex: 2,
+      nativeCanGoBack: false,
+      nativeCanGoForward: false,
+    }
+    expect(selectTabTraversal(afterBlockedLink, 'back')).toBe(1)
+    expect(selectTabTraversal({ ...afterBlockedLink, url: 'http://krasovsky.ton/', historyIndex: 1 }, 'back')).toBe(0)
+  })
+
+  it('still prefers Chromium history and never re-offers the page on screen', () => {
+    const liveChromium = {
+      url: 'http://site.ton/b',
+      history: ['http://site.ton/a', 'http://site.ton/b'],
+      historyIndex: 1,
+      nativeCanGoBack: true,
+    }
+    expect(selectTabTraversal(liveChromium, 'back')).toBe('native')
+    const duplicate = {
+      url: 'http://site.ton/a',
+      history: ['http://site.ton/a', 'http://site.ton/a'],
+      historyIndex: 1,
+      nativeCanGoBack: false,
+    }
+    expect(selectTabTraversal(duplicate, 'back')).toBeNull()
+  })
 })

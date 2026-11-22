@@ -538,6 +538,37 @@ describe('tabs store', () => {
       expect(tab.canGoForward).toBe(false)
     })
 
+    it('keeps the page it left when a domain change recreates the view', async () => {
+      await useTabsStore.getState().addTab('http://site.ton/')
+      const id = useTabsStore.getState().activeTabId!
+
+      // Main process recreates the view for the new domain and reports the reset.
+      useTabsStore.getState().recordViewRecreated(id, 'http://example.com/')
+
+      const tab = useTabsStore.getState().tabs[0]
+      expect(tab.url).toBe('http://example.com/')
+      expect(tab.history).toEqual(['http://site.ton/', 'http://example.com/'])
+      expect(tab.canGoBack).toBe(true)
+
+      await useTabsStore.getState().goBack()
+
+      expect(mockElectron.navigate).toHaveBeenLastCalledWith('http://site.ton/', id)
+    })
+
+    it('does not duplicate an entry when the new view loads a page already in the list', async () => {
+      await useTabsStore.getState().addTab('http://site.ton/')
+      const id = useTabsStore.getState().activeTabId!
+      useTabsStore.getState().recordViewRecreated(id, 'http://example.com/')
+      useTabsStore.getState().updateTab(id, { url: 'http://site.ton/', historyIndex: 0 })
+
+      useTabsStore.getState().recordViewRecreated(id, 'http://site.ton/')
+
+      const tab = useTabsStore.getState().tabs[0]
+      expect(tab.history).toEqual(['http://site.ton/', 'http://example.com/'])
+      expect(tab.historyIndex).toBe(0)
+      expect(tab.canGoForward).toBe(true)
+    })
+
     it('does nothing when there is no history to go back to', async () => {
       await useTabsStore.getState().addTab('http://page1.ton')
       vi.clearAllMocks()
